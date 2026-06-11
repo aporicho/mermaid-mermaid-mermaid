@@ -6,6 +6,9 @@ import {
   CodeBracketsSquare as FileCode2,
   DotsGrid3x3 as Grid3X3,
   Expand as Maximize2,
+  FloppyDisk,
+  FloppyDiskArrowOut,
+  Folder,
   GitBranch as Workflow,
   Plus,
   Refresh as RefreshCw,
@@ -24,6 +27,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { applyLayout, layoutFromGraph, parseCanvasLayout, stripCanvasLayout } from "@/features/mermaid-editor/lib/canvas-layout";
+import { buildMermaidDocument, loadMermaidDocument } from "@/features/mermaid-editor/lib/mermaid-document";
 import {
   addNode as addNodeAction,
   addNodeAt,
@@ -48,6 +52,15 @@ const KonvaCanvas = dynamic(() => import("@/features/mermaid-editor/components/k
 
 const directions: GraphDirection[] = ["LR", "TD", "TB", "RL", "BT"];
 type WorkspaceView = "canvas" | "render";
+const FALLBACK_FILE_NAME = "diagram.mmd";
+const FILE_PICKER_TYPES = [
+  {
+    description: "Mermaid 文件",
+    accept: {
+      "text/plain": [".mmd", ".mermaid", ".txt"]
+    }
+  }
+];
 
 type StoredEditor = {
   source: string;
@@ -57,6 +70,23 @@ type StoredEditor = {
   rightCollapsed: boolean;
   workspaceView?: WorkspaceView;
   showGrid?: boolean;
+  fileName?: string;
+};
+
+type MermaidWritableFile = {
+  write: (data: string) => Promise<void>;
+  close: () => Promise<void>;
+};
+
+type MermaidFileHandle = {
+  name: string;
+  getFile: () => Promise<File>;
+  createWritable: () => Promise<MermaidWritableFile>;
+};
+
+type MermaidFilePickerWindow = Window & {
+  showOpenFilePicker?: (options?: unknown) => Promise<MermaidFileHandle[]>;
+  showSaveFilePicker?: (options?: unknown) => Promise<MermaidFileHandle>;
 };
 
 function loadInitialState() {
@@ -72,7 +102,8 @@ function loadInitialState() {
       leftCollapsed: false,
       rightCollapsed: false,
       workspaceView: "canvas" as WorkspaceView,
-      showGrid: true
+      showGrid: true,
+      fileName: FALLBACK_FILE_NAME
     };
   }
 
@@ -94,7 +125,8 @@ function loadInitialState() {
       leftCollapsed: stored.leftCollapsed || false,
       rightCollapsed: stored.rightCollapsed || false,
       workspaceView: stored.workspaceView || "canvas",
-      showGrid: stored.showGrid ?? true
+      showGrid: stored.showGrid ?? true,
+      fileName: stored.fileName || FALLBACK_FILE_NAME
     };
   } catch {
     return {
@@ -104,9 +136,35 @@ function loadInitialState() {
       leftCollapsed: false,
       rightCollapsed: false,
       workspaceView: "canvas" as WorkspaceView,
-      showGrid: true
+      showGrid: true,
+      fileName: FALLBACK_FILE_NAME
     };
   }
+}
+
+function ensureMermaidFileName(value: string | undefined) {
+  const name = value?.trim() || FALLBACK_FILE_NAME;
+  return /\.(mmd|mermaid)$/i.test(name) ? name : `${name.replace(/\.[^.]+$/, "")}.mmd`;
+}
+
+function isAbortError(error: unknown) {
+  return error instanceof DOMException && error.name === "AbortError";
+}
+
+async function writeDocumentToHandle(handle: MermaidFileHandle, documentText: string) {
+  const writable = await handle.createWritable();
+  await writable.write(documentText);
+  await writable.close();
+}
+
+function downloadMermaidDocument(documentText: string, name: string) {
+  const blob = new Blob([documentText], { type: "text/plain;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = ensureMermaidFileName(name);
+  link.click();
+  window.setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 
 export function MermaidEditor() {
@@ -124,12 +182,19 @@ export function MermaidEditor() {
   const [rightCollapsed, setRightCollapsed] = useState(initial.rightCollapsed);
   const [workspaceView, setWorkspaceView] = useState<WorkspaceView>(initial.workspaceView);
   const [showGrid, setShowGrid] = useState(initial.showGrid);
+  const [fileName, setFileName] = useState(initial.fileName);
+  const [fileHandle, setFileHandle] = useState<MermaidFileHandle | null>(null);
+  const [lastSavedDocument, setLastSavedDocument] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const sourceEditBaseRef = useRef<EditorSnapshot | null>(null);
   const sourceEditTimerRef = useRef<number | null>(null);
 
   const effectiveMode = spacePanning ? "pan" : mode;
   const selectedCount = selection.nodeIds.length + selection.edgeIds.length;
   const graphSummary = useMemo(() => `${graph.nodes.length} nodes, ${graph.edges.length} edges`, [graph.nodes.length, graph.edges.length]);
+  const currentDocument = useMemo(() => buildMermaidDocument(source, graph, viewport), [source, graph, viewport]);
+  const isDirty = !lastSavedDocument || currentDocument !== lastSavedDocument;
+  const fileLabel = `${fileName || FALLBACK_FILE_NAME}${isDirty ? " *" : ""}`;
 
   function snapshot(): EditorSnapshot {
     return { source, graph, selection, viewport };
@@ -259,6 +324,117 @@ export function MermaidEditor() {
     });
   }
 
+  function confirmDiscardUnsaved() {
+    return !isDirty || window.confirm("当前文件有未保存更改，继续会丢失这些更改。");
+  }
+
+  function applyLoadedDocument(text: string, name: string, handle: MermaidFileHandle | null) {
+    flushSourceHistory();
+    const loaded = loadMermaidDocument(text);
+    const nextViewport = loaded.viewport || { x: 160, y: 90, scale: 1 };
+    const savedDocument = buildMermaidDocument(loaded.source, loaded.graph, nextViewport);
+
+    setSource(loaded.source);
+    setGraph(loaded.graph);
+    setViewport(nextViewport);
+    setSelection(emptySelection);
+    setHistory(createHistory());
+    setFileName(ensureMermaidFileName(name));
+    setFileHandle(handle);
+    setLastSavedDocument(savedDocument);
+    setStatus(`已打开 ${name}。`);
+  }
+
+  async function openMermaidFile() {
+    if (!confirmDiscardUnsaved()) return;
+
+    const picker = window as MermaidFilePickerWindow;
+    if (!picker.showOpenFilePicker) {
+      fileInputRef.current?.click();
+      return;
+    }
+
+    try {
+      const [handle] = await picker.showOpenFilePicker({
+        multiple: false,
+        types: FILE_PICKER_TYPES,
+        excludeAcceptAllOption: false
+      });
+      if (!handle) return;
+
+      const file = await handle.getFile();
+      applyLoadedDocument(await file.text(), file.name, handle);
+    } catch (error) {
+      if (!isAbortError(error)) setStatus("打开文件失败。");
+    }
+  }
+
+  async function openFallbackFile(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+
+    try {
+      applyLoadedDocument(await file.text(), file.name, null);
+    } catch {
+      setStatus("打开文件失败。");
+    }
+  }
+
+  async function saveMermaidFile() {
+    flushSourceHistory();
+    if (!fileHandle) {
+      await saveMermaidFileAs();
+      return;
+    }
+
+    try {
+      await writeDocumentToHandle(fileHandle, currentDocument);
+      setFileName(ensureMermaidFileName(fileHandle.name));
+      setLastSavedDocument(currentDocument);
+      setStatus(`已保存 ${fileHandle.name}。`);
+    } catch (error) {
+      if (!isAbortError(error)) setStatus("保存文件失败。");
+    }
+  }
+
+  async function saveMermaidFileAs() {
+    flushSourceHistory();
+    const suggestedName = ensureMermaidFileName(fileName);
+    const picker = window as MermaidFilePickerWindow;
+
+    if (!picker.showSaveFilePicker) {
+      downloadMermaidDocument(currentDocument, suggestedName);
+      setFileName(suggestedName);
+      setFileHandle(null);
+      setLastSavedDocument(currentDocument);
+      setStatus(`已下载 ${suggestedName}。`);
+      return;
+    }
+
+    try {
+      const handle = await picker.showSaveFilePicker({
+        suggestedName,
+        types: [
+          {
+            description: "Mermaid 文件",
+            accept: {
+              "text/plain": [".mmd", ".mermaid"]
+            }
+          }
+        ],
+        excludeAcceptAllOption: false
+      });
+      await writeDocumentToHandle(handle, currentDocument);
+      setFileName(ensureMermaidFileName(handle.name || suggestedName));
+      setFileHandle(handle);
+      setLastSavedDocument(currentDocument);
+      setStatus(`已保存 ${handle.name || suggestedName}。`);
+    } catch (error) {
+      if (!isAbortError(error)) setStatus("保存文件失败。");
+    }
+  }
+
   useEffect(() => {
     window.localStorage.setItem(
       STORAGE_KEY,
@@ -269,10 +445,11 @@ export function MermaidEditor() {
         leftCollapsed,
         rightCollapsed,
         workspaceView,
-        showGrid
+        showGrid,
+        fileName
       } satisfies StoredEditor)
     );
-  }, [source, graph, viewport, leftCollapsed, rightCollapsed, workspaceView, showGrid]);
+  }, [source, graph, viewport, leftCollapsed, rightCollapsed, workspaceView, showGrid, fileName]);
 
   useEffect(() => {
     function isTextInput(target: EventTarget | null) {
@@ -306,6 +483,12 @@ export function MermaidEditor() {
       if (command && key === "y") {
         event.preventDefault();
         performRedo();
+        return;
+      }
+      if (command && key === "s") {
+        event.preventDefault();
+        if (event.shiftKey) void saveMermaidFileAs();
+        else void saveMermaidFile();
         return;
       }
       if (command && key === "c") {
@@ -342,6 +525,7 @@ export function MermaidEditor() {
 
   return (
     <TooltipProvider delayDuration={180}>
+      <input ref={fileInputRef} type="file" accept=".mmd,.mermaid,.txt,text/plain" className="hidden" onChange={openFallbackFile} />
       <main className="grid h-screen grid-rows-[56px_minmax(0,1fr)]">
         <header className="grid grid-cols-[minmax(220px,300px)_minmax(0,1fr)_auto] items-center gap-3 border-b bg-card/95 px-3 backdrop-blur">
           <div className="flex min-w-0 items-center gap-3">
@@ -350,6 +534,7 @@ export function MermaidEditor() {
             </div>
             <div className="min-w-0">
               <h1 className="sr-only">Mermaid Canvas Editor</h1>
+              <p className="truncate text-sm font-medium">{fileLabel}</p>
               <p className="truncate text-xs text-muted-foreground">{graphSummary}</p>
             </div>
           </div>
@@ -368,6 +553,31 @@ export function MermaidEditor() {
           </div>
 
           <div className="flex items-center gap-2">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button size="icon" variant="outline" onClick={openMermaidFile} aria-label="打开 Mermaid 文件">
+                  <Folder className="size-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>打开文件</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button size="icon" variant={isDirty ? "default" : "outline"} onClick={() => void saveMermaidFile()} aria-label="保存 Mermaid 文件">
+                  <FloppyDisk className="size-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>保存文件</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button size="icon" variant="outline" onClick={() => void saveMermaidFileAs()} aria-label="另存为 Mermaid 文件">
+                  <FloppyDiskArrowOut className="size-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>另存为</TooltipContent>
+            </Tooltip>
+            <Separator orientation="vertical" className="h-7" />
             <Select value={graph.direction} onValueChange={(value) => updateDirection(value as GraphDirection)}>
               <SelectTrigger className="h-9 w-[86px]">
                 <SelectValue />

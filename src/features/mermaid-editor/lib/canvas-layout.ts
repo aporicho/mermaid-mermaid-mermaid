@@ -1,22 +1,23 @@
 import type { CanvasLayout, MermaidGraph, ViewportState } from "@/features/mermaid-editor/lib/editor-types";
-const LAYOUT_PREFIX = "%% canvas-layout:";
+
+export const CANVAS_LAYOUT_PREFIX = "%% canvas-layout:";
 
 const defaultViewport: ViewportState = { x: 160, y: 90, scale: 1 };
 
 export function stripCanvasLayout(source: string) {
   return source
     .split(/\r?\n/)
-    .filter((line) => !line.trimStart().startsWith(LAYOUT_PREFIX))
+    .filter((line) => !line.trimStart().startsWith(CANVAS_LAYOUT_PREFIX))
     .join("\n")
     .trimStart();
 }
 
 export function parseCanvasLayout(source: string): CanvasLayout | null {
-  const line = source.split(/\r?\n/).find((item) => item.trimStart().startsWith(LAYOUT_PREFIX));
+  const line = source.split(/\r?\n/).find((item) => item.trimStart().startsWith(CANVAS_LAYOUT_PREFIX));
   if (!line) return null;
 
   try {
-    const parsed = JSON.parse(line.trimStart().slice(LAYOUT_PREFIX.length).trim()) as CanvasLayout;
+    const parsed = JSON.parse(line.trimStart().slice(CANVAS_LAYOUT_PREFIX.length).trim()) as CanvasLayout;
     if (parsed.version !== 1 || !parsed.nodes || !parsed.viewport) return null;
     return parsed;
   } catch {

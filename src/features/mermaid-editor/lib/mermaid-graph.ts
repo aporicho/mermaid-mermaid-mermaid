@@ -22,7 +22,7 @@ export const palette = NODE_COLORS;
 export const initialMermaidSource = DEFAULT_SOURCE;
 
 function normalizeLabel(value: string) {
-  return value.trim().replace(/^["']|["']$/g, "");
+  return value.trim().replace(/^["']|["']$/g, "").replace(/<br\s*\/?>/gi, "\n");
 }
 
 function cleanNodeId(value: string) {
@@ -131,7 +131,7 @@ export function parseMermaid(source: string, previous?: MermaidGraph): MermaidGr
 }
 
 function escapeMermaidLabel(value: string) {
-  return value.replace(/"/g, '\\"');
+  return value.replace(/\r?\n/g, "<br/>").replace(/"/g, '\\"');
 }
 
 export function serializeMermaid(graph: MermaidGraph) {
