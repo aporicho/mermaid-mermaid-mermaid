@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import * as SelectPrimitive from "@radix-ui/react-select"
-import { Check, ChevronDown, ChevronUp } from "lucide-react"
+import { Check, NavArrowDown as ChevronDown, NavArrowUp as ChevronUp } from "iconoir-react/regular"
 
 import { cn } from "@/lib/utils"
 

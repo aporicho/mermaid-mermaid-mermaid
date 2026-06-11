@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Arrow, Circle, Group, Layer, Rect, Stage, Text } from "react-konva";
+import { Arrow, Circle, Group, Layer, Rect, Shape, Stage, Text } from "react-konva";
 import type Konva from "konva";
 import type { KonvaEventObject } from "konva/lib/Node";
-import { Hand, Link2, Maximize2, MousePointer2, Network } from "lucide-react";
+import { CursorPointer as MousePointer2, DragHandGesture as Hand, Expand as Maximize2, Link as Link2, Network } from "iconoir-react/regular";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,17 +25,21 @@ import { cn } from "@/lib/utils";
 
 const NODE_WIDTH = 176;
 const NODE_HEIGHT = 72;
+const GRID_STEP = 24;
+const GRID_MAJOR_STEP = GRID_STEP * 5;
 
 type KonvaCanvasProps = {
   graph: MermaidGraph;
   selection: Selection;
   viewport: ViewportState;
   mode: EditorMode;
+  showGrid: boolean;
   onGraphDraft: (graph: MermaidGraph, message?: string) => void;
   onGraphCommit: (graph: MermaidGraph, selection?: Selection, message?: string) => void;
   onCaptureHistory: () => void;
   onSelectionChange: (selection: Selection) => void;
   onViewportChange: (viewport: ViewportState) => void;
+  onAddNodeAt: (point: { x: number; y: number }) => void;
 };
 
 type EdgeGeometry = {
@@ -127,11 +131,13 @@ export function KonvaCanvas({
   selection,
   viewport,
   mode,
+  showGrid,
   onGraphDraft,
   onGraphCommit,
   onCaptureHistory,
   onSelectionChange,
-  onViewportChange
+  onViewportChange,
+  onAddNodeAt
 }: KonvaCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage>(null);
@@ -334,7 +340,7 @@ export function KonvaCanvas({
       <div
         ref={containerRef}
         className={cn(
-          "konva-grid relative min-h-0 overflow-hidden",
+          "relative min-h-0 overflow-hidden bg-background",
           mode === "pan" && "cursor-grab",
           mode === "connect" && "cursor-crosshair",
           mode === "select" && "cursor-default"
@@ -350,6 +356,15 @@ export function KonvaCanvas({
           scaleX={viewport.scale}
           scaleY={viewport.scale}
           onWheel={onWheel}
+          onDblClick={(event) => {
+            if (event.target !== event.target.getStage()) return;
+            const point = pointerWorldPoint();
+            if (!point) return;
+            onAddNodeAt({
+              x: point.x - NODE_WIDTH / 2,
+              y: point.y - NODE_HEIGHT / 2
+            });
+          }}
           onMouseDown={(event) => {
             const pointer = stageRef.current?.getPointerPosition();
             const world = pointerWorldPoint();
@@ -411,6 +426,8 @@ export function KonvaCanvas({
             panRef.current = null;
           }}
         >
+          {showGrid ? <CanvasGrid dimensions={dimensions} viewport={viewport} /> : null}
+
           <Layer>
             {graph.edges.map((edge) => {
               const geometry = edgeGeometry(edge, graph.nodes);
@@ -624,6 +641,64 @@ export function KonvaCanvas({
         ) : null}
       </div>
     </section>
+  );
+}
+
+function CanvasGrid({ dimensions, viewport }: { dimensions: { width: number; height: number }; viewport: ViewportState }) {
+  const bounds = useMemo(() => {
+    const padding = GRID_MAJOR_STEP;
+    const left = Math.floor((-viewport.x / viewport.scale - padding) / GRID_STEP) * GRID_STEP;
+    const top = Math.floor((-viewport.y / viewport.scale - padding) / GRID_STEP) * GRID_STEP;
+    const right = Math.ceil(((dimensions.width - viewport.x) / viewport.scale + padding) / GRID_STEP) * GRID_STEP;
+    const bottom = Math.ceil(((dimensions.height - viewport.y) / viewport.scale + padding) / GRID_STEP) * GRID_STEP;
+
+    return {
+      left,
+      top,
+      right,
+      bottom,
+      width: Math.max(GRID_STEP, right - left),
+      height: Math.max(GRID_STEP, bottom - top)
+    };
+  }, [dimensions.height, dimensions.width, viewport.scale, viewport.x, viewport.y]);
+
+  return (
+    <Layer listening={false}>
+      <Shape
+        x={bounds.left}
+        y={bounds.top}
+        width={bounds.width}
+        height={bounds.height}
+        perfectDrawEnabled={false}
+        sceneFunc={(context: Konva.Context) => {
+          const minorRadius = 0.85 / viewport.scale;
+          const majorRadius = 1.25 / viewport.scale;
+
+          context.save();
+          context.beginPath();
+          context.fillStyle = "rgba(31, 122, 104, 0.18)";
+          for (let x = bounds.left; x <= bounds.right; x += GRID_STEP) {
+            for (let y = bounds.top; y <= bounds.bottom; y += GRID_STEP) {
+              if (x % GRID_MAJOR_STEP === 0 && y % GRID_MAJOR_STEP === 0) continue;
+              context.moveTo(x - bounds.left + minorRadius, y - bounds.top);
+              context.arc(x - bounds.left, y - bounds.top, minorRadius, 0, Math.PI * 2, false);
+            }
+          }
+          context.fill();
+
+          context.beginPath();
+          context.fillStyle = "rgba(31, 122, 104, 0.3)";
+          for (let x = Math.ceil(bounds.left / GRID_MAJOR_STEP) * GRID_MAJOR_STEP; x <= bounds.right; x += GRID_MAJOR_STEP) {
+            for (let y = Math.ceil(bounds.top / GRID_MAJOR_STEP) * GRID_MAJOR_STEP; y <= bounds.bottom; y += GRID_MAJOR_STEP) {
+              context.moveTo(x - bounds.left + majorRadius, y - bounds.top);
+              context.arc(x - bounds.left, y - bounds.top, majorRadius, 0, Math.PI * 2, false);
+            }
+          }
+          context.fill();
+          context.restore();
+        }}
+      />
+    </Layer>
   );
 }
 

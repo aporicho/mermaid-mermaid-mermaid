@@ -1,6 +1,6 @@
 "use client";
 
-import { Code2, Keyboard, PanelLeftClose } from "lucide-react";
+import { Code as Code2, KeyCommand as Keyboard, SidebarCollapse as PanelLeftClose } from "iconoir-react/regular";
 
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";

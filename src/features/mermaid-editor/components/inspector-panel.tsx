@@ -1,6 +1,6 @@
 "use client";
 
-import { Keyboard, Link2, SlidersHorizontal, Trash2 } from "lucide-react";
+import { ControlSlider as SlidersHorizontal, KeyCommand as Keyboard, Link as Link2, Trash as Trash2 } from "iconoir-react/regular";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

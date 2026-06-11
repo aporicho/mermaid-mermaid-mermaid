@@ -43,7 +43,5 @@
 .konva-grid {
   background:
     radial-gradient(circle at 0 0, rgba(31, 122, 104, 0.16) 1px, transparent 1px) 0 0 / 24px 24px,
-    linear-gradient(90deg, rgba(155, 172, 169, 0.24) 1px, transparent 1px) 0 0 / 120px 120px,
-    linear-gradient(rgba(155, 172, 169, 0.24) 1px, transparent 1px) 0 0 / 120px 120px,
     hsl(var(--background));
 }

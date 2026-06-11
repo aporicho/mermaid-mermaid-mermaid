@@ -1,6 +1,6 @@
 "use client";
 
-import { Hand, Link2, MousePointer2, Redo2, Undo2 } from "lucide-react";
+import { CursorPointer as MousePointer2, DragHandGesture as Hand, Link as Link2, Redo as Redo2, Undo as Undo2 } from "iconoir-react/regular";
 
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";

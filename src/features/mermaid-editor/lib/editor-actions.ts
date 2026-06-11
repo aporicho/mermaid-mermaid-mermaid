@@ -30,7 +30,12 @@ export function toggleEdgeSelection(selection: Selection, id: string): Selection
 export function addNode(graph: MermaidGraph, viewport: ViewportState): { graph: MermaidGraph; selection: Selection } {
   const centerX = (420 - viewport.x) / viewport.scale;
   const centerY = (260 - viewport.y) / viewport.scale;
-  const node = createNode(graph.nodes, centerX, centerY);
+
+  return addNodeAt(graph, centerX, centerY);
+}
+
+export function addNodeAt(graph: MermaidGraph, x: number, y: number): { graph: MermaidGraph; selection: Selection } {
+  const node = createNode(graph.nodes, x, y);
 
   return {
     graph: { ...graph, nodes: [...graph.nodes, node] },

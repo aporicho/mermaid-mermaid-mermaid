@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import mermaid from "mermaid";
-import { Crosshair, RefreshCw, Workflow } from "lucide-react";
+import { CenterAlign as Crosshair, GitBranch as Workflow, Refresh as RefreshCw } from "iconoir-react/regular";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

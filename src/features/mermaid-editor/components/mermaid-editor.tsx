@@ -2,7 +2,18 @@
 
 import dynamic from "next/dynamic";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { FileCode2, Maximize2, PanelLeftOpen, PanelRightClose, PanelRightOpen, Plus, RefreshCw, SquareDashedMousePointer, Workflow } from "lucide-react";
+import {
+  CodeBracketsSquare as FileCode2,
+  DotsGrid3x3 as Grid3X3,
+  Expand as Maximize2,
+  GitBranch as Workflow,
+  Plus,
+  Refresh as RefreshCw,
+  SidebarCollapse as PanelRightClose,
+  SidebarExpand as PanelLeftOpen,
+  SidebarExpand as PanelRightOpen,
+  SquareCursor as SquareDashedMousePointer
+} from "iconoir-react/regular";
 
 import { InspectorPanel } from "@/features/mermaid-editor/components/inspector-panel";
 import { PreviewPanel } from "@/features/mermaid-editor/components/preview-panel";
@@ -15,6 +26,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { applyLayout, layoutFromGraph, parseCanvasLayout, stripCanvasLayout } from "@/features/mermaid-editor/lib/canvas-layout";
 import {
   addNode as addNodeAction,
+  addNodeAt,
   copySelection,
   deleteSelection,
   emptySelection,
@@ -44,6 +56,7 @@ type StoredEditor = {
   leftCollapsed: boolean;
   rightCollapsed: boolean;
   workspaceView?: WorkspaceView;
+  showGrid?: boolean;
 };
 
 function loadInitialState() {
@@ -57,9 +70,9 @@ function loadInitialState() {
       graph: fallbackGraph,
       viewport: fallbackViewport,
       leftCollapsed: false,
-      rightCollapsed: false
-      ,
-      workspaceView: "canvas" as WorkspaceView
+      rightCollapsed: false,
+      workspaceView: "canvas" as WorkspaceView,
+      showGrid: true
     };
   }
 
@@ -80,7 +93,8 @@ function loadInitialState() {
       viewport,
       leftCollapsed: stored.leftCollapsed || false,
       rightCollapsed: stored.rightCollapsed || false,
-      workspaceView: stored.workspaceView || "canvas"
+      workspaceView: stored.workspaceView || "canvas",
+      showGrid: stored.showGrid ?? true
     };
   } catch {
     return {
@@ -89,7 +103,8 @@ function loadInitialState() {
       viewport: fallbackViewport,
       leftCollapsed: false,
       rightCollapsed: false,
-      workspaceView: "canvas" as WorkspaceView
+      workspaceView: "canvas" as WorkspaceView,
+      showGrid: true
     };
   }
 }
@@ -108,6 +123,7 @@ export function MermaidEditor() {
   const [leftCollapsed, setLeftCollapsed] = useState(initial.leftCollapsed);
   const [rightCollapsed, setRightCollapsed] = useState(initial.rightCollapsed);
   const [workspaceView, setWorkspaceView] = useState<WorkspaceView>(initial.workspaceView);
+  const [showGrid, setShowGrid] = useState(initial.showGrid);
   const sourceEditBaseRef = useRef<EditorSnapshot | null>(null);
   const sourceEditTimerRef = useRef<number | null>(null);
 
@@ -176,6 +192,11 @@ export function MermaidEditor() {
     commitGraph(result.graph, result.selection, "已新增节点。");
   }
 
+  function addNodeAtPoint(point: { x: number; y: number }) {
+    const result = addNodeAt(graph, point.x, point.y);
+    commitGraph(result.graph, result.selection, "已在画布中新增节点。");
+  }
+
   function updateDirection(direction: GraphDirection) {
     commitGraph({ ...graph, direction }, selection, `方向已切换为 ${direction}。`);
   }
@@ -230,6 +251,14 @@ export function MermaidEditor() {
     setViewport(nextViewport);
   }
 
+  function toggleGrid() {
+    setShowGrid((current) => {
+      const next = !current;
+      setStatus(next ? "已显示画布网格。" : "已隐藏画布网格。");
+      return next;
+    });
+  }
+
   useEffect(() => {
     window.localStorage.setItem(
       STORAGE_KEY,
@@ -239,10 +268,11 @@ export function MermaidEditor() {
         viewport,
         leftCollapsed,
         rightCollapsed,
-        workspaceView
+        workspaceView,
+        showGrid
       } satisfies StoredEditor)
     );
-  }, [source, graph, viewport, leftCollapsed, rightCollapsed, workspaceView]);
+  }, [source, graph, viewport, leftCollapsed, rightCollapsed, workspaceView, showGrid]);
 
   useEffect(() => {
     function isTextInput(target: EventTarget | null) {
@@ -353,6 +383,20 @@ export function MermaidEditor() {
             <Separator orientation="vertical" className="h-7" />
             <Tooltip>
               <TooltipTrigger asChild>
+                <Button
+                  size="icon"
+                  variant={showGrid ? "default" : "outline"}
+                  onClick={toggleGrid}
+                  aria-label={showGrid ? "隐藏画布网格" : "显示画布网格"}
+                  aria-pressed={showGrid}
+                >
+                  <Grid3X3 className="size-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>{showGrid ? "隐藏画布网格" : "显示画布网格"}</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
                 <Button size="icon" variant="outline" onClick={refreshFromSource} aria-label="从源码刷新画布">
                   <RefreshCw className="size-4" />
                 </Button>
@@ -427,11 +471,13 @@ export function MermaidEditor() {
               selection={selection}
               viewport={viewport}
               mode={effectiveMode}
+              showGrid={showGrid}
               onGraphDraft={draftGraph}
               onGraphCommit={commitGraph}
               onCaptureHistory={captureHistory}
               onSelectionChange={setSelection}
               onViewportChange={updateViewport}
+              onAddNodeAt={addNodeAtPoint}
             />
           ) : (
             <PreviewPanel source={source} graph={graph} framed={false} onGraphChange={commitGraph} />
