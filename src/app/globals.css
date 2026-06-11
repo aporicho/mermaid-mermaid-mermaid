@@ -1,0 +1,49 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 154 18% 96%;
+    --foreground: 185 18% 12%;
+    --card: 0 0% 100%;
+    --card-foreground: 185 18% 12%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 185 18% 12%;
+    --primary: 168 59% 30%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 210 20% 94%;
+    --secondary-foreground: 185 18% 16%;
+    --muted: 180 14% 91%;
+    --muted-foreground: 183 9% 42%;
+    --accent: 39 74% 91%;
+    --accent-foreground: 34 57% 26%;
+    --destructive: 354 55% 46%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 180 14% 84%;
+    --input: 180 14% 84%;
+    --ring: 168 59% 30%;
+    --radius: 0.5rem;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html,
+  body {
+    height: 100%;
+  }
+
+  body {
+    @apply overflow-hidden bg-background text-foreground antialiased;
+  }
+}
+
+.konva-grid {
+  background:
+    radial-gradient(circle at 0 0, rgba(31, 122, 104, 0.16) 1px, transparent 1px) 0 0 / 24px 24px,
+    linear-gradient(90deg, rgba(155, 172, 169, 0.24) 1px, transparent 1px) 0 0 / 120px 120px,
+    linear-gradient(rgba(155, 172, 169, 0.24) 1px, transparent 1px) 0 0 / 120px 120px,
+    hsl(var(--background));
+}

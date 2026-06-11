@@ -1,0 +1,1132 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Mermaid Canvas Editor</title>
+  <script type="module">
+    import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+    window.mermaid = mermaid;
+    mermaid.initialize({ startOnLoad: false, securityLevel: "loose", theme: "base" });
+  </script>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #172022;
+      --muted: #617070;
+      --line: #d8e0df;
+      --panel: #f7f9f7;
+      --canvas: #fbfcfa;
+      --brand: #1f7a68;
+      --brand-dark: #115446;
+      --gold: #c9872d;
+      --rose: #c15b63;
+      --blue: #4277b8;
+      --shadow: 0 10px 26px rgba(24, 39, 38, .12);
+      --radius: 8px;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--ink);
+      background: #edf2ef;
+      overflow: hidden;
+    }
+
+    .app {
+      display: grid;
+      grid-template-rows: 54px minmax(0, 1fr);
+      height: 100vh;
+    }
+
+    .topbar {
+      display: grid;
+      grid-template-columns: 300px 1fr auto;
+      align-items: center;
+      gap: 16px;
+      padding: 0 14px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(255, 255, 255, .88);
+      backdrop-filter: blur(12px);
+      z-index: 5;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+      font-weight: 760;
+      letter-spacing: 0;
+    }
+
+    .mark {
+      width: 30px;
+      height: 30px;
+      display: grid;
+      place-items: center;
+      border-radius: 7px;
+      background: var(--brand);
+      color: #fff;
+      box-shadow: 0 6px 16px rgba(31, 122, 104, .25);
+    }
+
+    .status {
+      color: var(--muted);
+      font-size: 13px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    button, select, input, textarea {
+      font: inherit;
+    }
+
+    .icon-button, .command {
+      height: 34px;
+      border: 1px solid var(--line);
+      background: #fff;
+      color: var(--ink);
+      border-radius: 7px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      cursor: pointer;
+      transition: border-color .15s ease, background .15s ease, color .15s ease, transform .15s ease;
+    }
+
+    .icon-button {
+      width: 34px;
+      padding: 0;
+    }
+
+    .command {
+      padding: 0 12px;
+      font-size: 13px;
+      font-weight: 650;
+      white-space: nowrap;
+    }
+
+    .icon-button:hover, .command:hover {
+      border-color: #b9c8c5;
+      background: #f9fbfa;
+    }
+
+    .primary {
+      background: var(--brand);
+      border-color: var(--brand);
+      color: #fff;
+    }
+
+    .primary:hover {
+      background: var(--brand-dark);
+      border-color: var(--brand-dark);
+    }
+
+    .workspace {
+      display: grid;
+      grid-template-columns: minmax(260px, 31vw) minmax(420px, 1fr) minmax(280px, 30vw);
+      min-height: 0;
+    }
+
+    .pane {
+      min-width: 0;
+      min-height: 0;
+      background: var(--panel);
+      border-right: 1px solid var(--line);
+      display: grid;
+      grid-template-rows: 42px minmax(0, 1fr);
+    }
+
+    .pane:last-child { border-right: 0; border-left: 1px solid var(--line); }
+
+    .pane-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 0 12px;
+      border-bottom: 1px solid var(--line);
+      background: #fff;
+    }
+
+    .pane-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      font-weight: 730;
+      min-width: 0;
+    }
+
+    .source {
+      width: 100%;
+      height: 100%;
+      resize: none;
+      border: 0;
+      outline: 0;
+      padding: 14px;
+      font: 14px/1.58 "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+      color: #13201d;
+      background:
+        linear-gradient(#f7f9f7 29px, #edf3f1 30px) 0 0 / 100% 30px;
+      tab-size: 2;
+    }
+
+    .canvas-shell {
+      position: relative;
+      min-height: 0;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 0 0, rgba(31, 122, 104, .13) 1px, transparent 1px) 0 0 / 26px 26px,
+        linear-gradient(90deg, rgba(216, 224, 223, .42) 1px, transparent 1px) 0 0 / 130px 130px,
+        linear-gradient(rgba(216, 224, 223, .42) 1px, transparent 1px) 0 0 / 130px 130px,
+        var(--canvas);
+      cursor: grab;
+    }
+
+    .canvas-shell.dragging {
+      cursor: grabbing;
+    }
+
+    .world {
+      position: absolute;
+      inset: 0;
+      transform-origin: 0 0;
+      width: 5000px;
+      height: 5000px;
+    }
+
+    .edges {
+      position: absolute;
+      inset: 0;
+      overflow: visible;
+      pointer-events: none;
+    }
+
+    .edge-path {
+      fill: none;
+      stroke: #526766;
+      stroke-width: 2.2;
+      marker-end: url(#arrow);
+      pointer-events: stroke;
+      cursor: pointer;
+    }
+
+    .edge-path.selected {
+      stroke: var(--brand);
+      stroke-width: 3;
+    }
+
+    .edge-hit {
+      fill: none;
+      stroke: transparent;
+      stroke-width: 18;
+      pointer-events: stroke;
+      cursor: pointer;
+    }
+
+    .edge-label {
+      position: absolute;
+      min-width: 54px;
+      max-width: 150px;
+      transform: translate(-50%, -50%);
+      border: 1px solid #c9d5d3;
+      background: #fff;
+      border-radius: 6px;
+      padding: 3px 8px;
+      color: #344441;
+      font-size: 12px;
+      text-align: center;
+      box-shadow: 0 5px 15px rgba(24, 39, 38, .09);
+      cursor: pointer;
+    }
+
+    .edge-label.selected {
+      border-color: var(--brand);
+      color: var(--brand-dark);
+    }
+
+    .endpoint {
+      position: absolute;
+      width: 14px;
+      height: 14px;
+      transform: translate(-50%, -50%);
+      border: 2px solid #fff;
+      border-radius: 50%;
+      background: var(--brand);
+      box-shadow: 0 0 0 1px var(--brand), var(--shadow);
+      cursor: crosshair;
+      z-index: 8;
+    }
+
+    .node {
+      position: absolute;
+      width: 168px;
+      min-height: 68px;
+      padding: 12px 14px;
+      border: 1px solid #b8c8c4;
+      border-radius: 8px;
+      background: #fff;
+      box-shadow: 0 8px 20px rgba(36, 52, 50, .10);
+      cursor: move;
+      user-select: none;
+      display: grid;
+      align-content: center;
+      gap: 4px;
+      transition: border-color .12s ease, box-shadow .12s ease, transform .12s ease;
+      z-index: 4;
+    }
+
+    .node.selected {
+      border-color: var(--brand);
+      box-shadow: 0 0 0 3px rgba(31, 122, 104, .15), 0 12px 24px rgba(36, 52, 50, .14);
+    }
+
+    .node.connect-target {
+      border-color: var(--gold);
+      box-shadow: 0 0 0 3px rgba(201, 135, 45, .19), 0 12px 24px rgba(36, 52, 50, .14);
+    }
+
+    .node-id {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 740;
+      text-transform: uppercase;
+      overflow-wrap: anywhere;
+    }
+
+    .node-label {
+      color: var(--ink);
+      font-size: 14px;
+      font-weight: 680;
+      line-height: 1.28;
+      overflow-wrap: anywhere;
+    }
+
+    .minimap {
+      position: absolute;
+      left: 12px;
+      bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 9px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: rgba(255, 255, 255, .86);
+      backdrop-filter: blur(8px);
+      color: var(--muted);
+      font-size: 12px;
+      z-index: 10;
+    }
+
+    .inspector {
+      min-height: 0;
+      display: grid;
+      grid-template-rows: minmax(170px, 42%) minmax(0, 1fr);
+      background: #fff;
+    }
+
+    .render-box {
+      min-height: 0;
+      overflow: auto;
+      padding: 16px;
+      border-bottom: 1px solid var(--line);
+      background: #fff;
+    }
+
+    #preview {
+      min-height: 160px;
+      display: grid;
+      place-items: center;
+    }
+
+    #preview svg {
+      max-width: 100%;
+      height: auto;
+    }
+
+    .preview-error {
+      color: #8c313a;
+      border: 1px solid rgba(193, 91, 99, .35);
+      background: rgba(193, 91, 99, .08);
+      border-radius: 8px;
+      padding: 12px;
+      font: 12px/1.55 "Cascadia Code", Consolas, monospace;
+      white-space: pre-wrap;
+    }
+
+    .properties {
+      min-height: 0;
+      overflow: auto;
+      padding: 14px;
+      display: grid;
+      align-content: start;
+      gap: 12px;
+    }
+
+    .field {
+      display: grid;
+      gap: 6px;
+    }
+
+    .field label {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .field input, .field select {
+      width: 100%;
+      height: 36px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      padding: 0 10px;
+      background: #fff;
+      color: var(--ink);
+      outline: 0;
+    }
+
+    .field input:focus, .field select:focus {
+      border-color: var(--brand);
+      box-shadow: 0 0 0 3px rgba(31, 122, 104, .12);
+    }
+
+    .empty {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .palette {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .swatch {
+      height: 32px;
+      border: 2px solid transparent;
+      border-radius: 7px;
+      cursor: pointer;
+    }
+
+    .swatch.active {
+      border-color: #15201d;
+    }
+
+    .kbd {
+      border: 1px solid var(--line);
+      border-bottom-color: #b8c5c2;
+      border-radius: 5px;
+      background: #fff;
+      padding: 1px 5px;
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .toast {
+      position: absolute;
+      right: 12px;
+      bottom: 12px;
+      max-width: min(360px, calc(100vw - 24px));
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      color: #344441;
+      font-size: 13px;
+      box-shadow: var(--shadow);
+      opacity: 0;
+      transform: translateY(10px);
+      pointer-events: none;
+      transition: opacity .18s ease, transform .18s ease;
+      z-index: 20;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    @media (max-width: 1080px) {
+      .workspace {
+        grid-template-columns: minmax(220px, 34vw) minmax(360px, 1fr);
+      }
+      .pane:last-child {
+        display: none;
+      }
+    }
+
+    @media (max-width: 760px) {
+      body { overflow: auto; }
+      .app {
+        height: auto;
+        min-height: 100vh;
+        grid-template-rows: auto auto;
+      }
+      .topbar {
+        grid-template-columns: 1fr;
+        align-items: stretch;
+        padding: 10px;
+      }
+      .toolbar { justify-content: flex-start; flex-wrap: wrap; }
+      .workspace {
+        grid-template-columns: 1fr;
+        height: auto;
+      }
+      .pane {
+        min-height: 420px;
+        border-right: 0;
+        border-bottom: 1px solid var(--line);
+      }
+      .pane:last-child {
+        display: grid;
+        border-left: 0;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <div class="mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M5 6h14M5 18h14M8 6v12M16 6v12" />
+          </svg>
+        </div>
+        <span>Mermaid Canvas Editor</span>
+      </div>
+      <div class="status" id="status">拖拽节点，滚轮缩放，按住空白区域平移画布。</div>
+      <div class="toolbar">
+        <button class="icon-button" id="zoomOut" title="缩小">
+          <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/></svg>
+        </button>
+        <button class="icon-button" id="zoomIn" title="放大">
+          <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+        </button>
+        <button class="icon-button" id="fit" title="适配画布">
+          <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
+        </button>
+        <button class="command" id="addNode">新增节点</button>
+        <button class="command primary" id="syncSource">同步到 Mermaid</button>
+      </div>
+    </header>
+
+    <main class="workspace">
+      <section class="pane">
+        <div class="pane-head">
+          <div class="pane-title">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 18l6-6-6-6M8 6l-6 6 6 6"/></svg>
+            Mermaid
+          </div>
+          <span class="kbd">Ctrl Enter</span>
+        </div>
+        <textarea class="source" id="source" spellcheck="false"></textarea>
+      </section>
+
+      <section class="pane">
+        <div class="pane-head">
+          <div class="pane-title">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z"/></svg>
+            无限画布
+          </div>
+          <span class="status" id="canvasHint">选择连线后可拖动端点改连接</span>
+        </div>
+        <div class="canvas-shell" id="canvas">
+          <div class="world" id="world">
+            <svg class="edges" id="edges" width="5000" height="5000">
+              <defs>
+                <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                  <path d="M 0 0 L 10 5 L 0 10 z" fill="#526766"></path>
+                </marker>
+              </defs>
+            </svg>
+            <div id="nodes"></div>
+            <div id="edgeLayer"></div>
+          </div>
+          <div class="minimap"><span id="zoomLabel">100%</span><span>节点 <b id="nodeCount">0</b></span><span>连线 <b id="edgeCount">0</b></span></div>
+          <div class="toast" id="toast"></div>
+        </div>
+      </section>
+
+      <section class="pane">
+        <div class="pane-head">
+          <div class="pane-title">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>
+            渲染视图
+          </div>
+          <button class="icon-button" id="renderNow" title="刷新预览">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg>
+          </button>
+        </div>
+        <div class="inspector">
+          <div class="render-box"><div id="preview"></div></div>
+          <div class="properties" id="properties"></div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const source = document.getElementById("source");
+    const canvas = document.getElementById("canvas");
+    const world = document.getElementById("world");
+    const edgesSvg = document.getElementById("edges");
+    const nodesEl = document.getElementById("nodes");
+    const edgeLayer = document.getElementById("edgeLayer");
+    const preview = document.getElementById("preview");
+    const properties = document.getElementById("properties");
+    const toast = document.getElementById("toast");
+    const statusEl = document.getElementById("status");
+
+    const colors = ["#ffffff", "#e8f4f0", "#fff2d9", "#f8e3e6", "#e7eef9", "#edf0f2", "#f1eadf", "#e9e4f5"];
+    const state = {
+      direction: "LR",
+      nodes: [],
+      edges: [],
+      selected: null,
+      view: { x: 190, y: 90, scale: 1 },
+      dirtyFromCanvas: false
+    };
+
+    const sample = `flowchart LR
+  Start([想法]) --> Draft[写 Mermaid]
+  Draft --> Canvas[拖拽画布整理]
+  Canvas --> Preview{渲染满意吗}
+  Preview -->|是| Ship[导出 / 复制]
+  Preview -->|否| Canvas`;
+
+    source.value = sample;
+
+    function uid(prefix) {
+      let i = 1;
+      const existing = new Set(state.nodes.map(n => n.id));
+      while (existing.has(prefix + i)) i++;
+      return prefix + i;
+    }
+
+    function escapeHtml(text) {
+      return String(text || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+    }
+
+    function normalizeLabel(text) {
+      return String(text || "").trim().replace(/^["']|["']$/g, "");
+    }
+
+    function escapeLabel(text) {
+      return String(text || "").replace(/"/g, '\\"');
+    }
+
+    function parseMermaid(text) {
+      const nodes = new Map();
+      const edges = [];
+      const lines = text.split(/\r?\n/);
+      let direction = "LR";
+
+      const flow = lines.find(line => /^\s*(flowchart|graph)\s+/i.test(line));
+      if (flow) {
+        const parts = flow.trim().split(/\s+/);
+        direction = parts[1] || "LR";
+      }
+
+      function ensureNode(id, label) {
+        if (!id) return null;
+        const cleanId = id.trim();
+        const old = state.nodes.find(n => n.id === cleanId);
+        if (!nodes.has(cleanId)) {
+          const idx = nodes.size;
+          nodes.set(cleanId, {
+            id: cleanId,
+            label: label || old?.label || cleanId,
+            x: old?.x ?? 120 + (idx % 3) * 240,
+            y: old?.y ?? 110 + Math.floor(idx / 3) * 150,
+            color: old?.color || colors[idx % colors.length]
+          });
+        } else if (label) {
+          nodes.get(cleanId).label = label;
+        }
+        return nodes.get(cleanId);
+      }
+
+      function parseNodeToken(raw) {
+        const token = raw.trim().replace(/;$/, "");
+        const match = token.match(/^([A-Za-z][\w-]*)(?:\s*(?:\[\[([^\]]+)\]\]|\(\(([^)]+)\)\)|\(\[([^)]+)\]\)|\{([^}]+)\}|\[([^\]]+)\]|\(([^)]+)\)))?/);
+        if (!match) return null;
+        const label = normalizeLabel(match[2] || match[3] || match[4] || match[5] || match[6] || match[7] || "");
+        return { id: match[1], label };
+      }
+
+      for (const line of lines) {
+        const clean = line.trim();
+        if (!clean || clean.startsWith("%%") || /^(flowchart|graph)\s+/i.test(clean)) continue;
+
+        const edgeMatch = clean.match(/^(.*?)\s*(-{1,3}>|={1,3}>|-->|---)\s*(.*)$/);
+        if (edgeMatch) {
+          const left = parseNodeToken(edgeMatch[1]);
+          let rightRaw = edgeMatch[3].trim().replace(/;$/, "");
+          let label = "";
+          const labelMatch = rightRaw.match(/^\|([^|]*)\|\s*(.*)$/);
+          if (labelMatch) {
+            label = labelMatch[1].trim();
+            rightRaw = labelMatch[2].trim();
+          }
+          const right = parseNodeToken(rightRaw);
+          if (left && right) {
+            ensureNode(left.id, left.label);
+            ensureNode(right.id, right.label);
+            edges.push({
+              id: `${left.id}_${right.id}_${edges.length}`,
+              from: left.id,
+              to: right.id,
+              label,
+              type: "-->"
+            });
+          }
+          continue;
+        }
+
+        const nodeOnly = parseNodeToken(clean);
+        if (nodeOnly) ensureNode(nodeOnly.id, nodeOnly.label);
+      }
+
+      return { direction, nodes: [...nodes.values()], edges };
+    }
+
+    function buildMermaid() {
+      const lines = [`flowchart ${state.direction || "LR"}`];
+      const connected = new Set();
+      for (const edge of state.edges) {
+        const from = state.nodes.find(n => n.id === edge.from);
+        const to = state.nodes.find(n => n.id === edge.to);
+        if (!from || !to) continue;
+        connected.add(from.id);
+        connected.add(to.id);
+        const edgeText = edge.label ? `-->|${escapeLabel(edge.label)}|` : "-->";
+        lines.push(`  ${from.id}["${escapeLabel(from.label)}"] ${edgeText} ${to.id}["${escapeLabel(to.label)}"]`);
+      }
+      for (const node of state.nodes) {
+        if (!connected.has(node.id)) lines.push(`  ${node.id}["${escapeLabel(node.label)}"]`);
+      }
+      return lines.join("\n");
+    }
+
+    function applyView() {
+      world.style.transform = `translate(${state.view.x}px, ${state.view.y}px) scale(${state.view.scale})`;
+      document.getElementById("zoomLabel").textContent = `${Math.round(state.view.scale * 100)}%`;
+    }
+
+    function worldPoint(clientX, clientY) {
+      const rect = canvas.getBoundingClientRect();
+      return {
+        x: (clientX - rect.left - state.view.x) / state.view.scale,
+        y: (clientY - rect.top - state.view.y) / state.view.scale
+      };
+    }
+
+    function centerOf(node) {
+      return { x: node.x + 84, y: node.y + 34 };
+    }
+
+    function edgeLine(edge) {
+      const from = state.nodes.find(n => n.id === edge.from);
+      const to = state.nodes.find(n => n.id === edge.to);
+      if (!from || !to) return null;
+      const a = centerOf(from);
+      const b = centerOf(to);
+      const dx = b.x - a.x;
+      const dy = b.y - a.y;
+      const len = Math.max(1, Math.hypot(dx, dy));
+      const ox = dx / len;
+      const oy = dy / len;
+      return {
+        x1: a.x + ox * 86,
+        y1: a.y + oy * 36,
+        x2: b.x - ox * 90,
+        y2: b.y - oy * 38,
+        midX: (a.x + b.x) / 2,
+        midY: (a.y + b.y) / 2
+      };
+    }
+
+    function renderCanvas() {
+      nodesEl.innerHTML = "";
+      [...edgesSvg.querySelectorAll(".edge-hit,.edge-path")].forEach(el => el.remove());
+      edgeLayer.innerHTML = "";
+
+      for (const edge of state.edges) {
+        const line = edgeLine(edge);
+        if (!line) continue;
+
+        const hit = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        hit.setAttribute("d", `M ${line.x1} ${line.y1} L ${line.x2} ${line.y2}`);
+        hit.setAttribute("class", "edge-hit");
+        hit.dataset.edgeId = edge.id;
+        edgesSvg.appendChild(hit);
+
+        const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        path.setAttribute("d", `M ${line.x1} ${line.y1} L ${line.x2} ${line.y2}`);
+        path.setAttribute("class", `edge-path ${state.selected?.type === "edge" && state.selected.id === edge.id ? "selected" : ""}`);
+        path.dataset.edgeId = edge.id;
+        edgesSvg.appendChild(path);
+
+        const label = document.createElement("div");
+        label.className = `edge-label ${state.selected?.type === "edge" && state.selected.id === edge.id ? "selected" : ""}`;
+        label.textContent = edge.label || "连线";
+        label.style.left = `${line.midX}px`;
+        label.style.top = `${line.midY}px`;
+        label.dataset.edgeId = edge.id;
+        edgeLayer.appendChild(label);
+
+        if (state.selected?.type === "edge" && state.selected.id === edge.id) {
+          const start = endpoint("from", edge, line.x1, line.y1);
+          const end = endpoint("to", edge, line.x2, line.y2);
+          edgeLayer.append(start, end);
+        }
+      }
+
+      for (const node of state.nodes) {
+        const el = document.createElement("div");
+        el.className = `node ${state.selected?.type === "node" && state.selected.id === node.id ? "selected" : ""}`;
+        el.style.left = `${node.x}px`;
+        el.style.top = `${node.y}px`;
+        el.style.background = node.color || "#fff";
+        el.dataset.nodeId = node.id;
+        el.innerHTML = `<div class="node-id">${escapeHtml(node.id)}</div><div class="node-label">${escapeHtml(node.label)}</div>`;
+        nodesEl.appendChild(el);
+      }
+
+      document.getElementById("nodeCount").textContent = state.nodes.length;
+      document.getElementById("edgeCount").textContent = state.edges.length;
+      renderProperties();
+      bindCanvasEvents();
+    }
+
+    function endpoint(side, edge, x, y) {
+      const el = document.createElement("div");
+      el.className = "endpoint";
+      el.style.left = `${x}px`;
+      el.style.top = `${y}px`;
+      el.dataset.edgeId = edge.id;
+      el.dataset.side = side;
+      return el;
+    }
+
+    function renderProperties() {
+      if (!state.selected) {
+        properties.innerHTML = `<div class="empty">选择一个节点或连线后，可以在这里修改文本、颜色和连接关系。</div>`;
+        return;
+      }
+
+      if (state.selected.type === "node") {
+        const node = state.nodes.find(n => n.id === state.selected.id);
+        if (!node) return;
+        properties.innerHTML = `
+          <div class="field"><label>节点 ID</label><input id="propId" value="${escapeHtml(node.id)}" /></div>
+          <div class="field"><label>节点文本</label><input id="propLabel" value="${escapeHtml(node.label)}" /></div>
+          <div class="field"><label>颜色</label><div class="palette">${colors.map(c => `<button class="swatch ${node.color === c ? "active" : ""}" data-color="${c}" style="background:${c}"></button>`).join("")}</div></div>
+          <button class="command" id="connectFromNode">从此节点连线</button>
+          <button class="command" id="deleteSelected">删除节点</button>
+        `;
+        document.getElementById("propId").addEventListener("change", e => renameNode(node.id, cleanId(e.target.value)));
+        document.getElementById("propLabel").addEventListener("input", e => { node.label = e.target.value; syncAfterCanvasEdit(); });
+        properties.querySelectorAll(".swatch").forEach(btn => btn.addEventListener("click", () => { node.color = btn.dataset.color; renderCanvas(); }));
+        document.getElementById("deleteSelected").addEventListener("click", deleteSelected);
+        document.getElementById("connectFromNode").addEventListener("click", () => startNewEdge(node.id));
+        return;
+      }
+
+      const edge = state.edges.find(e => e.id === state.selected.id);
+      if (!edge) return;
+      properties.innerHTML = `
+        <div class="field"><label>起点</label><select id="edgeFrom">${state.nodes.map(n => `<option value="${n.id}" ${n.id === edge.from ? "selected" : ""}>${n.id}</option>`).join("")}</select></div>
+        <div class="field"><label>终点</label><select id="edgeTo">${state.nodes.map(n => `<option value="${n.id}" ${n.id === edge.to ? "selected" : ""}>${n.id}</option>`).join("")}</select></div>
+        <div class="field"><label>连线文本</label><input id="edgeLabel" value="${escapeHtml(edge.label || "")}" placeholder="可留空" /></div>
+        <button class="command" id="deleteSelected">删除连线</button>
+      `;
+      document.getElementById("edgeFrom").addEventListener("change", e => { edge.from = e.target.value; syncAfterCanvasEdit(); });
+      document.getElementById("edgeTo").addEventListener("change", e => { edge.to = e.target.value; syncAfterCanvasEdit(); });
+      document.getElementById("edgeLabel").addEventListener("input", e => { edge.label = e.target.value; syncAfterCanvasEdit(); });
+      document.getElementById("deleteSelected").addEventListener("click", deleteSelected);
+    }
+
+    function cleanId(value) {
+      const cleaned = String(value || "").trim().replace(/[^\w-]/g, "_");
+      return /^[A-Za-z]/.test(cleaned) ? cleaned : `N_${cleaned || Date.now()}`;
+    }
+
+    function renameNode(oldId, newId) {
+      if (!newId || oldId === newId) return;
+      if (state.nodes.some(n => n.id === newId)) {
+        showToast("这个 ID 已经存在。");
+        renderProperties();
+        return;
+      }
+      const node = state.nodes.find(n => n.id === oldId);
+      if (!node) return;
+      node.id = newId;
+      state.edges.forEach(edge => {
+        if (edge.from === oldId) edge.from = newId;
+        if (edge.to === oldId) edge.to = newId;
+      });
+      state.selected = { type: "node", id: newId };
+      syncAfterCanvasEdit();
+    }
+
+    function syncAfterCanvasEdit() {
+      state.dirtyFromCanvas = true;
+      source.value = buildMermaid();
+      renderCanvas();
+      schedulePreview();
+      statusEl.textContent = "画布已同步到 Mermaid 源码。";
+    }
+
+    function deleteSelected() {
+      if (!state.selected) return;
+      if (state.selected.type === "node") {
+        state.nodes = state.nodes.filter(n => n.id !== state.selected.id);
+        state.edges = state.edges.filter(e => e.from !== state.selected.id && e.to !== state.selected.id);
+      } else {
+        state.edges = state.edges.filter(e => e.id !== state.selected.id);
+      }
+      state.selected = null;
+      syncAfterCanvasEdit();
+    }
+
+    function startNewEdge(fromId) {
+      const target = state.nodes.find(n => n.id !== fromId);
+      if (!target) {
+        showToast("至少需要两个节点才能创建连线。");
+        return;
+      }
+      const edge = { id: `${fromId}_${target.id}_${Date.now()}`, from: fromId, to: target.id, label: "", type: "-->" };
+      state.edges.push(edge);
+      state.selected = { type: "edge", id: edge.id };
+      syncAfterCanvasEdit();
+      showToast("已创建连线，拖动端点可以重新连接。");
+    }
+
+    let previewTimer = null;
+    function schedulePreview() {
+      clearTimeout(previewTimer);
+      previewTimer = setTimeout(renderPreview, 180);
+    }
+
+    async function renderPreview() {
+      if (!window.mermaid) {
+        preview.innerHTML = `<div class="empty">正在加载 Mermaid 渲染器。</div>`;
+        setTimeout(renderPreview, 300);
+        return;
+      }
+      try {
+        const id = `mmd-${Date.now()}`;
+        const result = await window.mermaid.render(id, source.value);
+        preview.innerHTML = result.svg;
+      } catch (err) {
+        preview.innerHTML = `<div class="preview-error">${String(err.message || err)}</div>`;
+      }
+    }
+
+    function bindCanvasEvents() {
+      nodesEl.querySelectorAll(".node").forEach(nodeEl => {
+        nodeEl.onpointerdown = e => {
+          e.stopPropagation();
+          const node = state.nodes.find(n => n.id === nodeEl.dataset.nodeId);
+          state.selected = { type: "node", id: node.id };
+          const start = worldPoint(e.clientX, e.clientY);
+          const origin = { x: node.x, y: node.y };
+          nodeEl.setPointerCapture(e.pointerId);
+          nodeEl.onpointermove = move => {
+            const p = worldPoint(move.clientX, move.clientY);
+            node.x = origin.x + p.x - start.x;
+            node.y = origin.y + p.y - start.y;
+            renderCanvas();
+          };
+          nodeEl.onpointerup = () => {
+            nodeEl.onpointermove = null;
+            syncAfterCanvasEdit();
+          };
+          renderCanvas();
+        };
+      });
+
+      document.querySelectorAll(".edge-hit,.edge-path,.edge-label").forEach(el => {
+        el.onclick = e => {
+          e.stopPropagation();
+          state.selected = { type: "edge", id: el.dataset.edgeId };
+          renderCanvas();
+        };
+      });
+
+      edgeLayer.querySelectorAll(".endpoint").forEach(handle => {
+        handle.onpointerdown = e => {
+          e.stopPropagation();
+          const edge = state.edges.find(item => item.id === handle.dataset.edgeId);
+          const side = handle.dataset.side;
+          handle.setPointerCapture(e.pointerId);
+          handle.onpointermove = move => {
+            const p = worldPoint(move.clientX, move.clientY);
+            handle.style.left = `${p.x}px`;
+            handle.style.top = `${p.y}px`;
+            markTargetAt(move.clientX, move.clientY);
+          };
+          handle.onpointerup = up => {
+            const target = nodeAt(up.clientX, up.clientY);
+            clearTargets();
+            if (target && edge) {
+              if (side === "from") edge.from = target.dataset.nodeId;
+              if (side === "to") edge.to = target.dataset.nodeId;
+              syncAfterCanvasEdit();
+            } else {
+              renderCanvas();
+            }
+          };
+        };
+      });
+    }
+
+    function nodeAt(clientX, clientY) {
+      const items = [...nodesEl.querySelectorAll(".node")];
+      return items.find(el => {
+        const r = el.getBoundingClientRect();
+        return clientX >= r.left && clientX <= r.right && clientY >= r.top && clientY <= r.bottom;
+      });
+    }
+
+    function markTargetAt(clientX, clientY) {
+      clearTargets();
+      const target = nodeAt(clientX, clientY);
+      if (target) target.classList.add("connect-target");
+    }
+
+    function clearTargets() {
+      nodesEl.querySelectorAll(".connect-target").forEach(el => el.classList.remove("connect-target"));
+    }
+
+    let pan = null;
+    canvas.addEventListener("pointerdown", e => {
+      if (e.target !== canvas) return;
+      state.selected = null;
+      renderCanvas();
+      pan = { x: e.clientX, y: e.clientY, vx: state.view.x, vy: state.view.y };
+      canvas.classList.add("dragging");
+      canvas.setPointerCapture(e.pointerId);
+    });
+
+    canvas.addEventListener("pointermove", e => {
+      if (!pan) return;
+      state.view.x = pan.vx + e.clientX - pan.x;
+      state.view.y = pan.vy + e.clientY - pan.y;
+      applyView();
+    });
+
+    canvas.addEventListener("pointerup", () => {
+      pan = null;
+      canvas.classList.remove("dragging");
+    });
+
+    canvas.addEventListener("wheel", e => {
+      e.preventDefault();
+      const before = worldPoint(e.clientX, e.clientY);
+      const factor = e.deltaY > 0 ? .92 : 1.08;
+      state.view.scale = Math.min(2.4, Math.max(.28, state.view.scale * factor));
+      const rect = canvas.getBoundingClientRect();
+      state.view.x = e.clientX - rect.left - before.x * state.view.scale;
+      state.view.y = e.clientY - rect.top - before.y * state.view.scale;
+      applyView();
+    }, { passive: false });
+
+    source.addEventListener("input", () => {
+      const parsed = parseMermaid(source.value);
+      state.direction = parsed.direction;
+      state.nodes = parsed.nodes;
+      state.edges = parsed.edges;
+      state.selected = null;
+      renderCanvas();
+      schedulePreview();
+      statusEl.textContent = "源码已解析到画布。";
+    });
+
+    source.addEventListener("keydown", e => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+        e.preventDefault();
+        source.dispatchEvent(new Event("input"));
+        renderPreview();
+      }
+    });
+
+    document.getElementById("syncSource").addEventListener("click", () => {
+      source.value = buildMermaid();
+      renderPreview();
+      showToast("已写回 Mermaid 源码。");
+    });
+
+    document.getElementById("renderNow").addEventListener("click", renderPreview);
+    document.getElementById("zoomIn").addEventListener("click", () => { state.view.scale = Math.min(2.4, state.view.scale * 1.12); applyView(); });
+    document.getElementById("zoomOut").addEventListener("click", () => { state.view.scale = Math.max(.28, state.view.scale / 1.12); applyView(); });
+    document.getElementById("fit").addEventListener("click", fitView);
+    document.getElementById("addNode").addEventListener("click", () => {
+      const p = worldPoint(canvas.getBoundingClientRect().left + canvas.clientWidth / 2, canvas.getBoundingClientRect().top + canvas.clientHeight / 2);
+      const id = uid("Node");
+      state.nodes.push({ id, label: "新节点", x: p.x - 84, y: p.y - 34, color: colors[state.nodes.length % colors.length] });
+      state.selected = { type: "node", id };
+      syncAfterCanvasEdit();
+    });
+
+    function fitView() {
+      if (!state.nodes.length) return;
+      const minX = Math.min(...state.nodes.map(n => n.x));
+      const minY = Math.min(...state.nodes.map(n => n.y));
+      const maxX = Math.max(...state.nodes.map(n => n.x + 168));
+      const maxY = Math.max(...state.nodes.map(n => n.y + 68));
+      const pad = 80;
+      const sx = canvas.clientWidth / Math.max(1, maxX - minX + pad * 2);
+      const sy = canvas.clientHeight / Math.max(1, maxY - minY + pad * 2);
+      state.view.scale = Math.min(1.4, Math.max(.35, Math.min(sx, sy)));
+      state.view.x = -minX * state.view.scale + pad;
+      state.view.y = -minY * state.view.scale + pad;
+      applyView();
+    }
+
+    function showToast(text) {
+      toast.textContent = text;
+      toast.classList.add("show");
+      clearTimeout(showToast.timer);
+      showToast.timer = setTimeout(() => toast.classList.remove("show"), 1800);
+    }
+
+    function init() {
+      const parsed = parseMermaid(source.value);
+      state.direction = parsed.direction;
+      state.nodes = parsed.nodes;
+      state.edges = parsed.edges;
+      applyView();
+      renderCanvas();
+      fitView();
+      schedulePreview();
+    }
+
+    init();
+  </script>
+</body>
+</html>
