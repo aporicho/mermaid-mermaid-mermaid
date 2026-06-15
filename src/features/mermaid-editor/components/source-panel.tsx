@@ -1,6 +1,6 @@
 "use client";
 
-import { Code as Code2, KeyCommand as Keyboard, SidebarCollapse as PanelLeftClose } from "iconoir-react/regular";
+import { Refresh as RefreshCw, SidebarCollapse as PanelLeftClose } from "iconoir-react/regular";
 
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -15,32 +15,25 @@ type SourcePanelProps = {
 
 export function SourcePanel({ value, onChange, onRun, onCollapse }: SourcePanelProps) {
   return (
-    <section className="grid min-h-0 grid-rows-[42px_minmax(0,1fr)] border-r bg-card">
-      <header className="flex items-center justify-between border-b px-3">
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <div className="grid size-8 place-items-center rounded-md text-muted-foreground">
-              <Code2 className="size-4" />
-            </div>
-          </TooltipTrigger>
-          <TooltipContent>Mermaid 源码</TooltipContent>
-        </Tooltip>
-        <div className="flex items-center gap-2">
+    <section className="relative z-10 grid h-full min-h-0 grid-rows-[42px_minmax(0,1fr)] border-r bg-card">
+      <header className="flex items-center justify-between border-b bg-card/95 px-3">
+        <span className="text-sm font-medium">Mermaid</span>
+        <div className="flex items-center gap-1">
           <Tooltip>
             <TooltipTrigger asChild>
-              <div className="grid size-8 place-items-center rounded-md text-muted-foreground">
-                <Keyboard className="size-4" />
-              </div>
+              <Button size="icon" variant="ghost" className="size-8 text-muted-foreground hover:text-foreground" onClick={onRun} aria-label="刷新画布">
+                <RefreshCw className="size-4" />
+              </Button>
             </TooltipTrigger>
-            <TooltipContent>Ctrl Enter 刷新画布</TooltipContent>
+            <TooltipContent side="right">刷新画布</TooltipContent>
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button size="icon" variant="ghost" className="size-8" onClick={onCollapse} aria-label="收起 Mermaid 面板">
+              <Button size="icon" variant="ghost" className="size-8 text-muted-foreground hover:text-foreground" onClick={onCollapse} aria-label="收起 Mermaid 面板">
                 <PanelLeftClose className="size-4" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent>收起 Mermaid 面板</TooltipContent>
+            <TooltipContent side="right">收起 Mermaid 面板</TooltipContent>
           </Tooltip>
         </div>
       </header>

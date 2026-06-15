@@ -1,8 +1,16 @@
-import type { CanvasLayout, MermaidGraph, ViewportState } from "@/features/mermaid-editor/lib/editor-types";
+import type { CanvasLayout, EdgePath, MermaidGraph, ViewportState } from "@/features/mermaid-editor/lib/editor-types";
 
 export const CANVAS_LAYOUT_PREFIX = "%% canvas-layout:";
 
 const defaultViewport: ViewportState = { x: 160, y: 90, scale: 1 };
+
+function edgeLayoutKey(edge: MermaidGraph["edges"][number], index: number) {
+  return `${index}:${edge.from}->${edge.to}`;
+}
+
+function normalizeEdgePath(value: unknown): EdgePath | undefined {
+  return value === "straight" || value === "curved" || value === "orthogonal" ? value : undefined;
+}
 
 export function stripCanvasLayout(source: string) {
   return source
@@ -29,6 +37,7 @@ export function layoutFromGraph(graph: MermaidGraph, viewport: ViewportState = d
   return {
     version: 1,
     viewport,
+    edges: Object.fromEntries(graph.edges.map((edge, index) => [edgeLayoutKey(edge, index), { path: edge.path }])),
     nodes: Object.fromEntries(
       graph.nodes.map((node) => [
         node.id,
@@ -47,6 +56,10 @@ export function applyLayout(graph: MermaidGraph, layout: CanvasLayout | null): M
 
   return {
     ...graph,
+    edges: graph.edges.map((edge, index) => {
+      const saved = layout.edges?.[edgeLayoutKey(edge, index)];
+      return { ...edge, path: normalizeEdgePath(saved?.path) || edge.path || "straight" };
+    }),
     nodes: graph.nodes.map((node) => {
       const saved = layout.nodes[node.id];
       return saved ? { ...node, x: saved.x, y: saved.y, fill: saved.fill || node.fill } : node;
@@ -60,6 +73,7 @@ export function syncLayout(graph: MermaidGraph, previous: CanvasLayout | null, v
   return {
     version: 1,
     viewport,
+    edges: Object.fromEntries(graph.edges.map((edge, index) => [edgeLayoutKey(edge, index), { path: edge.path }])),
     nodes: Object.fromEntries(
       graph.nodes.map((node) => {
         const saved = previousNodes[node.id];

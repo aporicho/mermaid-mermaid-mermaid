@@ -8,11 +8,16 @@ export type CanvasNode = {
   fill: string;
 };
 
+export type EdgeStyle = "solid" | "thick" | "dotted";
+export type EdgePath = "straight" | "curved" | "orthogonal";
+
 export type CanvasEdge = {
   id: string;
   from: string;
   to: string;
   label: string;
+  style: EdgeStyle;
+  path: EdgePath;
 };
 
 export type MermaidGraph = {
@@ -41,9 +46,14 @@ export type CanvasLayoutNode = {
   fill: string;
 };
 
+export type CanvasLayoutEdge = {
+  path?: EdgePath;
+};
+
 export type CanvasLayout = {
   version: 1;
   nodes: Record<string, CanvasLayoutNode>;
+  edges?: Record<string, CanvasLayoutEdge>;
   viewport: ViewportState;
 };
 

@@ -10,6 +10,7 @@ import {
   FloppyDiskArrowOut,
   Folder,
   GitBranch as Workflow,
+  MoreHoriz,
   Plus,
   Refresh as RefreshCw,
   SidebarCollapse as PanelRightClose,
@@ -177,7 +178,7 @@ export function MermaidEditor() {
   const [spacePanning, setSpacePanning] = useState(false);
   const [history, setHistory] = useState<EditorHistory>(() => createHistory());
   const [clipboard, setClipboard] = useState<ClipboardPayload | null>(null);
-  const [status, setStatus] = useState("拖拽节点，滚轮缩放，Space 临时平移画布。");
+  const [status, setStatus] = useState("");
   const [leftCollapsed, setLeftCollapsed] = useState(initial.leftCollapsed);
   const [rightCollapsed, setRightCollapsed] = useState(initial.rightCollapsed);
   const [workspaceView, setWorkspaceView] = useState<WorkspaceView>(initial.workspaceView);
@@ -185,13 +186,12 @@ export function MermaidEditor() {
   const [fileName, setFileName] = useState(initial.fileName);
   const [fileHandle, setFileHandle] = useState<MermaidFileHandle | null>(null);
   const [lastSavedDocument, setLastSavedDocument] = useState("");
+  const [secondaryActionsOpen, setSecondaryActionsOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const sourceEditBaseRef = useRef<EditorSnapshot | null>(null);
   const sourceEditTimerRef = useRef<number | null>(null);
 
   const effectiveMode = spacePanning ? "pan" : mode;
-  const selectedCount = selection.nodeIds.length + selection.edgeIds.length;
-  const graphSummary = useMemo(() => `${graph.nodes.length} nodes, ${graph.edges.length} edges`, [graph.nodes.length, graph.edges.length]);
   const currentDocument = useMemo(() => buildMermaidDocument(source, graph, viewport), [source, graph, viewport]);
   const isDirty = !lastSavedDocument || currentDocument !== lastSavedDocument;
   const fileLabel = `${fileName || FALLBACK_FILE_NAME}${isDirty ? " *" : ""}`;
@@ -224,10 +224,9 @@ export function MermaidEditor() {
     setStatus(message);
   }
 
-  function draftGraph(nextGraph: MermaidGraph, message = "正在整理画布。") {
+  function draftGraph(nextGraph: MermaidGraph) {
     setGraph(nextGraph);
     setSource(serializeMermaid(nextGraph));
-    setStatus(message);
   }
 
   function captureHistory() {
@@ -436,6 +435,23 @@ export function MermaidEditor() {
   }
 
   useEffect(() => {
+    if (!status) return;
+    const timer = window.setTimeout(() => setStatus(""), 2600);
+    return () => window.clearTimeout(timer);
+  }, [status]);
+
+  useEffect(() => {
+    if (!secondaryActionsOpen) return;
+
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setSecondaryActionsOpen(false);
+    }
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [secondaryActionsOpen]);
+
+  useEffect(() => {
     window.localStorage.setItem(
       STORAGE_KEY,
       JSON.stringify({
@@ -470,6 +486,15 @@ export function MermaidEditor() {
       const key = event.key.toLowerCase();
       const command = event.ctrlKey || event.metaKey;
 
+      if (command && key === "s") {
+        event.preventDefault();
+        if (event.shiftKey) void saveMermaidFileAs();
+        else void saveMermaidFile();
+        return;
+      }
+
+      if (isTextInput(event.target)) return;
+
       if (command && key === "z" && event.shiftKey) {
         event.preventDefault();
         performRedo();
@@ -483,12 +508,6 @@ export function MermaidEditor() {
       if (command && key === "y") {
         event.preventDefault();
         performRedo();
-        return;
-      }
-      if (command && key === "s") {
-        event.preventDefault();
-        if (event.shiftKey) void saveMermaidFileAs();
-        else void saveMermaidFile();
         return;
       }
       if (command && key === "c") {
@@ -526,222 +545,272 @@ export function MermaidEditor() {
   return (
     <TooltipProvider delayDuration={180}>
       <input ref={fileInputRef} type="file" accept=".mmd,.mermaid,.txt,text/plain" className="hidden" onChange={openFallbackFile} />
-      <main className="grid h-screen grid-rows-[56px_minmax(0,1fr)]">
-        <header className="grid grid-cols-[minmax(220px,300px)_minmax(0,1fr)_auto] items-center gap-3 border-b bg-card/95 px-3 backdrop-blur">
-          <div className="flex min-w-0 items-center gap-3">
-            <div className="grid size-8 place-items-center rounded-md bg-primary text-primary-foreground shadow-sm">
-              <FileCode2 className="size-4" />
-            </div>
+      <main className="relative grid h-screen grid-rows-[52px_minmax(0,1fr)] overflow-hidden bg-background">
+        <header className="relative z-40 grid grid-cols-[minmax(220px,360px)_minmax(0,1fr)_auto] items-center gap-3 border-b bg-card/95 px-3 shadow-sm backdrop-blur">
+          <div className="flex min-w-0 items-center gap-2">
+            <FileCode2 className="size-4 shrink-0 text-muted-foreground" />
             <div className="min-w-0">
               <h1 className="sr-only">Mermaid Canvas Editor</h1>
               <p className="truncate text-sm font-medium">{fileLabel}</p>
-              <p className="truncate text-xs text-muted-foreground">{graphSummary}</p>
+            </div>
+            <div className="ml-1 flex shrink-0 items-center gap-1">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button size="icon" variant="ghost" className="size-8 text-muted-foreground hover:text-foreground" onClick={openMermaidFile} aria-label="打开 Mermaid 文件">
+                    <Folder className="size-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">打开文件</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    size="icon"
+                    variant={isDirty ? "default" : "ghost"}
+                    className={isDirty ? "size-8 text-primary-foreground" : "size-8 text-muted-foreground hover:text-foreground"}
+                    onClick={() => void saveMermaidFile()}
+                    aria-label="保存 Mermaid 文件"
+                  >
+                    <FloppyDisk className="size-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">保存文件</TooltipContent>
+              </Tooltip>
             </div>
           </div>
 
           <div className="flex min-w-0 items-center justify-center">
             <ToolModeBar
               mode={mode}
-              scale={viewport.scale}
-              selectedCount={selectedCount}
-              canUndo={history.undoStack.length > 0}
-              canRedo={history.redoStack.length > 0}
               onModeChange={setMode}
-              onUndo={performUndo}
-              onRedo={performRedo}
             />
           </div>
 
-          <div className="flex items-center gap-2">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button size="icon" variant="outline" onClick={openMermaidFile} aria-label="打开 Mermaid 文件">
-                  <Folder className="size-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>打开文件</TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button size="icon" variant={isDirty ? "default" : "outline"} onClick={() => void saveMermaidFile()} aria-label="保存 Mermaid 文件">
-                  <FloppyDisk className="size-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>保存文件</TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button size="icon" variant="outline" onClick={() => void saveMermaidFileAs()} aria-label="另存为 Mermaid 文件">
-                  <FloppyDiskArrowOut className="size-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>另存为</TooltipContent>
-            </Tooltip>
-            <Separator orientation="vertical" className="h-7" />
-            <Select value={graph.direction} onValueChange={(value) => updateDirection(value as GraphDirection)}>
-              <SelectTrigger className="h-9 w-[86px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {directions.map((direction) => (
-                  <SelectItem key={direction} value={direction}>
-                    {direction}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Separator orientation="vertical" className="h-7" />
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  size="icon"
-                  variant={showGrid ? "default" : "outline"}
-                  onClick={toggleGrid}
-                  aria-label={showGrid ? "隐藏画布网格" : "显示画布网格"}
-                  aria-pressed={showGrid}
-                >
-                  <Grid3X3 className="size-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>{showGrid ? "隐藏画布网格" : "显示画布网格"}</TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button size="icon" variant="outline" onClick={refreshFromSource} aria-label="从源码刷新画布">
-                  <RefreshCw className="size-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>从源码刷新画布</TooltipContent>
-            </Tooltip>
-            <div className="flex rounded-md border bg-background p-0.5">
+          <div className="flex items-center gap-1">
+            <div className="flex gap-0.5 rounded-md border bg-background p-0.5">
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
                     size="icon"
                     variant={workspaceView === "canvas" ? "default" : "ghost"}
-                    className="size-8"
+                    className={workspaceView === "canvas" ? "size-8 text-primary-foreground" : "size-8 text-muted-foreground hover:text-foreground"}
                     onClick={() => setWorkspaceView("canvas")}
                     aria-label="切换到无限画布"
                   >
                     <SquareDashedMousePointer className="size-4" />
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>无限画布</TooltipContent>
+                <TooltipContent side="bottom">无限画布</TooltipContent>
               </Tooltip>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
                     size="icon"
                     variant={workspaceView === "render" ? "default" : "ghost"}
-                    className="size-8"
+                    className={workspaceView === "render" ? "size-8 text-primary-foreground" : "size-8 text-muted-foreground hover:text-foreground"}
                     onClick={() => setWorkspaceView("render")}
                     aria-label="切换到渲染视图"
                   >
                     <Workflow className="size-4" />
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>渲染视图</TooltipContent>
+                <TooltipContent side="bottom">渲染视图</TooltipContent>
               </Tooltip>
             </div>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button size="icon" variant="outline" onClick={() => updateViewport({ x: 160, y: 90, scale: 1 })} aria-label="重置视图">
-                  <Maximize2 className="size-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>重置视图</TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button size="icon" onClick={addNode} aria-label="新增节点">
-                  <Plus className="size-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>新增节点</TooltipContent>
-            </Tooltip>
+            <SecondaryActionsMenu
+              open={secondaryActionsOpen}
+              direction={graph.direction}
+              showGrid={showGrid}
+              onOpenChange={setSecondaryActionsOpen}
+              onAddNode={addNode}
+              onSaveAs={() => void saveMermaidFileAs()}
+              onDirectionChange={updateDirection}
+              onToggleGrid={toggleGrid}
+              onRefreshSource={refreshFromSource}
+              onResetView={() => updateViewport({ x: 160, y: 90, scale: 1 })}
+            />
           </div>
         </header>
 
-        <div
-          className="grid min-h-0"
-          style={{
-            gridTemplateColumns: `${leftCollapsed ? "44px" : "minmax(280px,31vw)"} minmax(420px,1fr) ${
-              rightCollapsed ? "44px" : "minmax(300px,30vw)"
-            }`
-          }}
-        >
-          {leftCollapsed ? (
-            <CollapsedRail side="left" label="Mermaid" onOpen={() => setLeftCollapsed(false)} />
-          ) : (
-            <SourcePanel value={source} onChange={applySource} onRun={refreshFromSource} onCollapse={() => setLeftCollapsed(true)} />
-          )}
-          {workspaceView === "canvas" ? (
-            <KonvaCanvas
-              graph={graph}
-              selection={selection}
-              viewport={viewport}
-              mode={effectiveMode}
-              showGrid={showGrid}
-              onGraphDraft={draftGraph}
-              onGraphCommit={commitGraph}
-              onCaptureHistory={captureHistory}
-              onSelectionChange={setSelection}
-              onViewportChange={updateViewport}
-              onAddNodeAt={addNodeAtPoint}
-            />
-          ) : (
-            <PreviewPanel source={source} graph={graph} framed={false} onGraphChange={commitGraph} />
-          )}
-          {rightCollapsed ? (
-            <CollapsedRail side="right" label="侧栏" onOpen={() => setRightCollapsed(false)} />
-          ) : (
-            <aside className="relative grid min-h-0 border-l bg-card">
+        <div className="relative z-0 min-h-0 overflow-hidden">
+          <div className="absolute inset-0 z-0">
+            {workspaceView === "canvas" ? (
+              <KonvaCanvas
+                graph={graph}
+                selection={selection}
+                viewport={viewport}
+                mode={effectiveMode}
+                showGrid={showGrid}
+                onGraphDraft={draftGraph}
+                onGraphCommit={commitGraph}
+                onCaptureHistory={captureHistory}
+                onSelectionChange={setSelection}
+                onViewportChange={updateViewport}
+                onAddNodeAt={addNodeAtPoint}
+              />
+            ) : (
+              <PreviewPanel source={source} graph={graph} framed={false} onGraphChange={commitGraph} />
+            )}
+          </div>
+          {!leftCollapsed ? (
+            <div className="absolute inset-y-0 left-0 z-20 w-[clamp(300px,31vw,420px)] shadow-xl">
+              <SourcePanel value={source} onChange={applySource} onRun={refreshFromSource} onCollapse={() => setLeftCollapsed(true)} />
+            </div>
+          ) : null}
+          {!rightCollapsed ? (
+            <aside className="absolute inset-y-0 right-0 z-20 grid w-[clamp(280px,28vw,380px)] min-h-0 border-l bg-card shadow-xl">
               <PanelHeader onCollapse={() => setRightCollapsed(true)} />
               <div className="grid min-h-0">
                 <InspectorPanel graph={graph} selection={selection} onGraphChange={commitGraph} onSelectionChange={setSelection} onDelete={performDelete} />
               </div>
             </aside>
-          )}
+          ) : null}
+          {leftCollapsed ? <FloatingPanelOpenButton side="left" label="Mermaid" onOpen={() => setLeftCollapsed(false)} /> : null}
+          {rightCollapsed ? <FloatingPanelOpenButton side="right" label="侧栏" onOpen={() => setRightCollapsed(false)} /> : null}
         </div>
-        <div className="pointer-events-none fixed bottom-3 left-1/2 z-20 -translate-x-1/2 rounded-md border bg-card/95 px-3 py-1.5 text-xs text-muted-foreground shadow-sm">
-          {status}
-        </div>
+        {status ? (
+          <div className="pointer-events-none fixed bottom-3 left-1/2 z-50 -translate-x-1/2 rounded-md border bg-card/95 px-3 py-1.5 text-xs text-muted-foreground shadow-sm backdrop-blur">
+            {status}
+          </div>
+        ) : null}
       </main>
     </TooltipProvider>
   );
 }
 
-function PanelHeader({ onCollapse }: { onCollapse: () => void }) {
+function SecondaryActionsMenu({
+  open,
+  direction,
+  showGrid,
+  onOpenChange,
+  onAddNode,
+  onSaveAs,
+  onDirectionChange,
+  onToggleGrid,
+  onRefreshSource,
+  onResetView
+}: {
+  open: boolean;
+  direction: GraphDirection;
+  showGrid: boolean;
+  onOpenChange: (open: boolean) => void;
+  onAddNode: () => void;
+  onSaveAs: () => void;
+  onDirectionChange: (direction: GraphDirection) => void;
+  onToggleGrid: () => void;
+  onRefreshSource: () => void;
+  onResetView: () => void;
+}) {
+  function runAndClose(action: () => void) {
+    action();
+    onOpenChange(false);
+  }
+
   return (
-    <div className="absolute right-2 top-2 z-10">
+    <div className="relative">
       <Tooltip>
         <TooltipTrigger asChild>
-          <Button size="icon" variant="outline" className="size-8 bg-card" onClick={onCollapse} aria-label="收起右侧面板">
+          <Button
+            size="icon"
+            variant="ghost"
+            className="size-8 text-muted-foreground hover:text-foreground"
+            onClick={() => onOpenChange(!open)}
+            aria-expanded={open}
+            aria-label="更多操作"
+          >
+            <MoreHoriz className="size-4" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom">更多操作</TooltipContent>
+      </Tooltip>
+
+      {open ? (
+        <div className="absolute right-0 top-10 z-50 w-52 rounded-md border bg-popover p-1.5 text-popover-foreground shadow-lg">
+          <div className="grid gap-0.5">
+            <Button variant="ghost" className="h-8 justify-start px-2 text-foreground [&_svg]:text-muted-foreground" onClick={() => runAndClose(onAddNode)}>
+              <Plus className="size-4" />
+              新增节点
+            </Button>
+            <Button variant="ghost" className="h-8 justify-start px-2 text-foreground [&_svg]:text-muted-foreground" onClick={() => runAndClose(onSaveAs)}>
+              <FloppyDiskArrowOut className="size-4" />
+              另存为
+            </Button>
+            <Separator className="my-1" />
+            <div className="grid gap-1.5 px-2 py-1.5">
+              <span className="text-xs text-muted-foreground">方向</span>
+              <Select
+                value={direction}
+                onValueChange={(value) => {
+                  onDirectionChange(value as GraphDirection);
+                  onOpenChange(false);
+                }}
+              >
+                <SelectTrigger className="h-8">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {directions.map((item) => (
+                    <SelectItem key={item} value={item}>
+                      {item}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Separator className="my-1" />
+            <Button variant="ghost" className="h-8 justify-start px-2 text-foreground [&_svg]:text-muted-foreground" onClick={() => runAndClose(onToggleGrid)}>
+              <Grid3X3 className="size-4" />
+              {showGrid ? "隐藏网格" : "显示网格"}
+            </Button>
+            <Button variant="ghost" className="h-8 justify-start px-2 text-foreground [&_svg]:text-muted-foreground" onClick={() => runAndClose(onRefreshSource)}>
+              <RefreshCw className="size-4" />
+              从源码刷新
+            </Button>
+            <Button variant="ghost" className="h-8 justify-start px-2 text-foreground [&_svg]:text-muted-foreground" onClick={() => runAndClose(onResetView)}>
+              <Maximize2 className="size-4" />
+              重置画布视图
+            </Button>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function PanelHeader({ onCollapse }: { onCollapse: () => void }) {
+  return (
+    <div className="absolute right-2 top-2 z-30">
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button size="icon" variant="ghost" className="size-8 bg-card/95 text-muted-foreground hover:text-foreground" onClick={onCollapse} aria-label="收起右侧面板">
             <PanelRightClose className="size-4" />
           </Button>
         </TooltipTrigger>
-        <TooltipContent>收起右侧面板</TooltipContent>
+        <TooltipContent side="left">收起右侧面板</TooltipContent>
       </Tooltip>
     </div>
   );
 }
 
-function CollapsedRail({ side, label, onOpen }: { side: "left" | "right"; label: string; onOpen: () => void }) {
+function FloatingPanelOpenButton({ side, label, onOpen }: { side: "left" | "right"; label: string; onOpen: () => void }) {
   const Icon = side === "left" ? PanelLeftOpen : PanelRightOpen;
 
   return (
-    <section className={side === "left" ? "grid border-r bg-card" : "grid border-l bg-card"}>
-      <div className="flex flex-col items-center gap-3 py-3">
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button size="icon" variant="ghost" className="size-8" onClick={onOpen} aria-label={`展开${label}面板`}>
-              <Icon className="size-4" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>{`展开${label}面板`}</TooltipContent>
-        </Tooltip>
-        <span className="rotate-180 [writing-mode:vertical-rl] text-xs font-medium text-muted-foreground">{label}</span>
-      </div>
-    </section>
+    <div className={side === "left" ? "absolute left-2 top-3 z-30" : "absolute right-2 top-3 z-30"}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            size="icon"
+            variant="outline"
+            className="size-8 bg-card/95 text-muted-foreground shadow-sm backdrop-blur hover:text-foreground"
+            onClick={onOpen}
+            aria-label={`展开${label}面板`}
+          >
+            <Icon className="size-4" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side={side === "left" ? "right" : "left"}>{`展开${label}面板`}</TooltipContent>
+      </Tooltip>
+    </div>
   );
 }

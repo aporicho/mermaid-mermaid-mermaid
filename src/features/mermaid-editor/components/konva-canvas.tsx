@@ -1,15 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Arrow, Circle, Group, Layer, Rect, Shape, Stage, Text } from "react-konva";
 import type Konva from "konva";
 import type { KonvaEventObject } from "konva/lib/Node";
-import { CursorPointer as MousePointer2, DragHandGesture as Hand, Expand as Maximize2, Link as Link2, Network } from "iconoir-react/regular";
 
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   createEdge,
   emptySelection,
@@ -24,17 +21,19 @@ import {
 import type { CanvasEdge, CanvasNode, EditorMode, MermaidGraph, Selection, ViewportState } from "@/features/mermaid-editor/lib/editor-types";
 import { cn } from "@/lib/utils";
 
-const NODE_WIDTH = 176;
-const NODE_HEIGHT = 72;
+const NODE_CARD_RADIUS = 14;
+const NODE_MIN_CHARS = 6;
+const NODE_MAX_CHARS = 24;
 const NODE_TEXT_PADDING_X = 14;
-const NODE_TEXT_PADDING_Y = 8;
-const NODE_TEXT_WIDTH = NODE_WIDTH - NODE_TEXT_PADDING_X * 2;
-const NODE_TEXT_HEIGHT = NODE_HEIGHT - NODE_TEXT_PADDING_Y * 2;
+const NODE_TEXT_PADDING_Y = 14;
 const NODE_TEXT_FONT_SIZE = 14;
 const NODE_TEXT_LINE_HEIGHT = 18;
+const NODE_MAX_LINES = 12;
 const NODE_TEXT_FONT_FAMILY = "ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
 const GRID_STEP = 24;
 const GRID_MAJOR_STEP = GRID_STEP * 5;
+
+let textMeasureCanvas: HTMLCanvasElement | null = null;
 
 type KonvaCanvasProps = {
   graph: MermaidGraph;
@@ -57,6 +56,8 @@ type EdgeGeometry = {
   y2: number;
   midX: number;
   midY: number;
+  points: number[];
+  tension?: number;
 };
 
 type SelectionBox = {
@@ -78,10 +79,109 @@ type InlineEdit =
   | { type: "node"; id: string; value: string }
   | { type: "edge"; id: string; value: string };
 
+function edgeVisualStyle(edge: CanvasEdge) {
+  if (edge.style === "thick") return { strokeWidth: 4, dash: undefined };
+  if (edge.style === "dotted") return { strokeWidth: 2, dash: [1, 8] };
+  return { strokeWidth: 2, dash: undefined };
+}
+
+function measureNodeTextWidth(value: string) {
+  if (typeof document === "undefined") return value.length * NODE_TEXT_FONT_SIZE * 0.58;
+
+  textMeasureCanvas ??= document.createElement("canvas");
+  const context = textMeasureCanvas.getContext("2d");
+  if (!context) return value.length * NODE_TEXT_FONT_SIZE * 0.58;
+
+  context.font = `700 ${NODE_TEXT_FONT_SIZE}px ${NODE_TEXT_FONT_FAMILY}`;
+  return context.measureText(value).width;
+}
+
+function nodeCharacterWidth() {
+  return measureNodeTextWidth("中");
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function nodeTextWidth(node: CanvasNode) {
+  const minWidth = NODE_MIN_CHARS * nodeCharacterWidth();
+  const maxWidth = NODE_MAX_CHARS * nodeCharacterWidth();
+  const lineWidths = (node.label || " ").split(/\r?\n/).map((line) => measureNodeTextWidth(line || " "));
+  const preferredWidth = Math.ceil(Math.max(...lineWidths));
+
+  return clamp(preferredWidth, minWidth, maxWidth);
+}
+
+function nodeWidth(node: CanvasNode) {
+  return nodeTextWidth(node) + NODE_TEXT_PADDING_X * 2;
+}
+
+function countWrappedLines(value: string, maxWidth: number) {
+  const paragraphs = (value || " ").split(/\r?\n/);
+
+  return paragraphs.reduce((total, paragraph) => {
+    if (!paragraph) return total + 1;
+
+    let lines = 1;
+    let currentWidth = 0;
+    const tokens = paragraph.match(/\s+|[^\s]+/g) || [paragraph];
+
+    for (const token of tokens) {
+      if (/^\s+$/.test(token) && currentWidth === 0) continue;
+      const tokenWidth = measureNodeTextWidth(token);
+
+      if (tokenWidth > maxWidth) {
+        for (const character of token) {
+          const characterWidth = measureNodeTextWidth(character);
+          if (currentWidth > 0 && currentWidth + characterWidth > maxWidth) {
+            lines += 1;
+            currentWidth = characterWidth;
+          } else {
+            currentWidth += characterWidth;
+          }
+        }
+        continue;
+      }
+
+      if (currentWidth > 0 && currentWidth + tokenWidth > maxWidth) {
+        lines += 1;
+        currentWidth = /^\s+$/.test(token) ? 0 : tokenWidth;
+      } else {
+        currentWidth += tokenWidth;
+      }
+    }
+
+    return total + lines;
+  }, 0);
+}
+
+function nodeHeight(node: CanvasNode) {
+  const textHeight = Math.min(NODE_MAX_LINES, countWrappedLines(node.label, nodeTextWidth(node))) * NODE_TEXT_LINE_HEIGHT;
+  return textHeight + NODE_TEXT_PADDING_Y * 2;
+}
+
 function nodeCenter(node: CanvasNode) {
+  const width = nodeWidth(node);
+  const height = nodeHeight(node);
+
   return {
-    x: node.x + NODE_WIDTH / 2,
-    y: node.y + NODE_HEIGHT / 2
+    x: node.x + width / 2,
+    y: node.y + height / 2
+  };
+}
+
+function nodeBoundaryPoint(node: CanvasNode, toward: { x: number; y: number }, offset: number) {
+  const center = nodeCenter(node);
+  const width = nodeWidth(node);
+  const height = nodeHeight(node);
+  const dx = toward.x - center.x;
+  const dy = toward.y - center.y;
+  const scale = Math.min((width / 2) / Math.max(1, Math.abs(dx)), (height / 2) / Math.max(1, Math.abs(dy)));
+
+  return {
+    x: center.x + dx * scale + Math.sign(dx) * offset,
+    y: center.y + dy * scale + Math.sign(dy) * offset
   };
 }
 
@@ -92,24 +192,58 @@ function edgeGeometry(edge: CanvasEdge, nodes: CanvasNode[]): EdgeGeometry | nul
 
   const start = nodeCenter(from);
   const end = nodeCenter(to);
-  const dx = end.x - start.x;
-  const dy = end.y - start.y;
-  const length = Math.max(1, Math.hypot(dx, dy));
-  const ox = dx / length;
-  const oy = dy / length;
+  const startBoundary = nodeBoundaryPoint(from, end, 6);
+  const endBoundary = nodeBoundaryPoint(to, start, 10);
+  const dx = endBoundary.x - startBoundary.x;
+  const dy = endBoundary.y - startBoundary.y;
+
+  if (edge.path === "curved") {
+    const length = Math.max(1, Math.hypot(dx, dy));
+    const offset = clamp(length * 0.18, 36, 120);
+    const controlX = (startBoundary.x + endBoundary.x) / 2 - (dy / length) * offset;
+    const controlY = (startBoundary.y + endBoundary.y) / 2 + (dx / length) * offset;
+
+    return {
+      x1: startBoundary.x,
+      y1: startBoundary.y,
+      x2: endBoundary.x,
+      y2: endBoundary.y,
+      midX: controlX,
+      midY: controlY,
+      points: [startBoundary.x, startBoundary.y, controlX, controlY, endBoundary.x, endBoundary.y],
+      tension: 0.45
+    };
+  }
+
+  if (edge.path === "orthogonal") {
+    const midX = startBoundary.x + dx / 2;
+
+    return {
+      x1: startBoundary.x,
+      y1: startBoundary.y,
+      x2: endBoundary.x,
+      y2: endBoundary.y,
+      midX,
+      midY: startBoundary.y + dy / 2,
+      points: [startBoundary.x, startBoundary.y, midX, startBoundary.y, midX, endBoundary.y, endBoundary.x, endBoundary.y]
+    };
+  }
 
   return {
-    x1: start.x + ox * (NODE_WIDTH / 2 + 6),
-    y1: start.y + oy * (NODE_HEIGHT / 2 + 6),
-    x2: end.x - ox * (NODE_WIDTH / 2 + 10),
-    y2: end.y - oy * (NODE_HEIGHT / 2 + 10),
+    x1: startBoundary.x,
+    y1: startBoundary.y,
+    x2: endBoundary.x,
+    y2: endBoundary.y,
     midX: (start.x + end.x) / 2,
-    midY: (start.y + end.y) / 2
+    midY: (start.y + end.y) / 2,
+    points: [startBoundary.x, startBoundary.y, endBoundary.x, endBoundary.y]
   };
 }
 
 function pointInsideNode(point: { x: number; y: number }, node: CanvasNode) {
-  return point.x >= node.x && point.x <= node.x + NODE_WIDTH && point.y >= node.y && point.y <= node.y + NODE_HEIGHT;
+  const width = nodeWidth(node);
+  const height = nodeHeight(node);
+  return point.x >= node.x && point.x <= node.x + width && point.y >= node.y && point.y <= node.y + height;
 }
 
 function normalizeBox(box: SelectionBox) {
@@ -122,15 +256,20 @@ function normalizeBox(box: SelectionBox) {
 
 function nodeIntersectsBox(node: CanvasNode, box: SelectionBox) {
   const rect = normalizeBox(box);
-  return node.x < rect.x + rect.width && node.x + NODE_WIDTH > rect.x && node.y < rect.y + rect.height && node.y + NODE_HEIGHT > rect.y;
+  const width = nodeWidth(node);
+  const height = nodeHeight(node);
+  return node.x < rect.x + rect.width && node.x + width > rect.x && node.y < rect.y + rect.height && node.y + height > rect.y;
 }
 
 function anchorPoints(node: CanvasNode) {
+  const width = nodeWidth(node);
+  const height = nodeHeight(node);
+
   return [
-    { key: "top", x: node.x + NODE_WIDTH / 2, y: node.y },
-    { key: "right", x: node.x + NODE_WIDTH, y: node.y + NODE_HEIGHT / 2 },
-    { key: "bottom", x: node.x + NODE_WIDTH / 2, y: node.y + NODE_HEIGHT },
-    { key: "left", x: node.x, y: node.y + NODE_HEIGHT / 2 }
+    { key: "top", x: node.x + width / 2, y: node.y },
+    { key: "right", x: node.x + width, y: node.y + height / 2 },
+    { key: "bottom", x: node.x + width / 2, y: node.y + height },
+    { key: "left", x: node.x, y: node.y + height / 2 }
   ];
 }
 
@@ -156,14 +295,21 @@ export function KonvaCanvas({
   const [selectionBox, setSelectionBox] = useState<SelectionBox | null>(null);
   const [connectionDraft, setConnectionDraft] = useState<ConnectionDraft | null>(null);
   const [inlineEdit, setInlineEdit] = useState<InlineEdit | null>(null);
-  const [nodeEditorInsetTop, setNodeEditorInsetTop] = useState(0);
+  const [nodeEditorLayout, setNodeEditorLayout] = useState({ insetTop: 0, height: NODE_TEXT_LINE_HEIGHT, scrollable: false });
   const nodeEditorRef = useRef<HTMLTextAreaElement>(null);
+  const nodeEditorMeasureRef = useRef<HTMLDivElement>(null);
 
   const selectedNodeIds = useMemo(() => new Set(selection.nodeIds), [selection.nodeIds]);
   const selectedEdgeIds = useMemo(() => new Set(selection.edgeIds), [selection.edgeIds]);
+  const renderedNodes = useMemo(
+    () =>
+      inlineEdit?.type === "node"
+        ? graph.nodes.map((node) => (node.id === inlineEdit.id ? { ...node, label: inlineEdit.value } : node))
+        : graph.nodes,
+    [graph.nodes, inlineEdit]
+  );
   const selectedSingleEdge = selection.edgeIds.length === 1 ? graph.edges.find((edge) => edge.id === selection.edgeIds[0]) : undefined;
-  const selectedSingleEdgeGeometry = selectedSingleEdge ? edgeGeometry(selectedSingleEdge, graph.nodes) : null;
-  const ModeIcon = mode === "connect" ? Link2 : mode === "pan" ? Hand : MousePointer2;
+  const selectedSingleEdgeGeometry = selectedSingleEdge ? edgeGeometry(selectedSingleEdge, renderedNodes) : null;
 
   useEffect(() => {
     if (inlineEdit?.type !== "node") return;
@@ -173,17 +319,6 @@ export function KonvaCanvas({
     editor.focus();
     editor.select();
   }, [inlineEdit?.id, inlineEdit?.type]);
-
-  useEffect(() => {
-    if (inlineEdit?.type !== "node") return;
-    const editor = nodeEditorRef.current;
-    if (!editor) return;
-
-    editor.style.paddingTop = "0px";
-    editor.style.paddingBottom = "0px";
-    const inset = Math.max(0, Math.floor((editor.clientHeight - editor.scrollHeight) / 2));
-    setNodeEditorInsetTop(inset);
-  }, [inlineEdit?.id, inlineEdit?.type, inlineEdit?.value, viewport.scale]);
 
   useEffect(() => {
     function isTextInput(target: EventTarget | null) {
@@ -224,24 +359,6 @@ export function KonvaCanvas({
       x: viewport.x + point.x * viewport.scale,
       y: viewport.y + point.y * viewport.scale
     };
-  }
-
-  function fitToGraph() {
-    if (!containerRef.current || graph.nodes.length === 0) return;
-    const minX = Math.min(...graph.nodes.map((node) => node.x));
-    const minY = Math.min(...graph.nodes.map((node) => node.y));
-    const maxX = Math.max(...graph.nodes.map((node) => node.x + NODE_WIDTH));
-    const maxY = Math.max(...graph.nodes.map((node) => node.y + NODE_HEIGHT));
-    const padding = 84;
-    const width = containerRef.current.clientWidth;
-    const height = containerRef.current.clientHeight;
-    const scale = Math.min(1.35, Math.max(0.35, Math.min(width / (maxX - minX + padding * 2), height / (maxY - minY + padding * 2))));
-
-    onViewportChange({
-      scale,
-      x: padding - minX * scale,
-      y: padding - minY * scale
-    });
   }
 
   function onWheel(event: KonvaEventObject<WheelEvent>) {
@@ -337,14 +454,17 @@ export function KonvaCanvas({
   function inlineEditStyle() {
     if (!inlineEdit) return null;
     if (inlineEdit.type === "node") {
-      const node = graph.nodes.find((item) => item.id === inlineEdit.id);
+      const node = renderedNodes.find((item) => item.id === inlineEdit.id);
       if (!node) return null;
+      const height = nodeHeight(node);
+      const textWidth = nodeTextWidth(node);
+      const textHeight = height - NODE_TEXT_PADDING_Y * 2;
       const screen = worldToScreen({ x: node.x + NODE_TEXT_PADDING_X, y: node.y + NODE_TEXT_PADDING_Y });
       return {
         left: screen.x,
         top: screen.y,
-        width: NODE_TEXT_WIDTH * viewport.scale,
-        height: NODE_TEXT_HEIGHT * viewport.scale
+        width: textWidth * viewport.scale,
+        height: textHeight * viewport.scale
       };
     }
 
@@ -362,38 +482,29 @@ export function KonvaCanvas({
 
   const editStyle = inlineEditStyle();
 
-  return (
-    <section className="grid min-h-0 grid-rows-[42px_minmax(0,1fr)] bg-card">
-      <header className="flex items-center justify-between border-b px-3">
-        <div className="flex items-center gap-2 text-muted-foreground">
-          <Network className="size-4" />
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div className="grid size-7 place-items-center rounded-md bg-muted/60">
-                <ModeIcon className="size-4" />
-              </div>
-            </TooltipTrigger>
-            <TooltipContent>{mode === "connect" ? "连线模式" : mode === "pan" ? "平移模式" : "选择模式"}</TooltipContent>
-          </Tooltip>
-        </div>
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <span>{graph.nodes.length}N</span>
-          <span>{graph.edges.length}E</span>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button type="button" size="icon" variant="ghost" className="size-8" onClick={fitToGraph} aria-label="适配视图">
-                <Maximize2 className="size-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>适配视图</TooltipContent>
-          </Tooltip>
-        </div>
-      </header>
+  useLayoutEffect(() => {
+    if (inlineEdit?.type !== "node" || !editStyle) return;
+    const measure = nodeEditorMeasureRef.current;
+    if (!measure) return;
 
+    const minimumHeight = NODE_TEXT_LINE_HEIGHT * viewport.scale;
+    const measuredHeight = Math.max(minimumHeight, Math.ceil(measure.scrollHeight));
+    const height = Math.min(editStyle.height, measuredHeight);
+    const insetTop = Math.max(0, Math.floor((editStyle.height - height) / 2));
+    const scrollable = measuredHeight > editStyle.height;
+
+    setNodeEditorLayout((current) => {
+      if (current.height === height && current.insetTop === insetTop && current.scrollable === scrollable) return current;
+      return { height, insetTop, scrollable };
+    });
+  }, [editStyle, inlineEdit?.type, inlineEdit?.value, viewport.scale]);
+
+  return (
+    <section className="relative h-full min-h-0 bg-card">
       <div
         ref={containerRef}
         className={cn(
-          "relative min-h-0 overflow-hidden bg-background",
+          "relative h-full min-h-0 overflow-hidden bg-background",
           mode === "pan" && "cursor-grab",
           mode === "connect" && "cursor-crosshair",
           mode === "select" && "cursor-default"
@@ -413,9 +524,12 @@ export function KonvaCanvas({
             if (event.target !== event.target.getStage()) return;
             const point = pointerWorldPoint();
             if (!point) return;
+            const newNode = { id: "", label: "新节点", x: 0, y: 0, fill: "#ffffff" };
+            const newNodeWidth = nodeWidth(newNode);
+            const newNodeHeight = nodeHeight(newNode);
             onAddNodeAt({
-              x: point.x - NODE_WIDTH / 2,
-              y: point.y - NODE_HEIGHT / 2
+              x: point.x - newNodeWidth / 2,
+              y: point.y - newNodeHeight / 2
             });
           }}
           onMouseDown={(event) => {
@@ -465,7 +579,7 @@ export function KonvaCanvas({
             if (selectionBox) {
               const rect = normalizeBox(selectionBox);
               if (rect.width > 4 || rect.height > 4) {
-                const nodeIds = graph.nodes.filter((node) => nodeIntersectsBox(node, selectionBox)).map((node) => node.id);
+                const nodeIds = renderedNodes.filter((node) => nodeIntersectsBox(node, selectionBox)).map((node) => node.id);
                 onSelectionChange({ nodeIds, edgeIds: [], primaryId: nodeIds[0] });
               } else {
                 onSelectionChange(emptySelection);
@@ -483,14 +597,16 @@ export function KonvaCanvas({
 
           <Layer>
             {graph.edges.map((edge) => {
-              const geometry = edgeGeometry(edge, graph.nodes);
+              const geometry = edgeGeometry(edge, renderedNodes);
               if (!geometry) return null;
               const isSelected = selectedEdgeIds.has(edge.id);
+              const visualStyle = edgeVisualStyle(edge);
 
               return (
                 <Group key={edge.id}>
                   <Arrow
-                    points={[geometry.x1, geometry.y1, geometry.x2, geometry.y2]}
+                    points={geometry.points}
+                    tension={geometry.tension}
                     stroke="transparent"
                     fill="transparent"
                     strokeWidth={18}
@@ -508,10 +624,14 @@ export function KonvaCanvas({
                     onTap={() => onSelectionChange(selectOnlyEdge(edge.id))}
                   />
                   <Arrow
-                    points={[geometry.x1, geometry.y1, geometry.x2, geometry.y2]}
+                    points={geometry.points}
+                    tension={geometry.tension}
                     stroke={isSelected ? "#1f7a68" : "#526766"}
                     fill={isSelected ? "#1f7a68" : "#526766"}
-                    strokeWidth={isSelected ? 3 : 2}
+                    strokeWidth={isSelected ? visualStyle.strokeWidth + 1 : visualStyle.strokeWidth}
+                    dash={visualStyle.dash}
+                    lineCap="round"
+                    lineJoin="round"
                     pointerLength={10}
                     pointerWidth={10}
                     listening={false}
@@ -546,9 +666,13 @@ export function KonvaCanvas({
               );
             })}
 
-            {graph.nodes.map((node) => {
+            {renderedNodes.map((node) => {
               const isSelected = selectedNodeIds.has(node.id);
               const showAnchors = mode === "connect" || hoveredNodeId === node.id || isSelected;
+              const width = nodeWidth(node);
+              const textWidth = nodeTextWidth(node);
+              const height = nodeHeight(node);
+              const textHeight = height - NODE_TEXT_PADDING_Y * 2;
 
               return (
                 <Group key={node.id}>
@@ -580,21 +704,18 @@ export function KonvaCanvas({
                     }}
                   >
                     <Rect
-                      width={NODE_WIDTH}
-                      height={NODE_HEIGHT}
-                      cornerRadius={8}
+                      width={width}
+                      height={height}
+                      cornerRadius={NODE_CARD_RADIUS}
                       fill={node.fill}
                       stroke={isSelected ? "#1f7a68" : "#b8c8c4"}
-                      strokeWidth={isSelected ? 2 : 1}
-                      shadowColor="rgba(24,39,38,0.18)"
-                      shadowBlur={isSelected ? 18 : 12}
-                      shadowOffsetY={6}
+                      strokeWidth={1}
                     />
                     <Text
                       x={NODE_TEXT_PADDING_X}
                       y={NODE_TEXT_PADDING_Y}
-                      width={NODE_TEXT_WIDTH}
-                      height={NODE_TEXT_HEIGHT}
+                      width={textWidth}
+                      height={textHeight}
                       align="center"
                       verticalAlign="middle"
                       text={node.label}
@@ -679,40 +800,57 @@ export function KonvaCanvas({
         </Stage>
 
         {inlineEdit?.type === "node" && editStyle ? (
-          <Textarea
-            ref={nodeEditorRef}
-            value={inlineEdit.value}
-            className="absolute z-20 min-h-0 resize-none overflow-hidden rounded-none border-0 bg-transparent px-0 text-center font-semibold text-[#172022] shadow-none outline-none ring-0 focus-visible:ring-0 focus-visible:ring-offset-0"
-            style={{
-              left: editStyle.left,
-              top: editStyle.top,
-              width: editStyle.width,
-              height: editStyle.height,
-              paddingTop: nodeEditorInsetTop,
-              paddingBottom: 0,
-              fontFamily: NODE_TEXT_FONT_FAMILY,
-              fontSize: NODE_TEXT_FONT_SIZE * viewport.scale,
-              lineHeight: `${NODE_TEXT_LINE_HEIGHT * viewport.scale}px`,
-              overflowWrap: "break-word",
-              wordBreak: "break-word"
-            }}
-            onChange={(event) => setInlineEdit({ ...inlineEdit, value: event.target.value })}
-            onBlur={() => commitInlineEdit(true)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter" && !event.shiftKey) {
-                event.preventDefault();
-                commitInlineEdit(true);
-              }
-              if (event.key === "Escape") commitInlineEdit(false);
-            }}
-          />
+          <>
+            <div
+              ref={nodeEditorMeasureRef}
+              aria-hidden="true"
+              className="pointer-events-none absolute -left-[9999px] top-0 whitespace-pre-wrap text-center font-bold"
+              style={{
+                width: editStyle.width,
+                fontFamily: NODE_TEXT_FONT_FAMILY,
+                fontSize: NODE_TEXT_FONT_SIZE * viewport.scale,
+                lineHeight: `${NODE_TEXT_LINE_HEIGHT * viewport.scale}px`,
+                overflowWrap: "break-word",
+                wordBreak: "break-word",
+                visibility: "hidden"
+              }}
+            >
+              {inlineEdit.value || "\u200b"}
+            </div>
+            <Textarea
+              ref={nodeEditorRef}
+              value={inlineEdit.value}
+              className="absolute z-40 block min-h-0 resize-none overflow-x-hidden rounded-none border-0 bg-transparent p-0 text-center font-bold text-[#172022] shadow-none outline-none ring-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+              style={{
+                left: editStyle.left,
+                top: editStyle.top + nodeEditorLayout.insetTop,
+                width: editStyle.width,
+                height: nodeEditorLayout.height,
+                fontFamily: NODE_TEXT_FONT_FAMILY,
+                fontSize: NODE_TEXT_FONT_SIZE * viewport.scale,
+                lineHeight: `${NODE_TEXT_LINE_HEIGHT * viewport.scale}px`,
+                overflowWrap: "break-word",
+                wordBreak: "break-word",
+                overflowY: nodeEditorLayout.scrollable ? "auto" : "hidden"
+              }}
+              onChange={(event) => setInlineEdit({ ...inlineEdit, value: event.target.value })}
+              onBlur={() => commitInlineEdit(true)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
+                  event.preventDefault();
+                  commitInlineEdit(true);
+                }
+                if (event.key === "Escape") commitInlineEdit(false);
+              }}
+            />
+          </>
         ) : null}
 
         {inlineEdit?.type === "edge" && editStyle ? (
           <Input
             autoFocus
             value={inlineEdit.value}
-            className="absolute z-20 h-9 rounded-md bg-card px-2 text-sm shadow-lg"
+            className="absolute z-40 h-9 rounded-md bg-card px-2 text-sm shadow-lg"
             style={{
               left: editStyle.left,
               top: editStyle.top,

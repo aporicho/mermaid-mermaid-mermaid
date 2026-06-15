@@ -1,4 +1,4 @@
-import type { CanvasEdge, CanvasNode, GraphDirection, MermaidGraph } from "@/features/mermaid-editor/lib/editor-types";
+import type { CanvasEdge, CanvasNode, EdgePath, EdgeStyle, GraphDirection, MermaidGraph } from "@/features/mermaid-editor/lib/editor-types";
 
 const NODE_COLORS = [
   "#ffffff",
@@ -43,6 +43,23 @@ function parseNodeToken(raw: string) {
     id: match[1],
     label: normalizeLabel(match[2] || match[3] || match[4] || match[5] || match[6] || match[7] || "")
   };
+}
+
+function styleFromEdgeOperator(operator: string): EdgeStyle {
+  if (operator.includes("=")) return "thick";
+  if (operator.includes(".")) return "dotted";
+  return "solid";
+}
+
+function edgeOperatorFromStyle(style: EdgeStyle) {
+  if (style === "thick") return "==>";
+  if (style === "dotted") return "-.->";
+  return "-->";
+}
+
+function previousEdgePath(previous: MermaidGraph | undefined, index: number, from: string, to: string): EdgePath {
+  const edge = previous?.edges[index];
+  return edge?.from === from && edge.to === to ? edge.path : "straight";
 }
 
 export function toSafeNodeId(value: string, existingIds: string[], fallback = "Node") {
@@ -93,7 +110,7 @@ export function parseMermaid(source: string, previous?: MermaidGraph): MermaidGr
     const clean = line.trim();
     if (!clean || clean.startsWith("%%") || /^(flowchart|graph)\s+/i.test(clean)) continue;
 
-    const edgeMatch = clean.match(/^(.*?)\s*(-{1,3}>|={1,3}>|-->|---)\s*(.*)$/);
+    const edgeMatch = clean.match(/^(.*?)\s*(-\.->|-{2,3}>|={2,3}>|-{3}|={3})\s*(.*)$/);
     if (edgeMatch) {
       const left = parseNodeToken(edgeMatch[1]);
       let rightRaw = edgeMatch[3].trim().replace(/;$/, "");
@@ -113,7 +130,9 @@ export function parseMermaid(source: string, previous?: MermaidGraph): MermaidGr
           id: `${left.id}_${right.id}_${edges.length}`,
           from: left.id,
           to: right.id,
-          label
+          label,
+          style: styleFromEdgeOperator(edgeMatch[2]),
+          path: previousEdgePath(previous, edges.length, left.id, right.id)
         });
       }
       continue;
@@ -145,7 +164,8 @@ export function serializeMermaid(graph: MermaidGraph) {
 
     connected.add(from.id);
     connected.add(to.id);
-    const edgeText = edge.label ? `-->|${escapeMermaidLabel(edge.label)}|` : "-->";
+    const operator = edgeOperatorFromStyle(edge.style || "solid");
+    const edgeText = edge.label ? `${operator}|${escapeMermaidLabel(edge.label)}|` : operator;
     lines.push(
       `  ${from.id}["${escapeMermaidLabel(from.label)}"] ${edgeText} ${to.id}["${escapeMermaidLabel(to.label)}"]`
     );

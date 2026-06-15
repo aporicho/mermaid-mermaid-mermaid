@@ -1,6 +1,6 @@
 "use client";
 
-import { ControlSlider as SlidersHorizontal, KeyCommand as Keyboard, Link as Link2, Trash as Trash2 } from "iconoir-react/regular";
+import { ControlSlider as SlidersHorizontal, PathArrow, Trash as Trash2 } from "iconoir-react/regular";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import type { CanvasEdge, CanvasNode, MermaidGraph, Selection } from "@/features/mermaid-editor/lib/editor-types";
+import type { CanvasEdge, CanvasNode, EdgePath, EdgeStyle, MermaidGraph, Selection } from "@/features/mermaid-editor/lib/editor-types";
 import { createEdge, renameNode, selectOnlyEdge, updateEdge, updateNodeFill, updateNodeLabel } from "@/features/mermaid-editor/lib/editor-actions";
 import { palette } from "@/features/mermaid-editor/lib/mermaid-graph";
 import { cn } from "@/lib/utils";
@@ -20,6 +20,18 @@ type InspectorPanelProps = {
   onSelectionChange: (selection: Selection) => void;
   onDelete: () => void;
 };
+
+const edgeStyleOptions: { value: EdgeStyle; label: string }[] = [
+  { value: "solid", label: "实线" },
+  { value: "thick", label: "粗线" },
+  { value: "dotted", label: "点线" }
+];
+
+const edgePathOptions: { value: EdgePath; label: string }[] = [
+  { value: "straight", label: "直线" },
+  { value: "curved", label: "曲线" },
+  { value: "orthogonal", label: "折线" }
+];
 
 export function InspectorPanel({ graph, selection, onGraphChange, onSelectionChange, onDelete }: InspectorPanelProps) {
   const selectedNodes = graph.nodes.filter((node) => selection.nodeIds.includes(node.id));
@@ -60,9 +72,10 @@ export function InspectorPanel({ graph, selection, onGraphChange, onSelectionCha
   }
 
   return (
-    <section className="grid min-h-0 grid-rows-[42px_minmax(0,1fr)]">
-      <header className="flex items-center border-b px-3 text-sm font-semibold">
+    <section className="grid h-full min-h-0 grid-rows-[42px_minmax(0,1fr)]">
+      <header className="flex items-center gap-2 border-b bg-card/95 px-3 pr-12 text-sm font-medium">
         <SlidersHorizontal className="size-4 text-muted-foreground" />
+        检查器
       </header>
       <ScrollArea className="min-h-0">
         <div className="grid gap-4 p-4">
@@ -84,11 +97,11 @@ export function InspectorPanel({ graph, selection, onGraphChange, onSelectionCha
               </div>
               <ColorGrid activeFill={selectedNode.fill} onPick={(fill) => updateNode(selectedNode.id, { fill })} />
               <Separator />
-              <Button variant="outline" onClick={() => addEdgeFrom(selectedNode)} disabled={graph.nodes.length < 2}>
-                <Link2 className="size-4" />
+              <Button variant="outline" className="h-8 justify-start px-2" onClick={() => addEdgeFrom(selectedNode)} disabled={graph.nodes.length < 2}>
+                <PathArrow className="size-4" />
                 从此节点连线
               </Button>
-              <Button variant="destructive" onClick={onDelete}>
+              <Button variant="destructive" className="h-8 justify-start px-2" onClick={onDelete}>
                 <Trash2 className="size-4" />
                 删除节点
               </Button>
@@ -102,7 +115,7 @@ export function InspectorPanel({ graph, selection, onGraphChange, onSelectionCha
               </div>
               <ColorGrid activeFill={allSameFill(selectedNodes) ? selectedNodes[0].fill : ""} onPick={batchFill} />
               <Separator />
-              <Button variant="destructive" onClick={onDelete}>
+              <Button variant="destructive" className="h-8 justify-start px-2" onClick={onDelete}>
                 <Trash2 className="size-4" />
                 删除选中节点
               </Button>
@@ -150,12 +163,42 @@ export function InspectorPanel({ graph, selection, onGraphChange, onSelectionCha
                   placeholder="可留空"
                 />
               </div>
+              <div className="grid gap-2">
+                <Label>连线样式</Label>
+                <Select value={selectedEdge.style || "solid"} onValueChange={(value) => updateSelectedEdge(selectedEdge.id, { style: value as EdgeStyle })}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {edgeStyleOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-2">
+                <Label>走线算法</Label>
+                <Select value={selectedEdge.path || "straight"} onValueChange={(value) => updateSelectedEdge(selectedEdge.id, { path: value as EdgePath })}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {edgePathOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               <Separator />
-              <Button variant="outline" onClick={() => onSelectionChange(selectOnlyEdge(selectedEdge.id))}>
-                <Link2 className="size-4" />
+              <Button variant="outline" className="h-8 justify-start px-2" onClick={() => onSelectionChange(selectOnlyEdge(selectedEdge.id))}>
+                <PathArrow className="size-4" />
                 选中连线
               </Button>
-              <Button variant="destructive" onClick={onDelete}>
+              <Button variant="destructive" className="h-8 justify-start px-2" onClick={onDelete}>
                 <Trash2 className="size-4" />
                 删除连线
               </Button>
@@ -189,17 +232,8 @@ function ColorGrid({ activeFill, onPick }: { activeFill: string; onPick: (fill: 
 
 function EmptyInspector() {
   return (
-    <div className="grid gap-3 text-sm leading-6 text-muted-foreground">
+    <div className="text-sm leading-6 text-muted-foreground">
       <p>选择节点或连线后，可以编辑文本、颜色和连接关系。</p>
-      <div className="rounded-md border bg-muted/30 p-3">
-        <div className="mb-2 flex items-center gap-2 font-medium text-foreground">
-          <Keyboard className="size-4" />
-          快捷键
-        </div>
-        <p>V 选择，L 连线，H 平移，Space 临时平移。</p>
-        <p>Ctrl+C / Ctrl+V 复制粘贴，Delete 删除。</p>
-        <p>Ctrl+Z 撤销，Ctrl+Shift+Z 或 Ctrl+Y 重做。</p>
-      </div>
     </div>
   );
 }
