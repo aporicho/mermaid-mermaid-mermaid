@@ -9,7 +9,10 @@ export type CanvasNode = {
 };
 
 export type EdgeStyle = "solid" | "thick" | "dotted";
-export type EdgePath = "straight" | "curved" | "orthogonal";
+export type EdgeRouting = "straight" | "bezier" | "smooth-step" | "orthogonal";
+export type LegacyEdgePath = "straight" | "curved" | "orthogonal";
+
+export const DEFAULT_EDGE_ROUTING: EdgeRouting = "smooth-step";
 
 export type CanvasEdge = {
   id: string;
@@ -17,7 +20,6 @@ export type CanvasEdge = {
   to: string;
   label: string;
   style: EdgeStyle;
-  path: EdgePath;
 };
 
 export type MermaidGraph = {
@@ -47,11 +49,12 @@ export type CanvasLayoutNode = {
 };
 
 export type CanvasLayoutEdge = {
-  path?: EdgePath;
+  path?: LegacyEdgePath;
 };
 
 export type CanvasLayout = {
   version: 1;
+  edgeRouting?: EdgeRouting;
   nodes: Record<string, CanvasLayoutNode>;
   edges?: Record<string, CanvasLayoutEdge>;
   viewport: ViewportState;
@@ -67,6 +70,7 @@ export type EditorSnapshot = {
   graph: MermaidGraph;
   selection: Selection;
   viewport: ViewportState;
+  edgeRouting: EdgeRouting;
 };
 
 export type EditorHistory = {

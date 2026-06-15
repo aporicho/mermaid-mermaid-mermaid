@@ -1,4 +1,4 @@
-import type { CanvasEdge, CanvasNode, EdgePath, EdgeStyle, GraphDirection, MermaidGraph } from "@/features/mermaid-editor/lib/editor-types";
+import type { CanvasEdge, CanvasNode, EdgeStyle, GraphDirection, MermaidGraph } from "@/features/mermaid-editor/lib/editor-types";
 
 const NODE_COLORS = [
   "#ffffff",
@@ -55,11 +55,6 @@ function edgeOperatorFromStyle(style: EdgeStyle) {
   if (style === "thick") return "==>";
   if (style === "dotted") return "-.->";
   return "-->";
-}
-
-function previousEdgePath(previous: MermaidGraph | undefined, index: number, from: string, to: string): EdgePath {
-  const edge = previous?.edges[index];
-  return edge?.from === from && edge.to === to ? edge.path : "straight";
 }
 
 export function toSafeNodeId(value: string, existingIds: string[], fallback = "Node") {
@@ -131,8 +126,7 @@ export function parseMermaid(source: string, previous?: MermaidGraph): MermaidGr
           from: left.id,
           to: right.id,
           label,
-          style: styleFromEdgeOperator(edgeMatch[2]),
-          path: previousEdgePath(previous, edges.length, left.id, right.id)
+          style: styleFromEdgeOperator(edgeMatch[2])
         });
       }
       continue;

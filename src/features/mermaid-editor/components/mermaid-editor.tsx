@@ -11,6 +11,7 @@ import {
   Folder,
   GitBranch as Workflow,
   MoreHoriz,
+  PathArrow,
   Plus,
   Refresh as RefreshCw,
   SidebarCollapse as PanelRightClose,
@@ -27,7 +28,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { applyLayout, layoutFromGraph, parseCanvasLayout, stripCanvasLayout } from "@/features/mermaid-editor/lib/canvas-layout";
+import { applyLayout, edgeRoutingFromLayout, layoutFromGraph, parseCanvasLayout, stripCanvasLayout } from "@/features/mermaid-editor/lib/canvas-layout";
 import { buildMermaidDocument, loadMermaidDocument } from "@/features/mermaid-editor/lib/mermaid-document";
 import {
   addNode as addNodeAction,
@@ -40,8 +41,9 @@ import {
   setMode as setEditorMode
 } from "@/features/mermaid-editor/lib/editor-actions";
 import { createHistory, pushHistory, redo, undo } from "@/features/mermaid-editor/lib/editor-history";
-import type { ClipboardPayload, EditorHistory, EditorMode, EditorSnapshot, GraphDirection, MermaidGraph, Selection, ViewportState } from "@/features/mermaid-editor/lib/editor-types";
+import type { ClipboardPayload, EdgeRouting, EditorHistory, EditorMode, EditorSnapshot, GraphDirection, MermaidGraph, Selection, ViewportState } from "@/features/mermaid-editor/lib/editor-types";
 import type { CanvasLayout } from "@/features/mermaid-editor/lib/editor-types";
+import { DEFAULT_EDGE_ROUTING } from "@/features/mermaid-editor/lib/editor-types";
 import { initialMermaidSource, parseMermaid, serializeMermaid } from "@/features/mermaid-editor/lib/mermaid-graph";
 
 const STORAGE_KEY = "mermaid-canvas-editor:v1";
@@ -52,6 +54,12 @@ const KonvaCanvas = dynamic(() => import("@/features/mermaid-editor/components/k
 });
 
 const directions: GraphDirection[] = ["LR", "TD", "TB", "RL", "BT"];
+const edgeRoutingOptions: { value: EdgeRouting; label: string }[] = [
+  { value: "smooth-step", label: "圆角折线" },
+  { value: "straight", label: "直线" },
+  { value: "bezier", label: "曲线" },
+  { value: "orthogonal", label: "正交折线" }
+];
 type WorkspaceView = "canvas" | "render";
 const FALLBACK_FILE_NAME = "diagram.mmd";
 const FILE_PICKER_TYPES = [
@@ -66,6 +74,7 @@ const FILE_PICKER_TYPES = [
 type StoredEditor = {
   source: string;
   layout?: CanvasLayout;
+  edgeRouting?: EdgeRouting;
   viewport: ViewportState;
   leftCollapsed: boolean;
   rightCollapsed: boolean;
@@ -100,6 +109,7 @@ function loadInitialState() {
       source: fallbackSource,
       graph: fallbackGraph,
       viewport: fallbackViewport,
+      edgeRouting: DEFAULT_EDGE_ROUTING,
       leftCollapsed: false,
       rightCollapsed: false,
       workspaceView: "canvas" as WorkspaceView,
@@ -118,11 +128,13 @@ function loadInitialState() {
     const parsedGraph = parseMermaid(source);
     const graph = applyLayout(parsedGraph, layout);
     const viewport = stored.viewport || layout?.viewport || fallbackViewport;
+    const edgeRouting = stored.edgeRouting || edgeRoutingFromLayout(layout);
 
     return {
       source,
       graph,
       viewport,
+      edgeRouting,
       leftCollapsed: stored.leftCollapsed || false,
       rightCollapsed: stored.rightCollapsed || false,
       workspaceView: stored.workspaceView || "canvas",
@@ -134,6 +146,7 @@ function loadInitialState() {
       source: fallbackSource,
       graph: fallbackGraph,
       viewport: fallbackViewport,
+      edgeRouting: DEFAULT_EDGE_ROUTING,
       leftCollapsed: false,
       rightCollapsed: false,
       workspaceView: "canvas" as WorkspaceView,
@@ -150,6 +163,10 @@ function ensureMermaidFileName(value: string | undefined) {
 
 function isAbortError(error: unknown) {
   return error instanceof DOMException && error.name === "AbortError";
+}
+
+function edgeRoutingLabel(edgeRouting: EdgeRouting) {
+  return edgeRoutingOptions.find((option) => option.value === edgeRouting)?.label || "圆角折线";
 }
 
 async function writeDocumentToHandle(handle: MermaidFileHandle, documentText: string) {
@@ -174,6 +191,7 @@ export function MermaidEditor() {
   const [graph, setGraph] = useState<MermaidGraph>(initial.graph);
   const [selection, setSelection] = useState<Selection>(emptySelection);
   const [viewport, setViewport] = useState<ViewportState>(initial.viewport);
+  const [edgeRouting, setEdgeRouting] = useState<EdgeRouting>(initial.edgeRouting);
   const [mode, setMode] = useState<EditorMode>("select");
   const [spacePanning, setSpacePanning] = useState(false);
   const [history, setHistory] = useState<EditorHistory>(() => createHistory());
@@ -192,12 +210,12 @@ export function MermaidEditor() {
   const sourceEditTimerRef = useRef<number | null>(null);
 
   const effectiveMode = spacePanning ? "pan" : mode;
-  const currentDocument = useMemo(() => buildMermaidDocument(source, graph, viewport), [source, graph, viewport]);
+  const currentDocument = useMemo(() => buildMermaidDocument(source, graph, viewport, edgeRouting), [source, graph, viewport, edgeRouting]);
   const isDirty = !lastSavedDocument || currentDocument !== lastSavedDocument;
   const fileLabel = `${fileName || FALLBACK_FILE_NAME}${isDirty ? " *" : ""}`;
 
   function snapshot(): EditorSnapshot {
-    return { source, graph, selection, viewport };
+    return { source, graph, selection, viewport, edgeRouting };
   }
 
   function restoreSnapshot(next: EditorSnapshot) {
@@ -205,6 +223,7 @@ export function MermaidEditor() {
     setGraph(next.graph);
     setSelection(next.selection);
     setViewport(next.viewport);
+    setEdgeRouting(next.edgeRouting);
   }
 
   function flushSourceHistory() {
@@ -244,6 +263,7 @@ export function MermaidEditor() {
     setSelection(emptySelection);
     setStatus("源码已解析到画布。");
 
+    if (legacyLayout) setEdgeRouting(edgeRoutingFromLayout(legacyLayout));
     if (legacyLayout?.viewport) setViewport(legacyLayout.viewport);
     if (sourceEditTimerRef.current) window.clearTimeout(sourceEditTimerRef.current);
     sourceEditTimerRef.current = window.setTimeout(() => {
@@ -263,6 +283,14 @@ export function MermaidEditor() {
 
   function updateDirection(direction: GraphDirection) {
     commitGraph({ ...graph, direction }, selection, `方向已切换为 ${direction}。`);
+  }
+
+  function updateEdgeRouting(nextEdgeRouting: EdgeRouting) {
+    if (nextEdgeRouting === edgeRouting) return;
+    flushSourceHistory();
+    setHistory((current) => pushHistory(current, snapshot()));
+    setEdgeRouting(nextEdgeRouting);
+    setStatus(`连线形状已切换为${edgeRoutingLabel(nextEdgeRouting)}。`);
   }
 
   function refreshFromSource() {
@@ -331,11 +359,12 @@ export function MermaidEditor() {
     flushSourceHistory();
     const loaded = loadMermaidDocument(text);
     const nextViewport = loaded.viewport || { x: 160, y: 90, scale: 1 };
-    const savedDocument = buildMermaidDocument(loaded.source, loaded.graph, nextViewport);
+    const savedDocument = buildMermaidDocument(loaded.source, loaded.graph, nextViewport, loaded.edgeRouting);
 
     setSource(loaded.source);
     setGraph(loaded.graph);
     setViewport(nextViewport);
+    setEdgeRouting(loaded.edgeRouting);
     setSelection(emptySelection);
     setHistory(createHistory());
     setFileName(ensureMermaidFileName(name));
@@ -456,8 +485,9 @@ export function MermaidEditor() {
       STORAGE_KEY,
       JSON.stringify({
         source,
-        layout: layoutFromGraph(graph, viewport),
+        layout: layoutFromGraph(graph, viewport, edgeRouting),
         viewport,
+        edgeRouting,
         leftCollapsed,
         rightCollapsed,
         workspaceView,
@@ -465,7 +495,7 @@ export function MermaidEditor() {
         fileName
       } satisfies StoredEditor)
     );
-  }, [source, graph, viewport, leftCollapsed, rightCollapsed, workspaceView, showGrid, fileName]);
+  }, [source, graph, viewport, edgeRouting, leftCollapsed, rightCollapsed, workspaceView, showGrid, fileName]);
 
   useEffect(() => {
     function isTextInput(target: EventTarget | null) {
@@ -620,11 +650,13 @@ export function MermaidEditor() {
             <SecondaryActionsMenu
               open={secondaryActionsOpen}
               direction={graph.direction}
+              edgeRouting={edgeRouting}
               showGrid={showGrid}
               onOpenChange={setSecondaryActionsOpen}
               onAddNode={addNode}
               onSaveAs={() => void saveMermaidFileAs()}
               onDirectionChange={updateDirection}
+              onEdgeRoutingChange={updateEdgeRouting}
               onToggleGrid={toggleGrid}
               onRefreshSource={refreshFromSource}
               onResetView={() => updateViewport({ x: 160, y: 90, scale: 1 })}
@@ -641,6 +673,7 @@ export function MermaidEditor() {
                 viewport={viewport}
                 mode={effectiveMode}
                 showGrid={showGrid}
+                edgeRouting={edgeRouting}
                 onGraphDraft={draftGraph}
                 onGraphCommit={commitGraph}
                 onCaptureHistory={captureHistory}
@@ -649,7 +682,7 @@ export function MermaidEditor() {
                 onAddNodeAt={addNodeAtPoint}
               />
             ) : (
-              <PreviewPanel source={source} graph={graph} framed={false} onGraphChange={commitGraph} />
+              <PreviewPanel source={source} graph={graph} edgeRouting={edgeRouting} framed={false} onGraphChange={commitGraph} />
             )}
           </div>
           {!leftCollapsed ? (
@@ -681,22 +714,26 @@ export function MermaidEditor() {
 function SecondaryActionsMenu({
   open,
   direction,
+  edgeRouting,
   showGrid,
   onOpenChange,
   onAddNode,
   onSaveAs,
   onDirectionChange,
+  onEdgeRoutingChange,
   onToggleGrid,
   onRefreshSource,
   onResetView
 }: {
   open: boolean;
   direction: GraphDirection;
+  edgeRouting: EdgeRouting;
   showGrid: boolean;
   onOpenChange: (open: boolean) => void;
   onAddNode: () => void;
   onSaveAs: () => void;
   onDirectionChange: (direction: GraphDirection) => void;
+  onEdgeRoutingChange: (edgeRouting: EdgeRouting) => void;
   onToggleGrid: () => void;
   onRefreshSource: () => void;
   onResetView: () => void;
@@ -752,6 +789,31 @@ function SecondaryActionsMenu({
                   {directions.map((item) => (
                     <SelectItem key={item} value={item}>
                       {item}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Separator className="my-1" />
+            <div className="grid gap-1.5 px-2 py-1.5">
+              <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <PathArrow className="size-3.5" />
+                连线形状
+              </span>
+              <Select
+                value={edgeRouting}
+                onValueChange={(value) => {
+                  onEdgeRoutingChange(value as EdgeRouting);
+                  onOpenChange(false);
+                }}
+              >
+                <SelectTrigger className="h-8">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {edgeRoutingOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
                     </SelectItem>
                   ))}
                 </SelectContent>

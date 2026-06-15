@@ -98,8 +98,7 @@ export function createEdge(graph: MermaidGraph, from: string, to: string, label 
     from,
     to,
     label,
-    style: "solid",
-    path: "straight"
+    style: "solid"
   };
 
   return {

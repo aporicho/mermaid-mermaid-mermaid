@@ -18,7 +18,7 @@ import {
   updateEdge,
   updateNodeLabel
 } from "@/features/mermaid-editor/lib/editor-actions";
-import type { CanvasEdge, CanvasNode, EditorMode, MermaidGraph, Selection, ViewportState } from "@/features/mermaid-editor/lib/editor-types";
+import type { CanvasEdge, CanvasNode, EdgeRouting, EditorMode, MermaidGraph, Selection, ViewportState } from "@/features/mermaid-editor/lib/editor-types";
 import { cn } from "@/lib/utils";
 
 const NODE_CARD_RADIUS = 14;
@@ -29,7 +29,7 @@ const NODE_TEXT_PADDING_Y = 14;
 const NODE_TEXT_FONT_SIZE = 14;
 const NODE_TEXT_LINE_HEIGHT = 18;
 const NODE_MAX_LINES = 12;
-const NODE_TEXT_FONT_FAMILY = "ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+const NODE_TEXT_FONT_FAMILY = "'Noto Sans SC Variable', 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei UI', system-ui, sans-serif";
 const GRID_STEP = 24;
 const GRID_MAJOR_STEP = GRID_STEP * 5;
 
@@ -41,6 +41,7 @@ type KonvaCanvasProps = {
   viewport: ViewportState;
   mode: EditorMode;
   showGrid: boolean;
+  edgeRouting: EdgeRouting;
   onGraphDraft: (graph: MermaidGraph, message?: string) => void;
   onGraphCommit: (graph: MermaidGraph, selection?: Selection, message?: string) => void;
   onCaptureHistory: () => void;
@@ -185,7 +186,7 @@ function nodeBoundaryPoint(node: CanvasNode, toward: { x: number; y: number }, o
   };
 }
 
-function edgeGeometry(edge: CanvasEdge, nodes: CanvasNode[]): EdgeGeometry | null {
+function edgeGeometry(edge: CanvasEdge, nodes: CanvasNode[], edgeRouting: EdgeRouting): EdgeGeometry | null {
   const from = nodes.find((node) => node.id === edge.from);
   const to = nodes.find((node) => node.id === edge.to);
   if (!from || !to) return null;
@@ -197,7 +198,7 @@ function edgeGeometry(edge: CanvasEdge, nodes: CanvasNode[]): EdgeGeometry | nul
   const dx = endBoundary.x - startBoundary.x;
   const dy = endBoundary.y - startBoundary.y;
 
-  if (edge.path === "curved") {
+  if (edgeRouting === "bezier") {
     const length = Math.max(1, Math.hypot(dx, dy));
     const offset = clamp(length * 0.18, 36, 120);
     const controlX = (startBoundary.x + endBoundary.x) / 2 - (dy / length) * offset;
@@ -215,7 +216,7 @@ function edgeGeometry(edge: CanvasEdge, nodes: CanvasNode[]): EdgeGeometry | nul
     };
   }
 
-  if (edge.path === "orthogonal") {
+  if (edgeRouting === "orthogonal" || edgeRouting === "smooth-step") {
     const midX = startBoundary.x + dx / 2;
 
     return {
@@ -225,7 +226,8 @@ function edgeGeometry(edge: CanvasEdge, nodes: CanvasNode[]): EdgeGeometry | nul
       y2: endBoundary.y,
       midX,
       midY: startBoundary.y + dy / 2,
-      points: [startBoundary.x, startBoundary.y, midX, startBoundary.y, midX, endBoundary.y, endBoundary.x, endBoundary.y]
+      points: [startBoundary.x, startBoundary.y, midX, startBoundary.y, midX, endBoundary.y, endBoundary.x, endBoundary.y],
+      tension: edgeRouting === "smooth-step" ? 0.32 : undefined
     };
   }
 
@@ -279,6 +281,7 @@ export function KonvaCanvas({
   viewport,
   mode,
   showGrid,
+  edgeRouting,
   onGraphDraft,
   onGraphCommit,
   onCaptureHistory,
@@ -309,7 +312,7 @@ export function KonvaCanvas({
     [graph.nodes, inlineEdit]
   );
   const selectedSingleEdge = selection.edgeIds.length === 1 ? graph.edges.find((edge) => edge.id === selection.edgeIds[0]) : undefined;
-  const selectedSingleEdgeGeometry = selectedSingleEdge ? edgeGeometry(selectedSingleEdge, renderedNodes) : null;
+  const selectedSingleEdgeGeometry = selectedSingleEdge ? edgeGeometry(selectedSingleEdge, renderedNodes, edgeRouting) : null;
 
   useEffect(() => {
     if (inlineEdit?.type !== "node") return;
@@ -469,7 +472,7 @@ export function KonvaCanvas({
     }
 
     const edge = graph.edges.find((item) => item.id === inlineEdit.id);
-    const geometry = edge ? edgeGeometry(edge, graph.nodes) : null;
+    const geometry = edge ? edgeGeometry(edge, graph.nodes, edgeRouting) : null;
     if (!geometry) return null;
     const screen = worldToScreen({ x: geometry.midX - 60, y: geometry.midY - 17 });
     return {
@@ -597,7 +600,7 @@ export function KonvaCanvas({
 
           <Layer>
             {graph.edges.map((edge) => {
-              const geometry = edgeGeometry(edge, renderedNodes);
+              const geometry = edgeGeometry(edge, renderedNodes, edgeRouting);
               if (!geometry) return null;
               const isSelected = selectedEdgeIds.has(edge.id);
               const visualStyle = edgeVisualStyle(edge);
@@ -631,7 +634,7 @@ export function KonvaCanvas({
                     strokeWidth={isSelected ? visualStyle.strokeWidth + 1 : visualStyle.strokeWidth}
                     dash={visualStyle.dash}
                     lineCap="round"
-                    lineJoin="round"
+                    lineJoin={edgeRouting === "orthogonal" ? "miter" : "round"}
                     pointerLength={10}
                     pointerWidth={10}
                     listening={false}

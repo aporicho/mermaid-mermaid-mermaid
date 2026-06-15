@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import type { CanvasEdge, CanvasNode, EdgePath, EdgeStyle, MermaidGraph, Selection } from "@/features/mermaid-editor/lib/editor-types";
+import type { CanvasEdge, CanvasNode, EdgeStyle, MermaidGraph, Selection } from "@/features/mermaid-editor/lib/editor-types";
 import { createEdge, renameNode, selectOnlyEdge, updateEdge, updateNodeFill, updateNodeLabel } from "@/features/mermaid-editor/lib/editor-actions";
 import { palette } from "@/features/mermaid-editor/lib/mermaid-graph";
 import { cn } from "@/lib/utils";
@@ -25,12 +25,6 @@ const edgeStyleOptions: { value: EdgeStyle; label: string }[] = [
   { value: "solid", label: "实线" },
   { value: "thick", label: "粗线" },
   { value: "dotted", label: "点线" }
-];
-
-const edgePathOptions: { value: EdgePath; label: string }[] = [
-  { value: "straight", label: "直线" },
-  { value: "curved", label: "曲线" },
-  { value: "orthogonal", label: "折线" }
 ];
 
 export function InspectorPanel({ graph, selection, onGraphChange, onSelectionChange, onDelete }: InspectorPanelProps) {
@@ -171,21 +165,6 @@ export function InspectorPanel({ graph, selection, onGraphChange, onSelectionCha
                   </SelectTrigger>
                   <SelectContent>
                     {edgeStyleOptions.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid gap-2">
-                <Label>走线算法</Label>
-                <Select value={selectedEdge.path || "straight"} onValueChange={(value) => updateSelectedEdge(selectedEdge.id, { path: value as EdgePath })}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {edgePathOptions.map((option) => (
                       <SelectItem key={option.value} value={option.value}>
                         {option.label}
                       </SelectItem>
