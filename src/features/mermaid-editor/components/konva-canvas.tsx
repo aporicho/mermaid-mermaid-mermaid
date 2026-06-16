@@ -47,7 +47,12 @@ import {
   resolveKonvaHitTarget
 } from "@/features/mermaid-editor/lib/canvas-hit-target";
 import { DEFAULT_CANVAS_GRID, firstGridCoordinateAtOrAfter, getCanvasGridRenderPlan, isGridCoordinate } from "@/features/mermaid-editor/lib/canvas-grid";
-import { computeEdgePath } from "@/features/mermaid-editor/lib/edge-geometry";
+import {
+  buildEdgeLabelGeometry,
+  edgeLabelSingleLineText,
+  type EdgeLabelGeometrySpec
+} from "@/features/mermaid-editor/lib/edge-label-geometry";
+import { computeEdgeDraftPath, computeEdgePath } from "@/features/mermaid-editor/lib/edge-geometry";
 import type { CanvasNode, EdgeRouting, EditorMode, MermaidGraph, Selection, ViewportState } from "@/features/mermaid-editor/lib/editor-types";
 import {
   buildNodeGeometry,
@@ -75,6 +80,12 @@ const NODE_TEXT_FONT_SIZE = 14;
 const NODE_TEXT_LINE_HEIGHT = 18;
 const NODE_MAX_LINES = 12;
 const NODE_TEXT_FONT_FAMILY = "'Noto Sans SC Variable', 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei UI', system-ui, sans-serif";
+const EDGE_LABEL_MIN_CHARS = 4;
+const EDGE_LABEL_MAX_CHARS = 20;
+const EDGE_LABEL_PADDING_X = 10;
+const EDGE_LABEL_HEIGHT = 28;
+const EDGE_LABEL_FONT_SIZE = 13;
+const EDGE_LABEL_LINE_HEIGHT = 18;
 
 let textMeasureCanvas: HTMLCanvasElement | null = null;
 
@@ -116,6 +127,17 @@ function measureNodeTextWidth(value: string) {
   return context.measureText(value).width;
 }
 
+function measureEdgeLabelTextWidth(value: string) {
+  if (typeof document === "undefined") return value.length * EDGE_LABEL_FONT_SIZE * 0.58;
+
+  textMeasureCanvas ??= document.createElement("canvas");
+  const context = textMeasureCanvas.getContext("2d");
+  if (!context) return value.length * EDGE_LABEL_FONT_SIZE * 0.58;
+
+  context.font = `400 ${EDGE_LABEL_FONT_SIZE}px ${NODE_TEXT_FONT_FAMILY}`;
+  return context.measureText(value).width;
+}
+
 function nodeGeometrySpec(): NodeGeometrySpec {
   return {
     minChars: NODE_MIN_CHARS,
@@ -125,6 +147,16 @@ function nodeGeometrySpec(): NodeGeometrySpec {
     lineHeight: NODE_TEXT_LINE_HEIGHT,
     maxLines: NODE_MAX_LINES,
     measureText: measureNodeTextWidth
+  };
+}
+
+function edgeLabelGeometrySpec(): EdgeLabelGeometrySpec {
+  return {
+    minChars: EDGE_LABEL_MIN_CHARS,
+    maxChars: EDGE_LABEL_MAX_CHARS,
+    paddingX: EDGE_LABEL_PADDING_X,
+    height: EDGE_LABEL_HEIGHT,
+    measureText: measureEdgeLabelTextWidth
   };
 }
 
@@ -170,6 +202,7 @@ export function KonvaCanvas({
 
   const selectedNodeIds = useMemo(() => new Set(selection.nodeIds), [selection.nodeIds]);
   const geometrySpec = useMemo(() => nodeGeometrySpec(), []);
+  const edgeLabelSpec = useMemo(() => edgeLabelGeometrySpec(), []);
   const renderedNodes = useMemo(
     () =>
       inlineEdit?.type === "node"
@@ -192,6 +225,22 @@ export function KonvaCanvas({
         }
       : null;
   const connectionDraft = interactionState.kind === "connectingEdge" ? interactionState : null;
+  const connectionDraftGeometry = useMemo(() => {
+    if (!connectionDraft) return null;
+
+    const sourceRect = routedNodeRects.find((rect) => rect.id === connectionDraft.fromNodeId);
+    if (!sourceRect) return null;
+
+    const targetGeometry = renderedNodeGeometries.find(
+      (geometry) => geometry.id !== connectionDraft.fromNodeId && pointInsideNodeFrame(connectionDraft.currentWorld, geometry)
+    );
+
+    return computeEdgeDraftPath(
+      sourceRect,
+      targetGeometry ? { kind: "node", rect: targetGeometry.routedRect } : { kind: "point", point: connectionDraft.currentWorld },
+      edgeRouting
+    );
+  }, [connectionDraft, edgeRouting, renderedNodeGeometries, routedNodeRects]);
 
   useEffect(() => {
     const nextSelectionKey = selectionVersionKey(selection);
@@ -603,12 +652,13 @@ export function KonvaCanvas({
     const edge = graph.edges.find((item) => item.id === inlineEdit.id);
     const geometry = edge ? computeEdgePath(edge, routedNodeRects, edgeRouting) : null;
     if (!geometry) return null;
-    const screen = worldToScreen({ x: geometry.labelPoint.x - 60, y: geometry.labelPoint.y - 17 });
+    const labelGeometry = buildEdgeLabelGeometry(inlineEdit.value, geometry.labelPoint, edgeLabelSpec);
+    const screen = worldToScreen({ x: labelGeometry.frame.x, y: labelGeometry.frame.y });
     return {
       left: screen.x,
       top: screen.y,
-      width: Math.max(120, 120 * viewport.scale),
-      height: Math.max(32, 34 * viewport.scale)
+      width: labelGeometry.frame.width * viewport.scale,
+      height: labelGeometry.frame.height * viewport.scale
     };
   }
 
@@ -670,6 +720,9 @@ export function KonvaCanvas({
               const geometry = computeEdgePath(edge, routedNodeRects, edgeRouting);
               if (!geometry) return null;
               const edgeVisual = getEdgeVisualState({ edge, selection, hoveredEdgeId, interactionState, inlineEdit });
+              const isEditingEdgeLabel = inlineEdit?.type === "edge" && inlineEdit.id === edge.id;
+              const edgeLabel = isEditingEdgeLabel ? inlineEdit.value : edge.label;
+              const edgeLabelGeometry = edgeLabel || isEditingEdgeLabel ? buildEdgeLabelGeometry(edgeLabel, geometry.labelPoint, edgeLabelSpec) : null;
 
               return (
                 <Group key={edge.id}>
@@ -698,29 +751,35 @@ export function KonvaCanvas({
                     pointerWidth={CANVAS_VISUAL_TOKENS.edge.pointerWidth}
                     listening={false}
                   />
-                  {edge.label ? (
+                  {edgeLabelGeometry && !isEditingEdgeLabel ? (
                     <Group
                       id={edgeLabelHitId(edge.id)}
                       name={CANVAS_HIT_NAMES.edgeLabel}
-                      x={geometry.labelPoint.x - CANVAS_VISUAL_TOKENS.edge.labelWidth / 2}
-                      y={geometry.labelPoint.y - CANVAS_VISUAL_TOKENS.edge.labelHeight / 2}
+                      x={edgeLabelGeometry.frame.x}
+                      y={edgeLabelGeometry.frame.y}
                       onClick={(event) => handleCanvasClick(event, { kind: "edgeLabel", id: edge.id })}
                       onDblClick={(event) => handleCanvasDoubleClick(event, { kind: "edgeLabel", id: edge.id })}
                     >
                       <Rect
-                        width={CANVAS_VISUAL_TOKENS.edge.labelWidth}
-                        height={CANVAS_VISUAL_TOKENS.edge.labelHeight}
+                        width={edgeLabelGeometry.frame.width}
+                        height={edgeLabelGeometry.frame.height}
                         cornerRadius={CANVAS_VISUAL_TOKENS.edge.labelCornerRadius}
                         fill={edgeVisual.labelFill}
                         stroke={edgeVisual.labelStroke}
+                        strokeWidth={1}
                       />
                       <Text
-                        width={CANVAS_VISUAL_TOKENS.edge.labelWidth}
-                        height={CANVAS_VISUAL_TOKENS.edge.labelHeight}
+                        x={edgeLabelGeometry.textBox.x}
+                        y={edgeLabelGeometry.textBox.y}
+                        width={edgeLabelGeometry.textBox.width}
+                        height={edgeLabelGeometry.textBox.height}
                         align="center"
                         verticalAlign="middle"
-                        text={edge.label}
-                        fontSize={12}
+                        text={edgeLabelSingleLineText(edgeLabel)}
+                        fontSize={EDGE_LABEL_FONT_SIZE}
+                        fontFamily={NODE_TEXT_FONT_FAMILY}
+                        lineHeight={EDGE_LABEL_LINE_HEIGHT / EDGE_LABEL_FONT_SIZE}
+                        wrap="none"
                         fill={edgeVisual.labelTextFill}
                         ellipsis
                       />
@@ -811,9 +870,9 @@ export function KonvaCanvas({
               );
             })}
 
-            {connectionDraft ? (
+            {connectionDraftGeometry ? (
               <Arrow
-                points={[connectionDraft.startWorld.x, connectionDraft.startWorld.y, connectionDraft.currentWorld.x, connectionDraft.currentWorld.y]}
+                points={connectionDraftGeometry.points}
                 {...getConnectionDraftVisualState()}
                 listening={false}
               />
@@ -827,7 +886,7 @@ export function KonvaCanvas({
               />
             ) : null}
 
-            {selectedSingleEdge && selectedSingleEdgeGeometry ? (
+            {mode === "select" && selectedSingleEdge && selectedSingleEdgeGeometry ? (
               <>
                 <Circle
                   id={edgeEndpointHitId(selectedSingleEdge.id, "from")}
@@ -923,12 +982,18 @@ export function KonvaCanvas({
           <Input
             autoFocus
             value={inlineEdit.value}
-            className="absolute z-40 h-9 rounded-md bg-card px-2 text-sm shadow-lg"
+            className="absolute z-40 h-auto min-h-0 rounded-none border bg-card p-0 text-center font-normal text-[#344441] shadow-none outline-none ring-0 focus-visible:ring-0 focus-visible:ring-offset-0"
             style={{
               left: editStyle.left,
               top: editStyle.top,
               width: editStyle.width,
-              height: editStyle.height
+              height: editStyle.height,
+              borderRadius: CANVAS_VISUAL_TOKENS.edge.labelCornerRadius * viewport.scale,
+              fontFamily: NODE_TEXT_FONT_FAMILY,
+              fontSize: EDGE_LABEL_FONT_SIZE * viewport.scale,
+              lineHeight: `${EDGE_LABEL_LINE_HEIGHT * viewport.scale}px`,
+              paddingLeft: EDGE_LABEL_PADDING_X * viewport.scale,
+              paddingRight: EDGE_LABEL_PADDING_X * viewport.scale
             }}
             onChange={(event) => setInlineEdit({ ...inlineEdit, value: event.target.value })}
             onBlur={() => commitInlineEdit(true)}

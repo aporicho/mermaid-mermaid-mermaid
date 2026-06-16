@@ -82,14 +82,19 @@ describe("canvas visual state", () => {
     expect(nodeVisual({ nodeId: "node-b", hoveredNodeId: "node-b", interactionState: connecting }).kind).toBe("connectionTarget");
   });
 
-  it("shows anchors for connect mode, hover, selection, and active connection states", () => {
+  it("shows anchors in select mode for hover and selection", () => {
     expect(anchorVisual().kind).toBe("hidden");
-    expect(anchorVisual({ mode: "connect" }).kind).toBe("available");
+    expect(anchorVisual({ mode: "connect" }).kind).toBe("hidden");
     expect(anchorVisual({ hoveredNodeId: "node-a" }).kind).toBe("available");
     expect(anchorVisual({ selection: { nodeIds: ["node-a"], edgeIds: [] } }).kind).toBe("available");
+  });
 
+  it("keeps anchors hidden in connect mode and while connecting", () => {
+    expect(anchorVisual({ mode: "connect", hoveredNodeId: "node-a" }).visible).toBe(false);
     expect(
       anchorVisual({
+        mode: "select",
+        hoveredNodeId: "node-a",
         interactionState: {
           kind: "connectingEdge",
           pointerId: 0,
@@ -97,8 +102,8 @@ describe("canvas visual state", () => {
           startWorld: { x: 0, y: 0 },
           currentWorld: { x: 20, y: 0 }
         }
-      }).kind
-    ).toBe("active");
+      }).visible
+    ).toBe(false);
   });
 
   it("hides anchors while editing node text", () => {

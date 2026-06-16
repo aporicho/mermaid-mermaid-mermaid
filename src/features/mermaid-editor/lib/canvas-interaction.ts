@@ -183,6 +183,19 @@ export function beginCanvasPointer(input: PointerDownInput): InteractionTransiti
       };
     }
 
+    if (input.hit.kind === "nodeAnchor") {
+      return {
+        state: {
+          kind: "connectingEdge",
+          pointerId: 0,
+          fromNodeId: input.hit.nodeId,
+          startWorld: input.world,
+          currentWorld: input.world
+        },
+        clearBlankClickIntent: true
+      };
+    }
+
     if (input.hit.kind === "edgeEndpoint") {
       return {
         state: {
@@ -196,12 +209,14 @@ export function beginCanvasPointer(input: PointerDownInput): InteractionTransiti
     }
   }
 
-  if (input.tool === "connect" && input.hit.kind === "nodeAnchor") {
+  if (input.tool === "connect" && (input.hit.kind === "node" || input.hit.kind === "nodeAnchor")) {
+    const fromNodeId = input.hit.kind === "node" ? input.hit.id : input.hit.nodeId;
+
     return {
       state: {
         kind: "connectingEdge",
         pointerId: 0,
-        fromNodeId: input.hit.nodeId,
+        fromNodeId,
         startWorld: input.world,
         currentWorld: input.world
       },

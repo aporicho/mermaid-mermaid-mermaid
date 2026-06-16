@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { computeEdgePath, type RoutedNodeRect } from "@/features/mermaid-editor/lib/edge-geometry";
+import { computeEdgeDraftPath, computeEdgePath, type RoutedNodeRect } from "@/features/mermaid-editor/lib/edge-geometry";
 import type { CanvasEdge, EdgeRouting } from "@/features/mermaid-editor/lib/editor-types";
 
 const baseEdge: CanvasEdge = {
@@ -102,5 +102,45 @@ describe("computeEdgePath", () => {
     expect(lastPoint(geometry.points).x).toBeGreaterThan(110);
     expect(geometry.endTangent.x).toBeLessThan(0);
     expectFinitePoints(geometry.points);
+  });
+});
+
+describe("computeEdgeDraftPath", () => {
+  it("matches completed straight edge geometry when the draft target is a node", () => {
+    const nodes = defaultNodes();
+    const draft = computeEdgeDraftPath(nodes[0], { kind: "node", rect: nodes[1] }, "straight");
+    const completed = edgePath("straight", nodes);
+
+    expect(draft.points).toEqual(completed.points);
+    expect(draft.labelPoint).toEqual(completed.labelPoint);
+  });
+
+  it("matches completed bezier edge geometry when the draft target is a node", () => {
+    const nodes = defaultNodes();
+    const draft = computeEdgeDraftPath(nodes[0], { kind: "node", rect: nodes[1] }, "bezier");
+    const completed = edgePath("bezier", nodes);
+
+    expect(draft.points).toEqual(completed.points);
+    expect(draft.labelPoint).toEqual(completed.labelPoint);
+  });
+
+  it("uses straight routing style when the draft target is a point", () => {
+    const draft = computeEdgeDraftPath(defaultNodes()[0], { kind: "point", point: { x: 260, y: 90 } }, "straight");
+
+    expect(draft.points).toHaveLength(4);
+    expectPointClose(pointAt(draft.points, 0), { x: 105.7317, y: 42.2503 });
+    expectPointClose(lastPoint(draft.points), { x: 260, y: 90 });
+    expectFinitePoints(draft.points);
+  });
+
+  it("uses bezier routing style when the draft target is a point", () => {
+    const draft = computeEdgeDraftPath(defaultNodes()[0], { kind: "point", point: { x: 260, y: 90 } }, "bezier");
+    const middle = pointAt(draft.points, Math.floor(draft.points.length / 4));
+
+    expect(draft.points).toHaveLength(50);
+    expectPointClose(pointAt(draft.points, 0), { x: 106, y: 25 });
+    expectPointClose(lastPoint(draft.points), { x: 260, y: 90 });
+    expect(middle.x).toBeGreaterThan(draft.start.x);
+    expectFinitePoints(draft.points);
   });
 });

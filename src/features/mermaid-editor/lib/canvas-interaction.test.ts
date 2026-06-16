@@ -119,7 +119,7 @@ describe("canvas interaction state", () => {
     expect(result.commands).toEqual([{ type: "invalidateBlankClick" }]);
   });
 
-  it("starts connections only from node anchors in connect mode", () => {
+  it("starts connections from node anchors in select mode and node bodies in connect mode", () => {
     const selectResult = dispatchCanvasPointerDown({
       state: idleInteraction,
       tool: "select",
@@ -134,7 +134,7 @@ describe("canvas interaction state", () => {
     const connectResult = dispatchCanvasPointerDown({
       state: idleInteraction,
       tool: "connect",
-      hit: { kind: "nodeAnchor", nodeId: "a", anchor: "right" },
+      hit: { kind: "node", id: "a" },
       button: 0,
       screen: { x: 100, y: 120 },
       world: { x: 80, y: 80 },
@@ -143,8 +143,24 @@ describe("canvas interaction state", () => {
       viewport
     });
 
-    expect(selectResult.state.kind).toBe("idle");
+    expect(selectResult.state).toMatchObject({ kind: "connectingEdge", fromNodeId: "a", startWorld: { x: 80, y: 80 } });
     expect(connectResult.state).toMatchObject({ kind: "connectingEdge", fromNodeId: "a", startWorld: { x: 80, y: 80 } });
+  });
+
+  it("keeps select mode node body interactions as pending selection or drag", () => {
+    const result = dispatchCanvasPointerDown({
+      state: idleInteraction,
+      tool: "select",
+      hit: { kind: "node", id: "a" },
+      button: 0,
+      screen: { x: 100, y: 120 },
+      world: { x: 80, y: 80 },
+      now: 1000,
+      selectionVersion: 1,
+      viewport
+    });
+
+    expect(result.state).toMatchObject({ kind: "pendingNodePointer", nodeId: "a" });
   });
 
   it("emits a start node drag command when pointer movement crosses the threshold", () => {

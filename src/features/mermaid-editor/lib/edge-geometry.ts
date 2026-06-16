@@ -20,6 +20,8 @@ export type EdgePathGeometry = {
   endTangent: Point;
 };
 
+export type EdgeDraftTarget = { kind: "node"; rect: RoutedNodeRect } | { kind: "point"; point: Point };
+
 type Point = {
   x: number;
   y: number;
@@ -65,8 +67,30 @@ export function computeEdgePath(edge: CanvasEdge, nodes: RoutedNodeRect[], edgeR
 
   if (from.id === to.id) return routeSelfLoop(from);
 
+  return routeBetweenRects(from, to, edgeRouting);
+}
+
+export function computeEdgeDraftPath(source: RoutedNodeRect, target: EdgeDraftTarget, edgeRouting: EdgeRouting): EdgePathGeometry {
+  if (target.kind === "node") {
+    if (source.id === target.rect.id) return computeEdgeDraftPath(source, { kind: "point", point: rectCenter(target.rect) }, edgeRouting);
+    return routeBetweenRects(source, target.rect, edgeRouting);
+  }
+
+  return routeToPoint(source, target.point, edgeRouting);
+}
+
+function routeBetweenRects(from: RoutedNodeRect, to: RoutedNodeRect, edgeRouting: EdgeRouting): EdgePathGeometry {
   const preset = routingPresets[edgeRouting];
   const anchors = preset.anchorPolicy === "center-ray" ? computeCenterRayAnchors(from, to) : computeSideAnchors(from, to);
+
+  if (preset.pathKind === "cubic-bezier") return routeCubicBezier(anchors);
+
+  return buildGeometry([anchors.start, anchors.end], anchors.start, anchors.end, anchors.endTangent);
+}
+
+function routeToPoint(from: RoutedNodeRect, point: Point, edgeRouting: EdgeRouting): EdgePathGeometry {
+  const preset = routingPresets[edgeRouting];
+  const anchors = preset.anchorPolicy === "center-ray" ? computeCenterRayPointAnchors(from, point) : computeSidePointAnchors(from, point);
 
   if (preset.pathKind === "cubic-bezier") return routeCubicBezier(anchors);
 
@@ -88,13 +112,25 @@ function computeCenterRayAnchors(from: RoutedNodeRect, to: RoutedNodeRect): Edge
   };
 }
 
+function computeCenterRayPointAnchors(from: RoutedNodeRect, point: Point): EdgeAnchors {
+  const fromCenter = rectCenter(from);
+  const direction = normalize({ x: point.x - fromCenter.x, y: point.y - fromCenter.y }, { x: 1, y: 0 });
+  const start = add(intersectRectBoundary(from, direction), multiply(direction, SOURCE_GAP));
+
+  return {
+    start,
+    end: point,
+    sourceTangent: direction,
+    endTangent: direction
+  };
+}
+
 function computeSideAnchors(from: RoutedNodeRect, to: RoutedNodeRect): EdgeAnchors {
   const fromCenter = rectCenter(from);
   const toCenter = rectCenter(to);
   const dx = toCenter.x - fromCenter.x;
   const dy = toCenter.y - fromCenter.y;
-  const useHorizontal = Math.abs(dx) >= Math.abs(dy);
-  const sourceSide: Side = useHorizontal ? (dx >= 0 ? "right" : "left") : dy >= 0 ? "bottom" : "top";
+  const sourceSide = sideForDelta(dx, dy);
   const targetSide: Side = oppositeSide(sourceSide);
   const sourceTangent = sideNormal(sourceSide);
   const endTangent = sourceTangent;
@@ -107,6 +143,27 @@ function computeSideAnchors(from: RoutedNodeRect, to: RoutedNodeRect): EdgeAncho
     sourceTangent,
     endTangent
   };
+}
+
+function computeSidePointAnchors(from: RoutedNodeRect, point: Point): EdgeAnchors {
+  const fromCenter = rectCenter(from);
+  const dx = point.x - fromCenter.x;
+  const dy = point.y - fromCenter.y;
+  const sourceSide = sideForDelta(dx, dy);
+  const sourceTangent = sideNormal(sourceSide);
+  const start = add(sidePoint(from, sourceSide), multiply(sourceTangent, SOURCE_GAP));
+
+  return {
+    start,
+    end: point,
+    sourceTangent,
+    endTangent: sourceTangent
+  };
+}
+
+function sideForDelta(dx: number, dy: number): Side {
+  const useHorizontal = Math.abs(dx) >= Math.abs(dy);
+  return useHorizontal ? (dx >= 0 ? "right" : "left") : dy >= 0 ? "bottom" : "top";
 }
 
 function routeCubicBezier(anchors: EdgeAnchors): EdgePathGeometry {

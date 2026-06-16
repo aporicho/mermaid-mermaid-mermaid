@@ -64,9 +64,7 @@ export const CANVAS_VISUAL_TOKENS = {
     hitStrokeWidth: 18,
     pointerLength: 10,
     pointerWidth: 10,
-    labelWidth: 92,
-    labelHeight: 28,
-    labelCornerRadius: 6
+    labelCornerRadius: 8
   },
   overlay: {
     strokeWidth: 1,
@@ -128,13 +126,6 @@ export function getAnchorVisualState(input: {
   };
 
   if (kind === "active" || kind === "target") {
-    return {
-      ...base,
-      fill: CANVAS_VISUAL_TOKENS.colors.connection
-    };
-  }
-
-  if (kind === "available" && input.mode === "connect") {
     return {
       ...base,
       fill: CANVAS_VISUAL_TOKENS.colors.connection
@@ -236,14 +227,11 @@ function getAnchorVisualKind(input: {
   interactionState: InteractionState;
   inlineEdit?: InlineEditTarget;
 }): AnchorVisualKind {
+  if (input.mode === "connect") return "hidden";
   if (isEditingNode(input.nodeId, input.interactionState, input.inlineEdit)) return "hidden";
+  if (input.interactionState.kind === "connectingEdge") return "hidden";
 
-  if (input.interactionState.kind === "connectingEdge") {
-    if (input.interactionState.fromNodeId === input.nodeId) return "active";
-    if (input.hoveredNodeId === input.nodeId) return "target";
-  }
-
-  if (input.mode === "connect" || input.hoveredNodeId === input.nodeId || input.selection.nodeIds.includes(input.nodeId)) return "available";
+  if (input.hoveredNodeId === input.nodeId || input.selection.nodeIds.includes(input.nodeId)) return "available";
   return "hidden";
 }
 
