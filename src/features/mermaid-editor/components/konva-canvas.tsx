@@ -18,12 +18,13 @@ import {
   updateEdge,
   updateNodeLabel
 } from "@/features/mermaid-editor/lib/editor-actions";
-import { computeAlignmentSnap, selectionBounds, type AlignmentGuide, type AlignmentRect } from "@/features/mermaid-editor/lib/alignment-guides";
+import { computeAlignmentSnap, selectionBounds, type AlignmentGuide } from "@/features/mermaid-editor/lib/alignment-guides";
 import {
   beginCanvasPointer,
   hasSelection as hasInteractionSelection,
   idleInteraction,
   interactionCursor,
+  isPanningButton,
   isEditingInteraction,
   resolveBlankClick,
   selectionVersionKey,
@@ -33,8 +34,14 @@ import {
   type InteractionState
 } from "@/features/mermaid-editor/lib/canvas-interaction";
 import { DEFAULT_CANVAS_GRID, firstGridCoordinateAtOrAfter, getCanvasGridRenderPlan, isGridCoordinate } from "@/features/mermaid-editor/lib/canvas-grid";
-import { computeEdgePath, type RoutedNodeRect } from "@/features/mermaid-editor/lib/edge-geometry";
+import { computeEdgePath } from "@/features/mermaid-editor/lib/edge-geometry";
 import type { CanvasEdge, CanvasNode, EdgeRouting, EditorMode, MermaidGraph, Selection, ViewportState } from "@/features/mermaid-editor/lib/editor-types";
+import {
+  buildNodeGeometry,
+  nodeIntersectsRect,
+  pointInsideNodeFrame,
+  type NodeGeometrySpec
+} from "@/features/mermaid-editor/lib/node-geometry";
 import { cn } from "@/lib/utils";
 
 const NODE_CARD_RADIUS = 14;
@@ -93,100 +100,16 @@ function measureNodeTextWidth(value: string) {
   return context.measureText(value).width;
 }
 
-function nodeCharacterWidth() {
-  return measureNodeTextWidth("中");
-}
-
-function clamp(value: number, min: number, max: number) {
-  return Math.min(max, Math.max(min, value));
-}
-
-function nodeTextWidth(node: CanvasNode) {
-  const minWidth = NODE_MIN_CHARS * nodeCharacterWidth();
-  const maxWidth = NODE_MAX_CHARS * nodeCharacterWidth();
-  const lineWidths = (node.label || " ").split(/\r?\n/).map((line) => measureNodeTextWidth(line || " "));
-  const preferredWidth = Math.ceil(Math.max(...lineWidths));
-
-  return clamp(preferredWidth, minWidth, maxWidth);
-}
-
-function nodeWidth(node: CanvasNode) {
-  return nodeTextWidth(node) + NODE_TEXT_PADDING_X * 2;
-}
-
-function countWrappedLines(value: string, maxWidth: number) {
-  const paragraphs = (value || " ").split(/\r?\n/);
-
-  return paragraphs.reduce((total, paragraph) => {
-    if (!paragraph) return total + 1;
-
-    let lines = 1;
-    let currentWidth = 0;
-    const tokens = paragraph.match(/\s+|[^\s]+/g) || [paragraph];
-
-    for (const token of tokens) {
-      if (/^\s+$/.test(token) && currentWidth === 0) continue;
-      const tokenWidth = measureNodeTextWidth(token);
-
-      if (tokenWidth > maxWidth) {
-        for (const character of token) {
-          const characterWidth = measureNodeTextWidth(character);
-          if (currentWidth > 0 && currentWidth + characterWidth > maxWidth) {
-            lines += 1;
-            currentWidth = characterWidth;
-          } else {
-            currentWidth += characterWidth;
-          }
-        }
-        continue;
-      }
-
-      if (currentWidth > 0 && currentWidth + tokenWidth > maxWidth) {
-        lines += 1;
-        currentWidth = /^\s+$/.test(token) ? 0 : tokenWidth;
-      } else {
-        currentWidth += tokenWidth;
-      }
-    }
-
-    return total + lines;
-  }, 0);
-}
-
-function nodeHeight(node: CanvasNode) {
-  const textHeight = Math.min(NODE_MAX_LINES, countWrappedLines(node.label, nodeTextWidth(node))) * NODE_TEXT_LINE_HEIGHT;
-  return textHeight + NODE_TEXT_PADDING_Y * 2;
-}
-
-function nodeRect(node: CanvasNode): RoutedNodeRect {
-  const width = nodeWidth(node);
-  const height = nodeHeight(node);
-
+function nodeGeometrySpec(): NodeGeometrySpec {
   return {
-    id: node.id,
-    x: node.x,
-    y: node.y,
-    width,
-    height
+    minChars: NODE_MIN_CHARS,
+    maxChars: NODE_MAX_CHARS,
+    paddingX: NODE_TEXT_PADDING_X,
+    paddingY: NODE_TEXT_PADDING_Y,
+    lineHeight: NODE_TEXT_LINE_HEIGHT,
+    maxLines: NODE_MAX_LINES,
+    measureText: measureNodeTextWidth
   };
-}
-
-function nodeAlignmentRect(node: CanvasNode): AlignmentRect {
-  const rect = nodeRect(node);
-
-  return {
-    id: rect.id,
-    x: rect.x,
-    y: rect.y,
-    width: rect.width,
-    height: rect.height
-  };
-}
-
-function pointInsideNode(point: { x: number; y: number }, node: CanvasNode) {
-  const width = nodeWidth(node);
-  const height = nodeHeight(node);
-  return point.x >= node.x && point.x <= node.x + width && point.y >= node.y && point.y <= node.y + height;
 }
 
 function normalizeBox(box: SelectionBox) {
@@ -195,25 +118,6 @@ function normalizeBox(box: SelectionBox) {
   const width = Math.abs(box.endX - box.startX);
   const height = Math.abs(box.endY - box.startY);
   return { x, y, width, height };
-}
-
-function nodeIntersectsBox(node: CanvasNode, box: SelectionBox) {
-  const rect = normalizeBox(box);
-  const width = nodeWidth(node);
-  const height = nodeHeight(node);
-  return node.x < rect.x + rect.width && node.x + width > rect.x && node.y < rect.y + rect.height && node.y + height > rect.y;
-}
-
-function anchorPoints(node: CanvasNode) {
-  const width = nodeWidth(node);
-  const height = nodeHeight(node);
-
-  return [
-    { key: "top", x: node.x + width / 2, y: node.y },
-    { key: "right", x: node.x + width, y: node.y + height / 2 },
-    { key: "bottom", x: node.x + width / 2, y: node.y + height },
-    { key: "left", x: node.x, y: node.y + height / 2 }
-  ];
 }
 
 export function KonvaCanvas({
@@ -249,6 +153,7 @@ export function KonvaCanvas({
 
   const selectedNodeIds = useMemo(() => new Set(selection.nodeIds), [selection.nodeIds]);
   const selectedEdgeIds = useMemo(() => new Set(selection.edgeIds), [selection.edgeIds]);
+  const geometrySpec = useMemo(() => nodeGeometrySpec(), []);
   const renderedNodes = useMemo(
     () =>
       inlineEdit?.type === "node"
@@ -256,7 +161,9 @@ export function KonvaCanvas({
         : graph.nodes,
     [graph.nodes, inlineEdit]
   );
-  const routedNodeRects = useMemo(() => renderedNodes.map(nodeRect), [renderedNodes]);
+  const renderedNodeGeometries = useMemo(() => renderedNodes.map((node) => buildNodeGeometry(node, geometrySpec)), [geometrySpec, renderedNodes]);
+  const nodeGeometryById = useMemo(() => new Map(renderedNodeGeometries.map((geometry) => [geometry.id, geometry])), [renderedNodeGeometries]);
+  const routedNodeRects = useMemo(() => renderedNodeGeometries.map((geometry) => geometry.routedRect), [renderedNodeGeometries]);
   const selectedSingleEdge = selection.edgeIds.length === 1 ? graph.edges.find((edge) => edge.id === selection.edgeIds[0]) : undefined;
   const selectedSingleEdgeGeometry = selectedSingleEdge ? computeEdgePath(selectedSingleEdge, routedNodeRects, edgeRouting) : null;
   const selectionBox =
@@ -385,31 +292,35 @@ export function KonvaCanvas({
     onCaptureHistory();
   }
 
-  function moveSelectedNodes(node: CanvasNode, x: number, y: number) {
+  function moveSelectedNodes(node: CanvasNode, target: Konva.Node) {
     if (!dragRef.current) return;
     const origin = dragRef.current[node.id];
     if (!origin) return;
+    const x = target.x();
+    const y = target.y();
     const deltaX = x - origin.x;
     const deltaY = y - origin.y;
     const movingRects = graph.nodes
       .filter((item) => dragRef.current?.[item.id])
       .map((item) => {
         const start = dragRef.current![item.id];
-        const rect = nodeAlignmentRect(item);
-        return {
-          ...rect,
+        const movedNode = {
+          ...item,
           x: start.x + deltaX,
           y: start.y + deltaY
         };
+        return buildNodeGeometry(movedNode, geometrySpec).alignmentRect;
       });
     const movingBounds = selectionBounds(movingRects);
-    const staticRects = graph.nodes.filter((item) => !dragRef.current?.[item.id]).map(nodeAlignmentRect);
+    const staticRects = graph.nodes.filter((item) => !dragRef.current?.[item.id]).map((item) => buildNodeGeometry(item, geometrySpec).alignmentRect);
     const snap = movingBounds ? computeAlignmentSnap(movingBounds, staticRects, viewport.scale) : { dx: 0, dy: 0, guides: [] };
     const snappedDeltaX = deltaX + snap.dx;
     const snappedDeltaY = deltaY + snap.dy;
     const positions = Object.fromEntries(
       Object.entries(dragRef.current).map(([id, position]) => [id, { x: position.x + snappedDeltaX, y: position.y + snappedDeltaY }])
     );
+    const draggedPosition = positions[node.id];
+    if (draggedPosition) target.position(draggedPosition);
     setAlignmentGuides(snap.guides);
     onGraphDraft(setNodePositions(graph, positions), "正在移动节点。");
   }
@@ -423,7 +334,7 @@ export function KonvaCanvas({
 
   function finishConnection(draft: Extract<InteractionState, { kind: "connectingEdge" }>) {
     const point = pointerWorldPoint();
-    const target = point ? graph.nodes.find((node) => node.id !== draft.fromNodeId && pointInsideNode(point, node)) : null;
+    const target = point ? graph.nodes.find((node) => node.id !== draft.fromNodeId && pointInsideNodeFrame(point, buildNodeGeometry(node, geometrySpec))) : null;
     if (target) {
       const result = createEdge(graph, draft.fromNodeId, target.id);
       onGraphCommit(result.graph, result.selection, "已创建连线。");
@@ -435,7 +346,7 @@ export function KonvaCanvas({
     const edge = graph.edges.find((item) => item.id === edgeId);
     if (!point || !edge) return;
 
-    const target = graph.nodes.find((node) => pointInsideNode(point, node));
+    const target = graph.nodes.find((node) => pointInsideNodeFrame(point, buildNodeGeometry(node, geometrySpec)));
     if (!target) return;
 
     onGraphCommit(updateEdge(graph, edgeId, { [side]: target.id }), selectOnlyEdge(edgeId), "已重连连线。");
@@ -457,17 +368,17 @@ export function KonvaCanvas({
   function inlineEditStyle() {
     if (!inlineEdit) return null;
     if (inlineEdit.type === "node") {
-      const node = renderedNodes.find((item) => item.id === inlineEdit.id);
-      if (!node) return null;
-      const height = nodeHeight(node);
-      const textWidth = nodeTextWidth(node);
-      const textHeight = height - NODE_TEXT_PADDING_Y * 2;
-      const screen = worldToScreen({ x: node.x + NODE_TEXT_PADDING_X, y: node.y + NODE_TEXT_PADDING_Y });
+      const geometry = nodeGeometryById.get(inlineEdit.id);
+      if (!geometry) return null;
+      const screen = worldToScreen({
+        x: geometry.frame.x + geometry.textBox.x,
+        y: geometry.frame.y + geometry.textBox.y
+      });
       return {
         left: screen.x,
         top: screen.y,
-        width: textWidth * viewport.scale,
-        height: textHeight * viewport.scale
+        width: geometry.textBox.width * viewport.scale,
+        height: geometry.textBox.height * viewport.scale
       };
     }
 
@@ -492,9 +403,9 @@ export function KonvaCanvas({
 
     const minimumHeight = NODE_TEXT_LINE_HEIGHT * viewport.scale;
     const measuredHeight = Math.max(minimumHeight, Math.ceil(measure.scrollHeight));
-    const height = Math.min(editStyle.height, measuredHeight);
+    const scrollable = measuredHeight > editStyle.height + 1;
+    const height = scrollable ? editStyle.height : Math.min(editStyle.height, measuredHeight);
     const insetTop = Math.max(0, Math.floor((editStyle.height - height) / 2));
-    const scrollable = measuredHeight > editStyle.height;
 
     setNodeEditorLayout((current) => {
       if (current.height === height && current.insetTop === insetTop && current.scrollable === scrollable) return current;
@@ -513,6 +424,7 @@ export function KonvaCanvas({
           cursorClassName
         )}
         onAuxClick={(event) => event.preventDefault()}
+        onContextMenu={(event) => event.preventDefault()}
       >
         <Stage
           ref={stageRef}
@@ -528,8 +440,8 @@ export function KonvaCanvas({
             const world = pointerWorldPoint();
             if (!pointer || !world) return;
 
-            if (event.target !== event.target.getStage() && event.evt.button !== 1 && !panningRequested) return;
-            if (event.evt.button === 1 || panningRequested) event.evt.preventDefault();
+            if (event.target !== event.target.getStage() && !isPanningButton(event.evt.button) && !panningRequested) return;
+            if (isPanningButton(event.evt.button) || panningRequested) event.evt.preventDefault();
             const transition = beginCanvasPointer({
               state: interactionState,
               tool: mode,
@@ -595,11 +507,10 @@ export function KonvaCanvas({
                   blankClickIntentRef.current = result.intent;
                 } else if (result.action === "addNode") {
                   const newNode = { id: "", label: "新节点", x: 0, y: 0, fill: "#ffffff" };
-                  const newNodeWidth = nodeWidth(newNode);
-                  const newNodeHeight = nodeHeight(newNode);
+                  const newNodeFrame = buildNodeGeometry(newNode, geometrySpec).frame;
                   onAddNodeAt({
-                    x: result.point.x - newNodeWidth / 2,
-                    y: result.point.y - newNodeHeight / 2
+                    x: result.point.x - newNodeFrame.width / 2,
+                    y: result.point.y - newNodeFrame.height / 2
                   });
                   invalidateBlankClickIntent();
                 }
@@ -615,7 +526,7 @@ export function KonvaCanvas({
               };
               const rect = normalizeBox(activeSelectionBox);
               if (rect.width > 4 || rect.height > 4) {
-                const nodeIds = renderedNodes.filter((node) => nodeIntersectsBox(node, activeSelectionBox)).map((node) => node.id);
+                const nodeIds = renderedNodeGeometries.filter((geometry) => nodeIntersectsRect(geometry, rect)).map((geometry) => geometry.id);
                 onSelectionChange({ nodeIds, edgeIds: [], primaryId: nodeIds[0] });
               } else {
                 onSelectionChange(emptySelection);
@@ -717,74 +628,70 @@ export function KonvaCanvas({
             {renderedNodes.map((node) => {
               const isSelected = selectedNodeIds.has(node.id);
               const showAnchors = mode === "connect" || hoveredNodeId === node.id || isSelected;
-              const width = nodeWidth(node);
-              const textWidth = nodeTextWidth(node);
-              const height = nodeHeight(node);
-              const textHeight = height - NODE_TEXT_PADDING_Y * 2;
+              const geometry = nodeGeometryById.get(node.id);
+              if (!geometry) return null;
 
               return (
-                <Group key={node.id}>
-                  <Group
-                    x={node.x}
-                    y={node.y}
-	                    draggable={mode === "select" && !panningRequested && interactionState.kind !== "panning"}
-                    onMouseEnter={() => setHoveredNodeId(node.id)}
-                    onMouseLeave={() => setHoveredNodeId((current) => (current === node.id ? null : current))}
-                    onDragStart={(event) => {
-                      if (event.evt.button !== 0) {
-                        event.target.stopDrag();
-                        return;
-                      }
-                      startNodeDrag(node);
-                    }}
-                    onDragMove={(event) => moveSelectedNodes(node, event.target.x(), event.target.y())}
-	                    onDragEnd={() => {
-	                      dragRef.current = null;
-	                      setAlignmentGuides([]);
-	                      resetInteraction();
-	                    }}
-	                    onClick={(event) => {
-	                      event.cancelBubble = true;
-	                      invalidateBlankClickIntent();
-	                      if (mode !== "select") return;
-	                      onSelectionChange(event.evt.shiftKey ? toggleNodeSelection(selection, node.id) : selectOnlyNode(node.id));
-	                    }}
-	                    onDblClick={(event) => {
-	                      event.cancelBubble = true;
-	                      invalidateBlankClickIntent();
-	                      setInteractionState({ kind: "editingNodeText", nodeId: node.id });
-	                      setInlineEdit({ type: "node", id: node.id, value: node.label });
-	                    }}
-                  >
-                    <Rect
-                      width={width}
-                      height={height}
-                      cornerRadius={NODE_CARD_RADIUS}
-                      fill={node.fill}
-                      stroke={isSelected ? "#1f7a68" : "#b8c8c4"}
-                      strokeWidth={1}
-                    />
-                    <Text
-                      x={NODE_TEXT_PADDING_X}
-                      y={NODE_TEXT_PADDING_Y}
-                      width={textWidth}
-                      height={textHeight}
-                      align="center"
-                      verticalAlign="middle"
-                      text={node.label}
-                      fontSize={NODE_TEXT_FONT_SIZE}
-                      fontStyle="bold"
-                      fontFamily={NODE_TEXT_FONT_FAMILY}
-                      lineHeight={NODE_TEXT_LINE_HEIGHT / NODE_TEXT_FONT_SIZE}
-                      wrap="word"
-                      fill="#172022"
-                      ellipsis
-                      visible={!(inlineEdit?.type === "node" && inlineEdit.id === node.id)}
-                    />
-                  </Group>
-
+                <Group
+                  key={node.id}
+                  x={geometry.frame.x}
+                  y={geometry.frame.y}
+                  draggable={mode === "select" && !panningRequested && interactionState.kind !== "panning"}
+                  onMouseEnter={() => setHoveredNodeId(node.id)}
+                  onMouseLeave={() => setHoveredNodeId((current) => (current === node.id ? null : current))}
+                  onDragStart={(event) => {
+                    if (event.evt.button !== 0) {
+                      event.target.stopDrag();
+                      return;
+                    }
+                    startNodeDrag(node);
+                  }}
+                  onDragMove={(event) => moveSelectedNodes(node, event.target)}
+                  onDragEnd={() => {
+                    dragRef.current = null;
+                    setAlignmentGuides([]);
+                    resetInteraction();
+                  }}
+                  onClick={(event) => {
+                    event.cancelBubble = true;
+                    invalidateBlankClickIntent();
+                    if (mode !== "select") return;
+                    onSelectionChange(event.evt.shiftKey ? toggleNodeSelection(selection, node.id) : selectOnlyNode(node.id));
+                  }}
+                  onDblClick={(event) => {
+                    event.cancelBubble = true;
+                    invalidateBlankClickIntent();
+                    setInteractionState({ kind: "editingNodeText", nodeId: node.id });
+                    setInlineEdit({ type: "node", id: node.id, value: node.label });
+                  }}
+                >
+                  <Rect
+                    width={geometry.frame.width}
+                    height={geometry.frame.height}
+                    cornerRadius={NODE_CARD_RADIUS}
+                    fill={node.fill}
+                    stroke={isSelected ? "#1f7a68" : "#b8c8c4"}
+                    strokeWidth={1}
+                  />
+                  <Text
+                    x={geometry.textBox.x}
+                    y={geometry.textBox.y}
+                    width={geometry.textBox.width}
+                    height={geometry.textBox.height}
+                    align="center"
+                    verticalAlign="middle"
+                    text={node.label}
+                    fontSize={NODE_TEXT_FONT_SIZE}
+                    fontStyle="bold"
+                    fontFamily={NODE_TEXT_FONT_FAMILY}
+                    lineHeight={NODE_TEXT_LINE_HEIGHT / NODE_TEXT_FONT_SIZE}
+                    wrap="word"
+                    fill="#172022"
+                    ellipsis
+                    visible={!(inlineEdit?.type === "node" && inlineEdit.id === node.id)}
+                  />
                   {showAnchors
-                    ? anchorPoints(node).map((anchor) => (
+                    ? geometry.anchorsLocal.map((anchor) => (
                         <Circle
                           key={`${node.id}-${anchor.key}`}
                           x={anchor.x}
@@ -793,7 +700,7 @@ export function KonvaCanvas({
                           fill={mode === "connect" ? "#c9872d" : "#1f7a68"}
                           stroke="#ffffff"
                           strokeWidth={2}
-                          onMouseDown={(event) => startConnection(node, anchor.x, anchor.y, event)}
+                          onMouseDown={(event) => startConnection(node, geometry.frame.x + anchor.x, geometry.frame.y + anchor.y, event)}
                         />
                       ))
                     : null}
@@ -889,7 +796,7 @@ export function KonvaCanvas({
             <Textarea
               ref={nodeEditorRef}
               value={inlineEdit.value}
-              className="absolute z-40 block min-h-0 resize-none overflow-x-hidden rounded-none border-0 bg-transparent p-0 text-center font-bold text-[#172022] shadow-none outline-none ring-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+              className="node-inline-editor absolute z-40 block min-h-0 resize-none overflow-x-hidden rounded-none border-0 bg-transparent p-0 text-center font-bold text-[#172022] shadow-none outline-none ring-0 focus-visible:ring-0 focus-visible:ring-offset-0"
               style={{
                 left: editStyle.left,
                 top: editStyle.top + nodeEditorLayout.insetTop,

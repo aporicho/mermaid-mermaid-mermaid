@@ -22,6 +22,7 @@ export type AlignmentSnapResult = {
 
 type AlignmentCandidate = {
   kind: "edge" | "center";
+  slot: "start" | "center" | "end";
   value: number;
 };
 
@@ -70,15 +71,16 @@ function bestAxisSnap(axis: "x" | "y", movingRect: AlignmentRect, staticRects: A
     const staticCandidates = axisCandidates(axis, staticRect);
     for (const moving of movingCandidates) {
       for (const target of staticCandidates) {
+        if (moving.slot !== target.slot) continue;
         const delta = target.value - moving.value;
         const distance = Math.abs(delta);
         if (distance > thresholdWorld) continue;
-        if (best && distance >= best.distance) continue;
+        if (best && !isBetterSnap(distance, target.kind, best)) continue;
 
         best = {
           delta,
           distance,
-          guide: buildGuide(axis, target.value, movingRect, staticRect, target.kind === "center" || moving.kind === "center" ? "center" : "edge")
+          guide: buildGuide(axis, target.value, movingRect, staticRect, target.kind)
         };
       }
     }
@@ -87,19 +89,29 @@ function bestAxisSnap(axis: "x" | "y", movingRect: AlignmentRect, staticRects: A
   return best;
 }
 
+function isBetterSnap(distance: number, kind: "edge" | "center", best: AxisSnap) {
+  if (distance < best.distance) return true;
+  if (distance > best.distance) return false;
+  return snapPriority(kind) > snapPriority(best.guide.kind);
+}
+
+function snapPriority(kind: "edge" | "center") {
+  return kind === "center" ? 2 : 1;
+}
+
 function axisCandidates(axis: "x" | "y", rect: AlignmentRect): AlignmentCandidate[] {
   if (axis === "x") {
     return [
-      { kind: "edge", value: rect.x },
-      { kind: "center", value: rect.x + rect.width / 2 },
-      { kind: "edge", value: rect.x + rect.width }
+      { kind: "edge", slot: "start", value: rect.x },
+      { kind: "center", slot: "center", value: rect.x + rect.width / 2 },
+      { kind: "edge", slot: "end", value: rect.x + rect.width }
     ];
   }
 
   return [
-    { kind: "edge", value: rect.y },
-    { kind: "center", value: rect.y + rect.height / 2 },
-    { kind: "edge", value: rect.y + rect.height }
+    { kind: "edge", slot: "start", value: rect.y },
+    { kind: "center", slot: "center", value: rect.y + rect.height / 2 },
+    { kind: "edge", slot: "end", value: rect.y + rect.height }
   ];
 }
 

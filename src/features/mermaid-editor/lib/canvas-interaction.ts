@@ -100,12 +100,16 @@ export function selectionVersionKey(selection: Selection) {
   return [...selection.nodeIds, "|", ...selection.edgeIds].join(",");
 }
 
+export function isPanningButton(button: number) {
+  return button === 1 || button === 2;
+}
+
 export function beginCanvasPointer(input: PointerDownInput): InteractionTransition {
   if (input.state.kind !== "idle") {
     return { state: input.state, clearBlankClickIntent: true };
   }
 
-  if (input.button === 1 || input.panningRequested) {
+  if (isPanningButton(input.button) || input.panningRequested) {
     return {
       state: {
         kind: "panning",

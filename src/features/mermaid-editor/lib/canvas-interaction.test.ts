@@ -90,6 +90,13 @@ describe("canvas interaction state", () => {
     expect(result.clearBlankClickIntent).toBe(true);
   });
 
+  it("uses right mouse drag as temporary panning", () => {
+    const result = pointerDown({ button: 2, hit: { kind: "node", id: "a" } });
+
+    expect(result.state.kind).toBe("panning");
+    expect(result.clearBlankClickIntent).toBe(true);
+  });
+
   it("records the first valid blank click and creates on the second valid blank click", () => {
     const first = blankClick();
     expect(first.action).toBe("record");

@@ -57,3 +57,11 @@
 - Konva 组件只负责把原始事件转换为标准输入，并执行状态机返回的命令或副作用。
 - 历史记录只在明确提交边界写入；拖拽中的移动只做 draft 更新。
 - 对齐辅助线、连线草稿、框选矩形是瞬时状态的可视副作用，不应写入 Mermaid 文件。
+
+## 节点几何层
+
+- `node-geometry.ts` 是节点卡片几何的唯一来源。
+- 节点 frame、文本框、连接锚点、边路由矩形、对齐矩形、命中测试都必须从同一份 `NodeGeometry` 派生。
+- 节点的 Konva 结构必须是一个可拖拽 Group 包含 Rect、Text 和四个连接点；连接点使用节点局部坐标，不能作为节点 Group 的兄弟元素单独定位。
+- 连接点只表示连线交互入口，不参与对齐吸附；对齐吸附使用节点 frame 或多选 selection bounds。
+- 拖拽吸附算出 snapped position 后，必须同步更新正在拖拽的 Konva Group position 和 graph draft，避免视觉位置与数据位置分裂。

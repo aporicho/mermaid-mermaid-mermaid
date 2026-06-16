@@ -61,3 +61,11 @@
 .mermaid-render svg foreignObject {
   overflow: visible;
 }
+
+.node-inline-editor {
+  scrollbar-width: none;
+}
+
+.node-inline-editor::-webkit-scrollbar {
+  display: none;
+}
