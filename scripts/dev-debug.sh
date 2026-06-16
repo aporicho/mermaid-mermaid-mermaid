@@ -45,7 +45,7 @@ port_pids() {
   fi
 
   if has_command fuser; then
-    result="$(fuser -n tcp "$PORT" 2>/dev/null | tr ' ' '\n' | sed '/^$/d' | sort -u || true)"
+    result="$(fuser -n tcp "$PORT" 2>/dev/null | tr ' ' '\n' | sed -n '/^[0-9][0-9]*$/p' | sort -u || true)"
     if [[ -n "$result" ]]; then
       printf '%s\n' "$result"
       return
@@ -53,7 +53,7 @@ port_pids() {
   fi
 
   if has_command ss; then
-    result="$(ss -ltnp "sport = :$PORT" 2>/dev/null | sed -n 's/.*pid=\([0-9][0-9]*\).*/\1/p' | sort -u || true)"
+    result="$(ss -ltnp "sport = :$PORT" 2>/dev/null | sed -n 's/.*pid=\([0-9][0-9]*\).*/\1/p' | sed -n '/^[0-9][0-9]*$/p' | sort -u || true)"
     if [[ -n "$result" ]]; then
       printf '%s\n' "$result"
     fi

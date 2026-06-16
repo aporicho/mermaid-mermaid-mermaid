@@ -73,6 +73,7 @@ import {
   themeToCanvasVisualTokens,
   themeToMermaidThemeVariables
 } from "@/features/mermaid-editor/lib/editor-theme";
+import { incrementPerformanceCounter, measurePerformance } from "@/features/mermaid-editor/lib/editor-performance";
 import { initialMermaidSource, parseMermaid, serializeMermaid } from "@/features/mermaid-editor/lib/mermaid-graph";
 
 const STORAGE_KEY = "mermaid-canvas-editor:v1";
@@ -282,6 +283,7 @@ export function MermaidEditor() {
   const sourceEditBaseRef = useRef<EditorSnapshot | null>(null);
   const sourceEditTimerRef = useRef<number | null>(null);
   const themeEditBaseRef = useRef<{ themeId: EditorThemeId; customTheme: EditorTheme | null } | null>(null);
+  const storageWriteTimerRef = useRef<number | null>(null);
 
   const currentDocument = useMemo(() => buildMermaidDocument(source, graph, viewport, edgeRouting), [source, graph, viewport, edgeRouting]);
   const activeTheme = useMemo(() => resolveEditorTheme(themeId, customTheme), [customTheme, themeId]);
@@ -320,7 +322,10 @@ export function MermaidEditor() {
     if (!isCanvasEditable) return;
     flushSourceHistory();
     setHistory((current) => pushHistory(current, snapshot()));
-    const nextSource = serializeMermaid(nextGraph);
+    const nextSource = measurePerformance("serialize-mermaid", () => serializeMermaid(nextGraph), {
+      nodes: nextGraph.nodes.length,
+      edges: nextGraph.edges.length
+    });
     setGraph(nextGraph);
     setSource(nextSource);
     setSelection(nextSelection);
@@ -328,10 +333,19 @@ export function MermaidEditor() {
     setStatus(message);
   }
 
-  function draftGraph(nextGraph: MermaidGraph) {
+  function draftGraph(nextGraph: MermaidGraph, message?: string, options?: { syncSource?: boolean }) {
     if (!isCanvasEditable) return;
     setGraph(nextGraph);
-    setSource(serializeMermaid(nextGraph));
+    if (options?.syncSource) {
+      setSource(
+        measurePerformance("serialize-mermaid", () => serializeMermaid(nextGraph), {
+          nodes: nextGraph.nodes.length,
+          edges: nextGraph.edges.length,
+          draft: true
+        })
+      );
+      if (message) setStatus(message);
+    }
     setDiagnostics([]);
   }
 
@@ -342,7 +356,9 @@ export function MermaidEditor() {
 
   function applySource(nextSource: string) {
     if (!sourceEditBaseRef.current) sourceEditBaseRef.current = snapshot();
-    const loaded = loadMermaidDocument(nextSource, graph);
+    const loaded = measurePerformance("load-mermaid-document", () => loadMermaidDocument(nextSource, graph), {
+      sourceLength: nextSource.length
+    });
     setSource(loaded.source);
     setDiagramType(loaded.diagramType);
     setEditableKind(loaded.editableKind);
@@ -664,22 +680,32 @@ export function MermaidEditor() {
   }, [activeTheme]);
 
   useEffect(() => {
-    window.localStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify({
-        source,
-        layout: layoutFromGraph(graph, viewport, edgeRouting),
-        viewport,
-        edgeRouting,
-        leftCollapsed,
-        rightCollapsed,
-        workspaceView,
-        showGrid,
-        fileName,
-        themeId,
-        customTheme
-      } satisfies StoredEditor)
-    );
+    if (storageWriteTimerRef.current) window.clearTimeout(storageWriteTimerRef.current);
+
+    storageWriteTimerRef.current = window.setTimeout(() => {
+      incrementPerformanceCounter("local-storage-write");
+      window.localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({
+          source,
+          layout: layoutFromGraph(graph, viewport, edgeRouting),
+          viewport,
+          edgeRouting,
+          leftCollapsed,
+          rightCollapsed,
+          workspaceView,
+          showGrid,
+          fileName,
+          themeId,
+          customTheme
+        } satisfies StoredEditor)
+      );
+      storageWriteTimerRef.current = null;
+    }, 160);
+
+    return () => {
+      if (storageWriteTimerRef.current) window.clearTimeout(storageWriteTimerRef.current);
+    };
   }, [source, graph, viewport, edgeRouting, leftCollapsed, rightCollapsed, workspaceView, showGrid, fileName, themeId, customTheme]);
 
   useEffect(() => {

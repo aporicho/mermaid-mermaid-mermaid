@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Arrow, Circle, Ellipse, Group, Layer, Line, Path, Rect, Shape, Stage, Text } from "react-konva";
 import type Konva from "konva";
 import type { KonvaEventObject } from "konva/lib/Node";
@@ -47,6 +47,7 @@ import {
   resolveKonvaHitTarget
 } from "@/features/mermaid-editor/lib/canvas-hit-target";
 import { DEFAULT_CANVAS_GRID, firstGridCoordinateAtOrAfter, getCanvasGridRenderPlan, isGridCoordinate } from "@/features/mermaid-editor/lib/canvas-grid";
+import { resolveWheelNavigation, zoomViewportAtPoint } from "@/features/mermaid-editor/lib/canvas-viewport-navigation";
 import { resolveConnectionPreview, resolveRetargetPreview } from "@/features/mermaid-editor/lib/connection-preview";
 import {
   buildEdgeLabelGeometry,
@@ -74,6 +75,7 @@ import {
   getNodeVisualState,
   getSelectionBoxVisualState
 } from "@/features/mermaid-editor/lib/canvas-visual-state";
+import { recordPerformanceMetric } from "@/features/mermaid-editor/lib/editor-performance";
 import { cn } from "@/lib/utils";
 
 const NODE_TEXT_FONT_SIZE: number = DEFAULT_NODE_GEOMETRY_TOKENS.fontSize;
@@ -100,7 +102,7 @@ type KonvaCanvasProps = {
   showGrid: boolean;
   edgeRouting: EdgeRouting;
   visualTokens?: CanvasVisualTokens;
-  onGraphDraft: (graph: MermaidGraph, message?: string) => void;
+  onGraphDraft: (graph: MermaidGraph, message?: string, options?: { syncSource?: boolean }) => void;
   onGraphCommit: (graph: MermaidGraph, selection?: Selection, message?: string) => void;
   onCaptureHistory: () => void;
   onSelectionChange: (selection: Selection) => void;
@@ -118,6 +120,12 @@ type SelectionBox = {
 type InlineEdit =
   | { type: "node"; id: string; value: string }
   | { type: "edge"; id: string; value: string };
+
+type SafariGestureEvent = Event & {
+  scale?: number;
+  clientX?: number;
+  clientY?: number;
+};
 
 function measureNodeTextWidth(value: string) {
   if (typeof document === "undefined") return value.length * NODE_TEXT_FONT_SIZE * 0.58;
@@ -516,7 +524,17 @@ export function KonvaCanvas({
   const containerRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage>(null);
   const dragRef = useRef<Record<string, { x: number; y: number }> | null>(null);
+  const dragDraftGraphRef = useRef<MermaidGraph | null>(null);
   const blankClickIntentRef = useRef<BlankClickIntent | null>(null);
+  const gestureNavigationRef = useRef<{ viewport: ViewportState; pointer: CanvasPoint } | null>(null);
+  const pendingViewportRef = useRef<ViewportState | null>(null);
+  const onViewportChangeRef = useRef(onViewportChange);
+  const visualViewportRef = useRef(viewport);
+  const viewportCommitTimerRef = useRef<number | null>(null);
+  const viewportCommitRef = useRef<ViewportState | null>(null);
+  const viewportRef = useRef(viewport);
+  const viewportRafRef = useRef<number | null>(null);
+  const suppressWheelZoomUntilRef = useRef(0);
   const interactionGenerationRef = useRef(0);
   const selectionVersionRef = useRef(0);
   const lastSelectionKeyRef = useRef(selectionVersionKey(selection));
@@ -602,6 +620,52 @@ export function KonvaCanvas({
   const connectionTargetNodeId = connectionPreview?.targetNodeId ?? retargetPreview?.targetNodeId ?? null;
   const connectionInvalidNodeId = connectionPreview?.invalidNodeId ?? retargetPreview?.invalidNodeId ?? null;
 
+  const currentViewport = useCallback(() => pendingViewportRef.current || visualViewportRef.current, []);
+
+  const applyViewportToStage = useCallback((nextViewport: ViewportState) => {
+    const stage = stageRef.current;
+    visualViewportRef.current = nextViewport;
+    viewportRef.current = nextViewport;
+
+    if (!stage) return;
+    stage.position({ x: nextViewport.x, y: nextViewport.y });
+    stage.scale({ x: nextViewport.scale, y: nextViewport.scale });
+    stage.batchDraw();
+  }, []);
+
+  const queueViewportCommit = useCallback((nextViewport: ViewportState) => {
+    viewportCommitRef.current = nextViewport;
+    if (viewportCommitTimerRef.current) window.clearTimeout(viewportCommitTimerRef.current);
+
+    viewportCommitTimerRef.current = window.setTimeout(() => {
+      const viewportToCommit = viewportCommitRef.current;
+      viewportCommitRef.current = null;
+      viewportCommitTimerRef.current = null;
+      if (viewportToCommit) onViewportChangeRef.current(viewportToCommit);
+    }, 80);
+  }, []);
+
+  const scheduleViewportChange = useCallback(
+    (nextViewport: ViewportState) => {
+      pendingViewportRef.current = nextViewport;
+      viewportRef.current = nextViewport;
+      queueViewportCommit(nextViewport);
+
+      if (viewportRafRef.current !== null) return;
+      const scheduledAt = performance.now();
+      viewportRafRef.current = window.requestAnimationFrame(() => {
+        viewportRafRef.current = null;
+        const pending = pendingViewportRef.current;
+        pendingViewportRef.current = null;
+        if (pending) {
+          applyViewportToStage(pending);
+          recordPerformanceMetric("canvas-viewport-visual-latency", performance.now() - scheduledAt);
+        }
+      });
+    },
+    [applyViewportToStage, queueViewportCommit]
+  );
+
   useEffect(() => {
     const nextSelectionKey = selectionVersionKey(selection);
     if (nextSelectionKey === lastSelectionKeyRef.current) return;
@@ -615,6 +679,26 @@ export function KonvaCanvas({
   useEffect(() => {
     invalidateBlankClickIntent();
   }, [mode, panningRequested]);
+
+  useEffect(() => {
+    viewportRef.current = viewport;
+    visualViewportRef.current = viewport;
+  }, [viewport]);
+
+  useLayoutEffect(() => {
+    applyViewportToStage(viewport);
+  }, [applyViewportToStage, dimensions.height, dimensions.width, viewport]);
+
+  useEffect(() => {
+    onViewportChangeRef.current = onViewportChange;
+  }, [onViewportChange]);
+
+  useEffect(() => {
+    return () => {
+      if (viewportRafRef.current !== null) window.cancelAnimationFrame(viewportRafRef.current);
+      if (viewportCommitTimerRef.current) window.clearTimeout(viewportCommitTimerRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     if (inlineEdit?.type !== "node") return;
@@ -650,26 +734,91 @@ export function KonvaCanvas({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [graph.nodes, inlineEdit, interactionState, mode, selection.edgeIds.length, selection.nodeIds]);
 
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    function gesturePoint(event: SafariGestureEvent) {
+      return screenPointFromClient(event.clientX, event.clientY) || { x: dimensions.width / 2, y: dimensions.height / 2 };
+    }
+
+    function onGestureStart(event: SafariGestureEvent) {
+      event.preventDefault();
+      suppressWheelZoomUntilRef.current = Date.now() + 350;
+
+      if (interactionState.kind !== "idle") {
+        gestureNavigationRef.current = null;
+        return;
+      }
+
+      invalidateBlankClickIntent();
+      gestureNavigationRef.current = {
+        viewport: currentViewport(),
+        pointer: gesturePoint(event)
+      };
+    }
+
+    function onGestureChange(event: SafariGestureEvent) {
+      event.preventDefault();
+      suppressWheelZoomUntilRef.current = Date.now() + 250;
+
+      const start = gestureNavigationRef.current;
+      const scale = typeof event.scale === "number" && Number.isFinite(event.scale) ? event.scale : 1;
+      if (!start || scale <= 0) return;
+
+      scheduleViewportChange(zoomViewportAtPoint(start.viewport, start.pointer, start.viewport.scale * scale));
+    }
+
+    function onGestureEnd(event: SafariGestureEvent) {
+      event.preventDefault();
+      gestureNavigationRef.current = null;
+      suppressWheelZoomUntilRef.current = Date.now() + 350;
+    }
+
+    container.addEventListener("gesturestart", onGestureStart as EventListener, { passive: false });
+    container.addEventListener("gesturechange", onGestureChange as EventListener, { passive: false });
+    container.addEventListener("gestureend", onGestureEnd as EventListener, { passive: false });
+
+    return () => {
+      container.removeEventListener("gesturestart", onGestureStart as EventListener);
+      container.removeEventListener("gesturechange", onGestureChange as EventListener);
+      container.removeEventListener("gestureend", onGestureEnd as EventListener);
+    };
+  }, [currentViewport, dimensions.height, dimensions.width, interactionState.kind, scheduleViewportChange]);
+
   function pointerWorldPoint() {
     const stage = stageRef.current;
     const pointer = stage?.getPointerPosition();
     if (!stage || !pointer) return null;
+    const activeViewport = currentViewport();
 
     return {
-      x: (pointer.x - viewport.x) / viewport.scale,
-      y: (pointer.y - viewport.y) / viewport.scale
+      x: (pointer.x - activeViewport.x) / activeViewport.scale,
+      y: (pointer.y - activeViewport.y) / activeViewport.scale
     };
   }
 
   function worldToScreen(point: { x: number; y: number }) {
+    const activeViewport = currentViewport();
     return {
-      x: viewport.x + point.x * viewport.scale,
-      y: viewport.y + point.y * viewport.scale
+      x: activeViewport.x + point.x * activeViewport.scale,
+      y: activeViewport.y + point.y * activeViewport.scale
     };
   }
 
   function pointerScreenPoint(): CanvasPoint | null {
     return stageRef.current?.getPointerPosition() || null;
+  }
+
+  function screenPointFromClient(clientX: number | undefined, clientY: number | undefined): CanvasPoint | null {
+    const container = containerRef.current;
+    if (!container || typeof clientX !== "number" || typeof clientY !== "number") return null;
+
+    const rect = container.getBoundingClientRect();
+    return {
+      x: clientX - rect.left,
+      y: clientY - rect.top
+    };
   }
 
   function invalidateBlankClickIntent() {
@@ -807,24 +956,30 @@ export function KonvaCanvas({
 
   function onWheel(event: KonvaEventObject<WheelEvent>) {
     event.evt.preventDefault();
-    invalidateBlankClickIntent();
     const stage = stageRef.current;
-    const pointer = stage?.getPointerPosition();
-    if (!stage || !pointer) return;
+    const pointer = stage?.getPointerPosition() || screenPointFromClient(event.evt.clientX, event.evt.clientY);
+    if (!pointer) return;
 
-    const scaleBy = 1.08;
-    const oldScale = viewport.scale;
-    const nextScale = Math.min(2.4, Math.max(0.28, event.evt.deltaY > 0 ? oldScale / scaleBy : oldScale * scaleBy));
-    const mousePointTo = {
-      x: (pointer.x - viewport.x) / oldScale,
-      y: (pointer.y - viewport.y) / oldScale
-    };
+    const isZoomWheel = event.evt.ctrlKey || event.evt.metaKey;
+    if (isZoomWheel && Date.now() < suppressWheelZoomUntilRef.current) return;
 
-    onViewportChange({
-      scale: nextScale,
-      x: pointer.x - mousePointTo.x * nextScale,
-      y: pointer.y - mousePointTo.y * nextScale
+    const result = resolveWheelNavigation({
+      viewport: currentViewport(),
+      pointer,
+      canvasSize: dimensions,
+      deltaX: event.evt.deltaX,
+      deltaY: event.evt.deltaY,
+      deltaMode: event.evt.deltaMode,
+      ctrlKey: event.evt.ctrlKey,
+      metaKey: event.evt.metaKey,
+      shiftKey: event.evt.shiftKey,
+      interactionKind: interactionState.kind
     });
+
+    if (result.kind === "ignored") return;
+
+    invalidateBlankClickIntent();
+    scheduleViewportChange(result.viewport);
   }
 
   function handleCanvasPointerDown(event: KonvaEventObject<MouseEvent>, explicitHit?: HitTarget, worldOverride?: CanvasPoint) {
@@ -844,7 +999,7 @@ export function KonvaCanvas({
       world,
       now: event.evt.timeStamp,
       selectionVersion: selectionVersionRef.current,
-      viewport,
+      viewport: currentViewport(),
       panningRequested
     });
 
@@ -861,8 +1016,8 @@ export function KonvaCanvas({
     if (!pointer || !world) return;
 
     if (interactionState.kind === "panning") {
-      onViewportChange({
-        ...viewport,
+      scheduleViewportChange({
+        ...currentViewport(),
         x: interactionState.originViewport.x + pointer.x - interactionState.startScreen.x,
         y: interactionState.originViewport.y + pointer.y - interactionState.startScreen.y
       });
@@ -925,6 +1080,7 @@ export function KonvaCanvas({
     dragRef.current = Object.fromEntries(
       graph.nodes.filter((item) => ids.includes(item.id)).map((item) => [item.id, { x: item.x, y: item.y }])
     );
+    dragDraftGraphRef.current = null;
     onCaptureHistory();
   }
 
@@ -949,7 +1105,7 @@ export function KonvaCanvas({
       });
     const movingBounds = selectionBounds(movingRects);
     const staticRects = graph.nodes.filter((item) => !dragRef.current?.[item.id]).map((item) => buildNodeGeometry(item, geometrySpec).alignmentRect);
-    const snap = movingBounds ? computeAlignmentSnap(movingBounds, staticRects, viewport.scale) : { dx: 0, dy: 0, guides: [] };
+    const snap = movingBounds ? computeAlignmentSnap(movingBounds, staticRects, currentViewport().scale) : { dx: 0, dy: 0, guides: [] };
     const snappedDeltaX = deltaX + snap.dx;
     const snappedDeltaY = deltaY + snap.dy;
     const positions = Object.fromEntries(
@@ -958,7 +1114,9 @@ export function KonvaCanvas({
     const draggedPosition = positions[node.id];
     if (draggedPosition) target.position(draggedPosition);
     setAlignmentGuides(snap.guides);
-    onGraphDraft(setNodePositions(graph, positions), "正在移动节点。");
+    const nextGraph = setNodePositions(graph, positions);
+    dragDraftGraphRef.current = nextGraph;
+    onGraphDraft(nextGraph, "正在移动节点。", { syncSource: false });
   }
 
   function finishConnection(draft: Extract<InteractionState, { kind: "connectingEdge" }>) {
@@ -1007,8 +1165,8 @@ export function KonvaCanvas({
       return {
         left: screen.x,
         top: screen.y,
-        width: geometry.textBox.width * viewport.scale,
-        height: geometry.textBox.height * viewport.scale
+        width: geometry.textBox.width * currentViewport().scale,
+        height: geometry.textBox.height * currentViewport().scale
       };
     }
 
@@ -1020,19 +1178,20 @@ export function KonvaCanvas({
     return {
       left: screen.x,
       top: screen.y,
-      width: labelGeometry.frame.width * viewport.scale,
-      height: labelGeometry.frame.height * viewport.scale
+      width: labelGeometry.frame.width * currentViewport().scale,
+      height: labelGeometry.frame.height * currentViewport().scale
     };
   }
 
   const editStyle = inlineEditStyle();
+  const activeScale = currentViewport().scale;
 
   useLayoutEffect(() => {
     if (inlineEdit?.type !== "node" || !editStyle) return;
     const measure = nodeEditorMeasureRef.current;
     if (!measure) return;
 
-    const minimumHeight = NODE_TEXT_LINE_HEIGHT * viewport.scale;
+    const minimumHeight = NODE_TEXT_LINE_HEIGHT * activeScale;
     const measuredHeight = Math.max(minimumHeight, Math.ceil(measure.scrollHeight));
     const scrollable = measuredHeight > editStyle.height + 1;
     const height = scrollable ? editStyle.height : Math.min(editStyle.height, measuredHeight);
@@ -1042,7 +1201,7 @@ export function KonvaCanvas({
       if (current.height === height && current.insetTop === insetTop && current.scrollable === scrollable) return current;
       return { height, insetTop, scrollable };
     });
-  }, [editStyle, inlineEdit?.type, inlineEdit?.value, viewport.scale]);
+  }, [activeScale, editStyle, inlineEdit?.type, inlineEdit?.value]);
 
   const cursorClassName = interactionCursor(mode, interactionState, panningRequested, hoveredHitTarget);
   const isEndpointHovered = (edgeId: string, side: "from" | "to") =>
@@ -1054,7 +1213,7 @@ export function KonvaCanvas({
       <div
         ref={containerRef}
         className={cn(
-          "relative h-full min-h-0 overflow-hidden bg-background",
+          "relative h-full min-h-0 touch-none overflow-hidden overscroll-none bg-background",
           cursorClassName
         )}
         onAuxClick={(event) => event.preventDefault()}
@@ -1064,10 +1223,6 @@ export function KonvaCanvas({
           ref={stageRef}
           width={dimensions.width}
           height={dimensions.height}
-          x={viewport.x}
-          y={viewport.y}
-          scaleX={viewport.scale}
-          scaleY={viewport.scale}
           onWheel={onWheel}
           onMouseDown={handleCanvasPointerDown}
           onMouseMove={handleCanvasPointerMove}
@@ -1193,7 +1348,11 @@ export function KonvaCanvas({
                   }}
                   onDragMove={(event) => moveSelectedNodes(node, event.target)}
                   onDragEnd={() => {
+                    if (dragDraftGraphRef.current) {
+                      onGraphDraft(dragDraftGraphRef.current, "已移动节点。", { syncSource: true });
+                    }
                     dragRef.current = null;
+                    dragDraftGraphRef.current = null;
                     setAlignmentGuides([]);
                     resetInteraction();
                   }}
@@ -1320,8 +1479,8 @@ export function KonvaCanvas({
               style={{
                 width: editStyle.width,
                 fontFamily: NODE_TEXT_FONT_FAMILY,
-                fontSize: NODE_TEXT_FONT_SIZE * viewport.scale,
-                lineHeight: `${NODE_TEXT_LINE_HEIGHT * viewport.scale}px`,
+                fontSize: NODE_TEXT_FONT_SIZE * activeScale,
+                lineHeight: `${NODE_TEXT_LINE_HEIGHT * activeScale}px`,
                 overflowWrap: "break-word",
                 wordBreak: "break-word",
                 visibility: "hidden"
@@ -1339,8 +1498,8 @@ export function KonvaCanvas({
                 width: editStyle.width,
                 height: nodeEditorLayout.height,
                 fontFamily: NODE_TEXT_FONT_FAMILY,
-                fontSize: NODE_TEXT_FONT_SIZE * viewport.scale,
-                lineHeight: `${NODE_TEXT_LINE_HEIGHT * viewport.scale}px`,
+                fontSize: NODE_TEXT_FONT_SIZE * activeScale,
+                lineHeight: `${NODE_TEXT_LINE_HEIGHT * activeScale}px`,
                 overflowWrap: "break-word",
                 wordBreak: "break-word",
                 overflowY: nodeEditorLayout.scrollable ? "auto" : "hidden"
@@ -1368,12 +1527,12 @@ export function KonvaCanvas({
               top: editStyle.top,
               width: editStyle.width,
               height: editStyle.height,
-              borderRadius: visualTokens.edge.labelCornerRadius * viewport.scale,
+              borderRadius: visualTokens.edge.labelCornerRadius * activeScale,
               fontFamily: NODE_TEXT_FONT_FAMILY,
-              fontSize: EDGE_LABEL_FONT_SIZE * viewport.scale,
-              lineHeight: `${EDGE_LABEL_LINE_HEIGHT * viewport.scale}px`,
-              paddingLeft: EDGE_LABEL_PADDING_X * viewport.scale,
-              paddingRight: EDGE_LABEL_PADDING_X * viewport.scale
+              fontSize: EDGE_LABEL_FONT_SIZE * activeScale,
+              lineHeight: `${EDGE_LABEL_LINE_HEIGHT * activeScale}px`,
+              paddingLeft: EDGE_LABEL_PADDING_X * activeScale,
+              paddingRight: EDGE_LABEL_PADDING_X * activeScale
             }}
             onChange={(event) => setInlineEdit({ ...inlineEdit, value: event.target.value })}
             onBlur={() => commitInlineEdit(true)}
