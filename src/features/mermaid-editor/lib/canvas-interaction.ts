@@ -86,6 +86,34 @@ export type BlankClickResolution =
   | { action: "record"; intent: BlankClickIntent }
   | { action: "addNode"; intent: null; point: CanvasPoint };
 
+export type CanvasRect = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
+
+export type InlineEditCommandTarget = { type: "node" | "edge"; id: string };
+
+export type CanvasInteractionCommand =
+  | { type: "invalidateBlankClick" }
+  | { type: "clearSelection" }
+  | { type: "recordBlankClick"; intent: BlankClickIntent }
+  | { type: "addNodeAt"; point: CanvasPoint }
+  | { type: "selectNode"; id: string; additive: boolean }
+  | { type: "selectEdge"; id: string; additive: boolean }
+  | { type: "startInlineEdit"; target: InlineEditCommandTarget }
+  | { type: "startNodeDrag"; nodeId: string }
+  | { type: "selectMarquee"; rect: CanvasRect }
+  | { type: "finishConnection"; draft: Extract<InteractionState, { kind: "connectingEdge" }> }
+  | { type: "retargetEdge"; edgeId: string; side: "from" | "to" }
+  | { type: "resetInteraction" };
+
+export type CanvasDispatchResult = {
+  state: InteractionState;
+  commands: CanvasInteractionCommand[];
+};
+
 export const CANVAS_DRAG_THRESHOLD_PX = 4;
 export const BLANK_DOUBLE_CLICK_MS = 360;
 export const BLANK_DOUBLE_CLICK_DISTANCE_PX = 8;
@@ -184,6 +212,15 @@ export function beginCanvasPointer(input: PointerDownInput): InteractionTransiti
   return { state: input.state, clearBlankClickIntent: input.hit.kind !== "blank" };
 }
 
+export function dispatchCanvasPointerDown(input: PointerDownInput): CanvasDispatchResult {
+  const transition = beginCanvasPointer(input);
+
+  return {
+    state: transition.state,
+    commands: transition.clearBlankClickIntent ? [{ type: "invalidateBlankClick" }] : []
+  };
+}
+
 export function updateCanvasPointer(input: PointerMoveInput): InteractionTransition {
   const { state, screen, world } = input;
 
@@ -216,6 +253,124 @@ export function updateCanvasPointer(input: PointerMoveInput): InteractionTransit
   }
 
   return { state, clearBlankClickIntent: false };
+}
+
+export function dispatchCanvasPointerMove(input: PointerMoveInput): CanvasDispatchResult {
+  const transition = updateCanvasPointer(input);
+  const commands: CanvasInteractionCommand[] = [];
+
+  if (transition.clearBlankClickIntent) {
+    commands.push({ type: "invalidateBlankClick" });
+  }
+
+  if (input.state.kind === "pendingNodePointer" && transition.state.kind === "draggingNodes") {
+    commands.push({ type: "startNodeDrag", nodeId: transition.state.nodeId });
+  }
+
+  return {
+    state: transition.state,
+    commands
+  };
+}
+
+export function dispatchCanvasPointerUp(input: {
+  state: InteractionState;
+  tool: EditorMode;
+  hit: HitTarget;
+  hasSelection: boolean;
+  screen: CanvasPoint;
+  world: CanvasPoint;
+  now: number;
+  previousBlankClick: BlankClickIntent | null;
+  selectionVersion: number;
+  interactionGeneration: number;
+}): CanvasDispatchResult {
+  const commands: CanvasInteractionCommand[] = [];
+
+  if (input.state.kind === "pendingBlankPointer" && input.hit.kind === "blank") {
+    const result = resolveBlankClick({
+      previous: input.previousBlankClick,
+      tool: input.tool,
+      state: input.state,
+      hasSelection: input.hasSelection,
+      screen: input.screen,
+      world: input.world,
+      now: input.now,
+      selectionVersion: input.selectionVersion,
+      interactionGeneration: input.interactionGeneration
+    });
+
+    if (result.action === "clearSelection") {
+      commands.push({ type: "clearSelection" });
+    } else if (result.action === "record") {
+      commands.push({ type: "recordBlankClick", intent: result.intent });
+    } else if (result.action === "addNode") {
+      commands.push({ type: "addNodeAt", point: result.point });
+      commands.push({ type: "invalidateBlankClick" });
+    }
+  }
+
+  if (input.state.kind === "marqueeSelecting") {
+    commands.push({ type: "selectMarquee", rect: normalizeWorldRect(input.state.startWorld, input.state.currentWorld) });
+    commands.push({ type: "invalidateBlankClick" });
+  }
+
+  if (input.state.kind === "connectingEdge") {
+    commands.push({ type: "finishConnection", draft: input.state });
+    commands.push({ type: "invalidateBlankClick" });
+  }
+
+  commands.push({ type: "resetInteraction" });
+
+  return {
+    state: idleInteraction,
+    commands
+  };
+}
+
+export function dispatchCanvasClick(input: { tool: EditorMode; hit: HitTarget; shiftKey: boolean }): CanvasInteractionCommand[] {
+  if (input.hit.kind === "blank") return [];
+
+  const commands: CanvasInteractionCommand[] = [{ type: "invalidateBlankClick" }];
+  if (input.tool !== "select") return commands;
+
+  if (input.hit.kind === "node") {
+    commands.push({ type: "selectNode", id: input.hit.id, additive: input.shiftKey });
+  }
+
+  if (input.hit.kind === "nodeAnchor") {
+    commands.push({ type: "selectNode", id: input.hit.nodeId, additive: input.shiftKey });
+  }
+
+  if (input.hit.kind === "edge" || input.hit.kind === "edgeLabel") {
+    commands.push({ type: "selectEdge", id: input.hit.id, additive: input.shiftKey });
+  }
+
+  if (input.hit.kind === "edgeEndpoint") {
+    commands.push({ type: "selectEdge", id: input.hit.edgeId, additive: input.shiftKey });
+  }
+
+  return commands;
+}
+
+export function dispatchCanvasDoubleClick(input: { tool: EditorMode; hit: HitTarget }): CanvasInteractionCommand[] {
+  if (input.hit.kind === "blank") return [];
+
+  const commands: CanvasInteractionCommand[] = [{ type: "invalidateBlankClick" }];
+  if (input.tool !== "select") return commands;
+
+  if (input.hit.kind === "node" || input.hit.kind === "nodeAnchor") {
+    const id = input.hit.kind === "node" ? input.hit.id : input.hit.nodeId;
+    commands.push({ type: "selectNode", id, additive: false });
+    commands.push({ type: "startInlineEdit", target: { type: "node", id } });
+  }
+
+  if (input.hit.kind === "edge" || input.hit.kind === "edgeLabel") {
+    commands.push({ type: "selectEdge", id: input.hit.id, additive: false });
+    commands.push({ type: "startInlineEdit", target: { type: "edge", id: input.hit.id } });
+  }
+
+  return commands;
 }
 
 export function resolveBlankClick(input: {
@@ -292,4 +447,12 @@ function isValidSecondBlankClick(
 
 function distance(a: CanvasPoint, b: CanvasPoint) {
   return Math.hypot(a.x - b.x, a.y - b.y);
+}
+
+function normalizeWorldRect(start: CanvasPoint, end: CanvasPoint): CanvasRect {
+  const x = Math.min(start.x, end.x);
+  const y = Math.min(start.y, end.y);
+  const width = Math.abs(end.x - start.x);
+  const height = Math.abs(end.y - start.y);
+  return { x, y, width, height };
 }

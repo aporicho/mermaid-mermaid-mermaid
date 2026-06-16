@@ -2,6 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import {
   beginCanvasPointer,
+  dispatchCanvasClick,
+  dispatchCanvasDoubleClick,
+  dispatchCanvasPointerDown,
+  dispatchCanvasPointerMove,
+  dispatchCanvasPointerUp,
   idleInteraction,
   interactionCursor,
   resolveBlankClick,
@@ -97,6 +102,59 @@ describe("canvas interaction state", () => {
     expect(result.clearBlankClickIntent).toBe(true);
   });
 
+  it("uses panning buttons before target-specific node behavior in unified dispatch", () => {
+    const result = dispatchCanvasPointerDown({
+      state: idleInteraction,
+      tool: "select",
+      hit: { kind: "node", id: "a" },
+      button: 1,
+      screen: { x: 100, y: 120 },
+      world: { x: 80, y: 80 },
+      now: 1000,
+      selectionVersion: 1,
+      viewport
+    });
+
+    expect(result.state.kind).toBe("panning");
+    expect(result.commands).toEqual([{ type: "invalidateBlankClick" }]);
+  });
+
+  it("starts connections only from node anchors in connect mode", () => {
+    const selectResult = dispatchCanvasPointerDown({
+      state: idleInteraction,
+      tool: "select",
+      hit: { kind: "nodeAnchor", nodeId: "a", anchor: "right" },
+      button: 0,
+      screen: { x: 100, y: 120 },
+      world: { x: 80, y: 80 },
+      now: 1000,
+      selectionVersion: 1,
+      viewport
+    });
+    const connectResult = dispatchCanvasPointerDown({
+      state: idleInteraction,
+      tool: "connect",
+      hit: { kind: "nodeAnchor", nodeId: "a", anchor: "right" },
+      button: 0,
+      screen: { x: 100, y: 120 },
+      world: { x: 80, y: 80 },
+      now: 1000,
+      selectionVersion: 1,
+      viewport
+    });
+
+    expect(selectResult.state.kind).toBe("idle");
+    expect(connectResult.state).toMatchObject({ kind: "connectingEdge", fromNodeId: "a", startWorld: { x: 80, y: 80 } });
+  });
+
+  it("emits a start node drag command when pointer movement crosses the threshold", () => {
+    const start = pointerDown({ hit: { kind: "node", id: "a" } }).state;
+    const result = dispatchCanvasPointerMove({ state: start, screen: { x: 108, y: 120 }, world: { x: 88, y: 80 } });
+
+    expect(result.state.kind).toBe("draggingNodes");
+    expect(result.commands).toEqual([{ type: "invalidateBlankClick" }, { type: "startNodeDrag", nodeId: "a" }]);
+  });
+
   it("records the first valid blank click and creates on the second valid blank click", () => {
     const first = blankClick();
     expect(first.action).toBe("record");
@@ -115,6 +173,63 @@ describe("canvas interaction state", () => {
     const result = blankClick({ hasSelection: true });
 
     expect(result).toEqual({ action: "clearSelection", intent: null });
+  });
+
+  it("resolves pending blank pointer up into clear selection or add node commands", () => {
+    const state = pointerDown().state as Extract<InteractionState, { kind: "pendingBlankPointer" }>;
+    const clear = dispatchCanvasPointerUp({
+      state,
+      tool: "select",
+      hit: { kind: "blank" },
+      hasSelection: true,
+      screen: { x: 100, y: 120 },
+      world: { x: 80, y: 80 },
+      now: 1000,
+      previousBlankClick: null,
+      selectionVersion: 1,
+      interactionGeneration: 1
+    });
+    const add = dispatchCanvasPointerUp({
+      state,
+      tool: "select",
+      hit: { kind: "blank" },
+      hasSelection: false,
+      screen: { x: 104, y: 123 },
+      world: { x: 84, y: 83 },
+      now: 1200,
+      previousBlankClick: {
+        target: "blank",
+        pointerId: 0,
+        screen: { x: 100, y: 120 },
+        world: { x: 80, y: 80 },
+        time: 1000,
+        selectionVersion: 1,
+        interactionGeneration: 1
+      },
+      selectionVersion: 1,
+      interactionGeneration: 1
+    });
+
+    expect(clear.commands).toEqual([{ type: "clearSelection" }, { type: "resetInteraction" }]);
+    expect(add.commands).toEqual([{ type: "addNodeAt", point: { x: 84, y: 83 } }, { type: "invalidateBlankClick" }, { type: "resetInteraction" }]);
+  });
+
+  it("does not treat a blank pointer released over a node as a blank double-click", () => {
+    const state = pointerDown().state as Extract<InteractionState, { kind: "pendingBlankPointer" }>;
+    const result = dispatchCanvasPointerUp({
+      state,
+      tool: "select",
+      hit: { kind: "node", id: "a" },
+      hasSelection: false,
+      screen: { x: 100, y: 120 },
+      world: { x: 80, y: 80 },
+      now: 1000,
+      previousBlankClick: null,
+      selectionVersion: 1,
+      interactionGeneration: 1
+    });
+
+    expect(result.commands).toEqual([{ type: "resetInteraction" }]);
   });
 
   it("invalidates blank double-click intent after selection changes", () => {
@@ -157,5 +272,29 @@ describe("canvas interaction state", () => {
     expect(interactionCursor("select", { kind: "panning", pointerId: 0, startScreen: { x: 0, y: 0 }, originViewport: viewport }, false)).toBe(
       "cursor-grabbing"
     );
+  });
+
+  it("emits selection commands from click dispatch", () => {
+    expect(dispatchCanvasClick({ tool: "select", hit: { kind: "node", id: "a" }, shiftKey: false })).toEqual([
+      { type: "invalidateBlankClick" },
+      { type: "selectNode", id: "a", additive: false }
+    ]);
+    expect(dispatchCanvasClick({ tool: "select", hit: { kind: "edgeLabel", id: "a-->b" }, shiftKey: true })).toEqual([
+      { type: "invalidateBlankClick" },
+      { type: "selectEdge", id: "a-->b", additive: true }
+    ]);
+  });
+
+  it("emits edit commands from double-click dispatch", () => {
+    expect(dispatchCanvasDoubleClick({ tool: "select", hit: { kind: "nodeAnchor", nodeId: "a", anchor: "right" } })).toEqual([
+      { type: "invalidateBlankClick" },
+      { type: "selectNode", id: "a", additive: false },
+      { type: "startInlineEdit", target: { type: "node", id: "a" } }
+    ]);
+    expect(dispatchCanvasDoubleClick({ tool: "select", hit: { kind: "edge", id: "a-->b" } })).toEqual([
+      { type: "invalidateBlankClick" },
+      { type: "selectEdge", id: "a-->b", additive: false },
+      { type: "startInlineEdit", target: { type: "edge", id: "a-->b" } }
+    ]);
   });
 });

@@ -20,31 +20,53 @@ import {
 } from "@/features/mermaid-editor/lib/editor-actions";
 import { computeAlignmentSnap, selectionBounds, type AlignmentGuide } from "@/features/mermaid-editor/lib/alignment-guides";
 import {
-  beginCanvasPointer,
+  dispatchCanvasClick,
+  dispatchCanvasDoubleClick,
+  dispatchCanvasPointerDown,
+  dispatchCanvasPointerMove,
+  dispatchCanvasPointerUp,
   hasSelection as hasInteractionSelection,
   idleInteraction,
   interactionCursor,
-  isPanningButton,
   isEditingInteraction,
-  resolveBlankClick,
+  isPanningButton,
   selectionVersionKey,
-  updateCanvasPointer,
   type BlankClickIntent,
+  type CanvasInteractionCommand,
   type CanvasPoint,
+  type HitTarget,
   type InteractionState
 } from "@/features/mermaid-editor/lib/canvas-interaction";
+import {
+  CANVAS_HIT_NAMES,
+  edgeEndpointHitId,
+  edgeHitId,
+  edgeLabelHitId,
+  nodeAnchorHitId,
+  nodeHitId,
+  resolveKonvaHitTarget
+} from "@/features/mermaid-editor/lib/canvas-hit-target";
 import { DEFAULT_CANVAS_GRID, firstGridCoordinateAtOrAfter, getCanvasGridRenderPlan, isGridCoordinate } from "@/features/mermaid-editor/lib/canvas-grid";
 import { computeEdgePath } from "@/features/mermaid-editor/lib/edge-geometry";
-import type { CanvasEdge, CanvasNode, EdgeRouting, EditorMode, MermaidGraph, Selection, ViewportState } from "@/features/mermaid-editor/lib/editor-types";
+import type { CanvasNode, EdgeRouting, EditorMode, MermaidGraph, Selection, ViewportState } from "@/features/mermaid-editor/lib/editor-types";
 import {
   buildNodeGeometry,
   nodeIntersectsRect,
   pointInsideNodeFrame,
   type NodeGeometrySpec
 } from "@/features/mermaid-editor/lib/node-geometry";
+import {
+  CANVAS_VISUAL_TOKENS,
+  getAlignmentGuideVisualState,
+  getAnchorVisualState,
+  getConnectionDraftVisualState,
+  getEdgeEndpointVisualState,
+  getEdgeVisualState,
+  getNodeVisualState,
+  getSelectionBoxVisualState
+} from "@/features/mermaid-editor/lib/canvas-visual-state";
 import { cn } from "@/lib/utils";
 
-const NODE_CARD_RADIUS = 14;
 const NODE_MIN_CHARS = 6;
 const NODE_MAX_CHARS = 24;
 const NODE_TEXT_PADDING_X = 14;
@@ -82,12 +104,6 @@ type SelectionBox = {
 type InlineEdit =
   | { type: "node"; id: string; value: string }
   | { type: "edge"; id: string; value: string };
-
-function edgeVisualStyle(edge: CanvasEdge) {
-  if (edge.style === "thick") return { strokeWidth: 4, dash: undefined };
-  if (edge.style === "dotted") return { strokeWidth: 2, dash: [1, 8] };
-  return { strokeWidth: 2, dash: undefined };
-}
 
 function measureNodeTextWidth(value: string) {
   if (typeof document === "undefined") return value.length * NODE_TEXT_FONT_SIZE * 0.58;
@@ -144,6 +160,7 @@ export function KonvaCanvas({
   const lastSelectionKeyRef = useRef(selectionVersionKey(selection));
   const dimensions = useContainerSize(containerRef);
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
+  const [hoveredEdgeId, setHoveredEdgeId] = useState<string | null>(null);
   const [interactionState, setInteractionState] = useState<InteractionState>(idleInteraction);
   const [alignmentGuides, setAlignmentGuides] = useState<AlignmentGuide[]>([]);
   const [inlineEdit, setInlineEdit] = useState<InlineEdit | null>(null);
@@ -152,7 +169,6 @@ export function KonvaCanvas({
   const nodeEditorMeasureRef = useRef<HTMLDivElement>(null);
 
   const selectedNodeIds = useMemo(() => new Set(selection.nodeIds), [selection.nodeIds]);
-  const selectedEdgeIds = useMemo(() => new Set(selection.edgeIds), [selection.edgeIds]);
   const geometrySpec = useMemo(() => nodeGeometrySpec(), []);
   const renderedNodes = useMemo(
     () =>
@@ -256,6 +272,128 @@ export function KonvaCanvas({
     setInteractionState(idleInteraction);
   }
 
+  function hitTargetFromEvent(event: KonvaEventObject<MouseEvent>): HitTarget {
+    return resolveKonvaHitTarget(event.target, event.target.getStage());
+  }
+
+  function updateHoverFromHit(hit: HitTarget) {
+    if (hit.kind === "node") {
+      setHoveredNodeId(hit.id);
+      setHoveredEdgeId(null);
+      return;
+    }
+
+    if (hit.kind === "nodeAnchor") {
+      setHoveredNodeId(hit.nodeId);
+      setHoveredEdgeId(null);
+      return;
+    }
+
+    if (hit.kind === "edge" || hit.kind === "edgeLabel") {
+      setHoveredNodeId(null);
+      setHoveredEdgeId(hit.id);
+      return;
+    }
+
+    if (hit.kind === "edgeEndpoint") {
+      setHoveredNodeId(null);
+      setHoveredEdgeId(hit.edgeId);
+      return;
+    }
+
+    setHoveredNodeId(null);
+    setHoveredEdgeId(null);
+  }
+
+  function executeCanvasCommands(commands: CanvasInteractionCommand[]) {
+    for (const command of commands) {
+      executeCanvasCommand(command);
+    }
+  }
+
+  function executeCanvasCommand(command: CanvasInteractionCommand) {
+    if (command.type === "invalidateBlankClick") {
+      invalidateBlankClickIntent();
+      return;
+    }
+
+    if (command.type === "clearSelection") {
+      onSelectionChange(emptySelection);
+      return;
+    }
+
+    if (command.type === "recordBlankClick") {
+      blankClickIntentRef.current = command.intent;
+      return;
+    }
+
+    if (command.type === "addNodeAt") {
+      const newNode = { id: "", label: "新节点", x: 0, y: 0, fill: "#ffffff" };
+      const newNodeFrame = buildNodeGeometry(newNode, geometrySpec).frame;
+      onAddNodeAt({
+        x: command.point.x - newNodeFrame.width / 2,
+        y: command.point.y - newNodeFrame.height / 2
+      });
+      return;
+    }
+
+    if (command.type === "selectNode") {
+      onSelectionChange(command.additive ? toggleNodeSelection(selection, command.id) : selectOnlyNode(command.id));
+      return;
+    }
+
+    if (command.type === "selectEdge") {
+      onSelectionChange(command.additive ? toggleEdgeSelection(selection, command.id) : selectOnlyEdge(command.id));
+      return;
+    }
+
+    if (command.type === "startInlineEdit") {
+      if (command.target.type === "node") {
+        const node = graph.nodes.find((item) => item.id === command.target.id);
+        if (!node) return;
+        setInteractionState({ kind: "editingNodeText", nodeId: node.id });
+        setInlineEdit({ type: "node", id: node.id, value: node.label });
+        return;
+      }
+
+      const edge = graph.edges.find((item) => item.id === command.target.id);
+      if (!edge) return;
+      setInteractionState({ kind: "editingEdgeLabel", edgeId: edge.id });
+      setInlineEdit({ type: "edge", id: edge.id, value: edge.label });
+      return;
+    }
+
+    if (command.type === "startNodeDrag") {
+      const node = graph.nodes.find((item) => item.id === command.nodeId);
+      if (node) startNodeDrag(node);
+      return;
+    }
+
+    if (command.type === "selectMarquee") {
+      if (command.rect.width > 4 || command.rect.height > 4) {
+        const nodeIds = renderedNodeGeometries.filter((geometry) => nodeIntersectsRect(geometry, command.rect)).map((geometry) => geometry.id);
+        onSelectionChange({ nodeIds, edgeIds: [], primaryId: nodeIds[0] });
+      } else {
+        onSelectionChange(emptySelection);
+      }
+      return;
+    }
+
+    if (command.type === "finishConnection") {
+      finishConnection(command.draft);
+      return;
+    }
+
+    if (command.type === "retargetEdge") {
+      retargetEdge(command.edgeId, command.side);
+      return;
+    }
+
+    if (command.type === "resetInteraction") {
+      resetInteraction();
+    }
+  }
+
   function onWheel(event: KonvaEventObject<WheelEvent>) {
     event.evt.preventDefault();
     invalidateBlankClickIntent();
@@ -278,7 +416,94 @@ export function KonvaCanvas({
     });
   }
 
+  function handleCanvasPointerDown(event: KonvaEventObject<MouseEvent>, explicitHit?: HitTarget, worldOverride?: CanvasPoint) {
+    const pointer = pointerScreenPoint();
+    const world = worldOverride ?? pointerWorldPoint();
+    if (!pointer || !world) return;
+
+    const hit = explicitHit ?? hitTargetFromEvent(event);
+    if (isPanningButton(event.evt.button) || panningRequested) event.evt.preventDefault();
+
+    const result = dispatchCanvasPointerDown({
+      state: interactionState,
+      tool: mode,
+      hit,
+      button: event.evt.button,
+      screen: pointer,
+      world,
+      now: event.evt.timeStamp,
+      selectionVersion: selectionVersionRef.current,
+      viewport,
+      panningRequested
+    });
+
+    executeCanvasCommands(result.commands);
+    setInteractionState(result.state);
+  }
+
+  function handleCanvasPointerMove(event: KonvaEventObject<MouseEvent>) {
+    const hit = hitTargetFromEvent(event);
+    updateHoverFromHit(hit);
+
+    const pointer = pointerScreenPoint();
+    const world = pointerWorldPoint();
+    if (!pointer || !world) return;
+
+    if (interactionState.kind === "panning") {
+      onViewportChange({
+        ...viewport,
+        x: interactionState.originViewport.x + pointer.x - interactionState.startScreen.x,
+        y: interactionState.originViewport.y + pointer.y - interactionState.startScreen.y
+      });
+      return;
+    }
+
+    const result = dispatchCanvasPointerMove({ state: interactionState, screen: pointer, world });
+    executeCanvasCommands(result.commands);
+    setInteractionState(result.state);
+  }
+
+  function handleCanvasPointerUp(event: KonvaEventObject<MouseEvent>) {
+    const pointer = pointerScreenPoint();
+    const world = pointerWorldPoint();
+    if (!pointer || !world) {
+      resetInteraction();
+      return;
+    }
+
+    const result = dispatchCanvasPointerUp({
+      state: interactionState,
+      tool: mode,
+      hit: hitTargetFromEvent(event),
+      hasSelection: hasInteractionSelection(selection),
+      screen: pointer,
+      world,
+      now: performance.now(),
+      previousBlankClick: blankClickIntentRef.current,
+      selectionVersion: selectionVersionRef.current,
+      interactionGeneration: interactionGenerationRef.current
+    });
+
+    executeCanvasCommands(result.commands);
+  }
+
+  function handleCanvasClick(event: KonvaEventObject<MouseEvent>, hit: HitTarget) {
+    event.cancelBubble = true;
+    executeCanvasCommands(dispatchCanvasClick({ tool: mode, hit, shiftKey: event.evt.shiftKey }));
+  }
+
+  function handleCanvasTap(event: KonvaEventObject<Event>, hit: HitTarget) {
+    event.cancelBubble = true;
+    executeCanvasCommands(dispatchCanvasClick({ tool: mode, hit, shiftKey: false }));
+  }
+
+  function handleCanvasDoubleClick(event: KonvaEventObject<MouseEvent>, hit: HitTarget) {
+    event.cancelBubble = true;
+    executeCanvasCommands(dispatchCanvasDoubleClick({ tool: mode, hit }));
+  }
+
   function startNodeDrag(node: CanvasNode) {
+    if (dragRef.current) return;
     const ids = selectedNodeIds.has(node.id) ? selection.nodeIds : [node.id];
     const screen = pointerScreenPoint() || { x: 0, y: 0 };
     const world = pointerWorldPoint() || { x: node.x, y: node.y };
@@ -323,13 +548,6 @@ export function KonvaCanvas({
     if (draggedPosition) target.position(draggedPosition);
     setAlignmentGuides(snap.guides);
     onGraphDraft(setNodePositions(graph, positions), "正在移动节点。");
-  }
-
-  function startConnection(node: CanvasNode, x: number, y: number, event: KonvaEventObject<MouseEvent>) {
-    event.cancelBubble = true;
-    if (panningRequested || event.evt.button !== 0) return;
-    invalidateBlankClickIntent();
-    setInteractionState({ kind: "connectingEdge", pointerId: 0, fromNodeId: node.id, startWorld: { x, y }, currentWorld: { x, y } });
   }
 
   function finishConnection(draft: Extract<InteractionState, { kind: "connectingEdge" }>) {
@@ -435,114 +653,14 @@ export function KonvaCanvas({
           scaleX={viewport.scale}
           scaleY={viewport.scale}
           onWheel={onWheel}
-          onMouseDown={(event) => {
-            const pointer = pointerScreenPoint();
-            const world = pointerWorldPoint();
-            if (!pointer || !world) return;
-
-            if (event.target !== event.target.getStage() && !isPanningButton(event.evt.button) && !panningRequested) return;
-            if (isPanningButton(event.evt.button) || panningRequested) event.evt.preventDefault();
-            const transition = beginCanvasPointer({
-              state: interactionState,
-              tool: mode,
-              hit: { kind: "blank" },
-              button: event.evt.button,
-              screen: pointer,
-              world,
-              now: event.evt.timeStamp,
-              selectionVersion: selectionVersionRef.current,
-              viewport,
-              panningRequested
-            });
-
-            if (transition.clearBlankClickIntent) invalidateBlankClickIntent();
-            setInteractionState(transition.state);
-          }}
-          onMouseMove={() => {
-            const pointer = pointerScreenPoint();
-            const world = pointerWorldPoint();
-
-            if (!pointer || !world) return;
-
-            if (interactionState.kind === "panning") {
-              onViewportChange({
-                ...viewport,
-                x: interactionState.originViewport.x + pointer.x - interactionState.startScreen.x,
-                y: interactionState.originViewport.y + pointer.y - interactionState.startScreen.y
-              });
-              return;
-            }
-
-            const transition = updateCanvasPointer({ state: interactionState, screen: pointer, world });
-            if (transition.clearBlankClickIntent) invalidateBlankClickIntent();
-
-            const nextInteractionState = transition.state;
-            if (nextInteractionState.kind === "draggingNodes" && interactionState.kind === "pendingNodePointer") {
-              const node = graph.nodes.find((item) => item.id === nextInteractionState.nodeId);
-              if (node) startNodeDrag(node);
-            }
-
-            setInteractionState(nextInteractionState);
-          }}
-          onMouseUp={() => {
-            if (interactionState.kind === "pendingBlankPointer") {
-              const pointer = pointerScreenPoint();
-              const world = pointerWorldPoint();
-              if (pointer && world) {
-                const result = resolveBlankClick({
-                  previous: blankClickIntentRef.current,
-                  tool: mode,
-                  state: interactionState,
-                  hasSelection: hasInteractionSelection(selection),
-                  screen: pointer,
-                  world,
-                  now: performance.now(),
-                  selectionVersion: selectionVersionRef.current,
-                  interactionGeneration: interactionGenerationRef.current
-                });
-
-                if (result.action === "clearSelection") {
-                  onSelectionChange(emptySelection);
-                } else if (result.action === "record") {
-                  blankClickIntentRef.current = result.intent;
-                } else if (result.action === "addNode") {
-                  const newNode = { id: "", label: "新节点", x: 0, y: 0, fill: "#ffffff" };
-                  const newNodeFrame = buildNodeGeometry(newNode, geometrySpec).frame;
-                  onAddNodeAt({
-                    x: result.point.x - newNodeFrame.width / 2,
-                    y: result.point.y - newNodeFrame.height / 2
-                  });
-                  invalidateBlankClickIntent();
-                }
-              }
-            }
-
-            if (interactionState.kind === "marqueeSelecting") {
-              const activeSelectionBox = {
-                startX: interactionState.startWorld.x,
-                startY: interactionState.startWorld.y,
-                endX: interactionState.currentWorld.x,
-                endY: interactionState.currentWorld.y
-              };
-              const rect = normalizeBox(activeSelectionBox);
-              if (rect.width > 4 || rect.height > 4) {
-                const nodeIds = renderedNodeGeometries.filter((geometry) => nodeIntersectsRect(geometry, rect)).map((geometry) => geometry.id);
-                onSelectionChange({ nodeIds, edgeIds: [], primaryId: nodeIds[0] });
-              } else {
-                onSelectionChange(emptySelection);
-              }
-              invalidateBlankClickIntent();
-            }
-
-            if (interactionState.kind === "connectingEdge") {
-              finishConnection(interactionState);
-              invalidateBlankClickIntent();
-            }
-            resetInteraction();
-          }}
+          onMouseDown={handleCanvasPointerDown}
+          onMouseMove={handleCanvasPointerMove}
+          onMouseUp={handleCanvasPointerUp}
           onMouseLeave={() => {
             resetInteraction();
             setAlignmentGuides([]);
+            setHoveredNodeId(null);
+            setHoveredEdgeId(null);
           }}
         >
           {showGrid ? <CanvasGrid dimensions={dimensions} viewport={viewport} /> : null}
@@ -551,72 +669,59 @@ export function KonvaCanvas({
             {graph.edges.map((edge) => {
               const geometry = computeEdgePath(edge, routedNodeRects, edgeRouting);
               if (!geometry) return null;
-              const isSelected = selectedEdgeIds.has(edge.id);
-              const visualStyle = edgeVisualStyle(edge);
+              const edgeVisual = getEdgeVisualState({ edge, selection, hoveredEdgeId, interactionState, inlineEdit });
 
               return (
                 <Group key={edge.id}>
-	                  <Arrow
-	                    points={geometry.points}
+                  <Arrow
+                    id={edgeHitId(edge.id)}
+                    name={CANVAS_HIT_NAMES.edge}
+                    points={geometry.points}
                     stroke="transparent"
                     fill="transparent"
-                    strokeWidth={18}
+                    strokeWidth={CANVAS_VISUAL_TOKENS.edge.hitStrokeWidth}
                     pointerLength={0}
                     pointerWidth={0}
-	                    onClick={(event) => {
-	                      event.cancelBubble = true;
-	                      invalidateBlankClickIntent();
-	                      onSelectionChange(event.evt.shiftKey ? toggleEdgeSelection(selection, edge.id) : selectOnlyEdge(edge.id));
-	                    }}
-	                    onDblClick={(event) => {
-	                      event.cancelBubble = true;
-	                      invalidateBlankClickIntent();
-	                      onSelectionChange(selectOnlyEdge(edge.id));
-	                      setInteractionState({ kind: "editingEdgeLabel", edgeId: edge.id });
-	                      setInlineEdit({ type: "edge", id: edge.id, value: edge.label });
-	                    }}
-	                    onTap={() => {
-	                      invalidateBlankClickIntent();
-	                      onSelectionChange(selectOnlyEdge(edge.id));
-	                    }}
-	                  />
+                    onClick={(event) => handleCanvasClick(event, { kind: "edge", id: edge.id })}
+                    onDblClick={(event) => handleCanvasDoubleClick(event, { kind: "edge", id: edge.id })}
+                    onTap={(event) => handleCanvasTap(event, { kind: "edge", id: edge.id })}
+                  />
                   <Arrow
                     points={geometry.points}
-                    stroke={isSelected ? "#1f7a68" : "#526766"}
-                    fill={isSelected ? "#1f7a68" : "#526766"}
-                    strokeWidth={isSelected ? visualStyle.strokeWidth + 1 : visualStyle.strokeWidth}
-                    dash={visualStyle.dash}
+                    stroke={edgeVisual.stroke}
+                    fill={edgeVisual.fill}
+                    strokeWidth={edgeVisual.strokeWidth}
+                    dash={edgeVisual.dash}
                     lineCap="round"
                     lineJoin="round"
-                    pointerLength={10}
-                    pointerWidth={10}
+                    pointerLength={CANVAS_VISUAL_TOKENS.edge.pointerLength}
+                    pointerWidth={CANVAS_VISUAL_TOKENS.edge.pointerWidth}
                     listening={false}
                   />
                   {edge.label ? (
                     <Group
-                      x={geometry.labelPoint.x - 46}
-                      y={geometry.labelPoint.y - 14}
-	                      onClick={(event) => {
-	                        event.cancelBubble = true;
-	                        invalidateBlankClickIntent();
-	                        onSelectionChange(event.evt.shiftKey ? toggleEdgeSelection(selection, edge.id) : selectOnlyEdge(edge.id));
-	                      }}
-	                      onDblClick={(event) => {
-	                        event.cancelBubble = true;
-	                        invalidateBlankClickIntent();
-	                        setInteractionState({ kind: "editingEdgeLabel", edgeId: edge.id });
-	                        setInlineEdit({ type: "edge", id: edge.id, value: edge.label });
-	                      }}
+                      id={edgeLabelHitId(edge.id)}
+                      name={CANVAS_HIT_NAMES.edgeLabel}
+                      x={geometry.labelPoint.x - CANVAS_VISUAL_TOKENS.edge.labelWidth / 2}
+                      y={geometry.labelPoint.y - CANVAS_VISUAL_TOKENS.edge.labelHeight / 2}
+                      onClick={(event) => handleCanvasClick(event, { kind: "edgeLabel", id: edge.id })}
+                      onDblClick={(event) => handleCanvasDoubleClick(event, { kind: "edgeLabel", id: edge.id })}
                     >
-                      <Rect width={92} height={28} cornerRadius={6} fill="#ffffff" stroke={isSelected ? "#1f7a68" : "#c9d5d3"} />
+                      <Rect
+                        width={CANVAS_VISUAL_TOKENS.edge.labelWidth}
+                        height={CANVAS_VISUAL_TOKENS.edge.labelHeight}
+                        cornerRadius={CANVAS_VISUAL_TOKENS.edge.labelCornerRadius}
+                        fill={edgeVisual.labelFill}
+                        stroke={edgeVisual.labelStroke}
+                      />
                       <Text
-                        width={92}
-                        height={28}
+                        width={CANVAS_VISUAL_TOKENS.edge.labelWidth}
+                        height={CANVAS_VISUAL_TOKENS.edge.labelHeight}
                         align="center"
                         verticalAlign="middle"
                         text={edge.label}
                         fontSize={12}
-                        fill={isSelected ? "#115446" : "#344441"}
+                        fill={edgeVisual.labelTextFill}
                         ellipsis
                       />
                     </Group>
@@ -626,25 +731,25 @@ export function KonvaCanvas({
             })}
 
             {renderedNodes.map((node) => {
-              const isSelected = selectedNodeIds.has(node.id);
-              const showAnchors = mode === "connect" || hoveredNodeId === node.id || isSelected;
               const geometry = nodeGeometryById.get(node.id);
               if (!geometry) return null;
+              const nodeVisual = getNodeVisualState({ nodeId: node.id, selection, hoveredNodeId, interactionState, inlineEdit });
+              const anchorVisual = getAnchorVisualState({ nodeId: node.id, mode, selection, hoveredNodeId, interactionState, inlineEdit });
 
               return (
                 <Group
+                  id={nodeHitId(node.id)}
+                  name={CANVAS_HIT_NAMES.node}
                   key={node.id}
                   x={geometry.frame.x}
                   y={geometry.frame.y}
                   draggable={mode === "select" && !panningRequested && interactionState.kind !== "panning"}
-                  onMouseEnter={() => setHoveredNodeId(node.id)}
-                  onMouseLeave={() => setHoveredNodeId((current) => (current === node.id ? null : current))}
                   onDragStart={(event) => {
                     if (event.evt.button !== 0) {
                       event.target.stopDrag();
                       return;
                     }
-                    startNodeDrag(node);
+                    executeCanvasCommand({ type: "startNodeDrag", nodeId: node.id });
                   }}
                   onDragMove={(event) => moveSelectedNodes(node, event.target)}
                   onDragEnd={() => {
@@ -652,26 +757,16 @@ export function KonvaCanvas({
                     setAlignmentGuides([]);
                     resetInteraction();
                   }}
-                  onClick={(event) => {
-                    event.cancelBubble = true;
-                    invalidateBlankClickIntent();
-                    if (mode !== "select") return;
-                    onSelectionChange(event.evt.shiftKey ? toggleNodeSelection(selection, node.id) : selectOnlyNode(node.id));
-                  }}
-                  onDblClick={(event) => {
-                    event.cancelBubble = true;
-                    invalidateBlankClickIntent();
-                    setInteractionState({ kind: "editingNodeText", nodeId: node.id });
-                    setInlineEdit({ type: "node", id: node.id, value: node.label });
-                  }}
+                  onClick={(event) => handleCanvasClick(event, { kind: "node", id: node.id })}
+                  onDblClick={(event) => handleCanvasDoubleClick(event, { kind: "node", id: node.id })}
                 >
                   <Rect
                     width={geometry.frame.width}
                     height={geometry.frame.height}
-                    cornerRadius={NODE_CARD_RADIUS}
+                    cornerRadius={CANVAS_VISUAL_TOKENS.node.cornerRadius}
                     fill={node.fill}
-                    stroke={isSelected ? "#1f7a68" : "#b8c8c4"}
-                    strokeWidth={1}
+                    stroke={nodeVisual.stroke}
+                    strokeWidth={nodeVisual.strokeWidth}
                   />
                   <Text
                     x={geometry.textBox.x}
@@ -686,21 +781,29 @@ export function KonvaCanvas({
                     fontFamily={NODE_TEXT_FONT_FAMILY}
                     lineHeight={NODE_TEXT_LINE_HEIGHT / NODE_TEXT_FONT_SIZE}
                     wrap="word"
-                    fill="#172022"
+                    fill={nodeVisual.textFill}
                     ellipsis
                     visible={!(inlineEdit?.type === "node" && inlineEdit.id === node.id)}
                   />
-                  {showAnchors
+                  {anchorVisual.visible
                     ? geometry.anchorsLocal.map((anchor) => (
                         <Circle
+                          id={nodeAnchorHitId(node.id, anchor.key)}
+                          name={CANVAS_HIT_NAMES.nodeAnchor}
                           key={`${node.id}-${anchor.key}`}
                           x={anchor.x}
                           y={anchor.y}
-                          radius={6}
-                          fill={mode === "connect" ? "#c9872d" : "#1f7a68"}
-                          stroke="#ffffff"
-                          strokeWidth={2}
-                          onMouseDown={(event) => startConnection(node, geometry.frame.x + anchor.x, geometry.frame.y + anchor.y, event)}
+                          radius={anchorVisual.radius}
+                          fill={anchorVisual.fill}
+                          stroke={anchorVisual.stroke}
+                          strokeWidth={anchorVisual.strokeWidth}
+                          onMouseDown={(event) => {
+                            event.cancelBubble = true;
+                            handleCanvasPointerDown(event, { kind: "nodeAnchor", nodeId: node.id, anchor: anchor.key }, {
+                              x: geometry.frame.x + anchor.x,
+                              y: geometry.frame.y + anchor.y
+                            });
+                          }}
                         />
                       ))
                     : null}
@@ -711,12 +814,7 @@ export function KonvaCanvas({
             {connectionDraft ? (
               <Arrow
                 points={[connectionDraft.startWorld.x, connectionDraft.startWorld.y, connectionDraft.currentWorld.x, connectionDraft.currentWorld.y]}
-                stroke="#c9872d"
-                fill="#c9872d"
-                strokeWidth={2}
-                dash={[8, 6]}
-                pointerLength={10}
-                pointerWidth={10}
+                {...getConnectionDraftVisualState()}
                 listening={false}
               />
             ) : null}
@@ -724,10 +822,7 @@ export function KonvaCanvas({
             {selectionBox ? (
               <Rect
                 {...normalizeBox(selectionBox)}
-                fill="rgba(31,122,104,0.08)"
-                stroke="#1f7a68"
-                strokeWidth={1}
-                dash={[6, 5]}
+                {...getSelectionBoxVisualState()}
                 listening={false}
               />
             ) : null}
@@ -735,39 +830,41 @@ export function KonvaCanvas({
             {selectedSingleEdge && selectedSingleEdgeGeometry ? (
               <>
                 <Circle
+                  id={edgeEndpointHitId(selectedSingleEdge.id, "from")}
+                  name={CANVAS_HIT_NAMES.edgeEndpoint}
                   x={selectedSingleEdgeGeometry.start.x}
                   y={selectedSingleEdgeGeometry.start.y}
-                  radius={7}
-                  fill="#1f7a68"
-	                  stroke="#ffffff"
-	                  strokeWidth={2}
-	                  draggable
-	                  onDragStart={() => {
-	                    invalidateBlankClickIntent();
-	                    setInteractionState({ kind: "retargetingEdge", pointerId: 0, edgeId: selectedSingleEdge.id, side: "from" });
-	                  }}
-	                  onDragEnd={() => {
-	                    retargetEdge(selectedSingleEdge.id, "from");
-	                    resetInteraction();
-	                  }}
-	                />
+                  {...getEdgeEndpointVisualState()}
+                  draggable
+                  onMouseDown={(event) => {
+                    event.cancelBubble = true;
+                    handleCanvasPointerDown(event, { kind: "edgeEndpoint", edgeId: selectedSingleEdge.id, side: "from" });
+                  }}
+                  onDragEnd={() => {
+                    executeCanvasCommands([
+                      { type: "retargetEdge", edgeId: selectedSingleEdge.id, side: "from" },
+                      { type: "resetInteraction" }
+                    ]);
+                  }}
+                />
                 <Circle
+                  id={edgeEndpointHitId(selectedSingleEdge.id, "to")}
+                  name={CANVAS_HIT_NAMES.edgeEndpoint}
                   x={selectedSingleEdgeGeometry.end.x}
                   y={selectedSingleEdgeGeometry.end.y}
-                  radius={7}
-                  fill="#1f7a68"
-	                  stroke="#ffffff"
-	                  strokeWidth={2}
-	                  draggable
-	                  onDragStart={() => {
-	                    invalidateBlankClickIntent();
-	                    setInteractionState({ kind: "retargetingEdge", pointerId: 0, edgeId: selectedSingleEdge.id, side: "to" });
-	                  }}
-	                  onDragEnd={() => {
-	                    retargetEdge(selectedSingleEdge.id, "to");
-	                    resetInteraction();
-	                  }}
-	                />
+                  {...getEdgeEndpointVisualState()}
+                  draggable
+                  onMouseDown={(event) => {
+                    event.cancelBubble = true;
+                    handleCanvasPointerDown(event, { kind: "edgeEndpoint", edgeId: selectedSingleEdge.id, side: "to" });
+                  }}
+                  onDragEnd={() => {
+                    executeCanvasCommands([
+                      { type: "retargetEdge", edgeId: selectedSingleEdge.id, side: "to" },
+                      { type: "resetInteraction" }
+                    ]);
+                  }}
+                />
               </>
             ) : null}
 
@@ -874,7 +971,7 @@ function CanvasGrid({ dimensions, viewport }: { dimensions: { width: number; hei
             const startY = firstGridCoordinateAtOrAfter(bounds.top, level.step, DEFAULT_CANVAS_GRID.origin.y);
 
             context.beginPath();
-            context.fillStyle = `rgba(31, 122, 104, ${level.alpha})`;
+            context.fillStyle = `rgba(${CANVAS_VISUAL_TOKENS.colors.gridDotRgb}, ${level.alpha})`;
             for (let x = startX; x <= bounds.right; x += level.step) {
               for (let y = startY; y <= bounds.bottom; y += level.step) {
                 if (
@@ -900,17 +997,21 @@ function CanvasGrid({ dimensions, viewport }: { dimensions: { width: number; hei
 function AlignmentGuideOverlay({ guides }: { guides: AlignmentGuide[] }) {
   return (
     <>
-      {guides.map((guide, index) => (
-        <Line
-          key={`${guide.axis}-${guide.value}-${index}`}
-          points={guide.axis === "x" ? [guide.value, guide.from, guide.value, guide.to] : [guide.from, guide.value, guide.to, guide.value]}
-          stroke={guide.kind === "center" ? "#1f7a68" : "#2c9b82"}
-          strokeWidth={1}
-          dash={guide.kind === "center" ? [6, 5] : undefined}
-          lineCap="round"
-          listening={false}
-        />
-      ))}
+      {guides.map((guide, index) => {
+        const visual = getAlignmentGuideVisualState(guide.kind);
+
+        return (
+          <Line
+            key={`${guide.axis}-${guide.value}-${index}`}
+            points={guide.axis === "x" ? [guide.value, guide.from, guide.value, guide.to] : [guide.from, guide.value, guide.to, guide.value]}
+            stroke={visual.stroke}
+            strokeWidth={visual.strokeWidth}
+            dash={visual.dash}
+            lineCap="round"
+            listening={false}
+          />
+        );
+      })}
     </>
   );
 }

@@ -58,6 +58,20 @@
 - 历史记录只在明确提交边界写入；拖拽中的移动只做 draft 更新。
 - 对齐辅助线、连线草稿、框选矩形是瞬时状态的可视副作用，不应写入 Mermaid 文件。
 
+## 命中目标层
+
+- `canvas-hit-target.ts` 是 Konva 图形命中到业务目标的唯一转换层。
+- 节点、连接点、连线、连线标签和连线端点必须在 Konva 图形上写入稳定的业务 hit id。
+- 事件入口必须先解析为 `HitTarget`，再交给 `canvas-interaction.ts`；不能在具体 Rect、Text、Circle、Arrow handler 中直接写选择、编辑、连线业务判断。
+- 子图形命中必须向父级查找最近业务目标，例如节点文字命中节点、标签文字命中连线标签。
+
+## 命令执行层
+
+- `canvas-interaction.ts` 只返回 `CanvasInteractionCommand`，不能直接修改 React state、graph、selection、viewport 或历史记录。
+- Konva 组件只在命令执行边界调用 `onSelectionChange`、`onGraphDraft`、`onGraphCommit`、`onViewportChange`、`onCaptureHistory` 和内联编辑状态。
+- 空白双击、新增节点、节点/连线选择、文本编辑、连线创建、端点重连、框选选择都必须经过命令执行层。
+- 鼠标右键、中键和 Space 临时平移优先于任何业务命中目标。
+
 ## 节点几何层
 
 - `node-geometry.ts` 是节点卡片几何的唯一来源。
@@ -65,3 +79,11 @@
 - 节点的 Konva 结构必须是一个可拖拽 Group 包含 Rect、Text 和四个连接点；连接点使用节点局部坐标，不能作为节点 Group 的兄弟元素单独定位。
 - 连接点只表示连线交互入口，不参与对齐吸附；对齐吸附使用节点 frame 或多选 selection bounds。
 - 拖拽吸附算出 snapped position 后，必须同步更新正在拖拽的 Konva Group position 和 graph draft，避免视觉位置与数据位置分裂。
+
+## 视觉反馈层
+
+- `canvas-visual-state.ts` 是画布视觉状态的唯一来源，负责节点、连线、连接点、框选、连线草稿、对齐辅助线和端点手柄的颜色、描边、显隐与优先级。
+- Konva 组件只传入 `mode`、`selection`、hover 目标、`InteractionState` 和内联编辑目标，不直接写 hover、selected、dragging、editing 的视觉分支。
+- 节点视觉优先级为 `editing > dragging > connectionTarget > selected > hovered > normal`。
+- 连接点显隐由视觉层统一判断；连接点可以作为连线入口，但不能参与节点几何、边路由或对齐吸附计算。
+- 实线、虚线、粗线等连线语义样式必须保留在视觉层，不能散落到渲染组件里。
