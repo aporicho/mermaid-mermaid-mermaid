@@ -8,7 +8,15 @@ import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import type { CanvasEdge, CanvasNode, EdgeStyle, MermaidGraph, Selection } from "@/features/mermaid-editor/lib/editor-types";
+import type {
+  CanvasEdge,
+  CanvasNode,
+  EdgeStyle,
+  FlowchartArrowType,
+  FlowchartNodeShape,
+  MermaidGraph,
+  Selection
+} from "@/features/mermaid-editor/lib/editor-types";
 import { createEdge, renameNode, selectOnlyEdge, updateEdge, updateNodeFill, updateNodeLabel } from "@/features/mermaid-editor/lib/editor-actions";
 import { palette } from "@/features/mermaid-editor/lib/mermaid-graph";
 import { cn } from "@/lib/utils";
@@ -25,6 +33,24 @@ const edgeStyleOptions: { value: EdgeStyle; label: string }[] = [
   { value: "solid", label: "实线" },
   { value: "thick", label: "粗线" },
   { value: "dotted", label: "点线" }
+];
+
+const nodeShapeOptions: { value: FlowchartNodeShape; label: string }[] = [
+  { value: "rectangle", label: "矩形" },
+  { value: "rounded", label: "圆角" },
+  { value: "stadium", label: "胶囊" },
+  { value: "subroutine", label: "子程序" },
+  { value: "database", label: "数据库" },
+  { value: "circle", label: "圆形" },
+  { value: "diamond", label: "菱形" },
+  { value: "hexagon", label: "六边形" }
+];
+
+const edgeArrowOptions: { value: FlowchartArrowType; label: string }[] = [
+  { value: "arrow", label: "箭头" },
+  { value: "none", label: "无箭头" },
+  { value: "circle", label: "圆点" },
+  { value: "cross", label: "叉号" }
 ];
 
 export function InspectorPanel({ graph, selection, onGraphChange, onSelectionChange, onDelete }: InspectorPanelProps) {
@@ -88,6 +114,24 @@ export function InspectorPanel({ graph, selection, onGraphChange, onSelectionCha
                   value={selectedNode.label}
                   onChange={(event) => updateNode(selectedNode.id, { label: event.target.value })}
                 />
+              </div>
+              <div className="grid gap-2">
+                <Label>节点形状</Label>
+                <Select
+                  value={selectedNode.shape || "rectangle"}
+                  onValueChange={(value) => updateNode(selectedNode.id, { shape: value as FlowchartNodeShape })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {nodeShapeOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <ColorGrid activeFill={selectedNode.fill} onPick={(fill) => updateNode(selectedNode.id, { fill })} />
               <Separator />
@@ -165,6 +209,24 @@ export function InspectorPanel({ graph, selection, onGraphChange, onSelectionCha
                   </SelectTrigger>
                   <SelectContent>
                     {edgeStyleOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-2">
+                <Label>箭头类型</Label>
+                <Select
+                  value={selectedEdge.arrowType || "arrow"}
+                  onValueChange={(value) => updateSelectedEdge(selectedEdge.id, { arrowType: value as FlowchartArrowType })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {edgeArrowOptions.map((option) => (
                       <SelectItem key={option.value} value={option.value}>
                         {option.label}
                       </SelectItem>

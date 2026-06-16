@@ -188,6 +188,7 @@ export function getConnectionDraftVisualState(input: { valid?: boolean; edge?: C
   const semantic = input.edge ? edgeSemanticStyle(input.edge) : { strokeWidth: 2, dash: CANVAS_VISUAL_TOKENS.overlay.connectionDash };
   const valid = input.valid ?? false;
   const stroke = valid ? CANVAS_VISUAL_TOKENS.colors.connection : CANVAS_VISUAL_TOKENS.colors.previewInvalid;
+  const arrowType = input.edge?.arrowType || "arrow";
 
   return {
     stroke,
@@ -195,8 +196,8 @@ export function getConnectionDraftVisualState(input: { valid?: boolean; edge?: C
     strokeWidth: semantic.strokeWidth,
     dash: semantic.dash ? [...semantic.dash] : undefined,
     opacity: valid ? 1 : 0.48,
-    pointerLength: CANVAS_VISUAL_TOKENS.edge.pointerLength,
-    pointerWidth: CANVAS_VISUAL_TOKENS.edge.pointerWidth
+    pointerLength: arrowType === "arrow" ? CANVAS_VISUAL_TOKENS.edge.pointerLength : 0,
+    pointerWidth: arrowType === "arrow" ? CANVAS_VISUAL_TOKENS.edge.pointerWidth : 0
   };
 }
 

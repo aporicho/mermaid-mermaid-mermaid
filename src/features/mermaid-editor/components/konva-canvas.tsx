@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { Arrow, Circle, Group, Layer, Line, Rect, Shape, Stage, Text } from "react-konva";
+import { Arrow, Circle, Ellipse, Group, Layer, Line, Rect, Shape, Stage, Text } from "react-konva";
 import type Konva from "konva";
 import type { KonvaEventObject } from "konva/lib/Node";
 
@@ -53,8 +53,8 @@ import {
   edgeLabelSingleLineText,
   type EdgeLabelGeometrySpec
 } from "@/features/mermaid-editor/lib/edge-label-geometry";
-import { computeEdgeDraftPath, computeEdgePath, computeEdgeRetargetPath } from "@/features/mermaid-editor/lib/edge-geometry";
-import type { CanvasNode, EdgeRouting, EditorMode, MermaidGraph, Selection, ViewportState } from "@/features/mermaid-editor/lib/editor-types";
+import { computeEdgeDraftPath, computeEdgePath, computeEdgeRetargetPath, type EdgePathGeometry } from "@/features/mermaid-editor/lib/edge-geometry";
+import type { CanvasEdge, CanvasNode, EdgeRouting, EditorMode, MermaidGraph, Selection, ViewportState } from "@/features/mermaid-editor/lib/editor-types";
 import {
   buildNodeGeometry,
   nodeIntersectsRect,
@@ -166,6 +166,98 @@ function normalizeBox(box: SelectionBox) {
   const width = Math.abs(box.endX - box.startX);
   const height = Math.abs(box.endY - box.startY);
   return { x, y, width, height };
+}
+
+function edgePointerLength(edge: CanvasEdge) {
+  return (edge.arrowType || "arrow") === "arrow" ? CANVAS_VISUAL_TOKENS.edge.pointerLength : 0;
+}
+
+function edgePointerWidth(edge: CanvasEdge) {
+  return (edge.arrowType || "arrow") === "arrow" ? CANVAS_VISUAL_TOKENS.edge.pointerWidth : 0;
+}
+
+function CanvasNodeShape({
+  node,
+  width,
+  height,
+  stroke,
+  strokeWidth
+}: {
+  node: CanvasNode;
+  width: number;
+  height: number;
+  stroke: string;
+  strokeWidth: number;
+}) {
+  const fill = node.fill;
+  const shape = node.shape || "rectangle";
+
+  if (shape === "circle") {
+    return <Ellipse x={width / 2} y={height / 2} radiusX={width / 2} radiusY={height / 2} fill={fill} stroke={stroke} strokeWidth={strokeWidth} />;
+  }
+
+  if (shape === "diamond") {
+    return <Line points={[width / 2, 0, width, height / 2, width / 2, height, 0, height / 2]} closed fill={fill} stroke={stroke} strokeWidth={strokeWidth} />;
+  }
+
+  if (shape === "hexagon") {
+    return (
+      <Line
+        points={[width * 0.24, 0, width * 0.76, 0, width, height / 2, width * 0.76, height, width * 0.24, height, 0, height / 2]}
+        closed
+        fill={fill}
+        stroke={stroke}
+        strokeWidth={strokeWidth}
+      />
+    );
+  }
+
+  if (shape === "subroutine") {
+    const inset = Math.min(18, Math.max(10, width * 0.12));
+    return (
+      <>
+        <Rect width={width} height={height} cornerRadius={CANVAS_VISUAL_TOKENS.node.cornerRadius} fill={fill} stroke={stroke} strokeWidth={strokeWidth} />
+        <Line points={[inset, 0, inset, height]} stroke={stroke} strokeWidth={strokeWidth} listening={false} />
+        <Line points={[width - inset, 0, width - inset, height]} stroke={stroke} strokeWidth={strokeWidth} listening={false} />
+      </>
+    );
+  }
+
+  const cornerRadius =
+    shape === "stadium"
+      ? height / 2
+      : shape === "rounded" || shape === "database"
+        ? CANVAS_VISUAL_TOKENS.node.cornerRadius
+        : CANVAS_VISUAL_TOKENS.node.cornerRadius;
+
+  return <Rect width={width} height={height} cornerRadius={cornerRadius} fill={fill} stroke={stroke} strokeWidth={strokeWidth} />;
+}
+
+function EdgeEndMarker({
+  edge,
+  geometry,
+  stroke,
+  strokeWidth
+}: {
+  edge: CanvasEdge;
+  geometry: EdgePathGeometry;
+  stroke: string;
+  strokeWidth: number;
+}) {
+  const arrowType = edge.arrowType || "arrow";
+  if (arrowType === "arrow" || arrowType === "none") return null;
+
+  if (arrowType === "circle") {
+    return <Circle x={geometry.end.x} y={geometry.end.y} radius={4.5} fill="#ffffff" stroke={stroke} strokeWidth={strokeWidth} listening={false} />;
+  }
+
+  const size = 5.5;
+  return (
+    <Group x={geometry.end.x} y={geometry.end.y} listening={false}>
+      <Line points={[-size, -size, size, size]} stroke={stroke} strokeWidth={strokeWidth} lineCap="round" />
+      <Line points={[-size, size, size, -size]} stroke={stroke} strokeWidth={strokeWidth} lineCap="round" />
+    </Group>
+  );
 }
 
 export function KonvaCanvas({
@@ -788,10 +880,11 @@ export function KonvaCanvas({
                     opacity={edgePreviewVisual?.opacity ?? 1}
                     lineCap="round"
                     lineJoin="round"
-                    pointerLength={edgePreviewVisual?.pointerLength ?? CANVAS_VISUAL_TOKENS.edge.pointerLength}
-                    pointerWidth={edgePreviewVisual?.pointerWidth ?? CANVAS_VISUAL_TOKENS.edge.pointerWidth}
+                    pointerLength={edgePreviewVisual?.pointerLength ?? edgePointerLength(edge)}
+                    pointerWidth={edgePreviewVisual?.pointerWidth ?? edgePointerWidth(edge)}
                     listening={false}
                   />
+                  {!edgePreviewVisual ? <EdgeEndMarker edge={edge} geometry={geometry} stroke={edgeVisual.stroke} strokeWidth={edgeVisual.strokeWidth} /> : null}
                   {edgeLabelGeometry && !isEditingEdgeLabel ? (
                     <Group
                       id={edgeLabelHitId(edge.id)}
@@ -868,11 +961,10 @@ export function KonvaCanvas({
                   onClick={(event) => handleCanvasClick(event, { kind: "node", id: node.id })}
                   onDblClick={(event) => handleCanvasDoubleClick(event, { kind: "node", id: node.id })}
                 >
-                  <Rect
+                  <CanvasNodeShape
+                    node={node}
                     width={geometry.frame.width}
                     height={geometry.frame.height}
-                    cornerRadius={CANVAS_VISUAL_TOKENS.node.cornerRadius}
-                    fill={node.fill}
                     stroke={nodeVisual.stroke}
                     strokeWidth={nodeVisual.strokeWidth}
                   />

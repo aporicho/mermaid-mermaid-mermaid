@@ -1,14 +1,34 @@
 export type GraphDirection = "TD" | "TB" | "BT" | "RL" | "LR";
 
+export type DiagramType =
+  | "flowchart"
+  | "sequence"
+  | "class"
+  | "state"
+  | "er"
+  | "gantt"
+  | "pie"
+  | "mindmap"
+  | "timeline"
+  | "architecture"
+  | "unknown";
+
+export type EditableKind = "flowchart" | "render-only";
+export type ParseStatus = "parsed" | "render-only";
+
+export type FlowchartNodeShape = "rectangle" | "rounded" | "stadium" | "subroutine" | "database" | "circle" | "diamond" | "hexagon";
+
 export type CanvasNode = {
   id: string;
   label: string;
   x: number;
   y: number;
   fill: string;
+  shape?: FlowchartNodeShape;
 };
 
 export type EdgeStyle = "solid" | "thick" | "dotted";
+export type FlowchartArrowType = "arrow" | "none" | "circle" | "cross";
 export type EdgeRouting = "straight" | "bezier";
 export type LegacyEdgePath = "straight" | "curved" | "orthogonal";
 
@@ -20,12 +40,25 @@ export type CanvasEdge = {
   to: string;
   label: string;
   style: EdgeStyle;
+  arrowType?: FlowchartArrowType;
+};
+
+export type CanvasSubgraph = {
+  id: string;
+  title: string;
+  nodeIds: string[];
 };
 
 export type MermaidGraph = {
+  diagramType?: DiagramType;
+  editableKind?: EditableKind;
+  parseStatus?: ParseStatus;
   direction: GraphDirection;
   nodes: CanvasNode[];
   edges: CanvasEdge[];
+  subgraphs?: CanvasSubgraph[];
+  preservedStatements?: string[];
+  frontmatter?: string;
 };
 
 export type EditorMode = "select" | "connect";

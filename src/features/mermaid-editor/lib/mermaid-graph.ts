@@ -1,4 +1,15 @@
-import type { CanvasEdge, CanvasNode, EdgeStyle, GraphDirection, MermaidGraph } from "@/features/mermaid-editor/lib/editor-types";
+import type {
+  CanvasEdge,
+  CanvasNode,
+  CanvasSubgraph,
+  DiagramType,
+  EdgeStyle,
+  EditableKind,
+  FlowchartArrowType,
+  FlowchartNodeShape,
+  GraphDirection,
+  MermaidGraph
+} from "@/features/mermaid-editor/lib/editor-types";
 
 const NODE_COLORS = [
   "#ffffff",
@@ -31,18 +42,60 @@ function cleanNodeId(value: string) {
   return /^[A-Za-z]/.test(cleaned) ? cleaned : `Node_${cleaned}`;
 }
 
-function parseNodeToken(raw: string) {
-  const token = raw.trim().replace(/;$/, "");
-  const match = token.match(
-    /^([A-Za-z][\w-]*)(?:\s*(?:\[\[([^\]]+)\]\]|\(\(([^)]+)\)\)|\(\[([^)]+)\]\)|\{([^}]+)\}|\[([^\]]+)\]|\(([^)]+)\)))?/
-  );
+type ParsedNodeToken = {
+  id: string;
+  label: string;
+  shape: FlowchartNodeShape;
+  hasShape: boolean;
+};
 
-  if (!match) return null;
+const FLOWCHART_LINE_PATTERN = /^(flowchart|graph)\s+/i;
+const EDGE_OPERATOR_PATTERN = "-\\.->|-\\.-|-\\.o|-\\.x|==>|===|==o|==x|-->|---|--o|--x";
+
+function parseNodeToken(raw: string): ParsedNodeToken | null {
+  const token = raw.trim().replace(/;$/, "");
+  const idMatch = token.match(/^([A-Za-z][\w-]*)/);
+
+  if (!idMatch) return null;
+
+  const id = idMatch[1];
+  const rest = token.slice(id.length).trim();
+
+  if (!rest) return { id, label: "", shape: "rectangle", hasShape: false };
+
+  const wrapped = readNodeShape(rest);
+  if (!wrapped) return null;
 
   return {
-    id: match[1],
-    label: normalizeLabel(match[2] || match[3] || match[4] || match[5] || match[6] || match[7] || "")
+    id,
+    label: normalizeLabel(wrapped.label),
+    shape: wrapped.shape,
+    hasShape: true
   };
+}
+
+function readNodeShape(value: string): { shape: FlowchartNodeShape; label: string } | null {
+  const shapes: { shape: FlowchartNodeShape; start: string; end: string }[] = [
+    { shape: "subroutine", start: "[[", end: "]]" },
+    { shape: "database", start: "[(", end: ")]" },
+    { shape: "circle", start: "((", end: "))" },
+    { shape: "stadium", start: "([", end: "])" },
+    { shape: "hexagon", start: "{{", end: "}}" },
+    { shape: "diamond", start: "{", end: "}" },
+    { shape: "rectangle", start: "[", end: "]" },
+    { shape: "rounded", start: "(", end: ")" }
+  ];
+
+  for (const item of shapes) {
+    if (value.startsWith(item.start) && value.endsWith(item.end)) {
+      return {
+        shape: item.shape,
+        label: value.slice(item.start.length, value.length - item.end.length)
+      };
+    }
+  }
+
+  return null;
 }
 
 function styleFromEdgeOperator(operator: string): EdgeStyle {
@@ -51,10 +104,19 @@ function styleFromEdgeOperator(operator: string): EdgeStyle {
   return "solid";
 }
 
-function edgeOperatorFromStyle(style: EdgeStyle) {
-  if (style === "thick") return "==>";
-  if (style === "dotted") return "-.->";
-  return "-->";
+function arrowTypeFromEdgeOperator(operator: string): FlowchartArrowType {
+  if (operator.endsWith("o")) return "circle";
+  if (operator.endsWith("x")) return "cross";
+  if (operator.endsWith(">")) return "arrow";
+  return "none";
+}
+
+function edgeOperatorFromSemantics(style: EdgeStyle = "solid", arrowType: FlowchartArrowType = "arrow") {
+  const suffix = arrowType === "arrow" ? ">" : arrowType === "circle" ? "o" : arrowType === "cross" ? "x" : "";
+
+  if (style === "thick") return arrowType === "none" ? "===" : `==${suffix}`;
+  if (style === "dotted") return arrowType === "none" ? "-.-" : `-.${suffix}`;
+  return arrowType === "none" ? "---" : `--${suffix}`;
 }
 
 export function toSafeNodeId(value: string, existingIds: string[], fallback = "Node") {
@@ -73,18 +135,34 @@ export function createNode(existingNodes: CanvasNode[], x = 160, y = 120): Canva
     label: "新节点",
     x,
     y,
-    fill: NODE_COLORS[existingNodes.length % NODE_COLORS.length]
+    fill: NODE_COLORS[existingNodes.length % NODE_COLORS.length],
+    shape: "rectangle"
   };
 }
 
 export function parseMermaid(source: string, previous?: MermaidGraph): MermaidGraph {
+  const { frontmatter, bodyLines } = extractFrontmatter(source);
+  const diagramType = detectDiagramType(source);
+  const editableKind = editableKindFromDiagramType(diagramType);
+  if (editableKind !== "flowchart") {
+    return emptyGraph({
+      diagramType,
+      editableKind,
+      parseStatus: "render-only",
+      frontmatter
+    });
+  }
+
   const nodes = new Map<string, CanvasNode>();
   const edges: CanvasEdge[] = [];
-  const lines = source.split(/\r?\n/);
-  const flowLine = lines.find((line) => /^\s*(flowchart|graph)\s+/i.test(line));
+  const subgraphs: CanvasSubgraph[] = [];
+  const subgraphStack: CanvasSubgraph[] = [];
+  const preservedStatements: string[] = [];
+  const lines = bodyLines;
+  const flowLine = lines.find((line) => FLOWCHART_LINE_PATTERN.test(line.trim()));
   const direction = ((flowLine?.trim().split(/\s+/)[1] || "LR") as GraphDirection) || "LR";
 
-  function ensureNode(id: string, label?: string) {
+  function ensureNode(id: string, label?: string, shape?: FlowchartNodeShape) {
     const old = previous?.nodes.find((node) => node.id === id);
 
     if (!nodes.has(id)) {
@@ -94,52 +172,102 @@ export function parseMermaid(source: string, previous?: MermaidGraph): MermaidGr
         label: label || old?.label || id,
         x: old?.x ?? 120 + (index % 3) * 250,
         y: old?.y ?? 120 + Math.floor(index / 3) * 150,
-        fill: old?.fill || NODE_COLORS[index % NODE_COLORS.length]
+        fill: old?.fill || NODE_COLORS[index % NODE_COLORS.length],
+        shape: shape || old?.shape || "rectangle"
       });
-    } else if (label) {
-      nodes.get(id)!.label = label;
+    } else {
+      const node = nodes.get(id)!;
+      if (label) node.label = label;
+      if (shape) node.shape = shape;
+    }
+
+    for (const subgraph of subgraphStack) {
+      if (!subgraph.nodeIds.includes(id)) subgraph.nodeIds.push(id);
     }
   }
 
   for (const line of lines) {
     const clean = line.trim();
-    if (!clean || clean.startsWith("%%") || /^(flowchart|graph)\s+/i.test(clean)) continue;
+    if (!clean || FLOWCHART_LINE_PATTERN.test(clean)) continue;
+    if (clean.startsWith("%%")) {
+      preservedStatements.push(line.trimEnd());
+      continue;
+    }
 
-    const edgeMatch = clean.match(/^(.*?)\s*(-\.->|-{2,3}>|={2,3}>|-{3}|={3})\s*(.*)$/);
-    if (edgeMatch) {
-      const left = parseNodeToken(edgeMatch[1]);
-      let rightRaw = edgeMatch[3].trim().replace(/;$/, "");
-      let label = "";
-      const labelMatch = rightRaw.match(/^\|([^|]*)\|\s*(.*)$/);
+    if (/^subgraph\s+/i.test(clean)) {
+      const subgraph = parseSubgraphHeader(clean, subgraphs.length);
+      subgraphs.push(subgraph);
+      subgraphStack.push(subgraph);
+      continue;
+    }
 
-      if (labelMatch) {
-        label = normalizeLabel(labelMatch[1]);
-        rightRaw = labelMatch[2].trim();
-      }
+    if (/^end;?$/i.test(clean)) {
+      subgraphStack.pop();
+      continue;
+    }
 
-      const right = parseNodeToken(rightRaw);
+    const edge = parseEdgeStatement(clean);
+    if (edge) {
+      const { left, right, label, operator } = edge;
       if (left && right) {
-        ensureNode(left.id, left.label);
-        ensureNode(right.id, right.label);
+        ensureNode(left.id, left.label, left.hasShape ? left.shape : undefined);
+        ensureNode(right.id, right.label, right.hasShape ? right.shape : undefined);
         edges.push({
-          id: `${left.id}_${right.id}_${edges.length}`,
+          id: resolveEdgeId(previous, left.id, right.id, label, styleFromEdgeOperator(operator), arrowTypeFromEdgeOperator(operator), edges.length),
           from: left.id,
           to: right.id,
           label,
-          style: styleFromEdgeOperator(edgeMatch[2])
+          style: styleFromEdgeOperator(operator),
+          arrowType: arrowTypeFromEdgeOperator(operator)
         });
       }
       continue;
     }
 
     const node = parseNodeToken(clean);
-    if (node) ensureNode(node.id, node.label);
+    if (node) {
+      ensureNode(node.id, node.label, node.hasShape ? node.shape : undefined);
+      continue;
+    }
+
+    preservedStatements.push(line.trimEnd());
   }
 
   return {
+    diagramType,
+    editableKind,
+    parseStatus: "parsed",
     direction,
     nodes: [...nodes.values()],
-    edges
+    edges,
+    subgraphs: subgraphs.filter((subgraph) => subgraph.nodeIds.length > 0),
+    preservedStatements,
+    frontmatter
+  };
+}
+
+function parseEdgeStatement(clean: string) {
+  const edgeMatch = clean.match(new RegExp(`^(.*?)\\s*(${EDGE_OPERATOR_PATTERN})\\s*(.*)$`));
+  if (!edgeMatch) return null;
+
+  const left = parseNodeToken(edgeMatch[1]);
+  let rightRaw = edgeMatch[3].trim().replace(/;$/, "");
+  let label = "";
+  const labelMatch = rightRaw.match(/^\|([^|]*)\|\s*(.*)$/);
+
+  if (labelMatch) {
+    label = normalizeLabel(labelMatch[1]);
+    rightRaw = labelMatch[2].trim();
+  }
+
+  const right = parseNodeToken(rightRaw);
+  if (!left || !right) return null;
+
+  return {
+    left,
+    right,
+    label,
+    operator: edgeMatch[2]
   };
 }
 
@@ -147,29 +275,165 @@ function escapeMermaidLabel(value: string) {
   return value.replace(/\r?\n/g, "<br/>").replace(/"/g, '\\"');
 }
 
+function serializeNodeToken(node: CanvasNode) {
+  const label = `"${escapeMermaidLabel(node.label || node.id)}"`;
+  const shape = node.shape || "rectangle";
+
+  if (shape === "rounded") return `${node.id}(${label})`;
+  if (shape === "stadium") return `${node.id}([${label}])`;
+  if (shape === "subroutine") return `${node.id}[[${label}]]`;
+  if (shape === "database") return `${node.id}[(${label})]`;
+  if (shape === "circle") return `${node.id}((${label}))`;
+  if (shape === "diamond") return `${node.id}{${label}}`;
+  if (shape === "hexagon") return `${node.id}{{${label}}}`;
+
+  return `${node.id}[${label}]`;
+}
+
 export function serializeMermaid(graph: MermaidGraph) {
-  const lines = [`flowchart ${graph.direction || "LR"}`];
-  const connected = new Set<string>();
+  const lines = [];
+  const frontmatter = graph.frontmatter?.trim();
+  if (frontmatter) lines.push(frontmatter);
 
-  for (const edge of graph.edges) {
-    const from = graph.nodes.find((node) => node.id === edge.from);
-    const to = graph.nodes.find((node) => node.id === edge.to);
-    if (!from || !to) continue;
+  lines.push(`flowchart ${graph.direction || "LR"}`);
+  const declaredInSubgraph = new Set<string>();
 
-    connected.add(from.id);
-    connected.add(to.id);
-    const operator = edgeOperatorFromStyle(edge.style || "solid");
-    const edgeText = edge.label ? `${operator}|${escapeMermaidLabel(edge.label)}|` : operator;
-    lines.push(
-      `  ${from.id}["${escapeMermaidLabel(from.label)}"] ${edgeText} ${to.id}["${escapeMermaidLabel(to.label)}"]`
-    );
+  for (const subgraph of graph.subgraphs || []) {
+    const nodes = subgraph.nodeIds.map((id) => graph.nodes.find((node) => node.id === id)).filter(Boolean) as CanvasNode[];
+    if (!nodes.length) continue;
+
+    lines.push(`  ${serializeSubgraphHeader(subgraph)}`);
+    for (const node of nodes) {
+      declaredInSubgraph.add(node.id);
+      lines.push(`    ${serializeNodeToken(node)}`);
+    }
+    lines.push("  end");
   }
 
   for (const node of graph.nodes) {
-    if (!connected.has(node.id)) {
-      lines.push(`  ${node.id}["${escapeMermaidLabel(node.label)}"]`);
-    }
+    if (!declaredInSubgraph.has(node.id)) lines.push(`  ${serializeNodeToken(node)}`);
+  }
+
+  for (const edge of graph.edges) {
+    if (!graph.nodes.some((node) => node.id === edge.from) || !graph.nodes.some((node) => node.id === edge.to)) continue;
+
+    const operator = edgeOperatorFromSemantics(edge.style || "solid", edge.arrowType || "arrow");
+    const edgeText = edge.label ? `${operator}|${escapeMermaidLabel(edge.label)}|` : operator;
+    lines.push(`  ${edge.from} ${edgeText} ${edge.to}`);
+  }
+
+  for (const statement of graph.preservedStatements || []) {
+    if (statement.trim()) lines.push(statement);
   }
 
   return lines.join("\n");
+}
+
+export function detectDiagramType(source: string): DiagramType {
+  const { bodyLines } = extractFrontmatter(source);
+  const firstLine = bodyLines.map((line) => line.trim()).find((line) => line && !line.startsWith("%%"));
+  if (!firstLine) return "unknown";
+
+  if (FLOWCHART_LINE_PATTERN.test(firstLine)) return "flowchart";
+  if (/^sequenceDiagram\b/i.test(firstLine)) return "sequence";
+  if (/^classDiagram\b/i.test(firstLine)) return "class";
+  if (/^stateDiagram(?:-v2)?\b/i.test(firstLine)) return "state";
+  if (/^erDiagram\b/i.test(firstLine)) return "er";
+  if (/^gantt\b/i.test(firstLine)) return "gantt";
+  if (/^pie\b/i.test(firstLine)) return "pie";
+  if (/^mindmap\b/i.test(firstLine)) return "mindmap";
+  if (/^timeline\b/i.test(firstLine)) return "timeline";
+  if (/^architecture(?:-beta)?\b/i.test(firstLine)) return "architecture";
+
+  return "unknown";
+}
+
+export function editableKindFromDiagramType(diagramType: DiagramType): EditableKind {
+  return diagramType === "flowchart" ? "flowchart" : "render-only";
+}
+
+export function inspectMermaidSource(source: string) {
+  const diagramType = detectDiagramType(source);
+  return {
+    diagramType,
+    editableKind: editableKindFromDiagramType(diagramType)
+  };
+}
+
+function extractFrontmatter(source: string) {
+  const lines = source.split(/\r?\n/);
+  if (lines[0]?.trim() !== "---") return { frontmatter: "", bodyLines: lines };
+
+  const endIndex = lines.findIndex((line, index) => index > 0 && line.trim() === "---");
+  if (endIndex < 0) return { frontmatter: "", bodyLines: lines };
+
+  return {
+    frontmatter: lines.slice(0, endIndex + 1).join("\n"),
+    bodyLines: lines.slice(endIndex + 1)
+  };
+}
+
+function emptyGraph(input: Pick<MermaidGraph, "diagramType" | "editableKind" | "parseStatus" | "frontmatter">): MermaidGraph {
+  return {
+    ...input,
+    direction: "LR",
+    nodes: [],
+    edges: [],
+    subgraphs: [],
+    preservedStatements: []
+  };
+}
+
+function parseSubgraphHeader(clean: string, index: number): CanvasSubgraph {
+  const raw = clean.replace(/^subgraph\s+/i, "").trim().replace(/;$/, "");
+  const idAndTitle = raw.match(/^([A-Za-z][\w-]*)\s*\[(.*)\]$/);
+  if (idAndTitle) {
+    return {
+      id: idAndTitle[1],
+      title: normalizeLabel(idAndTitle[2]),
+      nodeIds: []
+    };
+  }
+
+  const nodeLike = parseNodeToken(raw);
+  if (nodeLike?.label) {
+    return {
+      id: nodeLike.id,
+      title: nodeLike.label,
+      nodeIds: []
+    };
+  }
+
+  const id = /^[A-Za-z][\w-]*$/.test(raw) ? raw : cleanNodeId(raw || `Subgraph_${index + 1}`);
+  return {
+    id,
+    title: raw || id,
+    nodeIds: []
+  };
+}
+
+function serializeSubgraphHeader(subgraph: CanvasSubgraph) {
+  if (!subgraph.title || subgraph.title === subgraph.id) return `subgraph ${subgraph.id}`;
+  return `subgraph ${subgraph.id} [${escapeMermaidLabel(subgraph.title)}]`;
+}
+
+function resolveEdgeId(
+  previous: MermaidGraph | undefined,
+  from: string,
+  to: string,
+  label: string,
+  style: EdgeStyle,
+  arrowType: FlowchartArrowType,
+  index: number
+) {
+  const previousEdge = previous?.edges.find(
+    (edge) =>
+      edge.from === from &&
+      edge.to === to &&
+      edge.label === label &&
+      edge.style === style &&
+      (edge.arrowType || "arrow") === arrowType
+  );
+
+  return previousEdge?.id || `${from}_${to}_${index}`;
 }

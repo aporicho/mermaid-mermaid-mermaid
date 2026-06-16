@@ -28,7 +28,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { applyLayout, edgeRoutingFromLayout, layoutFromGraph, parseCanvasLayout, stripCanvasLayout } from "@/features/mermaid-editor/lib/canvas-layout";
+import { applyLayout, edgeRoutingFromLayout, layoutFromGraph, parseCanvasLayout } from "@/features/mermaid-editor/lib/canvas-layout";
 import { buildMermaidDocument, loadMermaidDocument } from "@/features/mermaid-editor/lib/mermaid-document";
 import {
   addNode as addNodeAction,
@@ -41,7 +41,19 @@ import {
   setMode as setEditorMode
 } from "@/features/mermaid-editor/lib/editor-actions";
 import { createHistory, pushHistory, redo, undo } from "@/features/mermaid-editor/lib/editor-history";
-import type { ClipboardPayload, EdgeRouting, EditorHistory, EditorMode, EditorSnapshot, GraphDirection, MermaidGraph, Selection, ViewportState } from "@/features/mermaid-editor/lib/editor-types";
+import type {
+  ClipboardPayload,
+  DiagramType,
+  EditableKind,
+  EdgeRouting,
+  EditorHistory,
+  EditorMode,
+  EditorSnapshot,
+  GraphDirection,
+  MermaidGraph,
+  Selection,
+  ViewportState
+} from "@/features/mermaid-editor/lib/editor-types";
 import type { CanvasLayout } from "@/features/mermaid-editor/lib/editor-types";
 import { DEFAULT_EDGE_ROUTING } from "@/features/mermaid-editor/lib/editor-types";
 import { initialMermaidSource, parseMermaid, serializeMermaid } from "@/features/mermaid-editor/lib/mermaid-graph";
@@ -101,11 +113,14 @@ function loadInitialState() {
   const fallbackGraph = parseMermaid(initialMermaidSource);
   const fallbackViewport = { x: 160, y: 90, scale: 1 };
   const fallbackSource = serializeMermaid(fallbackGraph);
+  const fallbackDocument = loadMermaidDocument(fallbackSource);
 
   if (typeof window === "undefined") {
     return {
       source: fallbackSource,
       graph: fallbackGraph,
+      diagramType: fallbackDocument.diagramType,
+      editableKind: fallbackDocument.editableKind,
       viewport: fallbackViewport,
       edgeRouting: DEFAULT_EDGE_ROUTING,
       leftCollapsed: false,
@@ -120,22 +135,25 @@ function loadInitialState() {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) throw new Error("No saved editor state");
     const stored = JSON.parse(raw) as StoredEditor;
+    const loaded = loadMermaidDocument(stored.source);
     const legacyLayout = parseCanvasLayout(stored.source);
-    const source = stripCanvasLayout(stored.source);
+    const source = loaded.source;
     const layout = stored.layout || legacyLayout;
-    const parsedGraph = parseMermaid(source);
-    const graph = applyLayout(parsedGraph, layout);
+    const parsedGraph = loaded.editableKind === "flowchart" ? parseMermaid(source) : loaded.graph;
+    const graph = loaded.editableKind === "flowchart" ? applyLayout(parsedGraph, layout) : parsedGraph;
     const viewport = stored.viewport || layout?.viewport || fallbackViewport;
     const edgeRouting = stored.edgeRouting || edgeRoutingFromLayout(layout);
 
     return {
       source,
       graph,
+      diagramType: loaded.diagramType,
+      editableKind: loaded.editableKind,
       viewport,
       edgeRouting,
       leftCollapsed: stored.leftCollapsed || false,
       rightCollapsed: stored.rightCollapsed || false,
-      workspaceView: stored.workspaceView || "canvas",
+      workspaceView: loaded.editableKind === "flowchart" ? stored.workspaceView || "canvas" : "render",
       showGrid: stored.showGrid ?? true,
       fileName: stored.fileName || FALLBACK_FILE_NAME
     };
@@ -143,6 +161,8 @@ function loadInitialState() {
     return {
       source: fallbackSource,
       graph: fallbackGraph,
+      diagramType: fallbackDocument.diagramType,
+      editableKind: fallbackDocument.editableKind,
       viewport: fallbackViewport,
       edgeRouting: DEFAULT_EDGE_ROUTING,
       leftCollapsed: false,
@@ -167,6 +187,24 @@ function edgeRoutingLabel(edgeRouting: EdgeRouting) {
   return edgeRoutingOptions.find((option) => option.value === edgeRouting)?.label || "曲线";
 }
 
+function diagramTypeLabel(diagramType: DiagramType) {
+  const labels: Record<DiagramType, string> = {
+    flowchart: "Flowchart",
+    sequence: "Sequence",
+    class: "Class",
+    state: "State",
+    er: "ER",
+    gantt: "Gantt",
+    pie: "Pie",
+    mindmap: "Mindmap",
+    timeline: "Timeline",
+    architecture: "Architecture",
+    unknown: "Mermaid"
+  };
+
+  return labels[diagramType];
+}
+
 async function writeDocumentToHandle(handle: MermaidFileHandle, documentText: string) {
   const writable = await handle.createWritable();
   await writable.write(documentText);
@@ -187,6 +225,8 @@ export function MermaidEditor() {
   const initial = useMemo(loadInitialState, []);
   const [source, setSource] = useState(initial.source);
   const [graph, setGraph] = useState<MermaidGraph>(initial.graph);
+  const [diagramType, setDiagramType] = useState<DiagramType>(initial.diagramType);
+  const [editableKind, setEditableKind] = useState<EditableKind>(initial.editableKind);
   const [selection, setSelection] = useState<Selection>(emptySelection);
   const [viewport, setViewport] = useState<ViewportState>(initial.viewport);
   const [edgeRouting, setEdgeRouting] = useState<EdgeRouting>(initial.edgeRouting);
@@ -210,14 +250,20 @@ export function MermaidEditor() {
   const currentDocument = useMemo(() => buildMermaidDocument(source, graph, viewport, edgeRouting), [source, graph, viewport, edgeRouting]);
   const isDirty = !lastSavedDocument || currentDocument !== lastSavedDocument;
   const fileLabel = `${fileName || FALLBACK_FILE_NAME}${isDirty ? " *" : ""}`;
+  const isCanvasEditable = editableKind === "flowchart";
+  const canvasViewTooltip = isCanvasEditable ? "无限画布" : `${diagramTypeLabel(diagramType)} 仅支持渲染`;
 
   function snapshot(): EditorSnapshot {
     return { source, graph, selection, viewport, edgeRouting };
   }
 
   function restoreSnapshot(next: EditorSnapshot) {
+    const loaded = loadMermaidDocument(next.source, next.graph);
     setSource(next.source);
     setGraph(next.graph);
+    setDiagramType(loaded.diagramType);
+    setEditableKind(loaded.editableKind);
+    if (loaded.editableKind !== "flowchart") setWorkspaceView("render");
     setSelection(next.selection);
     setViewport(next.viewport);
     setEdgeRouting(next.edgeRouting);
@@ -231,6 +277,7 @@ export function MermaidEditor() {
   }
 
   function commitGraph(nextGraph: MermaidGraph, nextSelection = selection, message = "画布已同步到 Mermaid 源码。") {
+    if (!isCanvasEditable) return;
     flushSourceHistory();
     setHistory((current) => pushHistory(current, snapshot()));
     const nextSource = serializeMermaid(nextGraph);
@@ -241,6 +288,7 @@ export function MermaidEditor() {
   }
 
   function draftGraph(nextGraph: MermaidGraph) {
+    if (!isCanvasEditable) return;
     setGraph(nextGraph);
     setSource(serializeMermaid(nextGraph));
   }
@@ -252,16 +300,17 @@ export function MermaidEditor() {
 
   function applySource(nextSource: string) {
     if (!sourceEditBaseRef.current) sourceEditBaseRef.current = snapshot();
-    const legacyLayout = parseCanvasLayout(nextSource);
-    const pureSource = stripCanvasLayout(nextSource);
-    const parsedGraph = parseMermaid(pureSource, graph);
-    setSource(pureSource);
-    setGraph(applyLayout(parsedGraph, legacyLayout));
+    const loaded = loadMermaidDocument(nextSource, graph);
+    setSource(loaded.source);
+    setDiagramType(loaded.diagramType);
+    setEditableKind(loaded.editableKind);
+    setGraph(loaded.graph);
     setSelection(emptySelection);
-    setStatus("源码已解析到画布。");
+    setStatus(loaded.editableKind === "flowchart" ? "源码已解析到画布。" : "当前 Mermaid 类型已切换到渲染视图。");
 
-    if (legacyLayout) setEdgeRouting(edgeRoutingFromLayout(legacyLayout));
-    if (legacyLayout?.viewport) setViewport(legacyLayout.viewport);
+    if (loaded.editableKind !== "flowchart") setWorkspaceView("render");
+    setEdgeRouting(loaded.edgeRouting);
+    if (loaded.viewport) setViewport(loaded.viewport);
     if (sourceEditTimerRef.current) window.clearTimeout(sourceEditTimerRef.current);
     sourceEditTimerRef.current = window.setTimeout(() => {
       flushSourceHistory();
@@ -269,20 +318,24 @@ export function MermaidEditor() {
   }
 
   function addNode() {
+    if (!isCanvasEditable) return;
     const result = addNodeAction(graph, viewport);
     commitGraph(result.graph, result.selection, "已新增节点。");
   }
 
   function addNodeAtPoint(point: { x: number; y: number }) {
+    if (!isCanvasEditable) return;
     const result = addNodeAt(graph, point.x, point.y);
     commitGraph(result.graph, result.selection, "已在画布中新增节点。");
   }
 
   function updateDirection(direction: GraphDirection) {
+    if (!isCanvasEditable) return;
     commitGraph({ ...graph, direction }, selection, `方向已切换为 ${direction}。`);
   }
 
   function updateEdgeRouting(nextEdgeRouting: EdgeRouting) {
+    if (!isCanvasEditable) return;
     if (nextEdgeRouting === edgeRouting) return;
     flushSourceHistory();
     setHistory((current) => pushHistory(current, snapshot()));
@@ -292,12 +345,20 @@ export function MermaidEditor() {
 
   function refreshFromSource() {
     flushSourceHistory();
-    const pureSource = stripCanvasLayout(source);
-    const parsedGraph = parseMermaid(pureSource, graph);
+    const loaded = loadMermaidDocument(source, graph);
     setHistory((current) => pushHistory(current, snapshot()));
-    setGraph(parsedGraph);
-    setSource(serializeMermaid(parsedGraph));
+    setDiagramType(loaded.diagramType);
+    setEditableKind(loaded.editableKind);
+    setGraph(loaded.graph);
     setSelection(emptySelection);
+    if (loaded.editableKind !== "flowchart") {
+      setWorkspaceView("render");
+      setSource(loaded.source);
+      setStatus("当前 Mermaid 类型仅刷新渲染视图。");
+      return;
+    }
+
+    setSource(serializeMermaid(loaded.graph));
     setStatus("已从 Mermaid 源码刷新画布。");
   }
 
@@ -360,14 +421,17 @@ export function MermaidEditor() {
 
     setSource(loaded.source);
     setGraph(loaded.graph);
+    setDiagramType(loaded.diagramType);
+    setEditableKind(loaded.editableKind);
     setViewport(nextViewport);
     setEdgeRouting(loaded.edgeRouting);
+    setWorkspaceView(loaded.editableKind === "flowchart" ? "canvas" : "render");
     setSelection(emptySelection);
     setHistory(createHistory());
     setFileName(ensureMermaidFileName(name));
     setFileHandle(handle);
     setLastSavedDocument(savedDocument);
-    setStatus(`已打开 ${name}。`);
+    setStatus(loaded.editableKind === "flowchart" ? `已打开 ${name}。` : `已打开 ${name}，当前类型仅渲染。`);
   }
 
   async function openMermaidFile() {
@@ -513,6 +577,7 @@ export function MermaidEditor() {
       }
 
       if (isTextInput(event.target)) return;
+      if (!isCanvasEditable) return;
 
       if (event.code === "Space") {
         event.preventDefault();
@@ -604,10 +669,7 @@ export function MermaidEditor() {
           </div>
 
           <div className="flex min-w-0 items-center justify-center">
-            <ToolModeBar
-              mode={mode}
-              onModeChange={setMode}
-            />
+            {isCanvasEditable ? <ToolModeBar mode={mode} onModeChange={setMode} /> : null}
           </div>
 
           <div className="flex items-center gap-1">
@@ -616,15 +678,22 @@ export function MermaidEditor() {
                 <TooltipTrigger asChild>
                   <Button
                     size="icon"
-                    variant={workspaceView === "canvas" ? "default" : "ghost"}
-                    className={workspaceView === "canvas" ? "size-8 text-primary-foreground" : "size-8 text-muted-foreground hover:text-foreground"}
-                    onClick={() => setWorkspaceView("canvas")}
+                    variant={workspaceView === "canvas" && isCanvasEditable ? "default" : "ghost"}
+                    className={
+                      workspaceView === "canvas" && isCanvasEditable
+                        ? "size-8 text-primary-foreground"
+                        : "size-8 text-muted-foreground hover:text-foreground disabled:opacity-40"
+                    }
+                    onClick={() => {
+                      if (isCanvasEditable) setWorkspaceView("canvas");
+                    }}
+                    disabled={!isCanvasEditable}
                     aria-label="切换到无限画布"
                   >
                     <SquareDashedMousePointer className="size-4" />
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent side="bottom">无限画布</TooltipContent>
+                <TooltipContent side="bottom">{canvasViewTooltip}</TooltipContent>
               </Tooltip>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -645,6 +714,7 @@ export function MermaidEditor() {
               open={secondaryActionsOpen}
               direction={graph.direction}
               edgeRouting={edgeRouting}
+              editable={isCanvasEditable}
               showGrid={showGrid}
               onOpenChange={setSecondaryActionsOpen}
               onAddNode={addNode}
@@ -660,7 +730,7 @@ export function MermaidEditor() {
 
         <div className="relative z-0 min-h-0 overflow-hidden">
           <div className="absolute inset-0 z-0">
-            {workspaceView === "canvas" ? (
+            {workspaceView === "canvas" && isCanvasEditable ? (
               <KonvaCanvas
                 graph={graph}
                 selection={selection}
@@ -677,7 +747,7 @@ export function MermaidEditor() {
                 onAddNodeAt={addNodeAtPoint}
               />
             ) : (
-              <PreviewPanel source={source} graph={graph} framed={false} onGraphChange={commitGraph} />
+              <PreviewPanel source={source} graph={isCanvasEditable ? graph : undefined} framed={false} onGraphChange={isCanvasEditable ? commitGraph : undefined} />
             )}
           </div>
           {!leftCollapsed ? (
@@ -710,6 +780,7 @@ function SecondaryActionsMenu({
   open,
   direction,
   edgeRouting,
+  editable,
   showGrid,
   onOpenChange,
   onAddNode,
@@ -723,6 +794,7 @@ function SecondaryActionsMenu({
   open: boolean;
   direction: GraphDirection;
   edgeRouting: EdgeRouting;
+  editable: boolean;
   showGrid: boolean;
   onOpenChange: (open: boolean) => void;
   onAddNode: () => void;
@@ -759,7 +831,12 @@ function SecondaryActionsMenu({
       {open ? (
         <div className="absolute right-0 top-10 z-50 w-52 rounded-md border bg-popover p-1.5 text-popover-foreground shadow-lg">
           <div className="grid gap-0.5">
-            <Button variant="ghost" className="h-8 justify-start px-2 text-foreground [&_svg]:text-muted-foreground" onClick={() => runAndClose(onAddNode)}>
+            <Button
+              variant="ghost"
+              className="h-8 justify-start px-2 text-foreground disabled:opacity-40 [&_svg]:text-muted-foreground"
+              onClick={() => runAndClose(onAddNode)}
+              disabled={!editable}
+            >
               <Plus className="size-4" />
               新增节点
             </Button>
@@ -776,6 +853,7 @@ function SecondaryActionsMenu({
                   onDirectionChange(value as GraphDirection);
                   onOpenChange(false);
                 }}
+                disabled={!editable}
               >
                 <SelectTrigger className="h-8">
                   <SelectValue />
@@ -801,6 +879,7 @@ function SecondaryActionsMenu({
                   onEdgeRoutingChange(value as EdgeRouting);
                   onOpenChange(false);
                 }}
+                disabled={!editable}
               >
                 <SelectTrigger className="h-8">
                   <SelectValue />
@@ -815,7 +894,12 @@ function SecondaryActionsMenu({
               </Select>
             </div>
             <Separator className="my-1" />
-            <Button variant="ghost" className="h-8 justify-start px-2 text-foreground [&_svg]:text-muted-foreground" onClick={() => runAndClose(onToggleGrid)}>
+            <Button
+              variant="ghost"
+              className="h-8 justify-start px-2 text-foreground disabled:opacity-40 [&_svg]:text-muted-foreground"
+              onClick={() => runAndClose(onToggleGrid)}
+              disabled={!editable}
+            >
               <Grid3X3 className="size-4" />
               {showGrid ? "隐藏网格" : "显示网格"}
             </Button>
@@ -823,7 +907,12 @@ function SecondaryActionsMenu({
               <RefreshCw className="size-4" />
               从源码刷新
             </Button>
-            <Button variant="ghost" className="h-8 justify-start px-2 text-foreground [&_svg]:text-muted-foreground" onClick={() => runAndClose(onResetView)}>
+            <Button
+              variant="ghost"
+              className="h-8 justify-start px-2 text-foreground disabled:opacity-40 [&_svg]:text-muted-foreground"
+              onClick={() => runAndClose(onResetView)}
+              disabled={!editable}
+            >
               <Maximize2 className="size-4" />
               重置画布视图
             </Button>
