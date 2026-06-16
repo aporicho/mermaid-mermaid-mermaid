@@ -28,7 +28,7 @@ export type MermaidGraph = {
   edges: CanvasEdge[];
 };
 
-export type EditorMode = "select" | "connect" | "pan";
+export type EditorMode = "select" | "connect";
 
 export type Selection = {
   nodeIds: string[];

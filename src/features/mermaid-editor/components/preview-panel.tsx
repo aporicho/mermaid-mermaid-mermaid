@@ -182,7 +182,7 @@ export function PreviewPanel({ source, graph, framed = true, onGraphChange }: Pr
     <section className={framed ? "relative h-full min-h-0 border-b bg-card" : "relative h-full min-h-0 bg-card"}>
       <div
         ref={viewportRef}
-        className="konva-grid relative h-full min-h-0 cursor-grab overflow-hidden"
+        className="render-grid relative h-full min-h-0 cursor-grab overflow-hidden"
         onWheel={onWheel}
         onMouseDown={startPan}
         onMouseMove={onMouseMove}

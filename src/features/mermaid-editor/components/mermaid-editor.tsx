@@ -207,7 +207,6 @@ export function MermaidEditor() {
   const sourceEditBaseRef = useRef<EditorSnapshot | null>(null);
   const sourceEditTimerRef = useRef<number | null>(null);
 
-  const effectiveMode = spacePanning ? "pan" : mode;
   const currentDocument = useMemo(() => buildMermaidDocument(source, graph, viewport, edgeRouting), [source, graph, viewport, edgeRouting]);
   const isDirty = !lastSavedDocument || currentDocument !== lastSavedDocument;
   const fileLabel = `${fileName || FALLBACK_FILE_NAME}${isDirty ? " *" : ""}`;
@@ -503,14 +502,6 @@ export function MermaidEditor() {
     }
 
     function onKeyDown(event: KeyboardEvent) {
-      if (isTextInput(event.target)) return;
-
-      if (event.code === "Space") {
-        event.preventDefault();
-        setSpacePanning(true);
-        return;
-      }
-
       const key = event.key.toLowerCase();
       const command = event.ctrlKey || event.metaKey;
 
@@ -522,6 +513,12 @@ export function MermaidEditor() {
       }
 
       if (isTextInput(event.target)) return;
+
+      if (event.code === "Space") {
+        event.preventDefault();
+        setSpacePanning(true);
+        return;
+      }
 
       if (command && key === "z" && event.shiftKey) {
         event.preventDefault();
@@ -555,7 +552,6 @@ export function MermaidEditor() {
       }
       if (key === "v") setMode(setEditorMode("select"));
       if (key === "l") setMode(setEditorMode("connect"));
-      if (key === "h") setMode(setEditorMode("pan"));
     }
 
     function onKeyUp(event: KeyboardEvent) {
@@ -669,7 +665,8 @@ export function MermaidEditor() {
                 graph={graph}
                 selection={selection}
                 viewport={viewport}
-                mode={effectiveMode}
+                mode={mode}
+                panningRequested={spacePanning}
                 showGrid={showGrid}
                 edgeRouting={edgeRouting}
                 onGraphDraft={draftGraph}
