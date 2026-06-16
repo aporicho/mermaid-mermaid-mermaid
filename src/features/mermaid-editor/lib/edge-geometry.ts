@@ -21,6 +21,7 @@ export type EdgePathGeometry = {
 };
 
 export type EdgeDraftTarget = { kind: "node"; rect: RoutedNodeRect } | { kind: "point"; point: Point };
+export type EdgeRetargetSide = "from" | "to";
 
 type Point = {
   x: number;
@@ -79,6 +80,30 @@ export function computeEdgeDraftPath(source: RoutedNodeRect, target: EdgeDraftTa
   return routeToPoint(source, target.point, edgeRouting);
 }
 
+export function computeEdgeRetargetPath(
+  edge: CanvasEdge,
+  nodes: RoutedNodeRect[],
+  side: EdgeRetargetSide,
+  target: EdgeDraftTarget,
+  edgeRouting: EdgeRouting
+): EdgePathGeometry | null {
+  const fixedNodeId = side === "from" ? edge.to : edge.from;
+  const fixed = nodes.find((node) => node.id === fixedNodeId);
+  if (!fixed) return null;
+
+  if (side === "to") {
+    if (target.kind === "node" && target.rect.id === fixed.id) return routeSelfLoop(fixed);
+    return computeEdgeDraftPath(fixed, target, edgeRouting);
+  }
+
+  if (target.kind === "node") {
+    if (target.rect.id === fixed.id) return routeSelfLoop(fixed);
+    return routeBetweenRects(target.rect, fixed, edgeRouting);
+  }
+
+  return routeFromPointToRect(target.point, fixed, edgeRouting);
+}
+
 function routeBetweenRects(from: RoutedNodeRect, to: RoutedNodeRect, edgeRouting: EdgeRouting): EdgePathGeometry {
   const preset = routingPresets[edgeRouting];
   const anchors = preset.anchorPolicy === "center-ray" ? computeCenterRayAnchors(from, to) : computeSideAnchors(from, to);
@@ -95,6 +120,13 @@ function routeToPoint(from: RoutedNodeRect, point: Point, edgeRouting: EdgeRouti
   if (preset.pathKind === "cubic-bezier") return routeCubicBezier(anchors);
 
   return buildGeometry([anchors.start, anchors.end], anchors.start, anchors.end, anchors.endTangent);
+}
+
+function routeFromPointToRect(point: Point, to: RoutedNodeRect, edgeRouting: EdgeRouting): EdgePathGeometry {
+  const reversed = routeToPoint(to, point, edgeRouting);
+  const points = unflattenPoints(reversed.points).reverse();
+
+  return buildGeometry(points, reversed.end, reversed.start, multiply(reversed.endTangent, -1));
 }
 
 function computeCenterRayAnchors(from: RoutedNodeRect, to: RoutedNodeRect): EdgeAnchors {
@@ -323,6 +355,14 @@ function clamp(value: number, min: number, max: number): number {
 
 function flattenPoints(points: Point[]): number[] {
   return points.flatMap((point) => [point.x, point.y]);
+}
+
+function unflattenPoints(points: number[]): Point[] {
+  const result: Point[] = [];
+  for (let index = 0; index < points.length; index += 2) {
+    result.push({ x: points[index], y: points[index + 1] });
+  }
+  return result;
 }
 
 function dedupePoints(points: Point[]): Point[] {

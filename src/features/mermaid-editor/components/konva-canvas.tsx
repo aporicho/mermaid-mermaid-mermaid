@@ -52,7 +52,7 @@ import {
   edgeLabelSingleLineText,
   type EdgeLabelGeometrySpec
 } from "@/features/mermaid-editor/lib/edge-label-geometry";
-import { computeEdgeDraftPath, computeEdgePath } from "@/features/mermaid-editor/lib/edge-geometry";
+import { computeEdgeDraftPath, computeEdgePath, computeEdgeRetargetPath } from "@/features/mermaid-editor/lib/edge-geometry";
 import type { CanvasNode, EdgeRouting, EditorMode, MermaidGraph, Selection, ViewportState } from "@/features/mermaid-editor/lib/editor-types";
 import {
   buildNodeGeometry,
@@ -214,7 +214,7 @@ export function KonvaCanvas({
   const nodeGeometryById = useMemo(() => new Map(renderedNodeGeometries.map((geometry) => [geometry.id, geometry])), [renderedNodeGeometries]);
   const routedNodeRects = useMemo(() => renderedNodeGeometries.map((geometry) => geometry.routedRect), [renderedNodeGeometries]);
   const selectedSingleEdge = selection.edgeIds.length === 1 ? graph.edges.find((edge) => edge.id === selection.edgeIds[0]) : undefined;
-  const selectedSingleEdgeGeometry = selectedSingleEdge ? computeEdgePath(selectedSingleEdge, routedNodeRects, edgeRouting) : null;
+  const selectedSingleEdgeBaseGeometry = selectedSingleEdge ? computeEdgePath(selectedSingleEdge, routedNodeRects, edgeRouting) : null;
   const selectionBox =
     interactionState.kind === "marqueeSelecting"
       ? {
@@ -225,6 +225,7 @@ export function KonvaCanvas({
         }
       : null;
   const connectionDraft = interactionState.kind === "connectingEdge" ? interactionState : null;
+  const retargetDraft = interactionState.kind === "retargetingEdge" ? interactionState : null;
   const connectionDraftGeometry = useMemo(() => {
     if (!connectionDraft) return null;
 
@@ -241,6 +242,23 @@ export function KonvaCanvas({
       edgeRouting
     );
   }, [connectionDraft, edgeRouting, renderedNodeGeometries, routedNodeRects]);
+  const retargetDraftGeometry = useMemo(() => {
+    if (!retargetDraft) return null;
+
+    const edge = graph.edges.find((item) => item.id === retargetDraft.edgeId);
+    if (!edge) return null;
+
+    const targetGeometry = renderedNodeGeometries.find((geometry) => pointInsideNodeFrame(retargetDraft.currentWorld, geometry));
+    return computeEdgeRetargetPath(
+      edge,
+      routedNodeRects,
+      retargetDraft.side,
+      targetGeometry ? { kind: "node", rect: targetGeometry.routedRect } : { kind: "point", point: retargetDraft.currentWorld },
+      edgeRouting
+    );
+  }, [edgeRouting, graph.edges, renderedNodeGeometries, retargetDraft, routedNodeRects]);
+  const selectedSingleEdgeGeometry =
+    retargetDraft?.edgeId === selectedSingleEdge?.id && retargetDraftGeometry ? retargetDraftGeometry : selectedSingleEdgeBaseGeometry;
 
   useEffect(() => {
     const nextSelectionKey = selectionVersionKey(selection);
@@ -434,7 +452,7 @@ export function KonvaCanvas({
     }
 
     if (command.type === "retargetEdge") {
-      retargetEdge(command.edgeId, command.side);
+      retargetEdge(command.edgeId, command.side, command.point);
       return;
     }
 
@@ -608,13 +626,13 @@ export function KonvaCanvas({
     }
   }
 
-  function retargetEdge(edgeId: string, side: "from" | "to") {
-    const point = pointerWorldPoint();
+  function retargetEdge(edgeId: string, side: "from" | "to", point: CanvasPoint) {
     const edge = graph.edges.find((item) => item.id === edgeId);
-    if (!point || !edge) return;
+    if (!edge) return;
 
     const target = graph.nodes.find((node) => pointInsideNodeFrame(point, buildNodeGeometry(node, geometrySpec)));
     if (!target) return;
+    if (edge[side] === target.id) return;
 
     onGraphCommit(updateEdge(graph, edgeId, { [side]: target.id }), selectOnlyEdge(edgeId), "已重连连线。");
   }
@@ -717,8 +735,9 @@ export function KonvaCanvas({
 
           <Layer>
             {graph.edges.map((edge) => {
-              const geometry = computeEdgePath(edge, routedNodeRects, edgeRouting);
-              if (!geometry) return null;
+              const baseGeometry = computeEdgePath(edge, routedNodeRects, edgeRouting);
+              if (!baseGeometry) return null;
+              const geometry = retargetDraft?.edgeId === edge.id && retargetDraftGeometry ? retargetDraftGeometry : baseGeometry;
               const edgeVisual = getEdgeVisualState({ edge, selection, hoveredEdgeId, interactionState, inlineEdit });
               const isEditingEdgeLabel = inlineEdit?.type === "edge" && inlineEdit.id === edge.id;
               const edgeLabel = isEditingEdgeLabel ? inlineEdit.value : edge.label;
@@ -894,16 +913,9 @@ export function KonvaCanvas({
                   x={selectedSingleEdgeGeometry.start.x}
                   y={selectedSingleEdgeGeometry.start.y}
                   {...getEdgeEndpointVisualState()}
-                  draggable
                   onMouseDown={(event) => {
                     event.cancelBubble = true;
                     handleCanvasPointerDown(event, { kind: "edgeEndpoint", edgeId: selectedSingleEdge.id, side: "from" });
-                  }}
-                  onDragEnd={() => {
-                    executeCanvasCommands([
-                      { type: "retargetEdge", edgeId: selectedSingleEdge.id, side: "from" },
-                      { type: "resetInteraction" }
-                    ]);
                   }}
                 />
                 <Circle
@@ -912,16 +924,9 @@ export function KonvaCanvas({
                   x={selectedSingleEdgeGeometry.end.x}
                   y={selectedSingleEdgeGeometry.end.y}
                   {...getEdgeEndpointVisualState()}
-                  draggable
                   onMouseDown={(event) => {
                     event.cancelBubble = true;
                     handleCanvasPointerDown(event, { kind: "edgeEndpoint", edgeId: selectedSingleEdge.id, side: "to" });
-                  }}
-                  onDragEnd={() => {
-                    executeCanvasCommands([
-                      { type: "retargetEdge", edgeId: selectedSingleEdge.id, side: "to" },
-                      { type: "resetInteraction" }
-                    ]);
                   }}
                 />
               </>

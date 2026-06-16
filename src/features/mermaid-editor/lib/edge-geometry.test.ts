@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { computeEdgeDraftPath, computeEdgePath, type RoutedNodeRect } from "@/features/mermaid-editor/lib/edge-geometry";
+import { computeEdgeDraftPath, computeEdgePath, computeEdgeRetargetPath, type RoutedNodeRect } from "@/features/mermaid-editor/lib/edge-geometry";
 import type { CanvasEdge, EdgeRouting } from "@/features/mermaid-editor/lib/editor-types";
 
 const baseEdge: CanvasEdge = {
@@ -142,5 +142,49 @@ describe("computeEdgeDraftPath", () => {
     expectPointClose(lastPoint(draft.points), { x: 260, y: 90 });
     expect(middle.x).toBeGreaterThan(draft.start.x);
     expectFinitePoints(draft.points);
+  });
+});
+
+describe("computeEdgeRetargetPath", () => {
+  it("keeps the source node fixed while retargeting the destination endpoint", () => {
+    const nodes = defaultNodes();
+    const geometry = computeEdgeRetargetPath(baseEdge, nodes, "to", { kind: "point", point: { x: 260, y: 90 } }, "straight");
+
+    if (!geometry) throw new Error("Expected geometry");
+
+    expectPointClose(pointAt(geometry.points, 0), { x: 105.7317, y: 42.2503 });
+    expectPointClose(lastPoint(geometry.points), { x: 260, y: 90 });
+  });
+
+  it("keeps the destination node fixed while retargeting the source endpoint", () => {
+    const nodes = defaultNodes();
+    const geometry = computeEdgeRetargetPath(baseEdge, nodes, "from", { kind: "point", point: { x: 40, y: 90 } }, "straight");
+
+    if (!geometry) throw new Error("Expected geometry");
+
+    expectPointClose(pointAt(geometry.points, 0), { x: 40, y: 90 });
+    expectPointClose(lastPoint(geometry.points), { x: 214.2261, y: 40.7622 });
+  });
+
+  it("matches completed geometry when retargeting to a node", () => {
+    const nodes = [...defaultNodes(), { id: "c", x: 440, y: 0, width: 100, height: 50 }];
+    const geometry = computeEdgeRetargetPath(baseEdge, nodes, "to", { kind: "node", rect: nodes[2] }, "bezier");
+    const completed = edgePath("bezier", nodes, { ...baseEdge, to: "c" });
+
+    if (!geometry) throw new Error("Expected geometry");
+
+    expect(geometry.points).toEqual(completed.points);
+    expect(geometry.labelPoint).toEqual(completed.labelPoint);
+  });
+
+  it("previews a self loop when retargeting an endpoint onto the fixed endpoint node", () => {
+    const nodes = defaultNodes();
+    const geometry = computeEdgeRetargetPath(baseEdge, nodes, "to", { kind: "node", rect: nodes[0] }, "bezier");
+    const completed = edgePath("bezier", nodes, { ...baseEdge, to: "a" });
+
+    if (!geometry) throw new Error("Expected geometry");
+
+    expect(geometry.points).toEqual(completed.points);
+    expect(geometry.labelPoint).toEqual(completed.labelPoint);
   });
 });

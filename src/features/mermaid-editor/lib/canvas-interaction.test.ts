@@ -147,6 +147,44 @@ describe("canvas interaction state", () => {
     expect(connectResult.state).toMatchObject({ kind: "connectingEdge", fromNodeId: "a", startWorld: { x: 80, y: 80 } });
   });
 
+  it("starts edge endpoint retargeting from selected edge endpoint handles", () => {
+    const result = dispatchCanvasPointerDown({
+      state: idleInteraction,
+      tool: "select",
+      hit: { kind: "edgeEndpoint", edgeId: "a-->b", side: "to" },
+      button: 0,
+      screen: { x: 100, y: 120 },
+      world: { x: 80, y: 80 },
+      now: 1000,
+      selectionVersion: 1,
+      viewport
+    });
+
+    expect(result.state).toEqual({
+      kind: "retargetingEdge",
+      pointerId: 0,
+      edgeId: "a-->b",
+      side: "to",
+      currentWorld: { x: 80, y: 80 }
+    });
+  });
+
+  it("updates edge endpoint retargeting coordinates while dragging", () => {
+    const result = updateCanvasPointer({
+      state: { kind: "retargetingEdge", pointerId: 0, edgeId: "a-->b", side: "from", currentWorld: { x: 80, y: 80 } },
+      screen: { x: 140, y: 150 },
+      world: { x: 120, y: 110 }
+    });
+
+    expect(result.state).toEqual({
+      kind: "retargetingEdge",
+      pointerId: 0,
+      edgeId: "a-->b",
+      side: "from",
+      currentWorld: { x: 120, y: 110 }
+    });
+  });
+
   it("keeps select mode node body interactions as pending selection or drag", () => {
     const result = dispatchCanvasPointerDown({
       state: idleInteraction,
@@ -246,6 +284,27 @@ describe("canvas interaction state", () => {
     });
 
     expect(result.commands).toEqual([{ type: "resetInteraction" }]);
+  });
+
+  it("commits edge retargeting from the pointer-up world position", () => {
+    const result = dispatchCanvasPointerUp({
+      state: { kind: "retargetingEdge", pointerId: 0, edgeId: "a-->b", side: "to", currentWorld: { x: 120, y: 110 } },
+      tool: "select",
+      hit: { kind: "node", id: "c" },
+      hasSelection: true,
+      screen: { x: 145, y: 150 },
+      world: { x: 125, y: 110 },
+      now: 1200,
+      previousBlankClick: null,
+      selectionVersion: 1,
+      interactionGeneration: 1
+    });
+
+    expect(result.commands).toEqual([
+      { type: "retargetEdge", edgeId: "a-->b", side: "to", point: { x: 125, y: 110 } },
+      { type: "invalidateBlankClick" },
+      { type: "resetInteraction" }
+    ]);
   });
 
   it("invalidates blank double-click intent after selection changes", () => {

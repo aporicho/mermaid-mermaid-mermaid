@@ -42,7 +42,7 @@ export type InteractionState =
       startWorld: CanvasPoint;
       currentWorld: CanvasPoint;
     }
-  | { kind: "retargetingEdge"; pointerId: number; edgeId: string; side: "from" | "to" }
+  | { kind: "retargetingEdge"; pointerId: number; edgeId: string; side: "from" | "to"; currentWorld: CanvasPoint }
   | { kind: "editingNodeText"; nodeId: string }
   | { kind: "editingEdgeLabel"; edgeId: string };
 
@@ -106,7 +106,7 @@ export type CanvasInteractionCommand =
   | { type: "startNodeDrag"; nodeId: string }
   | { type: "selectMarquee"; rect: CanvasRect }
   | { type: "finishConnection"; draft: Extract<InteractionState, { kind: "connectingEdge" }> }
-  | { type: "retargetEdge"; edgeId: string; side: "from" | "to" }
+  | { type: "retargetEdge"; edgeId: string; side: "from" | "to"; point: CanvasPoint }
   | { type: "resetInteraction" };
 
 export type CanvasDispatchResult = {
@@ -202,7 +202,8 @@ export function beginCanvasPointer(input: PointerDownInput): InteractionTransiti
           kind: "retargetingEdge",
           pointerId: 0,
           edgeId: input.hit.edgeId,
-          side: input.hit.side
+          side: input.hit.side,
+          currentWorld: input.world
         },
         clearBlankClickIntent: true
       };
@@ -264,6 +265,10 @@ export function updateCanvasPointer(input: PointerMoveInput): InteractionTransit
   }
 
   if (state.kind === "connectingEdge") {
+    return { state: { ...state, currentWorld: world }, clearBlankClickIntent: false };
+  }
+
+  if (state.kind === "retargetingEdge") {
     return { state: { ...state, currentWorld: world }, clearBlankClickIntent: false };
   }
 
@@ -332,6 +337,11 @@ export function dispatchCanvasPointerUp(input: {
 
   if (input.state.kind === "connectingEdge") {
     commands.push({ type: "finishConnection", draft: input.state });
+    commands.push({ type: "invalidateBlankClick" });
+  }
+
+  if (input.state.kind === "retargetingEdge") {
+    commands.push({ type: "retargetEdge", edgeId: input.state.edgeId, side: input.state.side, point: input.world });
     commands.push({ type: "invalidateBlankClick" });
   }
 
