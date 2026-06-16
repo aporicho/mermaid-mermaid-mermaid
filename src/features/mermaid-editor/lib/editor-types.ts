@@ -1,3 +1,7 @@
+import type { FlowchartNodeShape } from "@/features/mermaid-editor/lib/flowchart-shapes";
+
+export type { FlowchartNodeShape } from "@/features/mermaid-editor/lib/flowchart-shapes";
+
 export type GraphDirection = "TD" | "TB" | "BT" | "RL" | "LR";
 
 export type DiagramType =
@@ -15,8 +19,6 @@ export type DiagramType =
 
 export type EditableKind = "flowchart" | "render-only";
 export type ParseStatus = "parsed" | "render-only";
-
-export type FlowchartNodeShape = "rectangle" | "rounded" | "stadium" | "subroutine" | "database" | "circle" | "diamond" | "hexagon";
 
 export type CanvasNode = {
   id: string;

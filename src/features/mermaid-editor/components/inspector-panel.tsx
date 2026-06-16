@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectSeparator, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import type {
   CanvasEdge,
@@ -18,6 +18,7 @@ import type {
   Selection
 } from "@/features/mermaid-editor/lib/editor-types";
 import { createEdge, renameNode, selectOnlyEdge, updateEdge, updateNodeFill, updateNodeLabel } from "@/features/mermaid-editor/lib/editor-actions";
+import { FLOWCHART_SHAPE_GROUPS, FLOWCHART_SHAPES } from "@/features/mermaid-editor/lib/flowchart-shapes";
 import { palette } from "@/features/mermaid-editor/lib/mermaid-graph";
 import { cn } from "@/lib/utils";
 
@@ -33,17 +34,6 @@ const edgeStyleOptions: { value: EdgeStyle; label: string }[] = [
   { value: "solid", label: "实线" },
   { value: "thick", label: "粗线" },
   { value: "dotted", label: "点线" }
-];
-
-const nodeShapeOptions: { value: FlowchartNodeShape; label: string }[] = [
-  { value: "rectangle", label: "矩形" },
-  { value: "rounded", label: "圆角" },
-  { value: "stadium", label: "胶囊" },
-  { value: "subroutine", label: "子程序" },
-  { value: "database", label: "数据库" },
-  { value: "circle", label: "圆形" },
-  { value: "diamond", label: "菱形" },
-  { value: "hexagon", label: "六边形" }
 ];
 
 const edgeArrowOptions: { value: FlowchartArrowType; label: string }[] = [
@@ -118,17 +108,23 @@ export function InspectorPanel({ graph, selection, onGraphChange, onSelectionCha
               <div className="grid gap-2">
                 <Label>节点形状</Label>
                 <Select
-                  value={selectedNode.shape || "rectangle"}
+                  value={selectedNode.shape || "rect"}
                   onValueChange={(value) => updateNode(selectedNode.id, { shape: value as FlowchartNodeShape })}
                 >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
-                    {nodeShapeOptions.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
+                  <SelectContent className="max-h-[360px]">
+                    {FLOWCHART_SHAPE_GROUPS.map((group, groupIndex) => (
+                      <SelectGroup key={group}>
+                        {groupIndex > 0 ? <SelectSeparator /> : null}
+                        <SelectLabel>{group}</SelectLabel>
+                        {FLOWCHART_SHAPES.filter((shape) => shape.group === group).map((shape) => (
+                          <SelectItem key={shape.id} value={shape.id}>
+                            {shape.label}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
                     ))}
                   </SelectContent>
                 </Select>

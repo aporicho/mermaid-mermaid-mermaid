@@ -21,13 +21,18 @@ const node: CanvasNode = {
   fill: "#ffffff"
 };
 
+function expectPointClose(actual: { x: number; y: number }, expected: { x: number; y: number }) {
+  expect(actual.x).toBeCloseTo(expected.x, 4);
+  expect(actual.y).toBeCloseTo(expected.y, 4);
+}
+
 describe("node geometry", () => {
   it("builds frame and text box from the same measured text width", () => {
     const geometry = buildNodeGeometry(node, spec);
 
     expect(geometry.frame).toEqual({ x: 100, y: 80, width: 70, height: 36 });
     expect(geometry.textBox).toEqual({ x: 10, y: 8, width: 50, height: 20 });
-    expect(geometry.routedRect).toEqual({ id: "node-a", x: 100, y: 80, width: 70, height: 36 });
+    expect(geometry.routedRect).toEqual({ id: "node-a", x: 100, y: 80, width: 70, height: 36, shape: "rect" });
   });
 
   it("keeps anchor points in local node coordinates", () => {
@@ -35,9 +40,13 @@ describe("node geometry", () => {
 
     expect(geometry.anchorsLocal).toEqual([
       { key: "top", x: 35, y: 0 },
+      { key: "top-right", x: 70, y: 0 },
       { key: "right", x: 70, y: 18 },
+      { key: "bottom-right", x: 70, y: 36 },
       { key: "bottom", x: 35, y: 36 },
-      { key: "left", x: 0, y: 18 }
+      { key: "bottom-left", x: 0, y: 36 },
+      { key: "left", x: 0, y: 18 },
+      { key: "top-left", x: 0, y: 0 }
     ]);
   });
 
@@ -46,9 +55,13 @@ describe("node geometry", () => {
 
     expect(geometry.anchorsWorld).toEqual([
       { key: "top", x: 135, y: 80 },
+      { key: "top-right", x: 170, y: 80 },
       { key: "right", x: 170, y: 98 },
+      { key: "bottom-right", x: 170, y: 116 },
       { key: "bottom", x: 135, y: 116 },
-      { key: "left", x: 100, y: 98 }
+      { key: "bottom-left", x: 100, y: 116 },
+      { key: "left", x: 100, y: 98 },
+      { key: "top-left", x: 100, y: 80 }
     ]);
   });
 
@@ -72,5 +85,40 @@ describe("node geometry", () => {
 
     expect(geometry.textBox.height).toBe(60);
     expect(geometry.frame.height).toBe(76);
+  });
+
+  it("keeps circle-like nodes in an equal aspect frame", () => {
+    const geometry = buildNodeGeometry({ ...node, shape: "circle" }, spec);
+
+    expect(geometry.frame.width).toBe(74);
+    expect(geometry.frame.height).toBe(74);
+    expect(geometry.textBox).toEqual({ x: 12, y: 27, width: 50, height: 20 });
+    expect(geometry.anchorsLocal.map((anchor) => anchor.key)).toEqual(["right", "bottom-right", "bottom", "bottom-left", "left", "top-left", "top", "top-right"]);
+    expectPointClose(geometry.anchorsLocal[1], { x: 63.163, y: 63.163 });
+    expectPointClose(geometry.anchorsLocal[5], { x: 10.837, y: 10.837 });
+  });
+
+  it("sizes diamond nodes as a square with enough room for centered text", () => {
+    const geometry = buildNodeGeometry({ ...node, shape: "diam" }, spec);
+
+    expect(geometry.frame.width).toBe(106);
+    expect(geometry.frame.height).toBe(106);
+    expect(geometry.textBox).toEqual({ x: 28, y: 43, width: 50, height: 20 });
+  });
+
+  it("optically balances regular polygon nodes in an equal aspect frame", () => {
+    const geometry = buildNodeGeometry({ ...node, shape: "hex" }, spec);
+
+    expect(geometry.frame.width).toBe(77);
+    expect(geometry.frame.height).toBe(77);
+    expect(geometry.textBox).toEqual({ x: 13.5, y: 28.5, width: 50, height: 20 });
+  });
+
+  it("gives equilateral triangles extra optical weight", () => {
+    const geometry = buildNodeGeometry({ ...node, shape: "tri" }, spec);
+
+    expect(geometry.frame.width).toBe(95);
+    expect(geometry.frame.height).toBe(95);
+    expect(geometry.textBox).toEqual({ x: 22.5, y: 37.5, width: 50, height: 20 });
   });
 });

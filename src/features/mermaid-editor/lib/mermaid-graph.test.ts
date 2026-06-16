@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { FLOWCHART_SHAPES } from "@/features/mermaid-editor/lib/flowchart-shapes";
 import { detectDiagramType, parseMermaid, serializeMermaid } from "@/features/mermaid-editor/lib/mermaid-graph";
 
 describe("mermaid graph parser", () => {
@@ -11,8 +12,8 @@ describe("mermaid graph parser", () => {
 
     expect(graph.editableKind).toBe("flowchart");
     expect(graph.nodes.find((node) => node.id === "A")?.shape).toBe("stadium");
-    expect(graph.nodes.find((node) => node.id === "B")?.shape).toBe("hexagon");
-    expect(graph.nodes.find((node) => node.id === "C")?.shape).toBe("database");
+    expect(graph.nodes.find((node) => node.id === "B")?.shape).toBe("hex");
+    expect(graph.nodes.find((node) => node.id === "C")?.shape).toBe("cyl");
     expect(graph.edges[0]).toMatchObject({ from: "A", to: "B", label: "review", style: "dotted", arrowType: "arrow" });
     expect(graph.edges[1]).toMatchObject({ from: "B", to: "C", style: "solid", arrowType: "cross" });
     expect(graph.edges[2]).toMatchObject({ from: "C", to: "A", style: "solid", arrowType: "none" });
@@ -23,10 +24,35 @@ describe("mermaid graph parser", () => {
   A([Start]) --> B{Decision}
   B --o C((Done))`));
 
-    expect(serialized).toContain('A(["Start"])');
-    expect(serialized).toContain('B{"Decision"}');
-    expect(serialized).toContain('C(("Done"))');
+    expect(serialized).toContain('A@{ shape: stadium, label: "Start" }');
+    expect(serialized).toContain('B@{ shape: diam, label: "Decision" }');
+    expect(serialized).toContain('C@{ shape: circle, label: "Done" }');
     expect(serialized).toContain("B --o C");
+  });
+
+  it("parses Mermaid 11 object shape syntax", () => {
+    const graph = parseMermaid(`flowchart LR
+  A@{ shape: doc, label: "设计文档" }
+  B@{ shape: database, label: "Mermaid 文件" }
+  A --> B`);
+
+    expect(graph.nodes.find((node) => node.id === "A")).toMatchObject({ label: "设计文档", shape: "doc" });
+    expect(graph.nodes.find((node) => node.id === "B")).toMatchObject({ label: "Mermaid 文件", shape: "cyl" });
+  });
+
+  it("round-trips every public Mermaid 11 flowchart shape through the canonical serializer", () => {
+    const source = [
+      "flowchart LR",
+      ...FLOWCHART_SHAPES.map((shape, index) => `  N${index}@{ shape: ${shape.id}, label: "${shape.label}" }`)
+    ].join("\n");
+    const graph = parseMermaid(source);
+    const serialized = serializeMermaid(graph);
+
+    expect(graph.nodes).toHaveLength(FLOWCHART_SHAPES.length);
+    for (const [index, shape] of FLOWCHART_SHAPES.entries()) {
+      expect(graph.nodes[index]).toMatchObject({ id: `N${index}`, shape: shape.id, label: shape.label });
+      expect(serialized).toContain(`N${index}@{ shape: ${shape.id}, label: "${shape.label}" }`);
+    }
   });
 
   it("preserves flowchart comments and semantic statements during serialization", () => {

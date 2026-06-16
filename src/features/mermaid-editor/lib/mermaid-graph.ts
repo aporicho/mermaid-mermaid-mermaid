@@ -10,6 +10,10 @@ import type {
   GraphDirection,
   MermaidGraph
 } from "@/features/mermaid-editor/lib/editor-types";
+import {
+  DEFAULT_FLOWCHART_NODE_SHAPE,
+  normalizeFlowchartShape
+} from "@/features/mermaid-editor/lib/flowchart-shapes";
 
 const NODE_COLORS = [
   "#ffffff",
@@ -61,7 +65,17 @@ function parseNodeToken(raw: string): ParsedNodeToken | null {
   const id = idMatch[1];
   const rest = token.slice(id.length).trim();
 
-  if (!rest) return { id, label: "", shape: "rectangle", hasShape: false };
+  if (!rest) return { id, label: "", shape: DEFAULT_FLOWCHART_NODE_SHAPE, hasShape: false };
+
+  const modern = readModernNodeShape(rest);
+  if (modern) {
+    return {
+      id,
+      label: normalizeLabel(modern.label),
+      shape: modern.shape,
+      hasShape: true
+    };
+  }
 
   const wrapped = readNodeShape(rest);
   if (!wrapped) return null;
@@ -74,15 +88,28 @@ function parseNodeToken(raw: string): ParsedNodeToken | null {
   };
 }
 
+function readModernNodeShape(value: string): { shape: FlowchartNodeShape; label: string } | null {
+  const match = value.match(/^@\{\s*([\s\S]*?)\s*\}$/);
+  if (!match) return null;
+
+  const shape = normalizeFlowchartShape(match[1].match(/\bshape\s*:\s*([A-Za-z0-9_-]+)/)?.[1]);
+  if (!shape) return null;
+
+  return {
+    shape,
+    label: readObjectLabel(match[1])
+  };
+}
+
 function readNodeShape(value: string): { shape: FlowchartNodeShape; label: string } | null {
   const shapes: { shape: FlowchartNodeShape; start: string; end: string }[] = [
-    { shape: "subroutine", start: "[[", end: "]]" },
-    { shape: "database", start: "[(", end: ")]" },
+    { shape: "fr-rect", start: "[[", end: "]]" },
+    { shape: "cyl", start: "[(", end: ")]" },
     { shape: "circle", start: "((", end: "))" },
     { shape: "stadium", start: "([", end: "])" },
-    { shape: "hexagon", start: "{{", end: "}}" },
-    { shape: "diamond", start: "{", end: "}" },
-    { shape: "rectangle", start: "[", end: "]" },
+    { shape: "hex", start: "{{", end: "}}" },
+    { shape: "diam", start: "{", end: "}" },
+    { shape: "rect", start: "[", end: "]" },
     { shape: "rounded", start: "(", end: ")" }
   ];
 
@@ -96,6 +123,20 @@ function readNodeShape(value: string): { shape: FlowchartNodeShape; label: strin
   }
 
   return null;
+}
+
+function readObjectLabel(value: string) {
+  const doubleQuoted = value.match(/\blabel\s*:\s*"((?:\\.|[^"\\])*)"/);
+  if (doubleQuoted) return unescapeMermaidString(doubleQuoted[1]);
+
+  const singleQuoted = value.match(/\blabel\s*:\s*'((?:\\.|[^'\\])*)'/);
+  if (singleQuoted) return unescapeMermaidString(singleQuoted[1]);
+
+  return "";
+}
+
+function unescapeMermaidString(value: string) {
+  return value.replace(/\\"/g, '"').replace(/\\'/g, "'").replace(/\\\\/g, "\\");
 }
 
 function styleFromEdgeOperator(operator: string): EdgeStyle {
@@ -136,7 +177,7 @@ export function createNode(existingNodes: CanvasNode[], x = 160, y = 120): Canva
     x,
     y,
     fill: NODE_COLORS[existingNodes.length % NODE_COLORS.length],
-    shape: "rectangle"
+    shape: DEFAULT_FLOWCHART_NODE_SHAPE
   };
 }
 
@@ -173,7 +214,7 @@ export function parseMermaid(source: string, previous?: MermaidGraph): MermaidGr
         x: old?.x ?? 120 + (index % 3) * 250,
         y: old?.y ?? 120 + Math.floor(index / 3) * 150,
         fill: old?.fill || NODE_COLORS[index % NODE_COLORS.length],
-        shape: shape || old?.shape || "rectangle"
+        shape: shape || old?.shape || DEFAULT_FLOWCHART_NODE_SHAPE
       });
     } else {
       const node = nodes.get(id)!;
@@ -276,18 +317,10 @@ function escapeMermaidLabel(value: string) {
 }
 
 function serializeNodeToken(node: CanvasNode) {
-  const label = `"${escapeMermaidLabel(node.label || node.id)}"`;
-  const shape = node.shape || "rectangle";
+  const label = escapeMermaidLabel(node.label || node.id);
+  const shape = node.shape || DEFAULT_FLOWCHART_NODE_SHAPE;
 
-  if (shape === "rounded") return `${node.id}(${label})`;
-  if (shape === "stadium") return `${node.id}([${label}])`;
-  if (shape === "subroutine") return `${node.id}[[${label}]]`;
-  if (shape === "database") return `${node.id}[(${label})]`;
-  if (shape === "circle") return `${node.id}((${label}))`;
-  if (shape === "diamond") return `${node.id}{${label}}`;
-  if (shape === "hexagon") return `${node.id}{{${label}}}`;
-
-  return `${node.id}[${label}]`;
+  return `${node.id}@{ shape: ${shape}, label: "${label}" }`;
 }
 
 export function serializeMermaid(graph: MermaidGraph) {

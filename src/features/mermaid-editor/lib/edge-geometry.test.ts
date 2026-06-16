@@ -56,6 +56,17 @@ describe("computeEdgePath", () => {
     expectPointClose(geometry.endTangent, { x: 1, y: 0 });
   });
 
+  it("uses shape-aware boundaries for straight edges", () => {
+    const geometry = edgePath("straight", [
+      { id: "a", x: 0, y: 0, width: 100, height: 100, shape: "diam" },
+      { id: "b", x: 220, y: 120, width: 100, height: 100, shape: "rect" }
+    ]);
+
+    expect(pointAt(geometry.points, 0).x).toBeLessThan(100);
+    expect(pointAt(geometry.points, 0).y).toBeLessThan(80);
+    expectFinitePoints(geometry.points);
+  });
+
   it("uses side-normal anchors for horizontal bezier edges", () => {
     const geometry = edgePath("bezier");
 
@@ -63,6 +74,79 @@ describe("computeEdgePath", () => {
     expectPointClose(pointAt(geometry.points, 0), { x: 106, y: 25 });
     expectPointClose(lastPoint(geometry.points), { x: 210, y: 25 });
     expectPointClose(geometry.endTangent, { x: 1, y: 0 });
+    expectFinitePoints(geometry.points);
+  });
+
+  it("uses shape-aware boundaries for bezier edge endpoints", () => {
+    const geometry = edgePath("bezier", [
+      { id: "a", x: 0, y: 0, width: 100, height: 100, shape: "diam" },
+      { id: "b", x: 220, y: 120, width: 100, height: 100, shape: "rect" }
+    ]);
+
+    expect(pointAt(geometry.points, 0).x).toBeLessThan(100);
+    expect(pointAt(geometry.points, 0).y).toBeGreaterThan(60);
+    expectFinitePoints(geometry.points);
+  });
+
+  it("uses polygon vertex ports for cardinal bezier directions", () => {
+    const geometry = edgePath("bezier", [
+      { id: "a", x: 0, y: 0, width: 100, height: 100, shape: "diam" },
+      { id: "b", x: 220, y: 0, width: 100, height: 100, shape: "rect" }
+    ]);
+
+    expectPointClose(pointAt(geometry.points, 0), { x: 106, y: 50 });
+    expectPointClose(lastPoint(geometry.points), { x: 210, y: 50 });
+    expectFinitePoints(geometry.points);
+  });
+
+  it("uses regular hexagon boundaries instead of stretching to the square height", () => {
+    const geometry = edgePath("bezier", [
+      { id: "a", x: 0, y: 0, width: 100, height: 100, shape: "hex" },
+      { id: "b", x: 0, y: -220, width: 100, height: 100, shape: "rect" }
+    ]);
+
+    expectPointClose(pointAt(geometry.points, 0), { x: 50, y: 0.6987 });
+    expectFinitePoints(geometry.points);
+  });
+
+  it("uses regular triangle boundaries instead of stretching to the square height", () => {
+    const geometry = edgePath("bezier", [
+      { id: "a", x: 0, y: 0, width: 100, height: 100, shape: "tri" },
+      { id: "b", x: 0, y: -220, width: 100, height: 100, shape: "rect" }
+    ]);
+
+    expectPointClose(pointAt(geometry.points, 0), { x: 50, y: 0.6987 });
+    expectFinitePoints(geometry.points);
+  });
+
+  it("uses regular flipped triangle boundaries", () => {
+    const geometry = edgePath("bezier", [
+      { id: "a", x: 0, y: 0, width: 100, height: 100, shape: "flip-tri" },
+      { id: "b", x: 0, y: 220, width: 100, height: 100, shape: "rect" }
+    ]);
+
+    expectPointClose(pointAt(geometry.points, 0), { x: 50, y: 99.3013 });
+    expectFinitePoints(geometry.points);
+  });
+
+  it("uses eight fixed ports for circle-like bezier endpoints", () => {
+    const geometry = edgePath("bezier", [
+      { id: "a", x: 0, y: 0, width: 100, height: 100, shape: "circle" },
+      { id: "b", x: 220, y: 120, width: 100, height: 100, shape: "rect" }
+    ]);
+
+    expectPointClose(pointAt(geometry.points, 0), { x: 89.598, y: 89.598 });
+    expectFinitePoints(geometry.points);
+  });
+
+  it("uses rectangle corner ports for diagonal bezier directions", () => {
+    const geometry = edgePath("bezier", [
+      { id: "a", x: 0, y: 0, width: 100, height: 100, shape: "rect" },
+      { id: "b", x: 220, y: 120, width: 100, height: 100, shape: "rect" }
+    ]);
+
+    expect(pointAt(geometry.points, 0).x).toBeGreaterThan(100);
+    expect(pointAt(geometry.points, 0).y).toBeGreaterThan(100);
     expectFinitePoints(geometry.points);
   });
 
@@ -138,7 +222,7 @@ describe("computeEdgeDraftPath", () => {
     const middle = pointAt(draft.points, Math.floor(draft.points.length / 4));
 
     expect(draft.points).toHaveLength(50);
-    expectPointClose(pointAt(draft.points, 0), { x: 106, y: 25 });
+    expectPointClose(pointAt(draft.points, 0), { x: 105.3666, y: 52.6833 });
     expectPointClose(lastPoint(draft.points), { x: 260, y: 90 });
     expect(middle.x).toBeGreaterThan(draft.start.x);
     expectFinitePoints(draft.points);

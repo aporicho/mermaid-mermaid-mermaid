@@ -1,8 +1,10 @@
 import type { AlignmentRect } from "@/features/mermaid-editor/lib/alignment-guides";
 import type { RoutedNodeRect } from "@/features/mermaid-editor/lib/edge-geometry";
 import type { CanvasNode } from "@/features/mermaid-editor/lib/editor-types";
+import { flowchartPortPoints, isEllipseLikeFlowchartShape, opticalWeightScaleForShape } from "@/features/mermaid-editor/lib/flowchart-shape-geometry";
+import { DEFAULT_FLOWCHART_NODE_SHAPE, isEqualAspectFlowchartShape, normalizeFlowchartShape, type FlowchartNodeShape } from "@/features/mermaid-editor/lib/flowchart-shapes";
 
-export type NodeAnchorKey = "top" | "right" | "bottom" | "left";
+export type NodeAnchorKey = string;
 
 export type Point = {
   x: number;
@@ -39,21 +41,23 @@ export type NodeGeometry = {
 };
 
 export function buildNodeGeometry(node: CanvasNode, spec: NodeGeometrySpec): NodeGeometry {
+  const shape = normalizeFlowchartShape(node.shape) || DEFAULT_FLOWCHART_NODE_SHAPE;
   const textWidth = nodeTextWidth(node, spec);
   const textHeight = Math.min(spec.maxLines, countWrappedLines(node.label, textWidth, spec.measureText)) * spec.lineHeight;
+  const size = nodeFrameSize(shape, textWidth, textHeight, spec);
   const frame = {
     x: node.x,
     y: node.y,
-    width: textWidth + spec.paddingX * 2,
-    height: textHeight + spec.paddingY * 2
+    width: size.width,
+    height: size.height
   };
   const textBox = {
-    x: spec.paddingX,
-    y: spec.paddingY,
+    x: (frame.width - textWidth) / 2,
+    y: (frame.height - textHeight) / 2,
     width: textWidth,
     height: textHeight
   };
-  const anchorsLocal = localAnchorPoints(frame.width, frame.height);
+  const anchorsLocal = localAnchorPoints(shape, frame.width, frame.height);
   const anchorsWorld = anchorsLocal.map((anchor) => ({
     ...anchor,
     x: frame.x + anchor.x,
@@ -67,8 +71,36 @@ export function buildNodeGeometry(node: CanvasNode, spec: NodeGeometrySpec): Nod
     anchorsLocal,
     anchorsWorld,
     alignmentRect: { id: node.id, ...frame },
-    routedRect: { id: node.id, ...frame }
+    routedRect: { id: node.id, ...frame, shape }
   };
+}
+
+function nodeFrameSize(shape: FlowchartNodeShape, textWidth: number, textHeight: number, spec: NodeGeometrySpec) {
+  const baseWidth = textWidth + spec.paddingX * 2;
+  const baseHeight = textHeight + spec.paddingY * 2;
+
+  if (!isEqualAspectFlowchartShape(shape)) {
+    return { width: baseWidth, height: baseHeight };
+  }
+
+  const baseSide = Math.max(baseWidth, baseHeight);
+  const opticalSide = baseSide * opticalWeightScaleForShape(shape);
+
+  if (isEllipseLikeFlowchartShape(shape)) {
+    const circleSize = Math.ceil(Math.hypot(textWidth, textHeight) + Math.max(spec.paddingX, spec.paddingY) * 2);
+    return squareSize(Math.ceil(Math.max(circleSize, opticalSide)));
+  }
+
+  if (shape === "diam") {
+    const diamondSize = Math.ceil(textWidth + textHeight + spec.paddingX * 2 + spec.paddingY * 2);
+    return squareSize(Math.ceil(Math.max(diamondSize, opticalSide)));
+  }
+
+  return squareSize(Math.ceil(opticalSide));
+}
+
+function squareSize(size: number) {
+  return { width: size, height: size };
 }
 
 export function nodeTextWidth(node: CanvasNode, spec: NodeGeometrySpec) {
@@ -91,13 +123,12 @@ export function nodeIntersectsRect(geometry: NodeGeometry, rect: Rect) {
   return frame.x < rect.x + rect.width && frame.x + frame.width > rect.x && frame.y < rect.y + rect.height && frame.y + frame.height > rect.y;
 }
 
-function localAnchorPoints(width: number, height: number): NodeAnchorPoint[] {
-  return [
-    { key: "top", x: width / 2, y: 0 },
-    { key: "right", x: width, y: height / 2 },
-    { key: "bottom", x: width / 2, y: height },
-    { key: "left", x: 0, y: height / 2 }
-  ];
+function localAnchorPoints(shape: FlowchartNodeShape, width: number, height: number): NodeAnchorPoint[] {
+  return flowchartPortPoints(shape, { x: 0, y: 0, width, height }).map((port) => ({
+    key: port.key,
+    x: port.point.x,
+    y: port.point.y
+  }));
 }
 
 function countWrappedLines(value: string, maxWidth: number, measureText: (value: string) => number) {

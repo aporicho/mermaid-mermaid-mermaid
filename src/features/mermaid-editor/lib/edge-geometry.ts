@@ -1,4 +1,12 @@
-import type { CanvasEdge, EdgeRouting } from "@/features/mermaid-editor/lib/editor-types";
+import type { CanvasEdge, EdgeRouting, FlowchartNodeShape } from "@/features/mermaid-editor/lib/editor-types";
+import {
+  ellipseBoundaryPoint,
+  flowchartPolygonPoints,
+  flowchartPortPoints,
+  isEllipseLikeFlowchartShape,
+  type ShapeGeometryPoint
+} from "@/features/mermaid-editor/lib/flowchart-shape-geometry";
+import { DEFAULT_FLOWCHART_NODE_SHAPE, normalizeFlowchartShape } from "@/features/mermaid-editor/lib/flowchart-shapes";
 
 export type EdgeAnchorPolicy = "center-ray" | "side-auto";
 export type EdgeTangentPolicy = "radial" | "side-normal";
@@ -10,6 +18,7 @@ export type RoutedNodeRect = {
   y: number;
   width: number;
   height: number;
+  shape?: FlowchartNodeShape;
 };
 
 export type EdgePathGeometry = {
@@ -28,8 +37,6 @@ type Point = {
   y: number;
 };
 
-type Side = "top" | "right" | "bottom" | "left";
-
 type EdgeRoutingPreset = {
   anchorPolicy: EdgeAnchorPolicy;
   tangentPolicy: EdgeTangentPolicy;
@@ -41,6 +48,11 @@ type EdgeAnchors = {
   end: Point;
   sourceTangent: Point;
   endTangent: Point;
+};
+
+type ShapePort = {
+  point: Point;
+  outward: Point;
 };
 
 const SOURCE_GAP = 6;
@@ -133,8 +145,8 @@ function computeCenterRayAnchors(from: RoutedNodeRect, to: RoutedNodeRect): Edge
   const fromCenter = rectCenter(from);
   const toCenter = rectCenter(to);
   const direction = normalize({ x: toCenter.x - fromCenter.x, y: toCenter.y - fromCenter.y }, { x: 1, y: 0 });
-  const start = add(intersectRectBoundary(from, direction), multiply(direction, SOURCE_GAP));
-  const end = add(intersectRectBoundary(to, multiply(direction, -1)), multiply(direction, -TARGET_GAP));
+  const start = add(intersectShapeBoundary(from, direction), multiply(direction, SOURCE_GAP));
+  const end = add(intersectShapeBoundary(to, multiply(direction, -1)), multiply(direction, -TARGET_GAP));
 
   return {
     start,
@@ -147,7 +159,7 @@ function computeCenterRayAnchors(from: RoutedNodeRect, to: RoutedNodeRect): Edge
 function computeCenterRayPointAnchors(from: RoutedNodeRect, point: Point): EdgeAnchors {
   const fromCenter = rectCenter(from);
   const direction = normalize({ x: point.x - fromCenter.x, y: point.y - fromCenter.y }, { x: 1, y: 0 });
-  const start = add(intersectRectBoundary(from, direction), multiply(direction, SOURCE_GAP));
+  const start = add(intersectShapeBoundary(from, direction), multiply(direction, SOURCE_GAP));
 
   return {
     start,
@@ -162,18 +174,16 @@ function computeSideAnchors(from: RoutedNodeRect, to: RoutedNodeRect): EdgeAncho
   const toCenter = rectCenter(to);
   const dx = toCenter.x - fromCenter.x;
   const dy = toCenter.y - fromCenter.y;
-  const sourceSide = sideForDelta(dx, dy);
-  const targetSide: Side = oppositeSide(sourceSide);
-  const sourceTangent = sideNormal(sourceSide);
-  const endTangent = sourceTangent;
-  const start = add(sidePoint(from, sourceSide), multiply(sourceTangent, SOURCE_GAP));
-  const end = add(sidePoint(to, targetSide), multiply(endTangent, -TARGET_GAP));
+  const sourcePort = shapePort(from, { x: dx, y: dy });
+  const targetPort = shapePort(to, { x: -dx, y: -dy });
+  const start = add(sourcePort.point, multiply(sourcePort.outward, SOURCE_GAP));
+  const end = add(targetPort.point, multiply(targetPort.outward, TARGET_GAP));
 
   return {
     start,
     end,
-    sourceTangent,
-    endTangent
+    sourceTangent: sourcePort.outward,
+    endTangent: multiply(targetPort.outward, -1)
   };
 }
 
@@ -181,21 +191,15 @@ function computeSidePointAnchors(from: RoutedNodeRect, point: Point): EdgeAnchor
   const fromCenter = rectCenter(from);
   const dx = point.x - fromCenter.x;
   const dy = point.y - fromCenter.y;
-  const sourceSide = sideForDelta(dx, dy);
-  const sourceTangent = sideNormal(sourceSide);
-  const start = add(sidePoint(from, sourceSide), multiply(sourceTangent, SOURCE_GAP));
+  const sourcePort = shapePort(from, { x: dx, y: dy });
+  const start = add(sourcePort.point, multiply(sourcePort.outward, SOURCE_GAP));
 
   return {
     start,
     end: point,
-    sourceTangent,
-    endTangent: sourceTangent
+    sourceTangent: sourcePort.outward,
+    endTangent: sourcePort.outward
   };
-}
-
-function sideForDelta(dx: number, dy: number): Side {
-  const useHorizontal = Math.abs(dx) >= Math.abs(dy);
-  return useHorizontal ? (dx >= 0 ? "right" : "left") : dy >= 0 ? "bottom" : "top";
 }
 
 function routeCubicBezier(anchors: EdgeAnchors): EdgePathGeometry {
@@ -259,6 +263,34 @@ function pointAtHalfLength(points: Point[]): Point {
   return points[points.length - 1];
 }
 
+function intersectShapeBoundary(rect: RoutedNodeRect, direction: Point): Point {
+  const shape = normalizeFlowchartShape(rect.shape) || DEFAULT_FLOWCHART_NODE_SHAPE;
+  if (isEllipseLikeFlowchartShape(shape)) return intersectEllipseBoundary(rect, direction);
+
+  const polygon = polygonBoundaryPoints(rect, shape);
+  if (polygon.length) return intersectPolygonBoundary(rect, polygon, direction);
+
+  return intersectRectBoundary(rect, direction);
+}
+
+function shapePort(rect: RoutedNodeRect, direction: Point): ShapePort {
+  const shape = normalizeFlowchartShape(rect.shape) || DEFAULT_FLOWCHART_NODE_SHAPE;
+  const normalizedDirection = normalize(direction, { x: 1, y: 0 });
+  const ports = flowchartPortPoints(shape, rect);
+  let best: ShapePort | null = null;
+  let bestScore = Number.NEGATIVE_INFINITY;
+
+  for (const port of ports) {
+    const score = dot(port.outward, direction);
+    if (score <= bestScore) continue;
+
+    bestScore = score;
+    best = { point: toPoint(port.point), outward: toPoint(port.outward) };
+  }
+
+  return best || { point: rectCenter(rect), outward: normalizedDirection };
+}
+
 function intersectRectBoundary(rect: RoutedNodeRect, direction: Point): Point {
   const center = rectCenter(rect);
   const halfWidth = rect.width / 2;
@@ -273,32 +305,61 @@ function intersectRectBoundary(rect: RoutedNodeRect, direction: Point): Point {
   };
 }
 
+function intersectEllipseBoundary(rect: RoutedNodeRect, direction: Point): Point {
+  return ellipseBoundaryPoint(rect, direction);
+}
+
+function intersectPolygonBoundary(rect: RoutedNodeRect, points: Point[], direction: Point): Point {
+  const center = rectCenter(rect);
+  const far = add(center, multiply(direction, Math.max(rect.width, rect.height) * 2));
+  let best: Point | null = null;
+  let bestDistance = Number.POSITIVE_INFINITY;
+
+  for (let index = 0; index < points.length; index += 1) {
+    const start = points[index];
+    const end = points[(index + 1) % points.length];
+    const intersection = lineSegmentIntersection(center, far, start, end);
+    if (!intersection) continue;
+
+    const currentDistance = distance(center, intersection);
+    if (currentDistance < bestDistance) {
+      best = intersection;
+      bestDistance = currentDistance;
+    }
+  }
+
+  return best || intersectRectBoundary(rect, direction);
+}
+
+function polygonBoundaryPoints(rect: RoutedNodeRect, shape: FlowchartNodeShape): Point[] {
+  return flowchartPolygonPoints(shape, rect).map(toPoint);
+}
+
+function toPoint(point: ShapeGeometryPoint): Point {
+  return { x: point.x, y: point.y };
+}
+
+function lineSegmentIntersection(p1: Point, p2: Point, q1: Point, q2: Point): Point | null {
+  const s1 = { x: p2.x - p1.x, y: p2.y - p1.y };
+  const s2 = { x: q2.x - q1.x, y: q2.y - q1.y };
+  const denominator = -s2.x * s1.y + s1.x * s2.y;
+  if (Math.abs(denominator) < EPSILON) return null;
+
+  const s = (-s1.y * (p1.x - q1.x) + s1.x * (p1.y - q1.y)) / denominator;
+  const t = (s2.x * (p1.y - q1.y) - s2.y * (p1.x - q1.x)) / denominator;
+  if (s < -EPSILON || s > 1 + EPSILON || t < -EPSILON || t > 1 + EPSILON) return null;
+
+  return {
+    x: p1.x + t * s1.x,
+    y: p1.y + t * s1.y
+  };
+}
+
 function rectCenter(rect: RoutedNodeRect): Point {
   return {
     x: rect.x + rect.width / 2,
     y: rect.y + rect.height / 2
   };
-}
-
-function sidePoint(rect: RoutedNodeRect, side: Side): Point {
-  if (side === "top") return { x: rect.x + rect.width / 2, y: rect.y };
-  if (side === "right") return { x: rect.x + rect.width, y: rect.y + rect.height / 2 };
-  if (side === "bottom") return { x: rect.x + rect.width / 2, y: rect.y + rect.height };
-  return { x: rect.x, y: rect.y + rect.height / 2 };
-}
-
-function sideNormal(side: Side): Point {
-  if (side === "top") return { x: 0, y: -1 };
-  if (side === "right") return { x: 1, y: 0 };
-  if (side === "bottom") return { x: 0, y: 1 };
-  return { x: -1, y: 0 };
-}
-
-function oppositeSide(side: Side): Side {
-  if (side === "top") return "bottom";
-  if (side === "right") return "left";
-  if (side === "bottom") return "top";
-  return "right";
 }
 
 function sampleCubic(start: Point, control1: Point, control2: Point, end: Point, segments: number): Point[] {
@@ -340,6 +401,10 @@ function multiply(point: Point, value: number): Point {
 
 function distance(a: Point, b: Point): number {
   return Math.hypot(b.x - a.x, b.y - a.y);
+}
+
+function dot(a: Point, b: Point): number {
+  return a.x * b.x + a.y * b.y;
 }
 
 function lerp(a: Point, b: Point, ratio: number): Point {
