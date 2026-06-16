@@ -1,0 +1,106 @@
+import { describe, expect, it } from "vitest";
+
+import { computeEdgePath, type RoutedNodeRect } from "@/features/mermaid-editor/lib/edge-geometry";
+import type { CanvasEdge, EdgeRouting } from "@/features/mermaid-editor/lib/editor-types";
+
+const baseEdge: CanvasEdge = {
+  id: "edge-1",
+  from: "a",
+  to: "b",
+  label: "",
+  style: "solid"
+};
+
+function edgePath(edgeRouting: EdgeRouting, nodes: RoutedNodeRect[] = defaultNodes(), edge: CanvasEdge = baseEdge) {
+  const geometry = computeEdgePath(edge, nodes, edgeRouting);
+  if (!geometry) throw new Error("Expected geometry");
+  return geometry;
+}
+
+function defaultNodes(): RoutedNodeRect[] {
+  return [
+    { id: "a", x: 0, y: 0, width: 100, height: 50 },
+    { id: "b", x: 220, y: 0, width: 100, height: 50 }
+  ];
+}
+
+function pointAt(points: number[], index: number) {
+  return {
+    x: points[index * 2],
+    y: points[index * 2 + 1]
+  };
+}
+
+function lastPoint(points: number[]) {
+  return pointAt(points, points.length / 2 - 1);
+}
+
+function expectPointClose(actual: { x: number; y: number }, expected: { x: number; y: number }) {
+  expect(actual.x).toBeCloseTo(expected.x, 4);
+  expect(actual.y).toBeCloseTo(expected.y, 4);
+}
+
+function expectFinitePoints(points: number[]) {
+  for (const point of points) {
+    expect(Number.isFinite(point)).toBe(true);
+  }
+}
+
+describe("computeEdgePath", () => {
+  it("uses center-ray anchors for straight edges", () => {
+    const geometry = edgePath("straight");
+
+    expectPointClose(pointAt(geometry.points, 0), { x: 106, y: 25 });
+    expectPointClose(lastPoint(geometry.points), { x: 210, y: 25 });
+    expectPointClose(geometry.labelPoint, { x: 158, y: 25 });
+    expectPointClose(geometry.endTangent, { x: 1, y: 0 });
+  });
+
+  it("uses side-normal anchors for horizontal bezier edges", () => {
+    const geometry = edgePath("bezier");
+
+    expect(geometry.points).toHaveLength(50);
+    expectPointClose(pointAt(geometry.points, 0), { x: 106, y: 25 });
+    expectPointClose(lastPoint(geometry.points), { x: 210, y: 25 });
+    expectPointClose(geometry.endTangent, { x: 1, y: 0 });
+    expectFinitePoints(geometry.points);
+  });
+
+  it("uses side-normal anchors for vertical bezier edges", () => {
+    const geometry = edgePath("bezier", [
+      { id: "a", x: 0, y: 0, width: 100, height: 50 },
+      { id: "b", x: 0, y: 180, width: 100, height: 50 }
+    ]);
+
+    expect(geometry.points).toHaveLength(50);
+    expectPointClose(pointAt(geometry.points, 0), { x: 50, y: 56 });
+    expectPointClose(lastPoint(geometry.points), { x: 50, y: 170 });
+    expectPointClose(geometry.endTangent, { x: 0, y: 1 });
+    expectFinitePoints(geometry.points);
+  });
+
+  it("keeps bezier edges curved for diagonal node positions", () => {
+    const geometry = edgePath("bezier", [
+      { id: "a", x: 0, y: 0, width: 100, height: 50 },
+      { id: "b", x: 220, y: 120, width: 100, height: 50 }
+    ]);
+    const middle = pointAt(geometry.points, Math.floor(geometry.points.length / 4));
+
+    expect(middle.x).toBeGreaterThan(geometry.start.x);
+    expect(middle.y).toBeLessThan(lastPoint(geometry.points).y);
+    expectFinitePoints(geometry.points);
+  });
+
+  it("falls back deterministically for self loops", () => {
+    const geometry = edgePath(
+      "bezier",
+      [{ id: "a", x: 10, y: 20, width: 100, height: 60 }],
+      { ...baseEdge, to: "a" }
+    );
+
+    expect(pointAt(geometry.points, 0).x).toBeGreaterThan(110);
+    expect(lastPoint(geometry.points).x).toBeGreaterThan(110);
+    expect(geometry.endTangent.x).toBeLessThan(0);
+    expectFinitePoints(geometry.points);
+  });
+});

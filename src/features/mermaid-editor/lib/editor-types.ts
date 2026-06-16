@@ -9,10 +9,10 @@ export type CanvasNode = {
 };
 
 export type EdgeStyle = "solid" | "thick" | "dotted";
-export type EdgeRouting = "straight" | "bezier" | "smooth-step" | "orthogonal";
+export type EdgeRouting = "straight" | "bezier";
 export type LegacyEdgePath = "straight" | "curved" | "orthogonal";
 
-export const DEFAULT_EDGE_ROUTING: EdgeRouting = "smooth-step";
+export const DEFAULT_EDGE_ROUTING: EdgeRouting = "bezier";
 
 export type CanvasEdge = {
   id: string;

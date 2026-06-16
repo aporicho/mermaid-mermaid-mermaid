@@ -5,8 +5,8 @@ export const CANVAS_LAYOUT_PREFIX = "%% canvas-layout:";
 const defaultViewport: ViewportState = { x: 160, y: 90, scale: 1 };
 
 function normalizeEdgeRouting(value: unknown): EdgeRouting | undefined {
-  if (value === "straight" || value === "bezier" || value === "smooth-step" || value === "orthogonal") return value;
-  if (value === "curved") return "bezier";
+  if (value === "straight") return "straight";
+  if (value === "bezier" || value === "curved" || value === "smooth-step" || value === "orthogonal") return "bezier";
   return undefined;
 }
 
@@ -15,8 +15,7 @@ function normalizeLegacyEdgePath(value: unknown): LegacyEdgePath | undefined {
 }
 
 function routingFromLegacyPath(value: LegacyEdgePath): EdgeRouting {
-  if (value === "curved") return "bezier";
-  return value;
+  return value === "straight" ? "straight" : "bezier";
 }
 
 export function edgeRoutingFromLayout(layout: CanvasLayout | null | undefined): EdgeRouting {

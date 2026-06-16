@@ -55,10 +55,8 @@ const KonvaCanvas = dynamic(() => import("@/features/mermaid-editor/components/k
 
 const directions: GraphDirection[] = ["LR", "TD", "TB", "RL", "BT"];
 const edgeRoutingOptions: { value: EdgeRouting; label: string }[] = [
-  { value: "smooth-step", label: "圆角折线" },
   { value: "straight", label: "直线" },
-  { value: "bezier", label: "曲线" },
-  { value: "orthogonal", label: "正交折线" }
+  { value: "bezier", label: "曲线" }
 ];
 type WorkspaceView = "canvas" | "render";
 const FALLBACK_FILE_NAME = "diagram.mmd";
@@ -166,7 +164,7 @@ function isAbortError(error: unknown) {
 }
 
 function edgeRoutingLabel(edgeRouting: EdgeRouting) {
-  return edgeRoutingOptions.find((option) => option.value === edgeRouting)?.label || "圆角折线";
+  return edgeRoutingOptions.find((option) => option.value === edgeRouting)?.label || "曲线";
 }
 
 async function writeDocumentToHandle(handle: MermaidFileHandle, documentText: string) {
@@ -682,7 +680,7 @@ export function MermaidEditor() {
                 onAddNodeAt={addNodeAtPoint}
               />
             ) : (
-              <PreviewPanel source={source} graph={graph} edgeRouting={edgeRouting} framed={false} onGraphChange={commitGraph} />
+              <PreviewPanel source={source} graph={graph} framed={false} onGraphChange={commitGraph} />
             )}
           </div>
           {!leftCollapsed ? (

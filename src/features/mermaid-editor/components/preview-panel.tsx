@@ -5,12 +5,11 @@ import mermaid from "mermaid";
 
 import { Input } from "@/components/ui/input";
 import { selectOnlyEdge, selectOnlyNode, updateEdge, updateNodeLabel } from "@/features/mermaid-editor/lib/editor-actions";
-import type { EdgeRouting, MermaidGraph, Selection } from "@/features/mermaid-editor/lib/editor-types";
+import type { MermaidGraph, Selection } from "@/features/mermaid-editor/lib/editor-types";
 
 type PreviewPanelProps = {
   source: string;
   graph?: MermaidGraph;
-  edgeRouting: EdgeRouting;
   framed?: boolean;
   onGraphChange?: (graph: MermaidGraph, selection?: Selection, message?: string) => void;
 };
@@ -30,13 +29,9 @@ type InlineEdit =
   | { type: "node"; id: string; value: string; left: number; top: number; width: number }
   | { type: "edge"; id: string; value: string; left: number; top: number; width: number };
 
-function mermaidCurveFromRouting(edgeRouting: EdgeRouting) {
-  if (edgeRouting === "straight") return "linear";
-  if (edgeRouting === "bezier") return "basis";
-  return "step";
-}
+const MERMAID_FONT_FAMILY = "Noto Sans SC Variable, Noto Sans SC, PingFang SC, Microsoft YaHei UI, Microsoft YaHei, system-ui, sans-serif";
 
-export function PreviewPanel({ source, graph, edgeRouting, framed = true, onGraphChange }: PreviewPanelProps) {
+export function PreviewPanel({ source, graph, framed = true, onGraphChange }: PreviewPanelProps) {
   const [svg, setSvg] = useState("");
   const [svgSize, setSvgSize] = useState<SvgSize | null>(null);
   const [error, setError] = useState("");
@@ -53,7 +48,15 @@ export function PreviewPanel({ source, graph, edgeRouting, framed = true, onGrap
 
   async function render() {
     try {
-      mermaid.initialize({ startOnLoad: false, securityLevel: "loose", theme: "base", flowchart: { curve: mermaidCurveFromRouting(edgeRouting) } });
+      await document.fonts.ready;
+      mermaid.initialize({
+        startOnLoad: false,
+        securityLevel: "loose",
+        theme: "base",
+        themeVariables: {
+          fontFamily: MERMAID_FONT_FAMILY
+        }
+      });
       const result = await mermaid.render(`${renderKey}-${Date.now()}`, source);
       setSvg(result.svg);
       setSvgSize(parseSvgSize(result.svg) || { width: 640, height: 360 });
@@ -149,7 +152,7 @@ export function PreviewPanel({ source, graph, edgeRouting, framed = true, onGrap
     const id = window.setTimeout(render, 180);
     return () => window.clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [source, edgeRouting]);
+  }, [source]);
 
   useEffect(() => {
     const element = viewportRef.current;

@@ -18,6 +18,7 @@ import {
   updateEdge,
   updateNodeLabel
 } from "@/features/mermaid-editor/lib/editor-actions";
+import { computeEdgePath, type RoutedNodeRect } from "@/features/mermaid-editor/lib/edge-geometry";
 import type { CanvasEdge, CanvasNode, EdgeRouting, EditorMode, MermaidGraph, Selection, ViewportState } from "@/features/mermaid-editor/lib/editor-types";
 import { cn } from "@/lib/utils";
 
@@ -48,17 +49,6 @@ type KonvaCanvasProps = {
   onSelectionChange: (selection: Selection) => void;
   onViewportChange: (viewport: ViewportState) => void;
   onAddNodeAt: (point: { x: number; y: number }) => void;
-};
-
-type EdgeGeometry = {
-  x1: number;
-  y1: number;
-  x2: number;
-  y2: number;
-  midX: number;
-  midY: number;
-  points: number[];
-  tension?: number;
 };
 
 type SelectionBox = {
@@ -162,83 +152,16 @@ function nodeHeight(node: CanvasNode) {
   return textHeight + NODE_TEXT_PADDING_Y * 2;
 }
 
-function nodeCenter(node: CanvasNode) {
+function nodeRect(node: CanvasNode): RoutedNodeRect {
   const width = nodeWidth(node);
   const height = nodeHeight(node);
 
   return {
-    x: node.x + width / 2,
-    y: node.y + height / 2
-  };
-}
-
-function nodeBoundaryPoint(node: CanvasNode, toward: { x: number; y: number }, offset: number) {
-  const center = nodeCenter(node);
-  const width = nodeWidth(node);
-  const height = nodeHeight(node);
-  const dx = toward.x - center.x;
-  const dy = toward.y - center.y;
-  const scale = Math.min((width / 2) / Math.max(1, Math.abs(dx)), (height / 2) / Math.max(1, Math.abs(dy)));
-
-  return {
-    x: center.x + dx * scale + Math.sign(dx) * offset,
-    y: center.y + dy * scale + Math.sign(dy) * offset
-  };
-}
-
-function edgeGeometry(edge: CanvasEdge, nodes: CanvasNode[], edgeRouting: EdgeRouting): EdgeGeometry | null {
-  const from = nodes.find((node) => node.id === edge.from);
-  const to = nodes.find((node) => node.id === edge.to);
-  if (!from || !to) return null;
-
-  const start = nodeCenter(from);
-  const end = nodeCenter(to);
-  const startBoundary = nodeBoundaryPoint(from, end, 6);
-  const endBoundary = nodeBoundaryPoint(to, start, 10);
-  const dx = endBoundary.x - startBoundary.x;
-  const dy = endBoundary.y - startBoundary.y;
-
-  if (edgeRouting === "bezier") {
-    const length = Math.max(1, Math.hypot(dx, dy));
-    const offset = clamp(length * 0.18, 36, 120);
-    const controlX = (startBoundary.x + endBoundary.x) / 2 - (dy / length) * offset;
-    const controlY = (startBoundary.y + endBoundary.y) / 2 + (dx / length) * offset;
-
-    return {
-      x1: startBoundary.x,
-      y1: startBoundary.y,
-      x2: endBoundary.x,
-      y2: endBoundary.y,
-      midX: controlX,
-      midY: controlY,
-      points: [startBoundary.x, startBoundary.y, controlX, controlY, endBoundary.x, endBoundary.y],
-      tension: 0.45
-    };
-  }
-
-  if (edgeRouting === "orthogonal" || edgeRouting === "smooth-step") {
-    const midX = startBoundary.x + dx / 2;
-
-    return {
-      x1: startBoundary.x,
-      y1: startBoundary.y,
-      x2: endBoundary.x,
-      y2: endBoundary.y,
-      midX,
-      midY: startBoundary.y + dy / 2,
-      points: [startBoundary.x, startBoundary.y, midX, startBoundary.y, midX, endBoundary.y, endBoundary.x, endBoundary.y],
-      tension: edgeRouting === "smooth-step" ? 0.32 : undefined
-    };
-  }
-
-  return {
-    x1: startBoundary.x,
-    y1: startBoundary.y,
-    x2: endBoundary.x,
-    y2: endBoundary.y,
-    midX: (start.x + end.x) / 2,
-    midY: (start.y + end.y) / 2,
-    points: [startBoundary.x, startBoundary.y, endBoundary.x, endBoundary.y]
+    id: node.id,
+    x: node.x,
+    y: node.y,
+    width,
+    height
   };
 }
 
@@ -311,8 +234,9 @@ export function KonvaCanvas({
         : graph.nodes,
     [graph.nodes, inlineEdit]
   );
+  const routedNodeRects = useMemo(() => renderedNodes.map(nodeRect), [renderedNodes]);
   const selectedSingleEdge = selection.edgeIds.length === 1 ? graph.edges.find((edge) => edge.id === selection.edgeIds[0]) : undefined;
-  const selectedSingleEdgeGeometry = selectedSingleEdge ? edgeGeometry(selectedSingleEdge, renderedNodes, edgeRouting) : null;
+  const selectedSingleEdgeGeometry = selectedSingleEdge ? computeEdgePath(selectedSingleEdge, routedNodeRects, edgeRouting) : null;
 
   useEffect(() => {
     if (inlineEdit?.type !== "node") return;
@@ -472,9 +396,9 @@ export function KonvaCanvas({
     }
 
     const edge = graph.edges.find((item) => item.id === inlineEdit.id);
-    const geometry = edge ? edgeGeometry(edge, graph.nodes, edgeRouting) : null;
+    const geometry = edge ? computeEdgePath(edge, routedNodeRects, edgeRouting) : null;
     if (!geometry) return null;
-    const screen = worldToScreen({ x: geometry.midX - 60, y: geometry.midY - 17 });
+    const screen = worldToScreen({ x: geometry.labelPoint.x - 60, y: geometry.labelPoint.y - 17 });
     return {
       left: screen.x,
       top: screen.y,
@@ -600,7 +524,7 @@ export function KonvaCanvas({
 
           <Layer>
             {graph.edges.map((edge) => {
-              const geometry = edgeGeometry(edge, renderedNodes, edgeRouting);
+              const geometry = computeEdgePath(edge, routedNodeRects, edgeRouting);
               if (!geometry) return null;
               const isSelected = selectedEdgeIds.has(edge.id);
               const visualStyle = edgeVisualStyle(edge);
@@ -609,7 +533,6 @@ export function KonvaCanvas({
                 <Group key={edge.id}>
                   <Arrow
                     points={geometry.points}
-                    tension={geometry.tension}
                     stroke="transparent"
                     fill="transparent"
                     strokeWidth={18}
@@ -628,21 +551,20 @@ export function KonvaCanvas({
                   />
                   <Arrow
                     points={geometry.points}
-                    tension={geometry.tension}
                     stroke={isSelected ? "#1f7a68" : "#526766"}
                     fill={isSelected ? "#1f7a68" : "#526766"}
                     strokeWidth={isSelected ? visualStyle.strokeWidth + 1 : visualStyle.strokeWidth}
                     dash={visualStyle.dash}
                     lineCap="round"
-                    lineJoin={edgeRouting === "orthogonal" ? "miter" : "round"}
+                    lineJoin="round"
                     pointerLength={10}
                     pointerWidth={10}
                     listening={false}
                   />
                   {edge.label ? (
                     <Group
-                      x={geometry.midX - 46}
-                      y={geometry.midY - 14}
+                      x={geometry.labelPoint.x - 46}
+                      y={geometry.labelPoint.y - 14}
                       onClick={(event) => {
                         event.cancelBubble = true;
                         onSelectionChange(event.evt.shiftKey ? toggleEdgeSelection(selection, edge.id) : selectOnlyEdge(edge.id));
@@ -778,8 +700,8 @@ export function KonvaCanvas({
             {selectedSingleEdge && selectedSingleEdgeGeometry ? (
               <>
                 <Circle
-                  x={selectedSingleEdgeGeometry.x1}
-                  y={selectedSingleEdgeGeometry.y1}
+                  x={selectedSingleEdgeGeometry.start.x}
+                  y={selectedSingleEdgeGeometry.start.y}
                   radius={7}
                   fill="#1f7a68"
                   stroke="#ffffff"
@@ -788,8 +710,8 @@ export function KonvaCanvas({
                   onDragEnd={() => retargetEdge(selectedSingleEdge.id, "from")}
                 />
                 <Circle
-                  x={selectedSingleEdgeGeometry.x2}
-                  y={selectedSingleEdgeGeometry.y2}
+                  x={selectedSingleEdgeGeometry.end.x}
+                  y={selectedSingleEdgeGeometry.end.y}
                   radius={7}
                   fill="#1f7a68"
                   stroke="#ffffff"

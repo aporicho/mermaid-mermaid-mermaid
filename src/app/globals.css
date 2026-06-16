@@ -48,7 +48,16 @@
     hsl(var(--background));
 }
 
+.mermaid-render svg {
+  overflow: visible;
+}
+
 .mermaid-render svg text,
-.mermaid-render svg foreignObject {
+.mermaid-render svg foreignObject,
+.mermaid-render svg foreignObject * {
   font-family: var(--font-sans) !important;
+}
+
+.mermaid-render svg foreignObject {
+  overflow: visible;
 }
