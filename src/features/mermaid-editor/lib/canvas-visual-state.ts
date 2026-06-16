@@ -4,9 +4,10 @@ import type { CanvasEdge, EditorMode, Selection } from "@/features/mermaid-edito
 
 export type InlineEditTarget = { type: "node" | "edge"; id: string } | null | undefined;
 
-export type NodeVisualKind = "normal" | "hovered" | "selected" | "dragging" | "editing" | "connectionTarget";
+export type NodeVisualKind = "normal" | "hovered" | "selected" | "dragging" | "editing" | "connectionTarget" | "connectionInvalid";
 export type EdgeVisualKind = "normal" | "hovered" | "selected" | "editing";
 export type AnchorVisualKind = "hidden" | "available" | "active" | "target";
+export type EdgeEndpointVisualKind = "normal" | "hovered" | "active";
 
 export type NodeVisualState = {
   kind: NodeVisualKind;
@@ -35,11 +36,20 @@ export type AnchorVisualState = {
   strokeWidth: number;
 };
 
+export type EdgeEndpointVisualState = {
+  kind: EdgeEndpointVisualKind;
+  radius: number;
+  fill: string;
+  stroke: string;
+  strokeWidth: number;
+};
+
 export const CANVAS_VISUAL_TOKENS = {
   colors: {
     accent: "#1f7a68",
     accentHover: "#2c9b82",
     connection: "#c9872d",
+    connectionInvalid: "#a06a5f",
     edge: "#526766",
     edgeText: "#344441",
     labelStroke: "#c9d5d3",
@@ -48,7 +58,8 @@ export const CANVAS_VISUAL_TOKENS = {
     surface: "#ffffff",
     selectionFill: "rgba(31,122,104,0.08)",
     anchorStroke: "#ffffff",
-    gridDotRgb: "31, 122, 104"
+    gridDotRgb: "31, 122, 104",
+    previewInvalid: "#8a9996"
   },
   node: {
     cornerRadius: 14,
@@ -79,6 +90,8 @@ export function getNodeVisualState(input: {
   selection: Selection;
   hoveredNodeId: string | null;
   interactionState: InteractionState;
+  connectionTargetNodeId?: string | null;
+  connectionInvalidNodeId?: string | null;
   inlineEdit?: InlineEditTarget;
 }): NodeVisualState {
   const kind = getNodeVisualKind(input);
@@ -89,6 +102,10 @@ export function getNodeVisualState(input: {
 
   if (kind === "connectionTarget") {
     return emphasizedNode(kind, CANVAS_VISUAL_TOKENS.colors.connection);
+  }
+
+  if (kind === "connectionInvalid") {
+    return emphasizedNode(kind, CANVAS_VISUAL_TOKENS.colors.connectionInvalid);
   }
 
   if (kind === "hovered") {
@@ -167,12 +184,17 @@ export function getEdgeVisualState(input: {
   };
 }
 
-export function getConnectionDraftVisualState() {
+export function getConnectionDraftVisualState(input: { valid?: boolean; edge?: CanvasEdge } = {}) {
+  const semantic = input.edge ? edgeSemanticStyle(input.edge) : { strokeWidth: 2, dash: CANVAS_VISUAL_TOKENS.overlay.connectionDash };
+  const valid = input.valid ?? false;
+  const stroke = valid ? CANVAS_VISUAL_TOKENS.colors.connection : CANVAS_VISUAL_TOKENS.colors.previewInvalid;
+
   return {
-    stroke: CANVAS_VISUAL_TOKENS.colors.connection,
-    fill: CANVAS_VISUAL_TOKENS.colors.connection,
-    strokeWidth: 2,
-    dash: [...CANVAS_VISUAL_TOKENS.overlay.connectionDash],
+    stroke,
+    fill: stroke,
+    strokeWidth: semantic.strokeWidth,
+    dash: semantic.dash ? [...semantic.dash] : undefined,
+    opacity: valid ? 1 : 0.48,
     pointerLength: CANVAS_VISUAL_TOKENS.edge.pointerLength,
     pointerWidth: CANVAS_VISUAL_TOKENS.edge.pointerWidth
   };
@@ -195,10 +217,13 @@ export function getAlignmentGuideVisualState(kind: AlignmentGuide["kind"]) {
   };
 }
 
-export function getEdgeEndpointVisualState() {
+export function getEdgeEndpointVisualState(input: { hovered?: boolean; active?: boolean } = {}): EdgeEndpointVisualState {
+  const kind: EdgeEndpointVisualKind = input.active ? "active" : input.hovered ? "hovered" : "normal";
+
   return {
-    radius: CANVAS_VISUAL_TOKENS.anchor.endpointRadius,
-    fill: CANVAS_VISUAL_TOKENS.colors.accent,
+    kind,
+    radius: CANVAS_VISUAL_TOKENS.anchor.endpointRadius + (kind === "active" ? 1 : 0),
+    fill: kind === "active" ? CANVAS_VISUAL_TOKENS.colors.connection : kind === "hovered" ? CANVAS_VISUAL_TOKENS.colors.accentHover : CANVAS_VISUAL_TOKENS.colors.accent,
     stroke: CANVAS_VISUAL_TOKENS.colors.anchorStroke,
     strokeWidth: CANVAS_VISUAL_TOKENS.anchor.strokeWidth
   };
@@ -209,10 +234,14 @@ function getNodeVisualKind(input: {
   selection: Selection;
   hoveredNodeId: string | null;
   interactionState: InteractionState;
+  connectionTargetNodeId?: string | null;
+  connectionInvalidNodeId?: string | null;
   inlineEdit?: InlineEditTarget;
 }): NodeVisualKind {
   if (isEditingNode(input.nodeId, input.interactionState, input.inlineEdit)) return "editing";
   if (isDraggingNode(input.nodeId, input.interactionState, input.selection)) return "dragging";
+  if (input.connectionInvalidNodeId === input.nodeId) return "connectionInvalid";
+  if (input.connectionTargetNodeId === input.nodeId) return "connectionTarget";
   if (isConnectionTarget(input.nodeId, input.hoveredNodeId, input.interactionState)) return "connectionTarget";
   if (input.selection.nodeIds.includes(input.nodeId)) return "selected";
   if (input.hoveredNodeId === input.nodeId) return "hovered";

@@ -343,6 +343,8 @@ describe("canvas interaction state", () => {
     expect(interactionCursor("select", idleInteraction, false)).toBe("cursor-default");
     expect(interactionCursor("select", idleInteraction, true)).toBe("cursor-grab");
     expect(interactionCursor("connect", idleInteraction, false)).toBe("cursor-crosshair");
+    expect(interactionCursor("select", idleInteraction, false, { kind: "nodeAnchor", nodeId: "a", anchor: "right" })).toBe("cursor-crosshair");
+    expect(interactionCursor("select", idleInteraction, false, { kind: "edgeEndpoint", edgeId: "a-->b", side: "to" })).toBe("cursor-crosshair");
     expect(interactionCursor("select", { kind: "editingNodeText", nodeId: "a" }, false)).toBe("cursor-text");
     expect(interactionCursor("select", { kind: "panning", pointerId: 0, startScreen: { x: 0, y: 0 }, originViewport: viewport }, false)).toBe(
       "cursor-grabbing"

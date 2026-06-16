@@ -437,12 +437,13 @@ export function resolveBlankClick(input: {
   };
 }
 
-export function interactionCursor(tool: EditorMode, state: InteractionState, panningRequested: boolean) {
+export function interactionCursor(tool: EditorMode, state: InteractionState, panningRequested: boolean, hit?: HitTarget) {
   if (state.kind === "panning") return "cursor-grabbing";
   if (panningRequested) return "cursor-grab";
   if (state.kind === "draggingNodes") return "cursor-grabbing";
   if (isEditingInteraction(state)) return "cursor-text";
   if (state.kind === "connectingEdge" || state.kind === "retargetingEdge" || tool === "connect") return "cursor-crosshair";
+  if (tool === "select" && (hit?.kind === "nodeAnchor" || hit?.kind === "edgeEndpoint")) return "cursor-crosshair";
   return "cursor-default";
 }
 

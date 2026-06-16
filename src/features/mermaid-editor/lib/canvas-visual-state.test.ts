@@ -4,6 +4,8 @@ import {
   CANVAS_VISUAL_TOKENS,
   getAlignmentGuideVisualState,
   getAnchorVisualState,
+  getConnectionDraftVisualState,
+  getEdgeEndpointVisualState,
   getEdgeVisualState,
   getNodeVisualState
 } from "@/features/mermaid-editor/lib/canvas-visual-state";
@@ -82,6 +84,24 @@ describe("canvas visual state", () => {
     expect(nodeVisual({ nodeId: "node-b", hoveredNodeId: "node-b", interactionState: connecting }).kind).toBe("connectionTarget");
   });
 
+  it("uses explicit connection preview node states before selection and hover", () => {
+    expect(
+      nodeVisual({
+        selection: { nodeIds: ["node-a"], edgeIds: [] },
+        hoveredNodeId: "node-a",
+        connectionTargetNodeId: "node-a"
+      }).kind
+    ).toBe("connectionTarget");
+
+    expect(
+      nodeVisual({
+        selection: { nodeIds: ["node-a"], edgeIds: [] },
+        hoveredNodeId: "node-a",
+        connectionInvalidNodeId: "node-a"
+      }).kind
+    ).toBe("connectionInvalid");
+  });
+
   it("shows anchors in select mode for hover and selection", () => {
     expect(anchorVisual().kind).toBe("hidden");
     expect(anchorVisual({ mode: "connect" }).kind).toBe("hidden");
@@ -121,6 +141,21 @@ describe("canvas visual state", () => {
     expect(selectedDotted.dash).toEqual([1, 8]);
     expect(selectedDotted.strokeWidth).toBe(3);
     expect(selectedDotted.stroke).toBe(CANVAS_VISUAL_TOKENS.colors.accent);
+  });
+
+  it("uses valid and invalid connection preview visual states while preserving edge style", () => {
+    expect(getConnectionDraftVisualState({ valid: true }).stroke).toBe(CANVAS_VISUAL_TOKENS.colors.connection);
+    expect(getConnectionDraftVisualState({ valid: false }).opacity).toBeLessThan(1);
+
+    const dottedPreview = getConnectionDraftVisualState({ valid: true, edge: { ...edge, style: "dotted" } });
+    expect(dottedPreview.dash).toEqual([1, 8]);
+    expect(dottedPreview.strokeWidth).toBe(2);
+  });
+
+  it("derives endpoint handle visual states", () => {
+    expect(getEdgeEndpointVisualState().kind).toBe("normal");
+    expect(getEdgeEndpointVisualState({ hovered: true }).fill).toBe(CANVAS_VISUAL_TOKENS.colors.accentHover);
+    expect(getEdgeEndpointVisualState({ active: true }).fill).toBe(CANVAS_VISUAL_TOKENS.colors.connection);
   });
 
   it("uses dashed center guides and solid edge guides", () => {

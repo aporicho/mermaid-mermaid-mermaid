@@ -47,6 +47,7 @@ import {
   resolveKonvaHitTarget
 } from "@/features/mermaid-editor/lib/canvas-hit-target";
 import { DEFAULT_CANVAS_GRID, firstGridCoordinateAtOrAfter, getCanvasGridRenderPlan, isGridCoordinate } from "@/features/mermaid-editor/lib/canvas-grid";
+import { resolveConnectionPreview, resolveRetargetPreview } from "@/features/mermaid-editor/lib/connection-preview";
 import {
   buildEdgeLabelGeometry,
   edgeLabelSingleLineText,
@@ -57,7 +58,6 @@ import type { CanvasNode, EdgeRouting, EditorMode, MermaidGraph, Selection, View
 import {
   buildNodeGeometry,
   nodeIntersectsRect,
-  pointInsideNodeFrame,
   type NodeGeometrySpec
 } from "@/features/mermaid-editor/lib/node-geometry";
 import {
@@ -196,6 +196,7 @@ export function KonvaCanvas({
   const [interactionState, setInteractionState] = useState<InteractionState>(idleInteraction);
   const [alignmentGuides, setAlignmentGuides] = useState<AlignmentGuide[]>([]);
   const [inlineEdit, setInlineEdit] = useState<InlineEdit | null>(null);
+  const [hoveredHitTarget, setHoveredHitTarget] = useState<HitTarget>({ kind: "blank" });
   const [nodeEditorLayout, setNodeEditorLayout] = useState({ insetTop: 0, height: NODE_TEXT_LINE_HEIGHT, scrollable: false });
   const nodeEditorRef = useRef<HTMLTextAreaElement>(null);
   const nodeEditorMeasureRef = useRef<HTMLDivElement>(null);
@@ -226,39 +227,50 @@ export function KonvaCanvas({
       : null;
   const connectionDraft = interactionState.kind === "connectingEdge" ? interactionState : null;
   const retargetDraft = interactionState.kind === "retargetingEdge" ? interactionState : null;
+  const connectionPreview = useMemo(
+    () =>
+      connectionDraft
+        ? resolveConnectionPreview({
+            fromNodeId: connectionDraft.fromNodeId,
+            currentWorld: connectionDraft.currentWorld,
+            nodes: renderedNodeGeometries
+          })
+        : null,
+    [connectionDraft, renderedNodeGeometries]
+  );
   const connectionDraftGeometry = useMemo(() => {
-    if (!connectionDraft) return null;
+    if (!connectionDraft || !connectionPreview) return null;
 
     const sourceRect = routedNodeRects.find((rect) => rect.id === connectionDraft.fromNodeId);
     if (!sourceRect) return null;
 
-    const targetGeometry = renderedNodeGeometries.find(
-      (geometry) => geometry.id !== connectionDraft.fromNodeId && pointInsideNodeFrame(connectionDraft.currentWorld, geometry)
-    );
-
-    return computeEdgeDraftPath(
-      sourceRect,
-      targetGeometry ? { kind: "node", rect: targetGeometry.routedRect } : { kind: "point", point: connectionDraft.currentWorld },
-      edgeRouting
-    );
-  }, [connectionDraft, edgeRouting, renderedNodeGeometries, routedNodeRects]);
-  const retargetDraftGeometry = useMemo(() => {
+    return computeEdgeDraftPath(sourceRect, connectionPreview.geometryTarget, edgeRouting);
+  }, [connectionDraft, connectionPreview, edgeRouting, routedNodeRects]);
+  const retargetPreview = useMemo(() => {
     if (!retargetDraft) return null;
 
     const edge = graph.edges.find((item) => item.id === retargetDraft.edgeId);
     if (!edge) return null;
 
-    const targetGeometry = renderedNodeGeometries.find((geometry) => pointInsideNodeFrame(retargetDraft.currentWorld, geometry));
-    return computeEdgeRetargetPath(
+    return resolveRetargetPreview({
       edge,
-      routedNodeRects,
-      retargetDraft.side,
-      targetGeometry ? { kind: "node", rect: targetGeometry.routedRect } : { kind: "point", point: retargetDraft.currentWorld },
-      edgeRouting
-    );
-  }, [edgeRouting, graph.edges, renderedNodeGeometries, retargetDraft, routedNodeRects]);
+      side: retargetDraft.side,
+      currentWorld: retargetDraft.currentWorld,
+      nodes: renderedNodeGeometries
+    });
+  }, [graph.edges, renderedNodeGeometries, retargetDraft]);
+  const retargetDraftGeometry = useMemo(() => {
+    if (!retargetDraft || !retargetPreview) return null;
+
+    const edge = graph.edges.find((item) => item.id === retargetDraft.edgeId);
+    if (!edge) return null;
+
+    return computeEdgeRetargetPath(edge, routedNodeRects, retargetDraft.side, retargetPreview.geometryTarget, edgeRouting);
+  }, [edgeRouting, graph.edges, retargetDraft, retargetPreview, routedNodeRects]);
   const selectedSingleEdgeGeometry =
     retargetDraft?.edgeId === selectedSingleEdge?.id && retargetDraftGeometry ? retargetDraftGeometry : selectedSingleEdgeBaseGeometry;
+  const connectionTargetNodeId = connectionPreview?.targetNodeId ?? retargetPreview?.targetNodeId ?? null;
+  const connectionInvalidNodeId = connectionPreview?.invalidNodeId ?? retargetPreview?.invalidNodeId ?? null;
 
   useEffect(() => {
     const nextSelectionKey = selectionVersionKey(selection);
@@ -344,6 +356,8 @@ export function KonvaCanvas({
   }
 
   function updateHoverFromHit(hit: HitTarget) {
+    setHoveredHitTarget(hit);
+
     if (hit.kind === "node") {
       setHoveredNodeId(hit.id);
       setHoveredEdgeId(null);
@@ -619,22 +633,23 @@ export function KonvaCanvas({
 
   function finishConnection(draft: Extract<InteractionState, { kind: "connectingEdge" }>) {
     const point = pointerWorldPoint();
-    const target = point ? graph.nodes.find((node) => node.id !== draft.fromNodeId && pointInsideNodeFrame(point, buildNodeGeometry(node, geometrySpec))) : null;
-    if (target) {
-      const result = createEdge(graph, draft.fromNodeId, target.id);
-      onGraphCommit(result.graph, result.selection, "已创建连线。");
-    }
+    if (!point) return;
+
+    const preview = resolveConnectionPreview({ fromNodeId: draft.fromNodeId, currentWorld: point, nodes: renderedNodeGeometries });
+    if (!preview.valid || !preview.targetNodeId) return;
+
+    const result = createEdge(graph, draft.fromNodeId, preview.targetNodeId);
+    onGraphCommit(result.graph, result.selection, "已创建连线。");
   }
 
   function retargetEdge(edgeId: string, side: "from" | "to", point: CanvasPoint) {
     const edge = graph.edges.find((item) => item.id === edgeId);
     if (!edge) return;
 
-    const target = graph.nodes.find((node) => pointInsideNodeFrame(point, buildNodeGeometry(node, geometrySpec)));
-    if (!target) return;
-    if (edge[side] === target.id) return;
+    const preview = resolveRetargetPreview({ edge, side, currentWorld: point, nodes: renderedNodeGeometries });
+    if (!preview.valid || !preview.targetNodeId) return;
 
-    onGraphCommit(updateEdge(graph, edgeId, { [side]: target.id }), selectOnlyEdge(edgeId), "已重连连线。");
+    onGraphCommit(updateEdge(graph, edgeId, { [side]: preview.targetNodeId }), selectOnlyEdge(edgeId), "已重连连线。");
   }
 
   function commitInlineEdit(save: boolean) {
@@ -699,7 +714,10 @@ export function KonvaCanvas({
     });
   }, [editStyle, inlineEdit?.type, inlineEdit?.value, viewport.scale]);
 
-  const cursorClassName = interactionCursor(mode, interactionState, panningRequested);
+  const cursorClassName = interactionCursor(mode, interactionState, panningRequested, hoveredHitTarget);
+  const isEndpointHovered = (edgeId: string, side: "from" | "to") =>
+    hoveredHitTarget.kind === "edgeEndpoint" && hoveredHitTarget.edgeId === edgeId && hoveredHitTarget.side === side;
+  const isEndpointActive = (edgeId: string, side: "from" | "to") => retargetDraft?.edgeId === edgeId && retargetDraft.side === side;
 
   return (
     <section className="relative h-full min-h-0 bg-card">
@@ -729,6 +747,7 @@ export function KonvaCanvas({
             setAlignmentGuides([]);
             setHoveredNodeId(null);
             setHoveredEdgeId(null);
+            setHoveredHitTarget({ kind: "blank" });
           }}
         >
           {showGrid ? <CanvasGrid dimensions={dimensions} viewport={viewport} /> : null}
@@ -737,8 +756,10 @@ export function KonvaCanvas({
             {graph.edges.map((edge) => {
               const baseGeometry = computeEdgePath(edge, routedNodeRects, edgeRouting);
               if (!baseGeometry) return null;
-              const geometry = retargetDraft?.edgeId === edge.id && retargetDraftGeometry ? retargetDraftGeometry : baseGeometry;
+              const isRetargetPreviewEdge = retargetDraft?.edgeId === edge.id && !!retargetDraftGeometry && !!retargetPreview;
+              const geometry = isRetargetPreviewEdge ? retargetDraftGeometry : baseGeometry;
               const edgeVisual = getEdgeVisualState({ edge, selection, hoveredEdgeId, interactionState, inlineEdit });
+              const edgePreviewVisual = isRetargetPreviewEdge ? getConnectionDraftVisualState({ valid: retargetPreview.valid, edge }) : null;
               const isEditingEdgeLabel = inlineEdit?.type === "edge" && inlineEdit.id === edge.id;
               const edgeLabel = isEditingEdgeLabel ? inlineEdit.value : edge.label;
               const edgeLabelGeometry = edgeLabel || isEditingEdgeLabel ? buildEdgeLabelGeometry(edgeLabel, geometry.labelPoint, edgeLabelSpec) : null;
@@ -760,14 +781,15 @@ export function KonvaCanvas({
                   />
                   <Arrow
                     points={geometry.points}
-                    stroke={edgeVisual.stroke}
-                    fill={edgeVisual.fill}
-                    strokeWidth={edgeVisual.strokeWidth}
-                    dash={edgeVisual.dash}
+                    stroke={edgePreviewVisual?.stroke ?? edgeVisual.stroke}
+                    fill={edgePreviewVisual?.fill ?? edgeVisual.fill}
+                    strokeWidth={edgePreviewVisual?.strokeWidth ?? edgeVisual.strokeWidth}
+                    dash={edgePreviewVisual?.dash ?? edgeVisual.dash}
+                    opacity={edgePreviewVisual?.opacity ?? 1}
                     lineCap="round"
                     lineJoin="round"
-                    pointerLength={CANVAS_VISUAL_TOKENS.edge.pointerLength}
-                    pointerWidth={CANVAS_VISUAL_TOKENS.edge.pointerWidth}
+                    pointerLength={edgePreviewVisual?.pointerLength ?? CANVAS_VISUAL_TOKENS.edge.pointerLength}
+                    pointerWidth={edgePreviewVisual?.pointerWidth ?? CANVAS_VISUAL_TOKENS.edge.pointerWidth}
                     listening={false}
                   />
                   {edgeLabelGeometry && !isEditingEdgeLabel ? (
@@ -811,7 +833,15 @@ export function KonvaCanvas({
             {renderedNodes.map((node) => {
               const geometry = nodeGeometryById.get(node.id);
               if (!geometry) return null;
-              const nodeVisual = getNodeVisualState({ nodeId: node.id, selection, hoveredNodeId, interactionState, inlineEdit });
+              const nodeVisual = getNodeVisualState({
+                nodeId: node.id,
+                selection,
+                hoveredNodeId,
+                interactionState,
+                connectionTargetNodeId,
+                connectionInvalidNodeId,
+                inlineEdit
+              });
               const anchorVisual = getAnchorVisualState({ nodeId: node.id, mode, selection, hoveredNodeId, interactionState, inlineEdit });
 
               return (
@@ -892,7 +922,7 @@ export function KonvaCanvas({
             {connectionDraftGeometry ? (
               <Arrow
                 points={connectionDraftGeometry.points}
-                {...getConnectionDraftVisualState()}
+                {...getConnectionDraftVisualState({ valid: connectionPreview?.valid ?? false })}
                 listening={false}
               />
             ) : null}
@@ -912,7 +942,10 @@ export function KonvaCanvas({
                   name={CANVAS_HIT_NAMES.edgeEndpoint}
                   x={selectedSingleEdgeGeometry.start.x}
                   y={selectedSingleEdgeGeometry.start.y}
-                  {...getEdgeEndpointVisualState()}
+                  {...getEdgeEndpointVisualState({
+                    hovered: isEndpointHovered(selectedSingleEdge.id, "from"),
+                    active: isEndpointActive(selectedSingleEdge.id, "from")
+                  })}
                   onMouseDown={(event) => {
                     event.cancelBubble = true;
                     handleCanvasPointerDown(event, { kind: "edgeEndpoint", edgeId: selectedSingleEdge.id, side: "from" });
@@ -923,7 +956,10 @@ export function KonvaCanvas({
                   name={CANVAS_HIT_NAMES.edgeEndpoint}
                   x={selectedSingleEdgeGeometry.end.x}
                   y={selectedSingleEdgeGeometry.end.y}
-                  {...getEdgeEndpointVisualState()}
+                  {...getEdgeEndpointVisualState({
+                    hovered: isEndpointHovered(selectedSingleEdge.id, "to"),
+                    active: isEndpointActive(selectedSingleEdge.id, "to")
+                  })}
                   onMouseDown={(event) => {
                     event.cancelBubble = true;
                     handleCanvasPointerDown(event, { kind: "edgeEndpoint", edgeId: selectedSingleEdge.id, side: "to" });
