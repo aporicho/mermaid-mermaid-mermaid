@@ -4,7 +4,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import mermaid from "mermaid";
 
 import { Input } from "@/components/ui/input";
+import { DiagnosticPanel } from "@/features/mermaid-editor/components/diagnostic-panel";
 import { selectOnlyEdge, selectOnlyNode, updateEdge, updateNodeLabel } from "@/features/mermaid-editor/lib/editor-actions";
+import { normalizeMermaidError, type EditorDiagnostic } from "@/features/mermaid-editor/lib/editor-diagnostics";
 import type { MermaidGraph, Selection } from "@/features/mermaid-editor/lib/editor-types";
 import { DEFAULT_EDITOR_THEME, type MermaidThemeVariables, themeToMermaidThemeVariables } from "@/features/mermaid-editor/lib/editor-theme";
 
@@ -12,6 +14,7 @@ type PreviewPanelProps = {
   source: string;
   graph?: MermaidGraph;
   framed?: boolean;
+  diagnostics?: EditorDiagnostic[];
   mermaidThemeVariables?: MermaidThemeVariables;
   onGraphChange?: (graph: MermaidGraph, selection?: Selection, message?: string) => void;
 };
@@ -32,11 +35,19 @@ type InlineEdit =
   | { type: "edge"; id: string; value: string; left: number; top: number; width: number };
 
 const DEFAULT_MERMAID_THEME_VARIABLES = themeToMermaidThemeVariables(DEFAULT_EDITOR_THEME);
+const EMPTY_DIAGNOSTICS: EditorDiagnostic[] = [];
 
-export function PreviewPanel({ source, graph, framed = true, mermaidThemeVariables = DEFAULT_MERMAID_THEME_VARIABLES, onGraphChange }: PreviewPanelProps) {
+export function PreviewPanel({
+  source,
+  graph,
+  framed = true,
+  diagnostics = EMPTY_DIAGNOSTICS,
+  mermaidThemeVariables = DEFAULT_MERMAID_THEME_VARIABLES,
+  onGraphChange
+}: PreviewPanelProps) {
   const [svg, setSvg] = useState("");
   const [svgSize, setSvgSize] = useState<SvgSize | null>(null);
-  const [error, setError] = useState("");
+  const [renderDiagnostic, setRenderDiagnostic] = useState<EditorDiagnostic | null>(null);
   const [view, setView] = useState<RenderView>({ x: 40, y: 40, scale: 1 });
   const [viewportSize, setViewportSize] = useState<SvgSize>({ width: 0, height: 0 });
   const [inlineEdit, setInlineEdit] = useState<InlineEdit | null>(null);
@@ -60,11 +71,11 @@ export function PreviewPanel({ source, graph, framed = true, mermaidThemeVariabl
       const result = await mermaid.render(`${renderKey}-${Date.now()}`, source);
       setSvg(result.svg);
       setSvgSize(parseSvgSize(result.svg) || { width: 640, height: 360 });
-      setError("");
+      setRenderDiagnostic(null);
     } catch (err) {
       setSvg("");
       setSvgSize(null);
-      setError(err instanceof Error ? err.message : String(err));
+      setRenderDiagnostic(normalizeMermaidError(err, source, "mermaid-render"));
     }
   }
 
@@ -149,10 +160,17 @@ export function PreviewPanel({ source, graph, framed = true, mermaidThemeVariabl
   }
 
   useEffect(() => {
+    if (diagnostics.length) {
+      setSvg("");
+      setSvgSize(null);
+      setRenderDiagnostic(null);
+      return;
+    }
+
     const id = window.setTimeout(render, 180);
     return () => window.clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [source, mermaidThemeVariables]);
+  }, [source, mermaidThemeVariables, diagnostics]);
 
   useEffect(() => {
     const element = viewportRef.current;
@@ -191,10 +209,8 @@ export function PreviewPanel({ source, graph, framed = true, mermaidThemeVariabl
         onAuxClick={(event) => event.preventDefault()}
         onDoubleClick={onDoubleClick}
       >
-        {error ? (
-          <pre className="m-4 whitespace-pre-wrap rounded-md border border-destructive/30 bg-destructive/10 p-3 font-mono text-xs text-destructive">
-            {error}
-          </pre>
+        {diagnostics.length || renderDiagnostic ? (
+          <DiagnosticPanel diagnostics={diagnostics.length ? diagnostics : [renderDiagnostic!]} />
         ) : (
           <div
             className="mermaid-render absolute left-0 top-0 origin-top-left [&_svg]:!h-full [&_svg]:!max-w-none [&_svg]:!w-full [&_svg]:block"

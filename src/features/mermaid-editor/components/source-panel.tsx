@@ -5,17 +5,20 @@ import { Refresh as RefreshCw, SidebarCollapse as PanelLeftClose } from "iconoir
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { DiagnosticPanel } from "@/features/mermaid-editor/components/diagnostic-panel";
+import type { EditorDiagnostic } from "@/features/mermaid-editor/lib/editor-diagnostics";
 
 type SourcePanelProps = {
   value: string;
+  diagnostics?: EditorDiagnostic[];
   onChange: (value: string) => void;
   onRun: () => void;
   onCollapse: () => void;
 };
 
-export function SourcePanel({ value, onChange, onRun, onCollapse }: SourcePanelProps) {
+export function SourcePanel({ value, diagnostics = [], onChange, onRun, onCollapse }: SourcePanelProps) {
   return (
-    <section className="relative z-10 grid h-full min-h-0 grid-rows-[42px_minmax(0,1fr)] border-r bg-card">
+    <section className="relative z-10 grid h-full min-h-0 grid-rows-[42px_minmax(0,1fr)_auto] border-r bg-card">
       <header className="flex items-center justify-between border-b bg-card/95 px-3">
         <span className="text-sm font-medium">Mermaid</span>
         <div className="flex items-center gap-1">
@@ -49,6 +52,7 @@ export function SourcePanel({ value, onChange, onRun, onCollapse }: SourcePanelP
         }}
         className="source-grid h-full resize-none rounded-none border-0 p-4 font-mono text-sm leading-[30px] shadow-none focus-visible:ring-0"
       />
+      <DiagnosticPanel diagnostics={diagnostics} compact />
     </section>
   );
 }

@@ -153,11 +153,28 @@ function arrowTypeFromEdgeOperator(operator: string): FlowchartArrowType {
 }
 
 function edgeOperatorFromSemantics(style: EdgeStyle = "solid", arrowType: FlowchartArrowType = "arrow") {
-  const suffix = arrowType === "arrow" ? ">" : arrowType === "circle" ? "o" : arrowType === "cross" ? "x" : "";
+  const operators: Record<EdgeStyle, Record<FlowchartArrowType, string>> = {
+    solid: {
+      arrow: "-->",
+      none: "---",
+      circle: "--o",
+      cross: "--x"
+    },
+    thick: {
+      arrow: "==>",
+      none: "===",
+      circle: "==o",
+      cross: "==x"
+    },
+    dotted: {
+      arrow: "-.->",
+      none: "-.-",
+      circle: "-.o",
+      cross: "-.x"
+    }
+  };
 
-  if (style === "thick") return arrowType === "none" ? "===" : `==${suffix}`;
-  if (style === "dotted") return arrowType === "none" ? "-.-" : `-.${suffix}`;
-  return arrowType === "none" ? "---" : `--${suffix}`;
+  return operators[style][arrowType];
 }
 
 export function toSafeNodeId(value: string, existingIds: string[], fallback = "Node") {

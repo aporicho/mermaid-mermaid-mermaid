@@ -41,6 +41,42 @@ export type NodeGeometry = {
   routedRect: RoutedNodeRect;
 };
 
+export const DEFAULT_NODE_GEOMETRY_TOKENS = {
+  minChars: 6,
+  maxChars: 24,
+  paddingX: 14,
+  paddingY: 14,
+  fontSize: 14,
+  lineHeight: 18,
+  maxLines: 12,
+  fontFamily: "'Noto Sans SC Variable', 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei UI', system-ui, sans-serif"
+} as const;
+
+let defaultTextMeasureCanvas: HTMLCanvasElement | null = null;
+
+export function measureDefaultNodeTextWidth(value: string) {
+  if (typeof document === "undefined") return value.length * DEFAULT_NODE_GEOMETRY_TOKENS.fontSize * 0.58;
+
+  defaultTextMeasureCanvas ??= document.createElement("canvas");
+  const context = defaultTextMeasureCanvas.getContext("2d");
+  if (!context) return value.length * DEFAULT_NODE_GEOMETRY_TOKENS.fontSize * 0.58;
+
+  context.font = `700 ${DEFAULT_NODE_GEOMETRY_TOKENS.fontSize}px ${DEFAULT_NODE_GEOMETRY_TOKENS.fontFamily}`;
+  return context.measureText(value).width;
+}
+
+export function defaultNodeGeometrySpec(measureText = measureDefaultNodeTextWidth): NodeGeometrySpec {
+  return {
+    minChars: DEFAULT_NODE_GEOMETRY_TOKENS.minChars,
+    maxChars: DEFAULT_NODE_GEOMETRY_TOKENS.maxChars,
+    paddingX: DEFAULT_NODE_GEOMETRY_TOKENS.paddingX,
+    paddingY: DEFAULT_NODE_GEOMETRY_TOKENS.paddingY,
+    lineHeight: DEFAULT_NODE_GEOMETRY_TOKENS.lineHeight,
+    maxLines: DEFAULT_NODE_GEOMETRY_TOKENS.maxLines,
+    measureText
+  };
+}
+
 export function buildNodeGeometry(node: CanvasNode, spec: NodeGeometrySpec): NodeGeometry {
   const shape = normalizeFlowchartShape(node.shape) || DEFAULT_FLOWCHART_NODE_SHAPE;
   const textWidth = nodeTextWidth(node, spec);

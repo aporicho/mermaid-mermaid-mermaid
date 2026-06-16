@@ -1,41 +1,72 @@
-%% canvas-layout: {"version":1,"edgeRouting":"bezier","viewport":{"scale":0.8824750192133134,"x":916.3644723479574,"y":1768.5240856319297},"nodes":{"Node14":{"x":219.10925683546475,"y":-1936.5319888433276,"fill":"#edf0f2"},"Node3":{"x":219.10925683546475,"y":-1636.1213062046984,"fill":"#fff2d9"},"Node2":{"x":1121.346758458453,"y":-1816.6174198123242,"fill":"#e8f4f0"},"Node6":{"x":840.6748632448453,"y":-1558.839585633418,"fill":"#edf0f2"},"Node7":{"x":1121.346758458453,"y":-1558.839585633418,"fill":"#f1eadf"},"Node5":{"x":840.6748632448453,"y":-1242.487945066211,"fill":"#e7eef9"},"Node3_2":{"x":657.7784958985278,"y":-894.0007485922243,"fill":"#fff2d9"},"Node4":{"x":1000.8987754481007,"y":-894.0007485922243,"fill":"#f8e3e6"},"Node12":{"x":88.27909427295947,"y":-1799.1261293251605,"fill":"#f8e3e6"},"Node15":{"x":1121.346758458453,"y":-1986.2151523308762,"fill":"#f8e3e6"},"Node16":{"x":-620.98364238597,"y":-1535.6406060388279,"fill":"#e9e4f5"},"Node13":{"x":-291.6696528949803,"y":-1142.8361437231133,"fill":"#e7eef9"},"Node11":{"x":-831.7120468265625,"y":-1397.979695515996,"fill":"#fff2d9"},"Node8":{"x":-634.98364238597,"y":-1283.629059656069,"fill":"#e9e4f5"},"Node9":{"x":-634.98364238597,"y":-1142.8361437231133,"fill":"#ffffff"},"Node10":{"x":-959.6479476354069,"y":-1142.8361437231133,"fill":"#e8f4f0"},"Node17":{"x":-1404.6823812500381,"y":-1313.6650311339947,"fill":"#ffffff"},"Node18":{"x":-1404.6823812500381,"y":-1104.67737142828,"fill":"#e8f4f0"},"Node19":{"x":-1404.6823812500381,"y":-1218.6349233045978,"fill":"#fff2d9"},"Node21":{"x":339.2344742670632,"y":-1799.1261293251605,"fill":"#e7eef9"}}}
-flowchart TD
-  Node14@{ shape: rect, label: "人类" }
-  Node3@{ shape: rect, label: "WebUI" }
-  Node2@{ shape: rect, label: "CLI" }
-  Node6@{ shape: rect, label: "查看当前" }
-  Node7@{ shape: rect, label: "对比前后修改" }
-  Node5@{ shape: rect, label: "画板网页缓存" }
-  Node3_2@{ shape: rect, label: "Mermaid文件" }
-  Node4@{ shape: rect, label: "json文件" }
-  Node12@{ shape: rect, label: "键盘" }
-  Node15@{ shape: rect, label: "Agent" }
-  Node16@{ shape: rect, label: "UI布局" }
-  Node13@{ shape: rect, label: "右侧属性面板" }
-  Node11@{ shape: rect, label: "顶部工具栏" }
-  Node8@{ shape: rect, label: "中间无限画布视图" }
-  Node9@{ shape: rect, label: "中间自动渲染视图" }
-  Node10@{ shape: rect, label: "左侧源码视图面板" }
-  Node17@{ shape: rect, label: "层级设计" }
-  Node18@{ shape: rect, label: "底层" }
-  Node19@{ shape: rect, label: "顶层" }
-  Node21@{ shape: rect, label: "鼠标" }
-  Node14 --> Node21
-  Node2 --> Node6
-  Node2 --> Node7
-  Node6 --> Node5
-  Node7 --> Node5
-  Node5 --> Node3_2
-  Node5 --> Node4
-  Node3 --> Node5
-  Node14 --> Node12
-  Node12 --> Node3
-  Node15 --> Node2
-  Node19 --> Node11
-  Node18 --> Node8
-  Node18 --> Node9
-  Node17 --> Node10
-  Node17 --> Node13
-  Node16 --> Node11
-  Node16 --> Node8
-  Node21 --> Node3
+%% canvas-layout: {"version":1,"edgeRouting":"bezier","viewport":{"scale":1.2966453228047408,"x":236.66247791033015,"y":794.3439106369294},"nodes":{"Human":{"x":-1884.7717963750474,"y":-370.7708387777488,"fill":"#fff2d9"},"WebUI":{"x":-1306.0146046760533,"y":-370.7708387777488,"fill":"#f8e3e6"},"SourcePanel":{"x":-767.6547045161238,"y":-845.5241169624668,"fill":"#e8f4f0"},"CanvasView":{"x":-826.7975048894127,"y":-370.7708387777488,"fill":"#e9e4f5"},"RenderView":{"x":-826.7975048894127,"y":-270.35025602660284,"fill":"#ffffff"},"Inspector":{"x":-820,"y":140,"fill":"#e7eef9"},"ThemePanel":{"x":-1306.0146046760533,"y":370.2344291860136,"fill":"#f1eadf"},"UserFeedback":{"x":-1884.7717963750474,"y":-34.50918909555537,"fill":"#fff2d9"},"EditorCore":{"x":-353,"y":-183.79670760393935,"fill":"#edf0f2"},"ParserSerializer":{"x":-346,"y":-845.5241169624668,"fill":"#ffffff"},"InteractionLayer":{"x":-514.2379196551627,"y":-370.7708387777488,"fill":"#e9e4f5"},"GeometryRouting":{"x":-29.74378241960744,"y":-183.79670760393935,"fill":"#e7eef9"},"VisualTheme":{"x":-360,"y":370.2344291860136,"fill":"#f1eadf"},"MermaidFile":{"x":216.19281615059322,"y":-845.5241169624668,"fill":"#fff2d9"},"LayoutComment":{"x":-498.1268246751662,"y":-498.13601860874167,"fill":"#edf0f2"},"BrowserState":{"x":-871.6440930960944,"y":-105.20367933474097,"fill":"#e8f4f0"},"Agent":{"x":1189.5991858489674,"y":-73.50918909555537,"fill":"#f8e3e6"},"CLI":{"x":220.69281615059322,"y":-270.35025602660284,"fill":"#f8e3e6"},"ReadCurrent":{"x":717.0784106293083,"y":-126.05336130287662,"fill":"#ffffff"},"DiffChanges":{"x":717.0784106293083,"y":-270.35025602660284,"fill":"#ffffff"},"PatchMermaid":{"x":540.8528260525384,"y":-845.5241169624668,"fill":"#ffffff"},"ValidateRender":{"x":220.69281615059322,"y":208.6043103338926,"fill":"#ffffff"},"ProjectTasks":{"x":1693.0807135275895,"y":-34.50918909555537,"fill":"#e8f4f0"},"Codebase":{"x":1693.0807135275895,"y":370.2344291860136,"fill":"#e7eef9"}}}
+flowchart LR
+  subgraph HumanSide [人类侧：Mermaid 编辑器和查看器]
+    Human@{ shape: stadium, label: "人类" }
+    WebUI@{ shape: rounded, label: "WebUI" }
+    SourcePanel@{ shape: rect, label: "源码面板" }
+    CanvasView@{ shape: rect, label: "无限画布视图" }
+    RenderView@{ shape: rect, label: "渲染视图" }
+    Inspector@{ shape: rect, label: "属性面板" }
+    ThemePanel@{ shape: rect, label: "主题设置" }
+    UserFeedback@{ shape: doc, label: "用户反馈" }
+  end
+  subgraph CoreSide [编辑器底层：把 GUI 行为稳定落到 Mermaid]
+    EditorCore@{ shape: rect, label: "编辑器核心状态" }
+    ParserSerializer@{ shape: rect, label: "解析与序列化" }
+    InteractionLayer@{ shape: rect, label: "交互状态层" }
+    GeometryRouting@{ shape: rect, label: "节点几何与连线路由" }
+    VisualTheme@{ shape: rect, label: "主题与视觉 token" }
+  end
+  subgraph TruthSide [共同事实源：AI 和人看到同一份结构]
+    MermaidFile@{ shape: doc, label: "Mermaid 文件" }
+    LayoutComment@{ shape: doc, label: "canvas-layout 注释" }
+    BrowserState@{ shape: cyl, label: "浏览器本地状态" }
+  end
+  subgraph AiSide [AI 侧：CLI 只围绕 Mermaid 文件工作]
+    Agent@{ shape: hex, label: "AI Agent" }
+    CLI@{ shape: rounded, label: "CLI" }
+    ReadCurrent@{ shape: rect, label: "查看当前图" }
+    DiffChanges@{ shape: rect, label: "对比前后变化" }
+    PatchMermaid@{ shape: rect, label: "修改 Mermaid" }
+    ValidateRender@{ shape: rect, label: "校验与预览" }
+  end
+  subgraph ProjectSide [项目执行侧：AI 根据图的反馈落地修改]
+    ProjectTasks@{ shape: rect, label: "执行任务" }
+    Codebase@{ shape: docs, label: "项目代码" }
+  end
+  Human -->|查看、理解、调整| WebUI
+  Human -->|提出反馈| UserFeedback
+  UserFeedback -->|反馈意图| Agent
+  WebUI --> SourcePanel
+  WebUI --> CanvasView
+  WebUI --> RenderView
+  WebUI --> Inspector
+  WebUI --> ThemePanel
+  SourcePanel -->|直接编辑 Mermaid| ParserSerializer
+  CanvasView -->|拖拽、连线、对齐| InteractionLayer
+  Inspector -->|修改节点和连线属性| EditorCore
+  ThemePanel -->|修改 shadcn 和画布 token| VisualTheme
+  MermaidFile -->|源码渲染| RenderView
+  EditorCore --> ParserSerializer
+  EditorCore --> InteractionLayer
+  EditorCore --> GeometryRouting
+  EditorCore --> VisualTheme
+  ParserSerializer -->|读写结构| MermaidFile
+  GeometryRouting -->|保存人类画布布局| LayoutComment
+  CanvasView -->|只服务人类空间整理| LayoutComment
+  WebUI -->|文件句柄、折叠状态、临时草稿| BrowserState
+  WebUI -->|打开与保存| MermaidFile
+  MermaidFile -->|AI 所见就是用户所见| CLI
+  CLI --> ReadCurrent
+  CLI --> DiffChanges
+  CLI --> PatchMermaid
+  CLI --> ValidateRender
+  ReadCurrent --> Agent
+  DiffChanges --> Agent
+  ValidateRender --> Agent
+  Agent -->|需要调整图时| PatchMermaid
+  PatchMermaid -->|写回同一份 Mermaid| MermaidFile
+  Agent -->|根据图和反馈拆解工作| ProjectTasks
+  ProjectTasks -->|修改、验证、提交| Codebase
+  Codebase -->|结构变化需要同步| Agent
+  LayoutComment -.->|AI 可忽略布局细节| CLI

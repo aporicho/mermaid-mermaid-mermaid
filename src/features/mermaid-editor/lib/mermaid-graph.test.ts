@@ -55,6 +55,25 @@ describe("mermaid graph parser", () => {
     expect(serialized).toContain("B --o C");
   });
 
+  it("serializes edge operators with legal Mermaid flowchart syntax", () => {
+    const serialized = serializeMermaid({
+      direction: "LR",
+      nodes: [node("A"), node("B"), node("C"), node("D")],
+      edges: [
+        { id: "e1", from: "A", to: "B", label: "review", style: "dotted", arrowType: "arrow" },
+        { id: "e2", from: "B", to: "C", label: "", style: "dotted", arrowType: "none" },
+        { id: "e3", from: "C", to: "D", label: "ship", style: "thick", arrowType: "arrow" },
+        { id: "e4", from: "D", to: "A", label: "", style: "solid", arrowType: "cross" }
+      ]
+    });
+
+    expect(serialized).toContain("A -.->|review| B");
+    expect(serialized).toContain("B -.- C");
+    expect(serialized).toContain("C ==>|ship| D");
+    expect(serialized).toContain("D --x A");
+    expect(serialized).not.toContain("-.>|");
+  });
+
   it("parses Mermaid 11 object shape syntax", () => {
     const graph = parseMermaid(`flowchart LR
   A@{ shape: doc, label: "设计文档" }

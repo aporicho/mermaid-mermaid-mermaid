@@ -13,6 +13,7 @@ import {
   GitBranch as Workflow,
   MoreHoriz,
   PathArrow,
+  PositionAlign,
   Plus,
   Refresh as RefreshCw,
   SidebarCollapse as PanelRightClose,
@@ -32,6 +33,7 @@ import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { applyLayout, edgeRoutingFromLayout, layoutFromGraph, parseCanvasLayout } from "@/features/mermaid-editor/lib/canvas-layout";
 import { buildMermaidDocument, loadMermaidDocument } from "@/features/mermaid-editor/lib/mermaid-document";
+import { deriveLayoutFromMermaidRender } from "@/features/mermaid-editor/lib/mermaid-auto-layout";
 import {
   addNode as addNodeAction,
   addNodeAt,
@@ -43,6 +45,7 @@ import {
   setMode as setEditorMode
 } from "@/features/mermaid-editor/lib/editor-actions";
 import { createHistory, pushHistory, redo, undo } from "@/features/mermaid-editor/lib/editor-history";
+import { hasBlockingDiagnostics, normalizeMermaidError, type EditorDiagnostic } from "@/features/mermaid-editor/lib/editor-diagnostics";
 import type {
   ClipboardPayload,
   DiagramType,
@@ -263,6 +266,7 @@ export function MermaidEditor() {
   const [history, setHistory] = useState<EditorHistory>(() => createHistory());
   const [clipboard, setClipboard] = useState<ClipboardPayload | null>(null);
   const [status, setStatus] = useState("");
+  const [diagnostics, setDiagnostics] = useState<EditorDiagnostic[]>([]);
   const [leftCollapsed, setLeftCollapsed] = useState(initial.leftCollapsed);
   const [rightCollapsed, setRightCollapsed] = useState(initial.rightCollapsed);
   const [workspaceView, setWorkspaceView] = useState<WorkspaceView>(initial.workspaceView);
@@ -298,6 +302,7 @@ export function MermaidEditor() {
     setGraph(next.graph);
     setDiagramType(loaded.diagramType);
     setEditableKind(loaded.editableKind);
+    setDiagnostics([]);
     if (loaded.editableKind !== "flowchart") setWorkspaceView("render");
     setSelection(next.selection);
     setViewport(next.viewport);
@@ -319,6 +324,7 @@ export function MermaidEditor() {
     setGraph(nextGraph);
     setSource(nextSource);
     setSelection(nextSelection);
+    setDiagnostics([]);
     setStatus(message);
   }
 
@@ -326,6 +332,7 @@ export function MermaidEditor() {
     if (!isCanvasEditable) return;
     setGraph(nextGraph);
     setSource(serializeMermaid(nextGraph));
+    setDiagnostics([]);
   }
 
   function captureHistory() {
@@ -341,6 +348,7 @@ export function MermaidEditor() {
     setEditableKind(loaded.editableKind);
     setGraph(loaded.graph);
     setSelection(emptySelection);
+    setDiagnostics([]);
     setStatus(loaded.editableKind === "flowchart" ? "源码已解析到画布。" : "当前 Mermaid 类型已切换到渲染视图。");
 
     if (loaded.editableKind !== "flowchart") setWorkspaceView("render");
@@ -386,6 +394,7 @@ export function MermaidEditor() {
     setEditableKind(loaded.editableKind);
     setGraph(loaded.graph);
     setSelection(emptySelection);
+    setDiagnostics([]);
     if (loaded.editableKind !== "flowchart") {
       setWorkspaceView("render");
       setSource(loaded.source);
@@ -395,6 +404,50 @@ export function MermaidEditor() {
 
     setSource(serializeMermaid(loaded.graph));
     setStatus("已从 Mermaid 源码刷新画布。");
+  }
+
+  async function syncCanvasFromAutoLayout() {
+    if (!isCanvasEditable) {
+      setWorkspaceView("render");
+      setStatus("当前 Mermaid 类型仅支持渲染，不能同步到无限画布。");
+      return;
+    }
+
+    flushSourceHistory();
+    const previousSnapshot = snapshot();
+    setStatus("正在从 Mermaid 自动布局同步到无限画布。");
+
+    try {
+      const loaded = loadMermaidDocument(source, graph);
+      if (loaded.editableKind !== "flowchart") {
+        setWorkspaceView("render");
+        setStatus("当前 Mermaid 类型仅支持渲染，不能同步到无限画布。");
+        return;
+      }
+
+      const layout = await deriveLayoutFromMermaidRender(loaded.source, loaded.graph, {
+        edgeRouting,
+        mermaidThemeVariables
+      });
+      const nextGraph = applyLayout(loaded.graph, layout);
+      const nextSource = serializeMermaid(nextGraph);
+
+      setHistory((current) => pushHistory(current, previousSnapshot));
+      setSource(nextSource);
+      setGraph(nextGraph);
+      setDiagramType(loaded.diagramType);
+      setEditableKind(loaded.editableKind);
+      setSelection(emptySelection);
+      setViewport(layout.viewport);
+      setEdgeRouting(layout.edgeRouting || edgeRouting);
+      setWorkspaceView("canvas");
+      setDiagnostics([]);
+      setStatus("已从 Mermaid 自动布局同步到无限画布。");
+    } catch (error) {
+      setDiagnostics([normalizeMermaidError(error, source, "mermaid-render")]);
+      setWorkspaceView("render");
+      setStatus("自动布局同步失败，请先修复 Mermaid 语法。");
+    }
   }
 
   function performDelete() {
@@ -489,6 +542,7 @@ export function MermaidEditor() {
     setEdgeRouting(loaded.edgeRouting);
     setWorkspaceView(loaded.editableKind === "flowchart" ? "canvas" : "render");
     setSelection(emptySelection);
+    setDiagnostics([]);
     setHistory(createHistory());
     setFileName(ensureMermaidFileName(name));
     setFileHandle(handle);
@@ -538,6 +592,7 @@ export function MermaidEditor() {
       await saveMermaidFileAs();
       return;
     }
+    if (hasBlockingDiagnostics(diagnostics) && !window.confirm("当前 Mermaid 存在错误，仍要保存吗？")) return;
 
     try {
       await writeDocumentToHandle(fileHandle, currentDocument);
@@ -551,6 +606,7 @@ export function MermaidEditor() {
 
   async function saveMermaidFileAs() {
     flushSourceHistory();
+    if (hasBlockingDiagnostics(diagnostics) && !window.confirm("当前 Mermaid 存在错误，仍要另存为吗？")) return;
     const suggestedName = ensureMermaidFileName(fileName);
     const picker = window as MermaidFilePickerWindow;
 
@@ -791,6 +847,7 @@ export function MermaidEditor() {
               onEdgeRoutingChange={updateEdgeRouting}
               onToggleGrid={toggleGrid}
               onRefreshSource={refreshFromSource}
+              onSyncAutoLayout={() => void syncCanvasFromAutoLayout()}
               onResetView={() => updateViewport({ x: 160, y: 90, scale: 1 })}
               onOpenThemeSettings={openThemeSettings}
             />
@@ -821,6 +878,7 @@ export function MermaidEditor() {
                 source={source}
                 graph={isCanvasEditable ? graph : undefined}
                 framed={false}
+                diagnostics={diagnostics}
                 mermaidThemeVariables={mermaidThemeVariables}
                 onGraphChange={isCanvasEditable ? commitGraph : undefined}
               />
@@ -828,7 +886,7 @@ export function MermaidEditor() {
           </div>
           {!leftCollapsed ? (
             <div className="absolute inset-y-0 left-0 z-20 w-[clamp(300px,31vw,420px)]">
-              <SourcePanel value={source} onChange={applySource} onRun={refreshFromSource} onCollapse={() => setLeftCollapsed(true)} />
+              <SourcePanel value={source} diagnostics={diagnostics} onChange={applySource} onRun={refreshFromSource} onCollapse={() => setLeftCollapsed(true)} />
             </div>
           ) : null}
           {!rightCollapsed ? (
@@ -875,6 +933,7 @@ function SecondaryActionsMenu({
   onEdgeRoutingChange,
   onToggleGrid,
   onRefreshSource,
+  onSyncAutoLayout,
   onResetView,
   onOpenThemeSettings
 }: {
@@ -890,6 +949,7 @@ function SecondaryActionsMenu({
   onEdgeRoutingChange: (edgeRouting: EdgeRouting) => void;
   onToggleGrid: () => void;
   onRefreshSource: () => void;
+  onSyncAutoLayout: () => void;
   onResetView: () => void;
   onOpenThemeSettings: () => void;
 }) {
@@ -998,6 +1058,15 @@ function SecondaryActionsMenu({
             <Button variant="ghost" className="h-8 justify-start px-2 text-foreground [&_svg]:text-icon" onClick={() => runAndClose(onRefreshSource)}>
               <RefreshCw className="size-4" />
               从源码刷新
+            </Button>
+            <Button
+              variant="ghost"
+              className="h-8 justify-start px-2 text-foreground disabled:opacity-40 [&_svg]:text-icon"
+              onClick={() => runAndClose(onSyncAutoLayout)}
+              disabled={!editable}
+            >
+              <PositionAlign className="size-4" />
+              同步自动布局
             </Button>
             <Button
               variant="ghost"

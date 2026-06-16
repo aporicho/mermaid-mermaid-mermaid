@@ -58,9 +58,10 @@ import type { CanvasEdge, CanvasNode, EdgeRouting, EditorMode, MermaidGraph, Sel
 import { flattenShapePoints, flowchartPolygonPoints } from "@/features/mermaid-editor/lib/flowchart-shape-geometry";
 import { DEFAULT_FLOWCHART_NODE_SHAPE, normalizeFlowchartShape } from "@/features/mermaid-editor/lib/flowchart-shapes";
 import {
+  DEFAULT_NODE_GEOMETRY_TOKENS,
   buildNodeGeometry,
-  nodeIntersectsRect,
-  type NodeGeometrySpec
+  defaultNodeGeometrySpec,
+  nodeIntersectsRect
 } from "@/features/mermaid-editor/lib/node-geometry";
 import {
   CANVAS_VISUAL_TOKENS,
@@ -75,14 +76,9 @@ import {
 } from "@/features/mermaid-editor/lib/canvas-visual-state";
 import { cn } from "@/lib/utils";
 
-const NODE_MIN_CHARS = 6;
-const NODE_MAX_CHARS = 24;
-const NODE_TEXT_PADDING_X = 14;
-const NODE_TEXT_PADDING_Y = 14;
-const NODE_TEXT_FONT_SIZE = 14;
-const NODE_TEXT_LINE_HEIGHT = 18;
-const NODE_MAX_LINES = 12;
-const NODE_TEXT_FONT_FAMILY = "'Noto Sans SC Variable', 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei UI', system-ui, sans-serif";
+const NODE_TEXT_FONT_SIZE: number = DEFAULT_NODE_GEOMETRY_TOKENS.fontSize;
+const NODE_TEXT_LINE_HEIGHT: number = DEFAULT_NODE_GEOMETRY_TOKENS.lineHeight;
+const NODE_TEXT_FONT_FAMILY = DEFAULT_NODE_GEOMETRY_TOKENS.fontFamily;
 const EDGE_LABEL_MIN_CHARS = 4;
 const EDGE_LABEL_MAX_CHARS = 20;
 const EDGE_LABEL_PADDING_X = 10;
@@ -145,16 +141,8 @@ function measureEdgeLabelTextWidth(value: string) {
   return context.measureText(value).width;
 }
 
-function nodeGeometrySpec(): NodeGeometrySpec {
-  return {
-    minChars: NODE_MIN_CHARS,
-    maxChars: NODE_MAX_CHARS,
-    paddingX: NODE_TEXT_PADDING_X,
-    paddingY: NODE_TEXT_PADDING_Y,
-    lineHeight: NODE_TEXT_LINE_HEIGHT,
-    maxLines: NODE_MAX_LINES,
-    measureText: measureNodeTextWidth
-  };
+function nodeGeometrySpec() {
+  return defaultNodeGeometrySpec(measureNodeTextWidth);
 }
 
 function edgeLabelGeometrySpec(): EdgeLabelGeometrySpec {
