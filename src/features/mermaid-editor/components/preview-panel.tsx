@@ -6,11 +6,13 @@ import mermaid from "mermaid";
 import { Input } from "@/components/ui/input";
 import { selectOnlyEdge, selectOnlyNode, updateEdge, updateNodeLabel } from "@/features/mermaid-editor/lib/editor-actions";
 import type { MermaidGraph, Selection } from "@/features/mermaid-editor/lib/editor-types";
+import { DEFAULT_EDITOR_THEME, type MermaidThemeVariables, themeToMermaidThemeVariables } from "@/features/mermaid-editor/lib/editor-theme";
 
 type PreviewPanelProps = {
   source: string;
   graph?: MermaidGraph;
   framed?: boolean;
+  mermaidThemeVariables?: MermaidThemeVariables;
   onGraphChange?: (graph: MermaidGraph, selection?: Selection, message?: string) => void;
 };
 
@@ -29,9 +31,9 @@ type InlineEdit =
   | { type: "node"; id: string; value: string; left: number; top: number; width: number }
   | { type: "edge"; id: string; value: string; left: number; top: number; width: number };
 
-const MERMAID_FONT_FAMILY = "Noto Sans SC Variable, Noto Sans SC, PingFang SC, Microsoft YaHei UI, Microsoft YaHei, system-ui, sans-serif";
+const DEFAULT_MERMAID_THEME_VARIABLES = themeToMermaidThemeVariables(DEFAULT_EDITOR_THEME);
 
-export function PreviewPanel({ source, graph, framed = true, onGraphChange }: PreviewPanelProps) {
+export function PreviewPanel({ source, graph, framed = true, mermaidThemeVariables = DEFAULT_MERMAID_THEME_VARIABLES, onGraphChange }: PreviewPanelProps) {
   const [svg, setSvg] = useState("");
   const [svgSize, setSvgSize] = useState<SvgSize | null>(null);
   const [error, setError] = useState("");
@@ -53,9 +55,7 @@ export function PreviewPanel({ source, graph, framed = true, onGraphChange }: Pr
         startOnLoad: false,
         securityLevel: "loose",
         theme: "base",
-        themeVariables: {
-          fontFamily: MERMAID_FONT_FAMILY
-        }
+        themeVariables: mermaidThemeVariables
       });
       const result = await mermaid.render(`${renderKey}-${Date.now()}`, source);
       setSvg(result.svg);
@@ -152,7 +152,7 @@ export function PreviewPanel({ source, graph, framed = true, onGraphChange }: Pr
     const id = window.setTimeout(render, 180);
     return () => window.clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [source]);
+  }, [source, mermaidThemeVariables]);
 
   useEffect(() => {
     const element = viewportRef.current;
@@ -211,7 +211,7 @@ export function PreviewPanel({ source, graph, framed = true, onGraphChange }: Pr
           <Input
             autoFocus
             value={inlineEdit.value}
-            className="absolute z-40 h-9 rounded-md bg-card px-2 text-sm shadow-lg"
+            className="absolute z-40 h-9 rounded-md border bg-card px-2 text-sm shadow-none"
             style={{
               left: inlineEdit.left,
               top: inlineEdit.top,

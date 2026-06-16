@@ -16,14 +16,14 @@ import {
 } from "@/features/mermaid-editor/lib/flowchart-shapes";
 
 const NODE_COLORS = [
-  "#ffffff",
-  "#e8f4f0",
-  "#fff2d9",
-  "#f8e3e6",
-  "#e7eef9",
-  "#edf0f2",
-  "#f1eadf",
-  "#e9e4f5"
+  "#fbf6ef",
+  "#ffe1e5",
+  "#fff0cf",
+  "#eadfd2",
+  "#e9eff0",
+  "#f3e6f1",
+  "#e7eadb",
+  "#f1eadf"
 ];
 
 const DEFAULT_SOURCE = `flowchart LR
@@ -169,8 +169,18 @@ export function toSafeNodeId(value: string, existingIds: string[], fallback = "N
   return `${base}_${index}`;
 }
 
+export function nextCanvasNodeId(existingNodes: CanvasNode[]) {
+  const existingIds = existingNodes.map((node) => node.id);
+  const maxGeneratedIndex = existingIds.reduce((max, id) => {
+    const match = id.match(/^N(\d+)$/);
+    return match ? Math.max(max, Number(match[1])) : max;
+  }, 0);
+
+  return toSafeNodeId(`N${maxGeneratedIndex + 1}`, existingIds, "N1");
+}
+
 export function createNode(existingNodes: CanvasNode[], x = 160, y = 120): CanvasNode {
-  const id = toSafeNodeId(`Node${existingNodes.length + 1}`, existingNodes.map((node) => node.id));
+  const id = nextCanvasNodeId(existingNodes);
   return {
     id,
     label: "新节点",

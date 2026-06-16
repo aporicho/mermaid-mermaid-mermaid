@@ -4,6 +4,8 @@ import {
   flowchartPolygonPoints,
   flowchartPortPoints,
   opticalWeightScaleForShape,
+  RECT_CORNER_SCORE_PENALTY,
+  RECT_EDGE_MIDPOINT_SCORE_BONUS,
   visibleAreaRatioForShape
 } from "@/features/mermaid-editor/lib/flowchart-shape-geometry";
 
@@ -51,7 +53,16 @@ describe("flowchart shape geometry", () => {
     const ports = flowchartPortPoints("circle", { x: 0, y: 0, width: 100, height: 100 });
 
     expect(ports.map((port) => port.key)).toEqual(["right", "bottom-right", "bottom", "bottom-left", "left", "top-left", "top", "top-right"]);
+    expect(ports.map((port) => port.kind)).toEqual(["ellipse-cardinal", "ellipse-diagonal", "ellipse-cardinal", "ellipse-diagonal", "ellipse-cardinal", "ellipse-diagonal", "ellipse-cardinal", "ellipse-diagonal"]);
     expectPointClose(ports[1].point, { x: 85.3553, y: 85.3553 });
     expectPointClose(ports[5].point, { x: 14.6447, y: 14.6447 });
+  });
+
+  it("marks rectangle midpoint ports as primary and corner ports as secondary", () => {
+    const ports = flowchartPortPoints("rect", { x: 0, y: 0, width: 100, height: 80 });
+
+    expect(ports.map((port) => port.kind)).toEqual(["edge-midpoint", "corner", "edge-midpoint", "corner", "edge-midpoint", "corner", "edge-midpoint", "corner"]);
+    expect(ports[0].scoreBias).toBe(RECT_EDGE_MIDPOINT_SCORE_BONUS);
+    expect(ports[1].scoreBias).toBe(-RECT_CORNER_SCORE_PENALTY);
   });
 });

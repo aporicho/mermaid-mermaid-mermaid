@@ -281,7 +281,7 @@ function shapePort(rect: RoutedNodeRect, direction: Point): ShapePort {
   let bestScore = Number.NEGATIVE_INFINITY;
 
   for (const port of ports) {
-    const score = dot(port.outward, direction);
+    const score = dot(port.outward, normalizedDirection) + port.scoreBias;
     if (score <= bestScore) continue;
 
     bestScore = score;

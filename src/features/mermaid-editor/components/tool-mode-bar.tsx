@@ -19,7 +19,7 @@ const tools = [
 
 export function ToolModeBar({ mode, onModeChange }: ToolModeBarProps) {
   return (
-    <div className="flex items-center gap-0.5 rounded-md border bg-background p-0.5 shadow-sm">
+    <div className="flex items-center gap-1">
       {tools.map((tool) => {
         const Icon = tool.icon;
         const active = mode === tool.mode;
@@ -31,7 +31,7 @@ export function ToolModeBar({ mode, onModeChange }: ToolModeBarProps) {
                 type="button"
                 size="icon"
                 variant={active ? "default" : "ghost"}
-                className={cn("size-8", active ? "text-primary-foreground" : "text-muted-foreground hover:text-foreground")}
+                className={cn("size-8", active ? "text-background hover:text-background" : "text-icon hover:text-icon")}
                 onClick={() => onModeChange(tool.mode)}
                 aria-label={`${tool.label}模式`}
               >

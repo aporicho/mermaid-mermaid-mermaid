@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   CodeBracketsSquare as FileCode2,
+  ColorWheel,
   DotsGrid3x3 as Grid3X3,
   Expand as Maximize2,
   FloppyDisk,
@@ -25,6 +26,7 @@ import { PreviewPanel } from "@/features/mermaid-editor/components/preview-panel
 import { SourcePanel } from "@/features/mermaid-editor/components/source-panel";
 import { ToolModeBar } from "@/features/mermaid-editor/components/tool-mode-bar";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -56,6 +58,18 @@ import type {
 } from "@/features/mermaid-editor/lib/editor-types";
 import type { CanvasLayout } from "@/features/mermaid-editor/lib/editor-types";
 import { DEFAULT_EDGE_ROUTING } from "@/features/mermaid-editor/lib/editor-types";
+import {
+  applyEditorThemeToDocument,
+  BUILT_IN_EDITOR_THEMES,
+  DEFAULT_EDITOR_THEME,
+  type EditorTheme,
+  type EditorThemeId,
+  isHexColor,
+  normalizeEditorTheme,
+  resolveEditorTheme,
+  themeToCanvasVisualTokens,
+  themeToMermaidThemeVariables
+} from "@/features/mermaid-editor/lib/editor-theme";
 import { initialMermaidSource, parseMermaid, serializeMermaid } from "@/features/mermaid-editor/lib/mermaid-graph";
 
 const STORAGE_KEY = "mermaid-canvas-editor:v1";
@@ -91,6 +105,8 @@ type StoredEditor = {
   workspaceView?: WorkspaceView;
   showGrid?: boolean;
   fileName?: string;
+  themeId?: EditorThemeId;
+  customTheme?: EditorTheme | null;
 };
 
 type MermaidWritableFile = {
@@ -127,7 +143,9 @@ function loadInitialState() {
       rightCollapsed: false,
       workspaceView: "canvas" as WorkspaceView,
       showGrid: true,
-      fileName: FALLBACK_FILE_NAME
+      fileName: FALLBACK_FILE_NAME,
+      themeId: DEFAULT_EDITOR_THEME.id,
+      customTheme: null
     };
   }
 
@@ -143,6 +161,8 @@ function loadInitialState() {
     const graph = loaded.editableKind === "flowchart" ? applyLayout(parsedGraph, layout) : parsedGraph;
     const viewport = stored.viewport || layout?.viewport || fallbackViewport;
     const edgeRouting = stored.edgeRouting || edgeRoutingFromLayout(layout);
+    const themeId = normalizeThemeId(stored.themeId);
+    const customTheme = stored.customTheme ? normalizeEditorTheme(stored.customTheme) : null;
 
     return {
       source,
@@ -155,7 +175,9 @@ function loadInitialState() {
       rightCollapsed: stored.rightCollapsed || false,
       workspaceView: loaded.editableKind === "flowchart" ? stored.workspaceView || "canvas" : "render",
       showGrid: stored.showGrid ?? true,
-      fileName: stored.fileName || FALLBACK_FILE_NAME
+      fileName: stored.fileName || FALLBACK_FILE_NAME,
+      themeId,
+      customTheme
     };
   } catch {
     return {
@@ -169,7 +191,9 @@ function loadInitialState() {
       rightCollapsed: false,
       workspaceView: "canvas" as WorkspaceView,
       showGrid: true,
-      fileName: FALLBACK_FILE_NAME
+      fileName: FALLBACK_FILE_NAME,
+      themeId: DEFAULT_EDITOR_THEME.id,
+      customTheme: null
     };
   }
 }
@@ -203,6 +227,10 @@ function diagramTypeLabel(diagramType: DiagramType) {
   };
 
   return labels[diagramType];
+}
+
+function normalizeThemeId(value: unknown): EditorThemeId {
+  return value === "classic-light" || value === "high-contrast" || value === "custom" ? value : DEFAULT_EDITOR_THEME.id;
 }
 
 async function writeDocumentToHandle(handle: MermaidFileHandle, documentText: string) {
@@ -243,11 +271,18 @@ export function MermaidEditor() {
   const [fileHandle, setFileHandle] = useState<MermaidFileHandle | null>(null);
   const [lastSavedDocument, setLastSavedDocument] = useState("");
   const [secondaryActionsOpen, setSecondaryActionsOpen] = useState(false);
+  const [themeSettingsOpen, setThemeSettingsOpen] = useState(false);
+  const [themeId, setThemeId] = useState<EditorThemeId>(initial.themeId);
+  const [customTheme, setCustomTheme] = useState<EditorTheme | null>(initial.customTheme);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const sourceEditBaseRef = useRef<EditorSnapshot | null>(null);
   const sourceEditTimerRef = useRef<number | null>(null);
+  const themeEditBaseRef = useRef<{ themeId: EditorThemeId; customTheme: EditorTheme | null } | null>(null);
 
   const currentDocument = useMemo(() => buildMermaidDocument(source, graph, viewport, edgeRouting), [source, graph, viewport, edgeRouting]);
+  const activeTheme = useMemo(() => resolveEditorTheme(themeId, customTheme), [customTheme, themeId]);
+  const canvasVisualTokens = useMemo(() => themeToCanvasVisualTokens(activeTheme), [activeTheme]);
+  const mermaidThemeVariables = useMemo(() => themeToMermaidThemeVariables(activeTheme), [activeTheme]);
   const isDirty = !lastSavedDocument || currentDocument !== lastSavedDocument;
   const fileLabel = `${fileName || FALLBACK_FILE_NAME}${isDirty ? " *" : ""}`;
   const isCanvasEditable = editableKind === "flowchart";
@@ -409,6 +444,33 @@ export function MermaidEditor() {
     });
   }
 
+  function openThemeSettings() {
+    themeEditBaseRef.current = { themeId, customTheme };
+    setThemeSettingsOpen(true);
+    setSecondaryActionsOpen(false);
+  }
+
+  function previewTheme(nextThemeId: EditorThemeId, nextCustomTheme: EditorTheme | null) {
+    setThemeId(nextThemeId);
+    setCustomTheme(nextCustomTheme);
+  }
+
+  function cancelThemeSettings() {
+    const base = themeEditBaseRef.current;
+    if (base) {
+      setThemeId(base.themeId);
+      setCustomTheme(base.customTheme);
+    }
+    themeEditBaseRef.current = null;
+    setThemeSettingsOpen(false);
+  }
+
+  function saveThemeSettings() {
+    themeEditBaseRef.current = null;
+    setThemeSettingsOpen(false);
+    setStatus("主题已保存。");
+  }
+
   function confirmDiscardUnsaved() {
     return !isDirty || window.confirm("当前文件有未保存更改，继续会丢失这些更改。");
   }
@@ -542,6 +604,10 @@ export function MermaidEditor() {
   }, [secondaryActionsOpen]);
 
   useEffect(() => {
+    applyEditorThemeToDocument(activeTheme);
+  }, [activeTheme]);
+
+  useEffect(() => {
     window.localStorage.setItem(
       STORAGE_KEY,
       JSON.stringify({
@@ -553,10 +619,12 @@ export function MermaidEditor() {
         rightCollapsed,
         workspaceView,
         showGrid,
-        fileName
+        fileName,
+        themeId,
+        customTheme
       } satisfies StoredEditor)
     );
-  }, [source, graph, viewport, edgeRouting, leftCollapsed, rightCollapsed, workspaceView, showGrid, fileName]);
+  }, [source, graph, viewport, edgeRouting, leftCollapsed, rightCollapsed, workspaceView, showGrid, fileName, themeId, customTheme]);
 
   useEffect(() => {
     function isTextInput(target: EventTarget | null) {
@@ -635,9 +703,9 @@ export function MermaidEditor() {
     <TooltipProvider delayDuration={180}>
       <input ref={fileInputRef} type="file" accept=".mmd,.mermaid,.txt,text/plain" className="hidden" onChange={openFallbackFile} />
       <main className="relative grid h-screen grid-rows-[52px_minmax(0,1fr)] overflow-hidden bg-background">
-        <header className="relative z-40 grid grid-cols-[minmax(220px,360px)_minmax(0,1fr)_auto] items-center gap-3 border-b bg-card/95 px-3 shadow-sm backdrop-blur">
+        <header className="relative z-40 grid grid-cols-[minmax(220px,360px)_minmax(0,1fr)_auto] items-center gap-3 border-b bg-background px-3 backdrop-blur">
           <div className="flex min-w-0 items-center gap-2">
-            <FileCode2 className="size-4 shrink-0 text-muted-foreground" />
+            <FileCode2 className="size-4 shrink-0 text-icon" />
             <div className="min-w-0">
               <h1 className="sr-only">Mermaid Canvas Editor</h1>
               <p className="truncate text-sm font-medium">{fileLabel}</p>
@@ -645,7 +713,7 @@ export function MermaidEditor() {
             <div className="ml-1 flex shrink-0 items-center gap-1">
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button size="icon" variant="ghost" className="size-8 text-muted-foreground hover:text-foreground" onClick={openMermaidFile} aria-label="打开 Mermaid 文件">
+                  <Button size="icon" variant="ghost" className="size-8 text-icon hover:text-icon" onClick={openMermaidFile} aria-label="打开 Mermaid 文件">
                     <Folder className="size-4" />
                   </Button>
                 </TooltipTrigger>
@@ -656,7 +724,7 @@ export function MermaidEditor() {
                   <Button
                     size="icon"
                     variant={isDirty ? "default" : "ghost"}
-                    className={isDirty ? "size-8 text-primary-foreground" : "size-8 text-muted-foreground hover:text-foreground"}
+                    className={isDirty ? "size-8 text-background hover:text-background" : "size-8 text-icon hover:text-icon"}
                     onClick={() => void saveMermaidFile()}
                     aria-label="保存 Mermaid 文件"
                   >
@@ -673,7 +741,7 @@ export function MermaidEditor() {
           </div>
 
           <div className="flex items-center gap-1">
-            <div className="flex gap-0.5 rounded-md border bg-background p-0.5">
+            <div className="flex gap-1">
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
@@ -681,8 +749,8 @@ export function MermaidEditor() {
                     variant={workspaceView === "canvas" && isCanvasEditable ? "default" : "ghost"}
                     className={
                       workspaceView === "canvas" && isCanvasEditable
-                        ? "size-8 text-primary-foreground"
-                        : "size-8 text-muted-foreground hover:text-foreground disabled:opacity-40"
+                        ? "size-8 text-background hover:text-background"
+                        : "size-8 text-icon hover:text-icon disabled:opacity-40"
                     }
                     onClick={() => {
                       if (isCanvasEditable) setWorkspaceView("canvas");
@@ -700,7 +768,7 @@ export function MermaidEditor() {
                   <Button
                     size="icon"
                     variant={workspaceView === "render" ? "default" : "ghost"}
-                    className={workspaceView === "render" ? "size-8 text-primary-foreground" : "size-8 text-muted-foreground hover:text-foreground"}
+                    className={workspaceView === "render" ? "size-8 text-background hover:text-background" : "size-8 text-icon hover:text-icon"}
                     onClick={() => setWorkspaceView("render")}
                     aria-label="切换到渲染视图"
                   >
@@ -724,6 +792,7 @@ export function MermaidEditor() {
               onToggleGrid={toggleGrid}
               onRefreshSource={refreshFromSource}
               onResetView={() => updateViewport({ x: 160, y: 90, scale: 1 })}
+              onOpenThemeSettings={openThemeSettings}
             />
           </div>
         </header>
@@ -739,6 +808,7 @@ export function MermaidEditor() {
                 panningRequested={spacePanning}
                 showGrid={showGrid}
                 edgeRouting={edgeRouting}
+                visualTokens={canvasVisualTokens}
                 onGraphDraft={draftGraph}
                 onGraphCommit={commitGraph}
                 onCaptureHistory={captureHistory}
@@ -747,16 +817,22 @@ export function MermaidEditor() {
                 onAddNodeAt={addNodeAtPoint}
               />
             ) : (
-              <PreviewPanel source={source} graph={isCanvasEditable ? graph : undefined} framed={false} onGraphChange={isCanvasEditable ? commitGraph : undefined} />
+              <PreviewPanel
+                source={source}
+                graph={isCanvasEditable ? graph : undefined}
+                framed={false}
+                mermaidThemeVariables={mermaidThemeVariables}
+                onGraphChange={isCanvasEditable ? commitGraph : undefined}
+              />
             )}
           </div>
           {!leftCollapsed ? (
-            <div className="absolute inset-y-0 left-0 z-20 w-[clamp(300px,31vw,420px)] shadow-xl">
+            <div className="absolute inset-y-0 left-0 z-20 w-[clamp(300px,31vw,420px)]">
               <SourcePanel value={source} onChange={applySource} onRun={refreshFromSource} onCollapse={() => setLeftCollapsed(true)} />
             </div>
           ) : null}
           {!rightCollapsed ? (
-            <aside className="absolute inset-y-0 right-0 z-20 grid w-[clamp(280px,28vw,380px)] min-h-0 border-l bg-card shadow-xl">
+            <aside className="absolute inset-y-0 right-0 z-20 grid w-[clamp(280px,28vw,380px)] min-h-0 border-l bg-card">
               <PanelHeader onCollapse={() => setRightCollapsed(true)} />
               <div className="grid min-h-0">
                 <InspectorPanel graph={graph} selection={selection} onGraphChange={commitGraph} onSelectionChange={setSelection} onDelete={performDelete} />
@@ -767,9 +843,19 @@ export function MermaidEditor() {
           {rightCollapsed ? <FloatingPanelOpenButton side="right" label="侧栏" onOpen={() => setRightCollapsed(false)} /> : null}
         </div>
         {status ? (
-          <div className="pointer-events-none fixed bottom-3 left-1/2 z-50 -translate-x-1/2 rounded-md border bg-card/95 px-3 py-1.5 text-xs text-muted-foreground shadow-sm backdrop-blur">
+          <div className="pointer-events-none fixed bottom-3 left-1/2 z-50 -translate-x-1/2 rounded-md border bg-card/95 px-3 py-1.5 text-xs text-muted-foreground backdrop-blur">
             {status}
           </div>
+        ) : null}
+        {themeSettingsOpen ? (
+          <ThemeSettingsPanel
+            themeId={themeId}
+            customTheme={customTheme}
+            activeTheme={activeTheme}
+            onPreview={previewTheme}
+            onCancel={cancelThemeSettings}
+            onSave={saveThemeSettings}
+          />
         ) : null}
       </main>
     </TooltipProvider>
@@ -789,7 +875,8 @@ function SecondaryActionsMenu({
   onEdgeRoutingChange,
   onToggleGrid,
   onRefreshSource,
-  onResetView
+  onResetView,
+  onOpenThemeSettings
 }: {
   open: boolean;
   direction: GraphDirection;
@@ -804,6 +891,7 @@ function SecondaryActionsMenu({
   onToggleGrid: () => void;
   onRefreshSource: () => void;
   onResetView: () => void;
+  onOpenThemeSettings: () => void;
 }) {
   function runAndClose(action: () => void) {
     action();
@@ -817,7 +905,7 @@ function SecondaryActionsMenu({
           <Button
             size="icon"
             variant="ghost"
-            className="size-8 text-muted-foreground hover:text-foreground"
+            className="size-8 text-icon hover:text-icon"
             onClick={() => onOpenChange(!open)}
             aria-expanded={open}
             aria-label="更多操作"
@@ -829,18 +917,18 @@ function SecondaryActionsMenu({
       </Tooltip>
 
       {open ? (
-        <div className="absolute right-0 top-10 z-50 w-52 rounded-md border bg-popover p-1.5 text-popover-foreground shadow-lg">
+        <div className="absolute right-0 top-10 z-50 w-52 rounded-md border bg-popover p-1.5 text-popover-foreground">
           <div className="grid gap-0.5">
             <Button
               variant="ghost"
-              className="h-8 justify-start px-2 text-foreground disabled:opacity-40 [&_svg]:text-muted-foreground"
+              className="h-8 justify-start px-2 text-foreground disabled:opacity-40 [&_svg]:text-icon"
               onClick={() => runAndClose(onAddNode)}
               disabled={!editable}
             >
               <Plus className="size-4" />
               新增节点
             </Button>
-            <Button variant="ghost" className="h-8 justify-start px-2 text-foreground [&_svg]:text-muted-foreground" onClick={() => runAndClose(onSaveAs)}>
+            <Button variant="ghost" className="h-8 justify-start px-2 text-foreground [&_svg]:text-icon" onClick={() => runAndClose(onSaveAs)}>
               <FloppyDiskArrowOut className="size-4" />
               另存为
             </Button>
@@ -870,7 +958,7 @@ function SecondaryActionsMenu({
             <Separator className="my-1" />
             <div className="grid gap-1.5 px-2 py-1.5">
               <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <PathArrow className="size-3.5" />
+                <PathArrow className="size-3.5 text-icon" />
                 连线形状
               </span>
               <Select
@@ -896,20 +984,24 @@ function SecondaryActionsMenu({
             <Separator className="my-1" />
             <Button
               variant="ghost"
-              className="h-8 justify-start px-2 text-foreground disabled:opacity-40 [&_svg]:text-muted-foreground"
+              className="h-8 justify-start px-2 text-foreground disabled:opacity-40 [&_svg]:text-icon"
               onClick={() => runAndClose(onToggleGrid)}
               disabled={!editable}
             >
               <Grid3X3 className="size-4" />
               {showGrid ? "隐藏网格" : "显示网格"}
             </Button>
-            <Button variant="ghost" className="h-8 justify-start px-2 text-foreground [&_svg]:text-muted-foreground" onClick={() => runAndClose(onRefreshSource)}>
+            <Button variant="ghost" className="h-8 justify-start px-2 text-foreground [&_svg]:text-icon" onClick={() => runAndClose(onOpenThemeSettings)}>
+              <ColorWheel className="size-4" />
+              主题
+            </Button>
+            <Button variant="ghost" className="h-8 justify-start px-2 text-foreground [&_svg]:text-icon" onClick={() => runAndClose(onRefreshSource)}>
               <RefreshCw className="size-4" />
               从源码刷新
             </Button>
             <Button
               variant="ghost"
-              className="h-8 justify-start px-2 text-foreground disabled:opacity-40 [&_svg]:text-muted-foreground"
+              className="h-8 justify-start px-2 text-foreground disabled:opacity-40 [&_svg]:text-icon"
               onClick={() => runAndClose(onResetView)}
               disabled={!editable}
             >
@@ -923,12 +1015,179 @@ function SecondaryActionsMenu({
   );
 }
 
+function ThemeSettingsPanel({
+  themeId,
+  customTheme,
+  activeTheme,
+  onPreview,
+  onCancel,
+  onSave
+}: {
+  themeId: EditorThemeId;
+  customTheme: EditorTheme | null;
+  activeTheme: EditorTheme;
+  onPreview: (themeId: EditorThemeId, customTheme: EditorTheme | null) => void;
+  onCancel: () => void;
+  onSave: () => void;
+}) {
+  function selectTheme(value: string) {
+    const nextThemeId = normalizeThemeId(value);
+    if (nextThemeId === "custom") {
+      onPreview("custom", customTheme || toCustomTheme(activeTheme));
+      return;
+    }
+    onPreview(nextThemeId, customTheme);
+  }
+
+  function updateCustomTheme(updater: (theme: EditorTheme) => EditorTheme) {
+    onPreview("custom", updater(toCustomTheme(activeTheme)));
+  }
+
+  function updateUiColor(key: keyof EditorTheme["ui"], value: string) {
+    updateCustomTheme((theme) => ({ ...theme, ui: { ...theme.ui, [key]: value } }));
+  }
+
+  function updateCanvasColor(key: keyof EditorTheme["canvas"], value: string) {
+    updateCustomTheme((theme) => ({ ...theme, canvas: { ...theme.canvas, [key]: value } }));
+  }
+
+  function updateSourceColor(key: keyof EditorTheme["source"], value: string) {
+    updateCustomTheme((theme) => ({ ...theme, source: { ...theme.source, [key]: value } }));
+  }
+
+  return (
+    <div className="fixed inset-0 z-[70] bg-foreground/10">
+      <section className="absolute inset-y-0 right-0 grid w-[min(460px,100vw)] grid-rows-[52px_minmax(0,1fr)_56px] border-l bg-card">
+        <header className="flex items-center justify-between border-b px-4">
+          <div className="flex items-center gap-2">
+            <ColorWheel className="size-4 text-icon" />
+            <h2 className="text-sm font-medium">主题</h2>
+          </div>
+          <Button size="sm" variant="ghost" className="text-icon hover:text-icon" onClick={onCancel}>
+            取消
+          </Button>
+        </header>
+
+        <div className="min-h-0 overflow-y-auto p-4">
+          <div className="grid gap-5">
+            <div className="grid gap-2">
+              <Label>预设</Label>
+              <Select value={themeId} onValueChange={selectTheme}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {BUILT_IN_EDITOR_THEMES.map((theme) => (
+                    <SelectItem key={theme.id} value={theme.id}>
+                      {theme.name}
+                    </SelectItem>
+                  ))}
+                  <SelectItem value="custom">自定义主题</SelectItem>
+                </SelectContent>
+              </Select>
+              <div className="flex gap-2">
+                <Button variant="outline" className="h-8 px-2" onClick={() => onPreview("custom", toCustomTheme(activeTheme))}>
+                  复制当前
+                </Button>
+                <Button variant="ghost" className="h-8 px-2" onClick={() => onPreview(DEFAULT_EDITOR_THEME.id, null)}>
+                  恢复默认
+                </Button>
+              </div>
+            </div>
+
+            <ThemePreview theme={activeTheme} />
+
+            <div className="grid gap-3">
+              <h3 className="text-xs font-medium text-muted-foreground">界面</h3>
+              <ThemeColorField label="背景" value={activeTheme.ui.background} onChange={(value) => updateUiColor("background", value)} />
+              <ThemeColorField label="文字" value={activeTheme.ui.foreground} onChange={(value) => updateUiColor("foreground", value)} />
+              <ThemeColorField label="图标" value={activeTheme.ui.icon} onChange={(value) => updateUiColor("icon", value)} />
+              <ThemeColorField label="边框" value={activeTheme.ui.border} onChange={(value) => updateUiColor("border", value)} />
+              <ThemeColorField label="强调" value={activeTheme.ui.primary} onChange={(value) => updateUiColor("primary", value)} />
+            </div>
+
+            <div className="grid gap-3">
+              <h3 className="text-xs font-medium text-muted-foreground">画布</h3>
+              <ThemeColorField label="节点描边" value={activeTheme.canvas.nodeStroke} onChange={(value) => updateCanvasColor("nodeStroke", value)} />
+              <ThemeColorField label="节点文字" value={activeTheme.canvas.nodeText} onChange={(value) => updateCanvasColor("nodeText", value)} />
+              <ThemeColorField label="连线" value={activeTheme.canvas.edge} onChange={(value) => updateCanvasColor("edge", value)} />
+              <ThemeColorField label="标签描边" value={activeTheme.canvas.labelStroke} onChange={(value) => updateCanvasColor("labelStroke", value)} />
+            </div>
+
+            <div className="grid gap-3">
+              <h3 className="text-xs font-medium text-muted-foreground">源码</h3>
+              <ThemeColorField label="行分隔" value={activeTheme.source.line} onChange={(value) => updateSourceColor("line", value)} />
+            </div>
+          </div>
+        </div>
+
+        <footer className="flex items-center justify-end gap-2 border-t px-4">
+          <Button variant="outline" onClick={onCancel}>
+            取消
+          </Button>
+          <Button onClick={onSave}>保存</Button>
+        </footer>
+      </section>
+    </div>
+  );
+}
+
+function ThemeColorField({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
+  return (
+    <label className="grid grid-cols-[96px_minmax(0,1fr)_84px] items-center gap-3 text-sm">
+      <span className="text-muted-foreground">{label}</span>
+      <input
+        type="color"
+        value={isHexColor(value) ? value : "#000000"}
+        className="h-8 w-full cursor-pointer rounded-md border bg-background p-1"
+        onChange={(event) => onChange(event.target.value)}
+      />
+      <span className="font-mono text-xs text-muted-foreground">{value}</span>
+    </label>
+  );
+}
+
+function ThemePreview({ theme }: { theme: EditorTheme }) {
+  return (
+    <div className="grid gap-2 rounded-md border p-3" style={{ backgroundColor: theme.ui.background, color: theme.ui.foreground }}>
+      <div className="flex items-center gap-2">
+        <div className="size-8 rounded-md border" style={{ borderColor: theme.ui.border, backgroundColor: theme.ui.card }}>
+          <ColorWheel className="m-2 size-4" style={{ color: theme.ui.icon }} />
+        </div>
+        <div className="h-8 rounded-md px-3 py-1.5 text-sm" style={{ backgroundColor: theme.ui.primary, color: theme.ui.background }}>
+          高亮
+        </div>
+      </div>
+      <div className="flex items-center gap-3 pt-1">
+        <div className="rounded-md border px-4 py-3 text-sm font-bold" style={{ borderColor: theme.canvas.nodeStroke, backgroundColor: theme.canvas.surface, color: theme.canvas.nodeText }}>
+          节点
+        </div>
+        <div className="h-px flex-1" style={{ backgroundColor: theme.canvas.edge }} />
+        <div className="rounded-md border px-2 py-1 font-mono text-xs" style={{ borderColor: theme.source.line, backgroundColor: theme.ui.card }}>
+          Mermaid
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function toCustomTheme(theme: EditorTheme): EditorTheme {
+  return {
+    version: 1,
+    id: "custom",
+    name: theme.id === "custom" ? theme.name : "自定义主题",
+    ui: { ...theme.ui },
+    canvas: { ...theme.canvas },
+    source: { ...theme.source }
+  };
+}
+
 function PanelHeader({ onCollapse }: { onCollapse: () => void }) {
   return (
     <div className="absolute right-2 top-2 z-30">
       <Tooltip>
         <TooltipTrigger asChild>
-          <Button size="icon" variant="ghost" className="size-8 bg-card/95 text-muted-foreground hover:text-foreground" onClick={onCollapse} aria-label="收起右侧面板">
+          <Button size="icon" variant="ghost" className="size-8 bg-card/95 text-icon hover:text-icon" onClick={onCollapse} aria-label="收起右侧面板">
             <PanelRightClose className="size-4" />
           </Button>
         </TooltipTrigger>
@@ -948,7 +1207,7 @@ function FloatingPanelOpenButton({ side, label, onOpen }: { side: "left" | "righ
           <Button
             size="icon"
             variant="outline"
-            className="size-8 bg-card/95 text-muted-foreground shadow-sm backdrop-blur hover:text-foreground"
+            className="size-8 bg-card/95 text-icon backdrop-blur hover:text-icon"
             onClick={onOpen}
             aria-label={`展开${label}面板`}
           >

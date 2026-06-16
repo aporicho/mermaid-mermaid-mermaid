@@ -6,25 +6,27 @@
   :root {
     --font-sans: "Noto Sans SC Variable", "Noto Sans SC", "PingFang SC", "Microsoft YaHei UI", "Microsoft YaHei", system-ui, sans-serif;
     --font-mono: "Maple Mono", "SF Mono", "Cascadia Code", "JetBrains Mono", "Noto Sans SC Variable", ui-monospace, monospace;
-    --background: 154 18% 96%;
-    --foreground: 185 18% 12%;
-    --card: 0 0% 100%;
-    --card-foreground: 185 18% 12%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 185 18% 12%;
-    --primary: 168 59% 30%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 210 20% 94%;
-    --secondary-foreground: 185 18% 16%;
-    --muted: 180 14% 91%;
-    --muted-foreground: 183 9% 42%;
-    --accent: 39 74% 91%;
-    --accent-foreground: 34 57% 26%;
-    --destructive: 354 55% 46%;
+    --background: 36 36% 96%;
+    --foreground: 28 20% 8%;
+    --icon: 28 11% 32%;
+    --card: 36 40% 97%;
+    --card-foreground: 28 20% 8%;
+    --popover: 36 40% 97%;
+    --popover-foreground: 28 20% 8%;
+    --primary: 356 100% 63%;
+    --primary-foreground: 36 38% 97%;
+    --secondary: 34 26% 91%;
+    --secondary-foreground: 28 20% 12%;
+    --muted: 34 23% 92%;
+    --muted-foreground: 28 10% 38%;
+    --accent: 356 100% 94%;
+    --accent-foreground: 356 72% 42%;
+    --destructive: 355 72% 42%;
     --destructive-foreground: 0 0% 100%;
-    --border: 180 14% 84%;
-    --input: 180 14% 84%;
-    --ring: 168 59% 30%;
+    --border: 30 16% 68%;
+    --input: 30 16% 68%;
+    --ring: 356 100% 63%;
+    --source-line: 30 24% 79%;
     --radius: 0.5rem;
   }
 
@@ -44,8 +46,13 @@
 
 .render-grid {
   background:
-    radial-gradient(circle at 0 0, rgba(31, 122, 104, 0.16) 1px, transparent 1px) 0 0 / 24px 24px,
+    radial-gradient(circle at 0 0, hsl(var(--foreground) / 0.1) 1px, transparent 1px) 0 0 / 24px 24px,
     hsl(var(--background));
+}
+
+.source-grid {
+  background:
+    linear-gradient(hsl(var(--card)) 29px, hsl(var(--source-line) / 0.56) 30px) 0 0 / 100% 30px;
 }
 
 .mermaid-render svg {

@@ -64,6 +64,7 @@ import {
 } from "@/features/mermaid-editor/lib/node-geometry";
 import {
   CANVAS_VISUAL_TOKENS,
+  type CanvasVisualTokens,
   getAlignmentGuideVisualState,
   getAnchorVisualState,
   getConnectionDraftVisualState,
@@ -89,6 +90,8 @@ const EDGE_LABEL_HEIGHT = 28;
 const EDGE_LABEL_FONT_SIZE = 13;
 const EDGE_LABEL_LINE_HEIGHT = 18;
 const POLYGON_CORNER_RADIUS = 6;
+const RECT_CORNER_ANCHOR_VISUAL_SCALE = 0.72;
+const RECT_CORNER_ANCHOR_VISUAL_OPACITY = 0.65;
 
 let textMeasureCanvas: HTMLCanvasElement | null = null;
 
@@ -100,6 +103,7 @@ type KonvaCanvasProps = {
   panningRequested: boolean;
   showGrid: boolean;
   edgeRouting: EdgeRouting;
+  visualTokens?: CanvasVisualTokens;
   onGraphDraft: (graph: MermaidGraph, message?: string) => void;
   onGraphCommit: (graph: MermaidGraph, selection?: Selection, message?: string) => void;
   onCaptureHistory: () => void;
@@ -480,18 +484,20 @@ function EdgeEndMarker({
   edge,
   geometry,
   stroke,
-  strokeWidth
+  strokeWidth,
+  surfaceFill
 }: {
   edge: CanvasEdge;
   geometry: EdgePathGeometry;
   stroke: string;
   strokeWidth: number;
+  surfaceFill: string;
 }) {
   const arrowType = edge.arrowType || "arrow";
   if (arrowType === "arrow" || arrowType === "none") return null;
 
   if (arrowType === "circle") {
-    return <Circle x={geometry.end.x} y={geometry.end.y} radius={4.5} fill="#ffffff" stroke={stroke} strokeWidth={strokeWidth} listening={false} />;
+    return <Circle x={geometry.end.x} y={geometry.end.y} radius={4.5} fill={surfaceFill} stroke={stroke} strokeWidth={strokeWidth} listening={false} />;
   }
 
   const size = 5.5;
@@ -511,6 +517,7 @@ export function KonvaCanvas({
   panningRequested,
   showGrid,
   edgeRouting,
+  visualTokens = CANVAS_VISUAL_TOKENS,
   onGraphDraft,
   onGraphCommit,
   onCaptureHistory,
@@ -744,7 +751,7 @@ export function KonvaCanvas({
     }
 
     if (command.type === "addNodeAt") {
-      const newNode = { id: "", label: "新节点", x: 0, y: 0, fill: "#ffffff" };
+      const newNode = { id: "", label: "新节点", x: 0, y: 0, fill: visualTokens.colors.surface };
       const newNodeFrame = buildNodeGeometry(newNode, geometrySpec).frame;
       onAddNodeAt({
         x: command.point.x - newNodeFrame.width / 2,
@@ -1085,7 +1092,7 @@ export function KonvaCanvas({
             setHoveredHitTarget({ kind: "blank" });
           }}
         >
-          {showGrid ? <CanvasGrid dimensions={dimensions} viewport={viewport} /> : null}
+          {showGrid ? <CanvasGrid dimensions={dimensions} viewport={viewport} visualTokens={visualTokens} /> : null}
 
           <Layer>
             {graph.edges.map((edge) => {
@@ -1093,8 +1100,8 @@ export function KonvaCanvas({
               if (!baseGeometry) return null;
               const isRetargetPreviewEdge = retargetDraft?.edgeId === edge.id && !!retargetDraftGeometry && !!retargetPreview;
               const geometry = isRetargetPreviewEdge ? retargetDraftGeometry : baseGeometry;
-              const edgeVisual = getEdgeVisualState({ edge, selection, hoveredEdgeId, interactionState, inlineEdit });
-              const edgePreviewVisual = isRetargetPreviewEdge ? getConnectionDraftVisualState({ valid: retargetPreview.valid, edge }) : null;
+              const edgeVisual = getEdgeVisualState({ edge, selection, hoveredEdgeId, interactionState, inlineEdit, visualTokens });
+              const edgePreviewVisual = isRetargetPreviewEdge ? getConnectionDraftVisualState({ valid: retargetPreview.valid, edge, visualTokens }) : null;
               const isEditingEdgeLabel = inlineEdit?.type === "edge" && inlineEdit.id === edge.id;
               const edgeLabel = isEditingEdgeLabel ? inlineEdit.value : edge.label;
               const edgeLabelGeometry = edgeLabel || isEditingEdgeLabel ? buildEdgeLabelGeometry(edgeLabel, geometry.labelPoint, edgeLabelSpec) : null;
@@ -1107,7 +1114,7 @@ export function KonvaCanvas({
                     points={geometry.points}
                     stroke="transparent"
                     fill="transparent"
-                    strokeWidth={CANVAS_VISUAL_TOKENS.edge.hitStrokeWidth}
+                    strokeWidth={visualTokens.edge.hitStrokeWidth}
                     pointerLength={0}
                     pointerWidth={0}
                     onClick={(event) => handleCanvasClick(event, { kind: "edge", id: edge.id })}
@@ -1127,7 +1134,7 @@ export function KonvaCanvas({
                     pointerWidth={edgePreviewVisual?.pointerWidth ?? edgePointerWidth(edge)}
                     listening={false}
                   />
-                  {!edgePreviewVisual ? <EdgeEndMarker edge={edge} geometry={geometry} stroke={edgeVisual.stroke} strokeWidth={edgeVisual.strokeWidth} /> : null}
+                  {!edgePreviewVisual ? <EdgeEndMarker edge={edge} geometry={geometry} stroke={edgeVisual.stroke} strokeWidth={edgeVisual.strokeWidth} surfaceFill={visualTokens.colors.surface} /> : null}
                   {edgeLabelGeometry && !isEditingEdgeLabel ? (
                     <Group
                       id={edgeLabelHitId(edge.id)}
@@ -1140,7 +1147,7 @@ export function KonvaCanvas({
                       <Rect
                         width={edgeLabelGeometry.frame.width}
                         height={edgeLabelGeometry.frame.height}
-                        cornerRadius={CANVAS_VISUAL_TOKENS.edge.labelCornerRadius}
+                        cornerRadius={visualTokens.edge.labelCornerRadius}
                         fill={edgeVisual.labelFill}
                         stroke={edgeVisual.labelStroke}
                         strokeWidth={1}
@@ -1176,9 +1183,10 @@ export function KonvaCanvas({
                 interactionState,
                 connectionTargetNodeId,
                 connectionInvalidNodeId,
-                inlineEdit
+                inlineEdit,
+                visualTokens
               });
-              const anchorVisual = getAnchorVisualState({ nodeId: node.id, mode, selection, hoveredNodeId, interactionState, inlineEdit });
+              const anchorVisual = getAnchorVisualState({ nodeId: node.id, mode, selection, hoveredNodeId, interactionState, inlineEdit, visualTokens });
 
               return (
                 <Group
@@ -1230,16 +1238,12 @@ export function KonvaCanvas({
                   />
                   {anchorVisual.visible
                     ? geometry.anchorsLocal.map((anchor) => (
-                        <Circle
+                        <Group
                           id={nodeAnchorHitId(node.id, anchor.key)}
                           name={CANVAS_HIT_NAMES.nodeAnchor}
                           key={`${node.id}-${anchor.key}`}
                           x={anchor.x}
                           y={anchor.y}
-                          radius={anchorVisual.radius}
-                          fill={anchorVisual.fill}
-                          stroke={anchorVisual.stroke}
-                          strokeWidth={anchorVisual.strokeWidth}
                           onMouseDown={(event) => {
                             event.cancelBubble = true;
                             handleCanvasPointerDown(event, { kind: "nodeAnchor", nodeId: node.id, anchor: anchor.key }, {
@@ -1247,7 +1251,17 @@ export function KonvaCanvas({
                               y: geometry.frame.y + anchor.y
                             });
                           }}
-                        />
+                        >
+                          <Circle radius={anchorVisual.radius} fill="rgba(0,0,0,0.001)" strokeEnabled={false} />
+                          <Circle
+                            radius={anchor.kind === "corner" ? anchorVisual.radius * RECT_CORNER_ANCHOR_VISUAL_SCALE : anchorVisual.radius}
+                            fill={anchorVisual.fill}
+                            stroke={anchorVisual.stroke}
+                            strokeWidth={anchorVisual.strokeWidth}
+                            opacity={anchor.kind === "corner" ? RECT_CORNER_ANCHOR_VISUAL_OPACITY : 1}
+                            listening={false}
+                          />
+                        </Group>
                       ))
                     : null}
                 </Group>
@@ -1257,7 +1271,7 @@ export function KonvaCanvas({
             {connectionDraftGeometry ? (
               <Arrow
                 points={connectionDraftGeometry.points}
-                {...getConnectionDraftVisualState({ valid: connectionPreview?.valid ?? false })}
+                {...getConnectionDraftVisualState({ valid: connectionPreview?.valid ?? false, visualTokens })}
                 listening={false}
               />
             ) : null}
@@ -1265,7 +1279,7 @@ export function KonvaCanvas({
             {selectionBox ? (
               <Rect
                 {...normalizeBox(selectionBox)}
-                {...getSelectionBoxVisualState()}
+                {...getSelectionBoxVisualState(visualTokens)}
                 listening={false}
               />
             ) : null}
@@ -1279,7 +1293,8 @@ export function KonvaCanvas({
                   y={selectedSingleEdgeGeometry.start.y}
                   {...getEdgeEndpointVisualState({
                     hovered: isEndpointHovered(selectedSingleEdge.id, "from"),
-                    active: isEndpointActive(selectedSingleEdge.id, "from")
+                    active: isEndpointActive(selectedSingleEdge.id, "from"),
+                    visualTokens
                   })}
                   onMouseDown={(event) => {
                     event.cancelBubble = true;
@@ -1293,7 +1308,8 @@ export function KonvaCanvas({
                   y={selectedSingleEdgeGeometry.end.y}
                   {...getEdgeEndpointVisualState({
                     hovered: isEndpointHovered(selectedSingleEdge.id, "to"),
-                    active: isEndpointActive(selectedSingleEdge.id, "to")
+                    active: isEndpointActive(selectedSingleEdge.id, "to"),
+                    visualTokens
                   })}
                   onMouseDown={(event) => {
                     event.cancelBubble = true;
@@ -1303,7 +1319,7 @@ export function KonvaCanvas({
               </>
             ) : null}
 
-            {alignmentGuides.length ? <AlignmentGuideOverlay guides={alignmentGuides} /> : null}
+            {alignmentGuides.length ? <AlignmentGuideOverlay guides={alignmentGuides} visualTokens={visualTokens} /> : null}
           </Layer>
         </Stage>
 
@@ -1328,7 +1344,7 @@ export function KonvaCanvas({
             <Textarea
               ref={nodeEditorRef}
               value={inlineEdit.value}
-              className="node-inline-editor absolute z-40 block min-h-0 resize-none overflow-x-hidden rounded-none border-0 bg-transparent p-0 text-center font-bold text-[#172022] shadow-none outline-none ring-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+              className="node-inline-editor absolute z-40 block min-h-0 resize-none overflow-x-hidden rounded-none border-0 bg-transparent p-0 text-center font-bold text-foreground shadow-none outline-none ring-0 focus-visible:ring-0 focus-visible:ring-offset-0"
               style={{
                 left: editStyle.left,
                 top: editStyle.top + nodeEditorLayout.insetTop,
@@ -1358,13 +1374,13 @@ export function KonvaCanvas({
           <Input
             autoFocus
             value={inlineEdit.value}
-            className="absolute z-40 h-auto min-h-0 rounded-none border bg-card p-0 text-center font-normal text-[#344441] shadow-none outline-none ring-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+            className="absolute z-40 h-auto min-h-0 rounded-none border bg-card p-0 text-center font-normal text-foreground shadow-none outline-none ring-0 focus-visible:ring-0 focus-visible:ring-offset-0"
             style={{
               left: editStyle.left,
               top: editStyle.top,
               width: editStyle.width,
               height: editStyle.height,
-              borderRadius: CANVAS_VISUAL_TOKENS.edge.labelCornerRadius * viewport.scale,
+              borderRadius: visualTokens.edge.labelCornerRadius * viewport.scale,
               fontFamily: NODE_TEXT_FONT_FAMILY,
               fontSize: EDGE_LABEL_FONT_SIZE * viewport.scale,
               lineHeight: `${EDGE_LABEL_LINE_HEIGHT * viewport.scale}px`,
@@ -1384,7 +1400,15 @@ export function KonvaCanvas({
   );
 }
 
-function CanvasGrid({ dimensions, viewport }: { dimensions: { width: number; height: number }; viewport: ViewportState }) {
+function CanvasGrid({
+  dimensions,
+  viewport,
+  visualTokens
+}: {
+  dimensions: { width: number; height: number };
+  viewport: ViewportState;
+  visualTokens: CanvasVisualTokens;
+}) {
   const plan = useMemo(
     () =>
       getCanvasGridRenderPlan(
@@ -1412,7 +1436,7 @@ function CanvasGrid({ dimensions, viewport }: { dimensions: { width: number; hei
             const startY = firstGridCoordinateAtOrAfter(bounds.top, level.step, DEFAULT_CANVAS_GRID.origin.y);
 
             context.beginPath();
-            context.fillStyle = `rgba(${CANVAS_VISUAL_TOKENS.colors.gridDotRgb}, ${level.alpha})`;
+            context.fillStyle = `rgba(${visualTokens.colors.gridDotRgb}, ${level.alpha})`;
             for (let x = startX; x <= bounds.right; x += level.step) {
               for (let y = startY; y <= bounds.bottom; y += level.step) {
                 if (
@@ -1435,11 +1459,11 @@ function CanvasGrid({ dimensions, viewport }: { dimensions: { width: number; hei
   );
 }
 
-function AlignmentGuideOverlay({ guides }: { guides: AlignmentGuide[] }) {
+function AlignmentGuideOverlay({ guides, visualTokens }: { guides: AlignmentGuide[]; visualTokens: CanvasVisualTokens }) {
   return (
     <>
       {guides.map((guide, index) => {
-        const visual = getAlignmentGuideVisualState(guide.kind);
+        const visual = getAlignmentGuideVisualState(guide.kind, visualTokens);
 
         return (
           <Line

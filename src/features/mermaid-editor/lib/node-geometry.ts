@@ -1,7 +1,7 @@
 import type { AlignmentRect } from "@/features/mermaid-editor/lib/alignment-guides";
 import type { RoutedNodeRect } from "@/features/mermaid-editor/lib/edge-geometry";
 import type { CanvasNode } from "@/features/mermaid-editor/lib/editor-types";
-import { flowchartPortPoints, isEllipseLikeFlowchartShape, opticalWeightScaleForShape } from "@/features/mermaid-editor/lib/flowchart-shape-geometry";
+import { flowchartPortPoints, isEllipseLikeFlowchartShape, opticalWeightScaleForShape, type ShapeGeometryPortKind } from "@/features/mermaid-editor/lib/flowchart-shape-geometry";
 import { DEFAULT_FLOWCHART_NODE_SHAPE, isEqualAspectFlowchartShape, normalizeFlowchartShape, type FlowchartNodeShape } from "@/features/mermaid-editor/lib/flowchart-shapes";
 
 export type NodeAnchorKey = string;
@@ -18,6 +18,7 @@ export type Rect = Point & {
 
 export type NodeAnchorPoint = Point & {
   key: NodeAnchorKey;
+  kind: ShapeGeometryPortKind;
 };
 
 export type NodeGeometrySpec = {
@@ -126,6 +127,7 @@ export function nodeIntersectsRect(geometry: NodeGeometry, rect: Rect) {
 function localAnchorPoints(shape: FlowchartNodeShape, width: number, height: number): NodeAnchorPoint[] {
   return flowchartPortPoints(shape, { x: 0, y: 0, width, height }).map((port) => ({
     key: port.key,
+    kind: port.kind,
     x: port.point.x,
     y: port.point.y
   }));

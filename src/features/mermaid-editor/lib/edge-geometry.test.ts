@@ -139,14 +139,23 @@ describe("computeEdgePath", () => {
     expectFinitePoints(geometry.points);
   });
 
-  it("uses rectangle corner ports for diagonal bezier directions", () => {
+  it("prefers rectangle midpoint ports for ordinary diagonal bezier directions", () => {
     const geometry = edgePath("bezier", [
       { id: "a", x: 0, y: 0, width: 100, height: 100, shape: "rect" },
       { id: "b", x: 220, y: 120, width: 100, height: 100, shape: "rect" }
     ]);
 
-    expect(pointAt(geometry.points, 0).x).toBeGreaterThan(100);
-    expect(pointAt(geometry.points, 0).y).toBeGreaterThan(100);
+    expectPointClose(pointAt(geometry.points, 0), { x: 106, y: 50 });
+    expectFinitePoints(geometry.points);
+  });
+
+  it("still uses rectangle corner ports near a true diagonal", () => {
+    const geometry = edgePath("bezier", [
+      { id: "a", x: 0, y: 0, width: 100, height: 100, shape: "rect" },
+      { id: "b", x: 220, y: 220, width: 100, height: 100, shape: "rect" }
+    ]);
+
+    expectPointClose(pointAt(geometry.points, 0), { x: 104.2426, y: 104.2426 });
     expectFinitePoints(geometry.points);
   });
 
@@ -222,7 +231,7 @@ describe("computeEdgeDraftPath", () => {
     const middle = pointAt(draft.points, Math.floor(draft.points.length / 4));
 
     expect(draft.points).toHaveLength(50);
-    expectPointClose(pointAt(draft.points, 0), { x: 105.3666, y: 52.6833 });
+    expectPointClose(pointAt(draft.points, 0), { x: 106, y: 25 });
     expectPointClose(lastPoint(draft.points), { x: 260, y: 90 });
     expect(middle.x).toBeGreaterThan(draft.start.x);
     expectFinitePoints(draft.points);

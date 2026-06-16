@@ -39,14 +39,14 @@ describe("node geometry", () => {
     const geometry = buildNodeGeometry(node, spec);
 
     expect(geometry.anchorsLocal).toEqual([
-      { key: "top", x: 35, y: 0 },
-      { key: "top-right", x: 70, y: 0 },
-      { key: "right", x: 70, y: 18 },
-      { key: "bottom-right", x: 70, y: 36 },
-      { key: "bottom", x: 35, y: 36 },
-      { key: "bottom-left", x: 0, y: 36 },
-      { key: "left", x: 0, y: 18 },
-      { key: "top-left", x: 0, y: 0 }
+      { key: "top", kind: "edge-midpoint", x: 35, y: 0 },
+      { key: "top-right", kind: "corner", x: 70, y: 0 },
+      { key: "right", kind: "edge-midpoint", x: 70, y: 18 },
+      { key: "bottom-right", kind: "corner", x: 70, y: 36 },
+      { key: "bottom", kind: "edge-midpoint", x: 35, y: 36 },
+      { key: "bottom-left", kind: "corner", x: 0, y: 36 },
+      { key: "left", kind: "edge-midpoint", x: 0, y: 18 },
+      { key: "top-left", kind: "corner", x: 0, y: 0 }
     ]);
   });
 
@@ -54,14 +54,14 @@ describe("node geometry", () => {
     const geometry = buildNodeGeometry(node, spec);
 
     expect(geometry.anchorsWorld).toEqual([
-      { key: "top", x: 135, y: 80 },
-      { key: "top-right", x: 170, y: 80 },
-      { key: "right", x: 170, y: 98 },
-      { key: "bottom-right", x: 170, y: 116 },
-      { key: "bottom", x: 135, y: 116 },
-      { key: "bottom-left", x: 100, y: 116 },
-      { key: "left", x: 100, y: 98 },
-      { key: "top-left", x: 100, y: 80 }
+      { key: "top", kind: "edge-midpoint", x: 135, y: 80 },
+      { key: "top-right", kind: "corner", x: 170, y: 80 },
+      { key: "right", kind: "edge-midpoint", x: 170, y: 98 },
+      { key: "bottom-right", kind: "corner", x: 170, y: 116 },
+      { key: "bottom", kind: "edge-midpoint", x: 135, y: 116 },
+      { key: "bottom-left", kind: "corner", x: 100, y: 116 },
+      { key: "left", kind: "edge-midpoint", x: 100, y: 98 },
+      { key: "top-left", kind: "corner", x: 100, y: 80 }
     ]);
   });
 

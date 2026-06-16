@@ -1,9 +1,34 @@
 import { describe, expect, it } from "vitest";
 
+import type { CanvasNode } from "@/features/mermaid-editor/lib/editor-types";
 import { FLOWCHART_SHAPES } from "@/features/mermaid-editor/lib/flowchart-shapes";
-import { detectDiagramType, parseMermaid, serializeMermaid } from "@/features/mermaid-editor/lib/mermaid-graph";
+import {
+  createNode,
+  detectDiagramType,
+  nextCanvasNodeId,
+  parseMermaid,
+  serializeMermaid
+} from "@/features/mermaid-editor/lib/mermaid-graph";
+
+function node(id: string): CanvasNode {
+  return { id, label: id, x: 0, y: 0, fill: "#ffffff", shape: "rect" };
+}
 
 describe("mermaid graph parser", () => {
+  it("generates compact Mermaid source IDs only for new canvas nodes", () => {
+    expect(nextCanvasNodeId([])).toBe("N1");
+    expect(nextCanvasNodeId([node("A"), node("WebUI")])).toBe("N1");
+    expect(nextCanvasNodeId([node("N1"), node("N2")])).toBe("N3");
+    expect(nextCanvasNodeId([node("N1"), node("N3")])).toBe("N4");
+
+    expect(createNode([node("N1"), node("N3")], 24, 48)).toMatchObject({
+      id: "N4",
+      label: "新节点",
+      x: 24,
+      y: 48
+    });
+  });
+
   it("parses editable flowchart node shapes and edge semantics", () => {
     const graph = parseMermaid(`flowchart LR
   A([Start]) -.->|review| B{{Decision}}

@@ -10,13 +10,19 @@ export type ShapeGeometryRect = ShapeGeometryPoint & {
   height: number;
 };
 
+export type ShapeGeometryPortKind = "edge-midpoint" | "corner" | "polygon-edge" | "polygon-vertex" | "ellipse-cardinal" | "ellipse-diagonal";
+
 export type ShapeGeometryPort = {
   key: string;
+  kind: ShapeGeometryPortKind;
   point: ShapeGeometryPoint;
   outward: ShapeGeometryPoint;
+  scoreBias: number;
 };
 
 export const OPTICAL_WEIGHT_TARGET_AREA_RATIO = Math.PI / 4;
+export const RECT_EDGE_MIDPOINT_SCORE_BONUS = 0.12;
+export const RECT_CORNER_SCORE_PENALTY = 0.08;
 
 const visibleAreaRatios: Partial<Record<FlowchartNodeShape, number>> = {
   circle: Math.PI / 4,
@@ -97,16 +103,20 @@ function polygonPorts(points: ShapeGeometryPoint[]): ShapeGeometryPort[] {
 
     ports.push({
       key: `edge-${index}`,
+      kind: "polygon-edge",
       point: {
         x: (start.x + end.x) / 2,
         y: (start.y + end.y) / 2
       },
-      outward
+      outward,
+      scoreBias: 0
     });
     ports.push({
       key: `vertex-${index}`,
+      kind: "polygon-vertex",
       point: start,
-      outward: normalize({ x: start.x - center.x, y: start.y - center.y }, outward)
+      outward: normalize({ x: start.x - center.x, y: start.y - center.y }, outward),
+      scoreBias: 0
     });
   }
 
@@ -115,36 +125,38 @@ function polygonPorts(points: ShapeGeometryPoint[]): ShapeGeometryPort[] {
 
 function ellipsePorts(rect: ShapeGeometryRect): ShapeGeometryPort[] {
   return [
-    { key: "right", outward: { x: 1, y: 0 } },
-    { key: "bottom-right", outward: normalize({ x: 1, y: 1 }, { x: 1, y: 0 }) },
-    { key: "bottom", outward: { x: 0, y: 1 } },
-    { key: "bottom-left", outward: normalize({ x: -1, y: 1 }, { x: -1, y: 0 }) },
-    { key: "left", outward: { x: -1, y: 0 } },
-    { key: "top-left", outward: normalize({ x: -1, y: -1 }, { x: -1, y: 0 }) },
-    { key: "top", outward: { x: 0, y: -1 } },
-    { key: "top-right", outward: normalize({ x: 1, y: -1 }, { x: 1, y: 0 }) }
+    { key: "right", kind: "ellipse-cardinal" as const, outward: { x: 1, y: 0 } },
+    { key: "bottom-right", kind: "ellipse-diagonal" as const, outward: normalize({ x: 1, y: 1 }, { x: 1, y: 0 }) },
+    { key: "bottom", kind: "ellipse-cardinal" as const, outward: { x: 0, y: 1 } },
+    { key: "bottom-left", kind: "ellipse-diagonal" as const, outward: normalize({ x: -1, y: 1 }, { x: -1, y: 0 }) },
+    { key: "left", kind: "ellipse-cardinal" as const, outward: { x: -1, y: 0 } },
+    { key: "top-left", kind: "ellipse-diagonal" as const, outward: normalize({ x: -1, y: -1 }, { x: -1, y: 0 }) },
+    { key: "top", kind: "ellipse-cardinal" as const, outward: { x: 0, y: -1 } },
+    { key: "top-right", kind: "ellipse-diagonal" as const, outward: normalize({ x: 1, y: -1 }, { x: 1, y: 0 }) }
   ].map((port) => ({
     ...port,
-    point: ellipseBoundaryPoint(rect, port.outward)
+    point: ellipseBoundaryPoint(rect, port.outward),
+    scoreBias: 0
   }));
 }
 
 function rectPorts(rect: ShapeGeometryRect): ShapeGeometryPort[] {
   const center = rectCenter(rect);
   const candidates = [
-    { key: "top", point: { x: rect.x + rect.width / 2, y: rect.y } },
-    { key: "top-right", point: { x: rect.x + rect.width, y: rect.y } },
-    { key: "right", point: { x: rect.x + rect.width, y: rect.y + rect.height / 2 } },
-    { key: "bottom-right", point: { x: rect.x + rect.width, y: rect.y + rect.height } },
-    { key: "bottom", point: { x: rect.x + rect.width / 2, y: rect.y + rect.height } },
-    { key: "bottom-left", point: { x: rect.x, y: rect.y + rect.height } },
-    { key: "left", point: { x: rect.x, y: rect.y + rect.height / 2 } },
-    { key: "top-left", point: { x: rect.x, y: rect.y } }
+    { key: "top", kind: "edge-midpoint" as const, point: { x: rect.x + rect.width / 2, y: rect.y } },
+    { key: "top-right", kind: "corner" as const, point: { x: rect.x + rect.width, y: rect.y } },
+    { key: "right", kind: "edge-midpoint" as const, point: { x: rect.x + rect.width, y: rect.y + rect.height / 2 } },
+    { key: "bottom-right", kind: "corner" as const, point: { x: rect.x + rect.width, y: rect.y + rect.height } },
+    { key: "bottom", kind: "edge-midpoint" as const, point: { x: rect.x + rect.width / 2, y: rect.y + rect.height } },
+    { key: "bottom-left", kind: "corner" as const, point: { x: rect.x, y: rect.y + rect.height } },
+    { key: "left", kind: "edge-midpoint" as const, point: { x: rect.x, y: rect.y + rect.height / 2 } },
+    { key: "top-left", kind: "corner" as const, point: { x: rect.x, y: rect.y } }
   ];
 
   return candidates.map((candidate) => ({
     ...candidate,
-    outward: normalize({ x: candidate.point.x - center.x, y: candidate.point.y - center.y }, { x: 1, y: 0 })
+    outward: normalize({ x: candidate.point.x - center.x, y: candidate.point.y - center.y }, { x: 1, y: 0 }),
+    scoreBias: candidate.kind === "edge-midpoint" ? RECT_EDGE_MIDPOINT_SCORE_BONUS : -RECT_CORNER_SCORE_PENALTY
   }));
 }
 

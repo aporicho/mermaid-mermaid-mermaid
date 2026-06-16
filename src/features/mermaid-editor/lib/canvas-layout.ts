@@ -107,7 +107,7 @@ export function syncLayout(graph: MermaidGraph, previous: CanvasLayout | null, v
           {
             x: node.x ?? saved?.x ?? 120,
             y: node.y ?? saved?.y ?? 120,
-            fill: node.fill || saved?.fill || "#ffffff"
+            fill: node.fill || saved?.fill || "#fbf6ef"
           }
         ];
       })

@@ -21,7 +21,7 @@ export function SourcePanel({ value, onChange, onRun, onCollapse }: SourcePanelP
         <div className="flex items-center gap-1">
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button size="icon" variant="ghost" className="size-8 text-muted-foreground hover:text-foreground" onClick={onRun} aria-label="刷新画布">
+              <Button size="icon" variant="ghost" className="size-8 text-icon hover:text-icon" onClick={onRun} aria-label="刷新画布">
                 <RefreshCw className="size-4" />
               </Button>
             </TooltipTrigger>
@@ -29,7 +29,7 @@ export function SourcePanel({ value, onChange, onRun, onCollapse }: SourcePanelP
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button size="icon" variant="ghost" className="size-8 text-muted-foreground hover:text-foreground" onClick={onCollapse} aria-label="收起 Mermaid 面板">
+              <Button size="icon" variant="ghost" className="size-8 text-icon hover:text-icon" onClick={onCollapse} aria-label="收起 Mermaid 面板">
                 <PanelLeftClose className="size-4" />
               </Button>
             </TooltipTrigger>
@@ -47,7 +47,7 @@ export function SourcePanel({ value, onChange, onRun, onCollapse }: SourcePanelP
             onRun();
           }
         }}
-        className="h-full resize-none rounded-none border-0 bg-[linear-gradient(#fbfcfb_29px,#eef4f2_30px)] bg-[length:100%_30px] p-4 font-mono text-sm leading-[30px] shadow-none focus-visible:ring-0"
+        className="source-grid h-full resize-none rounded-none border-0 p-4 font-mono text-sm leading-[30px] shadow-none focus-visible:ring-0"
       />
     </section>
   );

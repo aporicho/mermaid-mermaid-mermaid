@@ -84,7 +84,7 @@ export function InspectorPanel({ graph, selection, onGraphChange, onSelectionCha
   return (
     <section className="grid h-full min-h-0 grid-rows-[42px_minmax(0,1fr)]">
       <header className="flex items-center gap-2 border-b bg-card/95 px-3 pr-12 text-sm font-medium">
-        <SlidersHorizontal className="size-4 text-muted-foreground" />
+        <SlidersHorizontal className="size-4 text-icon" />
         检查器
       </header>
       <ScrollArea className="min-h-0">
