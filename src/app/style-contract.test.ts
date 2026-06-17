@@ -1,0 +1,34 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
+import { describe, expect, it } from "vitest";
+
+function readProjectFile(path: string) {
+  return readFileSync(join(process.cwd(), path), "utf8");
+}
+
+describe("application style contract", () => {
+  it("loads global CSS and editor fonts from the root layout", () => {
+    const layout = readProjectFile("src/app/layout.tsx");
+
+    expect(layout).toContain('import "@fontsource-variable/noto-sans-sc"');
+    expect(layout).toContain('import "@fontsource/maple-mono/400.css"');
+    expect(layout).toContain('import "./globals.css"');
+  });
+
+  it("keeps Tailwind scanning every application source surface", () => {
+    const tailwindConfig = readProjectFile("tailwind.config.ts");
+
+    expect(tailwindConfig).toContain("./src/app/**/*.{ts,tsx}");
+    expect(tailwindConfig).toContain("./src/components/**/*.{ts,tsx}");
+    expect(tailwindConfig).toContain("./src/features/**/*.{ts,tsx}");
+    expect(tailwindConfig).toContain("./src/lib/**/*.{ts,tsx}");
+  });
+
+  it("keeps Tailwind and autoprefixer in the PostCSS pipeline", () => {
+    const postcssConfig = readProjectFile("postcss.config.mjs");
+
+    expect(postcssConfig).toContain("tailwindcss");
+    expect(postcssConfig).toContain("autoprefixer");
+  });
+});

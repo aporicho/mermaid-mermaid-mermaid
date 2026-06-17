@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import { buildAiEditorContext, markAiEditorContextStale } from "@/features/mermaid-editor/lib/ai-context";
 import type { MermaidGraph } from "@/features/mermaid-editor/lib/editor-types";
+import { buildInteractionContext } from "@/features/mermaid-editor/lib/interaction/context";
+import { DEFAULT_VIEW_FILTERS } from "@/features/mermaid-editor/lib/view-filters";
 
 const graph: MermaidGraph = {
   diagramType: "flowchart",
@@ -72,6 +74,20 @@ describe("AI editor context", () => {
 
     expect(result.visible.nodes.map((node) => node.id)).toContain("A");
     expect(result.visible.nodes.map((node) => node.id)).not.toContain("C");
+  });
+
+  it("uses interaction visible scope when provided", () => {
+    const interactionContext = buildInteractionContext({
+      graph,
+      selection: { nodeIds: ["B"], edgeIds: [], subgraphIds: [], primaryId: "B" },
+      viewport: { x: 0, y: 0, scale: 1 },
+      canvasSize: { width: 800, height: 480 },
+      viewFilters: { ...DEFAULT_VIEW_FILTERS, nodes: false }
+    });
+    const result = context({ interactionContext });
+
+    expect(result.visible.nodes).toEqual([]);
+    expect(result.visible.edges).toEqual([]);
   });
 
   it("marks stale contexts based on their own ttl", () => {

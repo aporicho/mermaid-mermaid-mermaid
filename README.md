@@ -21,31 +21,21 @@ Install dependencies:
 npm install
 ```
 
-Run the development server:
+Prepare the app with the single primary command:
 
 ```bash
-npm run dev
+npm run ready
 ```
 
-Open the URL printed by Next.js, usually:
+`npm run ready` runs tests, typecheck, production build, and then stays attached to the frontend dev service at:
 
 ```text
-http://localhost:3000
+http://127.0.0.1:3000
 ```
 
-For a restart-friendly local debug server, use:
+If the project dev server is already running on port 3000, `npm run ready` temporarily stops it for the production build and starts it again after verification. It never stops a non-project process.
 
-```bash
-npm run debug
-```
-
-For terminal sessions that need to keep the server attached in the foreground, use:
-
-```bash
-npm run debug:fg
-```
-
-`npm run build` refuses to run while the default dev port is active, which prevents production builds from overwriting the live dev CSS or React manifests in `.next`.
+Run `npm run ready` from a normal local shell and leave that command running when you need the service to stay up. In sandboxed AI execution, approve the single `npm run ready` command with permission to stop project processes, bind `127.0.0.1:3000`, and keep running as the dev server after checks pass.
 
 ## Canvas Navigation
 
@@ -57,15 +47,22 @@ npm run debug:fg
 
 ## Health Checks
 
-Run these before and after meaningful changes:
+Use this as the default acceptance command before and after meaningful changes:
+
+```bash
+npm run ready
+```
+
+For local debugging only, the lower-level commands remain available:
 
 ```bash
 npm test
 npm run typecheck
 npm run build
+npm run dev
 ```
 
-The test suite focuses on the pure editor logic under `src/features/mermaid-editor/lib`.
+Prefer `npm run ready` for final validation and hands-on browser testing. It avoids `.next` artifact conflicts, handles project dev server restart automatically, and keeps the app available by remaining attached to the dev server after checks pass.
 
 ## Mermaid Support Boundary
 

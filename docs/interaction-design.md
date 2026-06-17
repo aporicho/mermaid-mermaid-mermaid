@@ -73,6 +73,9 @@
 
 - `canvas-interaction.ts` 是画布交互状态机的核心约束层。
 - `canvas-viewport-navigation.ts` 是滚轮、触控板和手势到 viewport 变更的唯一转换层。
+- `interaction/input.ts` 是 Web UI、菜单、键盘、文件和 API 输入的标准化入口。
+- `interaction/intent.ts` 是标准输入到业务意图的唯一转换层；画布和渲染视图的滚轮、触控板与 Safari 捏合必须共用这里的 viewport intent。
+- `interaction/commands.ts` 和 `interaction/transaction.ts` 是编辑器状态变更的命令与事务边界；组件不能绕过它们直接提交选择、视图过滤器、viewport 或图结构变更。
 - Konva 组件只负责把原始事件转换为标准输入，并执行状态机返回的命令或副作用。
 - 历史记录只在明确提交边界写入；拖拽中的移动只做 draft 更新。
 - 对齐辅助线、连线草稿、框选矩形是瞬时状态的可视副作用，不应写入 Mermaid 文件。

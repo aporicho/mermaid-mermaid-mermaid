@@ -3,14 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "debug": "bash scripts/dev-debug.sh",
-    "debug:fg": "FOREGROUND=1 bash scripts/dev-debug.sh",
+    "dev": "next dev --hostname 127.0.0.1 --port 3000",
+    "ready": "bash scripts/ready.sh",
     "mmm": "node --import tsx src/cli/index.ts",
-    "build": "bash scripts/guarded-build.sh",
+    "build": "next build",
     "lint": "next lint",
     "test": "vitest run",
-    "typecheck": "bash scripts/with-next-artifact-lock.sh tsc --noEmit"
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@dagrejs/dagre": "^3.0.0",

@@ -13,6 +13,7 @@ import type {
   ViewportState
 } from "@/features/mermaid-editor/lib/editor-types";
 import type { EditorDiagnostic } from "@/features/mermaid-editor/lib/editor-diagnostics";
+import type { InteractionContext } from "@/features/mermaid-editor/lib/interaction/context";
 
 export type AiWorkspaceView = "canvas" | "render";
 
@@ -152,6 +153,7 @@ export type BuildAiEditorContextInput = {
   canvasSize?: AiCanvasSize;
   editing?: AiEditingContext | null;
   recentActions?: AiRecentAction[];
+  interactionContext?: InteractionContext;
   now?: Date;
   ttlMs?: number;
 };
@@ -177,12 +179,17 @@ export function buildAiEditorContext(input: BuildAiEditorContextInput): AiEditor
   const edgeContextById = new Map(edgeContexts.map((edge) => [edge.id, edge]));
   const subgraphContexts = (input.graph.subgraphs || []).map(subgraphContext);
   const subgraphContextById = new Map(subgraphContexts.map((subgraph) => [subgraph.id, subgraph]));
-  const visibleNodeIds = visibleNodes(input.graph.nodes, input.viewport, input.canvasSize);
+  const visibleScope = input.interactionContext?.visibleScope;
+  const visibleNodeIds = visibleScope?.nodeIds || visibleNodes(input.graph.nodes, input.viewport, input.canvasSize);
   const visibleNodesById = new Set(visibleNodeIds);
-  const visibleEdgeIds = input.graph.edges.filter((edge) => visibleNodesById.has(edge.from) || visibleNodesById.has(edge.to)).map((edge) => edge.id);
-  const visibleSubgraphIds = (input.graph.subgraphs || [])
-    .filter((subgraph) => subgraph.nodeIds.some((nodeId) => visibleNodesById.has(nodeId)))
-    .map((subgraph) => subgraph.id);
+  const visibleEdgeIds =
+    visibleScope?.edgeIds ||
+    input.graph.edges.filter((edge) => visibleNodesById.has(edge.from) || visibleNodesById.has(edge.to)).map((edge) => edge.id);
+  const visibleSubgraphIds =
+    visibleScope?.subgraphIds ||
+    (input.graph.subgraphs || [])
+      .filter((subgraph) => subgraph.nodeIds.some((nodeId) => visibleNodesById.has(nodeId)))
+      .map((subgraph) => subgraph.id);
   const selection = normalizeSelection(input.selection);
   const focusRank = rankFocus({
     graph: input.graph,

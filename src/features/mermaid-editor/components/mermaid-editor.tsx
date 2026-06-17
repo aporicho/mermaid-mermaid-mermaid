@@ -43,15 +43,9 @@ import { buildAiEditorContext, type AiCanvasSize, type AiEditingContext, type Ai
 import type { AiApplyResult, AiEditorCommand, AiNextCommandResponse } from "@/features/mermaid-editor/lib/ai-command-types";
 import { buildMermaidDocument, loadMermaidDocument } from "@/features/mermaid-editor/lib/mermaid-document";
 import {
-  addNode as addNodeAction,
-  addNodeAt,
   copySelection,
-  createSubgraphFromSelection,
-  deleteSelection,
   emptySelection,
   hasSelection,
-  pasteClipboard,
-  setNodeParent,
   setMode as setEditorMode
 } from "@/features/mermaid-editor/lib/editor-actions";
 import { createHistory, pushHistory, redo, undo } from "@/features/mermaid-editor/lib/editor-history";
@@ -87,6 +81,9 @@ import {
   themeToMermaidThemeVariables
 } from "@/features/mermaid-editor/lib/editor-theme";
 import { incrementPerformanceCounter, measurePerformance } from "@/features/mermaid-editor/lib/editor-performance";
+import { buildInteractionContext } from "@/features/mermaid-editor/lib/interaction/context";
+import type { EditorCommand } from "@/features/mermaid-editor/lib/interaction/commands";
+import { applyEditorCommandTransaction } from "@/features/mermaid-editor/lib/interaction/transaction";
 import { initialMermaidSource, parseMermaid, serializeMermaid } from "@/features/mermaid-editor/lib/mermaid-graph";
 import { applyMermaidPatch } from "@/features/mermaid-editor/lib/mermaid-patch";
 import {
@@ -95,7 +92,6 @@ import {
   EDGE_STYLE_FILTERS,
   hiddenFilterCount,
   normalizeViewFilters,
-  selectionWithoutHidden,
   type ViewFilters
 } from "@/features/mermaid-editor/lib/view-filters";
 import { cn } from "@/lib/utils";
@@ -419,6 +415,22 @@ export function MermaidEditor() {
   const buildCurrentAiContext = useCallback(() => {
     const editing: AiEditingContext | null =
       canvasLiveState.editing || (sourceEditBaseRef.current ? { kind: "source", draftText: source.slice(0, 1200) } : null);
+    const interactionContext = buildInteractionContext({
+      sourceLength: source.length,
+      dirty: isDirty,
+      graph,
+      selection,
+      viewport,
+      viewFilters,
+      diagramType,
+      editableKind,
+      mode,
+      workspaceView,
+      edgeRouting,
+      layoutMode,
+      canvasSize: canvasLiveState.canvasSize,
+      editing
+    });
 
     return buildAiEditorContext({
       source,
@@ -436,7 +448,8 @@ export function MermaidEditor() {
       diagnostics,
       canvasSize: canvasLiveState.canvasSize,
       editing,
-      recentActions
+      recentActions,
+      interactionContext
     });
   }, [
     source,
@@ -451,6 +464,7 @@ export function MermaidEditor() {
     workspaceView,
     edgeRouting,
     layoutMode,
+    viewFilters,
     diagnostics,
     canvasLiveState,
     recentActions
@@ -486,17 +500,153 @@ export function MermaidEditor() {
   }
 
   function changeMode(nextMode: EditorMode) {
-    setMode(nextMode);
-    recordRecentAction("mode.change", { kind: "canvas" }, `切换到 ${nextMode} 模式。`);
+    applyEditorCommand({ type: "mode.set", mode: nextMode, source: "menu" });
+  }
+
+  function applyEditorCommand(command: EditorCommand) {
+    if (command.type === "mode.set") {
+      const result = applyEditorCommandTransaction({ graph, selection, viewport, viewFilters }, command);
+      setMode(command.mode);
+      if (result.effect.recentAction) {
+        recordRecentAction(result.effect.recentAction.type, { kind: result.effect.recentAction.target }, result.effect.recentAction.summary);
+      }
+      return;
+    }
+
+    if (command.type === "history.undo") {
+      flushSourceHistory();
+      const result = undo(history, snapshot());
+      if (!result.snapshot) return;
+      setHistory(result.history);
+      restoreSnapshot(result.snapshot);
+      setStatus("已撤销。");
+      return;
+    }
+
+    if (command.type === "history.redo") {
+      flushSourceHistory();
+      const result = redo(history, snapshot());
+      if (!result.snapshot) return;
+      setHistory(result.history);
+      restoreSnapshot(result.snapshot);
+      setStatus("已重做。");
+      return;
+    }
+
+    if (command.type === "clipboard.copy") {
+      if (!selection.nodeIds.length) return;
+      setClipboard(copySelection(graph, selection));
+      setStatus("已复制选中节点。");
+      recordRecentAction("selection.copy", targetFromSelection(selection), "复制选中节点。");
+      return;
+    }
+
+    if (command.type === "edgeRouting.set") {
+      if (!isCanvasEditable || command.edgeRouting === edgeRouting) return;
+      flushSourceHistory();
+      setHistory((current) => pushHistory(current, snapshot()));
+      setEdgeRouting(command.edgeRouting);
+      setStatus(`连线形状已切换为${edgeRoutingLabel(command.edgeRouting)}。`);
+      recordRecentAction("edge-routing.change", { kind: "canvas" }, `连线形状切换为 ${edgeRoutingLabel(command.edgeRouting)}。`);
+      return;
+    }
+
+    if (command.type === "layoutMode.set") {
+      if (!isCanvasEditable || command.layoutMode === layoutMode) return;
+      flushSourceHistory();
+      const previousSnapshot = snapshot();
+
+      if (command.layoutMode === "auto") {
+        const nextGraph = measurePerformance("dagre-auto-layout", () => applyDagreAutoLayout(graph), {
+          nodes: graph.nodes.length,
+          edges: graph.edges.length,
+          modeSwitch: true
+        });
+        setHistory((current) => pushHistory(current, previousSnapshot));
+        setGraph(nextGraph);
+        setSource(serializeMermaid(nextGraph));
+        setSelection(emptySelection);
+        setLayoutMode(command.layoutMode);
+        setStatus("已开启自动布局模式。");
+        recordRecentAction("layout-mode.change", { kind: "canvas" }, "开启自动布局模式。");
+        return;
+      }
+
+      setHistory((current) => pushHistory(current, previousSnapshot));
+      setLayoutMode(command.layoutMode);
+      setStatus("已切换为手动布局模式。");
+      recordRecentAction("layout-mode.change", { kind: "canvas" }, "切换为手动布局模式。");
+      return;
+    }
+
+    if (command.type === "source.refreshGraph") {
+      flushSourceHistory();
+      const loaded = loadMermaidDocument(source, graph);
+      setHistory((current) => pushHistory(current, snapshot()));
+      setDiagramType(loaded.diagramType);
+      setEditableKind(loaded.editableKind);
+      setGraph(loaded.graph);
+      setSelection(emptySelection);
+      setDiagnostics([]);
+      if (loaded.editableKind !== "flowchart") {
+        setWorkspaceView("render");
+        setSource(loaded.source);
+        setStatus("当前 Mermaid 类型仅刷新渲染视图。");
+        recordRecentAction("source.refresh", { kind: "source" }, "从源码刷新渲染视图。");
+        return;
+      }
+
+      const nextGraph = layoutMode === "auto" ? applyDagreAutoLayout(loaded.graph) : loaded.graph;
+      setSource(serializeMermaid(nextGraph));
+      setGraph(nextGraph);
+      setStatus("已从 Mermaid 源码刷新画布。");
+      recordRecentAction("source.refresh", { kind: "source" }, "从源码刷新画布。");
+      return;
+    }
+
+    if (command.type === "layout.syncAuto") {
+      void syncCanvasFromAutoLayout();
+      return;
+    }
+
+    const result = applyEditorCommandTransaction({ graph, selection, viewport, viewFilters }, command);
+
+    if (result.effect.history === "push" && command.type === "history.capture") {
+      captureHistory();
+      return;
+    }
+
+    if (result.effect.sourceSync === "commit") {
+      commitGraph(result.state.graph, result.state.selection, result.effect.status);
+      return;
+    }
+
+    if (result.effect.sourceSync === "draft") {
+      draftGraph(result.state.graph, result.effect.status, { syncSource: result.effect.syncSource });
+      if (result.state.selection && selectionKey(selection) !== selectionKey(result.state.selection)) updateSelection(result.state.selection);
+      if (result.effect.recentAction) {
+        recordRecentAction(result.effect.recentAction.type, { kind: result.effect.recentAction.target }, result.effect.recentAction.summary);
+      }
+      return;
+    }
+
+    if (result.state.viewport !== viewport) setViewport(result.state.viewport);
+
+    if (result.state.viewFilters !== viewFilters) {
+      setViewFilters(result.state.viewFilters);
+      if (result.effect.status) setStatus(result.effect.status);
+    }
+
+    if (selectionKey(selection) !== selectionKey(result.state.selection)) updateSelection(result.state.selection);
+
+    if (result.effect.status && result.state.viewFilters === viewFilters) setStatus(result.effect.status);
+    if (result.effect.recentAction) {
+      recordRecentAction(result.effect.recentAction.type, { kind: result.effect.recentAction.target }, result.effect.recentAction.summary);
+    }
   }
 
   function applyViewFilters(nextFilters: ViewFilters, message: string) {
-    const normalized = normalizeViewFilters(nextFilters);
-    setViewFilters(normalized);
-    const nextSelection = selectionWithoutHidden(selection, graph, normalized);
-    if (selectionKey(selection) !== selectionKey(nextSelection)) updateSelection(nextSelection);
-    setStatus(message);
-    recordRecentAction("view.filters", { kind: "canvas" }, message);
+    applyEditorCommand({ type: "viewFilters.set", filters: nextFilters, message, source: "menu" });
   }
 
   function updateViewFilter(nextFilters: ViewFilters, message: string) {
@@ -611,89 +761,29 @@ export function MermaidEditor() {
 
   function addNode() {
     if (!isCanvasEditable) return;
-    const result = addNodeAction(graph, viewport);
-    commitGraph(result.graph, result.selection, "已新增节点。");
-  }
-
-  function addNodeAtPoint(point: { x: number; y: number; parentId?: string }) {
-    if (!isCanvasEditable) return;
-    const result = addNodeAt(graph, point.x, point.y);
-    const nextGraph = point.parentId ? setNodeParent(result.graph, result.selection.nodeIds[0], point.parentId) : result.graph;
-    commitGraph(nextGraph, result.selection, "已在画布中新增节点。");
+    applyEditorCommand({ type: "graph.addNodeAtViewportCenter", source: "menu" });
   }
 
   function createGroupFromSelection() {
     if (!isCanvasEditable || !hasSelection(selection)) return;
-    const result = createSubgraphFromSelection(graph, selection);
-    commitGraph(result.graph, result.selection, "已将选中内容成组。");
+    applyEditorCommand({ type: "graph.createSubgraphFromSelection", source: "menu" });
   }
 
   function updateDirection(direction: GraphDirection) {
     if (!isCanvasEditable) return;
-    commitGraph({ ...graph, direction }, selection, `方向已切换为 ${direction}。`);
+    applyEditorCommand({ type: "graph.setDirection", direction, source: "menu" });
   }
 
   function updateEdgeRouting(nextEdgeRouting: EdgeRouting) {
-    if (!isCanvasEditable) return;
-    if (nextEdgeRouting === edgeRouting) return;
-    flushSourceHistory();
-    const previousSnapshot = snapshot();
-
-    setHistory((current) => pushHistory(current, previousSnapshot));
-    setEdgeRouting(nextEdgeRouting);
-    setStatus(`连线形状已切换为${edgeRoutingLabel(nextEdgeRouting)}。`);
-    recordRecentAction("edge-routing.change", { kind: "canvas" }, `连线形状切换为 ${edgeRoutingLabel(nextEdgeRouting)}。`);
+    applyEditorCommand({ type: "edgeRouting.set", edgeRouting: nextEdgeRouting, source: "menu" });
   }
 
   function updateLayoutMode(nextLayoutMode: LayoutMode) {
-    if (!isCanvasEditable || nextLayoutMode === layoutMode) return;
-    flushSourceHistory();
-    const previousSnapshot = snapshot();
-
-    if (nextLayoutMode === "auto") {
-      const nextGraph = measurePerformance("dagre-auto-layout", () => applyDagreAutoLayout(graph), {
-        nodes: graph.nodes.length,
-        edges: graph.edges.length,
-        modeSwitch: true
-      });
-      setHistory((current) => pushHistory(current, previousSnapshot));
-      setGraph(nextGraph);
-      setSource(serializeMermaid(nextGraph));
-      setSelection(emptySelection);
-      setLayoutMode(nextLayoutMode);
-      setStatus("已开启自动布局模式。");
-      recordRecentAction("layout-mode.change", { kind: "canvas" }, "开启自动布局模式。");
-      return;
-    }
-
-    setHistory((current) => pushHistory(current, previousSnapshot));
-    setLayoutMode(nextLayoutMode);
-    setStatus("已切换为手动布局模式。");
-    recordRecentAction("layout-mode.change", { kind: "canvas" }, "切换为手动布局模式。");
+    applyEditorCommand({ type: "layoutMode.set", layoutMode: nextLayoutMode, source: "menu" });
   }
 
   function refreshFromSource() {
-    flushSourceHistory();
-    const loaded = loadMermaidDocument(source, graph);
-    setHistory((current) => pushHistory(current, snapshot()));
-    setDiagramType(loaded.diagramType);
-    setEditableKind(loaded.editableKind);
-    setGraph(loaded.graph);
-    setSelection(emptySelection);
-    setDiagnostics([]);
-    if (loaded.editableKind !== "flowchart") {
-      setWorkspaceView("render");
-      setSource(loaded.source);
-      setStatus("当前 Mermaid 类型仅刷新渲染视图。");
-      recordRecentAction("source.refresh", { kind: "source" }, "从源码刷新渲染视图。");
-      return;
-    }
-
-    const nextGraph = layoutMode === "auto" ? applyDagreAutoLayout(loaded.graph) : loaded.graph;
-    setSource(serializeMermaid(nextGraph));
-    setGraph(nextGraph);
-    setStatus("已从 Mermaid 源码刷新画布。");
-    recordRecentAction("source.refresh", { kind: "source" }, "从源码刷新画布。");
+    applyEditorCommand({ type: "source.refreshGraph", source: "menu" });
   }
 
   async function syncCanvasFromAutoLayout() {
@@ -741,42 +831,28 @@ export function MermaidEditor() {
 
   function performDelete() {
     if (!hasSelection(selection)) return;
-    commitGraph(deleteSelection(graph, selection), emptySelection, "已删除选中项。");
+    applyEditorCommand({ type: "graph.deleteSelection", source: "keyboard" });
   }
 
   function performUndo() {
-    flushSourceHistory();
-    const result = undo(history, snapshot());
-    if (!result.snapshot) return;
-    setHistory(result.history);
-    restoreSnapshot(result.snapshot);
-    setStatus("已撤销。");
+    applyEditorCommand({ type: "history.undo", source: "keyboard" });
   }
 
   function performRedo() {
-    flushSourceHistory();
-    const result = redo(history, snapshot());
-    if (!result.snapshot) return;
-    setHistory(result.history);
-    restoreSnapshot(result.snapshot);
-    setStatus("已重做。");
+    applyEditorCommand({ type: "history.redo", source: "keyboard" });
   }
 
   function performCopy() {
-    if (!selection.nodeIds.length) return;
-    setClipboard(copySelection(graph, selection));
-    setStatus("已复制选中节点。");
-    recordRecentAction("selection.copy", targetFromSelection(selection), "复制选中节点。");
+    applyEditorCommand({ type: "clipboard.copy", source: "keyboard" });
   }
 
   function performPaste() {
     if (!clipboard) return;
-    const result = pasteClipboard(graph, clipboard);
-    commitGraph(result.graph, result.selection, "已粘贴节点。");
+    applyEditorCommand({ type: "graph.pasteClipboard", payload: clipboard, source: "keyboard" });
   }
 
-  function updateViewport(nextViewport: ViewportState) {
-    setViewport(nextViewport);
+  function updateViewport(nextViewport: ViewportState, source: "wheel" | "gesture" | "keyboard" | "menu" | "api" = "wheel") {
+    applyEditorCommand({ type: "viewport.set", viewport: nextViewport, source });
   }
 
   function openThemeSettings() {
@@ -1215,8 +1291,8 @@ export function MermaidEditor() {
         performDelete();
         return;
       }
-      if (key === "v") changeMode(setEditorMode("select"));
-      if (key === "l") changeMode(setEditorMode("connect"));
+      if (key === "v") applyEditorCommand({ type: "mode.set", mode: setEditorMode("select"), source: "keyboard" });
+      if (key === "l") applyEditorCommand({ type: "mode.set", mode: setEditorMode("connect"), source: "keyboard" });
     }
 
     function onKeyUp(event: KeyboardEvent) {
@@ -1333,8 +1409,8 @@ export function MermaidEditor() {
               onEdgeRoutingChange={updateEdgeRouting}
               onLayoutModeChange={updateLayoutMode}
               onRefreshSource={refreshFromSource}
-              onSyncAutoLayout={() => void syncCanvasFromAutoLayout()}
-              onResetView={() => updateViewport({ x: 160, y: 90, scale: 1 })}
+              onSyncAutoLayout={() => applyEditorCommand({ type: "layout.syncAuto", source: "menu" })}
+              onResetView={() => updateViewport({ x: 160, y: 90, scale: 1 }, "menu")}
               onOpenThemeSettings={openThemeSettings}
             />
           </div>
@@ -1354,12 +1430,7 @@ export function MermaidEditor() {
                 mermaidEdgeRoutes={mermaidEdgeRoutes}
                 layoutMode={layoutMode}
                 visualTokens={canvasVisualTokens}
-                onGraphDraft={draftGraph}
-                onGraphCommit={commitGraph}
-                onCaptureHistory={captureHistory}
-                onSelectionChange={updateSelection}
-                onViewportChange={updateViewport}
-                onAddNodeAt={addNodeAtPoint}
+                onEditorCommand={applyEditorCommand}
                 onLiveStateChange={updateCanvasLiveState}
               />
             ) : (
@@ -1369,7 +1440,7 @@ export function MermaidEditor() {
                 framed={false}
                 diagnostics={diagnostics}
                 mermaidThemeVariables={mermaidThemeVariables}
-                onGraphChange={isCanvasEditable ? commitGraph : undefined}
+                onEditorCommand={isCanvasEditable ? applyEditorCommand : undefined}
               />
             )}
           </div>
@@ -1382,7 +1453,7 @@ export function MermaidEditor() {
             <aside className="absolute inset-y-0 right-0 z-20 grid w-[clamp(280px,28vw,380px)] min-h-0 border-l bg-card">
               <PanelHeader onCollapse={() => setRightCollapsed(true)} />
               <div className="grid min-h-0">
-                <InspectorPanel graph={graph} selection={selection} onGraphChange={commitGraph} onSelectionChange={updateSelection} onDelete={performDelete} />
+                <InspectorPanel graph={graph} selection={selection} onEditorCommand={applyEditorCommand} />
               </div>
             </aside>
           ) : null}

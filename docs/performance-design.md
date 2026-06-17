@@ -17,6 +17,7 @@
 - Konva Stage viewport 使用命令式 position/scale 更新。
 - 渲染视图使用 DOM transform 更新。
 - wheel、gesture、pointer move 通过 requestAnimationFrame 合并。
+- 画布和渲染视图的 viewport 热路径必须复用 `useViewportScheduler`，先更新视觉，再延迟提交 React 状态或 `viewport.set` 命令。
 - 热路径可以写 ref，不能依赖 React 每个事件都完成 render。
 
 ### 提交路径
@@ -28,6 +29,7 @@
 - 节点或组拖拽结束后再计算自动归组并提交源码，不能在 pointer move 中改 Mermaid 结构。
 - 连线创建、端点重连、文本编辑提交时同步 graph/source/history。
 - viewport 停顿后低频提交到 React state。
+- 画布 viewport 停顿后通过 `EditorCommand` 提交 `viewport.set`，渲染视图 viewport 停顿后提交本地 React state。
 - localStorage 使用 debounce 写入。
 
 ### 重任务路径
@@ -51,10 +53,39 @@
 window.__MERMAID_EDITOR_PERF__
 ```
 
+可在 DevTools 里用下面的片段汇总单项指标的 p50/p95/max：
+
+```js
+const values = window.__MERMAID_EDITOR_PERF__.metrics
+  .filter((metric) => metric.name === "canvas-viewport-visual-latency")
+  .map((metric) => metric.value)
+  .sort((a, b) => a - b);
+const pick = (ratio) => values[Math.min(values.length - 1, Math.max(0, Math.ceil(values.length * ratio) - 1))];
+({ count: values.length, p50: pick(0.5), p95: pick(0.95), max: values.at(-1) });
+```
+
+## 大图验收
+
+使用 CLI 生成可重复的大图夹具：
+
+```bash
+npm run mmm -- fixture --size 100 --out /tmp/mermaid-perf-100.mmd
+npm run mmm -- fixture --size 300 --out /tmp/mermaid-perf-300.mmd
+npm run mmm -- fixture --size 800 --out /tmp/mermaid-perf-800.mmd
+```
+
+验收目标：
+
+- 800 节点场景下，触控板平移和缩放的 `canvas-viewport-visual-latency` p95 目标不超过 20ms。
+- 高频输入期间不应出现 `serialize-mermaid`、`mermaid-render`、history 或 localStorage 写入类指标。
+- 大图下节点拖拽、组拖拽、框选、连线、重连和视图过滤器保持功能正确。
+- 发布前必须通过 `npm run ready`；该命令会自动处理项目 dev server 与 `.next` build 产物的冲突，并在验收成功后保持前端调试服务持续运行。
+
 ## 约束
 
 - 不允许在 pointer move、wheel、gesture change 中执行 `serializeMermaid`、`mermaid.render`、localStorage 写入或历史记录写入。
 - 不允许在拖拽过程中逐帧写 Mermaid 源码；拖拽中只更新 graph draft，拖拽结束再同步 source。
+- Konva 大图渲染必须先通过 render scope 控制绘制量；裁剪只能影响绘制列表，不能改变命中语义、提交结果或 Mermaid 图结构。
 - 组 bounds 必须由节点几何和子组几何的 memoized pure helper 派生，不能在 Konva shape handler 中临时扫描 Mermaid 源码。
 - 组级连线必须复用现有边路由纯函数，不能在渲染组件中单独计算路径。
 - 新增大图能力前，优先复用现有几何、路由、视觉状态纯函数，并为缓存策略补测试。

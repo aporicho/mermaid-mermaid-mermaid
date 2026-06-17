@@ -1,0 +1,33 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
+import { describe, expect, it } from "vitest";
+
+function readProjectFile(path: string) {
+  return readFileSync(join(process.cwd(), path), "utf8");
+}
+
+describe("interaction architecture contract", () => {
+  it("keeps canvas viewport navigation behind standard input and intent resolution", () => {
+    const canvas = readProjectFile("src/features/mermaid-editor/components/konva-canvas.tsx");
+
+    expect(canvas).toContain("createStandardWheelInput");
+    expect(canvas).toContain("createStandardGestureInput");
+    expect(canvas).toContain("resolveInteractionIntent");
+    expect(canvas).toContain("commandFromInteractionIntent");
+    expect(canvas).not.toContain("resolveWheelNavigation");
+    expect(canvas).not.toContain("zoomViewportAtPoint");
+    expect(canvas).not.toContain("onViewportChange");
+  });
+
+  it("keeps render-view navigation on the same standard intent path", () => {
+    const preview = readProjectFile("src/features/mermaid-editor/components/preview-panel.tsx");
+
+    expect(preview).toContain("createStandardWheelInput");
+    expect(preview).toContain("createStandardGestureInput");
+    expect(preview).toContain("resolveInteractionIntent");
+    expect(preview).toContain("commandFromInteractionIntent");
+    expect(preview).not.toContain("resolveWheelNavigation");
+    expect(preview).not.toContain("zoomViewportAtPoint");
+  });
+});

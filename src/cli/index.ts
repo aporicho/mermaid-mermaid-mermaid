@@ -19,6 +19,7 @@ import {
   validateMermaidDocument,
   type CliEnvelope
 } from "@/cli/mermaid-cli-core";
+import { createPerformanceFixtureDocument, PERFORMANCE_FIXTURE_SIZES, type PerformanceFixtureSize } from "@/features/mermaid-editor/lib/performance-fixtures";
 
 const program = new Command();
 
@@ -141,6 +142,33 @@ program
     });
   });
 
+program
+  .command("fixture")
+  .description("Generate a deterministic large Mermaid canvas performance fixture.")
+  .option("--size <size>", "100 | 300 | 800", "100")
+  .option("--out <file>", "Write the fixture Mermaid document to a file instead of printing it in the JSON result.")
+  .action(async (options: { size?: string; out?: string }) => {
+    await run(async () => {
+      const size = parsePerformanceFixtureSize(options.size);
+      if (!size) return usageError("fixture", options.out, `无效 size：${options.size}`);
+
+      const source = createPerformanceFixtureDocument(size);
+      if (options.out) await writeFile(options.out, source, "utf8");
+
+      return {
+        ok: true,
+        command: "fixture",
+        file: options.out,
+        result: {
+          size,
+          written: Boolean(options.out),
+          ...(options.out ? {} : { source })
+        },
+        diagnostics: []
+      };
+    });
+  });
+
 program.parseAsync(process.argv).catch((error) => {
   emit(usageError("mmm", undefined, error instanceof Error ? error.message : String(error)));
   process.exitCode = 2;
@@ -192,4 +220,9 @@ function hashText(value: string) {
     hash = (hash * 31 + value.charCodeAt(index)) >>> 0;
   }
   return hash.toString(36);
+}
+
+function parsePerformanceFixtureSize(value: string | undefined): PerformanceFixtureSize | null {
+  const parsed = Number(value || 100);
+  return PERFORMANCE_FIXTURE_SIZES.includes(parsed as PerformanceFixtureSize) ? (parsed as PerformanceFixtureSize) : null;
 }

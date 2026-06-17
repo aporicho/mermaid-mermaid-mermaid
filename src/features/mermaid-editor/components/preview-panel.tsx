@@ -5,12 +5,17 @@ import mermaid from "mermaid";
 
 import { Input } from "@/components/ui/input";
 import { DiagnosticPanel } from "@/features/mermaid-editor/components/diagnostic-panel";
-import { selectOnlyEdge, selectOnlyNode, updateEdge, updateNodeLabel } from "@/features/mermaid-editor/lib/editor-actions";
 import { normalizeMermaidError, type EditorDiagnostic } from "@/features/mermaid-editor/lib/editor-diagnostics";
 import type { MermaidGraph, Selection } from "@/features/mermaid-editor/lib/editor-types";
 import { DEFAULT_EDITOR_THEME, type MermaidThemeVariables, themeToMermaidThemeVariables } from "@/features/mermaid-editor/lib/editor-theme";
-import { createWheelIntentTracker, resolveWheelNavigation, zoomViewportAtPoint } from "@/features/mermaid-editor/lib/canvas-viewport-navigation";
-import { incrementPerformanceCounter, measureAsyncPerformance, recordPerformanceMetric } from "@/features/mermaid-editor/lib/editor-performance";
+import { createWheelIntentTracker } from "@/features/mermaid-editor/lib/canvas-viewport-navigation";
+import { incrementPerformanceCounter, measureAsyncPerformance } from "@/features/mermaid-editor/lib/editor-performance";
+import { commandFromInteractionIntent, type EditorCommand } from "@/features/mermaid-editor/lib/interaction/commands";
+import { buildInteractionContext } from "@/features/mermaid-editor/lib/interaction/context";
+import { createStandardGestureInput, createStandardWheelInput, modifiersFromEvent, normalizeModifiers, type InteractionModifiers } from "@/features/mermaid-editor/lib/interaction/input";
+import { resolveInteractionIntent } from "@/features/mermaid-editor/lib/interaction/intent";
+import { useViewportScheduler } from "@/features/mermaid-editor/lib/interaction/viewport-scheduler";
+import { DEFAULT_VIEW_FILTERS } from "@/features/mermaid-editor/lib/view-filters";
 
 type PreviewPanelProps = {
   source: string;
@@ -18,7 +23,7 @@ type PreviewPanelProps = {
   framed?: boolean;
   diagnostics?: EditorDiagnostic[];
   mermaidThemeVariables?: MermaidThemeVariables;
-  onGraphChange?: (graph: MermaidGraph, selection?: Selection, message?: string) => void;
+  onEditorCommand?: (command: EditorCommand) => void;
 };
 
 type RenderView = {
@@ -45,6 +50,16 @@ type SafariGestureEvent = Event & {
 const DEFAULT_MERMAID_THEME_VARIABLES = themeToMermaidThemeVariables(DEFAULT_EDITOR_THEME);
 const EMPTY_DIAGNOSTICS: EditorDiagnostic[] = [];
 const MAX_RENDER_CACHE_ITEMS = 8;
+const EMPTY_SELECTION: Selection = { nodeIds: [], edgeIds: [], subgraphIds: [] };
+const EMPTY_RENDER_GRAPH: MermaidGraph = {
+  direction: "LR",
+  diagramType: "flowchart",
+  editableKind: "render-only",
+  parseStatus: "render-only",
+  nodes: [],
+  edges: [],
+  subgraphs: []
+};
 
 export function PreviewPanel({
   source,
@@ -52,7 +67,7 @@ export function PreviewPanel({
   framed = true,
   diagnostics = EMPTY_DIAGNOSTICS,
   mermaidThemeVariables = DEFAULT_MERMAID_THEME_VARIABLES,
-  onGraphChange
+  onEditorCommand
 }: PreviewPanelProps) {
   const [svg, setSvg] = useState("");
   const [svgSize, setSvgSize] = useState<SvgSize | null>(null);
@@ -67,11 +82,6 @@ export function PreviewPanel({
   const contentRef = useRef<HTMLDivElement>(null);
   const panRef = useRef<{ pointerX: number; pointerY: number; viewX: number; viewY: number } | null>(null);
   const gestureNavigationRef = useRef<{ view: RenderView; pointer: { x: number; y: number } } | null>(null);
-  const pendingViewRef = useRef<RenderView | null>(null);
-  const visualViewRef = useRef<RenderView>({ x: 40, y: 40, scale: 1 });
-  const viewRafRef = useRef<number | null>(null);
-  const viewCommitTimerRef = useRef<number | null>(null);
-  const viewCommitRef = useRef<RenderView | null>(null);
   const wheelIntentTrackerRef = useRef(createWheelIntentTracker());
   const suppressWheelZoomUntilRef = useRef(0);
   const hasUserAdjustedViewRef = useRef(false);
@@ -130,53 +140,51 @@ export function PreviewPanel({
     }
   }
 
-  const currentView = useCallback(() => pendingViewRef.current || visualViewRef.current, []);
-
   const applyViewToContent = useCallback((nextView: RenderView) => {
-    visualViewRef.current = nextView;
     const content = contentRef.current;
     if (!content) return;
     content.style.transform = `translate(${nextView.x}px, ${nextView.y}px) scale(${nextView.scale})`;
   }, []);
 
-  const queueViewCommit = useCallback((nextView: RenderView) => {
-    viewCommitRef.current = nextView;
-    if (viewCommitTimerRef.current) window.clearTimeout(viewCommitTimerRef.current);
-
-    viewCommitTimerRef.current = window.setTimeout(() => {
-      const viewToCommit = viewCommitRef.current;
-      viewCommitRef.current = null;
-      viewCommitTimerRef.current = null;
-      if (viewToCommit) setView(viewToCommit);
-    }, 80);
+  const markUserAdjustedView = useCallback(() => {
+    hasUserAdjustedViewRef.current = true;
   }, []);
 
-  const scheduleViewChange = useCallback(
-    (nextView: RenderView) => {
-      pendingViewRef.current = nextView;
-      hasUserAdjustedViewRef.current = true;
-      queueViewCommit(nextView);
-
-      if (viewRafRef.current !== null) return;
-      const scheduledAt = performance.now();
-      viewRafRef.current = window.requestAnimationFrame(() => {
-        viewRafRef.current = null;
-        const pending = pendingViewRef.current;
-        pendingViewRef.current = null;
-        if (pending) {
-          applyViewToContent(pending);
-          recordPerformanceMetric("preview-viewport-visual-latency", performance.now() - scheduledAt);
-        }
-      });
-    },
-    [applyViewToContent, queueViewCommit]
-  );
+  const {
+    current: currentView,
+    schedule: scheduleViewChange,
+    sync: syncView
+  } = useViewportScheduler<RenderView>({
+    initialValue: view,
+    metricName: "preview-viewport-visual-latency",
+    applyVisual: applyViewToContent,
+    commit: setView,
+    onSchedule: markUserAdjustedView
+  });
 
   function pointFromClient(clientX: number, clientY: number) {
     const rect = viewportRef.current?.getBoundingClientRect();
     if (!rect) return null;
     return { x: clientX - rect.left, y: clientY - rect.top };
   }
+
+  const renderInteractionContext = useCallback((activeView: RenderView, modifiers: InteractionModifiers) => {
+    const renderGraph = graph || EMPTY_RENDER_GRAPH;
+    return buildInteractionContext({
+      graph: renderGraph,
+      selection: EMPTY_SELECTION,
+      viewport: activeView,
+      viewFilters: DEFAULT_VIEW_FILTERS,
+      mode: "select",
+      workspaceView: "render",
+      diagramType: renderGraph.diagramType,
+      editableKind: renderGraph.editableKind || "render-only",
+      parseStatus: renderGraph.parseStatus || "render-only",
+      canvasSize: viewportSize,
+      modifiers,
+      gestureState: "idle"
+    });
+  }, [graph, viewportSize]);
 
   function onWheel(event: React.WheelEvent<HTMLDivElement>) {
     event.preventDefault();
@@ -186,23 +194,22 @@ export function PreviewPanel({
     const isZoomWheel = !event.shiftKey && Math.abs(event.deltaY) > 0;
     if (isZoomWheel && Date.now() < suppressWheelZoomUntilRef.current) return;
 
-    const result = resolveWheelNavigation({
-      viewport: currentView(),
+    const wheelInput = createStandardWheelInput({
       pointer,
       canvasSize: viewportSize,
       deltaX: event.deltaX,
       deltaY: event.deltaY,
       deltaMode: event.deltaMode,
-      ctrlKey: event.ctrlKey,
-      metaKey: event.metaKey,
-      shiftKey: event.shiftKey,
+      modifiers: modifiersFromEvent(event),
       timestamp: event.timeStamp,
-      intentTracker: wheelIntentTrackerRef.current,
       interactionKind: "idle"
     });
+    const intent = resolveInteractionIntent(wheelInput, renderInteractionContext(currentView(), wheelInput.modifiers), {
+      wheelIntentTracker: wheelIntentTrackerRef.current
+    });
+    const command = commandFromInteractionIntent(intent);
 
-    if (result.kind === "ignored") return;
-    scheduleViewChange(result.viewport);
+    if (command?.type === "viewport.set") scheduleViewChange(command.viewport);
   }
 
   function startPan(event: React.MouseEvent<HTMLDivElement>) {
@@ -233,7 +240,7 @@ export function PreviewPanel({
   }
 
   function onDoubleClick(event: React.MouseEvent<HTMLDivElement>) {
-    if (!graph || !onGraphChange) return;
+    if (!graph || !onEditorCommand) return;
     const match = findEditableLabel(event.target, graph);
     if (!match) return;
 
@@ -249,16 +256,28 @@ export function PreviewPanel({
   }
 
   function commitInlineEdit(save: boolean) {
-    if (!inlineEdit || !graph || !onGraphChange) {
+    if (!inlineEdit || !graph || !onEditorCommand) {
       setInlineEdit(null);
       return;
     }
 
     if (save && inlineEdit.type === "node") {
-      onGraphChange(updateNodeLabel(graph, inlineEdit.id, inlineEdit.value), selectOnlyNode(inlineEdit.id), "已从渲染视图更新节点文本。");
+      onEditorCommand({
+        type: "graph.updateNodeLabel",
+        nodeId: inlineEdit.id,
+        label: inlineEdit.value,
+        message: "已从渲染视图更新节点文本。",
+        source: "menu"
+      });
     }
     if (save && inlineEdit.type === "edge") {
-      onGraphChange(updateEdge(graph, inlineEdit.id, { label: inlineEdit.value }), selectOnlyEdge(inlineEdit.id), "已从渲染视图更新连线文本。");
+      onEditorCommand({
+        type: "graph.updateEdgeLabel",
+        edgeId: inlineEdit.id,
+        label: inlineEdit.value,
+        message: "已从渲染视图更新连线文本。",
+        source: "menu"
+      });
     }
     setInlineEdit(null);
   }
@@ -282,19 +301,8 @@ export function PreviewPanel({
   }, [source, mermaidThemeVariables, diagnostics]);
 
   useEffect(() => {
-    visualViewRef.current = view;
-  }, [view]);
-
-  useEffect(() => {
-    applyViewToContent(view);
-  }, [applyViewToContent, svg, svgSize, view]);
-
-  useEffect(() => {
-    return () => {
-      if (viewRafRef.current !== null) window.cancelAnimationFrame(viewRafRef.current);
-      if (viewCommitTimerRef.current) window.clearTimeout(viewCommitTimerRef.current);
-    };
-  }, []);
+    syncView(view, { applyVisual: true });
+  }, [svg, svgSize, syncView, view]);
 
   useEffect(() => {
     const element = viewportRef.current;
@@ -317,7 +325,6 @@ export function PreviewPanel({
     if (hasFittedInitialViewRef.current && hasUserAdjustedViewRef.current) return;
 
     const nextView = fitRenderView(svgSize, { width: viewportWidth, height: viewportHeight });
-    visualViewRef.current = nextView;
     setView(nextView);
     hasFittedInitialViewRef.current = true;
   }, [svgSize, viewportHeight, viewportWidth]);
@@ -351,7 +358,19 @@ export function PreviewPanel({
       const scale = typeof event.scale === "number" && Number.isFinite(event.scale) ? event.scale : 1;
       if (!start || scale <= 0) return;
 
-      scheduleViewChange(zoomViewportAtPoint(start.view, start.pointer, start.view.scale * scale));
+      const gestureInput = createStandardGestureInput({
+        phase: "change",
+        pointer: start.pointer,
+        canvasSize: viewportSize,
+        scale,
+        modifiers: modifiersFromGestureEvent(event),
+        timestamp: event.timeStamp,
+        interactionKind: "idle"
+      });
+      const intent = resolveInteractionIntent(gestureInput, renderInteractionContext(start.view, gestureInput.modifiers));
+      const command = commandFromInteractionIntent(intent);
+
+      if (command?.type === "viewport.set") scheduleViewChange(command.viewport);
     }
 
     function onGestureEnd(event: SafariGestureEvent) {
@@ -369,7 +388,7 @@ export function PreviewPanel({
       element.removeEventListener("gesturechange", onGestureChange as EventListener);
       element.removeEventListener("gestureend", onGestureEnd as EventListener);
     };
-  }, [currentView, scheduleViewChange, viewportSize.height, viewportSize.width]);
+  }, [currentView, renderInteractionContext, scheduleViewChange, viewportSize]);
 
   return (
     <section className={framed ? "relative h-full min-h-0 border-b bg-card" : "relative h-full min-h-0 bg-card"}>
@@ -466,6 +485,16 @@ function isEditableTextTarget(target: EventTarget) {
   const element = target as Element | null;
   if (!element) return false;
   return Boolean(element.closest("text,tspan,foreignObject,span,p"));
+}
+
+function modifiersFromGestureEvent(event: Event): InteractionModifiers {
+  const maybeMouseEvent = event as Partial<Pick<MouseEvent, "shiftKey" | "altKey" | "ctrlKey" | "metaKey">>;
+  return normalizeModifiers({
+    shiftKey: maybeMouseEvent.shiftKey,
+    altKey: maybeMouseEvent.altKey,
+    ctrlKey: maybeMouseEvent.ctrlKey,
+    metaKey: maybeMouseEvent.metaKey
+  });
 }
 
 function normalizeText(value: string | null | undefined) {

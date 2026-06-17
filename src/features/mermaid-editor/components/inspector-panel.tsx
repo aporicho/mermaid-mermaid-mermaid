@@ -19,28 +19,16 @@ import type {
   MermaidGraph,
   Selection
 } from "@/features/mermaid-editor/lib/editor-types";
-import {
-  createEdge,
-  descendantSubgraphIds,
-  renameNode,
-  renameSubgraph,
-  selectOnlyEdge,
-  selectOnlySubgraph,
-  updateEdge,
-  updateNodeFill,
-  updateNodeLabel,
-  updateSubgraph
-} from "@/features/mermaid-editor/lib/editor-actions";
+import { descendantSubgraphIds, selectOnlyEdge, selectOnlySubgraph } from "@/features/mermaid-editor/lib/editor-actions";
 import { FLOWCHART_SHAPE_GROUPS, FLOWCHART_SHAPES } from "@/features/mermaid-editor/lib/flowchart-shapes";
+import type { EditorCommand } from "@/features/mermaid-editor/lib/interaction/commands";
 import { palette } from "@/features/mermaid-editor/lib/mermaid-graph";
 import { cn } from "@/lib/utils";
 
 type InspectorPanelProps = {
   graph: MermaidGraph;
   selection: Selection;
-  onGraphChange: (graph: MermaidGraph, selection?: Selection, message?: string) => void;
-  onSelectionChange: (selection: Selection) => void;
-  onDelete: () => void;
+  onEditorCommand: (command: EditorCommand) => void;
 };
 
 const edgeStyleOptions: { value: EdgeStyle; label: string }[] = [
@@ -64,7 +52,7 @@ const directionOptions: { value: GraphDirection; label: string }[] = [
   { value: "BT", label: "BT" }
 ];
 
-export function InspectorPanel({ graph, selection, onGraphChange, onSelectionChange, onDelete }: InspectorPanelProps) {
+export function InspectorPanel({ graph, selection, onEditorCommand }: InspectorPanelProps) {
   const selectedNodes = graph.nodes.filter((node) => selection.nodeIds.includes(node.id));
   const selectedEdges = graph.edges.filter((edge) => selection.edgeIds.includes(edge.id));
   const selectedSubgraphs = (graph.subgraphs || []).filter((subgraph) => (selection.subgraphIds || []).includes(subgraph.id));
@@ -78,43 +66,33 @@ export function InspectorPanel({ graph, selection, onGraphChange, onSelectionCha
   ];
 
   function updateNode(id: string, patch: Partial<CanvasNode>) {
-    const nextGraph =
-      patch.label !== undefined
-        ? updateNodeLabel(graph, id, patch.label)
-        : {
-            ...graph,
-            nodes: graph.nodes.map((node) => (node.id === id ? { ...node, ...patch } : node))
-          };
-    onGraphChange(nextGraph, selection, "已更新节点。");
+    onEditorCommand({ type: "graph.updateNode", nodeId: id, patch: normalizeNodePatch(patch), source: "menu" });
   }
 
   function updateSelectedEdge(id: string, patch: Partial<CanvasEdge>) {
-    onGraphChange(updateEdge(graph, id, patch), selection, "已更新连线。");
+    onEditorCommand({ type: "graph.updateEdge", edgeId: id, patch: normalizeEdgePatch(patch), source: "menu" });
   }
 
   function renameSelectedNode(node: CanvasNode, value: string) {
-    const result = renameNode(graph, node.id, value);
-    onGraphChange(result.graph, result.selection, "已重命名节点。");
+    onEditorCommand({ type: "graph.renameNode", nodeId: node.id, value, source: "menu" });
   }
 
   function renameSelectedSubgraph(subgraph: CanvasSubgraph, value: string) {
-    const result = renameSubgraph(graph, subgraph.id, value);
-    onGraphChange(result.graph, result.selection, "已重命名组。");
+    onEditorCommand({ type: "graph.renameSubgraph", subgraphId: subgraph.id, value, source: "menu" });
   }
 
   function updateSelectedSubgraph(id: string, patch: Partial<CanvasSubgraph>) {
-    onGraphChange(updateSubgraph(graph, id, patch), selection, "已更新组。");
+    onEditorCommand({ type: "graph.updateSubgraph", subgraphId: id, patch: normalizeSubgraphPatch(patch), source: "menu" });
   }
 
   function addEdgeFrom(node: CanvasNode) {
     const target = graph.nodes.find((item) => item.id !== node.id);
     if (!target) return;
-    const result = createEdge(graph, node.id, target.id);
-    onGraphChange(result.graph, result.selection, "已创建连线。");
+    onEditorCommand({ type: "graph.createEdge", fromId: node.id, toId: target.id, source: "menu" });
   }
 
   function batchFill(fill: string) {
-    onGraphChange(updateNodeFill(graph, selectedNodes.map((node) => node.id), fill), selection, "已批量修改颜色。");
+    onEditorCommand({ type: "graph.updateNodeFill", nodeIds: selectedNodes.map((node) => node.id), fill, source: "menu" });
   }
 
   return (
@@ -171,7 +149,7 @@ export function InspectorPanel({ graph, selection, onGraphChange, onSelectionCha
                 <PathArrow className="size-4" />
                 从此节点连线
               </Button>
-              <Button variant="destructive" className="h-8 justify-start px-2" onClick={onDelete}>
+              <Button variant="destructive" className="h-8 justify-start px-2" onClick={() => onEditorCommand({ type: "graph.deleteSelection", source: "menu" })}>
                 <Trash2 className="size-4" />
                 删除节点
               </Button>
@@ -185,7 +163,7 @@ export function InspectorPanel({ graph, selection, onGraphChange, onSelectionCha
               </div>
               <ColorGrid activeFill={allSameFill(selectedNodes) ? selectedNodes[0].fill : ""} onPick={batchFill} />
               <Separator />
-              <Button variant="destructive" className="h-8 justify-start px-2" onClick={onDelete}>
+              <Button variant="destructive" className="h-8 justify-start px-2" onClick={() => onEditorCommand({ type: "graph.deleteSelection", source: "menu" })}>
                 <Trash2 className="size-4" />
                 删除选中节点
               </Button>
@@ -249,11 +227,11 @@ export function InspectorPanel({ graph, selection, onGraphChange, onSelectionCha
                 </Select>
               </div>
               <Separator />
-              <Button variant="outline" className="h-8 justify-start px-2" onClick={() => onSelectionChange(selectOnlySubgraph(selectedSubgraph.id))}>
+              <Button variant="outline" className="h-8 justify-start px-2" onClick={() => onEditorCommand({ type: "selection.set", selection: selectOnlySubgraph(selectedSubgraph.id), source: "menu" })}>
                 <PathArrow className="size-4" />
                 选中组
               </Button>
-              <Button variant="destructive" className="h-8 justify-start px-2" onClick={onDelete}>
+              <Button variant="destructive" className="h-8 justify-start px-2" onClick={() => onEditorCommand({ type: "graph.deleteSelection", source: "menu" })}>
                 <Trash2 className="size-4" />
                 解散组
               </Button>
@@ -335,11 +313,11 @@ export function InspectorPanel({ graph, selection, onGraphChange, onSelectionCha
                 </Select>
               </div>
               <Separator />
-              <Button variant="outline" className="h-8 justify-start px-2" onClick={() => onSelectionChange(selectOnlyEdge(selectedEdge.id))}>
+              <Button variant="outline" className="h-8 justify-start px-2" onClick={() => onEditorCommand({ type: "selection.set", selection: selectOnlyEdge(selectedEdge.id), source: "menu" })}>
                 <PathArrow className="size-4" />
                 选中连线
               </Button>
-              <Button variant="destructive" className="h-8 justify-start px-2" onClick={onDelete}>
+              <Button variant="destructive" className="h-8 justify-start px-2" onClick={() => onEditorCommand({ type: "graph.deleteSelection", source: "menu" })}>
                 <Trash2 className="size-4" />
                 删除连线
               </Button>
@@ -377,6 +355,31 @@ function EmptyInspector() {
       <p>选择节点、组或连线后，可以编辑文本、颜色和连接关系。</p>
     </div>
   );
+}
+function normalizeNodePatch(patch: Partial<CanvasNode>) {
+  return {
+    ...(patch.label !== undefined ? { label: patch.label } : {}),
+    ...(patch.fill !== undefined ? { fill: patch.fill } : {}),
+    ...(patch.shape !== undefined ? { shape: patch.shape } : {})
+  };
+}
+
+function normalizeEdgePatch(patch: Partial<CanvasEdge>) {
+  return {
+    ...(patch.from !== undefined ? { from: patch.from } : {}),
+    ...(patch.to !== undefined ? { to: patch.to } : {}),
+    ...(patch.label !== undefined ? { label: patch.label } : {}),
+    ...(patch.style !== undefined ? { style: patch.style } : {}),
+    ...(patch.arrowType !== undefined ? { arrowType: patch.arrowType } : {})
+  };
+}
+
+function normalizeSubgraphPatch(patch: Partial<CanvasSubgraph>) {
+  return {
+    ...(patch.title !== undefined ? { title: patch.title } : {}),
+    ...("parentId" in patch ? { parentId: patch.parentId } : {}),
+    ...("direction" in patch ? { direction: patch.direction } : {})
+  };
 }
 
 function allSameFill(nodes: CanvasNode[]) {

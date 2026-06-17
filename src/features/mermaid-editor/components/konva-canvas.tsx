@@ -8,38 +8,23 @@ import type { KonvaEventObject } from "konva/lib/Node";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  createEdge,
   descendantNodeIds,
   descendantSubgraphIds,
-  emptySelection,
-  selectOnlyEdge,
   selectOnlyNode,
   selectOnlySubgraph,
   setNodePositions,
   setNodeParent,
-  setSubgraphParent,
-  toggleEdgeSelection,
-  toggleNodeSelection,
-  toggleSubgraphSelection,
-  updateEdge,
-  updateNodeLabel
+  setSubgraphParent
 } from "@/features/mermaid-editor/lib/editor-actions";
 import { computeAlignmentSnap, selectionBounds, type AlignmentGuide } from "@/features/mermaid-editor/lib/alignment-guides";
 import type { DagreEdgeRoute } from "@/features/mermaid-editor/lib/canvas-auto-layout";
 import {
-  dispatchCanvasClick,
-  dispatchCanvasDoubleClick,
-  dispatchCanvasPointerDown,
-  dispatchCanvasPointerMove,
-  dispatchCanvasPointerUp,
-  hasSelection as hasInteractionSelection,
   idleInteraction,
   interactionCursor,
   isEditingInteraction,
   isPanningButton,
   selectionVersionKey,
   type BlankClickIntent,
-  type CanvasInteractionCommand,
   type CanvasPoint,
   type HitTarget,
   type InteractionState
@@ -56,7 +41,8 @@ import {
   subgraphHitId
 } from "@/features/mermaid-editor/lib/canvas-hit-target";
 import { DEFAULT_CANVAS_GRID, firstGridCoordinateAtOrAfter, getCanvasGridRenderPlan, isGridCoordinate } from "@/features/mermaid-editor/lib/canvas-grid";
-import { createWheelIntentTracker, resolveWheelNavigation, zoomViewportAtPoint } from "@/features/mermaid-editor/lib/canvas-viewport-navigation";
+import { resolveCanvasRenderScope } from "@/features/mermaid-editor/lib/canvas-render-scope";
+import { createWheelIntentTracker } from "@/features/mermaid-editor/lib/canvas-viewport-navigation";
 import { resolveConnectionPreview, resolveRetargetPreview } from "@/features/mermaid-editor/lib/connection-preview";
 import {
   buildEdgeLabelGeometry,
@@ -96,7 +82,28 @@ import {
   getNodeVisualState,
   getSelectionBoxVisualState
 } from "@/features/mermaid-editor/lib/canvas-visual-state";
-import { recordPerformanceMetric } from "@/features/mermaid-editor/lib/editor-performance";
+import {
+  resolveCanvasPointerClick,
+  resolveCanvasPointerDoubleClick,
+  resolveCanvasPointerDown,
+  resolveCanvasPointerMove,
+  resolveCanvasPointerUp,
+  type CanvasPointerLocalEffect,
+  type CanvasPointerResolution
+} from "@/features/mermaid-editor/lib/interaction/canvas-pointer";
+import type { EditorCommand } from "@/features/mermaid-editor/lib/interaction/commands";
+import { commandFromInteractionIntent } from "@/features/mermaid-editor/lib/interaction/commands";
+import { buildInteractionContext } from "@/features/mermaid-editor/lib/interaction/context";
+import {
+  createStandardGestureInput,
+  createStandardWheelInput,
+  modifiersFromEvent,
+  normalizeModifiers,
+  type InteractionModifiers,
+  type StandardPointerInput
+} from "@/features/mermaid-editor/lib/interaction/input";
+import { resolveInteractionIntent } from "@/features/mermaid-editor/lib/interaction/intent";
+import { useViewportScheduler } from "@/features/mermaid-editor/lib/interaction/viewport-scheduler";
 import { isEdgeVisible, type ViewFilters } from "@/features/mermaid-editor/lib/view-filters";
 import { cn } from "@/lib/utils";
 
@@ -126,13 +133,15 @@ type KonvaCanvasProps = {
   mermaidEdgeRoutes?: DagreEdgeRoute[];
   layoutMode: LayoutMode;
   visualTokens?: CanvasVisualTokens;
-  onGraphDraft: (graph: MermaidGraph, message?: string, options?: { syncSource?: boolean }) => void;
-  onGraphCommit: (graph: MermaidGraph, selection?: Selection, message?: string) => void;
-  onCaptureHistory: () => void;
-  onSelectionChange: (selection: Selection) => void;
-  onViewportChange: (viewport: ViewportState) => void;
-  onAddNodeAt: (point: { x: number; y: number; parentId?: string }) => void;
+  onEditorCommand: (command: EditorCommand) => void;
   onLiveStateChange?: (state: CanvasLiveState) => void;
+};
+
+type ViewportCommandSource = Extract<EditorCommand, { type: "viewport.set" }>["source"];
+
+type ScheduledViewport = {
+  viewport: ViewportState;
+  source: ViewportCommandSource;
 };
 
 type SelectionBox = {
@@ -151,10 +160,6 @@ type CanvasLiveState = {
   editing?: { kind: "node" | "edge"; id: string; draftText: string } | null;
   interaction?: string;
 };
-
-function isPendingDragState(state: InteractionState) {
-  return state.kind === "pendingNodePointer" || state.kind === "pendingSubgraphPointer";
-}
 
 type SafariGestureEvent = Event & {
   scale?: number;
@@ -580,12 +585,7 @@ export function KonvaCanvas({
   mermaidEdgeRoutes = [],
   layoutMode,
   visualTokens = CANVAS_VISUAL_TOKENS,
-  onGraphDraft,
-  onGraphCommit,
-  onCaptureHistory,
-  onSelectionChange,
-  onViewportChange,
-  onAddNodeAt,
+  onEditorCommand,
   onLiveStateChange
 }: KonvaCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -595,13 +595,7 @@ export function KonvaCanvas({
   const dragDraftGraphRef = useRef<MermaidGraph | null>(null);
   const blankClickIntentRef = useRef<BlankClickIntent | null>(null);
   const gestureNavigationRef = useRef<{ viewport: ViewportState; pointer: CanvasPoint } | null>(null);
-  const pendingViewportRef = useRef<ViewportState | null>(null);
-  const onViewportChangeRef = useRef(onViewportChange);
-  const visualViewportRef = useRef(viewport);
-  const viewportCommitTimerRef = useRef<number | null>(null);
-  const viewportCommitRef = useRef<ViewportState | null>(null);
   const viewportRef = useRef(viewport);
-  const viewportRafRef = useRef<number | null>(null);
   const wheelIntentTrackerRef = useRef(createWheelIntentTracker());
   const suppressWheelZoomUntilRef = useRef(0);
   const interactionGenerationRef = useRef(0);
@@ -722,12 +716,57 @@ export function KonvaCanvas({
   const connectionInvalidNodeId = connectionPreview?.invalidNodeId ?? retargetPreview?.invalidNodeId ?? null;
   const connectionTargetSubgraphId = connectionPreview?.targetSubgraphId ?? retargetPreview?.targetSubgraphId ?? null;
   const connectionInvalidSubgraphId = connectionPreview?.invalidSubgraphId ?? retargetPreview?.invalidSubgraphId ?? null;
+  const renderScope = useMemo(
+    () =>
+      resolveCanvasRenderScope({
+        graph,
+        viewport,
+        canvasSize: dimensions,
+        viewFilters,
+        nodeBounds: renderedNodeGeometries,
+        subgraphBounds: renderedSubgraphGeometries,
+        edges: visibleEdges,
+        selection,
+        hoveredNodeId,
+        hoveredSubgraphId,
+        hoveredEdgeId,
+        inlineEdit,
+        interactionState,
+        connectionTargetNodeId,
+        connectionInvalidNodeId,
+        connectionTargetSubgraphId,
+        connectionInvalidSubgraphId
+      }),
+    [
+      connectionInvalidNodeId,
+      connectionInvalidSubgraphId,
+      connectionTargetNodeId,
+      connectionTargetSubgraphId,
+      dimensions,
+      graph,
+      hoveredEdgeId,
+      hoveredNodeId,
+      hoveredSubgraphId,
+      inlineEdit,
+      interactionState,
+      renderedNodeGeometries,
+      renderedSubgraphGeometries,
+      selection,
+      viewFilters,
+      viewport,
+      visibleEdges
+    ]
+  );
+  const scopedRenderedNodes = useMemo(() => renderedNodes.filter((node) => renderScope.nodeIds.has(node.id)), [renderScope, renderedNodes]);
+  const scopedSubgraphGeometries = useMemo(
+    () => renderedSubgraphGeometries.filter((geometry) => renderScope.subgraphIds.has(geometry.id)),
+    [renderScope, renderedSubgraphGeometries]
+  );
+  const scopedVisibleEdges = useMemo(() => visibleEdges.filter((edge) => renderScope.edgeIds.has(edge.id)), [renderScope, visibleEdges]);
 
-  const currentViewport = useCallback(() => pendingViewportRef.current || visualViewportRef.current, []);
-
-  const applyViewportToStage = useCallback((nextViewport: ViewportState) => {
+  const applyViewportToStage = useCallback((update: ScheduledViewport) => {
+    const nextViewport = update.viewport;
     const stage = stageRef.current;
-    visualViewportRef.current = nextViewport;
     viewportRef.current = nextViewport;
 
     if (!stage) return;
@@ -736,37 +775,27 @@ export function KonvaCanvas({
     stage.batchDraw();
   }, []);
 
-  const queueViewportCommit = useCallback((nextViewport: ViewportState) => {
-    viewportCommitRef.current = nextViewport;
-    if (viewportCommitTimerRef.current) window.clearTimeout(viewportCommitTimerRef.current);
+  const {
+    current: currentScheduledViewport,
+    schedule: scheduleScheduledViewport,
+    sync: syncScheduledViewport
+  } = useViewportScheduler<ScheduledViewport>({
+    initialValue: { viewport, source: "api" },
+    metricName: "canvas-viewport-visual-latency",
+    applyVisual: applyViewportToStage,
+    commit: (update) => {
+      onEditorCommand({ type: "viewport.set", viewport: update.viewport, source: update.source });
+    }
+  });
 
-    viewportCommitTimerRef.current = window.setTimeout(() => {
-      const viewportToCommit = viewportCommitRef.current;
-      viewportCommitRef.current = null;
-      viewportCommitTimerRef.current = null;
-      if (viewportToCommit) onViewportChangeRef.current(viewportToCommit);
-    }, 80);
-  }, []);
+  const currentViewport = useCallback(() => currentScheduledViewport().viewport, [currentScheduledViewport]);
 
   const scheduleViewportChange = useCallback(
-    (nextViewport: ViewportState) => {
-      pendingViewportRef.current = nextViewport;
+    (nextViewport: ViewportState, source: ViewportCommandSource = "wheel") => {
       viewportRef.current = nextViewport;
-      queueViewportCommit(nextViewport);
-
-      if (viewportRafRef.current !== null) return;
-      const scheduledAt = performance.now();
-      viewportRafRef.current = window.requestAnimationFrame(() => {
-        viewportRafRef.current = null;
-        const pending = pendingViewportRef.current;
-        pendingViewportRef.current = null;
-        if (pending) {
-          applyViewportToStage(pending);
-          recordPerformanceMetric("canvas-viewport-visual-latency", performance.now() - scheduledAt);
-        }
-      });
+      scheduleScheduledViewport({ viewport: nextViewport, source });
     },
-    [applyViewportToStage, queueViewportCommit]
+    [scheduleScheduledViewport]
   );
 
   useEffect(() => {
@@ -783,18 +812,9 @@ export function KonvaCanvas({
     invalidateBlankClickIntent();
   }, [mode, panningRequested]);
 
-  useEffect(() => {
-    viewportRef.current = viewport;
-    visualViewportRef.current = viewport;
-  }, [viewport]);
-
   useLayoutEffect(() => {
-    applyViewportToStage(viewport);
-  }, [applyViewportToStage, dimensions.height, dimensions.width, viewport]);
-
-  useEffect(() => {
-    onViewportChangeRef.current = onViewportChange;
-  }, [onViewportChange]);
+    syncScheduledViewport({ viewport, source: "api" }, { applyVisual: true });
+  }, [dimensions.height, dimensions.width, syncScheduledViewport, viewport]);
 
   useEffect(() => {
     onLiveStateChange?.({
@@ -809,13 +829,6 @@ export function KonvaCanvas({
     setHoveredEdgeId(null);
     setHoveredHitTarget((current) => (isEdgeHitTarget(current) ? { kind: "blank" } : current));
   }, [viewFilters.edges]);
-
-  useEffect(() => {
-    return () => {
-      if (viewportRafRef.current !== null) window.cancelAnimationFrame(viewportRafRef.current);
-      if (viewportCommitTimerRef.current) window.clearTimeout(viewportCommitTimerRef.current);
-    };
-  }, []);
 
   useEffect(() => {
     if (inlineEdit?.type !== "node") return;
@@ -883,7 +896,34 @@ export function KonvaCanvas({
       const scale = typeof event.scale === "number" && Number.isFinite(event.scale) ? event.scale : 1;
       if (!start || scale <= 0) return;
 
-      scheduleViewportChange(zoomViewportAtPoint(start.viewport, start.pointer, start.viewport.scale * scale));
+      const gestureInput = createStandardGestureInput({
+        phase: "change",
+        pointer: start.pointer,
+        canvasSize: dimensions,
+        scale,
+        timestamp: event.timeStamp,
+        interactionKind: interactionState.kind
+      });
+      const intent = resolveInteractionIntent(
+        gestureInput,
+        buildInteractionContext({
+          graph,
+          selection,
+          viewport: start.viewport,
+          viewFilters,
+          mode,
+          workspaceView: "canvas",
+          editableKind: "flowchart",
+          edgeRouting,
+          layoutMode,
+          canvasSize: dimensions,
+          hitTarget: hoveredHitTarget,
+          modifiers: gestureInput.modifiers,
+          gestureState: interactionState.kind
+        })
+      );
+      const command = commandFromInteractionIntent(intent);
+      if (command?.type === "viewport.set") scheduleViewportChange(command.viewport, command.source);
     }
 
     function onGestureEnd(event: SafariGestureEvent) {
@@ -901,7 +941,7 @@ export function KonvaCanvas({
       container.removeEventListener("gesturechange", onGestureChange as EventListener);
       container.removeEventListener("gestureend", onGestureEnd as EventListener);
     };
-  }, [currentViewport, dimensions.height, dimensions.width, interactionState.kind, scheduleViewportChange]);
+  }, [currentViewport, dimensions, edgeRouting, graph, hoveredHitTarget, interactionState.kind, layoutMode, mode, scheduleViewportChange, selection, viewFilters]);
 
   function pointerWorldPoint() {
     const stage = stageRef.current;
@@ -1001,107 +1041,131 @@ export function KonvaCanvas({
     setHoveredEdgeId(null);
   }
 
-  function executeCanvasCommands(commands: CanvasInteractionCommand[]) {
-    for (const command of commands) {
-      executeCanvasCommand(command);
+  function applyPointerResolution(resolution: CanvasPointerResolution, options?: { commitState?: boolean }) {
+    for (const command of resolution.editorCommands) {
+      onEditorCommand(command);
     }
+    for (const effect of resolution.localEffects) {
+      applyCanvasPointerLocalEffect(effect);
+    }
+    if (options?.commitState && resolution.state) setInteractionState(resolution.state);
   }
 
-  function executeCanvasCommand(command: CanvasInteractionCommand) {
-    if (command.type === "invalidateBlankClick") {
+  function applyCanvasPointerLocalEffect(effect: CanvasPointerLocalEffect) {
+    if (effect.type === "blankClick.invalidate") {
       invalidateBlankClickIntent();
       return;
     }
 
-    if (command.type === "clearSelection") {
-      onSelectionChange(emptySelection);
+    if (effect.type === "blankClick.record") {
+      blankClickIntentRef.current = effect.intent;
       return;
     }
 
-    if (command.type === "recordBlankClick") {
-      blankClickIntentRef.current = command.intent;
-      return;
-    }
-
-    if (command.type === "addNodeAt") {
+    if (effect.type === "graph.resolveAddNodeAt") {
       const newNode = { id: "", label: "新节点", x: 0, y: 0, fill: visualTokens.colors.surface };
       const newNodeFrame = buildNodeGeometry(newNode, geometrySpec).frame;
-      const parent = subgraphAtPoint(renderedSubgraphGeometries, command.point);
-      onAddNodeAt({
-        x: command.point.x - newNodeFrame.width / 2,
-        y: command.point.y - newNodeFrame.height / 2,
-        parentId: parent?.id
+      const parent = subgraphAtPoint(renderedSubgraphGeometries, effect.point);
+      onEditorCommand({
+        type: "graph.addNodeAt",
+        point: {
+          x: effect.point.x - newNodeFrame.width / 2,
+          y: effect.point.y - newNodeFrame.height / 2,
+          parentId: parent?.id
+        },
+        source: "pointer"
       });
       return;
     }
 
-    if (command.type === "selectNode") {
-      onSelectionChange(command.additive ? toggleNodeSelection(selection, command.id) : selectOnlyNode(command.id));
-      return;
-    }
-
-    if (command.type === "selectSubgraph") {
-      onSelectionChange(command.additive ? toggleSubgraphSelection(selection, command.id) : selectOnlySubgraph(command.id));
-      return;
-    }
-
-    if (command.type === "selectEdge") {
-      onSelectionChange(command.additive ? toggleEdgeSelection(selection, command.id) : selectOnlyEdge(command.id));
-      return;
-    }
-
-    if (command.type === "startInlineEdit") {
-      if (command.target.type === "node") {
-        const node = graph.nodes.find((item) => item.id === command.target.id);
+    if (effect.type === "inlineEdit.start") {
+      if (effect.target.type === "node") {
+        const node = graph.nodes.find((item) => item.id === effect.target.id);
         if (!node) return;
         setInteractionState({ kind: "editingNodeText", nodeId: node.id });
         setInlineEdit({ type: "node", id: node.id, value: node.label });
         return;
       }
 
-      const edge = graph.edges.find((item) => item.id === command.target.id);
+      const edge = graph.edges.find((item) => item.id === effect.target.id);
       if (!edge) return;
       setInteractionState({ kind: "editingEdgeLabel", edgeId: edge.id });
       setInlineEdit({ type: "edge", id: edge.id, value: edge.label });
       return;
     }
 
-    if (command.type === "startNodeDrag") {
-      const node = graph.nodes.find((item) => item.id === command.nodeId);
+    if (effect.type === "drag.startNode") {
+      const node = graph.nodes.find((item) => item.id === effect.nodeId);
       if (node) startNodeDrag(node);
       return;
     }
 
-    if (command.type === "startSubgraphDrag") {
-      const geometry = subgraphGeometryById.get(command.subgraphId);
-      if (geometry) startSubgraphDrag(command.subgraphId, geometry);
+    if (effect.type === "drag.startSubgraph") {
+      const geometry = subgraphGeometryById.get(effect.subgraphId);
+      if (geometry) startSubgraphDrag(effect.subgraphId, geometry);
       return;
     }
 
-    if (command.type === "selectMarquee") {
-      if (command.rect.width > 4 || command.rect.height > 4) {
-        const nodeIds = viewFilters.nodes ? renderedNodeGeometries.filter((geometry) => nodeIntersectsRect(geometry, command.rect)).map((geometry) => geometry.id) : [];
-        const subgraphIds = viewFilters.subgraphs ? renderedSubgraphGeometries.filter((geometry) => subgraphIntersectsRect(geometry, command.rect)).map((geometry) => geometry.id) : [];
-        onSelectionChange({ nodeIds, edgeIds: [], subgraphIds, primaryId: nodeIds[0] || subgraphIds[0] });
-      } else {
-        onSelectionChange(emptySelection);
-      }
+    if (effect.type === "selection.resolveMarquee") {
+      const nodeIds = viewFilters.nodes ? renderedNodeGeometries.filter((geometry) => nodeIntersectsRect(geometry, effect.rect)).map((geometry) => geometry.id) : [];
+      const subgraphIds = viewFilters.subgraphs ? renderedSubgraphGeometries.filter((geometry) => subgraphIntersectsRect(geometry, effect.rect)).map((geometry) => geometry.id) : [];
+      onEditorCommand({ type: "selection.set", selection: { nodeIds, edgeIds: [], subgraphIds, primaryId: nodeIds[0] || subgraphIds[0] }, source: "pointer" });
       return;
     }
 
-    if (command.type === "finishConnection") {
-      finishConnection(command.draft);
+    if (effect.type === "edge.resolveConnection") {
+      finishConnection(effect.draft);
       return;
     }
 
-    if (command.type === "retargetEdge") {
-      retargetEdge(command.edgeId, command.side, command.point);
+    if (effect.type === "edge.resolveRetarget") {
+      retargetEdge(effect.edgeId, effect.side, effect.point);
       return;
     }
 
-    if (command.type === "resetInteraction") {
+    if (effect.type === "interaction.reset") {
       resetInteraction();
     }
+  }
+
+  function interactionContextForPointer(hit: HitTarget, modifiers: Partial<InteractionModifiers>) {
+    return buildInteractionContext({
+      graph,
+      selection,
+      viewport: currentViewport(),
+      viewFilters,
+      mode,
+      workspaceView: "canvas",
+      editableKind: "flowchart",
+      edgeRouting,
+      layoutMode,
+      canvasSize: dimensions,
+      hitTarget: hit,
+      modifiers,
+      gestureState: interactionState.kind,
+      editing: inlineEdit ? { kind: inlineEdit.type, id: inlineEdit.id, draftText: inlineEdit.value } : null
+    });
+  }
+
+  function standardPointerInput(
+    phase: StandardPointerInput["phase"],
+    event: KonvaEventObject<MouseEvent>,
+    hit: HitTarget,
+    screen: CanvasPoint,
+    world?: CanvasPoint
+  ): StandardPointerInput {
+    return {
+      kind: "pointer",
+      entry: "web-ui",
+      phase,
+      pointerId: 0,
+      button: event.evt.button,
+      screen,
+      world,
+      hit,
+      modifiers: modifiersFromEvent(event.evt),
+      timestamp: event.evt.timeStamp
+    };
   }
 
   function onWheel(event: KonvaEventObject<WheelEvent>) {
@@ -1113,25 +1177,46 @@ export function KonvaCanvas({
     const isZoomWheel = !event.evt.shiftKey && Math.abs(event.evt.deltaY) > 0;
     if (isZoomWheel && Date.now() < suppressWheelZoomUntilRef.current) return;
 
-    const result = resolveWheelNavigation({
-      viewport: currentViewport(),
+    const wheelInput = createStandardWheelInput({
       pointer,
       canvasSize: dimensions,
       deltaX: event.evt.deltaX,
       deltaY: event.evt.deltaY,
       deltaMode: event.evt.deltaMode,
-      ctrlKey: event.evt.ctrlKey,
-      metaKey: event.evt.metaKey,
-      shiftKey: event.evt.shiftKey,
+      modifiers: {
+        ctrlKey: event.evt.ctrlKey,
+        metaKey: event.evt.metaKey,
+        shiftKey: event.evt.shiftKey,
+        altKey: event.evt.altKey
+      },
       timestamp: event.evt.timeStamp,
-      intentTracker: wheelIntentTrackerRef.current,
       interactionKind: interactionState.kind
     });
+    const intent = resolveInteractionIntent(
+      wheelInput,
+      buildInteractionContext({
+        graph,
+        selection,
+        viewport: currentViewport(),
+        viewFilters,
+        mode,
+        workspaceView: "canvas",
+        editableKind: "flowchart",
+        edgeRouting,
+        layoutMode,
+        canvasSize: dimensions,
+        hitTarget: hoveredHitTarget,
+        modifiers: wheelInput.modifiers,
+        gestureState: interactionState.kind
+      }),
+      { wheelIntentTracker: wheelIntentTrackerRef.current }
+    );
+    const command = commandFromInteractionIntent(intent);
 
-    if (result.kind === "ignored") return;
+    if (command?.type !== "viewport.set") return;
 
     invalidateBlankClickIntent();
-    scheduleViewportChange(result.viewport);
+    scheduleViewportChange(command.viewport, command.source);
   }
 
   function handleCanvasPointerDown(event: KonvaEventObject<MouseEvent>, explicitHit?: HitTarget, worldOverride?: CanvasPoint) {
@@ -1142,21 +1227,19 @@ export function KonvaCanvas({
     const hit = explicitHit ?? hitTargetFromEvent(event);
     if (isPanningButton(event.evt.button) || panningRequested) event.evt.preventDefault();
 
-    const result = dispatchCanvasPointerDown({
-      state: interactionState,
-      tool: mode,
-      hit,
-      button: event.evt.button,
-      screen: pointer,
-      world,
-      now: event.evt.timeStamp,
-      selectionVersion: selectionVersionRef.current,
-      viewport: currentViewport(),
-      panningRequested
-    });
+    const pointerInput = standardPointerInput("down", event, hit, pointer, world);
+    const result = resolveCanvasPointerDown(
+      pointerInput,
+      interactionContextForPointer(hit, pointerInput.modifiers),
+      {
+        state: interactionState,
+        selectionVersion: selectionVersionRef.current,
+        panningRequested,
+        dragEnabled
+      }
+    );
 
-    executeCanvasCommands(result.commands);
-    setInteractionState(!dragEnabled && isPendingDragState(result.state) ? idleInteraction : result.state);
+    applyPointerResolution(result, { commitState: true });
   }
 
   function handleCanvasPointerMove(event: KonvaEventObject<MouseEvent>) {
@@ -1168,17 +1251,24 @@ export function KonvaCanvas({
     if (!pointer || !world) return;
 
     if (interactionState.kind === "panning") {
-      scheduleViewportChange({
-        ...currentViewport(),
-        x: interactionState.originViewport.x + pointer.x - interactionState.startScreen.x,
-        y: interactionState.originViewport.y + pointer.y - interactionState.startScreen.y
-      });
+      scheduleViewportChange(
+        {
+          ...currentViewport(),
+          x: interactionState.originViewport.x + pointer.x - interactionState.startScreen.x,
+          y: interactionState.originViewport.y + pointer.y - interactionState.startScreen.y
+        },
+        "pointer"
+      );
       return;
     }
 
-    const result = dispatchCanvasPointerMove({ state: interactionState, screen: pointer, world });
-    executeCanvasCommands(result.commands);
-    setInteractionState(result.state);
+    const pointerInput = standardPointerInput("move", event, hit, pointer, world);
+    const result = resolveCanvasPointerMove(pointerInput, interactionContextForPointer(hit, pointerInput.modifiers), {
+      state: interactionState,
+      selectionVersion: selectionVersionRef.current
+    });
+
+    applyPointerResolution(result, { commitState: true });
   }
 
   function handleCanvasPointerUp(event: KonvaEventObject<MouseEvent>) {
@@ -1189,35 +1279,59 @@ export function KonvaCanvas({
       return;
     }
 
-    const result = dispatchCanvasPointerUp({
-      state: interactionState,
-      tool: mode,
-      hit: hitTargetFromEvent(event),
-      hasSelection: hasInteractionSelection(selection),
-      screen: pointer,
-      world,
-      now: performance.now(),
-      previousBlankClick: blankClickIntentRef.current,
-      selectionVersion: selectionVersionRef.current,
-      interactionGeneration: interactionGenerationRef.current
-    });
+    const hit = hitTargetFromEvent(event);
+    const pointerInput = standardPointerInput("up", event, hit, pointer, world);
+    const result = resolveCanvasPointerUp(
+      pointerInput,
+      interactionContextForPointer(hit, pointerInput.modifiers),
+      {
+        state: interactionState,
+        selectionVersion: selectionVersionRef.current,
+        previousBlankClick: blankClickIntentRef.current,
+        interactionGeneration: interactionGenerationRef.current,
+        now: performance.now()
+      }
+    );
 
-    executeCanvasCommands(result.commands);
+    applyPointerResolution(result, { commitState: true });
   }
 
   function handleCanvasClick(event: KonvaEventObject<MouseEvent>, hit: HitTarget) {
     event.cancelBubble = true;
-    executeCanvasCommands(dispatchCanvasClick({ tool: mode, hit, shiftKey: event.evt.shiftKey }));
+    const pointer = pointerScreenPoint() || screenPointFromClient(event.evt.clientX, event.evt.clientY);
+    if (!pointer) return;
+
+    const pointerInput = standardPointerInput("click", event, hit, pointer, pointerWorldPoint() || undefined);
+    applyPointerResolution(resolveCanvasPointerClick(pointerInput, interactionContextForPointer(hit, pointerInput.modifiers)));
   }
 
   function handleCanvasTap(event: KonvaEventObject<Event>, hit: HitTarget) {
     event.cancelBubble = true;
-    executeCanvasCommands(dispatchCanvasClick({ tool: mode, hit, shiftKey: false }));
+    const pointer = pointerScreenPoint();
+    if (!pointer) return;
+    const pointerInput: StandardPointerInput = {
+      kind: "pointer",
+      entry: "web-ui",
+      phase: "tap",
+      pointerId: 0,
+      button: 0,
+      screen: pointer,
+      world: pointerWorldPoint() || undefined,
+      hit,
+      modifiers: normalizeModifiers(undefined),
+      timestamp: event.evt.timeStamp
+    };
+
+    applyPointerResolution(resolveCanvasPointerClick(pointerInput, interactionContextForPointer(hit, pointerInput.modifiers)));
   }
 
   function handleCanvasDoubleClick(event: KonvaEventObject<MouseEvent>, hit: HitTarget) {
     event.cancelBubble = true;
-    executeCanvasCommands(dispatchCanvasDoubleClick({ tool: mode, hit }));
+    const pointer = pointerScreenPoint() || screenPointFromClient(event.evt.clientX, event.evt.clientY);
+    if (!pointer) return;
+
+    const pointerInput = standardPointerInput("double-click", event, hit, pointer, pointerWorldPoint() || undefined);
+    applyPointerResolution(resolveCanvasPointerDoubleClick(pointerInput, interactionContextForPointer(hit, pointerInput.modifiers)));
   }
 
   function startNodeDrag(node: CanvasNode) {
@@ -1226,7 +1340,7 @@ export function KonvaCanvas({
     const ids = selectedNodeIds.has(node.id) ? selection.nodeIds : [node.id];
     const screen = pointerScreenPoint() || { x: 0, y: 0 };
     const world = pointerWorldPoint() || { x: node.x, y: node.y };
-    if (!selectedNodeIds.has(node.id)) onSelectionChange(selectOnlyNode(node.id));
+    if (!selectedNodeIds.has(node.id)) onEditorCommand({ type: "selection.set", selection: selectOnlyNode(node.id), source: "pointer" });
     invalidateBlankClickIntent();
     setAlignmentGuides([]);
     setInteractionState({ kind: "draggingNodes", pointerId: 0, nodeId: node.id, startScreen: screen, startWorld: world });
@@ -1234,7 +1348,7 @@ export function KonvaCanvas({
       graph.nodes.filter((item) => ids.includes(item.id)).map((item) => [item.id, { x: item.x, y: item.y }])
     );
     dragDraftGraphRef.current = null;
-    onCaptureHistory();
+    onEditorCommand({ type: "history.capture", source: "pointer" });
   }
 
   function startSubgraphDrag(subgraphId: string, geometry: SubgraphGeometry) {
@@ -1245,7 +1359,7 @@ export function KonvaCanvas({
     if (!nodeIds.length) return;
     const screen = pointerScreenPoint() || { x: 0, y: 0 };
     const world = pointerWorldPoint() || { x: geometry.frame.x, y: geometry.frame.y };
-    if (!selectedSubgraphIds.has(subgraphId)) onSelectionChange(selectOnlySubgraph(subgraphId));
+    if (!selectedSubgraphIds.has(subgraphId)) onEditorCommand({ type: "selection.set", selection: selectOnlySubgraph(subgraphId), source: "pointer" });
     invalidateBlankClickIntent();
     setAlignmentGuides([]);
     setInteractionState({ kind: "draggingSubgraphs", pointerId: 0, subgraphId, startScreen: screen, startWorld: world });
@@ -1259,7 +1373,7 @@ export function KonvaCanvas({
       })
     );
     dragDraftGraphRef.current = null;
-    onCaptureHistory();
+    onEditorCommand({ type: "history.capture", source: "pointer" });
   }
 
   function moveSelectedNodes(node: CanvasNode, target: Konva.Node) {
@@ -1294,7 +1408,7 @@ export function KonvaCanvas({
     setAlignmentGuides(snap.guides);
     const nextGraph = setNodePositions(graph, positions);
     dragDraftGraphRef.current = nextGraph;
-    onGraphDraft(nextGraph, "正在移动节点。", { syncSource: false });
+    onEditorCommand({ type: "graph.draftNodePositions", positions, message: "正在移动节点。", syncSource: false, source: "pointer" });
   }
 
   function moveSelectedSubgraphs(subgraphId: string, target: Konva.Node) {
@@ -1310,7 +1424,7 @@ export function KonvaCanvas({
     if (draggedFrame) target.position({ x: draggedFrame.x + deltaX, y: draggedFrame.y + deltaY });
     const nextGraph = setNodePositions(graph, positions);
     dragDraftGraphRef.current = nextGraph;
-    onGraphDraft(nextGraph, "正在移动组。", { syncSource: false });
+    onEditorCommand({ type: "graph.draftNodePositions", positions, message: "正在移动组。", syncSource: false, source: "pointer" });
   }
 
   function finishDragWithMembership() {
@@ -1350,7 +1464,7 @@ export function KonvaCanvas({
       }
     }
 
-    onGraphDraft(nextGraph, "已移动并更新组成员。", { syncSource: true });
+    onEditorCommand({ type: "graph.commitDragMembership", graph: nextGraph, message: "已移动并更新组成员。", source: "pointer" });
   }
 
   function finishConnection(draft: Extract<InteractionState, { kind: "connectingEdge" }>) {
@@ -1360,8 +1474,7 @@ export function KonvaCanvas({
     const preview = resolveConnectionPreview({ fromId: draft.fromId, currentWorld: point, nodes: renderedNodeGeometries, subgraphs: renderedSubgraphGeometries });
     if (!preview.valid || !preview.targetId) return;
 
-    const result = createEdge(graph, draft.fromId, preview.targetId);
-    onGraphCommit(result.graph, result.selection, "已创建连线。");
+    onEditorCommand({ type: "graph.createEdge", fromId: draft.fromId, toId: preview.targetId, message: "已创建连线。", source: "pointer" });
   }
 
   function retargetEdge(edgeId: string, side: "from" | "to", point: CanvasPoint) {
@@ -1371,17 +1484,17 @@ export function KonvaCanvas({
     const preview = resolveRetargetPreview({ edge, side, currentWorld: point, nodes: renderedNodeGeometries, subgraphs: renderedSubgraphGeometries });
     if (!preview.valid || !preview.targetId) return;
 
-    onGraphCommit(updateEdge(graph, edgeId, { [side]: preview.targetId }), selectOnlyEdge(edgeId), "已重连连线。");
+    onEditorCommand({ type: "graph.retargetEdge", edgeId, side, targetId: preview.targetId, message: "已重连连线。", source: "pointer" });
   }
 
   function commitInlineEdit(save: boolean) {
     if (!inlineEdit) return;
 
     if (save && inlineEdit.type === "node") {
-      onGraphCommit(updateNodeLabel(graph, inlineEdit.id, inlineEdit.value), selectOnlyNode(inlineEdit.id), "已更新节点文本。");
+      onEditorCommand({ type: "graph.updateNodeLabel", nodeId: inlineEdit.id, label: inlineEdit.value, message: "已更新节点文本。", source: "pointer" });
     }
     if (save && inlineEdit.type === "edge") {
-      onGraphCommit(updateEdge(graph, inlineEdit.id, { label: inlineEdit.value }), selectOnlyEdge(inlineEdit.id), "已更新连线文本。");
+      onEditorCommand({ type: "graph.updateEdgeLabel", edgeId: inlineEdit.id, label: inlineEdit.value, message: "已更新连线文本。", source: "pointer" });
     }
     setInlineEdit(null);
     resetInteraction();
@@ -1476,7 +1589,7 @@ export function KonvaCanvas({
 
           <Layer>
             {viewFilters.subgraphs
-              ? [...renderedSubgraphGeometries]
+              ? [...scopedSubgraphGeometries]
               .sort((a, b) => a.depth - b.depth)
               .map((geometry) => {
                 const subgraph = graph.subgraphs?.find((item) => item.id === geometry.id);
@@ -1513,7 +1626,7 @@ export function KonvaCanvas({
                         event.target.stopDrag();
                         return;
                       }
-                      executeCanvasCommand({ type: "startSubgraphDrag", subgraphId: geometry.id });
+                      applyCanvasPointerLocalEffect({ type: "drag.startSubgraph", subgraphId: geometry.id });
                     }}
                     onDragMove={(event) => moveSelectedSubgraphs(geometry.id, event.target)}
                     onDragEnd={() => {
@@ -1602,8 +1715,8 @@ export function KonvaCanvas({
               })
               : null}
 
-            {visibleEdges.length
-              ? visibleEdges.map((edge) => {
+            {scopedVisibleEdges.length
+              ? scopedVisibleEdges.map((edge) => {
                   const baseGeometry = resolvedEdgeGeometry(edge);
                   if (!baseGeometry) return null;
                   const isRetargetPreviewEdge = retargetDraft?.edgeId === edge.id && !!retargetDraftGeometry && !!retargetPreview;
@@ -1715,7 +1828,7 @@ export function KonvaCanvas({
                 })
               : null}
 
-            {viewFilters.nodes ? renderedNodes.map((node) => {
+            {viewFilters.nodes ? scopedRenderedNodes.map((node) => {
               const geometry = nodeGeometryById.get(node.id);
               if (!geometry) return null;
               const nodeVisual = getNodeVisualState({
@@ -1743,7 +1856,7 @@ export function KonvaCanvas({
                       event.target.stopDrag();
                       return;
                     }
-                    executeCanvasCommand({ type: "startNodeDrag", nodeId: node.id });
+                    applyCanvasPointerLocalEffect({ type: "drag.startNode", nodeId: node.id });
                   }}
                   onDragMove={(event) => moveSelectedNodes(node, event.target)}
                   onDragEnd={() => {
