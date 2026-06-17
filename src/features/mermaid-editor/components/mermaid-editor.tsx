@@ -1,18 +1,21 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   CodeBracketsSquare as FileCode2,
   ColorWheel,
   DotsGrid3x3 as Grid3X3,
+  Eye,
+  EyeClosed,
   Expand as Maximize2,
+  FilterAlt,
   FloppyDisk,
   FloppyDiskArrowOut,
   Folder,
+  Group as GroupIcon,
   GitBranch as Workflow,
   Link,
-  LinkSlash,
   MoreHoriz,
   PathArrow,
   PositionAlign,
@@ -21,7 +24,8 @@ import {
   SidebarCollapse as PanelRightClose,
   SidebarExpand as PanelLeftOpen,
   SidebarExpand as PanelRightOpen,
-  SquareCursor as SquareDashedMousePointer
+  SquareCursor as SquareDashedMousePointer,
+  Text
 } from "iconoir-react/regular";
 
 import { InspectorPanel } from "@/features/mermaid-editor/components/inspector-panel";
@@ -55,11 +59,13 @@ import { hasBlockingDiagnostics, normalizeMermaidError, type EditorDiagnostic } 
 import type {
   ClipboardPayload,
   DiagramType,
+  EdgeStyle,
   EditableKind,
   EdgeRouting,
   EditorHistory,
   EditorMode,
   EditorSnapshot,
+  FlowchartArrowType,
   GraphDirection,
   LayoutMode,
   MermaidGraph,
@@ -83,6 +89,16 @@ import {
 import { incrementPerformanceCounter, measurePerformance } from "@/features/mermaid-editor/lib/editor-performance";
 import { initialMermaidSource, parseMermaid, serializeMermaid } from "@/features/mermaid-editor/lib/mermaid-graph";
 import { applyMermaidPatch } from "@/features/mermaid-editor/lib/mermaid-patch";
+import {
+  ARROW_TYPE_FILTERS,
+  DEFAULT_VIEW_FILTERS,
+  EDGE_STYLE_FILTERS,
+  hiddenFilterCount,
+  normalizeViewFilters,
+  selectionWithoutHidden,
+  type ViewFilters
+} from "@/features/mermaid-editor/lib/view-filters";
+import { cn } from "@/lib/utils";
 
 const STORAGE_KEY = "mermaid-canvas-editor:v1";
 
@@ -102,6 +118,17 @@ const layoutModeOptions: { value: LayoutMode; label: string }[] = [
   { value: "manual", label: "手动布局" },
   { value: "auto", label: "自动布局" }
 ];
+const edgeStyleFilterLabels: Record<EdgeStyle, string> = {
+  solid: "实线",
+  thick: "粗线",
+  dotted: "虚线"
+};
+const arrowTypeFilterLabels: Record<FlowchartArrowType, string> = {
+  arrow: "箭头",
+  none: "无箭头",
+  circle: "圆点",
+  cross: "叉号"
+};
 type WorkspaceView = "canvas" | "render";
 const FALLBACK_FILE_NAME = "diagram.mmd";
 const FILE_PICKER_TYPES = [
@@ -124,6 +151,7 @@ type StoredEditor = {
   workspaceView?: WorkspaceView;
   showGrid?: boolean;
   showEdges?: boolean;
+  viewFilters?: ViewFilters;
   fileName?: string;
   themeId?: EditorThemeId;
   customTheme?: EditorTheme | null;
@@ -169,8 +197,7 @@ function loadInitialState() {
       leftCollapsed: false,
       rightCollapsed: false,
       workspaceView: "canvas" as WorkspaceView,
-      showGrid: true,
-      showEdges: true,
+      viewFilters: DEFAULT_VIEW_FILTERS,
       fileName: FALLBACK_FILE_NAME,
       themeId: DEFAULT_EDITOR_THEME.id,
       customTheme: null
@@ -193,6 +220,7 @@ function loadInitialState() {
     const resolvedGraph = loaded.editableKind === "flowchart" && layoutMode === "auto" ? applyDagreAutoLayout(graph) : graph;
     const themeId = normalizeThemeId(stored.themeId);
     const customTheme = stored.customTheme ? normalizeEditorTheme(stored.customTheme) : null;
+    const viewFilters = normalizeViewFilters(stored.viewFilters, { showGrid: stored.showGrid, showEdges: stored.showEdges });
 
     return {
       source,
@@ -205,8 +233,7 @@ function loadInitialState() {
       leftCollapsed: stored.leftCollapsed || false,
       rightCollapsed: stored.rightCollapsed || false,
       workspaceView: loaded.editableKind === "flowchart" ? stored.workspaceView || "canvas" : "render",
-      showGrid: stored.showGrid ?? true,
-      showEdges: stored.showEdges ?? true,
+      viewFilters,
       fileName: stored.fileName || FALLBACK_FILE_NAME,
       themeId,
       customTheme
@@ -223,8 +250,7 @@ function loadInitialState() {
       leftCollapsed: false,
       rightCollapsed: false,
       workspaceView: "canvas" as WorkspaceView,
-      showGrid: true,
-      showEdges: true,
+      viewFilters: DEFAULT_VIEW_FILTERS,
       fileName: FALLBACK_FILE_NAME,
       themeId: DEFAULT_EDITOR_THEME.id,
       customTheme: null
@@ -280,17 +306,6 @@ function normalizeThemeId(value: unknown): EditorThemeId {
 
 function selectionKey(selection: Selection) {
   return [selection.primaryId || "", ...selection.nodeIds, "|", ...selection.edgeIds, "|", ...(selection.subgraphIds || [])].join(",");
-}
-
-function selectionWithoutEdges(selection: Selection): Selection {
-  const subgraphIds = selection.subgraphIds || [];
-  const primaryId = selection.nodeIds.includes(selection.primaryId || "")
-    ? selection.primaryId
-    : subgraphIds.includes(selection.primaryId || "")
-      ? selection.primaryId
-      : selection.nodeIds[0] || subgraphIds[0];
-
-  return { nodeIds: selection.nodeIds, edgeIds: [], subgraphIds, primaryId };
 }
 
 function targetFromSelection(selection: Selection): AiRecentAction["target"] {
@@ -363,12 +378,12 @@ export function MermaidEditor() {
   const [leftCollapsed, setLeftCollapsed] = useState(initial.leftCollapsed);
   const [rightCollapsed, setRightCollapsed] = useState(initial.rightCollapsed);
   const [workspaceView, setWorkspaceView] = useState<WorkspaceView>(initial.workspaceView);
-  const [showGrid, setShowGrid] = useState(initial.showGrid);
-  const [showEdges, setShowEdges] = useState(initial.showEdges);
+  const [viewFilters, setViewFilters] = useState<ViewFilters>(initial.viewFilters);
   const [fileName, setFileName] = useState(initial.fileName);
   const [fileHandle, setFileHandle] = useState<MermaidFileHandle | null>(null);
   const [lastSavedDocument, setLastSavedDocument] = useState("");
   const [secondaryActionsOpen, setSecondaryActionsOpen] = useState(false);
+  const [viewFiltersOpen, setViewFiltersOpen] = useState(false);
   const [themeSettingsOpen, setThemeSettingsOpen] = useState(false);
   const [themeId, setThemeId] = useState<EditorThemeId>(initial.themeId);
   const [customTheme, setCustomTheme] = useState<EditorTheme | null>(initial.customTheme);
@@ -384,6 +399,7 @@ export function MermaidEditor() {
   const actionCounterRef = useRef(0);
 
   const currentDocument = useMemo(() => buildMermaidDocument(source, graph, viewport, edgeRouting, layoutMode), [source, graph, viewport, edgeRouting, layoutMode]);
+  const hiddenViewFilters = useMemo(() => hiddenFilterCount(viewFilters), [viewFilters]);
   const mermaidEdgeRoutes = useMemo(
     () => (edgeRouting === "mermaid" ? deriveDagreAutoLayoutResult(graph).edgeRoutes : []),
     [edgeRouting, graph]
@@ -474,11 +490,21 @@ export function MermaidEditor() {
     recordRecentAction("mode.change", { kind: "canvas" }, `切换到 ${nextMode} 模式。`);
   }
 
-  function toggleEdgesVisibility() {
-    const nextShowEdges = !showEdges;
-    setShowEdges(nextShowEdges);
-    if (!nextShowEdges && selection.edgeIds.length) updateSelection(selectionWithoutEdges(selection));
-    recordRecentAction("view.edgesVisibility", { kind: "canvas" }, nextShowEdges ? "显示所有连线。" : "隐藏所有连线。");
+  function applyViewFilters(nextFilters: ViewFilters, message: string) {
+    const normalized = normalizeViewFilters(nextFilters);
+    setViewFilters(normalized);
+    const nextSelection = selectionWithoutHidden(selection, graph, normalized);
+    if (selectionKey(selection) !== selectionKey(nextSelection)) updateSelection(nextSelection);
+    setStatus(message);
+    recordRecentAction("view.filters", { kind: "canvas" }, message);
+  }
+
+  function updateViewFilter(nextFilters: ViewFilters, message: string) {
+    applyViewFilters(nextFilters, message);
+  }
+
+  function resetViewFilters() {
+    applyViewFilters(DEFAULT_VIEW_FILTERS, "已显示全部视图元素。");
   }
 
   const snapshot = useCallback(
@@ -751,15 +777,6 @@ export function MermaidEditor() {
 
   function updateViewport(nextViewport: ViewportState) {
     setViewport(nextViewport);
-  }
-
-  function toggleGrid() {
-    setShowGrid((current) => {
-      const next = !current;
-      setStatus(next ? "已显示画布网格。" : "已隐藏画布网格。");
-      recordRecentAction("grid.toggle", { kind: "canvas" }, next ? "显示画布网格。" : "隐藏画布网格。");
-      return next;
-    });
   }
 
   function openThemeSettings() {
@@ -1044,15 +1061,18 @@ export function MermaidEditor() {
   }, [status]);
 
   useEffect(() => {
-    if (!secondaryActionsOpen) return;
+    if (!secondaryActionsOpen && !viewFiltersOpen) return;
 
     function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") setSecondaryActionsOpen(false);
+      if (event.key === "Escape") {
+        setSecondaryActionsOpen(false);
+        setViewFiltersOpen(false);
+      }
     }
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [secondaryActionsOpen]);
+  }, [secondaryActionsOpen, viewFiltersOpen]);
 
   useEffect(() => {
     applyEditorThemeToDocument(activeTheme);
@@ -1074,8 +1094,7 @@ export function MermaidEditor() {
           leftCollapsed,
           rightCollapsed,
           workspaceView,
-          showGrid,
-          showEdges,
+          viewFilters,
           fileName,
           themeId,
           customTheme
@@ -1087,7 +1106,7 @@ export function MermaidEditor() {
     return () => {
       if (storageWriteTimerRef.current) window.clearTimeout(storageWriteTimerRef.current);
     };
-  }, [source, graph, viewport, edgeRouting, layoutMode, leftCollapsed, rightCollapsed, workspaceView, showGrid, showEdges, fileName, themeId, customTheme]);
+  }, [source, graph, viewport, edgeRouting, layoutMode, leftCollapsed, rightCollapsed, workspaceView, viewFilters, fileName, themeId, customTheme]);
 
   useEffect(() => {
     if (aiContextPostTimerRef.current) window.clearTimeout(aiContextPostTimerRef.current);
@@ -1291,29 +1310,21 @@ export function MermaidEditor() {
                 <TooltipContent side="bottom">渲染视图</TooltipContent>
               </Tooltip>
             </div>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  size="icon"
-                  variant={!showEdges ? "default" : "ghost"}
-                  className={!showEdges ? "size-8 text-background hover:text-background" : "size-8 text-icon hover:text-icon disabled:opacity-40"}
-                  onClick={toggleEdgesVisibility}
-                  disabled={!isCanvasEditable}
-                  aria-pressed={!showEdges}
-                  aria-label={showEdges ? "隐藏所有连线" : "显示所有连线"}
-                >
-                  {showEdges ? <Link className="size-4" /> : <LinkSlash className="size-4" />}
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">{showEdges ? "隐藏所有连线" : "显示所有连线"}</TooltipContent>
-            </Tooltip>
+            <ViewFilterMenu
+              open={viewFiltersOpen}
+              filters={viewFilters}
+              hiddenCount={hiddenViewFilters}
+              editable={isCanvasEditable}
+              onOpenChange={setViewFiltersOpen}
+              onChange={updateViewFilter}
+              onReset={resetViewFilters}
+            />
             <SecondaryActionsMenu
               open={secondaryActionsOpen}
               direction={graph.direction}
               edgeRouting={edgeRouting}
               layoutMode={layoutMode}
               editable={isCanvasEditable}
-              showGrid={showGrid}
               onOpenChange={setSecondaryActionsOpen}
               onAddNode={addNode}
               onCreateGroup={createGroupFromSelection}
@@ -1321,7 +1332,6 @@ export function MermaidEditor() {
               onDirectionChange={updateDirection}
               onEdgeRoutingChange={updateEdgeRouting}
               onLayoutModeChange={updateLayoutMode}
-              onToggleGrid={toggleGrid}
               onRefreshSource={refreshFromSource}
               onSyncAutoLayout={() => void syncCanvasFromAutoLayout()}
               onResetView={() => updateViewport({ x: 160, y: 90, scale: 1 })}
@@ -1339,8 +1349,7 @@ export function MermaidEditor() {
                 viewport={viewport}
                 mode={mode}
                 panningRequested={spacePanning}
-                showGrid={showGrid}
-                showEdges={showEdges}
+                viewFilters={viewFilters}
                 edgeRouting={edgeRouting}
                 mermaidEdgeRoutes={mermaidEdgeRoutes}
                 layoutMode={layoutMode}
@@ -1400,13 +1409,173 @@ export function MermaidEditor() {
   );
 }
 
+function ViewFilterMenu({
+  open,
+  filters,
+  hiddenCount,
+  editable,
+  onOpenChange,
+  onChange,
+  onReset
+}: {
+  open: boolean;
+  filters: ViewFilters;
+  hiddenCount: number;
+  editable: boolean;
+  onOpenChange: (open: boolean) => void;
+  onChange: (filters: ViewFilters, message: string) => void;
+  onReset: () => void;
+}) {
+  function toggleTopLevel(key: keyof Pick<ViewFilters, "nodes" | "subgraphs" | "edges" | "nodeLabels" | "edgeLabels" | "grid">, label: string) {
+    const nextVisible = !filters[key];
+    onChange({ ...filters, [key]: nextVisible }, `${nextVisible ? "显示" : "隐藏"}${label}。`);
+  }
+
+  function toggleEdgeStyle(style: EdgeStyle) {
+    const nextVisible = !filters.edgeStyles[style];
+    onChange(
+      { ...filters, edgeStyles: { ...filters.edgeStyles, [style]: nextVisible } },
+      `${nextVisible ? "显示" : "隐藏"}${edgeStyleFilterLabels[style]}连线。`
+    );
+  }
+
+  function toggleArrowType(arrowType: FlowchartArrowType) {
+    const nextVisible = !filters.arrowTypes[arrowType];
+    onChange(
+      { ...filters, arrowTypes: { ...filters.arrowTypes, [arrowType]: nextVisible } },
+      `${nextVisible ? "显示" : "隐藏"}${arrowTypeFilterLabels[arrowType]}连线。`
+    );
+  }
+
+  function showNodesOnly() {
+    onChange(
+      {
+        ...DEFAULT_VIEW_FILTERS,
+        subgraphs: false,
+        edges: false,
+        edgeLabels: false,
+        grid: false
+      },
+      "已切换为仅显示节点。"
+    );
+  }
+
+  function hideLabels() {
+    onChange({ ...filters, nodeLabels: false, edgeLabels: false }, "已隐藏全部标签。");
+  }
+
+  function hideEdges() {
+    onChange({ ...filters, edges: false }, "已隐藏所有连线。");
+  }
+
+  return (
+    <div className="relative">
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            size="icon"
+            variant={hiddenCount > 0 ? "default" : "ghost"}
+            className={hiddenCount > 0 ? "size-8 text-background hover:text-background" : "size-8 text-icon hover:text-icon disabled:opacity-40"}
+            onClick={() => onOpenChange(!open)}
+            disabled={!editable}
+            aria-expanded={open}
+            aria-label="视图过滤器"
+          >
+            <FilterAlt className="size-4" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom">{hiddenCount > 0 ? `视图过滤器：已隐藏 ${hiddenCount} 项` : "视图过滤器"}</TooltipContent>
+      </Tooltip>
+
+      {open ? (
+        <div className="absolute right-0 top-10 z-50 w-72 rounded-md border bg-popover p-2 text-popover-foreground shadow-sm">
+          <div className="flex items-center justify-between px-1 pb-1">
+            <span className="text-xs font-medium text-foreground">视图过滤器</span>
+            <span className="text-[11px] text-muted-foreground">{hiddenCount > 0 ? `隐藏 ${hiddenCount} 项` : "全部显示"}</span>
+          </div>
+          <div className="grid grid-cols-2 gap-1">
+            <Button variant="ghost" className="h-8 justify-start px-2 text-foreground [&_svg]:text-icon" onClick={onReset}>
+              <Eye className="size-4" />
+              全部显示
+            </Button>
+            <Button variant="ghost" className="h-8 justify-start px-2 text-foreground [&_svg]:text-icon" onClick={hideEdges}>
+              <Link className="size-4" />
+              隐藏连线
+            </Button>
+            <Button variant="ghost" className="h-8 justify-start px-2 text-foreground [&_svg]:text-icon" onClick={showNodesOnly}>
+              <SquareDashedMousePointer className="size-4" />
+              仅节点
+            </Button>
+            <Button variant="ghost" className="h-8 justify-start px-2 text-foreground [&_svg]:text-icon" onClick={hideLabels}>
+              <Text className="size-4" />
+              隐藏标签
+            </Button>
+          </div>
+          <Separator className="my-2" />
+          <div className="grid gap-1">
+            <FilterToggle active={filters.nodes} icon={<SquareDashedMousePointer className="size-4" />} label="节点" onClick={() => toggleTopLevel("nodes", "节点")} />
+            <FilterToggle active={filters.subgraphs} icon={<GroupIcon className="size-4" />} label="分组" onClick={() => toggleTopLevel("subgraphs", "分组")} />
+            <FilterToggle active={filters.edges} icon={<Link className="size-4" />} label="连线" onClick={() => toggleTopLevel("edges", "连线")} />
+            <FilterToggle active={filters.nodeLabels} icon={<Text className="size-4" />} label="节点标签" onClick={() => toggleTopLevel("nodeLabels", "节点标签")} />
+            <FilterToggle active={filters.edgeLabels} icon={<LabelIcon />} label="连线标签" onClick={() => toggleTopLevel("edgeLabels", "连线标签")} />
+            <FilterToggle active={filters.grid} icon={<Grid3X3 className="size-4" />} label="网格" onClick={() => toggleTopLevel("grid", "网格")} />
+          </div>
+          <Separator className="my-2" />
+          <div className="grid gap-1 px-1">
+            <span className="text-xs text-muted-foreground">连线类型</span>
+            <div className="grid grid-cols-3 gap-1">
+              {EDGE_STYLE_FILTERS.map((style) => (
+                <FilterToggle key={style} compact active={filters.edgeStyles[style]} label={edgeStyleFilterLabels[style]} onClick={() => toggleEdgeStyle(style)} />
+              ))}
+            </div>
+          </div>
+          <Separator className="my-2" />
+          <div className="grid gap-1 px-1">
+            <span className="text-xs text-muted-foreground">箭头类型</span>
+            <div className="grid grid-cols-2 gap-1">
+              {ARROW_TYPE_FILTERS.map((arrowType) => (
+                <FilterToggle key={arrowType} compact active={filters.arrowTypes[arrowType]} label={arrowTypeFilterLabels[arrowType]} onClick={() => toggleArrowType(arrowType)} />
+              ))}
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function FilterToggle({ active, label, icon, compact = false, onClick }: { active: boolean; label: string; icon?: ReactNode; compact?: boolean; onClick: () => void }) {
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      className={cn(
+        "h-8 justify-start px-2 text-foreground [&_svg]:text-icon",
+        compact ? "gap-1.5 text-xs" : "",
+        !active ? "text-muted-foreground" : ""
+      )}
+      aria-pressed={active}
+      onClick={onClick}
+    >
+      <span className={cn("flex size-4 shrink-0 items-center justify-center", active ? "text-icon" : "text-muted-foreground")}>
+        {active ? <Eye className="size-4" /> : <EyeClosed className="size-4" />}
+      </span>
+      {icon}
+      <span className="truncate">{label}</span>
+    </Button>
+  );
+}
+
+function LabelIcon() {
+  return <Text className="size-4" />;
+}
+
 function SecondaryActionsMenu({
   open,
   direction,
   edgeRouting,
   layoutMode,
   editable,
-  showGrid,
   onOpenChange,
   onAddNode,
   onCreateGroup,
@@ -1414,7 +1583,6 @@ function SecondaryActionsMenu({
   onDirectionChange,
   onEdgeRoutingChange,
   onLayoutModeChange,
-  onToggleGrid,
   onRefreshSource,
   onSyncAutoLayout,
   onResetView,
@@ -1425,7 +1593,6 @@ function SecondaryActionsMenu({
   edgeRouting: EdgeRouting;
   layoutMode: LayoutMode;
   editable: boolean;
-  showGrid: boolean;
   onOpenChange: (open: boolean) => void;
   onAddNode: () => void;
   onCreateGroup: () => void;
@@ -1433,7 +1600,6 @@ function SecondaryActionsMenu({
   onDirectionChange: (direction: GraphDirection) => void;
   onEdgeRoutingChange: (edgeRouting: EdgeRouting) => void;
   onLayoutModeChange: (layoutMode: LayoutMode) => void;
-  onToggleGrid: () => void;
   onRefreshSource: () => void;
   onSyncAutoLayout: () => void;
   onResetView: () => void;
@@ -1562,16 +1728,6 @@ function SecondaryActionsMenu({
                 </SelectContent>
               </Select>
             </div>
-            <Separator className="my-1" />
-            <Button
-              variant="ghost"
-              className="h-8 justify-start px-2 text-foreground disabled:opacity-40 [&_svg]:text-icon"
-              onClick={() => runAndClose(onToggleGrid)}
-              disabled={!editable}
-            >
-              <Grid3X3 className="size-4" />
-              {showGrid ? "隐藏网格" : "显示网格"}
-            </Button>
             <Button variant="ghost" className="h-8 justify-start px-2 text-foreground [&_svg]:text-icon" onClick={() => runAndClose(onOpenThemeSettings)}>
               <ColorWheel className="size-4" />
               主题

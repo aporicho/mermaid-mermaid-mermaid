@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
   CANVAS_MAX_SCALE,
   CANVAS_MIN_SCALE,
+  classifyWheelInput,
+  createWheelIntentTracker,
   resolveWheelNavigation,
   zoomViewportAtPoint
 } from "@/features/mermaid-editor/lib/canvas-viewport-navigation";
@@ -36,7 +38,7 @@ function worldAt(screen: { x: number; y: number }, value: ViewportState) {
 }
 
 describe("canvas viewport navigation", () => {
-  it("zooms around the pointer from unmodified vertical wheel deltas", () => {
+  it("zooms around the pointer from discrete mouse wheel deltas", () => {
     const before = worldAt(pointer, viewport);
     const result = wheel({ deltaY: -120 });
 
@@ -48,16 +50,31 @@ describe("canvas viewport navigation", () => {
     expect(worldAt(pointer, result.viewport).y).toBeCloseTo(before.y);
   });
 
-  it("preserves tiny vertical pixel deltas from precision trackpads as zoom", () => {
-    const before = worldAt(pointer, viewport);
+  it("pans vertically from precision trackpad pixel deltas", () => {
+    const result = wheel({ deltaY: 24 });
+
+    expect(result).toEqual({
+      kind: "pan",
+      viewport: { x: 100, y: 56, scale: 1 }
+    });
+  });
+
+  it("pans in two dimensions from precision trackpad pixel deltas", () => {
+    const result = wheel({ deltaX: 8, deltaY: -12 });
+
+    expect(result).toEqual({
+      kind: "pan",
+      viewport: { x: 92, y: 92, scale: 1 }
+    });
+  });
+
+  it("preserves tiny fractional pixel deltas from precision trackpads as panning", () => {
     const result = wheel({ deltaX: 0.004, deltaY: 0.006 });
 
-    expect(result.kind).toBe("zoom");
-    if (result.kind !== "zoom") return;
-
-    expect(result.viewport.scale).toBeLessThan(viewport.scale);
-    expect(worldAt(pointer, result.viewport).x).toBeCloseTo(before.x);
-    expect(worldAt(pointer, result.viewport).y).toBeCloseTo(before.y);
+    expect(result).toEqual({
+      kind: "pan",
+      viewport: { x: 99.996, y: 79.994, scale: 1 }
+    });
   });
 
   it("pans horizontally from horizontal-only wheel deltas", () => {
@@ -99,6 +116,21 @@ describe("canvas viewport navigation", () => {
       kind: "pan",
       viewport: { x: -900, y: 80, scale: 1 }
     });
+  });
+
+  it("classifies obvious precision and discrete wheel inputs", () => {
+    expect(classifyWheelInput({ deltaX: 0, deltaY: 24, deltaMode: 0 })).toBe("precision");
+    expect(classifyWheelInput({ deltaX: 4, deltaY: 120, deltaMode: 0 })).toBe("precision");
+    expect(classifyWheelInput({ deltaX: 0, deltaY: 120, deltaMode: 0 })).toBe("discrete");
+    expect(classifyWheelInput({ deltaX: 0, deltaY: 2, deltaMode: 1 })).toBe("discrete");
+  });
+
+  it("locks wheel intent within a transaction", () => {
+    const intentTracker = createWheelIntentTracker();
+
+    expect(wheel({ deltaY: 24, timestamp: 100, intentTracker }).kind).toBe("pan");
+    expect(wheel({ deltaY: 120, timestamp: 150, intentTracker }).kind).toBe("pan");
+    expect(wheel({ deltaY: 120, timestamp: 400, intentTracker }).kind).toBe("zoom");
   });
 
   it("clamps zoom scale to supported bounds", () => {

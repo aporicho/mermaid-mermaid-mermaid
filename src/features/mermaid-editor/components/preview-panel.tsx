@@ -9,7 +9,7 @@ import { selectOnlyEdge, selectOnlyNode, updateEdge, updateNodeLabel } from "@/f
 import { normalizeMermaidError, type EditorDiagnostic } from "@/features/mermaid-editor/lib/editor-diagnostics";
 import type { MermaidGraph, Selection } from "@/features/mermaid-editor/lib/editor-types";
 import { DEFAULT_EDITOR_THEME, type MermaidThemeVariables, themeToMermaidThemeVariables } from "@/features/mermaid-editor/lib/editor-theme";
-import { resolveWheelNavigation, zoomViewportAtPoint } from "@/features/mermaid-editor/lib/canvas-viewport-navigation";
+import { createWheelIntentTracker, resolveWheelNavigation, zoomViewportAtPoint } from "@/features/mermaid-editor/lib/canvas-viewport-navigation";
 import { incrementPerformanceCounter, measureAsyncPerformance, recordPerformanceMetric } from "@/features/mermaid-editor/lib/editor-performance";
 
 type PreviewPanelProps = {
@@ -72,6 +72,7 @@ export function PreviewPanel({
   const viewRafRef = useRef<number | null>(null);
   const viewCommitTimerRef = useRef<number | null>(null);
   const viewCommitRef = useRef<RenderView | null>(null);
+  const wheelIntentTrackerRef = useRef(createWheelIntentTracker());
   const suppressWheelZoomUntilRef = useRef(0);
   const hasUserAdjustedViewRef = useRef(false);
   const hasFittedInitialViewRef = useRef(false);
@@ -195,6 +196,8 @@ export function PreviewPanel({
       ctrlKey: event.ctrlKey,
       metaKey: event.metaKey,
       shiftKey: event.shiftKey,
+      timestamp: event.timeStamp,
+      intentTracker: wheelIntentTrackerRef.current,
       interactionKind: "idle"
     });
 

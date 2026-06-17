@@ -5,11 +5,12 @@
   "scripts": {
     "dev": "next dev",
     "debug": "bash scripts/dev-debug.sh",
+    "debug:fg": "FOREGROUND=1 bash scripts/dev-debug.sh",
     "mmm": "node --import tsx src/cli/index.ts",
-    "build": "next build",
+    "build": "bash scripts/guarded-build.sh",
     "lint": "next lint",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "bash scripts/with-next-artifact-lock.sh tsc --noEmit"
   },
   "dependencies": {
     "@dagrejs/dagre": "^3.0.0",

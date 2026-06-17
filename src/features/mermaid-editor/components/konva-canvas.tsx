@@ -56,7 +56,7 @@ import {
   subgraphHitId
 } from "@/features/mermaid-editor/lib/canvas-hit-target";
 import { DEFAULT_CANVAS_GRID, firstGridCoordinateAtOrAfter, getCanvasGridRenderPlan, isGridCoordinate } from "@/features/mermaid-editor/lib/canvas-grid";
-import { resolveWheelNavigation, zoomViewportAtPoint } from "@/features/mermaid-editor/lib/canvas-viewport-navigation";
+import { createWheelIntentTracker, resolveWheelNavigation, zoomViewportAtPoint } from "@/features/mermaid-editor/lib/canvas-viewport-navigation";
 import { resolveConnectionPreview, resolveRetargetPreview } from "@/features/mermaid-editor/lib/connection-preview";
 import {
   buildEdgeLabelGeometry,
@@ -97,6 +97,7 @@ import {
   getSelectionBoxVisualState
 } from "@/features/mermaid-editor/lib/canvas-visual-state";
 import { recordPerformanceMetric } from "@/features/mermaid-editor/lib/editor-performance";
+import { isEdgeVisible, type ViewFilters } from "@/features/mermaid-editor/lib/view-filters";
 import { cn } from "@/lib/utils";
 
 const NODE_TEXT_FONT_SIZE: number = DEFAULT_NODE_GEOMETRY_TOKENS.fontSize;
@@ -120,8 +121,7 @@ type KonvaCanvasProps = {
   viewport: ViewportState;
   mode: EditorMode;
   panningRequested: boolean;
-  showGrid: boolean;
-  showEdges: boolean;
+  viewFilters: ViewFilters;
   edgeRouting: EdgeRouting;
   mermaidEdgeRoutes?: DagreEdgeRoute[];
   layoutMode: LayoutMode;
@@ -575,8 +575,7 @@ export function KonvaCanvas({
   viewport,
   mode,
   panningRequested,
-  showGrid,
-  showEdges,
+  viewFilters,
   edgeRouting,
   mermaidEdgeRoutes = [],
   layoutMode,
@@ -603,6 +602,7 @@ export function KonvaCanvas({
   const viewportCommitRef = useRef<ViewportState | null>(null);
   const viewportRef = useRef(viewport);
   const viewportRafRef = useRef<number | null>(null);
+  const wheelIntentTrackerRef = useRef(createWheelIntentTracker());
   const suppressWheelZoomUntilRef = useRef(0);
   const interactionGenerationRef = useRef(0);
   const selectionVersionRef = useRef(0);
@@ -655,7 +655,9 @@ export function KonvaCanvas({
     return remapEdgePathGeometry(routeGeometry, fallbackGeometry);
   }
 
-  const selectedSingleEdge = showEdges && selection.edgeIds.length === 1 ? graph.edges.find((edge) => edge.id === selection.edgeIds[0]) : undefined;
+  const visibleEdges = useMemo(() => graph.edges.filter((edge) => isEdgeVisible(edge, graph, viewFilters)), [graph, viewFilters]);
+  const selectedSingleEdge =
+    selection.edgeIds.length === 1 ? visibleEdges.find((edge) => edge.id === selection.edgeIds[0]) : undefined;
   const selectedSingleEdgeBaseGeometry = selectedSingleEdge ? resolvedEdgeGeometry(selectedSingleEdge) : null;
   const selectionBox =
     interactionState.kind === "marqueeSelecting"
@@ -803,10 +805,10 @@ export function KonvaCanvas({
   }, [dimensions, inlineEdit, interactionState.kind, onLiveStateChange]);
 
   useEffect(() => {
-    if (showEdges) return;
+    if (viewFilters.edges) return;
     setHoveredEdgeId(null);
     setHoveredHitTarget((current) => (isEdgeHitTarget(current) ? { kind: "blank" } : current));
-  }, [showEdges]);
+  }, [viewFilters.edges]);
 
   useEffect(() => {
     return () => {
@@ -1078,8 +1080,8 @@ export function KonvaCanvas({
 
     if (command.type === "selectMarquee") {
       if (command.rect.width > 4 || command.rect.height > 4) {
-        const nodeIds = renderedNodeGeometries.filter((geometry) => nodeIntersectsRect(geometry, command.rect)).map((geometry) => geometry.id);
-        const subgraphIds = renderedSubgraphGeometries.filter((geometry) => subgraphIntersectsRect(geometry, command.rect)).map((geometry) => geometry.id);
+        const nodeIds = viewFilters.nodes ? renderedNodeGeometries.filter((geometry) => nodeIntersectsRect(geometry, command.rect)).map((geometry) => geometry.id) : [];
+        const subgraphIds = viewFilters.subgraphs ? renderedSubgraphGeometries.filter((geometry) => subgraphIntersectsRect(geometry, command.rect)).map((geometry) => geometry.id) : [];
         onSelectionChange({ nodeIds, edgeIds: [], subgraphIds, primaryId: nodeIds[0] || subgraphIds[0] });
       } else {
         onSelectionChange(emptySelection);
@@ -1121,6 +1123,8 @@ export function KonvaCanvas({
       ctrlKey: event.evt.ctrlKey,
       metaKey: event.evt.metaKey,
       shiftKey: event.evt.shiftKey,
+      timestamp: event.evt.timeStamp,
+      intentTracker: wheelIntentTrackerRef.current,
       interactionKind: interactionState.kind
     });
 
@@ -1386,6 +1390,7 @@ export function KonvaCanvas({
   function inlineEditStyle() {
     if (!inlineEdit) return null;
     if (inlineEdit.type === "node") {
+      if (!viewFilters.nodes || !viewFilters.nodeLabels) return null;
       const geometry = nodeGeometryById.get(inlineEdit.id);
       if (!geometry) return null;
       const screen = worldToScreen({
@@ -1401,7 +1406,8 @@ export function KonvaCanvas({
     }
 
     const edge = graph.edges.find((item) => item.id === inlineEdit.id);
-    const geometry = edge ? resolvedEdgeGeometry(edge) : null;
+    if (!edge || !viewFilters.edgeLabels || !isEdgeVisible(edge, graph, viewFilters)) return null;
+    const geometry = resolvedEdgeGeometry(edge);
     if (!geometry) return null;
     const labelGeometry = buildEdgeLabelGeometry(inlineEdit.value, geometry.labelPoint, edgeLabelSpec);
     const screen = worldToScreen({ x: labelGeometry.frame.x, y: labelGeometry.frame.y });
@@ -1466,10 +1472,11 @@ export function KonvaCanvas({
             setHoveredHitTarget({ kind: "blank" });
           }}
         >
-          {showGrid ? <CanvasGrid dimensions={dimensions} viewport={viewport} visualTokens={visualTokens} /> : null}
+          {viewFilters.grid ? <CanvasGrid dimensions={dimensions} viewport={viewport} visualTokens={visualTokens} /> : null}
 
           <Layer>
-            {[...renderedSubgraphGeometries]
+            {viewFilters.subgraphs
+              ? [...renderedSubgraphGeometries]
               .sort((a, b) => a.depth - b.depth)
               .map((geometry) => {
                 const subgraph = graph.subgraphs?.find((item) => item.id === geometry.id);
@@ -1592,10 +1599,11 @@ export function KonvaCanvas({
                       : null}
                   </Group>
                 );
-              })}
+              })
+              : null}
 
-            {showEdges
-              ? graph.edges.map((edge) => {
+            {visibleEdges.length
+              ? visibleEdges.map((edge) => {
                   const baseGeometry = resolvedEdgeGeometry(edge);
                   if (!baseGeometry) return null;
                   const isRetargetPreviewEdge = retargetDraft?.edgeId === edge.id && !!retargetDraftGeometry && !!retargetPreview;
@@ -1668,7 +1676,7 @@ export function KonvaCanvas({
                       {!edgePreviewVisual ? (
                         <EdgeEndMarker edge={edge} geometry={geometry} stroke={edgeVisual.stroke} strokeWidth={edgeVisual.strokeWidth} surfaceFill={visualTokens.colors.surface} />
                       ) : null}
-                      {edgeLabelGeometry && !isEditingEdgeLabel ? (
+                      {viewFilters.edgeLabels && edgeLabelGeometry && !isEditingEdgeLabel ? (
                         <Group
                           id={edgeLabelHitId(edge.id)}
                           name={CANVAS_HIT_NAMES.edgeLabel}
@@ -1707,7 +1715,7 @@ export function KonvaCanvas({
                 })
               : null}
 
-            {renderedNodes.map((node) => {
+            {viewFilters.nodes ? renderedNodes.map((node) => {
               const geometry = nodeGeometryById.get(node.id);
               if (!geometry) return null;
               const nodeVisual = getNodeVisualState({
@@ -1773,7 +1781,7 @@ export function KonvaCanvas({
                     wrap="word"
                     fill={nodeVisual.textFill}
                     ellipsis
-                    visible={!(inlineEdit?.type === "node" && inlineEdit.id === node.id)}
+                    visible={viewFilters.nodeLabels && !(inlineEdit?.type === "node" && inlineEdit.id === node.id)}
                   />
                   {anchorVisual.visible
                     ? geometry.anchorsLocal.map((anchor) => (
@@ -1805,7 +1813,7 @@ export function KonvaCanvas({
                     : null}
                 </Group>
               );
-            })}
+            }) : null}
 
             {connectionDraftGeometry ? (
               connectionDraftGeometry.pathData ? (
@@ -1840,7 +1848,7 @@ export function KonvaCanvas({
               />
             ) : null}
 
-            {showEdges && mode === "select" && selectedSingleEdge && selectedSingleEdgeGeometry ? (
+            {viewFilters.edges && mode === "select" && selectedSingleEdge && selectedSingleEdgeGeometry ? (
               <>
                 <Circle
                   id={edgeEndpointHitId(selectedSingleEdge.id, "from")}
@@ -1926,7 +1934,7 @@ export function KonvaCanvas({
           </>
         ) : null}
 
-        {showEdges && inlineEdit?.type === "edge" && editStyle ? (
+        {viewFilters.edges && viewFilters.edgeLabels && inlineEdit?.type === "edge" && editStyle ? (
           <Input
             autoFocus
             value={inlineEdit.value}

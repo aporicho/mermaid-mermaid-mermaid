@@ -6,6 +6,7 @@ HOST="${HOST:-127.0.0.1}"
 PORT="${PORT:-3000}"
 LOG_FILE="${LOG_FILE:-/tmp/mermaid-dev.log}"
 START_TIMEOUT="${START_TIMEOUT:-30}"
+FOREGROUND="${FOREGROUND:-0}"
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd -- "$SCRIPT_DIR/.." && pwd)"
@@ -168,7 +169,7 @@ stop_existing_project_server() {
 }
 
 clear_dev_cache() {
-  log "Clearing Next dev cache that can conflict with production build output."
+  log "Clearing Next dev cache."
   rm -rf "$PROJECT_DIR/.next/cache" "$PROJECT_DIR/.next/server" "$PROJECT_DIR/.next/static/development"
 }
 
@@ -200,6 +201,11 @@ wait_for_server() {
 }
 
 start_server() {
+  if [[ "$FOREGROUND" == "1" ]]; then
+    log "Starting foreground Next dev server on http://$HOST:$PORT"
+    exec npm run dev -- --hostname "$HOST" --port "$PORT"
+  fi
+
   mkdir -p "$(dirname -- "$LOG_FILE")"
   : >"$LOG_FILE"
 

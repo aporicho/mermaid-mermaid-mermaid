@@ -39,6 +39,14 @@ For a restart-friendly local debug server, use:
 npm run debug
 ```
 
+For terminal sessions that need to keep the server attached in the foreground, use:
+
+```bash
+npm run debug:fg
+```
+
+`npm run build` refuses to run while the default dev port is active, which prevents production builds from overwriting the live dev CSS or React manifests in `.next`.
+
 ## Canvas Navigation
 
 - Drag nodes directly in select mode.
