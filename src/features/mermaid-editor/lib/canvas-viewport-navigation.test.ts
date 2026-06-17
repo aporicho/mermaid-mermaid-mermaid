@@ -36,21 +36,36 @@ function worldAt(screen: { x: number; y: number }, value: ViewportState) {
 }
 
 describe("canvas viewport navigation", () => {
-  it("pans the viewport from unmodified wheel deltas", () => {
-    const result = wheel({ deltaX: 24, deltaY: -18 });
+  it("zooms around the pointer from unmodified vertical wheel deltas", () => {
+    const before = worldAt(pointer, viewport);
+    const result = wheel({ deltaY: -120 });
 
-    expect(result).toEqual({
-      kind: "pan",
-      viewport: { x: 76, y: 98, scale: 1 }
-    });
+    expect(result.kind).toBe("zoom");
+    if (result.kind !== "zoom") return;
+
+    expect(result.viewport.scale).toBeGreaterThan(viewport.scale);
+    expect(worldAt(pointer, result.viewport).x).toBeCloseTo(before.x);
+    expect(worldAt(pointer, result.viewport).y).toBeCloseTo(before.y);
   });
 
-  it("preserves tiny pixel deltas from precision trackpads", () => {
+  it("preserves tiny vertical pixel deltas from precision trackpads as zoom", () => {
+    const before = worldAt(pointer, viewport);
     const result = wheel({ deltaX: 0.004, deltaY: 0.006 });
+
+    expect(result.kind).toBe("zoom");
+    if (result.kind !== "zoom") return;
+
+    expect(result.viewport.scale).toBeLessThan(viewport.scale);
+    expect(worldAt(pointer, result.viewport).x).toBeCloseTo(before.x);
+    expect(worldAt(pointer, result.viewport).y).toBeCloseTo(before.y);
+  });
+
+  it("pans horizontally from horizontal-only wheel deltas", () => {
+    const result = wheel({ deltaX: 24 });
 
     expect(result).toEqual({
       kind: "pan",
-      viewport: { x: 99.996, y: 79.994, scale: 1 }
+      viewport: { x: 76, y: 80, scale: 1 }
     });
   });
 
@@ -76,10 +91,10 @@ describe("canvas viewport navigation", () => {
   });
 
   it("normalizes line and page wheel delta modes", () => {
-    expect(wheel({ deltaY: 2, deltaMode: 1 })).toEqual({
-      kind: "pan",
-      viewport: { x: 100, y: 48, scale: 1 }
-    });
+    const lineWheel = wheel({ deltaY: 2, deltaMode: 1 });
+    expect(lineWheel.kind).toBe("zoom");
+    if (lineWheel.kind === "zoom") expect(lineWheel.viewport.scale).toBeLessThan(viewport.scale);
+
     expect(wheel({ deltaX: 1, deltaMode: 2 })).toEqual({
       kind: "pan",
       viewport: { x: -900, y: 80, scale: 1 }

@@ -32,26 +32,37 @@ export function resolveWheelNavigation(input: CanvasWheelNavigationInput): Canva
   const deltaX = normalizeWheelDelta(input.deltaX, input.deltaMode, input.canvasSize.width);
   const deltaY = normalizeWheelDelta(input.deltaY, input.deltaMode, input.canvasSize.height);
 
-  if (input.ctrlKey || input.metaKey) {
-    if (deltaY === 0) return { kind: "ignored" };
+  const shouldMapShiftToHorizontal = input.shiftKey && Math.abs(deltaX) < WHEEL_DELTA_EPSILON;
+  if (input.shiftKey) {
+    const panDeltaX = shouldMapShiftToHorizontal ? deltaY : deltaX;
+    const panDeltaY = shouldMapShiftToHorizontal ? 0 : deltaY;
+    if (Math.abs(panDeltaX) < WHEEL_DELTA_EPSILON && Math.abs(panDeltaY) < WHEEL_DELTA_EPSILON) return { kind: "ignored" };
 
+    return {
+      kind: "pan",
+      viewport: {
+        ...input.viewport,
+        x: input.viewport.x - panDeltaX,
+        y: input.viewport.y - panDeltaY
+      }
+    };
+  }
+
+  if (Math.abs(deltaY) >= WHEEL_DELTA_EPSILON) {
     return {
       kind: "zoom",
       viewport: zoomViewportAtPoint(input.viewport, input.pointer, input.viewport.scale * Math.exp(-deltaY * WHEEL_ZOOM_SENSITIVITY))
     };
   }
 
-  const shouldMapShiftToHorizontal = input.shiftKey && Math.abs(deltaX) < WHEEL_DELTA_EPSILON;
   const panDeltaX = shouldMapShiftToHorizontal ? deltaY : deltaX;
-  const panDeltaY = shouldMapShiftToHorizontal ? 0 : deltaY;
-  if (Math.abs(panDeltaX) < WHEEL_DELTA_EPSILON && Math.abs(panDeltaY) < WHEEL_DELTA_EPSILON) return { kind: "ignored" };
+  if (Math.abs(panDeltaX) < WHEEL_DELTA_EPSILON) return { kind: "ignored" };
 
   return {
     kind: "pan",
     viewport: {
       ...input.viewport,
-      x: input.viewport.x - panDeltaX,
-      y: input.viewport.y - panDeltaY
+      x: input.viewport.x - panDeltaX
     }
   };
 }

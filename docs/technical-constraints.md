@@ -12,6 +12,7 @@
 
 ## 视觉主题边界
 
+- 应用级 token 清单以 [theme-tokens.md](theme-tokens.md) 为准。新增主题字段、画布视觉字段、Mermaid 变量映射和对象级覆盖时，必须先归入该 token 体系。
 - WebUI 使用暖纸底、近黑细线和少量珊瑚红强调。红色只用于 selected、active、connection target、primary command 和关键反馈，不作为大面积背景。
 - 普通 UI 颜色必须优先使用 shadcn token，例如 `bg-background`、`bg-card`、`text-foreground`、`border-border`、`text-muted-foreground`、`bg-primary`。
 - 主题设置页只能修改主题 token。业务组件不直接保存用户主题色，也不绕过 `editor-theme.ts` 自行转换 CSS、Konva 或 Mermaid 渲染变量。

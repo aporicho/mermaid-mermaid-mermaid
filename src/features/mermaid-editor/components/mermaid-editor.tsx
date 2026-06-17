@@ -11,6 +11,8 @@ import {
   FloppyDiskArrowOut,
   Folder,
   GitBranch as Workflow,
+  Link,
+  LinkSlash,
   MoreHoriz,
   PathArrow,
   PositionAlign,
@@ -121,6 +123,7 @@ type StoredEditor = {
   rightCollapsed: boolean;
   workspaceView?: WorkspaceView;
   showGrid?: boolean;
+  showEdges?: boolean;
   fileName?: string;
   themeId?: EditorThemeId;
   customTheme?: EditorTheme | null;
@@ -167,6 +170,7 @@ function loadInitialState() {
       rightCollapsed: false,
       workspaceView: "canvas" as WorkspaceView,
       showGrid: true,
+      showEdges: true,
       fileName: FALLBACK_FILE_NAME,
       themeId: DEFAULT_EDITOR_THEME.id,
       customTheme: null
@@ -202,6 +206,7 @@ function loadInitialState() {
       rightCollapsed: stored.rightCollapsed || false,
       workspaceView: loaded.editableKind === "flowchart" ? stored.workspaceView || "canvas" : "render",
       showGrid: stored.showGrid ?? true,
+      showEdges: stored.showEdges ?? true,
       fileName: stored.fileName || FALLBACK_FILE_NAME,
       themeId,
       customTheme
@@ -219,6 +224,7 @@ function loadInitialState() {
       rightCollapsed: false,
       workspaceView: "canvas" as WorkspaceView,
       showGrid: true,
+      showEdges: true,
       fileName: FALLBACK_FILE_NAME,
       themeId: DEFAULT_EDITOR_THEME.id,
       customTheme: null
@@ -274,6 +280,17 @@ function normalizeThemeId(value: unknown): EditorThemeId {
 
 function selectionKey(selection: Selection) {
   return [selection.primaryId || "", ...selection.nodeIds, "|", ...selection.edgeIds, "|", ...(selection.subgraphIds || [])].join(",");
+}
+
+function selectionWithoutEdges(selection: Selection): Selection {
+  const subgraphIds = selection.subgraphIds || [];
+  const primaryId = selection.nodeIds.includes(selection.primaryId || "")
+    ? selection.primaryId
+    : subgraphIds.includes(selection.primaryId || "")
+      ? selection.primaryId
+      : selection.nodeIds[0] || subgraphIds[0];
+
+  return { nodeIds: selection.nodeIds, edgeIds: [], subgraphIds, primaryId };
 }
 
 function targetFromSelection(selection: Selection): AiRecentAction["target"] {
@@ -347,6 +364,7 @@ export function MermaidEditor() {
   const [rightCollapsed, setRightCollapsed] = useState(initial.rightCollapsed);
   const [workspaceView, setWorkspaceView] = useState<WorkspaceView>(initial.workspaceView);
   const [showGrid, setShowGrid] = useState(initial.showGrid);
+  const [showEdges, setShowEdges] = useState(initial.showEdges);
   const [fileName, setFileName] = useState(initial.fileName);
   const [fileHandle, setFileHandle] = useState<MermaidFileHandle | null>(null);
   const [lastSavedDocument, setLastSavedDocument] = useState("");
@@ -454,6 +472,13 @@ export function MermaidEditor() {
   function changeMode(nextMode: EditorMode) {
     setMode(nextMode);
     recordRecentAction("mode.change", { kind: "canvas" }, `切换到 ${nextMode} 模式。`);
+  }
+
+  function toggleEdgesVisibility() {
+    const nextShowEdges = !showEdges;
+    setShowEdges(nextShowEdges);
+    if (!nextShowEdges && selection.edgeIds.length) updateSelection(selectionWithoutEdges(selection));
+    recordRecentAction("view.edgesVisibility", { kind: "canvas" }, nextShowEdges ? "显示所有连线。" : "隐藏所有连线。");
   }
 
   const snapshot = useCallback(
@@ -1050,6 +1075,7 @@ export function MermaidEditor() {
           rightCollapsed,
           workspaceView,
           showGrid,
+          showEdges,
           fileName,
           themeId,
           customTheme
@@ -1061,7 +1087,7 @@ export function MermaidEditor() {
     return () => {
       if (storageWriteTimerRef.current) window.clearTimeout(storageWriteTimerRef.current);
     };
-  }, [source, graph, viewport, edgeRouting, layoutMode, leftCollapsed, rightCollapsed, workspaceView, showGrid, fileName, themeId, customTheme]);
+  }, [source, graph, viewport, edgeRouting, layoutMode, leftCollapsed, rightCollapsed, workspaceView, showGrid, showEdges, fileName, themeId, customTheme]);
 
   useEffect(() => {
     if (aiContextPostTimerRef.current) window.clearTimeout(aiContextPostTimerRef.current);
@@ -1265,6 +1291,22 @@ export function MermaidEditor() {
                 <TooltipContent side="bottom">渲染视图</TooltipContent>
               </Tooltip>
             </div>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  size="icon"
+                  variant={!showEdges ? "default" : "ghost"}
+                  className={!showEdges ? "size-8 text-background hover:text-background" : "size-8 text-icon hover:text-icon disabled:opacity-40"}
+                  onClick={toggleEdgesVisibility}
+                  disabled={!isCanvasEditable}
+                  aria-pressed={!showEdges}
+                  aria-label={showEdges ? "隐藏所有连线" : "显示所有连线"}
+                >
+                  {showEdges ? <Link className="size-4" /> : <LinkSlash className="size-4" />}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">{showEdges ? "隐藏所有连线" : "显示所有连线"}</TooltipContent>
+            </Tooltip>
             <SecondaryActionsMenu
               open={secondaryActionsOpen}
               direction={graph.direction}
@@ -1298,6 +1340,7 @@ export function MermaidEditor() {
                 mode={mode}
                 panningRequested={spacePanning}
                 showGrid={showGrid}
+                showEdges={showEdges}
                 edgeRouting={edgeRouting}
                 mermaidEdgeRoutes={mermaidEdgeRoutes}
                 layoutMode={layoutMode}

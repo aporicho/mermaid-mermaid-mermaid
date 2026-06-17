@@ -1,0 +1,221 @@
+# 主题 Token 清单
+
+本文档定义应用级主题 token。它覆盖整个应用，而不只是画布：WebUI、shadcn 组件、Iconoir 图标、Konva 编辑画布、源码面板和 Mermaid 渲染视图都必须从同一套 token 派生。
+
+## 设计原则
+
+- 用户可编辑的是语义 token，不直接编辑具体组件里的硬编码样式。
+- shadcn CSS variables、Konva visual tokens、Mermaid themeVariables 都是派生结果。
+- 实线、虚线、节点形状、箭头等图语义不属于主题 token；它们是 Mermaid/图模型语义。但这些语义的视觉表现可以由 token 控制。
+- 对象级样式覆盖优先级高于应用主题，但必须只覆盖有限字段，例如节点填充、描边、文字和连线样式。
+
+## 优先级
+
+1. 平台与渲染器基础默认值
+2. 应用主题 token
+3. 文件级主题配置
+4. 对象级样式覆盖
+5. 交互状态临时覆盖
+6. 主题设置页预览覆盖
+
+## 元信息
+
+| Token | 含义 | 当前字段 |
+| --- | --- | --- |
+| `theme.version` | 主题 schema 版本 | `version` |
+| `theme.id` | 主题 ID | `id` |
+| `theme.name` | 主题展示名称 | `name` |
+
+## 颜色
+
+### 应用 UI
+
+| Token | 含义 | 当前字段 / CSS 映射 |
+| --- | --- | --- |
+| `color.app.background` | 整个应用背景，工具栏和画布底色也应继承它 | `ui.background` / `--background` |
+| `color.app.foreground` | 主文本色 | `ui.foreground` / `--foreground` |
+| `color.app.icon` | 默认图标色 | `ui.icon` / `--icon` |
+| `color.app.card` | 面板、浮层、菜单表面 | `ui.card` / `--card` |
+| `color.app.cardForeground` | 面板文本色 | 派生自 `ui.foreground` / `--card-foreground` |
+| `color.app.popover` | Select、Tooltip、菜单等浮层表面 | `ui.popover` / `--popover` |
+| `color.app.popoverForeground` | 浮层文本色 | 派生自 `ui.foreground` / `--popover-foreground` |
+| `color.app.border` | 普通边框 | `ui.border` / `--border` |
+| `color.app.input` | 输入框边框 | 派生自 `ui.border` / `--input` |
+| `color.app.focusRing` | 键盘焦点环 | 派生自 `ui.primary` / `--ring` |
+
+### 语义状态
+
+| Token | 含义 | 当前字段 / CSS 映射 |
+| --- | --- | --- |
+| `color.intent.primary` | 主操作、选中、连接目标、高亮按钮 | `ui.primary` / `--primary` |
+| `color.intent.primaryForeground` | 主操作上的文字和图标 | 派生自 `ui.background` / `--primary-foreground` |
+| `color.intent.secondary` | 次级按钮和弱背景 | `ui.secondary` / `--secondary` |
+| `color.intent.secondaryForeground` | 次级按钮文字 | 派生自 `ui.foreground` / `--secondary-foreground` |
+| `color.intent.muted` | 弱化背景 | `ui.muted` / `--muted` |
+| `color.intent.mutedForeground` | 次级说明文字 | `ui.mutedForeground` / `--muted-foreground` |
+| `color.intent.accent` | 轻强调背景 | `ui.accent` / `--accent` |
+| `color.intent.accentForeground` | hover、轻强调文字 | `ui.accentForeground` / `--accent-foreground` |
+| `color.intent.destructive` | 错误、删除、危险操作 | `ui.destructive` / `--destructive` |
+| `color.intent.destructiveForeground` | 危险按钮文字 | 派生自 `ui.background` / `--destructive-foreground` |
+
+### 画布
+
+| Token | 含义 | 当前字段 |
+| --- | --- | --- |
+| `color.canvas.surface` | 节点和边标签默认填充 | `canvas.surface` |
+| `color.canvas.nodeStroke` | 节点默认描边 | `canvas.nodeStroke` |
+| `color.canvas.nodeText` | 节点文字 | `canvas.nodeText` |
+| `color.canvas.edge` | 连线默认颜色 | `canvas.edge` |
+| `color.canvas.edgeText` | 连线标签文字 | `canvas.edgeText` |
+| `color.canvas.labelStroke` | 连线标签描边 | `canvas.labelStroke` |
+| `color.canvas.connection` | 正常连线操作反馈 | 派生自 `ui.primary` |
+| `color.canvas.connectionInvalid` | 非法连接反馈 | `canvas.connectionInvalid` |
+| `color.canvas.previewInvalid` | 无效草稿线 | `canvas.previewInvalid` |
+| `color.canvas.selectionFill` | 框选区域填充 | 派生自 `ui.primary` 低透明度 |
+| `color.canvas.anchorStroke` | 连接点描边 | 派生自 `canvas.surface` |
+| `color.canvas.gridDot` | 画布点阵颜色 | 派生自 `canvas.edge` |
+
+### 源码与渲染视图
+
+| Token | 含义 | 当前字段 / CSS 映射 |
+| --- | --- | --- |
+| `color.source.line` | 源码面板行分隔线 | `source.line` / `--source-line` |
+| `color.render.gridDot` | Mermaid 渲染视图背景点阵 | 派生自 `--foreground` 低透明度 |
+| `color.render.background` | Mermaid 渲染视图背景 | 派生自 `--background` |
+
+## 字体
+
+| Token | 含义 | 当前来源 |
+| --- | --- | --- |
+| `font.family.sans` | 应用 UI、节点、Mermaid 渲染文本 | `--font-sans` |
+| `font.family.mono` | 源码、ID、CLI 结果 | `--font-mono` |
+| `font.size.ui.xs` | 辅助标签、面板小标题 | Tailwind `text-xs` |
+| `font.size.ui.sm` | 默认 UI 文本、按钮、表单 | Tailwind `text-sm` |
+| `font.size.node` | 节点文本 | `DEFAULT_NODE_GEOMETRY_TOKENS.fontSize` |
+| `font.size.edgeLabel` | 连线标签 | 当前随 Konva 文本实现派生 |
+| `font.size.source` | 源码面板 | 当前组件实现 |
+| `font.weight.regular` | 正文 | Tailwind 默认 |
+| `font.weight.medium` | 按钮和面板标题 | Tailwind `font-medium` |
+| `font.weight.bold` | 节点文字测量与显示 | 当前节点测量使用 `700` |
+| `font.lineHeight.node` | 节点文本行高 | `DEFAULT_NODE_GEOMETRY_TOKENS.lineHeight` |
+| `font.lineHeight.source` | 源码行高 | 源码面板实现 / `source-grid` 30px |
+| `font.letterSpacing.default` | 默认字距 | 固定为 `0` |
+
+## 间距与尺寸
+
+| Token | 含义 | 当前来源 |
+| --- | --- | --- |
+| `space.panel.padding` | 面板内边距 | 当前组件 `p-4` 等 |
+| `space.panel.headerHeight` | 面板标题栏高度 | 当前组件 52px |
+| `space.panel.footerHeight` | 面板底栏高度 | 当前组件 56px |
+| `space.control.gap` | 控件间距 | Tailwind `gap-2` / `gap-3` |
+| `space.control.paddingX` | 按钮横向内边距 | shadcn Button |
+| `space.control.paddingY` | 按钮纵向内边距 | shadcn Button |
+| `space.iconButton.size` | 图标按钮点击区域 | 当前常用 32px / shadcn `icon` 40px |
+| `space.node.paddingX` | 节点左右内边距 | `DEFAULT_NODE_GEOMETRY_TOKENS.paddingX` |
+| `space.node.paddingY` | 节点上下内边距 | `DEFAULT_NODE_GEOMETRY_TOKENS.paddingY` |
+| `space.node.minChars` | 节点最小字符宽度 | `DEFAULT_NODE_GEOMETRY_TOKENS.minChars` |
+| `space.node.maxChars` | 节点最大字符宽度 | `DEFAULT_NODE_GEOMETRY_TOKENS.maxChars` |
+| `space.node.maxLines` | 节点最大行数 | `DEFAULT_NODE_GEOMETRY_TOKENS.maxLines` |
+| `space.grid.minorStep` | 画布点阵小步长 | `DEFAULT_CANVAS_GRID.minorStep` |
+| `space.grid.majorEvery` | 每多少小格出现主格 | `DEFAULT_CANVAS_GRID.majorEvery` |
+
+## 圆角
+
+| Token | 含义 | 当前来源 |
+| --- | --- | --- |
+| `radius.app` | shadcn 基础圆角 | `--radius` |
+| `radius.control.sm` | 小控件圆角 | Tailwind `rounded-sm` 派生 |
+| `radius.control.md` | 默认控件圆角 | Tailwind `rounded-md` 派生 |
+| `radius.control.lg` | 大控件圆角 | Tailwind `rounded-lg` 派生 |
+| `radius.canvas.node` | 圆角矩形节点圆角 | `CANVAS_VISUAL_TOKENS.node.cornerRadius` |
+| `radius.canvas.edgeLabel` | 连线标签圆角 | `CANVAS_VISUAL_TOKENS.edge.labelCornerRadius` |
+| `radius.canvas.polygonCorner` | 多边形微圆角 | 形状几何派生，后续应显式 token 化 |
+
+## 描边、线和虚线
+
+| Token | 含义 | 当前来源 |
+| --- | --- | --- |
+| `stroke.width.node` | 节点默认描边 | `CANVAS_VISUAL_TOKENS.node.strokeWidth` |
+| `stroke.width.nodeEmphasized` | 节点选中/编辑/连接目标描边 | `CANVAS_VISUAL_TOKENS.node.emphasizedStrokeWidth` |
+| `stroke.width.edge` | 普通连线描边 | `edgeSemanticStyle()` |
+| `stroke.width.edgeThick` | Mermaid thick 连线描边 | `edgeSemanticStyle()` |
+| `stroke.width.overlay` | 框选、辅助线描边 | `CANVAS_VISUAL_TOKENS.overlay.strokeWidth` |
+| `stroke.width.anchor` | 连接点描边 | `CANVAS_VISUAL_TOKENS.anchor.strokeWidth` |
+| `stroke.dash.edgeDotted` | Mermaid dotted 连线 | `edgeSemanticStyle()` |
+| `stroke.dash.selection` | 框选虚线 | `CANVAS_VISUAL_TOKENS.overlay.selectionDash` |
+| `stroke.dash.connectionDraft` | 连线草稿虚线 | `CANVAS_VISUAL_TOKENS.overlay.connectionDash` |
+| `stroke.dash.centerGuide` | 中点对齐辅助线虚线 | `CANVAS_VISUAL_TOKENS.overlay.centerGuideDash` |
+
+## 图标与控件
+
+| Token | 含义 | 当前来源 |
+| --- | --- | --- |
+| `icon.family` | 图标库 | Iconoir |
+| `icon.size.sm` | 小图标 | 当前常用 16px |
+| `icon.size.button` | 按钮内图标 | shadcn Button / 当前 16px |
+| `icon.strokeWidth` | 图标线宽 | shadcn Button 覆盖 2.2 |
+| `control.button.height.sm` | 小按钮高度 | 当前常用 32px |
+| `control.button.height.md` | 默认按钮高度 | shadcn Button 40px |
+| `control.button.active.background` | 激活按钮背景 | `color.intent.primary` |
+| `control.button.active.foreground` | 激活按钮图标/文字 | `color.intent.primaryForeground` |
+| `control.button.inactive.foreground` | 未激活按钮图标 | `color.app.icon` |
+
+## 画布交互
+
+| Token | 含义 | 当前来源 |
+| --- | --- | --- |
+| `canvas.anchor.radius` | 节点连接点半径 | `CANVAS_VISUAL_TOKENS.anchor.radius` |
+| `canvas.anchor.endpointRadius` | 连线端点编辑手柄半径 | `CANVAS_VISUAL_TOKENS.anchor.endpointRadius` |
+| `canvas.edge.hitStrokeWidth` | 连线命中热区宽度 | `CANVAS_VISUAL_TOKENS.edge.hitStrokeWidth` |
+| `canvas.edge.pointerLength` | 箭头长度 | `CANVAS_VISUAL_TOKENS.edge.pointerLength` |
+| `canvas.edge.pointerWidth` | 箭头宽度 | `CANVAS_VISUAL_TOKENS.edge.pointerWidth` |
+| `canvas.grid.minor.alpha` | 小点阵透明度 | `canvas-grid.ts` |
+| `canvas.grid.major.alpha` | 主点阵透明度 | `canvas-grid.ts` |
+| `canvas.grid.super.alpha` | 低缩放点阵透明度 | `canvas-grid.ts` |
+| `canvas.grid.maxDots` | 点阵性能上限 | `MAX_GRID_DOTS` |
+
+## Mermaid themeVariables 映射
+
+| Mermaid 变量 | 来源 token |
+| --- | --- |
+| `background` | `color.app.background` |
+| `mainBkg` | `color.canvas.surface` |
+| `primaryColor` | `color.canvas.surface` |
+| `primaryTextColor` | `color.canvas.nodeText` |
+| `primaryBorderColor` | `color.canvas.nodeStroke` |
+| `secondaryColor` | `color.intent.accent` |
+| `secondaryTextColor` | `color.app.foreground` |
+| `tertiaryColor` | `color.intent.secondary` |
+| `tertiaryTextColor` | `color.app.foreground` |
+| `lineColor` | `color.canvas.edge` |
+| `textColor` | `color.app.foreground` |
+| `edgeLabelBackground` | `color.canvas.surface` |
+| `clusterBkg` | `color.intent.secondary` |
+| `clusterBorder` | `color.app.border` |
+| `nodeBorder` | `color.canvas.nodeStroke` |
+| `fontFamily` | `font.family.sans` |
+
+## 对象级覆盖
+
+对象级覆盖不是应用主题本身，但必须参与最终视觉解析。
+
+| Token | 含义 | 适用对象 |
+| --- | --- | --- |
+| `object.node.fill` | 单个节点填充 | 节点 |
+| `object.node.stroke` | 单个节点描边 | 节点 |
+| `object.node.text` | 单个节点文字 | 节点 |
+| `object.node.shape` | 单个节点形状 | 节点 |
+| `object.edge.stroke` | 单条连线颜色 | 连线 |
+| `object.edge.style` | 实线、虚线、粗线等语义样式 | 连线 |
+| `object.edge.arrow` | 箭头类型 | 连线 |
+| `object.edge.labelText` | 连线标签文字 | 连线 |
+| `object.group.fill` | 分组填充 | 分组 |
+| `object.group.stroke` | 分组边框 | 分组 |
+
+## 需要补齐的实现边界
+
+- `EditorTheme` 当前主要覆盖颜色，还没有显式覆盖字体、尺寸、圆角、线宽、虚线、图标和网格 token。
+- `CANVAS_VISUAL_TOKENS` 当前有完整的画布交互 token，但只有颜色会从 `EditorTheme` 派生，尺寸类 token 仍是固定默认值。
+- 主题设置页当前只开放部分颜色字段，后续应按本文档分组逐步开放。
+- Mermaid 渲染视图只能通过 `themeVariables` 接收部分 token，无法 1:1 接收所有画布几何和交互 token。

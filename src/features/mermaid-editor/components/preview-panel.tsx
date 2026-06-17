@@ -182,7 +182,7 @@ export function PreviewPanel({
     const pointer = pointFromClient(event.clientX, event.clientY);
     if (!pointer) return;
 
-    const isZoomWheel = event.ctrlKey || event.metaKey;
+    const isZoomWheel = !event.shiftKey && Math.abs(event.deltaY) > 0;
     if (isZoomWheel && Date.now() < suppressWheelZoomUntilRef.current) return;
 
     const result = resolveWheelNavigation({

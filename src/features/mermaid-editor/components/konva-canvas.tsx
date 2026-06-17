@@ -121,6 +121,7 @@ type KonvaCanvasProps = {
   mode: EditorMode;
   panningRequested: boolean;
   showGrid: boolean;
+  showEdges: boolean;
   edgeRouting: EdgeRouting;
   mermaidEdgeRoutes?: DagreEdgeRoute[];
   layoutMode: LayoutMode;
@@ -207,6 +208,10 @@ function normalizeBox(box: SelectionBox) {
 
 function edgePointerLength(edge: CanvasEdge) {
   return (edge.arrowType || "arrow") === "arrow" ? CANVAS_VISUAL_TOKENS.edge.pointerLength : 0;
+}
+
+function isEdgeHitTarget(hit: HitTarget) {
+  return hit.kind === "edge" || hit.kind === "edgeLabel" || hit.kind === "edgeEndpoint";
 }
 
 function edgePointerWidth(edge: CanvasEdge) {
@@ -571,6 +576,7 @@ export function KonvaCanvas({
   mode,
   panningRequested,
   showGrid,
+  showEdges,
   edgeRouting,
   mermaidEdgeRoutes = [],
   layoutMode,
@@ -649,7 +655,7 @@ export function KonvaCanvas({
     return remapEdgePathGeometry(routeGeometry, fallbackGeometry);
   }
 
-  const selectedSingleEdge = selection.edgeIds.length === 1 ? graph.edges.find((edge) => edge.id === selection.edgeIds[0]) : undefined;
+  const selectedSingleEdge = showEdges && selection.edgeIds.length === 1 ? graph.edges.find((edge) => edge.id === selection.edgeIds[0]) : undefined;
   const selectedSingleEdgeBaseGeometry = selectedSingleEdge ? resolvedEdgeGeometry(selectedSingleEdge) : null;
   const selectionBox =
     interactionState.kind === "marqueeSelecting"
@@ -795,6 +801,12 @@ export function KonvaCanvas({
       interaction: interactionState.kind
     });
   }, [dimensions, inlineEdit, interactionState.kind, onLiveStateChange]);
+
+  useEffect(() => {
+    if (showEdges) return;
+    setHoveredEdgeId(null);
+    setHoveredHitTarget((current) => (isEdgeHitTarget(current) ? { kind: "blank" } : current));
+  }, [showEdges]);
 
   useEffect(() => {
     return () => {
@@ -1096,7 +1108,7 @@ export function KonvaCanvas({
     const pointer = stage?.getPointerPosition() || screenPointFromClient(event.evt.clientX, event.evt.clientY);
     if (!pointer) return;
 
-    const isZoomWheel = event.evt.ctrlKey || event.evt.metaKey;
+    const isZoomWheel = !event.evt.shiftKey && Math.abs(event.evt.deltaY) > 0;
     if (isZoomWheel && Date.now() < suppressWheelZoomUntilRef.current) return;
 
     const result = resolveWheelNavigation({
@@ -1582,114 +1594,118 @@ export function KonvaCanvas({
                 );
               })}
 
-            {graph.edges.map((edge) => {
-              const baseGeometry = resolvedEdgeGeometry(edge);
-              if (!baseGeometry) return null;
-              const isRetargetPreviewEdge = retargetDraft?.edgeId === edge.id && !!retargetDraftGeometry && !!retargetPreview;
-              const geometry = isRetargetPreviewEdge ? retargetDraftGeometry : baseGeometry;
-              const edgeVisual = getEdgeVisualState({ edge, selection, hoveredEdgeId, interactionState, inlineEdit, visualTokens });
-              const edgePreviewVisual = isRetargetPreviewEdge ? getConnectionDraftVisualState({ valid: retargetPreview.valid, edge, visualTokens }) : null;
-              const shouldRenderPath = !!geometry.pathData;
-              const isEditingEdgeLabel = inlineEdit?.type === "edge" && inlineEdit.id === edge.id;
-              const edgeLabel = isEditingEdgeLabel ? inlineEdit.value : edge.label;
-              const edgeLabelGeometry = edgeLabel || isEditingEdgeLabel ? buildEdgeLabelGeometry(edgeLabel, geometry.labelPoint, edgeLabelSpec) : null;
+            {showEdges
+              ? graph.edges.map((edge) => {
+                  const baseGeometry = resolvedEdgeGeometry(edge);
+                  if (!baseGeometry) return null;
+                  const isRetargetPreviewEdge = retargetDraft?.edgeId === edge.id && !!retargetDraftGeometry && !!retargetPreview;
+                  const geometry = isRetargetPreviewEdge ? retargetDraftGeometry : baseGeometry;
+                  const edgeVisual = getEdgeVisualState({ edge, selection, hoveredEdgeId, interactionState, inlineEdit, visualTokens });
+                  const edgePreviewVisual = isRetargetPreviewEdge ? getConnectionDraftVisualState({ valid: retargetPreview.valid, edge, visualTokens }) : null;
+                  const shouldRenderPath = !!geometry.pathData;
+                  const isEditingEdgeLabel = inlineEdit?.type === "edge" && inlineEdit.id === edge.id;
+                  const edgeLabel = isEditingEdgeLabel ? inlineEdit.value : edge.label;
+                  const edgeLabelGeometry = edgeLabel || isEditingEdgeLabel ? buildEdgeLabelGeometry(edgeLabel, geometry.labelPoint, edgeLabelSpec) : null;
 
-              return (
-                <Group key={edge.id}>
-                  {shouldRenderPath ? (
-                    <>
-                      <Path
-                        id={edgeHitId(edge.id)}
-                        name={CANVAS_HIT_NAMES.edge}
-                        data={geometry.pathData}
-                        stroke="transparent"
-                        strokeWidth={visualTokens.edge.hitStrokeWidth}
-                        fillEnabled={false}
-                        onClick={(event) => handleCanvasClick(event, { kind: "edge", id: edge.id })}
-                        onDblClick={(event) => handleCanvasDoubleClick(event, { kind: "edge", id: edge.id })}
-                        onTap={(event) => handleCanvasTap(event, { kind: "edge", id: edge.id })}
-                      />
-                      <Path
-                        data={geometry.pathData}
-                        stroke={edgePreviewVisual?.stroke ?? edgeVisual.stroke}
-                        strokeWidth={edgePreviewVisual?.strokeWidth ?? edgeVisual.strokeWidth}
-                        dash={edgePreviewVisual?.dash ?? edgeVisual.dash}
-                        opacity={edgePreviewVisual?.opacity ?? 1}
-                        lineCap="round"
-                        lineJoin="round"
-                        fillEnabled={false}
-                        listening={false}
-                      />
-                      <PathArrowMarker edge={edge} geometry={geometry} fill={edgePreviewVisual?.fill ?? edgeVisual.fill} />
-                    </>
-                  ) : (
-                    <>
-                      <Arrow
-                        id={edgeHitId(edge.id)}
-                        name={CANVAS_HIT_NAMES.edge}
-                        points={geometry.points}
-                        stroke="transparent"
-                        fill="transparent"
-                        strokeWidth={visualTokens.edge.hitStrokeWidth}
-                        pointerLength={0}
-                        pointerWidth={0}
-                        onClick={(event) => handleCanvasClick(event, { kind: "edge", id: edge.id })}
-                        onDblClick={(event) => handleCanvasDoubleClick(event, { kind: "edge", id: edge.id })}
-                        onTap={(event) => handleCanvasTap(event, { kind: "edge", id: edge.id })}
-                      />
-                      <Arrow
-                        points={geometry.points}
-                        stroke={edgePreviewVisual?.stroke ?? edgeVisual.stroke}
-                        fill={edgePreviewVisual?.fill ?? edgeVisual.fill}
-                        strokeWidth={edgePreviewVisual?.strokeWidth ?? edgeVisual.strokeWidth}
-                        dash={edgePreviewVisual?.dash ?? edgeVisual.dash}
-                        opacity={edgePreviewVisual?.opacity ?? 1}
-                        lineCap="round"
-                        lineJoin="round"
-                        pointerLength={edgePreviewVisual?.pointerLength ?? edgePointerLength(edge)}
-                        pointerWidth={edgePreviewVisual?.pointerWidth ?? edgePointerWidth(edge)}
-                        listening={false}
-                      />
-                    </>
-                  )}
-                  {!edgePreviewVisual ? <EdgeEndMarker edge={edge} geometry={geometry} stroke={edgeVisual.stroke} strokeWidth={edgeVisual.strokeWidth} surfaceFill={visualTokens.colors.surface} /> : null}
-                  {edgeLabelGeometry && !isEditingEdgeLabel ? (
-                    <Group
-                      id={edgeLabelHitId(edge.id)}
-                      name={CANVAS_HIT_NAMES.edgeLabel}
-                      x={edgeLabelGeometry.frame.x}
-                      y={edgeLabelGeometry.frame.y}
-                      onClick={(event) => handleCanvasClick(event, { kind: "edgeLabel", id: edge.id })}
-                      onDblClick={(event) => handleCanvasDoubleClick(event, { kind: "edgeLabel", id: edge.id })}
-                    >
-                      <Rect
-                        width={edgeLabelGeometry.frame.width}
-                        height={edgeLabelGeometry.frame.height}
-                        cornerRadius={visualTokens.edge.labelCornerRadius}
-                        fill={edgeVisual.labelFill}
-                        stroke={edgeVisual.labelStroke}
-                        strokeWidth={1}
-                      />
-                      <Text
-                        x={edgeLabelGeometry.textBox.x}
-                        y={edgeLabelGeometry.textBox.y}
-                        width={edgeLabelGeometry.textBox.width}
-                        height={edgeLabelGeometry.textBox.height}
-                        align="center"
-                        verticalAlign="middle"
-                        text={edgeLabelSingleLineText(edgeLabel)}
-                        fontSize={EDGE_LABEL_FONT_SIZE}
-                        fontFamily={NODE_TEXT_FONT_FAMILY}
-                        lineHeight={EDGE_LABEL_LINE_HEIGHT / EDGE_LABEL_FONT_SIZE}
-                        wrap="none"
-                        fill={edgeVisual.labelTextFill}
-                        ellipsis
-                      />
+                  return (
+                    <Group key={edge.id}>
+                      {shouldRenderPath ? (
+                        <>
+                          <Path
+                            id={edgeHitId(edge.id)}
+                            name={CANVAS_HIT_NAMES.edge}
+                            data={geometry.pathData}
+                            stroke="transparent"
+                            strokeWidth={visualTokens.edge.hitStrokeWidth}
+                            fillEnabled={false}
+                            onClick={(event) => handleCanvasClick(event, { kind: "edge", id: edge.id })}
+                            onDblClick={(event) => handleCanvasDoubleClick(event, { kind: "edge", id: edge.id })}
+                            onTap={(event) => handleCanvasTap(event, { kind: "edge", id: edge.id })}
+                          />
+                          <Path
+                            data={geometry.pathData}
+                            stroke={edgePreviewVisual?.stroke ?? edgeVisual.stroke}
+                            strokeWidth={edgePreviewVisual?.strokeWidth ?? edgeVisual.strokeWidth}
+                            dash={edgePreviewVisual?.dash ?? edgeVisual.dash}
+                            opacity={edgePreviewVisual?.opacity ?? 1}
+                            lineCap="round"
+                            lineJoin="round"
+                            fillEnabled={false}
+                            listening={false}
+                          />
+                          <PathArrowMarker edge={edge} geometry={geometry} fill={edgePreviewVisual?.fill ?? edgeVisual.fill} />
+                        </>
+                      ) : (
+                        <>
+                          <Arrow
+                            id={edgeHitId(edge.id)}
+                            name={CANVAS_HIT_NAMES.edge}
+                            points={geometry.points}
+                            stroke="transparent"
+                            fill="transparent"
+                            strokeWidth={visualTokens.edge.hitStrokeWidth}
+                            pointerLength={0}
+                            pointerWidth={0}
+                            onClick={(event) => handleCanvasClick(event, { kind: "edge", id: edge.id })}
+                            onDblClick={(event) => handleCanvasDoubleClick(event, { kind: "edge", id: edge.id })}
+                            onTap={(event) => handleCanvasTap(event, { kind: "edge", id: edge.id })}
+                          />
+                          <Arrow
+                            points={geometry.points}
+                            stroke={edgePreviewVisual?.stroke ?? edgeVisual.stroke}
+                            fill={edgePreviewVisual?.fill ?? edgeVisual.fill}
+                            strokeWidth={edgePreviewVisual?.strokeWidth ?? edgeVisual.strokeWidth}
+                            dash={edgePreviewVisual?.dash ?? edgeVisual.dash}
+                            opacity={edgePreviewVisual?.opacity ?? 1}
+                            lineCap="round"
+                            lineJoin="round"
+                            pointerLength={edgePreviewVisual?.pointerLength ?? edgePointerLength(edge)}
+                            pointerWidth={edgePreviewVisual?.pointerWidth ?? edgePointerWidth(edge)}
+                            listening={false}
+                          />
+                        </>
+                      )}
+                      {!edgePreviewVisual ? (
+                        <EdgeEndMarker edge={edge} geometry={geometry} stroke={edgeVisual.stroke} strokeWidth={edgeVisual.strokeWidth} surfaceFill={visualTokens.colors.surface} />
+                      ) : null}
+                      {edgeLabelGeometry && !isEditingEdgeLabel ? (
+                        <Group
+                          id={edgeLabelHitId(edge.id)}
+                          name={CANVAS_HIT_NAMES.edgeLabel}
+                          x={edgeLabelGeometry.frame.x}
+                          y={edgeLabelGeometry.frame.y}
+                          onClick={(event) => handleCanvasClick(event, { kind: "edgeLabel", id: edge.id })}
+                          onDblClick={(event) => handleCanvasDoubleClick(event, { kind: "edgeLabel", id: edge.id })}
+                        >
+                          <Rect
+                            width={edgeLabelGeometry.frame.width}
+                            height={edgeLabelGeometry.frame.height}
+                            cornerRadius={visualTokens.edge.labelCornerRadius}
+                            fill={edgeVisual.labelFill}
+                            stroke={edgeVisual.labelStroke}
+                            strokeWidth={1}
+                          />
+                          <Text
+                            x={edgeLabelGeometry.textBox.x}
+                            y={edgeLabelGeometry.textBox.y}
+                            width={edgeLabelGeometry.textBox.width}
+                            height={edgeLabelGeometry.textBox.height}
+                            align="center"
+                            verticalAlign="middle"
+                            text={edgeLabelSingleLineText(edgeLabel)}
+                            fontSize={EDGE_LABEL_FONT_SIZE}
+                            fontFamily={NODE_TEXT_FONT_FAMILY}
+                            lineHeight={EDGE_LABEL_LINE_HEIGHT / EDGE_LABEL_FONT_SIZE}
+                            wrap="none"
+                            fill={edgeVisual.labelTextFill}
+                            ellipsis
+                          />
+                        </Group>
+                      ) : null}
                     </Group>
-                  ) : null}
-                </Group>
-              );
-            })}
+                  );
+                })
+              : null}
 
             {renderedNodes.map((node) => {
               const geometry = nodeGeometryById.get(node.id);
@@ -1824,7 +1840,7 @@ export function KonvaCanvas({
               />
             ) : null}
 
-            {mode === "select" && selectedSingleEdge && selectedSingleEdgeGeometry ? (
+            {showEdges && mode === "select" && selectedSingleEdge && selectedSingleEdgeGeometry ? (
               <>
                 <Circle
                   id={edgeEndpointHitId(selectedSingleEdge.id, "from")}
@@ -1910,7 +1926,7 @@ export function KonvaCanvas({
           </>
         ) : null}
 
-        {inlineEdit?.type === "edge" && editStyle ? (
+        {showEdges && inlineEdit?.type === "edge" && editStyle ? (
           <Input
             autoFocus
             value={inlineEdit.value}
