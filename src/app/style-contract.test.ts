@@ -31,4 +31,15 @@ describe("application style contract", () => {
     expect(postcssConfig).toContain("tailwindcss");
     expect(postcssConfig).toContain("autoprefixer");
   });
+
+  it("keeps render and source surfaces behind theme css variables", () => {
+    const globals = readProjectFile("src/app/globals.css");
+
+    expect(globals).toContain("--render-background");
+    expect(globals).toContain("--render-grid-dot");
+    expect(globals).toContain("--theme-source-line-height");
+    expect(globals).toContain("hsl(var(--render-background))");
+    expect(globals).toContain("hsl(var(--render-grid-dot)");
+    expect(globals).toContain("var(--theme-source-line-height)");
+  });
 });

@@ -66,19 +66,18 @@ import type {
   Selection,
   ViewportState
 } from "@/features/mermaid-editor/lib/editor-types";
-import type { CanvasLayout } from "@/features/mermaid-editor/lib/editor-types";
+import type { CanvasLayout, CanvasLayoutTheme } from "@/features/mermaid-editor/lib/editor-types";
 import { DEFAULT_EDGE_ROUTING, DEFAULT_LAYOUT_MODE } from "@/features/mermaid-editor/lib/editor-types";
 import {
   applyEditorThemeToDocument,
   BUILT_IN_EDITOR_THEMES,
+  compileEditorTheme,
   DEFAULT_EDITOR_THEME,
   type EditorTheme,
   type EditorThemeId,
   isHexColor,
   normalizeEditorTheme,
-  resolveEditorTheme,
-  themeToCanvasVisualTokens,
-  themeToMermaidThemeVariables
+  resolveEditorTheme
 } from "@/features/mermaid-editor/lib/editor-theme";
 import { incrementPerformanceCounter, measurePerformance } from "@/features/mermaid-editor/lib/editor-performance";
 import { buildInteractionContext } from "@/features/mermaid-editor/lib/interaction/context";
@@ -153,6 +152,10 @@ type StoredEditor = {
   customTheme?: EditorTheme | null;
 };
 
+type NumberKeys<T> = {
+  [K in keyof T]: T[K] extends number ? K : never;
+}[keyof T];
+
 type MermaidWritableFile = {
   write: (data: string) => Promise<void>;
   close: () => Promise<void>;
@@ -195,6 +198,7 @@ function loadInitialState() {
       workspaceView: "canvas" as WorkspaceView,
       viewFilters: DEFAULT_VIEW_FILTERS,
       fileName: FALLBACK_FILE_NAME,
+      fileTheme: null,
       themeId: DEFAULT_EDITOR_THEME.id,
       customTheme: null
     };
@@ -214,8 +218,13 @@ function loadInitialState() {
     const edgeRouting = stored.edgeRouting || edgeRoutingFromLayout(layout);
     const layoutMode = stored.layoutMode || layoutModeFromLayout(layout);
     const resolvedGraph = loaded.editableKind === "flowchart" && layoutMode === "auto" ? applyDagreAutoLayout(graph) : graph;
-    const themeId = normalizeThemeId(stored.themeId);
-    const customTheme = stored.customTheme ? normalizeEditorTheme(stored.customTheme) : null;
+    const fileTheme = layout?.theme ?? loaded.fileTheme ?? null;
+    const themeId = normalizeThemeId(fileTheme?.themeId ?? stored.themeId);
+    const customTheme = fileTheme?.customTheme
+      ? normalizeEditorTheme(fileTheme.customTheme)
+      : stored.customTheme
+        ? normalizeEditorTheme(stored.customTheme)
+        : null;
     const viewFilters = normalizeViewFilters(stored.viewFilters, { showGrid: stored.showGrid, showEdges: stored.showEdges });
 
     return {
@@ -231,6 +240,7 @@ function loadInitialState() {
       workspaceView: loaded.editableKind === "flowchart" ? stored.workspaceView || "canvas" : "render",
       viewFilters,
       fileName: stored.fileName || FALLBACK_FILE_NAME,
+      fileTheme,
       themeId,
       customTheme
     };
@@ -248,6 +258,7 @@ function loadInitialState() {
       workspaceView: "canvas" as WorkspaceView,
       viewFilters: DEFAULT_VIEW_FILTERS,
       fileName: FALLBACK_FILE_NAME,
+      fileTheme: null,
       themeId: DEFAULT_EDITOR_THEME.id,
       customTheme: null
     };
@@ -298,6 +309,13 @@ function diagramTypeLabel(diagramType: DiagramType) {
 
 function normalizeThemeId(value: unknown): EditorThemeId {
   return value === "classic-light" || value === "high-contrast" || value === "custom" ? value : DEFAULT_EDITOR_THEME.id;
+}
+
+function layoutThemeFromState(themeId: EditorThemeId, customTheme: EditorTheme | null): CanvasLayoutTheme {
+  return {
+    themeId,
+    ...(themeId === "custom" && customTheme ? { customTheme } : {})
+  };
 }
 
 function selectionKey(selection: Selection) {
@@ -376,6 +394,7 @@ export function MermaidEditor() {
   const [workspaceView, setWorkspaceView] = useState<WorkspaceView>(initial.workspaceView);
   const [viewFilters, setViewFilters] = useState<ViewFilters>(initial.viewFilters);
   const [fileName, setFileName] = useState(initial.fileName);
+  const [fileTheme, setFileTheme] = useState<CanvasLayoutTheme | null>(initial.fileTheme);
   const [fileHandle, setFileHandle] = useState<MermaidFileHandle | null>(null);
   const [lastSavedDocument, setLastSavedDocument] = useState("");
   const [secondaryActionsOpen, setSecondaryActionsOpen] = useState(false);
@@ -394,15 +413,14 @@ export function MermaidEditor() {
   const aiCommandBusyRef = useRef(false);
   const actionCounterRef = useRef(0);
 
-  const currentDocument = useMemo(() => buildMermaidDocument(source, graph, viewport, edgeRouting, layoutMode), [source, graph, viewport, edgeRouting, layoutMode]);
+  const currentDocument = useMemo(() => buildMermaidDocument(source, graph, viewport, edgeRouting, layoutMode, fileTheme), [source, graph, viewport, edgeRouting, layoutMode, fileTheme]);
   const hiddenViewFilters = useMemo(() => hiddenFilterCount(viewFilters), [viewFilters]);
   const mermaidEdgeRoutes = useMemo(
     () => (edgeRouting === "mermaid" ? deriveDagreAutoLayoutResult(graph).edgeRoutes : []),
     [edgeRouting, graph]
   );
   const activeTheme = useMemo(() => resolveEditorTheme(themeId, customTheme), [customTheme, themeId]);
-  const canvasVisualTokens = useMemo(() => themeToCanvasVisualTokens(activeTheme), [activeTheme]);
-  const mermaidThemeVariables = useMemo(() => themeToMermaidThemeVariables(activeTheme), [activeTheme]);
+  const compiledTheme = useMemo(() => compileEditorTheme(activeTheme), [activeTheme]);
   const isDirty = !lastSavedDocument || currentDocument !== lastSavedDocument;
   const fileLabel = `${fileName || FALLBACK_FILE_NAME}${isDirty ? " *" : ""}`;
   const isCanvasEditable = editableKind === "flowchart";
@@ -739,6 +757,7 @@ export function MermaidEditor() {
     });
     const nextEdgeRouting = sourceLayout ? loaded.edgeRouting : edgeRouting;
     const nextLayoutMode = sourceLayout ? loaded.layoutMode : layoutMode;
+    const nextFileTheme = sourceLayout ? loaded.fileTheme ?? null : fileTheme;
     const loadedGraph = loaded.editableKind === "flowchart" && nextLayoutMode === "auto" ? applyDagreAutoLayout(loaded.graph) : loaded.graph;
     setSource(loaded.source);
     setDiagramType(loaded.diagramType);
@@ -752,6 +771,11 @@ export function MermaidEditor() {
     if (loaded.editableKind !== "flowchart") setWorkspaceView("render");
     setEdgeRouting(nextEdgeRouting);
     setLayoutMode(nextLayoutMode);
+    setFileTheme(nextFileTheme);
+    if (sourceLayout?.theme) {
+      setThemeId(normalizeThemeId(sourceLayout.theme.themeId));
+      setCustomTheme(sourceLayout.theme.customTheme ? normalizeEditorTheme(sourceLayout.theme.customTheme) : null);
+    }
     if (loaded.viewport) setViewport(loaded.viewport);
     if (sourceEditTimerRef.current) window.clearTimeout(sourceEditTimerRef.current);
     sourceEditTimerRef.current = window.setTimeout(() => {
@@ -877,6 +901,7 @@ export function MermaidEditor() {
   }
 
   function saveThemeSettings() {
+    setFileTheme(layoutThemeFromState(themeId, customTheme));
     themeEditBaseRef.current = null;
     setThemeSettingsOpen(false);
     setStatus("主题已保存。");
@@ -892,7 +917,9 @@ export function MermaidEditor() {
     const nextViewport = loaded.viewport || { x: 160, y: 90, scale: 1 };
     const nextLayoutMode = loaded.layoutMode;
     const loadedGraph = loaded.editableKind === "flowchart" && nextLayoutMode === "auto" ? applyDagreAutoLayout(loaded.graph) : loaded.graph;
-    const savedDocument = buildMermaidDocument(loaded.source, loadedGraph, nextViewport, loaded.edgeRouting, nextLayoutMode);
+    const nextThemeId = normalizeThemeId(loaded.fileTheme?.themeId ?? themeId);
+    const nextCustomTheme = loaded.fileTheme?.customTheme ? normalizeEditorTheme(loaded.fileTheme.customTheme) : customTheme;
+    const savedDocument = buildMermaidDocument(loaded.source, loadedGraph, nextViewport, loaded.edgeRouting, nextLayoutMode, loaded.fileTheme ?? null);
 
     setSource(loaded.source);
     setGraph(loadedGraph);
@@ -906,6 +933,9 @@ export function MermaidEditor() {
     setDiagnostics([]);
     setHistory(createHistory());
     setFileName(ensureMermaidFileName(name));
+    setFileTheme(loaded.fileTheme ?? null);
+    setThemeId(nextThemeId);
+    setCustomTheme(nextCustomTheme);
     setFileHandle(handle);
     setLastSavedDocument(savedDocument);
     setStatus(loaded.editableKind === "flowchart" ? `已打开 ${name}。` : `已打开 ${name}，当前类型仅渲染。`);
@@ -1076,7 +1106,7 @@ export function MermaidEditor() {
               aiApply: true
             })
           : loaded.graph;
-      const nextDocument = buildMermaidDocument(loaded.source, nextGraph, nextViewport, loaded.edgeRouting, nextLayoutMode);
+      const nextDocument = buildMermaidDocument(loaded.source, nextGraph, nextViewport, loaded.edgeRouting, nextLayoutMode, loaded.fileTheme ?? fileTheme);
       const resultDiagnostics: EditorDiagnostic[] = [];
       let saved = false;
 
@@ -1108,6 +1138,11 @@ export function MermaidEditor() {
       setViewport(nextViewport);
       setEdgeRouting(loaded.edgeRouting);
       setLayoutMode(nextLayoutMode);
+      setFileTheme(loaded.fileTheme ?? fileTheme);
+      if (loaded.fileTheme) {
+        setThemeId(normalizeThemeId(loaded.fileTheme.themeId));
+        setCustomTheme(loaded.fileTheme.customTheme ? normalizeEditorTheme(loaded.fileTheme.customTheme) : null);
+      }
       setWorkspaceView(loaded.editableKind === "flowchart" ? workspaceView : "render");
       setSelection(emptySelection);
       setDiagnostics([]);
@@ -1127,7 +1162,7 @@ export function MermaidEditor() {
         diagnostics: resultDiagnostics
       });
     },
-    [currentDocument, fileHandle, fileName, graph, postAiApplyResult, snapshot, viewport, workspaceView]
+    [currentDocument, fileHandle, fileName, fileTheme, graph, postAiApplyResult, snapshot, viewport, workspaceView]
   );
 
   useEffect(() => {
@@ -1163,7 +1198,7 @@ export function MermaidEditor() {
         STORAGE_KEY,
         JSON.stringify({
           source,
-          layout: layoutFromGraph(graph, viewport, edgeRouting, layoutMode),
+          layout: layoutFromGraph(graph, viewport, edgeRouting, layoutMode, fileTheme),
           viewport,
           edgeRouting,
           layoutMode,
@@ -1182,7 +1217,7 @@ export function MermaidEditor() {
     return () => {
       if (storageWriteTimerRef.current) window.clearTimeout(storageWriteTimerRef.current);
     };
-  }, [source, graph, viewport, edgeRouting, layoutMode, leftCollapsed, rightCollapsed, workspaceView, viewFilters, fileName, themeId, customTheme]);
+  }, [source, graph, viewport, edgeRouting, layoutMode, leftCollapsed, rightCollapsed, workspaceView, viewFilters, fileName, fileTheme, themeId, customTheme]);
 
   useEffect(() => {
     if (aiContextPostTimerRef.current) window.clearTimeout(aiContextPostTimerRef.current);
@@ -1429,7 +1464,8 @@ export function MermaidEditor() {
                 edgeRouting={edgeRouting}
                 mermaidEdgeRoutes={mermaidEdgeRoutes}
                 layoutMode={layoutMode}
-                visualTokens={canvasVisualTokens}
+                visualTokens={compiledTheme.canvasVisualTokens}
+                geometryTokens={compiledTheme.geometry}
                 onEditorCommand={applyEditorCommand}
                 onLiveStateChange={updateCanvasLiveState}
               />
@@ -1439,7 +1475,7 @@ export function MermaidEditor() {
                 graph={isCanvasEditable ? graph : undefined}
                 framed={false}
                 diagnostics={diagnostics}
-                mermaidThemeVariables={mermaidThemeVariables}
+                mermaidThemeVariables={compiledTheme.mermaidThemeVariables}
                 onEditorCommand={isCanvasEditable ? applyEditorCommand : undefined}
               />
             )}
@@ -1872,6 +1908,40 @@ function ThemeSettingsPanel({
     updateCustomTheme((theme) => ({ ...theme, source: { ...theme.source, [key]: value } }));
   }
 
+  function updateRenderColor(key: keyof EditorTheme["render"], value: string) {
+    updateCustomTheme((theme) => ({ ...theme, render: { ...theme.render, [key]: value } }));
+  }
+
+  function updateFontNumber(key: NumberKeys<EditorTheme["font"]>, value: number) {
+    updateCustomTheme((theme) => ({ ...theme, font: { ...theme.font, [key]: value } }));
+  }
+
+  function updateSpaceNumber(key: NumberKeys<EditorTheme["space"]>, value: number) {
+    updateCustomTheme((theme) => ({ ...theme, space: { ...theme.space, [key]: value } }));
+  }
+
+  function updateRadiusNumber(key: NumberKeys<EditorTheme["radius"]>, value: number) {
+    updateCustomTheme((theme) => ({ ...theme, radius: { ...theme.radius, [key]: value } }));
+  }
+
+  function updateStrokeNumber(key: NumberKeys<EditorTheme["stroke"]>, value: number) {
+    updateCustomTheme((theme) => ({ ...theme, stroke: { ...theme.stroke, [key]: value } }));
+  }
+
+  function updateCanvasInteractionNumber(key: NumberKeys<EditorTheme["canvasInteraction"]>, value: number) {
+    updateCustomTheme((theme) => ({ ...theme, canvasInteraction: { ...theme.canvasInteraction, [key]: value } }));
+  }
+
+  function updateSubgraphNumber(key: NumberKeys<EditorTheme["subgraph"]>, value: number) {
+    updateCustomTheme((theme) => ({ ...theme, subgraph: { ...theme.subgraph, [key]: value } }));
+  }
+
+  function updateEdgeLabelNumber(key: NumberKeys<EditorTheme["edgeLabel"]>, value: number) {
+    updateCustomTheme((theme) => ({ ...theme, edgeLabel: { ...theme.edgeLabel, [key]: value } }));
+  }
+
+  const themeDiagnostics = useMemo(() => compileEditorTheme(activeTheme).diagnostics, [activeTheme]);
+
   return (
     <div className="fixed inset-0 z-[70] bg-foreground/10">
       <section className="absolute inset-y-0 right-0 grid w-[min(460px,100vw)] grid-rows-[52px_minmax(0,1fr)_56px] border-l bg-card">
@@ -1919,22 +1989,108 @@ function ThemeSettingsPanel({
               <ThemeColorField label="背景" value={activeTheme.ui.background} onChange={(value) => updateUiColor("background", value)} />
               <ThemeColorField label="文字" value={activeTheme.ui.foreground} onChange={(value) => updateUiColor("foreground", value)} />
               <ThemeColorField label="图标" value={activeTheme.ui.icon} onChange={(value) => updateUiColor("icon", value)} />
+              <ThemeColorField label="面板" value={activeTheme.ui.card} onChange={(value) => updateUiColor("card", value)} />
+              <ThemeColorField label="浮层" value={activeTheme.ui.popover} onChange={(value) => updateUiColor("popover", value)} />
               <ThemeColorField label="边框" value={activeTheme.ui.border} onChange={(value) => updateUiColor("border", value)} />
               <ThemeColorField label="强调" value={activeTheme.ui.primary} onChange={(value) => updateUiColor("primary", value)} />
+              <ThemeColorField label="次级" value={activeTheme.ui.secondary} onChange={(value) => updateUiColor("secondary", value)} />
+              <ThemeColorField label="弱背景" value={activeTheme.ui.muted} onChange={(value) => updateUiColor("muted", value)} />
+              <ThemeColorField label="弱文字" value={activeTheme.ui.mutedForeground} onChange={(value) => updateUiColor("mutedForeground", value)} />
+              <ThemeColorField label="轻强调" value={activeTheme.ui.accent} onChange={(value) => updateUiColor("accent", value)} />
+              <ThemeColorField label="强调文字" value={activeTheme.ui.accentForeground} onChange={(value) => updateUiColor("accentForeground", value)} />
+              <ThemeColorField label="危险" value={activeTheme.ui.destructive} onChange={(value) => updateUiColor("destructive", value)} />
             </div>
 
             <div className="grid gap-3">
-              <h3 className="text-xs font-medium text-muted-foreground">画布</h3>
+              <h3 className="text-xs font-medium text-muted-foreground">画布颜色</h3>
+              <ThemeColorField label="表面" value={activeTheme.canvas.surface} onChange={(value) => updateCanvasColor("surface", value)} />
               <ThemeColorField label="节点描边" value={activeTheme.canvas.nodeStroke} onChange={(value) => updateCanvasColor("nodeStroke", value)} />
               <ThemeColorField label="节点文字" value={activeTheme.canvas.nodeText} onChange={(value) => updateCanvasColor("nodeText", value)} />
               <ThemeColorField label="连线" value={activeTheme.canvas.edge} onChange={(value) => updateCanvasColor("edge", value)} />
+              <ThemeColorField label="连线文字" value={activeTheme.canvas.edgeText} onChange={(value) => updateCanvasColor("edgeText", value)} />
               <ThemeColorField label="标签描边" value={activeTheme.canvas.labelStroke} onChange={(value) => updateCanvasColor("labelStroke", value)} />
+              <ThemeColorField label="非法连接" value={activeTheme.canvas.connectionInvalid} onChange={(value) => updateCanvasColor("connectionInvalid", value)} />
+              <ThemeColorField label="无效预览" value={activeTheme.canvas.previewInvalid} onChange={(value) => updateCanvasColor("previewInvalid", value)} />
             </div>
 
             <div className="grid gap-3">
-              <h3 className="text-xs font-medium text-muted-foreground">源码</h3>
+              <h3 className="text-xs font-medium text-muted-foreground">源码与渲染</h3>
               <ThemeColorField label="行分隔" value={activeTheme.source.line} onChange={(value) => updateSourceColor("line", value)} />
+              <ThemeColorField label="渲染背景" value={activeTheme.render.background} onChange={(value) => updateRenderColor("background", value)} />
+              <ThemeColorField label="渲染网格" value={activeTheme.render.gridDot} onChange={(value) => updateRenderColor("gridDot", value)} />
             </div>
+
+            <div className="grid gap-3">
+              <h3 className="text-xs font-medium text-muted-foreground">节点</h3>
+              <ThemeNumberField label="字号" value={activeTheme.font.sizeNode} min={10} max={28} step={1} onChange={(value) => updateFontNumber("sizeNode", value)} />
+              <ThemeNumberField label="行高" value={activeTheme.font.lineHeightNode} min={12} max={42} step={1} onChange={(value) => updateFontNumber("lineHeightNode", value)} />
+              <ThemeNumberField label="横向内边距" value={activeTheme.space.nodePaddingX} min={4} max={40} step={1} onChange={(value) => updateSpaceNumber("nodePaddingX", value)} />
+              <ThemeNumberField label="纵向内边距" value={activeTheme.space.nodePaddingY} min={4} max={40} step={1} onChange={(value) => updateSpaceNumber("nodePaddingY", value)} />
+              <ThemeNumberField label="最小字符" value={activeTheme.space.nodeMinChars} min={2} max={24} step={1} onChange={(value) => updateSpaceNumber("nodeMinChars", value)} />
+              <ThemeNumberField label="最大字符" value={activeTheme.space.nodeMaxChars} min={8} max={60} step={1} onChange={(value) => updateSpaceNumber("nodeMaxChars", value)} />
+              <ThemeNumberField label="最大行数" value={activeTheme.space.nodeMaxLines} min={2} max={30} step={1} onChange={(value) => updateSpaceNumber("nodeMaxLines", value)} />
+              <ThemeNumberField label="节点圆角" value={activeTheme.radius.canvasNode} min={0} max={48} step={1} onChange={(value) => updateRadiusNumber("canvasNode", value)} />
+              <ThemeNumberField label="多边形圆角" value={activeTheme.radius.polygonCorner} min={0} max={24} step={1} onChange={(value) => updateRadiusNumber("polygonCorner", value)} />
+            </div>
+
+            <div className="grid gap-3">
+              <h3 className="text-xs font-medium text-muted-foreground">连线标签</h3>
+              <ThemeNumberField label="字号" value={activeTheme.edgeLabel.fontSize} min={9} max={24} step={1} onChange={(value) => updateEdgeLabelNumber("fontSize", value)} />
+              <ThemeNumberField label="行高" value={activeTheme.edgeLabel.lineHeight} min={10} max={36} step={1} onChange={(value) => updateEdgeLabelNumber("lineHeight", value)} />
+              <ThemeNumberField label="高度" value={activeTheme.edgeLabel.height} min={18} max={64} step={1} onChange={(value) => updateEdgeLabelNumber("height", value)} />
+              <ThemeNumberField label="横向内边距" value={activeTheme.edgeLabel.paddingX} min={2} max={32} step={1} onChange={(value) => updateEdgeLabelNumber("paddingX", value)} />
+              <ThemeNumberField label="最小字符" value={activeTheme.edgeLabel.minChars} min={1} max={20} step={1} onChange={(value) => updateEdgeLabelNumber("minChars", value)} />
+              <ThemeNumberField label="最大字符" value={activeTheme.edgeLabel.maxChars} min={4} max={60} step={1} onChange={(value) => updateEdgeLabelNumber("maxChars", value)} />
+              <ThemeNumberField label="标签圆角" value={activeTheme.radius.edgeLabel} min={0} max={24} step={1} onChange={(value) => updateRadiusNumber("edgeLabel", value)} />
+            </div>
+
+            <div className="grid gap-3">
+              <h3 className="text-xs font-medium text-muted-foreground">分组</h3>
+              <ThemeNumberField label="标题字号" value={activeTheme.subgraph.titleFontSize} min={9} max={24} step={1} onChange={(value) => updateSubgraphNumber("titleFontSize", value)} />
+              <ThemeNumberField label="标题高度" value={activeTheme.subgraph.titleHeight} min={18} max={56} step={1} onChange={(value) => updateSubgraphNumber("titleHeight", value)} />
+              <ThemeNumberField label="横向内边距" value={activeTheme.subgraph.paddingX} min={8} max={96} step={1} onChange={(value) => updateSubgraphNumber("paddingX", value)} />
+              <ThemeNumberField label="顶部内边距" value={activeTheme.subgraph.paddingTop} min={24} max={120} step={1} onChange={(value) => updateSubgraphNumber("paddingTop", value)} />
+              <ThemeNumberField label="底部内边距" value={activeTheme.subgraph.paddingBottom} min={8} max={96} step={1} onChange={(value) => updateSubgraphNumber("paddingBottom", value)} />
+              <ThemeNumberField label="最小宽度" value={activeTheme.subgraph.minWidth} min={80} max={520} step={4} onChange={(value) => updateSubgraphNumber("minWidth", value)} />
+              <ThemeNumberField label="最小高度" value={activeTheme.subgraph.minHeight} min={60} max={360} step={4} onChange={(value) => updateSubgraphNumber("minHeight", value)} />
+              <ThemeNumberField label="填充透明" value={activeTheme.subgraph.fillOpacity} min={0} max={1} step={0.01} onChange={(value) => updateSubgraphNumber("fillOpacity", value)} />
+            </div>
+
+            <div className="grid gap-3">
+              <h3 className="text-xs font-medium text-muted-foreground">线与交互</h3>
+              <ThemeNumberField label="节点线宽" value={activeTheme.stroke.node} min={0.5} max={8} step={0.5} onChange={(value) => updateStrokeNumber("node", value)} />
+              <ThemeNumberField label="节点强调" value={activeTheme.stroke.nodeEmphasized} min={0.5} max={10} step={0.5} onChange={(value) => updateStrokeNumber("nodeEmphasized", value)} />
+              <ThemeNumberField label="连线线宽" value={activeTheme.stroke.edge} min={0.5} max={10} step={0.5} onChange={(value) => updateStrokeNumber("edge", value)} />
+              <ThemeNumberField label="粗连线" value={activeTheme.stroke.edgeThick} min={1} max={14} step={0.5} onChange={(value) => updateStrokeNumber("edgeThick", value)} />
+              <ThemeNumberField label="覆盖线宽" value={activeTheme.stroke.overlay} min={0.5} max={6} step={0.5} onChange={(value) => updateStrokeNumber("overlay", value)} />
+              <ThemeNumberField label="锚点线宽" value={activeTheme.stroke.anchor} min={0.5} max={8} step={0.5} onChange={(value) => updateStrokeNumber("anchor", value)} />
+              <ThemeNumberField label="锚点半径" value={activeTheme.canvasInteraction.anchorRadius} min={3} max={16} step={0.5} onChange={(value) => updateCanvasInteractionNumber("anchorRadius", value)} />
+              <ThemeNumberField label="端点半径" value={activeTheme.canvasInteraction.endpointRadius} min={3} max={18} step={0.5} onChange={(value) => updateCanvasInteractionNumber("endpointRadius", value)} />
+              <ThemeNumberField label="命中宽度" value={activeTheme.canvasInteraction.edgeHitStrokeWidth} min={8} max={40} step={1} onChange={(value) => updateCanvasInteractionNumber("edgeHitStrokeWidth", value)} />
+              <ThemeNumberField label="箭头长度" value={activeTheme.canvasInteraction.pointerLength} min={0} max={32} step={1} onChange={(value) => updateCanvasInteractionNumber("pointerLength", value)} />
+              <ThemeNumberField label="箭头宽度" value={activeTheme.canvasInteraction.pointerWidth} min={0} max={32} step={1} onChange={(value) => updateCanvasInteractionNumber("pointerWidth", value)} />
+            </div>
+
+            <div className="grid gap-3">
+              <h3 className="text-xs font-medium text-muted-foreground">网格</h3>
+              <ThemeNumberField label="小格步长" value={activeTheme.space.gridMinorStep} min={8} max={80} step={1} onChange={(value) => updateSpaceNumber("gridMinorStep", value)} />
+              <ThemeNumberField label="主格倍率" value={activeTheme.space.gridMajorEvery} min={2} max={12} step={1} onChange={(value) => updateSpaceNumber("gridMajorEvery", value)} />
+              <ThemeNumberField label="小格透明" value={activeTheme.canvasInteraction.gridMinorAlpha} min={0} max={1} step={0.01} onChange={(value) => updateCanvasInteractionNumber("gridMinorAlpha", value)} />
+              <ThemeNumberField label="主格透明" value={activeTheme.canvasInteraction.gridMajorAlpha} min={0} max={1} step={0.01} onChange={(value) => updateCanvasInteractionNumber("gridMajorAlpha", value)} />
+              <ThemeNumberField label="远景透明" value={activeTheme.canvasInteraction.gridSuperAlpha} min={0} max={1} step={0.01} onChange={(value) => updateCanvasInteractionNumber("gridSuperAlpha", value)} />
+              <ThemeNumberField label="点数上限" value={activeTheme.canvasInteraction.gridMaxDots} min={800} max={20000} step={100} onChange={(value) => updateCanvasInteractionNumber("gridMaxDots", value)} />
+            </div>
+
+            {themeDiagnostics.length ? (
+              <div className="grid gap-2 rounded-md border border-destructive/30 bg-background/60 p-3">
+                <h3 className="text-xs font-medium text-destructive">主题诊断</h3>
+                {themeDiagnostics.map((diagnostic) => (
+                  <p key={diagnostic.code} className="text-xs text-muted-foreground">
+                    {diagnostic.message}
+                  </p>
+                ))}
+              </div>
+            ) : null}
           </div>
         </div>
 
@@ -1960,6 +2116,46 @@ function ThemeColorField({ label, value, onChange }: { label: string; value: str
         onChange={(event) => onChange(event.target.value)}
       />
       <span className="font-mono text-xs text-muted-foreground">{value}</span>
+    </label>
+  );
+}
+
+function ThemeNumberField({
+  label,
+  value,
+  min,
+  max,
+  step,
+  onChange
+}: {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+  onChange: (value: number) => void;
+}) {
+  return (
+    <label className="grid grid-cols-[96px_minmax(0,1fr)_64px] items-center gap-3 text-sm">
+      <span className="text-muted-foreground">{label}</span>
+      <input
+        type="range"
+        value={value}
+        min={min}
+        max={max}
+        step={step}
+        className="h-8 w-full accent-primary"
+        onChange={(event) => onChange(Number(event.target.value))}
+      />
+      <input
+        type="number"
+        value={Number.isInteger(value) ? value : Number(value.toFixed(2))}
+        min={min}
+        max={max}
+        step={step}
+        className="h-8 min-w-0 rounded-md border bg-background px-2 font-mono text-xs text-foreground"
+        onChange={(event) => onChange(Number(event.target.value))}
+      />
     </label>
   );
 }
@@ -1990,12 +2186,31 @@ function ThemePreview({ theme }: { theme: EditorTheme }) {
 
 function toCustomTheme(theme: EditorTheme): EditorTheme {
   return {
-    version: 1,
+    version: 2,
     id: "custom",
     name: theme.id === "custom" ? theme.name : "自定义主题",
+    description: theme.description,
+    baseThemeId: theme.id === "custom" ? theme.baseThemeId : theme.id,
     ui: { ...theme.ui },
     canvas: { ...theme.canvas },
-    source: { ...theme.source }
+    source: { ...theme.source },
+    render: { ...theme.render },
+    font: { ...theme.font },
+    space: { ...theme.space },
+    radius: { ...theme.radius },
+    stroke: {
+      ...theme.stroke,
+      edgeDotted: [...theme.stroke.edgeDotted],
+      selectionDash: [...theme.stroke.selectionDash],
+      connectionDraftDash: [...theme.stroke.connectionDraftDash],
+      centerGuideDash: [...theme.stroke.centerGuideDash],
+      subgraphDash: [...theme.stroke.subgraphDash]
+    },
+    icon: { ...theme.icon },
+    canvasInteraction: { ...theme.canvasInteraction },
+    subgraph: { ...theme.subgraph },
+    edgeLabel: { ...theme.edgeLabel },
+    diagnostics: { ...theme.diagnostics }
   };
 }
 

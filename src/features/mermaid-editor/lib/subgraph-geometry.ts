@@ -16,17 +16,33 @@ export type SubgraphGeometry = {
   depth: number;
 };
 
-export const SUBGRAPH_GEOMETRY_TOKENS = {
+export type SubgraphGeometryTokens = {
+  paddingX: number;
+  paddingTop: number;
+  paddingBottom: number;
+  titleHeight: number;
+  titleInsetX: number;
+  titleInsetTop: number;
+  titlePaddingX: number;
+  minWidth: number;
+  minHeight: number;
+  fallbackGap: number;
+};
+
+export const SUBGRAPH_GEOMETRY_TOKENS: SubgraphGeometryTokens = {
   paddingX: 36,
   paddingTop: 54,
   paddingBottom: 32,
   titleHeight: 28,
+  titleInsetX: 14,
+  titleInsetTop: 10,
+  titlePaddingX: 10,
   minWidth: 220,
   minHeight: 128,
   fallbackGap: 48
-} as const;
+};
 
-export function buildSubgraphGeometries(graph: MermaidGraph, nodeGeometries: NodeGeometry[]): SubgraphGeometry[] {
+export function buildSubgraphGeometries(graph: MermaidGraph, nodeGeometries: NodeGeometry[], tokens: SubgraphGeometryTokens = SUBGRAPH_GEOMETRY_TOKENS): SubgraphGeometry[] {
   const nodeById = new Map(nodeGeometries.map((geometry) => [geometry.id, geometry]));
   const subgraphById = new Map((graph.subgraphs || []).map((subgraph) => [subgraph.id, subgraph]));
   const geometryById = new Map<string, SubgraphGeometry>();
@@ -35,14 +51,14 @@ export function buildSubgraphGeometries(graph: MermaidGraph, nodeGeometries: Nod
   function build(subgraph: CanvasSubgraph, index: number, depth = 0): SubgraphGeometry {
     const cached = geometryById.get(subgraph.id);
     if (cached) return cached;
-    if (visiting.has(subgraph.id)) return fallbackGeometry(subgraph, index, depth);
+    if (visiting.has(subgraph.id)) return fallbackGeometry(subgraph, index, depth, tokens);
     visiting.add(subgraph.id);
 
     const childSubgraphs = (graph.subgraphs || []).filter((item) => item.parentId === subgraph.id);
     const childFrames = childSubgraphs.map((child, childIndex) => build(child, childIndex, depth + 1).frame);
     const nodeFrames = subgraph.nodeIds.map((nodeId) => nodeById.get(nodeId)?.frame).filter(Boolean) as Rect[];
     const contentBounds = unionRects([...nodeFrames, ...childFrames]);
-    const geometry = contentBounds ? geometryFromContentBounds(subgraph.id, contentBounds, depth) : fallbackGeometry(subgraph, index, depth);
+    const geometry = contentBounds ? geometryFromContentBounds(subgraph.id, contentBounds, depth, tokens) : fallbackGeometry(subgraph, index, depth, tokens);
 
     geometryById.set(subgraph.id, geometry);
     visiting.delete(subgraph.id);
@@ -64,44 +80,45 @@ export function subgraphIntersectsRect(geometry: SubgraphGeometry, rect: Rect) {
   return frame.x < rect.x + rect.width && frame.x + frame.width > rect.x && frame.y < rect.y + rect.height && frame.y + frame.height > rect.y;
 }
 
-function geometryFromContentBounds(id: string, contentBounds: Rect, depth: number): SubgraphGeometry {
-  const width = Math.max(SUBGRAPH_GEOMETRY_TOKENS.minWidth, contentBounds.width + SUBGRAPH_GEOMETRY_TOKENS.paddingX * 2);
-  const height = Math.max(SUBGRAPH_GEOMETRY_TOKENS.minHeight, contentBounds.height + SUBGRAPH_GEOMETRY_TOKENS.paddingTop + SUBGRAPH_GEOMETRY_TOKENS.paddingBottom);
+function geometryFromContentBounds(id: string, contentBounds: Rect, depth: number, tokens: SubgraphGeometryTokens): SubgraphGeometry {
+  const width = Math.max(tokens.minWidth, contentBounds.width + tokens.paddingX * 2);
+  const height = Math.max(tokens.minHeight, contentBounds.height + tokens.paddingTop + tokens.paddingBottom);
   const frame = {
     x: contentBounds.x - (width - contentBounds.width) / 2,
-    y: contentBounds.y - SUBGRAPH_GEOMETRY_TOKENS.paddingTop,
+    y: contentBounds.y - tokens.paddingTop,
     width,
     height
   };
 
-  return buildGeometry(id, frame, depth);
+  return buildGeometry(id, frame, depth, tokens);
 }
 
-function fallbackGeometry(subgraph: CanvasSubgraph, index: number, depth: number): SubgraphGeometry {
+function fallbackGeometry(subgraph: CanvasSubgraph, index: number, depth: number, tokens: SubgraphGeometryTokens): SubgraphGeometry {
   return buildGeometry(
     subgraph.id,
     {
-      x: 80 + index * SUBGRAPH_GEOMETRY_TOKENS.fallbackGap,
-      y: 80 + index * SUBGRAPH_GEOMETRY_TOKENS.fallbackGap,
-      width: SUBGRAPH_GEOMETRY_TOKENS.minWidth,
-      height: SUBGRAPH_GEOMETRY_TOKENS.minHeight
+      x: 80 + index * tokens.fallbackGap,
+      y: 80 + index * tokens.fallbackGap,
+      width: tokens.minWidth,
+      height: tokens.minHeight
     },
-    depth
+    depth,
+    tokens
   );
 }
 
-function buildGeometry(id: string, frame: Rect, depth: number): SubgraphGeometry {
+function buildGeometry(id: string, frame: Rect, depth: number, tokens: SubgraphGeometryTokens): SubgraphGeometry {
   const titleBox = {
-    x: frame.x + 14,
-    y: frame.y + 10,
-    width: Math.max(1, frame.width - 28),
-    height: SUBGRAPH_GEOMETRY_TOKENS.titleHeight
+    x: frame.x + tokens.titleInsetX,
+    y: frame.y + tokens.titleInsetTop,
+    width: Math.max(1, frame.width - tokens.titleInsetX * 2),
+    height: tokens.titleHeight
   };
   const contentBox = {
-    x: frame.x + SUBGRAPH_GEOMETRY_TOKENS.paddingX,
-    y: frame.y + SUBGRAPH_GEOMETRY_TOKENS.paddingTop,
-    width: Math.max(1, frame.width - SUBGRAPH_GEOMETRY_TOKENS.paddingX * 2),
-    height: Math.max(1, frame.height - SUBGRAPH_GEOMETRY_TOKENS.paddingTop - SUBGRAPH_GEOMETRY_TOKENS.paddingBottom)
+    x: frame.x + tokens.paddingX,
+    y: frame.y + tokens.paddingTop,
+    width: Math.max(1, frame.width - tokens.paddingX * 2),
+    height: Math.max(1, frame.height - tokens.paddingTop - tokens.paddingBottom)
   };
   const anchorsLocal = localAnchorPoints(frame.width, frame.height);
   const anchorsWorld = anchorsLocal.map((anchor) => ({

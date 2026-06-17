@@ -31,6 +31,18 @@ export type NodeGeometrySpec = {
   measureText: (value: string) => number;
 };
 
+export type NodeGeometryTokens = {
+  minChars: number;
+  maxChars: number;
+  paddingX: number;
+  paddingY: number;
+  fontSize: number;
+  lineHeight: number;
+  maxLines: number;
+  fontFamily: string;
+  fontWeight: number;
+};
+
 export type NodeGeometry = {
   id: string;
   frame: Rect;
@@ -41,7 +53,7 @@ export type NodeGeometry = {
   routedRect: RoutedNodeRect;
 };
 
-export const DEFAULT_NODE_GEOMETRY_TOKENS = {
+export const DEFAULT_NODE_GEOMETRY_TOKENS: NodeGeometryTokens = {
   minChars: 6,
   maxChars: 24,
   paddingX: 14,
@@ -49,30 +61,31 @@ export const DEFAULT_NODE_GEOMETRY_TOKENS = {
   fontSize: 14,
   lineHeight: 18,
   maxLines: 12,
-  fontFamily: "'Noto Sans SC Variable', 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei UI', system-ui, sans-serif"
-} as const;
+  fontFamily: "'Noto Sans SC Variable', 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei UI', system-ui, sans-serif",
+  fontWeight: 700
+};
 
 let defaultTextMeasureCanvas: HTMLCanvasElement | null = null;
 
-export function measureDefaultNodeTextWidth(value: string) {
-  if (typeof document === "undefined") return value.length * DEFAULT_NODE_GEOMETRY_TOKENS.fontSize * 0.58;
+export function measureDefaultNodeTextWidth(value: string, tokens: NodeGeometryTokens = DEFAULT_NODE_GEOMETRY_TOKENS) {
+  if (typeof document === "undefined") return value.length * tokens.fontSize * 0.58;
 
   defaultTextMeasureCanvas ??= document.createElement("canvas");
   const context = defaultTextMeasureCanvas.getContext("2d");
-  if (!context) return value.length * DEFAULT_NODE_GEOMETRY_TOKENS.fontSize * 0.58;
+  if (!context) return value.length * tokens.fontSize * 0.58;
 
-  context.font = `700 ${DEFAULT_NODE_GEOMETRY_TOKENS.fontSize}px ${DEFAULT_NODE_GEOMETRY_TOKENS.fontFamily}`;
+  context.font = `${tokens.fontWeight} ${tokens.fontSize}px ${tokens.fontFamily}`;
   return context.measureText(value).width;
 }
 
-export function defaultNodeGeometrySpec(measureText = measureDefaultNodeTextWidth): NodeGeometrySpec {
+export function defaultNodeGeometrySpec(measureText: (value: string) => number = measureDefaultNodeTextWidth, tokens: NodeGeometryTokens = DEFAULT_NODE_GEOMETRY_TOKENS): NodeGeometrySpec {
   return {
-    minChars: DEFAULT_NODE_GEOMETRY_TOKENS.minChars,
-    maxChars: DEFAULT_NODE_GEOMETRY_TOKENS.maxChars,
-    paddingX: DEFAULT_NODE_GEOMETRY_TOKENS.paddingX,
-    paddingY: DEFAULT_NODE_GEOMETRY_TOKENS.paddingY,
-    lineHeight: DEFAULT_NODE_GEOMETRY_TOKENS.lineHeight,
-    maxLines: DEFAULT_NODE_GEOMETRY_TOKENS.maxLines,
+    minChars: tokens.minChars,
+    maxChars: tokens.maxChars,
+    paddingX: tokens.paddingX,
+    paddingY: tokens.paddingY,
+    lineHeight: tokens.lineHeight,
+    maxLines: tokens.maxLines,
     measureText
   };
 }

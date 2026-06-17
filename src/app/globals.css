@@ -27,6 +27,9 @@
     --input: 30 16% 68%;
     --ring: 356 100% 63%;
     --source-line: 30 24% 79%;
+    --render-background: 36 36% 96%;
+    --render-grid-dot: 28 20% 8%;
+    --theme-source-line-height: 30px;
     --radius: 0.5rem;
   }
 
@@ -46,13 +49,13 @@
 
 .render-grid {
   background:
-    radial-gradient(circle at 0 0, hsl(var(--foreground) / 0.1) 1px, transparent 1px) 0 0 / 24px 24px,
-    hsl(var(--background));
+    radial-gradient(circle at 0 0, hsl(var(--render-grid-dot) / 0.1) 1px, transparent 1px) 0 0 / 24px 24px,
+    hsl(var(--render-background));
 }
 
 .source-grid {
   background:
-    linear-gradient(hsl(var(--card)) 29px, hsl(var(--source-line) / 0.56) 30px) 0 0 / 100% 30px;
+    linear-gradient(hsl(var(--card)) calc(var(--theme-source-line-height) - 1px), hsl(var(--source-line) / 0.56) var(--theme-source-line-height)) 0 0 / 100% var(--theme-source-line-height);
 }
 
 .mermaid-render svg {

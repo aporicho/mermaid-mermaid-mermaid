@@ -4,6 +4,15 @@ export type CanvasGridSpec = {
   origin: { x: number; y: number };
   minorStep: number;
   majorEvery: number;
+  minorAlpha: number;
+  majorAlpha: number;
+  superAlpha: number;
+  minorRadiusPx: number;
+  majorRadiusPx: number;
+  superRadiusPx: number;
+  maxDots: number;
+  minorVisibleScale: number;
+  majorVisibleScale: number;
 };
 
 export type CanvasGridBounds = {
@@ -32,12 +41,17 @@ export type CanvasGridRenderPlan = {
 export const DEFAULT_CANVAS_GRID: CanvasGridSpec = {
   origin: { x: 0, y: 0 },
   minorStep: 24,
-  majorEvery: 5
+  majorEvery: 5,
+  minorAlpha: 0.18,
+  majorAlpha: 0.3,
+  superAlpha: 0.28,
+  minorRadiusPx: 0.85,
+  majorRadiusPx: 1.25,
+  superRadiusPx: 1.3,
+  maxDots: 5200,
+  minorVisibleScale: 0.72,
+  majorVisibleScale: 0.24
 };
-
-const MAX_GRID_DOTS = 5200;
-const MINOR_VISIBLE_SCALE = 0.72;
-const MAJOR_VISIBLE_SCALE = 0.24;
 
 type Dimensions = {
   width: number;
@@ -55,33 +69,33 @@ export function getCanvasGridRenderPlan(dimensions: Dimensions, viewport: Viewpo
   const minorCandidate: CanvasGridRenderLevel = {
     kind: "minor",
     step: spec.minorStep,
-    radiusPx: 0.85,
-    alpha: 0.18,
+    radiusPx: spec.minorRadiusPx,
+    alpha: spec.minorAlpha,
     skipStep: majorStep
   };
   const majorCandidate: CanvasGridRenderLevel = {
     kind: "major",
     step: majorStep,
-    radiusPx: 1.25,
-    alpha: 0.3
+    radiusPx: spec.majorRadiusPx,
+    alpha: spec.majorAlpha
   };
 
   let levels: CanvasGridRenderLevel[];
-  if (viewport.scale >= MINOR_VISIBLE_SCALE) {
+  if (viewport.scale >= spec.minorVisibleScale) {
     levels = [minorCandidate, majorCandidate];
-  } else if (viewport.scale >= MAJOR_VISIBLE_SCALE) {
+  } else if (viewport.scale >= spec.majorVisibleScale) {
     levels = [majorCandidate];
   } else {
-    levels = [{ kind: "super", step: majorStep * 2, radiusPx: 1.3, alpha: 0.28 }];
+    levels = [{ kind: "super", step: majorStep * 2, radiusPx: spec.superRadiusPx, alpha: spec.superAlpha }];
   }
 
   let bounds = padBounds(rawBounds, Math.max(...levels.map((level) => level.step)));
-  while (estimatedDotCount(bounds, levels, spec) > MAX_GRID_DOTS && levels.some((level) => level.kind === "minor")) {
+  while (estimatedDotCount(bounds, levels, spec) > spec.maxDots && levels.some((level) => level.kind === "minor")) {
     levels = levels.filter((level) => level.kind !== "minor");
     bounds = padBounds(rawBounds, Math.max(...levels.map((level) => level.step)));
   }
 
-  while (estimatedDotCount(bounds, levels, spec) > MAX_GRID_DOTS) {
+  while (estimatedDotCount(bounds, levels, spec) > spec.maxDots) {
     levels = levels.map((level) => ({ ...level, step: level.step * 2, skipStep: level.skipStep ? level.skipStep * 2 : undefined }));
     bounds = padBounds(rawBounds, Math.max(...levels.map((level) => level.step)));
   }

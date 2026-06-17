@@ -16,6 +16,28 @@ export type EdgeLabelGeometrySpec = {
   measureText: (value: string) => number;
 };
 
+export type EdgeLabelGeometryTokens = {
+  minChars: number;
+  maxChars: number;
+  paddingX: number;
+  height: number;
+  fontSize: number;
+  lineHeight: number;
+  fontFamily: string;
+  fontWeight: number;
+};
+
+export const DEFAULT_EDGE_LABEL_GEOMETRY_TOKENS: EdgeLabelGeometryTokens = {
+  minChars: 4,
+  maxChars: 20,
+  paddingX: 10,
+  height: 28,
+  fontSize: 13,
+  lineHeight: 18,
+  fontFamily: "'Noto Sans SC Variable', 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei UI', system-ui, sans-serif",
+  fontWeight: 400
+};
+
 export type EdgeLabelGeometry = {
   frame: EdgeLabelRect;
   textBox: EdgeLabelRect;

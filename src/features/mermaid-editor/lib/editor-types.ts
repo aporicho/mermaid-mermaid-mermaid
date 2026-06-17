@@ -92,10 +92,16 @@ export type CanvasLayoutEdge = {
   path?: LegacyEdgePath;
 };
 
+export type CanvasLayoutTheme = {
+  themeId?: string;
+  customTheme?: unknown | null;
+};
+
 export type CanvasLayout = {
   version: 1;
   edgeRouting?: EdgeRouting;
   layoutMode?: LayoutMode;
+  theme?: CanvasLayoutTheme;
   nodes: Record<string, CanvasLayoutNode>;
   edges?: Record<string, CanvasLayoutEdge>;
   viewport: ViewportState;

@@ -73,15 +73,36 @@ export type CanvasVisualTokens = {
   };
   edge: {
     hitStrokeWidth: number;
+    strokeWidth: number;
+    thickStrokeWidth: number;
+    dottedStrokeWidth: number;
+    dottedDash: readonly number[];
     pointerLength: number;
     pointerWidth: number;
     labelCornerRadius: number;
+    endpointMarkerRadius: number;
   };
   overlay: {
     strokeWidth: number;
     selectionDash: readonly number[];
     connectionDash: readonly number[];
     centerGuideDash: readonly number[];
+    subgraphDash: readonly number[];
+  };
+  shape: {
+    polygonCornerRadius: number;
+    fallbackCornerRadius: number;
+    forkCornerRadius: number;
+  };
+  subgraph: {
+    fillOpacity: number;
+    titleCornerRadius: number;
+    titleInsetX: number;
+    titleFontSize: number;
+    titleFontWeight: string;
+    titleStrokeWidth: number;
+    anchorCornerScale: number;
+    anchorCornerOpacity: number;
   };
 };
 
@@ -114,15 +135,36 @@ export const CANVAS_VISUAL_TOKENS: CanvasVisualTokens = {
   },
   edge: {
     hitStrokeWidth: 18,
+    strokeWidth: 2,
+    thickStrokeWidth: 4,
+    dottedStrokeWidth: 2,
+    dottedDash: [1, 8],
     pointerLength: 10,
     pointerWidth: 10,
-    labelCornerRadius: 8
+    labelCornerRadius: 8,
+    endpointMarkerRadius: 4.5
   },
   overlay: {
     strokeWidth: 1,
     selectionDash: [6, 5],
     connectionDash: [8, 6],
-    centerGuideDash: [6, 5]
+    centerGuideDash: [6, 5],
+    subgraphDash: [8, 6]
+  },
+  shape: {
+    polygonCornerRadius: 6,
+    fallbackCornerRadius: 4,
+    forkCornerRadius: 2
+  },
+  subgraph: {
+    fillOpacity: 0.34,
+    titleCornerRadius: 8,
+    titleInsetX: 10,
+    titleFontSize: 12,
+    titleFontWeight: "bold",
+    titleStrokeWidth: 1,
+    anchorCornerScale: 0.72,
+    anchorCornerOpacity: 0.65
   }
 };
 
@@ -210,7 +252,7 @@ export function getEdgeVisualState(input: {
 }): EdgeVisualState {
   const visualTokens = input.visualTokens ?? CANVAS_VISUAL_TOKENS;
   const kind = getEdgeVisualKind(input);
-  const semantic = edgeSemanticStyle(input.edge);
+  const semantic = edgeSemanticStyle(input.edge, visualTokens);
   const emphasized = kind === "selected" || kind === "editing";
   const hovered = kind === "hovered";
   const stroke = emphasized
@@ -233,7 +275,7 @@ export function getEdgeVisualState(input: {
 
 export function getConnectionDraftVisualState(input: { valid?: boolean; edge?: CanvasEdge; visualTokens?: CanvasVisualTokens } = {}) {
   const visualTokens = input.visualTokens ?? CANVAS_VISUAL_TOKENS;
-  const semantic = input.edge ? edgeSemanticStyle(input.edge) : { strokeWidth: 2, dash: visualTokens.overlay.connectionDash };
+  const semantic = input.edge ? edgeSemanticStyle(input.edge, visualTokens) : { strokeWidth: visualTokens.edge.strokeWidth, dash: visualTokens.overlay.connectionDash };
   const valid = input.valid ?? false;
   const stroke = valid ? visualTokens.colors.connection : visualTokens.colors.previewInvalid;
   const arrowType = input.edge?.arrowType || "arrow";
@@ -352,8 +394,8 @@ function emphasizedNode(kind: NodeVisualKind, stroke: string, visualTokens: Canv
   };
 }
 
-function edgeSemanticStyle(edge: CanvasEdge) {
-  if (edge.style === "thick") return { strokeWidth: 4, dash: undefined };
-  if (edge.style === "dotted") return { strokeWidth: 2, dash: [1, 8] };
-  return { strokeWidth: 2, dash: undefined };
+function edgeSemanticStyle(edge: CanvasEdge, visualTokens: CanvasVisualTokens = CANVAS_VISUAL_TOKENS) {
+  if (edge.style === "thick") return { strokeWidth: visualTokens.edge.thickStrokeWidth, dash: undefined };
+  if (edge.style === "dotted") return { strokeWidth: visualTokens.edge.dottedStrokeWidth, dash: [...visualTokens.edge.dottedDash] };
+  return { strokeWidth: visualTokens.edge.strokeWidth, dash: undefined };
 }

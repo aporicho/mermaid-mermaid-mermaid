@@ -2,6 +2,7 @@ import {
   DEFAULT_EDGE_ROUTING,
   DEFAULT_LAYOUT_MODE,
   type CanvasLayout,
+  type CanvasLayoutTheme,
   type EdgeRouting,
   type LayoutMode,
   type LegacyEdgePath,
@@ -27,6 +28,17 @@ function normalizeLayoutMode(value: unknown): LayoutMode | undefined {
 
 function normalizeLegacyEdgePath(value: unknown): LegacyEdgePath | undefined {
   return value === "straight" || value === "curved" || value === "orthogonal" ? value : undefined;
+}
+
+function normalizeLayoutTheme(value: unknown): CanvasLayoutTheme | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const raw = value as Record<string, unknown>;
+  const theme: CanvasLayoutTheme = {};
+
+  if (typeof raw.themeId === "string" && raw.themeId.trim()) theme.themeId = raw.themeId;
+  if ("customTheme" in raw) theme.customTheme = raw.customTheme ?? null;
+
+  return theme.themeId || "customTheme" in theme ? theme : undefined;
 }
 
 function routingFromLegacyPath(value: LegacyEdgePath): EdgeRouting {
@@ -77,7 +89,7 @@ export function parseCanvasLayout(source: string): CanvasLayout | null {
   try {
     const parsed = JSON.parse(line.trimStart().slice(CANVAS_LAYOUT_PREFIX.length).trim()) as CanvasLayout;
     if (parsed.version !== 1 || !parsed.nodes || !parsed.viewport) return null;
-    return { ...parsed, edgeRouting: edgeRoutingFromLayout(parsed), layoutMode: layoutModeFromLayout(parsed) };
+    return { ...parsed, edgeRouting: edgeRoutingFromLayout(parsed), layoutMode: layoutModeFromLayout(parsed), theme: normalizeLayoutTheme(parsed.theme) };
   } catch {
     return null;
   }
@@ -87,12 +99,15 @@ export function layoutFromGraph(
   graph: MermaidGraph,
   viewport: ViewportState = defaultViewport,
   edgeRouting: EdgeRouting = DEFAULT_EDGE_ROUTING,
-  layoutMode: LayoutMode = DEFAULT_LAYOUT_MODE
+  layoutMode: LayoutMode = DEFAULT_LAYOUT_MODE,
+  theme?: CanvasLayoutTheme | null
 ): CanvasLayout {
+  const normalizedTheme = normalizeLayoutTheme(theme);
   return {
     version: 1,
     edgeRouting,
     layoutMode,
+    ...(normalizedTheme ? { theme: normalizedTheme } : {}),
     viewport,
     nodes: Object.fromEntries(
       graph.nodes.map((node) => [
@@ -124,14 +139,17 @@ export function syncLayout(
   previous: CanvasLayout | null,
   viewport: ViewportState,
   edgeRouting: EdgeRouting = edgeRoutingFromLayout(previous),
-  layoutMode: LayoutMode = layoutModeFromLayout(previous)
+  layoutMode: LayoutMode = layoutModeFromLayout(previous),
+  theme: CanvasLayoutTheme | null | undefined = previous?.theme
 ): CanvasLayout {
   const previousNodes = previous?.nodes || {};
+  const normalizedTheme = normalizeLayoutTheme(theme);
 
   return {
     version: 1,
     edgeRouting,
     layoutMode,
+    ...(normalizedTheme ? { theme: normalizedTheme } : {}),
     viewport,
     nodes: Object.fromEntries(
       graph.nodes.map((node) => {

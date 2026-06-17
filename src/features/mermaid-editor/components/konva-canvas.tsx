@@ -40,14 +40,16 @@ import {
   subgraphAnchorHitId,
   subgraphHitId
 } from "@/features/mermaid-editor/lib/canvas-hit-target";
-import { DEFAULT_CANVAS_GRID, firstGridCoordinateAtOrAfter, getCanvasGridRenderPlan, isGridCoordinate } from "@/features/mermaid-editor/lib/canvas-grid";
+import { DEFAULT_CANVAS_GRID, firstGridCoordinateAtOrAfter, getCanvasGridRenderPlan, isGridCoordinate, type CanvasGridSpec } from "@/features/mermaid-editor/lib/canvas-grid";
 import { resolveCanvasRenderScope } from "@/features/mermaid-editor/lib/canvas-render-scope";
 import { createWheelIntentTracker } from "@/features/mermaid-editor/lib/canvas-viewport-navigation";
 import { resolveConnectionPreview, resolveRetargetPreview } from "@/features/mermaid-editor/lib/connection-preview";
 import {
   buildEdgeLabelGeometry,
+  DEFAULT_EDGE_LABEL_GEOMETRY_TOKENS,
   edgeLabelSingleLineText,
-  type EdgeLabelGeometrySpec
+  type EdgeLabelGeometrySpec,
+  type EdgeLabelGeometryTokens
 } from "@/features/mermaid-editor/lib/edge-label-geometry";
 import {
   computeEdgeDraftPath,
@@ -63,14 +65,18 @@ import {
   DEFAULT_NODE_GEOMETRY_TOKENS,
   buildNodeGeometry,
   defaultNodeGeometrySpec,
-  nodeIntersectsRect
+  nodeIntersectsRect,
+  type NodeGeometryTokens
 } from "@/features/mermaid-editor/lib/node-geometry";
 import {
+  SUBGRAPH_GEOMETRY_TOKENS,
   buildSubgraphGeometries,
   subgraphAtPoint,
   subgraphIntersectsRect,
+  type SubgraphGeometryTokens,
   type SubgraphGeometry
 } from "@/features/mermaid-editor/lib/subgraph-geometry";
+import type { EditorThemeGeometryTokens } from "@/features/mermaid-editor/lib/editor-theme";
 import {
   CANVAS_VISUAL_TOKENS,
   type CanvasVisualTokens,
@@ -107,19 +113,6 @@ import { useViewportScheduler } from "@/features/mermaid-editor/lib/interaction/
 import { isEdgeVisible, type ViewFilters } from "@/features/mermaid-editor/lib/view-filters";
 import { cn } from "@/lib/utils";
 
-const NODE_TEXT_FONT_SIZE: number = DEFAULT_NODE_GEOMETRY_TOKENS.fontSize;
-const NODE_TEXT_LINE_HEIGHT: number = DEFAULT_NODE_GEOMETRY_TOKENS.lineHeight;
-const NODE_TEXT_FONT_FAMILY = DEFAULT_NODE_GEOMETRY_TOKENS.fontFamily;
-const EDGE_LABEL_MIN_CHARS = 4;
-const EDGE_LABEL_MAX_CHARS = 20;
-const EDGE_LABEL_PADDING_X = 10;
-const EDGE_LABEL_HEIGHT = 28;
-const EDGE_LABEL_FONT_SIZE = 13;
-const EDGE_LABEL_LINE_HEIGHT = 18;
-const POLYGON_CORNER_RADIUS = 6;
-const RECT_CORNER_ANCHOR_VISUAL_SCALE = 0.72;
-const RECT_CORNER_ANCHOR_VISUAL_OPACITY = 0.65;
-
 let textMeasureCanvas: HTMLCanvasElement | null = null;
 
 type KonvaCanvasProps = {
@@ -133,6 +126,7 @@ type KonvaCanvasProps = {
   mermaidEdgeRoutes?: DagreEdgeRoute[];
   layoutMode: LayoutMode;
   visualTokens?: CanvasVisualTokens;
+  geometryTokens?: EditorThemeGeometryTokens;
   onEditorCommand: (command: EditorCommand) => void;
   onLiveStateChange?: (state: CanvasLiveState) => void;
 };
@@ -167,39 +161,36 @@ type SafariGestureEvent = Event & {
   clientY?: number;
 };
 
-function measureNodeTextWidth(value: string) {
-  if (typeof document === "undefined") return value.length * NODE_TEXT_FONT_SIZE * 0.58;
+function measureTextWidth(value: string, tokens: { fontSize: number; fontFamily: string; fontWeight: number }) {
+  if (typeof document === "undefined") return value.length * tokens.fontSize * 0.58;
 
   textMeasureCanvas ??= document.createElement("canvas");
   const context = textMeasureCanvas.getContext("2d");
-  if (!context) return value.length * NODE_TEXT_FONT_SIZE * 0.58;
+  if (!context) return value.length * tokens.fontSize * 0.58;
 
-  context.font = `700 ${NODE_TEXT_FONT_SIZE}px ${NODE_TEXT_FONT_FAMILY}`;
+  context.font = `${tokens.fontWeight} ${tokens.fontSize}px ${tokens.fontFamily}`;
   return context.measureText(value).width;
 }
 
-function measureEdgeLabelTextWidth(value: string) {
-  if (typeof document === "undefined") return value.length * EDGE_LABEL_FONT_SIZE * 0.58;
-
-  textMeasureCanvas ??= document.createElement("canvas");
-  const context = textMeasureCanvas.getContext("2d");
-  if (!context) return value.length * EDGE_LABEL_FONT_SIZE * 0.58;
-
-  context.font = `400 ${EDGE_LABEL_FONT_SIZE}px ${NODE_TEXT_FONT_FAMILY}`;
-  return context.measureText(value).width;
+function measureNodeTextWidth(value: string, tokens: NodeGeometryTokens) {
+  return measureTextWidth(value, tokens);
 }
 
-function nodeGeometrySpec() {
-  return defaultNodeGeometrySpec(measureNodeTextWidth);
+function measureEdgeLabelTextWidth(value: string, tokens: EdgeLabelGeometryTokens) {
+  return measureTextWidth(value, tokens);
 }
 
-function edgeLabelGeometrySpec(): EdgeLabelGeometrySpec {
+function nodeGeometrySpec(tokens: NodeGeometryTokens) {
+  return defaultNodeGeometrySpec((value) => measureNodeTextWidth(value, tokens), tokens);
+}
+
+function edgeLabelGeometrySpec(tokens: EdgeLabelGeometryTokens): EdgeLabelGeometrySpec {
   return {
-    minChars: EDGE_LABEL_MIN_CHARS,
-    maxChars: EDGE_LABEL_MAX_CHARS,
-    paddingX: EDGE_LABEL_PADDING_X,
-    height: EDGE_LABEL_HEIGHT,
-    measureText: measureEdgeLabelTextWidth
+    minChars: tokens.minChars,
+    maxChars: tokens.maxChars,
+    paddingX: tokens.paddingX,
+    height: tokens.height,
+    measureText: (value) => measureEdgeLabelTextWidth(value, tokens)
   };
 }
 
@@ -211,16 +202,16 @@ function normalizeBox(box: SelectionBox) {
   return { x, y, width, height };
 }
 
-function edgePointerLength(edge: CanvasEdge) {
-  return (edge.arrowType || "arrow") === "arrow" ? CANVAS_VISUAL_TOKENS.edge.pointerLength : 0;
+function edgePointerLength(edge: CanvasEdge, visualTokens: CanvasVisualTokens) {
+  return (edge.arrowType || "arrow") === "arrow" ? visualTokens.edge.pointerLength : 0;
 }
 
 function isEdgeHitTarget(hit: HitTarget) {
   return hit.kind === "edge" || hit.kind === "edgeLabel" || hit.kind === "edgeEndpoint";
 }
 
-function edgePointerWidth(edge: CanvasEdge) {
-  return (edge.arrowType || "arrow") === "arrow" ? CANVAS_VISUAL_TOKENS.edge.pointerWidth : 0;
+function edgePointerWidth(edge: CanvasEdge, visualTokens: CanvasVisualTokens) {
+  return (edge.arrowType || "arrow") === "arrow" ? visualTokens.edge.pointerWidth : 0;
 }
 
 function CanvasNodeShape({
@@ -228,13 +219,15 @@ function CanvasNodeShape({
   width,
   height,
   stroke,
-  strokeWidth
+  strokeWidth,
+  visualTokens
 }: {
   node: CanvasNode;
   width: number;
   height: number;
   stroke: string;
   strokeWidth: number;
+  visualTokens: CanvasVisualTokens;
 }) {
   const fill = node.fill;
   const shape = normalizeFlowchartShape(node.shape) || DEFAULT_FLOWCHART_NODE_SHAPE;
@@ -244,8 +237,8 @@ function CanvasNodeShape({
   if (shape === "text") return null;
   if (shape === "circle" || shape === "sm-circ" || shape === "f-circ") return <Ellipse x={width / 2} y={height / 2} radiusX={width / 2} radiusY={height / 2} {...common} />;
   if (shape === "dbl-circ" || shape === "fr-circ" || shape === "cross-circ") return <CircleVariant width={width} height={height} stroke={stroke} strokeWidth={strokeWidth} fill={fill} crossed={shape === "cross-circ"} />;
-  if (shape === "fork") return <Rect width={width} height={height} cornerRadius={2} {...common} />;
-  if (polygonPoints.length) return <PolygonShape points={flattenShapePoints(polygonPoints)} {...common} />;
+  if (shape === "fork") return <Rect width={width} height={height} cornerRadius={visualTokens.shape.forkCornerRadius} {...common} />;
+  if (polygonPoints.length) return <PolygonShape points={flattenShapePoints(polygonPoints)} radius={visualTokens.shape.polygonCornerRadius} {...common} />;
   if (shape === "cloud") return <Path data={cloudPath(width, height)} {...common} />;
   if (shape === "cyl") return <CylinderShape width={width} height={height} stroke={stroke} strokeWidth={strokeWidth} fill={fill} lined={false} horizontal={false} />;
   if (shape === "lin-cyl") return <CylinderShape width={width} height={height} stroke={stroke} strokeWidth={strokeWidth} fill={fill} lined horizontal={false} />;
@@ -260,14 +253,14 @@ function CanvasNodeShape({
   if (shape === "delay") return <Path data={delayPath(width, height)} {...common} />;
   if (shape === "brace" || shape === "brace-r" || shape === "braces") return <BraceShape width={width} height={height} stroke={stroke} strokeWidth={strokeWidth} fill={fill} mode={shape} />;
   if (shape === "fr-rect") return <SubroutineShape width={width} height={height} stroke={stroke} strokeWidth={strokeWidth} fill={fill} />;
-  if (shape === "rounded") return <Rect width={width} height={height} cornerRadius={CANVAS_VISUAL_TOKENS.node.cornerRadius} {...common} />;
+  if (shape === "rounded") return <Rect width={width} height={height} cornerRadius={visualTokens.node.cornerRadius} {...common} />;
   if (shape === "stadium") return <Rect width={width} height={height} cornerRadius={height / 2} {...common} />;
 
-  return <Rect width={width} height={height} cornerRadius={4} {...common} />;
+  return <Rect width={width} height={height} cornerRadius={visualTokens.shape.fallbackCornerRadius} {...common} />;
 }
 
-function PolygonShape({ points, fill, stroke, strokeWidth }: { points: number[]; fill: string; stroke: string; strokeWidth: number }) {
-  return <Path data={roundedPolygonPath(points, POLYGON_CORNER_RADIUS)} fill={fill} stroke={stroke} strokeWidth={strokeWidth} />;
+function PolygonShape({ points, radius = CANVAS_VISUAL_TOKENS.shape.polygonCornerRadius, fill, stroke, strokeWidth }: { points: number[]; radius?: number; fill: string; stroke: string; strokeWidth: number }) {
+  return <Path data={roundedPolygonPath(points, radius)} fill={fill} stroke={stroke} strokeWidth={strokeWidth} />;
 }
 
 function roundedPolygonPath(points: number[], radius: number) {
@@ -525,22 +518,24 @@ function EdgeEndMarker({
   geometry,
   stroke,
   strokeWidth,
-  surfaceFill
+  surfaceFill,
+  visualTokens
 }: {
   edge: CanvasEdge;
   geometry: EdgePathGeometry;
   stroke: string;
   strokeWidth: number;
   surfaceFill: string;
+  visualTokens: CanvasVisualTokens;
 }) {
   const arrowType = edge.arrowType || "arrow";
   if (arrowType === "arrow" || arrowType === "none") return null;
 
   if (arrowType === "circle") {
-    return <Circle x={geometry.end.x} y={geometry.end.y} radius={4.5} fill={surfaceFill} stroke={stroke} strokeWidth={strokeWidth} listening={false} />;
+    return <Circle x={geometry.end.x} y={geometry.end.y} radius={visualTokens.edge.endpointMarkerRadius} fill={surfaceFill} stroke={stroke} strokeWidth={strokeWidth} listening={false} />;
   }
 
-  const size = 5.5;
+  const size = visualTokens.edge.endpointMarkerRadius + 1;
   return (
     <Group x={geometry.end.x} y={geometry.end.y} listening={false}>
       <Line points={[-size, -size, size, size]} stroke={stroke} strokeWidth={strokeWidth} lineCap="round" />
@@ -549,10 +544,10 @@ function EdgeEndMarker({
   );
 }
 
-function PathArrowMarker({ edge, geometry, fill }: { edge: CanvasEdge; geometry: EdgePathGeometry; fill: string }) {
+function PathArrowMarker({ edge, geometry, fill, visualTokens }: { edge: CanvasEdge; geometry: EdgePathGeometry; fill: string; visualTokens: CanvasVisualTokens }) {
   if ((edge.arrowType || "arrow") !== "arrow") return null;
 
-  return <PathArrowHead geometry={geometry} fill={fill} length={edgePointerLength(edge)} width={edgePointerWidth(edge)} />;
+  return <PathArrowHead geometry={geometry} fill={fill} length={edgePointerLength(edge, visualTokens)} width={edgePointerWidth(edge, visualTokens)} />;
 }
 
 function PathArrowHead({ geometry, fill, length, width }: { geometry: EdgePathGeometry; fill: string; length: number; width: number }) {
@@ -585,6 +580,7 @@ export function KonvaCanvas({
   mermaidEdgeRoutes = [],
   layoutMode,
   visualTokens = CANVAS_VISUAL_TOKENS,
+  geometryTokens,
   onEditorCommand,
   onLiveStateChange
 }: KonvaCanvasProps) {
@@ -609,14 +605,18 @@ export function KonvaCanvas({
   const [alignmentGuides, setAlignmentGuides] = useState<AlignmentGuide[]>([]);
   const [inlineEdit, setInlineEdit] = useState<InlineEdit | null>(null);
   const [hoveredHitTarget, setHoveredHitTarget] = useState<HitTarget>({ kind: "blank" });
-  const [nodeEditorLayout, setNodeEditorLayout] = useState({ insetTop: 0, height: NODE_TEXT_LINE_HEIGHT, scrollable: false });
+  const nodeThemeTokens = geometryTokens?.node ?? DEFAULT_NODE_GEOMETRY_TOKENS;
+  const edgeLabelThemeTokens = geometryTokens?.edgeLabel ?? DEFAULT_EDGE_LABEL_GEOMETRY_TOKENS;
+  const subgraphThemeTokens: SubgraphGeometryTokens = geometryTokens?.subgraph ?? SUBGRAPH_GEOMETRY_TOKENS;
+  const gridThemeTokens: CanvasGridSpec = geometryTokens?.grid ?? DEFAULT_CANVAS_GRID;
+  const [nodeEditorLayout, setNodeEditorLayout] = useState({ insetTop: 0, height: nodeThemeTokens.lineHeight, scrollable: false });
   const nodeEditorRef = useRef<HTMLTextAreaElement>(null);
   const nodeEditorMeasureRef = useRef<HTMLDivElement>(null);
 
   const selectedNodeIds = useMemo(() => new Set(selection.nodeIds), [selection.nodeIds]);
   const selectedSubgraphIds = useMemo(() => new Set(selection.subgraphIds || []), [selection.subgraphIds]);
-  const geometrySpec = useMemo(() => nodeGeometrySpec(), []);
-  const edgeLabelSpec = useMemo(() => edgeLabelGeometrySpec(), []);
+  const geometrySpec = useMemo(() => nodeGeometrySpec(nodeThemeTokens), [nodeThemeTokens]);
+  const edgeLabelSpec = useMemo(() => edgeLabelGeometrySpec(edgeLabelThemeTokens), [edgeLabelThemeTokens]);
   const renderedNodes = useMemo(
     () =>
       inlineEdit?.type === "node"
@@ -627,8 +627,8 @@ export function KonvaCanvas({
   const renderedNodeGeometries = useMemo(() => renderedNodes.map((node) => buildNodeGeometry(node, geometrySpec)), [geometrySpec, renderedNodes]);
   const renderedGraph = useMemo(() => ({ ...graph, nodes: renderedNodes }), [graph, renderedNodes]);
   const renderedSubgraphGeometries = useMemo(
-    () => buildSubgraphGeometries(renderedGraph, renderedNodeGeometries),
-    [renderedGraph, renderedNodeGeometries]
+    () => buildSubgraphGeometries(renderedGraph, renderedNodeGeometries, subgraphThemeTokens),
+    [renderedGraph, renderedNodeGeometries, subgraphThemeTokens]
   );
   const nodeGeometryById = useMemo(() => new Map(renderedNodeGeometries.map((geometry) => [geometry.id, geometry])), [renderedNodeGeometries]);
   const subgraphGeometryById = useMemo(() => new Map(renderedSubgraphGeometries.map((geometry) => [geometry.id, geometry])), [renderedSubgraphGeometries]);
@@ -1449,7 +1449,7 @@ export function KonvaCanvas({
     if (interactionState.kind === "draggingSubgraphs") {
       const movingSubgraphIds = selectedSubgraphIds.has(interactionState.subgraphId) ? selection.subgraphIds || [] : [interactionState.subgraphId];
       const nextNodeGeometries = nextGraph.nodes.map((node) => buildNodeGeometry(node, geometrySpec));
-      const nextSubgraphGeometries = buildSubgraphGeometries(nextGraph, nextNodeGeometries);
+      const nextSubgraphGeometries = buildSubgraphGeometries(nextGraph, nextNodeGeometries, subgraphThemeTokens);
 
       for (const subgraphId of movingSubgraphIds) {
         const geometry = nextSubgraphGeometries.find((item) => item.id === subgraphId);
@@ -1540,7 +1540,7 @@ export function KonvaCanvas({
     const measure = nodeEditorMeasureRef.current;
     if (!measure) return;
 
-    const minimumHeight = NODE_TEXT_LINE_HEIGHT * activeScale;
+    const minimumHeight = nodeThemeTokens.lineHeight * activeScale;
     const measuredHeight = Math.max(minimumHeight, Math.ceil(measure.scrollHeight));
     const scrollable = measuredHeight > editStyle.height + 1;
     const height = scrollable ? editStyle.height : Math.min(editStyle.height, measuredHeight);
@@ -1550,7 +1550,7 @@ export function KonvaCanvas({
       if (current.height === height && current.insetTop === insetTop && current.scrollable === scrollable) return current;
       return { height, insetTop, scrollable };
     });
-  }, [activeScale, editStyle, inlineEdit?.type, inlineEdit?.value]);
+  }, [activeScale, editStyle, inlineEdit?.type, inlineEdit?.value, nodeThemeTokens.lineHeight]);
 
   const cursorClassName = interactionCursor(mode, interactionState, panningRequested, hoveredHitTarget);
   const isEndpointHovered = (edgeId: string, side: "from" | "to") =>
@@ -1585,7 +1585,7 @@ export function KonvaCanvas({
             setHoveredHitTarget({ kind: "blank" });
           }}
         >
-          {viewFilters.grid ? <CanvasGrid dimensions={dimensions} viewport={viewport} visualTokens={visualTokens} /> : null}
+          {viewFilters.grid ? <CanvasGrid dimensions={dimensions} viewport={viewport} visualTokens={visualTokens} gridSpec={gridThemeTokens} /> : null}
 
           <Layer>
             {viewFilters.subgraphs
@@ -1645,7 +1645,7 @@ export function KonvaCanvas({
                       height={geometry.frame.height}
                       cornerRadius={visualTokens.node.cornerRadius}
                       fill={visualTokens.colors.surface}
-                      opacity={0.34}
+                      opacity={visualTokens.subgraph.fillOpacity}
                       listening={false}
                     />
                     <Rect
@@ -1654,7 +1654,7 @@ export function KonvaCanvas({
                       cornerRadius={visualTokens.node.cornerRadius}
                       stroke={stroke}
                       strokeWidth={selected || connectionTarget || connectionInvalid ? visualTokens.node.emphasizedStrokeWidth : visualTokens.node.strokeWidth}
-                      dash={[8, 6]}
+                      dash={[...visualTokens.overlay.subgraphDash]}
                       fillEnabled={false}
                     />
                     <Rect
@@ -1662,22 +1662,22 @@ export function KonvaCanvas({
                       y={geometry.titleBox.y - geometry.frame.y}
                       width={geometry.titleBox.width}
                       height={geometry.titleBox.height}
-                      cornerRadius={8}
+                      cornerRadius={visualTokens.subgraph.titleCornerRadius}
                       fill={visualTokens.colors.surface}
                       stroke={stroke}
-                      strokeWidth={1}
+                      strokeWidth={visualTokens.subgraph.titleStrokeWidth}
                     />
                     <Text
-                      x={geometry.titleBox.x - geometry.frame.x + 10}
+                      x={geometry.titleBox.x - geometry.frame.x + visualTokens.subgraph.titleInsetX}
                       y={geometry.titleBox.y - geometry.frame.y}
-                      width={Math.max(1, geometry.titleBox.width - 20)}
+                      width={Math.max(1, geometry.titleBox.width - visualTokens.subgraph.titleInsetX * 2)}
                       height={geometry.titleBox.height}
                       align="left"
                       verticalAlign="middle"
                       text={subgraph.title || subgraph.id}
-                      fontSize={12}
-                      fontStyle="bold"
-                      fontFamily={NODE_TEXT_FONT_FAMILY}
+                      fontSize={visualTokens.subgraph.titleFontSize}
+                      fontStyle={visualTokens.subgraph.titleFontWeight}
+                      fontFamily={nodeThemeTokens.fontFamily}
                       fill={visualTokens.colors.nodeText}
                       ellipsis
                       listening={false}
@@ -1700,11 +1700,11 @@ export function KonvaCanvas({
                           >
                             <Circle radius={visualTokens.anchor.radius} fill="rgba(0,0,0,0.001)" strokeEnabled={false} />
                             <Circle
-                              radius={anchor.kind === "corner" ? visualTokens.anchor.radius * RECT_CORNER_ANCHOR_VISUAL_SCALE : visualTokens.anchor.radius}
+                              radius={anchor.kind === "corner" ? visualTokens.anchor.radius * visualTokens.subgraph.anchorCornerScale : visualTokens.anchor.radius}
                               fill={visualTokens.colors.accent}
                               stroke={visualTokens.colors.anchorStroke}
                               strokeWidth={visualTokens.anchor.strokeWidth}
-                              opacity={anchor.kind === "corner" ? RECT_CORNER_ANCHOR_VISUAL_OPACITY : 1}
+                              opacity={anchor.kind === "corner" ? visualTokens.subgraph.anchorCornerOpacity : 1}
                               listening={false}
                             />
                           </Group>
@@ -1754,7 +1754,7 @@ export function KonvaCanvas({
                             fillEnabled={false}
                             listening={false}
                           />
-                          <PathArrowMarker edge={edge} geometry={geometry} fill={edgePreviewVisual?.fill ?? edgeVisual.fill} />
+                          <PathArrowMarker edge={edge} geometry={geometry} fill={edgePreviewVisual?.fill ?? edgeVisual.fill} visualTokens={visualTokens} />
                         </>
                       ) : (
                         <>
@@ -1780,14 +1780,14 @@ export function KonvaCanvas({
                             opacity={edgePreviewVisual?.opacity ?? 1}
                             lineCap="round"
                             lineJoin="round"
-                            pointerLength={edgePreviewVisual?.pointerLength ?? edgePointerLength(edge)}
-                            pointerWidth={edgePreviewVisual?.pointerWidth ?? edgePointerWidth(edge)}
+                            pointerLength={edgePreviewVisual?.pointerLength ?? edgePointerLength(edge, visualTokens)}
+                            pointerWidth={edgePreviewVisual?.pointerWidth ?? edgePointerWidth(edge, visualTokens)}
                             listening={false}
                           />
                         </>
                       )}
                       {!edgePreviewVisual ? (
-                        <EdgeEndMarker edge={edge} geometry={geometry} stroke={edgeVisual.stroke} strokeWidth={edgeVisual.strokeWidth} surfaceFill={visualTokens.colors.surface} />
+                        <EdgeEndMarker edge={edge} geometry={geometry} stroke={edgeVisual.stroke} strokeWidth={edgeVisual.strokeWidth} surfaceFill={visualTokens.colors.surface} visualTokens={visualTokens} />
                       ) : null}
                       {viewFilters.edgeLabels && edgeLabelGeometry && !isEditingEdgeLabel ? (
                         <Group
@@ -1814,9 +1814,9 @@ export function KonvaCanvas({
                             align="center"
                             verticalAlign="middle"
                             text={edgeLabelSingleLineText(edgeLabel)}
-                            fontSize={EDGE_LABEL_FONT_SIZE}
-                            fontFamily={NODE_TEXT_FONT_FAMILY}
-                            lineHeight={EDGE_LABEL_LINE_HEIGHT / EDGE_LABEL_FONT_SIZE}
+                            fontSize={edgeLabelThemeTokens.fontSize}
+                            fontFamily={edgeLabelThemeTokens.fontFamily}
+                            lineHeight={edgeLabelThemeTokens.lineHeight / edgeLabelThemeTokens.fontSize}
                             wrap="none"
                             fill={edgeVisual.labelTextFill}
                             ellipsis
@@ -1878,6 +1878,7 @@ export function KonvaCanvas({
                     height={geometry.frame.height}
                     stroke={nodeVisual.stroke}
                     strokeWidth={nodeVisual.strokeWidth}
+                    visualTokens={visualTokens}
                   />
                   <Text
                     x={geometry.textBox.x}
@@ -1887,10 +1888,10 @@ export function KonvaCanvas({
                     align="center"
                     verticalAlign="middle"
                     text={node.label}
-                    fontSize={NODE_TEXT_FONT_SIZE}
-                    fontStyle="bold"
-                    fontFamily={NODE_TEXT_FONT_FAMILY}
-                    lineHeight={NODE_TEXT_LINE_HEIGHT / NODE_TEXT_FONT_SIZE}
+                    fontSize={nodeThemeTokens.fontSize}
+                    fontStyle={String(nodeThemeTokens.fontWeight)}
+                    fontFamily={nodeThemeTokens.fontFamily}
+                    lineHeight={nodeThemeTokens.lineHeight / nodeThemeTokens.fontSize}
                     wrap="word"
                     fill={nodeVisual.textFill}
                     ellipsis
@@ -1914,11 +1915,11 @@ export function KonvaCanvas({
                         >
                           <Circle radius={anchorVisual.radius} fill="rgba(0,0,0,0.001)" strokeEnabled={false} />
                           <Circle
-                            radius={anchor.kind === "corner" ? anchorVisual.radius * RECT_CORNER_ANCHOR_VISUAL_SCALE : anchorVisual.radius}
+                            radius={anchor.kind === "corner" ? anchorVisual.radius * visualTokens.subgraph.anchorCornerScale : anchorVisual.radius}
                             fill={anchorVisual.fill}
                             stroke={anchorVisual.stroke}
                             strokeWidth={anchorVisual.strokeWidth}
-                            opacity={anchor.kind === "corner" ? RECT_CORNER_ANCHOR_VISUAL_OPACITY : 1}
+                            opacity={anchor.kind === "corner" ? visualTokens.subgraph.anchorCornerOpacity : 1}
                             listening={false}
                           />
                         </Group>
@@ -2008,9 +2009,9 @@ export function KonvaCanvas({
               className="pointer-events-none absolute -left-[9999px] top-0 whitespace-pre-wrap text-center font-bold"
               style={{
                 width: editStyle.width,
-                fontFamily: NODE_TEXT_FONT_FAMILY,
-                fontSize: NODE_TEXT_FONT_SIZE * activeScale,
-                lineHeight: `${NODE_TEXT_LINE_HEIGHT * activeScale}px`,
+                fontFamily: nodeThemeTokens.fontFamily,
+                fontSize: nodeThemeTokens.fontSize * activeScale,
+                lineHeight: `${nodeThemeTokens.lineHeight * activeScale}px`,
                 overflowWrap: "break-word",
                 wordBreak: "break-word",
                 visibility: "hidden"
@@ -2027,9 +2028,9 @@ export function KonvaCanvas({
                 top: editStyle.top + nodeEditorLayout.insetTop,
                 width: editStyle.width,
                 height: nodeEditorLayout.height,
-                fontFamily: NODE_TEXT_FONT_FAMILY,
-                fontSize: NODE_TEXT_FONT_SIZE * activeScale,
-                lineHeight: `${NODE_TEXT_LINE_HEIGHT * activeScale}px`,
+                fontFamily: nodeThemeTokens.fontFamily,
+                fontSize: nodeThemeTokens.fontSize * activeScale,
+                lineHeight: `${nodeThemeTokens.lineHeight * activeScale}px`,
                 overflowWrap: "break-word",
                 wordBreak: "break-word",
                 overflowY: nodeEditorLayout.scrollable ? "auto" : "hidden"
@@ -2058,11 +2059,11 @@ export function KonvaCanvas({
               width: editStyle.width,
               height: editStyle.height,
               borderRadius: visualTokens.edge.labelCornerRadius * activeScale,
-              fontFamily: NODE_TEXT_FONT_FAMILY,
-              fontSize: EDGE_LABEL_FONT_SIZE * activeScale,
-              lineHeight: `${EDGE_LABEL_LINE_HEIGHT * activeScale}px`,
-              paddingLeft: EDGE_LABEL_PADDING_X * activeScale,
-              paddingRight: EDGE_LABEL_PADDING_X * activeScale
+              fontFamily: edgeLabelThemeTokens.fontFamily,
+              fontSize: edgeLabelThemeTokens.fontSize * activeScale,
+              lineHeight: `${edgeLabelThemeTokens.lineHeight * activeScale}px`,
+              paddingLeft: edgeLabelThemeTokens.paddingX * activeScale,
+              paddingRight: edgeLabelThemeTokens.paddingX * activeScale
             }}
             onChange={(event) => setInlineEdit({ ...inlineEdit, value: event.target.value })}
             onBlur={() => commitInlineEdit(true)}
@@ -2080,20 +2081,22 @@ export function KonvaCanvas({
 function CanvasGrid({
   dimensions,
   viewport,
-  visualTokens
+  visualTokens,
+  gridSpec
 }: {
   dimensions: { width: number; height: number };
   viewport: ViewportState;
   visualTokens: CanvasVisualTokens;
+  gridSpec: CanvasGridSpec;
 }) {
   const plan = useMemo(
     () =>
       getCanvasGridRenderPlan(
         { width: dimensions.width, height: dimensions.height },
         { x: viewport.x, y: viewport.y, scale: viewport.scale },
-        DEFAULT_CANVAS_GRID
+        gridSpec
       ),
-    [dimensions.height, dimensions.width, viewport.scale, viewport.x, viewport.y]
+    [dimensions.height, dimensions.width, gridSpec, viewport.scale, viewport.x, viewport.y]
   );
   const { bounds, levels } = plan;
 
@@ -2109,8 +2112,8 @@ function CanvasGrid({
           context.save();
           for (const level of levels) {
             const radius = level.radiusPx / viewport.scale;
-            const startX = firstGridCoordinateAtOrAfter(bounds.left, level.step, DEFAULT_CANVAS_GRID.origin.x);
-            const startY = firstGridCoordinateAtOrAfter(bounds.top, level.step, DEFAULT_CANVAS_GRID.origin.y);
+            const startX = firstGridCoordinateAtOrAfter(bounds.left, level.step, gridSpec.origin.x);
+            const startY = firstGridCoordinateAtOrAfter(bounds.top, level.step, gridSpec.origin.y);
 
             context.beginPath();
             context.fillStyle = `rgba(${visualTokens.colors.gridDotRgb}, ${level.alpha})`;
@@ -2118,8 +2121,8 @@ function CanvasGrid({
               for (let y = startY; y <= bounds.bottom; y += level.step) {
                 if (
                   level.skipStep &&
-                  isGridCoordinate(x, level.skipStep, DEFAULT_CANVAS_GRID.origin.x) &&
-                  isGridCoordinate(y, level.skipStep, DEFAULT_CANVAS_GRID.origin.y)
+                  isGridCoordinate(x, level.skipStep, gridSpec.origin.x) &&
+                  isGridCoordinate(y, level.skipStep, gridSpec.origin.y)
                 ) {
                   continue;
                 }

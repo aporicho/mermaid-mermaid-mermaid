@@ -25,6 +25,8 @@
 | `theme.version` | 主题 schema 版本 | `version` |
 | `theme.id` | 主题 ID | `id` |
 | `theme.name` | 主题展示名称 | `name` |
+| `theme.description` | 主题说明 | `description` |
+| `theme.baseThemeId` | 自定义主题来源 | `baseThemeId` |
 
 ## 颜色
 
@@ -173,7 +175,12 @@
 | `canvas.grid.minor.alpha` | 小点阵透明度 | `canvas-grid.ts` |
 | `canvas.grid.major.alpha` | 主点阵透明度 | `canvas-grid.ts` |
 | `canvas.grid.super.alpha` | 低缩放点阵透明度 | `canvas-grid.ts` |
-| `canvas.grid.maxDots` | 点阵性能上限 | `MAX_GRID_DOTS` |
+| `canvas.grid.maxDots` | 点阵性能上限 | `CanvasGridSpec.maxDots` |
+| `canvas.grid.minorVisibleScale` | 小点阵显示阈值 | `CanvasGridSpec.minorVisibleScale` |
+| `canvas.grid.majorVisibleScale` | 主点阵显示阈值 | `CanvasGridSpec.majorVisibleScale` |
+| `canvas.grid.minorRadiusPx` | 小点阵半径 | `CanvasGridSpec.minorRadiusPx` |
+| `canvas.grid.majorRadiusPx` | 主点阵半径 | `CanvasGridSpec.majorRadiusPx` |
+| `canvas.grid.superRadiusPx` | 远景点阵半径 | `CanvasGridSpec.superRadiusPx` |
 
 ## Mermaid themeVariables 映射
 
@@ -215,7 +222,8 @@
 
 ## 需要补齐的实现边界
 
-- `EditorTheme` 当前主要覆盖颜色，还没有显式覆盖字体、尺寸、圆角、线宽、虚线、图标和网格 token。
-- `CANVAS_VISUAL_TOKENS` 当前有完整的画布交互 token，但只有颜色会从 `EditorTheme` 派生，尺寸类 token 仍是固定默认值。
-- 主题设置页当前只开放部分颜色字段，后续应按本文档分组逐步开放。
+- `EditorTheme` 已升级为 v2，覆盖颜色、字体、尺寸、圆角、线宽、虚线、图标、画布交互、分组、连线标签、网格和诊断 token。
+- `compileEditorTheme()` 是运行时唯一编译入口，统一产出 CSS variables、`CanvasVisualTokens`、几何 token、网格 spec、Mermaid themeVariables 和主题诊断。
+- 文件级主题写入 `canvas-layout.theme`，旧文件无该字段时继续使用本地应用偏好。
+- 主题设置页已开放完整颜色字段和核心尺寸字段；虚线数组、字体家族和诊断阈值仍保留为 schema 级可配置，暂不在 UI 中直接编辑。
 - Mermaid 渲染视图只能通过 `themeVariables` 接收部分 token，无法 1:1 接收所有画布几何和交互 token。
