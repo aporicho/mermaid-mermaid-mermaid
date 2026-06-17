@@ -1,0 +1,83 @@
+import { describe, expect, it } from "vitest";
+
+import { buildAiEditorContext, markAiEditorContextStale } from "@/features/mermaid-editor/lib/ai-context";
+import type { MermaidGraph } from "@/features/mermaid-editor/lib/editor-types";
+
+const graph: MermaidGraph = {
+  diagramType: "flowchart",
+  editableKind: "flowchart",
+  parseStatus: "parsed",
+  direction: "LR",
+  nodes: [
+    { id: "A", label: "Alpha", x: 100, y: 100, fill: "#fff", shape: "rect" },
+    { id: "B", label: "Beta", x: 360, y: 100, fill: "#fff", shape: "circle" },
+    { id: "C", label: "Gamma", x: 2000, y: 2000, fill: "#fff", shape: "diam" }
+  ],
+  edges: [
+    { id: "A_B", from: "A", to: "B", label: "go", style: "solid", arrowType: "arrow" },
+    { id: "B_C", from: "B", to: "C", label: "", style: "dotted", arrowType: "none" }
+  ],
+  subgraphs: [{ id: "Group", title: "Group", nodeIds: ["A", "B"] }]
+};
+
+function context(overrides: Partial<Parameters<typeof buildAiEditorContext>[0]> = {}) {
+  return buildAiEditorContext({
+    source: "flowchart LR\n  A --> B\n",
+    graph,
+    selection: { nodeIds: ["B"], edgeIds: [], subgraphIds: [], primaryId: "B" },
+    viewport: { x: 0, y: 0, scale: 1 },
+    canvasSize: { width: 800, height: 480 },
+    fileName: "demo.mmd",
+    dirty: true,
+    diagramType: "flowchart",
+    editableKind: "flowchart",
+    mode: "select",
+    workspaceView: "canvas",
+    edgeRouting: "mermaid",
+    layoutMode: "manual",
+    diagnostics: [],
+    now: new Date("2026-06-17T00:00:00.000Z"),
+    ...overrides
+  });
+}
+
+describe("AI editor context", () => {
+  it("summarizes selected entities and document state", () => {
+    const result = context();
+
+    expect(result.document).toMatchObject({
+      fileName: "demo.mmd",
+      dirty: true,
+      nodeCount: 3,
+      edgeCount: 2,
+      subgraphCount: 1
+    });
+    expect(result.selection.nodes).toEqual([
+      expect.objectContaining({ id: "B", label: "Beta", incoming: 1, outgoing: 1, parentId: "Group" })
+    ]);
+  });
+
+  it("ranks active editing and selected nodes before merely visible nodes", () => {
+    const result = context({
+      editing: { kind: "node", id: "A", draftText: "Draft Alpha" },
+      recentActions: [{ id: "1", at: "2026-06-17T00:00:00.000Z", type: "node.edit", target: { kind: "node", id: "A" } }]
+    });
+
+    expect(result.focusRank[0]).toMatchObject({ kind: "node", id: "A" });
+    expect(result.focusRank.map((item) => item.id)).toContain("B");
+  });
+
+  it("keeps visible context bounded to the viewport", () => {
+    const result = context();
+
+    expect(result.visible.nodes.map((node) => node.id)).toContain("A");
+    expect(result.visible.nodes.map((node) => node.id)).not.toContain("C");
+  });
+
+  it("marks stale contexts based on their own ttl", () => {
+    const fresh = context({ ttlMs: 1000 });
+    const stale = markAiEditorContextStale(fresh, new Date("2026-06-17T00:00:02.000Z"));
+
+    expect(stale.stale).toBe(true);
+  });
+});

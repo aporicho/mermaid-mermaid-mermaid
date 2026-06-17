@@ -131,6 +131,7 @@ type KonvaCanvasProps = {
   onSelectionChange: (selection: Selection) => void;
   onViewportChange: (viewport: ViewportState) => void;
   onAddNodeAt: (point: { x: number; y: number; parentId?: string }) => void;
+  onLiveStateChange?: (state: CanvasLiveState) => void;
 };
 
 type SelectionBox = {
@@ -143,6 +144,12 @@ type SelectionBox = {
 type InlineEdit =
   | { type: "node"; id: string; value: string }
   | { type: "edge"; id: string; value: string };
+
+type CanvasLiveState = {
+  canvasSize?: { width: number; height: number };
+  editing?: { kind: "node" | "edge"; id: string; draftText: string } | null;
+  interaction?: string;
+};
 
 function isPendingDragState(state: InteractionState) {
   return state.kind === "pendingNodePointer" || state.kind === "pendingSubgraphPointer";
@@ -573,7 +580,8 @@ export function KonvaCanvas({
   onCaptureHistory,
   onSelectionChange,
   onViewportChange,
-  onAddNodeAt
+  onAddNodeAt,
+  onLiveStateChange
 }: KonvaCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage>(null);
@@ -779,6 +787,14 @@ export function KonvaCanvas({
   useEffect(() => {
     onViewportChangeRef.current = onViewportChange;
   }, [onViewportChange]);
+
+  useEffect(() => {
+    onLiveStateChange?.({
+      canvasSize: dimensions,
+      editing: inlineEdit ? { kind: inlineEdit.type, id: inlineEdit.id, draftText: inlineEdit.value } : null,
+      interaction: interactionState.kind
+    });
+  }, [dimensions, inlineEdit, interactionState.kind, onLiveStateChange]);
 
   useEffect(() => {
     return () => {

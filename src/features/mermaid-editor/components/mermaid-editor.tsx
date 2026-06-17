@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   CodeBracketsSquare as FileCode2,
   ColorWheel,
@@ -33,6 +33,8 @@ import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { applyLayout, edgeRoutingFromLayout, layoutFromGraph, layoutModeFromLayout, parseCanvasLayout } from "@/features/mermaid-editor/lib/canvas-layout";
 import { applyDagreAutoLayout, deriveDagreAutoLayoutResult } from "@/features/mermaid-editor/lib/canvas-auto-layout";
+import { buildAiEditorContext, type AiCanvasSize, type AiEditingContext, type AiRecentAction } from "@/features/mermaid-editor/lib/ai-context";
+import type { AiApplyResult, AiEditorCommand, AiNextCommandResponse } from "@/features/mermaid-editor/lib/ai-command-types";
 import { buildMermaidDocument, loadMermaidDocument } from "@/features/mermaid-editor/lib/mermaid-document";
 import {
   addNode as addNodeAction,
@@ -78,6 +80,7 @@ import {
 } from "@/features/mermaid-editor/lib/editor-theme";
 import { incrementPerformanceCounter, measurePerformance } from "@/features/mermaid-editor/lib/editor-performance";
 import { initialMermaidSource, parseMermaid, serializeMermaid } from "@/features/mermaid-editor/lib/mermaid-graph";
+import { applyMermaidPatch } from "@/features/mermaid-editor/lib/mermaid-patch";
 
 const STORAGE_KEY = "mermaid-canvas-editor:v1";
 
@@ -137,6 +140,12 @@ type MermaidFileHandle = {
 type MermaidFilePickerWindow = Window & {
   showOpenFilePicker?: (options?: unknown) => Promise<MermaidFileHandle[]>;
   showSaveFilePicker?: (options?: unknown) => Promise<MermaidFileHandle>;
+};
+
+type CanvasLiveState = {
+  canvasSize?: AiCanvasSize;
+  editing?: Exclude<AiEditingContext, { kind: "source" }> | null;
+  interaction?: string;
 };
 
 function loadInitialState() {
@@ -222,8 +231,19 @@ function ensureMermaidFileName(value: string | undefined) {
   return /\.(mmd|mermaid)$/i.test(name) ? name : `${name.replace(/\.[^.]+$/, "")}.mmd`;
 }
 
+function comparableMermaidFileName(value: string | undefined) {
+  const name = value?.split(/[\\/]/).pop();
+  return ensureMermaidFileName(name).toLowerCase();
+}
+
 function isAbortError(error: unknown) {
   return error instanceof DOMException && error.name === "AbortError";
+}
+
+function readableError(error: unknown) {
+  if (error instanceof Error) return error.message;
+  if (typeof error === "string") return error;
+  return String(error);
 }
 
 function edgeRoutingLabel(edgeRouting: EdgeRouting) {
@@ -252,6 +272,26 @@ function normalizeThemeId(value: unknown): EditorThemeId {
   return value === "classic-light" || value === "high-contrast" || value === "custom" ? value : DEFAULT_EDITOR_THEME.id;
 }
 
+function selectionKey(selection: Selection) {
+  return [selection.primaryId || "", ...selection.nodeIds, "|", ...selection.edgeIds, "|", ...(selection.subgraphIds || [])].join(",");
+}
+
+function targetFromSelection(selection: Selection): AiRecentAction["target"] {
+  if (selection.nodeIds[0]) return { kind: "node", id: selection.nodeIds[0] };
+  if (selection.edgeIds[0]) return { kind: "edge", id: selection.edgeIds[0] };
+  if (selection.subgraphIds?.[0]) return { kind: "subgraph", id: selection.subgraphIds[0] };
+  return { kind: "canvas" };
+}
+
+function canvasLiveStateKey(state: CanvasLiveState) {
+  return JSON.stringify({
+    width: state.canvasSize?.width || 0,
+    height: state.canvasSize?.height || 0,
+    editing: state.editing || null,
+    interaction: state.interaction || ""
+  });
+}
+
 async function writeDocumentToHandle(handle: MermaidFileHandle, documentText: string) {
   const writable = await handle.createWritable();
   await writable.write(documentText);
@@ -266,6 +306,25 @@ function downloadMermaidDocument(documentText: string, name: string) {
   link.download = ensureMermaidFileName(name);
   link.click();
   window.setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+
+function editorCommandDiagnostic(code: string, message: string, suggestion?: string, severity: EditorDiagnostic["severity"] = "error"): EditorDiagnostic {
+  return {
+    id: `editor-command:${code}:${hashText(message)}`,
+    severity,
+    source: "serializer",
+    code,
+    message,
+    suggestion
+  };
+}
+
+function hashText(value: string) {
+  let hash = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    hash = (hash * 31 + value.charCodeAt(index)) >>> 0;
+  }
+  return hash.toString(36);
 }
 
 export function MermaidEditor() {
@@ -295,11 +354,16 @@ export function MermaidEditor() {
   const [themeSettingsOpen, setThemeSettingsOpen] = useState(false);
   const [themeId, setThemeId] = useState<EditorThemeId>(initial.themeId);
   const [customTheme, setCustomTheme] = useState<EditorTheme | null>(initial.customTheme);
+  const [canvasLiveState, setCanvasLiveState] = useState<CanvasLiveState>({});
+  const [recentActions, setRecentActions] = useState<AiRecentAction[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const sourceEditBaseRef = useRef<EditorSnapshot | null>(null);
   const sourceEditTimerRef = useRef<number | null>(null);
   const themeEditBaseRef = useRef<{ themeId: EditorThemeId; customTheme: EditorTheme | null } | null>(null);
   const storageWriteTimerRef = useRef<number | null>(null);
+  const aiContextPostTimerRef = useRef<number | null>(null);
+  const aiCommandBusyRef = useRef(false);
+  const actionCounterRef = useRef(0);
 
   const currentDocument = useMemo(() => buildMermaidDocument(source, graph, viewport, edgeRouting, layoutMode), [source, graph, viewport, edgeRouting, layoutMode]);
   const mermaidEdgeRoutes = useMemo(
@@ -314,9 +378,88 @@ export function MermaidEditor() {
   const isCanvasEditable = editableKind === "flowchart";
   const canvasViewTooltip = isCanvasEditable ? "无限画布" : `${diagramTypeLabel(diagramType)} 仅支持渲染`;
 
-  function snapshot(): EditorSnapshot {
-    return { source, graph, selection, viewport, edgeRouting, layoutMode };
+  const updateCanvasLiveState = useCallback((next: CanvasLiveState) => {
+    setCanvasLiveState((current) => (canvasLiveStateKey(current) === canvasLiveStateKey(next) ? current : next));
+  }, []);
+
+  const buildCurrentAiContext = useCallback(() => {
+    const editing: AiEditingContext | null =
+      canvasLiveState.editing || (sourceEditBaseRef.current ? { kind: "source", draftText: source.slice(0, 1200) } : null);
+
+    return buildAiEditorContext({
+      source,
+      graph,
+      selection,
+      viewport,
+      fileName: fileName || FALLBACK_FILE_NAME,
+      dirty: isDirty,
+      diagramType,
+      editableKind,
+      mode,
+      workspaceView,
+      edgeRouting,
+      layoutMode,
+      diagnostics,
+      canvasSize: canvasLiveState.canvasSize,
+      editing,
+      recentActions
+    });
+  }, [
+    source,
+    graph,
+    selection,
+    viewport,
+    fileName,
+    isDirty,
+    diagramType,
+    editableKind,
+    mode,
+    workspaceView,
+    edgeRouting,
+    layoutMode,
+    diagnostics,
+    canvasLiveState,
+    recentActions
+  ]);
+
+  const postAiEditorContext = useCallback((context: ReturnType<typeof buildAiEditorContext>) => {
+    return fetch("/api/ai/context", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(context)
+    }).catch(() => {
+      // The CLI context bridge is best-effort; editor usage should not be blocked by it.
+    });
+  }, []);
+
+  function recordRecentAction(type: string, target?: AiRecentAction["target"], summary?: string) {
+    const action: AiRecentAction = {
+      id: `${Date.now().toString(36)}-${actionCounterRef.current++}`,
+      at: new Date().toISOString(),
+      type,
+      target,
+      summary
+    };
+    setRecentActions((current) => [action, ...current].slice(0, 20));
   }
+
+  function updateSelection(nextSelection: Selection) {
+    const changed = selectionKey(selection) !== selectionKey(nextSelection);
+    setSelection(nextSelection);
+    if (changed) {
+      recordRecentAction("selection.change", targetFromSelection(nextSelection), "用户更新了当前选中内容。");
+    }
+  }
+
+  function changeMode(nextMode: EditorMode) {
+    setMode(nextMode);
+    recordRecentAction("mode.change", { kind: "canvas" }, `切换到 ${nextMode} 模式。`);
+  }
+
+  const snapshot = useCallback(
+    (): EditorSnapshot => ({ source, graph, selection, viewport, edgeRouting, layoutMode }),
+    [source, graph, selection, viewport, edgeRouting, layoutMode]
+  );
 
   function restoreSnapshot(next: EditorSnapshot) {
     const loaded = loadMermaidDocument(next.source, next.graph);
@@ -361,6 +504,7 @@ export function MermaidEditor() {
     setSelection(nextSelection);
     setDiagnostics([]);
     setStatus(message);
+    recordRecentAction("graph.commit", targetFromSelection(nextSelection), message);
   }
 
   function draftGraph(nextGraph: MermaidGraph, message?: string, options?: { syncSource?: boolean }) {
@@ -386,6 +530,7 @@ export function MermaidEditor() {
   }
 
   function applySource(nextSource: string) {
+    const startedSourceEdit = !sourceEditBaseRef.current;
     if (!sourceEditBaseRef.current) sourceEditBaseRef.current = snapshot();
     const sourceLayout = parseCanvasLayout(nextSource);
     const loaded = measurePerformance("load-mermaid-document", () => loadMermaidDocument(nextSource, graph), {
@@ -401,6 +546,7 @@ export function MermaidEditor() {
     setSelection(emptySelection);
     setDiagnostics([]);
     setStatus(loaded.editableKind === "flowchart" ? "源码已解析到画布。" : "当前 Mermaid 类型已切换到渲染视图。");
+    if (startedSourceEdit) recordRecentAction("source.edit", { kind: "source" }, "用户开始编辑 Mermaid 源码。");
 
     if (loaded.editableKind !== "flowchart") setWorkspaceView("render");
     setEdgeRouting(nextEdgeRouting);
@@ -445,6 +591,7 @@ export function MermaidEditor() {
     setHistory((current) => pushHistory(current, previousSnapshot));
     setEdgeRouting(nextEdgeRouting);
     setStatus(`连线形状已切换为${edgeRoutingLabel(nextEdgeRouting)}。`);
+    recordRecentAction("edge-routing.change", { kind: "canvas" }, `连线形状切换为 ${edgeRoutingLabel(nextEdgeRouting)}。`);
   }
 
   function updateLayoutMode(nextLayoutMode: LayoutMode) {
@@ -464,12 +611,14 @@ export function MermaidEditor() {
       setSelection(emptySelection);
       setLayoutMode(nextLayoutMode);
       setStatus("已开启自动布局模式。");
+      recordRecentAction("layout-mode.change", { kind: "canvas" }, "开启自动布局模式。");
       return;
     }
 
     setHistory((current) => pushHistory(current, previousSnapshot));
     setLayoutMode(nextLayoutMode);
     setStatus("已切换为手动布局模式。");
+    recordRecentAction("layout-mode.change", { kind: "canvas" }, "切换为手动布局模式。");
   }
 
   function refreshFromSource() {
@@ -485,6 +634,7 @@ export function MermaidEditor() {
       setWorkspaceView("render");
       setSource(loaded.source);
       setStatus("当前 Mermaid 类型仅刷新渲染视图。");
+      recordRecentAction("source.refresh", { kind: "source" }, "从源码刷新渲染视图。");
       return;
     }
 
@@ -492,6 +642,7 @@ export function MermaidEditor() {
     setSource(serializeMermaid(nextGraph));
     setGraph(nextGraph);
     setStatus("已从 Mermaid 源码刷新画布。");
+    recordRecentAction("source.refresh", { kind: "source" }, "从源码刷新画布。");
   }
 
   async function syncCanvasFromAutoLayout() {
@@ -529,6 +680,7 @@ export function MermaidEditor() {
       setWorkspaceView("canvas");
       setDiagnostics([]);
       setStatus("已执行 Dagre 自动布局。");
+      recordRecentAction("layout.sync-auto", { kind: "canvas" }, "从 Mermaid 自动布局同步到无限画布。");
     } catch (error) {
       setDiagnostics([normalizeMermaidError(error, source, "mermaid-render")]);
       setWorkspaceView("render");
@@ -563,6 +715,7 @@ export function MermaidEditor() {
     if (!selection.nodeIds.length) return;
     setClipboard(copySelection(graph, selection));
     setStatus("已复制选中节点。");
+    recordRecentAction("selection.copy", targetFromSelection(selection), "复制选中节点。");
   }
 
   function performPaste() {
@@ -579,6 +732,7 @@ export function MermaidEditor() {
     setShowGrid((current) => {
       const next = !current;
       setStatus(next ? "已显示画布网格。" : "已隐藏画布网格。");
+      recordRecentAction("grid.toggle", { kind: "canvas" }, next ? "显示画布网格。" : "隐藏画布网格。");
       return next;
     });
   }
@@ -637,6 +791,7 @@ export function MermaidEditor() {
     setFileHandle(handle);
     setLastSavedDocument(savedDocument);
     setStatus(loaded.editableKind === "flowchart" ? `已打开 ${name}。` : `已打开 ${name}，当前类型仅渲染。`);
+    recordRecentAction("document.open", { kind: "document" }, `打开 ${name}。`);
   }
 
   async function openMermaidFile() {
@@ -688,6 +843,7 @@ export function MermaidEditor() {
       setFileName(ensureMermaidFileName(fileHandle.name));
       setLastSavedDocument(currentDocument);
       setStatus(`已保存 ${fileHandle.name}。`);
+      recordRecentAction("document.save", { kind: "document" }, `保存 ${fileHandle.name}。`);
     } catch (error) {
       if (!isAbortError(error)) setStatus("保存文件失败。");
     }
@@ -705,6 +861,7 @@ export function MermaidEditor() {
       setFileHandle(null);
       setLastSavedDocument(currentDocument);
       setStatus(`已下载 ${suggestedName}。`);
+      recordRecentAction("document.save-as", { kind: "document" }, `下载 ${suggestedName}。`);
       return;
     }
 
@@ -726,10 +883,134 @@ export function MermaidEditor() {
       setFileHandle(handle);
       setLastSavedDocument(currentDocument);
       setStatus(`已保存 ${handle.name || suggestedName}。`);
+      recordRecentAction("document.save-as", { kind: "document" }, `另存为 ${handle.name || suggestedName}。`);
     } catch (error) {
       if (!isAbortError(error)) setStatus("保存文件失败。");
     }
   }
+
+  const postAiApplyResult = useCallback(async (result: AiApplyResult) => {
+    await fetch(`/api/ai/commands/${encodeURIComponent(result.commandId)}/result`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(result)
+    });
+  }, []);
+
+  const processAiCommand = useCallback(
+    async (command: AiEditorCommand) => {
+      if (command.type !== "applyPatch") {
+        await postAiApplyResult({
+          commandId: command.id,
+          applied: false,
+          saved: false,
+          changed: false,
+          fileName,
+          diagnostics: [editorCommandDiagnostic("UNKNOWN_COMMAND", `不支持的 AI 命令：${(command as { type?: string }).type || "unknown"}`)]
+        });
+        return;
+      }
+
+      if (command.targetFileName && comparableMermaidFileName(command.targetFileName) !== comparableMermaidFileName(fileName)) {
+        const diagnostic = editorCommandDiagnostic(
+          "TARGET_FILE_MISMATCH",
+          `当前打开的是 ${fileName || FALLBACK_FILE_NAME}，不是 AI 命令目标 ${command.targetFileName}。`,
+          "重新打开目标 Mermaid 文件，或不要传 --target。"
+        );
+        await postAiApplyResult({
+          commandId: command.id,
+          applied: false,
+          saved: false,
+          changed: false,
+          fileName,
+          diagnostics: [diagnostic]
+        });
+        setStatus("AI 修改被拒绝：目标文件不匹配。");
+        return;
+      }
+
+      flushSourceHistory();
+      const previousSnapshot = snapshot();
+      const patched = applyMermaidPatch(currentDocument, { ops: command.ops }, { write: command.autoSave });
+
+      if (!patched.ok || !patched.result) {
+        setDiagnostics(patched.diagnostics);
+        setStatus("AI 修改失败，请查看诊断。");
+        await postAiApplyResult({
+          commandId: command.id,
+          applied: false,
+          saved: false,
+          changed: false,
+          fileName,
+          diagnostics: patched.diagnostics
+        });
+        return;
+      }
+
+      const loaded = loadMermaidDocument(patched.result.source, graph);
+      const nextViewport = loaded.viewport || viewport;
+      const nextLayoutMode = loaded.layoutMode;
+      const nextGraph =
+        loaded.editableKind === "flowchart" && nextLayoutMode === "auto"
+          ? measurePerformance("dagre-auto-layout", () => applyDagreAutoLayout(loaded.graph), {
+              nodes: loaded.graph.nodes.length,
+              edges: loaded.graph.edges.length,
+              aiApply: true
+            })
+          : loaded.graph;
+      const nextDocument = buildMermaidDocument(loaded.source, nextGraph, nextViewport, loaded.edgeRouting, nextLayoutMode);
+      const resultDiagnostics: EditorDiagnostic[] = [];
+      let saved = false;
+
+      if (command.autoSave) {
+        if (!fileHandle) {
+          resultDiagnostics.push(
+            editorCommandDiagnostic(
+              "NO_FILE_HANDLE",
+              "当前 WebUI 没有可覆盖保存的文件句柄，已更新编辑器但无法写回原文件。",
+              "先通过浏览器打开文件，或在编辑器里另存为一次。",
+              "warning"
+            )
+          );
+        } else {
+          try {
+            await writeDocumentToHandle(fileHandle, nextDocument);
+            saved = true;
+          } catch (error) {
+            resultDiagnostics.push(editorCommandDiagnostic("SAVE_FAILED", `AI 修改已应用，但保存失败：${readableError(error)}`));
+          }
+        }
+      }
+
+      setHistory((current) => pushHistory(current, previousSnapshot));
+      setSource(loaded.source);
+      setGraph(nextGraph);
+      setDiagramType(loaded.diagramType);
+      setEditableKind(loaded.editableKind);
+      setViewport(nextViewport);
+      setEdgeRouting(loaded.edgeRouting);
+      setLayoutMode(nextLayoutMode);
+      setWorkspaceView(loaded.editableKind === "flowchart" ? workspaceView : "render");
+      setSelection(emptySelection);
+      setDiagnostics([]);
+      if (fileHandle) setFileName(ensureMermaidFileName(fileHandle.name));
+      if (saved) setLastSavedDocument(nextDocument);
+      setStatus(saved ? "AI 修改已应用并保存。" : "AI 修改已应用。");
+      recordRecentAction("ai.apply", { kind: "document" }, saved ? "AI 修改已应用并保存。" : "AI 修改已应用。");
+
+      await postAiApplyResult({
+        commandId: command.id,
+        applied: true,
+        saved,
+        changed: patched.result.changed,
+        fileName: fileHandle?.name || fileName,
+        source: nextDocument,
+        diff: patched.result.diff,
+        diagnostics: resultDiagnostics
+      });
+    },
+    [currentDocument, fileHandle, fileName, graph, postAiApplyResult, snapshot, viewport, workspaceView]
+  );
 
   useEffect(() => {
     if (!status) return;
@@ -781,6 +1062,56 @@ export function MermaidEditor() {
       if (storageWriteTimerRef.current) window.clearTimeout(storageWriteTimerRef.current);
     };
   }, [source, graph, viewport, edgeRouting, layoutMode, leftCollapsed, rightCollapsed, workspaceView, showGrid, fileName, themeId, customTheme]);
+
+  useEffect(() => {
+    if (aiContextPostTimerRef.current) window.clearTimeout(aiContextPostTimerRef.current);
+    aiContextPostTimerRef.current = window.setTimeout(() => {
+      void postAiEditorContext(buildCurrentAiContext());
+      aiContextPostTimerRef.current = null;
+    }, 220);
+
+    return () => {
+      if (aiContextPostTimerRef.current) window.clearTimeout(aiContextPostTimerRef.current);
+    };
+  }, [buildCurrentAiContext, postAiEditorContext]);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      void postAiEditorContext(buildCurrentAiContext());
+    }, 3000);
+    return () => window.clearInterval(timer);
+  }, [buildCurrentAiContext, postAiEditorContext]);
+
+  useEffect(() => {
+    let disposed = false;
+
+    async function pollAiCommand() {
+      if (aiCommandBusyRef.current) return;
+      aiCommandBusyRef.current = true;
+
+      try {
+        const response = await fetch("/api/ai/commands/next", { headers: { accept: "application/json" } });
+        if (!response.ok) return;
+        const body = (await response.json()) as AiNextCommandResponse;
+        if (disposed || !body.command) return;
+        await processAiCommand(body.command);
+      } catch {
+        // The AI command bridge is optional while a human edits in the browser.
+      } finally {
+        aiCommandBusyRef.current = false;
+      }
+    }
+
+    const timer = window.setInterval(() => {
+      void pollAiCommand();
+    }, 800);
+    void pollAiCommand();
+
+    return () => {
+      disposed = true;
+      window.clearInterval(timer);
+    };
+  }, [processAiCommand]);
 
   useEffect(() => {
     function isTextInput(target: EventTarget | null) {
@@ -839,8 +1170,8 @@ export function MermaidEditor() {
         performDelete();
         return;
       }
-      if (key === "v") setMode(setEditorMode("select"));
-      if (key === "l") setMode(setEditorMode("connect"));
+      if (key === "v") changeMode(setEditorMode("select"));
+      if (key === "l") changeMode(setEditorMode("connect"));
     }
 
     function onKeyUp(event: KeyboardEvent) {
@@ -893,7 +1224,7 @@ export function MermaidEditor() {
           </div>
 
           <div className="flex min-w-0 items-center justify-center">
-            {isCanvasEditable ? <ToolModeBar mode={mode} onModeChange={setMode} /> : null}
+            {isCanvasEditable ? <ToolModeBar mode={mode} onModeChange={changeMode} /> : null}
           </div>
 
           <div className="flex items-center gap-1">
@@ -974,9 +1305,10 @@ export function MermaidEditor() {
                 onGraphDraft={draftGraph}
                 onGraphCommit={commitGraph}
                 onCaptureHistory={captureHistory}
-                onSelectionChange={setSelection}
+                onSelectionChange={updateSelection}
                 onViewportChange={updateViewport}
                 onAddNodeAt={addNodeAtPoint}
+                onLiveStateChange={updateCanvasLiveState}
               />
             ) : (
               <PreviewPanel
@@ -998,7 +1330,7 @@ export function MermaidEditor() {
             <aside className="absolute inset-y-0 right-0 z-20 grid w-[clamp(280px,28vw,380px)] min-h-0 border-l bg-card">
               <PanelHeader onCollapse={() => setRightCollapsed(true)} />
               <div className="grid min-h-0">
-                <InspectorPanel graph={graph} selection={selection} onGraphChange={commitGraph} onSelectionChange={setSelection} onDelete={performDelete} />
+                <InspectorPanel graph={graph} selection={selection} onGraphChange={commitGraph} onSelectionChange={updateSelection} onDelete={performDelete} />
               </div>
             </aside>
           ) : null}

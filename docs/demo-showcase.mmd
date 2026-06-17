@@ -1,0 +1,167 @@
+%% canvas-layout: {"version":1,"edgeRouting":"mermaid","layoutMode":"auto","viewport":{"x":120,"y":80,"scale":0.86},"nodes":{}}
+%% Mermaid Canvas Editor demo
+%% 目标：同时展示 WebUI 可编辑能力、AI 可读 Mermaid 源码、节点形状、子图、连线语义、自动布局和视觉样式。
+%% 建议在隐藏菜单切换：手动布局 / 自动布局，以及直线 / 曲线 / 圆角折线 / Mermaid 曲线，观察同一张图的差异。
+flowchart LR
+  subgraph ProductLoop[产品核心闭环：人编辑，AI 读取，项目落地]
+    direction LR
+    Human@{ shape: stadium, label: "人类用户" }
+    Idea@{ shape: sm-circ, label: "想法" }
+    SourceFile@{ shape: doc, label: "Mermaid 文件<br/>共同事实源" }
+    WebUI@{ shape: rounded, label: "WebUI<br/>编辑器 / 查看器" }
+    Canvas@{ shape: rect, label: "无限画布<br/>拖拽 / 连接 / 对齐" }
+    Render@{ shape: curv-trap, label: "渲染视图<br/>官方 Mermaid 预览" }
+    Inspector@{ shape: tag-rect, label: "属性面板<br/>文本 / 形状 / 颜色 / 连线" }
+    ThemePanel@{ shape: lin-rect, label: "主题设置<br/>视觉 token" }
+    SaveFile@{ shape: datastore, label: "Ctrl+S<br/>覆盖保存" }
+    Agent@{ shape: hex, label: "AI Agent" }
+    CLI@{ shape: fr-rect, label: "CLI<br/>读取 / diff / 修改" }
+    Codebase@{ shape: docs, label: "项目代码" }
+  end
+
+  subgraph Runtime[编辑器底层能力]
+    direction TB
+    Parser@{ shape: div-rect, label: "解析器<br/>Flowchart -> Canvas Graph" }
+    Serializer@{ shape: div-rect, label: "序列化器<br/>Canvas Graph -> Mermaid" }
+    Interaction@{ shape: win-pane, label: "交互状态层<br/>选择 / 连接 / 拖拽 / 编辑" }
+    Geometry@{ shape: notch-rect, label: "几何与路由<br/>端点 / 形状边界 / Dagre" }
+    AutoLayout@{ shape: bolt, label: "一键自动布局" }
+    ManualLayout@{ shape: sl-rect, label: "手动布局<br/>保留用户调整" }
+    Diagnostics@{ shape: bang, label: "错误诊断<br/>解析 / 渲染报错" }
+  end
+
+  subgraph ShapeGallery[节点形状画廊：Mermaid 11 object shape 语法]
+    direction TB
+
+    subgraph BasicShapes[基础]
+      direction LR
+      BasicRect@{ shape: rect, label: "矩形" }
+      BasicRounded@{ shape: rounded, label: "圆角矩形" }
+      BasicStadium@{ shape: stadium, label: "胶囊" }
+      BasicSubprocess@{ shape: fr-rect, label: "子程序" }
+      BasicCircle@{ shape: circle, label: "圆形" }
+      BasicDiamond@{ shape: diam, label: "菱形" }
+      BasicHex@{ shape: hex, label: "六边形" }
+      BasicText@{ shape: text, label: "纯文本" }
+    end
+
+    subgraph FlowShapes[流程]
+      direction LR
+      FlowLeanR@{ shape: lean-r, label: "输入/输出" }
+      FlowLeanL@{ shape: lean-l, label: "反向输入/输出" }
+      FlowTrapB@{ shape: trap-b, label: "梯形" }
+      FlowTrapT@{ shape: trap-t, label: "反向梯形" }
+      FlowFork@{ shape: fork, label: "分叉/汇合" }
+      FlowHourglass@{ shape: hourglass, label: "沙漏" }
+      FlowDelay@{ shape: delay, label: "延迟" }
+      FlowTri@{ shape: tri, label: "三角形" }
+      FlowNotchPent@{ shape: notch-pent, label: "循环限制" }
+      FlowFlipTri@{ shape: flip-tri, label: "反向三角形" }
+      FlowSlRect@{ shape: sl-rect, label: "斜矩形" }
+      FlowOdd@{ shape: odd, label: "异形" }
+    end
+
+    subgraph DataShapes[数据]
+      direction LR
+      DataCyl@{ shape: cyl, label: "数据库" }
+      DataStore@{ shape: datastore, label: "数据存储" }
+      DataHCyl@{ shape: h-cyl, label: "横向圆柱" }
+      DataLinCyl@{ shape: lin-cyl, label: "带线圆柱" }
+      DataWinPane@{ shape: win-pane, label: "内部存储" }
+      DataBowRect@{ shape: bow-rect, label: "存储数据" }
+      DataCurvTrap@{ shape: curv-trap, label: "显示" }
+    end
+
+    subgraph DocShapes[文档]
+      direction LR
+      DocSingle@{ shape: doc, label: "文档" }
+      DocStack@{ shape: docs, label: "多文档" }
+      DocLined@{ shape: lin-doc, label: "带线文档" }
+      DocTagged@{ shape: tag-doc, label: "标签文档" }
+      DocFlag@{ shape: flag, label: "纸带" }
+      DocCard@{ shape: notch-rect, label: "卡片" }
+      DocLinedRect@{ shape: lin-rect, label: "带线矩形" }
+      DocDivRect@{ shape: div-rect, label: "分隔矩形" }
+      DocStackRect@{ shape: st-rect, label: "堆叠矩形" }
+      DocTagRect@{ shape: tag-rect, label: "标签矩形" }
+    end
+
+    subgraph MarkShapes[标记]
+      direction LR
+      MarkBang@{ shape: bang, label: "感叹号" }
+      MarkCloud@{ shape: cloud, label: "云" }
+      MarkDblCirc@{ shape: dbl-circ, label: "双圆" }
+      MarkSmall@{ shape: sm-circ, label: "小圆" }
+      MarkFrame@{ shape: fr-circ, label: "框线圆" }
+      MarkFilled@{ shape: f-circ, label: "实心圆" }
+      MarkCross@{ shape: cross-circ, label: "交叉圆" }
+      MarkBraceL@{ shape: brace, label: "左大括号" }
+      MarkBraceR@{ shape: brace-r, label: "右大括号" }
+      MarkBraces@{ shape: braces, label: "双大括号" }
+      MarkBolt@{ shape: bolt, label: "闪电" }
+    end
+  end
+
+  subgraph EdgeGallery[连线语义画廊]
+    direction TB
+    SolidArrow@{ shape: rect, label: "实线箭头" }
+    ThickArrow@{ shape: rect, label: "粗线箭头" }
+    DottedArrow@{ shape: rect, label: "虚线箭头" }
+    NoArrow@{ shape: rect, label: "无箭头" }
+    CircleEnd@{ shape: circle, label: "圆点端点" }
+    CrossEnd@{ shape: cross-circ, label: "叉号端点" }
+  end
+
+  Human --> Idea
+  Idea -->|生成初版架构图| SourceFile
+  SourceFile -->|打开 / 保存| WebUI
+  WebUI --> Canvas
+  WebUI --> Render
+  Canvas --> Inspector
+  Inspector -->|修改节点和连线| Canvas
+  ThemePanel -.->|视觉 token| Canvas
+  Canvas ==> SaveFile
+  SaveFile --> SourceFile
+  Agent -.->|读取当前 Mermaid| CLI
+  CLI -->|diff 用户调整| SourceFile
+  CLI ==> Codebase
+  Codebase -.->|执行结果反馈| SourceFile
+
+  SourceFile --> Parser
+  Parser --> Interaction
+  Interaction --> Geometry
+  Geometry --> Canvas
+  Parser --> Serializer
+  Serializer --> SourceFile
+  AutoLayout --> Geometry
+  ManualLayout --> Geometry
+  Diagnostics --x Parser
+  Diagnostics --x Render
+
+  ProductLoop -.-> Runtime
+  Runtime ==> ShapeGallery
+  Runtime -.-> EdgeGallery
+
+  BasicRect -.- BasicRounded -.- BasicStadium -.- BasicSubprocess -.- BasicCircle -.- BasicDiamond -.- BasicHex -.- BasicText
+  FlowLeanR -.- FlowLeanL -.- FlowTrapB -.- FlowTrapT -.- FlowFork -.- FlowHourglass -.- FlowDelay -.- FlowTri -.- FlowNotchPent -.- FlowFlipTri -.- FlowSlRect -.- FlowOdd
+  DataCyl -.- DataStore -.- DataHCyl -.- DataLinCyl -.- DataWinPane -.- DataBowRect -.- DataCurvTrap
+  DocSingle -.- DocStack -.- DocLined -.- DocTagged -.- DocFlag -.- DocCard -.- DocLinedRect -.- DocDivRect -.- DocStackRect -.- DocTagRect
+  MarkBang -.- MarkCloud -.- MarkDblCirc -.- MarkSmall -.- MarkFrame -.- MarkFilled -.- MarkCross -.- MarkBraceL -.- MarkBraceR -.- MarkBraces -.- MarkBolt
+
+  SolidArrow --> ThickArrow
+  ThickArrow ==>|粗线 + 标签| DottedArrow
+  DottedArrow -.->|虚线 + 标签| NoArrow
+  NoArrow --- CircleEnd
+  CircleEnd --o CrossEnd
+  CrossEnd --x SolidArrow
+
+  classDef accent fill:#ff4050,color:#fbf6ef,stroke:#2a251f,stroke-width:1px
+  classDef warm fill:#fff2d9,color:#18130f,stroke:#2a251f
+  classDef cool fill:#e8f4f0,color:#18130f,stroke:#2a251f
+  classDef neutral fill:#fbf6ef,color:#18130f,stroke:#2a251f
+  class Human,Agent,Diagnostics accent
+  class SourceFile,SaveFile,Idea warm
+  class Canvas,Render,Geometry,AutoLayout cool
+  class WebUI,Inspector,ThemePanel,Parser,Serializer,Interaction,ManualLayout,CLI,Codebase neutral
+  style ShapeGallery fill:#fbf6ef,stroke:#b8ada0,stroke-width:1px
+  style EdgeGallery fill:#fbf6ef,stroke:#b8ada0,stroke-width:1px
