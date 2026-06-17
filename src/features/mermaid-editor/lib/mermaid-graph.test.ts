@@ -134,6 +134,36 @@ describe("mermaid graph parser", () => {
     expect(serializeMermaid(graph)).toContain("subgraph frontend [前端]");
   });
 
+  it("round-trips nested subgraphs, subgraph direction, and subgraph edges", () => {
+    const graph = parseMermaid(`flowchart LR
+  subgraph Outer [外层]
+    direction TB
+    subgraph Inner [内层]
+      A[Alpha]
+    end
+    B[Beta]
+  end
+  Inner --> B
+  Outer -.-> A`);
+
+    expect(graph.nodes.map((item) => item.id).sort()).toEqual(["A", "B"]);
+    expect(graph.subgraphs).toEqual([
+      { id: "Outer", title: "外层", nodeIds: ["B"], direction: "TB" },
+      { id: "Inner", title: "内层", nodeIds: ["A"], parentId: "Outer" }
+    ]);
+    expect(graph.edges).toMatchObject([
+      { from: "Inner", to: "B", style: "solid" },
+      { from: "Outer", to: "A", style: "dotted" }
+    ]);
+
+    const serialized = serializeMermaid(graph);
+    expect(serialized).toContain("subgraph Outer [外层]");
+    expect(serialized).toContain("direction TB");
+    expect(serialized).toContain("subgraph Inner [内层]");
+    expect(serialized).toContain("Inner --> B");
+    expect(serialized).toContain("Outer -.-> A");
+  });
+
   it("detects non-flowchart Mermaid types as render-only", () => {
     expect(detectDiagramType("sequenceDiagram\n  A->>B: hello")).toBe("sequence");
     expect(parseMermaid("sequenceDiagram\n  A->>B: hello")).toMatchObject({

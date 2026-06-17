@@ -75,7 +75,7 @@ describe("canvas visual state", () => {
     const connecting: InteractionState = {
       kind: "connectingEdge",
       pointerId: 0,
-      fromNodeId: "node-a",
+      fromId: "node-a",
       startWorld: { x: 0, y: 0 },
       currentWorld: { x: 20, y: 0 }
     };
@@ -118,7 +118,7 @@ describe("canvas visual state", () => {
         interactionState: {
           kind: "connectingEdge",
           pointerId: 0,
-          fromNodeId: "node-a",
+          fromId: "node-a",
           startWorld: { x: 0, y: 0 },
           currentWorld: { x: 20, y: 0 }
         }

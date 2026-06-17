@@ -1,3 +1,5 @@
+import { curveBasis, line } from "d3-shape";
+
 import type { CanvasEdge, EdgeRouting, FlowchartNodeShape } from "@/features/mermaid-editor/lib/editor-types";
 import {
   ellipseBoundaryPoint,
@@ -8,9 +10,9 @@ import {
 } from "@/features/mermaid-editor/lib/flowchart-shape-geometry";
 import { DEFAULT_FLOWCHART_NODE_SHAPE, normalizeFlowchartShape } from "@/features/mermaid-editor/lib/flowchart-shapes";
 
-export type EdgeAnchorPolicy = "center-ray" | "side-auto";
+export type EdgeAnchorPolicy = "center-ray" | "fixed-port" | "boundary-ray";
 export type EdgeTangentPolicy = "radial" | "side-normal";
-export type EdgePathKind = "straight" | "cubic-bezier";
+export type EdgePathKind = "straight" | "cubic-bezier" | "rounded-orthogonal" | "basis-spline";
 
 export type RoutedNodeRect = {
   id: string;
@@ -23,6 +25,7 @@ export type RoutedNodeRect = {
 
 export type EdgePathGeometry = {
   points: number[];
+  pathData?: string;
   labelPoint: Point;
   start: Point;
   end: Point;
@@ -58,6 +61,9 @@ type ShapePort = {
 const SOURCE_GAP = 6;
 const TARGET_GAP = 10;
 const CUBIC_SEGMENTS = 24;
+const ORTHOGONAL_STUB = 28;
+const ORTHOGONAL_CORNER_RADIUS = 14;
+const ORTHOGONAL_CORNER_SEGMENTS = 5;
 const EPSILON = 0.001;
 
 const routingPresets: Record<EdgeRouting, EdgeRoutingPreset> = {
@@ -67,18 +73,33 @@ const routingPresets: Record<EdgeRouting, EdgeRoutingPreset> = {
     pathKind: "straight"
   },
   bezier: {
-    anchorPolicy: "side-auto",
+    anchorPolicy: "fixed-port",
     tangentPolicy: "side-normal",
     pathKind: "cubic-bezier"
+  },
+  orthogonal: {
+    anchorPolicy: "fixed-port",
+    tangentPolicy: "side-normal",
+    pathKind: "rounded-orthogonal"
+  },
+  mermaid: {
+    anchorPolicy: "boundary-ray",
+    tangentPolicy: "radial",
+    pathKind: "basis-spline"
   }
 };
+
+const basisLine = line<Point>()
+  .x((point) => point.x)
+  .y((point) => point.y)
+  .curve(curveBasis);
 
 export function computeEdgePath(edge: CanvasEdge, nodes: RoutedNodeRect[], edgeRouting: EdgeRouting): EdgePathGeometry | null {
   const from = nodes.find((node) => node.id === edge.from);
   const to = nodes.find((node) => node.id === edge.to);
   if (!from || !to) return null;
 
-  if (from.id === to.id) return routeSelfLoop(from);
+  if (from.id === to.id) return edgeRouting === "mermaid" ? routeMermaidSelfLoop(from) : routeSelfLoop(from);
 
   return routeBetweenRects(from, to, edgeRouting);
 }
@@ -116,20 +137,59 @@ export function computeEdgeRetargetPath(
   return routeFromPointToRect(target.point, fixed, edgeRouting);
 }
 
+export function remapEdgePathGeometry(route: EdgePathGeometry, fallback: EdgePathGeometry): EdgePathGeometry {
+  const routePoints = unflattenPoints(route.points);
+  if (routePoints.length < 2) return fallback;
+
+  const sourceVector = { x: route.end.x - route.start.x, y: route.end.y - route.start.y };
+  const targetVector = { x: fallback.end.x - fallback.start.x, y: fallback.end.y - fallback.start.y };
+  const sourceLength = Math.hypot(sourceVector.x, sourceVector.y);
+  const targetLength = Math.hypot(targetVector.x, targetVector.y);
+  if (sourceLength < EPSILON || targetLength < EPSILON) return fallback;
+
+  const sourceAngle = Math.atan2(sourceVector.y, sourceVector.x);
+  const targetAngle = Math.atan2(targetVector.y, targetVector.x);
+  const scale = targetLength / sourceLength;
+  const angle = targetAngle - sourceAngle;
+  const cos = Math.cos(angle);
+  const sin = Math.sin(angle);
+
+  const transformed = routePoints.map((point) => {
+    const relative = {
+      x: (point.x - route.start.x) * scale,
+      y: (point.y - route.start.y) * scale
+    };
+
+    return {
+      x: fallback.start.x + relative.x * cos - relative.y * sin,
+      y: fallback.start.y + relative.x * sin + relative.y * cos
+    };
+  });
+
+  transformed[0] = fallback.start;
+  transformed[transformed.length - 1] = fallback.end;
+
+  return buildGeometry(transformed, fallback.start, fallback.end, fallback.endTangent, basisLine(transformed) || undefined);
+}
+
 function routeBetweenRects(from: RoutedNodeRect, to: RoutedNodeRect, edgeRouting: EdgeRouting): EdgePathGeometry {
   const preset = routingPresets[edgeRouting];
-  const anchors = preset.anchorPolicy === "center-ray" ? computeCenterRayAnchors(from, to) : computeSideAnchors(from, to);
+  const anchors = computeAnchorsForPreset(from, to, preset);
 
   if (preset.pathKind === "cubic-bezier") return routeCubicBezier(anchors);
+  if (preset.pathKind === "rounded-orthogonal") return routeRoundedOrthogonal(anchors);
+  if (preset.pathKind === "basis-spline") return routeBasisSpline(anchors);
 
   return buildGeometry([anchors.start, anchors.end], anchors.start, anchors.end, anchors.endTangent);
 }
 
 function routeToPoint(from: RoutedNodeRect, point: Point, edgeRouting: EdgeRouting): EdgePathGeometry {
   const preset = routingPresets[edgeRouting];
-  const anchors = preset.anchorPolicy === "center-ray" ? computeCenterRayPointAnchors(from, point) : computeSidePointAnchors(from, point);
+  const anchors = computePointAnchorsForPreset(from, point, preset);
 
   if (preset.pathKind === "cubic-bezier") return routeCubicBezier(anchors);
+  if (preset.pathKind === "rounded-orthogonal") return routeRoundedOrthogonal(anchors);
+  if (preset.pathKind === "basis-spline") return routeBasisSpline(anchors);
 
   return buildGeometry([anchors.start, anchors.end], anchors.start, anchors.end, anchors.endTangent);
 }
@@ -141,7 +201,17 @@ function routeFromPointToRect(point: Point, to: RoutedNodeRect, edgeRouting: Edg
   return buildGeometry(points, reversed.end, reversed.start, multiply(reversed.endTangent, -1));
 }
 
-function computeCenterRayAnchors(from: RoutedNodeRect, to: RoutedNodeRect): EdgeAnchors {
+function computeAnchorsForPreset(from: RoutedNodeRect, to: RoutedNodeRect, preset: EdgeRoutingPreset): EdgeAnchors {
+  if (preset.anchorPolicy === "fixed-port") return computeFixedPortAnchors(from, to);
+  return computeBoundaryRayAnchors(from, to);
+}
+
+function computePointAnchorsForPreset(from: RoutedNodeRect, point: Point, preset: EdgeRoutingPreset): EdgeAnchors {
+  if (preset.anchorPolicy === "fixed-port") return computeFixedPortPointAnchors(from, point);
+  return computeBoundaryRayPointAnchors(from, point);
+}
+
+function computeBoundaryRayAnchors(from: RoutedNodeRect, to: RoutedNodeRect): EdgeAnchors {
   const fromCenter = rectCenter(from);
   const toCenter = rectCenter(to);
   const direction = normalize({ x: toCenter.x - fromCenter.x, y: toCenter.y - fromCenter.y }, { x: 1, y: 0 });
@@ -156,7 +226,7 @@ function computeCenterRayAnchors(from: RoutedNodeRect, to: RoutedNodeRect): Edge
   };
 }
 
-function computeCenterRayPointAnchors(from: RoutedNodeRect, point: Point): EdgeAnchors {
+function computeBoundaryRayPointAnchors(from: RoutedNodeRect, point: Point): EdgeAnchors {
   const fromCenter = rectCenter(from);
   const direction = normalize({ x: point.x - fromCenter.x, y: point.y - fromCenter.y }, { x: 1, y: 0 });
   const start = add(intersectShapeBoundary(from, direction), multiply(direction, SOURCE_GAP));
@@ -169,7 +239,7 @@ function computeCenterRayPointAnchors(from: RoutedNodeRect, point: Point): EdgeA
   };
 }
 
-function computeSideAnchors(from: RoutedNodeRect, to: RoutedNodeRect): EdgeAnchors {
+function computeFixedPortAnchors(from: RoutedNodeRect, to: RoutedNodeRect): EdgeAnchors {
   const fromCenter = rectCenter(from);
   const toCenter = rectCenter(to);
   const dx = toCenter.x - fromCenter.x;
@@ -187,7 +257,7 @@ function computeSideAnchors(from: RoutedNodeRect, to: RoutedNodeRect): EdgeAncho
   };
 }
 
-function computeSidePointAnchors(from: RoutedNodeRect, point: Point): EdgeAnchors {
+function computeFixedPortPointAnchors(from: RoutedNodeRect, point: Point): EdgeAnchors {
   const fromCenter = rectCenter(from);
   const dx = point.x - fromCenter.x;
   const dy = point.y - fromCenter.y;
@@ -212,6 +282,81 @@ function routeCubicBezier(anchors: EdgeAnchors): EdgePathGeometry {
   return buildGeometry(sampled, anchors.start, anchors.end, anchors.endTangent);
 }
 
+function routeRoundedOrthogonal(anchors: EdgeAnchors): EdgePathGeometry {
+  const exit = add(anchors.start, multiply(anchors.sourceTangent, ORTHOGONAL_STUB));
+  const entry = add(anchors.end, multiply(anchors.endTangent, -ORTHOGONAL_STUB));
+  const bridge = orthogonalBridgePoints(exit, entry, anchors.sourceTangent, anchors.endTangent);
+  const raw = dedupePoints([anchors.start, exit, ...bridge, entry, anchors.end]);
+
+  return buildGeometry(roundPolylineCorners(raw, ORTHOGONAL_CORNER_RADIUS), anchors.start, anchors.end, anchors.endTangent);
+}
+
+function routeBasisSpline(anchors: EdgeAnchors): EdgePathGeometry {
+  const distance = Math.hypot(anchors.end.x - anchors.start.x, anchors.end.y - anchors.start.y);
+  const controlDistance = clamp(distance * 0.36, 42, 160);
+  const exit = add(anchors.start, multiply(anchors.sourceTangent, controlDistance));
+  const entry = add(anchors.end, multiply(anchors.endTangent, -controlDistance));
+  const bridge = orthogonalBridgePoints(exit, entry, anchors.sourceTangent, anchors.endTangent);
+  const routePoints = dedupePoints([anchors.start, exit, ...bridge, entry, anchors.end]);
+  const pathData = basisLine(routePoints) || undefined;
+
+  return buildGeometry(routePoints, anchors.start, anchors.end, anchors.endTangent, pathData);
+}
+
+function orthogonalBridgePoints(start: Point, end: Point, startTangent: Point, endTangent: Point): Point[] {
+  if (isMostlyHorizontal(startTangent) && isMostlyHorizontal(endTangent)) {
+    const midX = (start.x + end.x) / 2;
+    return [
+      { x: midX, y: start.y },
+      { x: midX, y: end.y }
+    ];
+  }
+
+  if (!isMostlyHorizontal(startTangent) && !isMostlyHorizontal(endTangent)) {
+    const midY = (start.y + end.y) / 2;
+    return [
+      { x: start.x, y: midY },
+      { x: end.x, y: midY }
+    ];
+  }
+
+  if (isMostlyHorizontal(startTangent)) return [{ x: end.x, y: start.y }];
+
+  return [{ x: start.x, y: end.y }];
+}
+
+function roundPolylineCorners(points: Point[], radius: number): Point[] {
+  if (points.length < 3) return points;
+
+  const rounded: Point[] = [points[0]];
+
+  for (let index = 1; index < points.length - 1; index += 1) {
+    const previous = points[index - 1];
+    const current = points[index];
+    const next = points[index + 1];
+    const previousLength = distance(previous, current);
+    const nextLength = distance(current, next);
+    const turnRadius = Math.min(radius, previousLength / 2, nextLength / 2);
+
+    if (turnRadius < EPSILON || isCollinear(previous, current, next)) {
+      rounded.push(current);
+      continue;
+    }
+
+    const before = add(current, multiply(normalize({ x: previous.x - current.x, y: previous.y - current.y }, { x: 0, y: 0 }), turnRadius));
+    const after = add(current, multiply(normalize({ x: next.x - current.x, y: next.y - current.y }, { x: 0, y: 0 }), turnRadius));
+    rounded.push(before);
+
+    for (let segment = 1; segment <= ORTHOGONAL_CORNER_SEGMENTS; segment += 1) {
+      const t = segment / ORTHOGONAL_CORNER_SEGMENTS;
+      rounded.push(sampleQuadratic(before, current, after, t));
+    }
+  }
+
+  rounded.push(points[points.length - 1]);
+  return dedupePoints(rounded);
+}
+
 function routeSelfLoop(node: RoutedNodeRect): EdgePathGeometry {
   const right = node.x + node.width;
   const upperY = node.y + node.height * 0.35;
@@ -225,12 +370,27 @@ function routeSelfLoop(node: RoutedNodeRect): EdgePathGeometry {
   return buildGeometry(sampleCubic(start, control1, control2, end, CUBIC_SEGMENTS), start, end, endTangent);
 }
 
-function buildGeometry(points: Point[], start: Point, end: Point, endTangent: Point): EdgePathGeometry {
+function routeMermaidSelfLoop(node: RoutedNodeRect): EdgePathGeometry {
+  const right = node.x + node.width;
+  const upperY = node.y + node.height * 0.35;
+  const lowerY = node.y + node.height * 0.65;
+  const start = { x: right + SOURCE_GAP, y: upperY };
+  const end = { x: right + TARGET_GAP, y: lowerY };
+  const control1 = { x: right + 84, y: upperY };
+  const control2 = { x: right + 84, y: lowerY };
+  const points = [start, control1, control2, end];
+  const endTangent = normalize({ x: end.x - control2.x, y: end.y - control2.y }, { x: -1, y: 0 });
+
+  return buildGeometry(points, start, end, endTangent, basisLine(points) || undefined);
+}
+
+function buildGeometry(points: Point[], start: Point, end: Point, endTangent: Point, pathData?: string): EdgePathGeometry {
   const safePoints = dedupePoints(points);
   const labelPoint = pointAtHalfLength(safePoints);
 
   return {
     points: flattenPoints(safePoints),
+    pathData,
     labelPoint,
     start,
     end,
@@ -373,6 +533,22 @@ function sampleCubic(start: Point, control1: Point, control2: Point, end: Point,
     });
   }
   return points;
+}
+
+function sampleQuadratic(start: Point, control: Point, end: Point, t: number): Point {
+  const inverse = 1 - t;
+  return {
+    x: inverse ** 2 * start.x + 2 * inverse * t * control.x + t ** 2 * end.x,
+    y: inverse ** 2 * start.y + 2 * inverse * t * control.y + t ** 2 * end.y
+  };
+}
+
+function isMostlyHorizontal(point: Point) {
+  return Math.abs(point.x) >= Math.abs(point.y);
+}
+
+function isCollinear(a: Point, b: Point, c: Point) {
+  return Math.abs((b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x)) < EPSILON;
 }
 
 function normalize(point: Point, fallback: Point): Point {

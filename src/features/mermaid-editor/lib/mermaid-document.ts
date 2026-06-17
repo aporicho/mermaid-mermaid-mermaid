@@ -1,5 +1,5 @@
-import { applyLayout, CANVAS_LAYOUT_PREFIX, edgeRoutingFromLayout, layoutFromGraph, parseCanvasLayout, stripCanvasLayout } from "@/features/mermaid-editor/lib/canvas-layout";
-import type { DiagramType, EditableKind, EdgeRouting, MermaidGraph, ParseStatus, ViewportState } from "@/features/mermaid-editor/lib/editor-types";
+import { applyLayout, CANVAS_LAYOUT_PREFIX, edgeRoutingFromLayout, layoutFromGraph, layoutModeFromLayout, parseCanvasLayout, stripCanvasLayout } from "@/features/mermaid-editor/lib/canvas-layout";
+import type { DiagramType, EditableKind, EdgeRouting, LayoutMode, MermaidGraph, ParseStatus, ViewportState } from "@/features/mermaid-editor/lib/editor-types";
 import { inspectMermaidSource, parseMermaid } from "@/features/mermaid-editor/lib/mermaid-graph";
 
 export type MermaidDocument = {
@@ -9,11 +9,12 @@ export type MermaidDocument = {
   editableKind: EditableKind;
   parseStatus: ParseStatus;
   edgeRouting: EdgeRouting;
+  layoutMode: LayoutMode;
   viewport?: ViewportState;
 };
 
-export function buildMermaidDocument(source: string, graph: MermaidGraph, viewport: ViewportState, edgeRouting: EdgeRouting) {
-  const layout = layoutFromGraph(graph, viewport, edgeRouting);
+export function buildMermaidDocument(source: string, graph: MermaidGraph, viewport: ViewportState, edgeRouting: EdgeRouting, layoutMode: LayoutMode) {
+  const layout = layoutFromGraph(graph, viewport, edgeRouting, layoutMode);
   const pureSource = stripCanvasLayout(source).trim();
   return `${CANVAS_LAYOUT_PREFIX} ${JSON.stringify(layout)}\n${pureSource}\n`;
 }
@@ -31,6 +32,7 @@ export function loadMermaidDocument(text: string, previous?: MermaidGraph): Merm
     editableKind: meta.editableKind,
     parseStatus: meta.editableKind === "flowchart" ? "parsed" : "render-only",
     edgeRouting: edgeRoutingFromLayout(layout),
+    layoutMode: layoutModeFromLayout(layout),
     viewport: layout?.viewport
   };
 }

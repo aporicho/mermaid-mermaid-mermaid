@@ -31,17 +31,19 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { applyLayout, edgeRoutingFromLayout, layoutFromGraph, parseCanvasLayout } from "@/features/mermaid-editor/lib/canvas-layout";
+import { applyLayout, edgeRoutingFromLayout, layoutFromGraph, layoutModeFromLayout, parseCanvasLayout } from "@/features/mermaid-editor/lib/canvas-layout";
+import { applyDagreAutoLayout, deriveDagreAutoLayoutResult } from "@/features/mermaid-editor/lib/canvas-auto-layout";
 import { buildMermaidDocument, loadMermaidDocument } from "@/features/mermaid-editor/lib/mermaid-document";
-import { deriveLayoutFromMermaidRender } from "@/features/mermaid-editor/lib/mermaid-auto-layout";
 import {
   addNode as addNodeAction,
   addNodeAt,
   copySelection,
+  createSubgraphFromSelection,
   deleteSelection,
   emptySelection,
   hasSelection,
   pasteClipboard,
+  setNodeParent,
   setMode as setEditorMode
 } from "@/features/mermaid-editor/lib/editor-actions";
 import { createHistory, pushHistory, redo, undo } from "@/features/mermaid-editor/lib/editor-history";
@@ -55,12 +57,13 @@ import type {
   EditorMode,
   EditorSnapshot,
   GraphDirection,
+  LayoutMode,
   MermaidGraph,
   Selection,
   ViewportState
 } from "@/features/mermaid-editor/lib/editor-types";
 import type { CanvasLayout } from "@/features/mermaid-editor/lib/editor-types";
-import { DEFAULT_EDGE_ROUTING } from "@/features/mermaid-editor/lib/editor-types";
+import { DEFAULT_EDGE_ROUTING, DEFAULT_LAYOUT_MODE } from "@/features/mermaid-editor/lib/editor-types";
 import {
   applyEditorThemeToDocument,
   BUILT_IN_EDITOR_THEMES,
@@ -86,7 +89,13 @@ const KonvaCanvas = dynamic(() => import("@/features/mermaid-editor/components/k
 const directions: GraphDirection[] = ["LR", "TD", "TB", "RL", "BT"];
 const edgeRoutingOptions: { value: EdgeRouting; label: string }[] = [
   { value: "straight", label: "直线" },
-  { value: "bezier", label: "曲线" }
+  { value: "bezier", label: "曲线" },
+  { value: "orthogonal", label: "圆角折线" },
+  { value: "mermaid", label: "Mermaid 曲线" }
+];
+const layoutModeOptions: { value: LayoutMode; label: string }[] = [
+  { value: "manual", label: "手动布局" },
+  { value: "auto", label: "自动布局" }
 ];
 type WorkspaceView = "canvas" | "render";
 const FALLBACK_FILE_NAME = "diagram.mmd";
@@ -103,6 +112,7 @@ type StoredEditor = {
   source: string;
   layout?: CanvasLayout;
   edgeRouting?: EdgeRouting;
+  layoutMode?: LayoutMode;
   viewport: ViewportState;
   leftCollapsed: boolean;
   rightCollapsed: boolean;
@@ -143,6 +153,7 @@ function loadInitialState() {
       editableKind: fallbackDocument.editableKind,
       viewport: fallbackViewport,
       edgeRouting: DEFAULT_EDGE_ROUTING,
+      layoutMode: DEFAULT_LAYOUT_MODE,
       leftCollapsed: false,
       rightCollapsed: false,
       workspaceView: "canvas" as WorkspaceView,
@@ -165,16 +176,19 @@ function loadInitialState() {
     const graph = loaded.editableKind === "flowchart" ? applyLayout(parsedGraph, layout) : parsedGraph;
     const viewport = stored.viewport || layout?.viewport || fallbackViewport;
     const edgeRouting = stored.edgeRouting || edgeRoutingFromLayout(layout);
+    const layoutMode = stored.layoutMode || layoutModeFromLayout(layout);
+    const resolvedGraph = loaded.editableKind === "flowchart" && layoutMode === "auto" ? applyDagreAutoLayout(graph) : graph;
     const themeId = normalizeThemeId(stored.themeId);
     const customTheme = stored.customTheme ? normalizeEditorTheme(stored.customTheme) : null;
 
     return {
       source,
-      graph,
+      graph: resolvedGraph,
       diagramType: loaded.diagramType,
       editableKind: loaded.editableKind,
       viewport,
       edgeRouting,
+      layoutMode,
       leftCollapsed: stored.leftCollapsed || false,
       rightCollapsed: stored.rightCollapsed || false,
       workspaceView: loaded.editableKind === "flowchart" ? stored.workspaceView || "canvas" : "render",
@@ -191,6 +205,7 @@ function loadInitialState() {
       editableKind: fallbackDocument.editableKind,
       viewport: fallbackViewport,
       edgeRouting: DEFAULT_EDGE_ROUTING,
+      layoutMode: DEFAULT_LAYOUT_MODE,
       leftCollapsed: false,
       rightCollapsed: false,
       workspaceView: "canvas" as WorkspaceView,
@@ -262,6 +277,7 @@ export function MermaidEditor() {
   const [selection, setSelection] = useState<Selection>(emptySelection);
   const [viewport, setViewport] = useState<ViewportState>(initial.viewport);
   const [edgeRouting, setEdgeRouting] = useState<EdgeRouting>(initial.edgeRouting);
+  const [layoutMode, setLayoutMode] = useState<LayoutMode>(initial.layoutMode);
   const [mode, setMode] = useState<EditorMode>("select");
   const [spacePanning, setSpacePanning] = useState(false);
   const [history, setHistory] = useState<EditorHistory>(() => createHistory());
@@ -285,7 +301,11 @@ export function MermaidEditor() {
   const themeEditBaseRef = useRef<{ themeId: EditorThemeId; customTheme: EditorTheme | null } | null>(null);
   const storageWriteTimerRef = useRef<number | null>(null);
 
-  const currentDocument = useMemo(() => buildMermaidDocument(source, graph, viewport, edgeRouting), [source, graph, viewport, edgeRouting]);
+  const currentDocument = useMemo(() => buildMermaidDocument(source, graph, viewport, edgeRouting, layoutMode), [source, graph, viewport, edgeRouting, layoutMode]);
+  const mermaidEdgeRoutes = useMemo(
+    () => (edgeRouting === "mermaid" ? deriveDagreAutoLayoutResult(graph).edgeRoutes : []),
+    [edgeRouting, graph]
+  );
   const activeTheme = useMemo(() => resolveEditorTheme(themeId, customTheme), [customTheme, themeId]);
   const canvasVisualTokens = useMemo(() => themeToCanvasVisualTokens(activeTheme), [activeTheme]);
   const mermaidThemeVariables = useMemo(() => themeToMermaidThemeVariables(activeTheme), [activeTheme]);
@@ -295,7 +315,7 @@ export function MermaidEditor() {
   const canvasViewTooltip = isCanvasEditable ? "无限画布" : `${diagramTypeLabel(diagramType)} 仅支持渲染`;
 
   function snapshot(): EditorSnapshot {
-    return { source, graph, selection, viewport, edgeRouting };
+    return { source, graph, selection, viewport, edgeRouting, layoutMode };
   }
 
   function restoreSnapshot(next: EditorSnapshot) {
@@ -309,6 +329,15 @@ export function MermaidEditor() {
     setSelection(next.selection);
     setViewport(next.viewport);
     setEdgeRouting(next.edgeRouting);
+    setLayoutMode(next.layoutMode);
+  }
+
+  function applyAutoLayoutIfNeeded(nextGraph: MermaidGraph) {
+    if (!isCanvasEditable || layoutMode !== "auto") return nextGraph;
+    return measurePerformance("dagre-auto-layout", () => applyDagreAutoLayout(nextGraph), {
+      nodes: nextGraph.nodes.length,
+      edges: nextGraph.edges.length
+    });
   }
 
   function flushSourceHistory() {
@@ -322,11 +351,12 @@ export function MermaidEditor() {
     if (!isCanvasEditable) return;
     flushSourceHistory();
     setHistory((current) => pushHistory(current, snapshot()));
-    const nextSource = measurePerformance("serialize-mermaid", () => serializeMermaid(nextGraph), {
-      nodes: nextGraph.nodes.length,
-      edges: nextGraph.edges.length
+    const committedGraph = applyAutoLayoutIfNeeded(nextGraph);
+    const nextSource = measurePerformance("serialize-mermaid", () => serializeMermaid(committedGraph), {
+      nodes: committedGraph.nodes.length,
+      edges: committedGraph.edges.length
     });
-    setGraph(nextGraph);
+    setGraph(committedGraph);
     setSource(nextSource);
     setSelection(nextSelection);
     setDiagnostics([]);
@@ -335,12 +365,13 @@ export function MermaidEditor() {
 
   function draftGraph(nextGraph: MermaidGraph, message?: string, options?: { syncSource?: boolean }) {
     if (!isCanvasEditable) return;
-    setGraph(nextGraph);
+    const draftedGraph = options?.syncSource ? applyAutoLayoutIfNeeded(nextGraph) : nextGraph;
+    setGraph(draftedGraph);
     if (options?.syncSource) {
       setSource(
-        measurePerformance("serialize-mermaid", () => serializeMermaid(nextGraph), {
-          nodes: nextGraph.nodes.length,
-          edges: nextGraph.edges.length,
+        measurePerformance("serialize-mermaid", () => serializeMermaid(draftedGraph), {
+          nodes: draftedGraph.nodes.length,
+          edges: draftedGraph.edges.length,
           draft: true
         })
       );
@@ -356,19 +387,24 @@ export function MermaidEditor() {
 
   function applySource(nextSource: string) {
     if (!sourceEditBaseRef.current) sourceEditBaseRef.current = snapshot();
+    const sourceLayout = parseCanvasLayout(nextSource);
     const loaded = measurePerformance("load-mermaid-document", () => loadMermaidDocument(nextSource, graph), {
       sourceLength: nextSource.length
     });
+    const nextEdgeRouting = sourceLayout ? loaded.edgeRouting : edgeRouting;
+    const nextLayoutMode = sourceLayout ? loaded.layoutMode : layoutMode;
+    const loadedGraph = loaded.editableKind === "flowchart" && nextLayoutMode === "auto" ? applyDagreAutoLayout(loaded.graph) : loaded.graph;
     setSource(loaded.source);
     setDiagramType(loaded.diagramType);
     setEditableKind(loaded.editableKind);
-    setGraph(loaded.graph);
+    setGraph(loadedGraph);
     setSelection(emptySelection);
     setDiagnostics([]);
     setStatus(loaded.editableKind === "flowchart" ? "源码已解析到画布。" : "当前 Mermaid 类型已切换到渲染视图。");
 
     if (loaded.editableKind !== "flowchart") setWorkspaceView("render");
-    setEdgeRouting(loaded.edgeRouting);
+    setEdgeRouting(nextEdgeRouting);
+    setLayoutMode(nextLayoutMode);
     if (loaded.viewport) setViewport(loaded.viewport);
     if (sourceEditTimerRef.current) window.clearTimeout(sourceEditTimerRef.current);
     sourceEditTimerRef.current = window.setTimeout(() => {
@@ -382,10 +418,17 @@ export function MermaidEditor() {
     commitGraph(result.graph, result.selection, "已新增节点。");
   }
 
-  function addNodeAtPoint(point: { x: number; y: number }) {
+  function addNodeAtPoint(point: { x: number; y: number; parentId?: string }) {
     if (!isCanvasEditable) return;
     const result = addNodeAt(graph, point.x, point.y);
-    commitGraph(result.graph, result.selection, "已在画布中新增节点。");
+    const nextGraph = point.parentId ? setNodeParent(result.graph, result.selection.nodeIds[0], point.parentId) : result.graph;
+    commitGraph(nextGraph, result.selection, "已在画布中新增节点。");
+  }
+
+  function createGroupFromSelection() {
+    if (!isCanvasEditable || !hasSelection(selection)) return;
+    const result = createSubgraphFromSelection(graph, selection);
+    commitGraph(result.graph, result.selection, "已将选中内容成组。");
   }
 
   function updateDirection(direction: GraphDirection) {
@@ -397,9 +440,36 @@ export function MermaidEditor() {
     if (!isCanvasEditable) return;
     if (nextEdgeRouting === edgeRouting) return;
     flushSourceHistory();
-    setHistory((current) => pushHistory(current, snapshot()));
+    const previousSnapshot = snapshot();
+
+    setHistory((current) => pushHistory(current, previousSnapshot));
     setEdgeRouting(nextEdgeRouting);
     setStatus(`连线形状已切换为${edgeRoutingLabel(nextEdgeRouting)}。`);
+  }
+
+  function updateLayoutMode(nextLayoutMode: LayoutMode) {
+    if (!isCanvasEditable || nextLayoutMode === layoutMode) return;
+    flushSourceHistory();
+    const previousSnapshot = snapshot();
+
+    if (nextLayoutMode === "auto") {
+      const nextGraph = measurePerformance("dagre-auto-layout", () => applyDagreAutoLayout(graph), {
+        nodes: graph.nodes.length,
+        edges: graph.edges.length,
+        modeSwitch: true
+      });
+      setHistory((current) => pushHistory(current, previousSnapshot));
+      setGraph(nextGraph);
+      setSource(serializeMermaid(nextGraph));
+      setSelection(emptySelection);
+      setLayoutMode(nextLayoutMode);
+      setStatus("已开启自动布局模式。");
+      return;
+    }
+
+    setHistory((current) => pushHistory(current, previousSnapshot));
+    setLayoutMode(nextLayoutMode);
+    setStatus("已切换为手动布局模式。");
   }
 
   function refreshFromSource() {
@@ -418,7 +488,9 @@ export function MermaidEditor() {
       return;
     }
 
-    setSource(serializeMermaid(loaded.graph));
+    const nextGraph = layoutMode === "auto" ? applyDagreAutoLayout(loaded.graph) : loaded.graph;
+    setSource(serializeMermaid(nextGraph));
+    setGraph(nextGraph);
     setStatus("已从 Mermaid 源码刷新画布。");
   }
 
@@ -441,11 +513,11 @@ export function MermaidEditor() {
         return;
       }
 
-      const layout = await deriveLayoutFromMermaidRender(loaded.source, loaded.graph, {
-        edgeRouting,
-        mermaidThemeVariables
+      const nextGraph = measurePerformance("dagre-auto-layout", () => applyDagreAutoLayout(loaded.graph), {
+        nodes: loaded.graph.nodes.length,
+        edges: loaded.graph.edges.length,
+        manualRun: true
       });
-      const nextGraph = applyLayout(loaded.graph, layout);
       const nextSource = serializeMermaid(nextGraph);
 
       setHistory((current) => pushHistory(current, previousSnapshot));
@@ -454,15 +526,13 @@ export function MermaidEditor() {
       setDiagramType(loaded.diagramType);
       setEditableKind(loaded.editableKind);
       setSelection(emptySelection);
-      setViewport(layout.viewport);
-      setEdgeRouting(layout.edgeRouting || edgeRouting);
       setWorkspaceView("canvas");
       setDiagnostics([]);
-      setStatus("已从 Mermaid 自动布局同步到无限画布。");
+      setStatus("已执行 Dagre 自动布局。");
     } catch (error) {
       setDiagnostics([normalizeMermaidError(error, source, "mermaid-render")]);
       setWorkspaceView("render");
-      setStatus("自动布局同步失败，请先修复 Mermaid 语法。");
+      setStatus("自动布局失败，请先修复 Mermaid 语法。");
     }
   }
 
@@ -548,14 +618,17 @@ export function MermaidEditor() {
     flushSourceHistory();
     const loaded = loadMermaidDocument(text);
     const nextViewport = loaded.viewport || { x: 160, y: 90, scale: 1 };
-    const savedDocument = buildMermaidDocument(loaded.source, loaded.graph, nextViewport, loaded.edgeRouting);
+    const nextLayoutMode = loaded.layoutMode;
+    const loadedGraph = loaded.editableKind === "flowchart" && nextLayoutMode === "auto" ? applyDagreAutoLayout(loaded.graph) : loaded.graph;
+    const savedDocument = buildMermaidDocument(loaded.source, loadedGraph, nextViewport, loaded.edgeRouting, nextLayoutMode);
 
     setSource(loaded.source);
-    setGraph(loaded.graph);
+    setGraph(loadedGraph);
     setDiagramType(loaded.diagramType);
     setEditableKind(loaded.editableKind);
     setViewport(nextViewport);
     setEdgeRouting(loaded.edgeRouting);
+    setLayoutMode(nextLayoutMode);
     setWorkspaceView(loaded.editableKind === "flowchart" ? "canvas" : "render");
     setSelection(emptySelection);
     setDiagnostics([]);
@@ -688,9 +761,10 @@ export function MermaidEditor() {
         STORAGE_KEY,
         JSON.stringify({
           source,
-          layout: layoutFromGraph(graph, viewport, edgeRouting),
+          layout: layoutFromGraph(graph, viewport, edgeRouting, layoutMode),
           viewport,
           edgeRouting,
+          layoutMode,
           leftCollapsed,
           rightCollapsed,
           workspaceView,
@@ -706,7 +780,7 @@ export function MermaidEditor() {
     return () => {
       if (storageWriteTimerRef.current) window.clearTimeout(storageWriteTimerRef.current);
     };
-  }, [source, graph, viewport, edgeRouting, leftCollapsed, rightCollapsed, workspaceView, showGrid, fileName, themeId, customTheme]);
+  }, [source, graph, viewport, edgeRouting, layoutMode, leftCollapsed, rightCollapsed, workspaceView, showGrid, fileName, themeId, customTheme]);
 
   useEffect(() => {
     function isTextInput(target: EventTarget | null) {
@@ -864,13 +938,16 @@ export function MermaidEditor() {
               open={secondaryActionsOpen}
               direction={graph.direction}
               edgeRouting={edgeRouting}
+              layoutMode={layoutMode}
               editable={isCanvasEditable}
               showGrid={showGrid}
               onOpenChange={setSecondaryActionsOpen}
               onAddNode={addNode}
+              onCreateGroup={createGroupFromSelection}
               onSaveAs={() => void saveMermaidFileAs()}
               onDirectionChange={updateDirection}
               onEdgeRoutingChange={updateEdgeRouting}
+              onLayoutModeChange={updateLayoutMode}
               onToggleGrid={toggleGrid}
               onRefreshSource={refreshFromSource}
               onSyncAutoLayout={() => void syncCanvasFromAutoLayout()}
@@ -891,6 +968,8 @@ export function MermaidEditor() {
                 panningRequested={spacePanning}
                 showGrid={showGrid}
                 edgeRouting={edgeRouting}
+                mermaidEdgeRoutes={mermaidEdgeRoutes}
+                layoutMode={layoutMode}
                 visualTokens={canvasVisualTokens}
                 onGraphDraft={draftGraph}
                 onGraphCommit={commitGraph}
@@ -950,13 +1029,16 @@ function SecondaryActionsMenu({
   open,
   direction,
   edgeRouting,
+  layoutMode,
   editable,
   showGrid,
   onOpenChange,
   onAddNode,
+  onCreateGroup,
   onSaveAs,
   onDirectionChange,
   onEdgeRoutingChange,
+  onLayoutModeChange,
   onToggleGrid,
   onRefreshSource,
   onSyncAutoLayout,
@@ -966,13 +1048,16 @@ function SecondaryActionsMenu({
   open: boolean;
   direction: GraphDirection;
   edgeRouting: EdgeRouting;
+  layoutMode: LayoutMode;
   editable: boolean;
   showGrid: boolean;
   onOpenChange: (open: boolean) => void;
   onAddNode: () => void;
+  onCreateGroup: () => void;
   onSaveAs: () => void;
   onDirectionChange: (direction: GraphDirection) => void;
   onEdgeRoutingChange: (edgeRouting: EdgeRouting) => void;
+  onLayoutModeChange: (layoutMode: LayoutMode) => void;
   onToggleGrid: () => void;
   onRefreshSource: () => void;
   onSyncAutoLayout: () => void;
@@ -1014,6 +1099,15 @@ function SecondaryActionsMenu({
               <Plus className="size-4" />
               新增节点
             </Button>
+            <Button
+              variant="ghost"
+              className="h-8 justify-start px-2 text-foreground disabled:opacity-40 [&_svg]:text-icon"
+              onClick={() => runAndClose(onCreateGroup)}
+              disabled={!editable}
+            >
+              <SquareDashedMousePointer className="size-4" />
+              选中内容成组
+            </Button>
             <Button variant="ghost" className="h-8 justify-start px-2 text-foreground [&_svg]:text-icon" onClick={() => runAndClose(onSaveAs)}>
               <FloppyDiskArrowOut className="size-4" />
               另存为
@@ -1036,6 +1130,32 @@ function SecondaryActionsMenu({
                   {directions.map((item) => (
                     <SelectItem key={item} value={item}>
                       {item}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Separator className="my-1" />
+            <div className="grid gap-1.5 px-2 py-1.5">
+              <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <PositionAlign className="size-3.5 text-icon" />
+                布局模式
+              </span>
+              <Select
+                value={layoutMode}
+                onValueChange={(value) => {
+                  onLayoutModeChange(value as LayoutMode);
+                  onOpenChange(false);
+                }}
+                disabled={!editable}
+              >
+                <SelectTrigger className="h-8">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {layoutModeOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -1092,7 +1212,7 @@ function SecondaryActionsMenu({
               disabled={!editable}
             >
               <PositionAlign className="size-4" />
-              同步自动布局
+              立即自动布局
             </Button>
             <Button
               variant="ghost"

@@ -3,6 +3,8 @@ import type { HitTarget } from "@/features/mermaid-editor/lib/canvas-interaction
 export const CANVAS_HIT_NAMES = {
   node: "canvas-node",
   nodeAnchor: "canvas-node-anchor",
+  subgraph: "canvas-subgraph",
+  subgraphAnchor: "canvas-subgraph-anchor",
   edge: "canvas-edge",
   edgeLabel: "canvas-edge-label",
   edgeEndpoint: "canvas-edge-endpoint"
@@ -20,6 +22,14 @@ export function nodeHitId(nodeId: string) {
 
 export function nodeAnchorHitId(nodeId: string, anchor: string) {
   return `node-anchor:${encodePart(nodeId)}:${encodePart(anchor)}`;
+}
+
+export function subgraphHitId(subgraphId: string) {
+  return `subgraph:${encodePart(subgraphId)}`;
+}
+
+export function subgraphAnchorHitId(subgraphId: string, anchor: string) {
+  return `subgraph-anchor:${encodePart(subgraphId)}:${encodePart(anchor)}`;
 }
 
 export function edgeHitId(edgeId: string) {
@@ -56,6 +66,14 @@ export function parseHitTargetId(value: string): HitTarget | null {
 
   if (kind === "node-anchor" && first && second) {
     return { kind: "nodeAnchor", nodeId: decodePart(first), anchor: decodePart(second) };
+  }
+
+  if (kind === "subgraph" && first) {
+    return { kind: "subgraph", id: decodePart(first) };
+  }
+
+  if (kind === "subgraph-anchor" && first && second) {
+    return { kind: "subgraphAnchor", subgraphId: decodePart(first), anchor: decodePart(second) };
   }
 
   if (kind === "edge" && first) {

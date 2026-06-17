@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { buildMermaidDocument, loadMermaidDocument } from "@/features/mermaid-editor/lib/mermaid-document";
-import { DEFAULT_EDGE_ROUTING } from "@/features/mermaid-editor/lib/editor-types";
+import { DEFAULT_EDGE_ROUTING, DEFAULT_LAYOUT_MODE } from "@/features/mermaid-editor/lib/editor-types";
 
 describe("mermaid document", () => {
   it("loads flowchart documents as editable canvas graphs", () => {
@@ -22,7 +22,7 @@ describe("mermaid document", () => {
   participant User
   User->>AI: update Mermaid`;
     const document = loadMermaidDocument(source);
-    const saved = buildMermaidDocument(document.source, document.graph, { x: 0, y: 0, scale: 1 }, DEFAULT_EDGE_ROUTING);
+    const saved = buildMermaidDocument(document.source, document.graph, { x: 0, y: 0, scale: 1 }, DEFAULT_EDGE_ROUTING, DEFAULT_LAYOUT_MODE);
 
     expect(document).toMatchObject({
       diagramType: "sequence",
@@ -31,5 +31,25 @@ describe("mermaid document", () => {
     });
     expect(document.graph.nodes).toEqual([]);
     expect(saved).toContain(source);
+  });
+
+  it("loads saved layout mode and orthogonal routing", () => {
+    const document = loadMermaidDocument(`%% canvas-layout: {"version":1,"edgeRouting":"orthogonal","layoutMode":"auto","viewport":{"x":0,"y":0,"scale":1},"nodes":{"A":{"x":10,"y":20,"fill":"#fff"}}}
+flowchart LR
+  A[Alpha]`);
+
+    expect(document.edgeRouting).toBe("orthogonal");
+    expect(document.layoutMode).toBe("auto");
+    expect(document.graph.nodes[0]).toMatchObject({ id: "A", x: 10, y: 20 });
+  });
+
+  it("loads saved mermaid routing as a supported manual canvas routing mode", () => {
+    const document = loadMermaidDocument(`%% canvas-layout: {"version":1,"edgeRouting":"mermaid","layoutMode":"manual","viewport":{"x":0,"y":0,"scale":1},"nodes":{"A":{"x":10,"y":20,"fill":"#fff"},"B":{"x":120,"y":20,"fill":"#eee"}}}
+flowchart LR
+  A[Alpha] --> B[Beta]`);
+
+    expect(document.edgeRouting).toBe("mermaid");
+    expect(document.layoutMode).toBe("manual");
+    expect(document.graph.edges).toHaveLength(1);
   });
 });

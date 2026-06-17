@@ -340,7 +340,7 @@ function isDraggingNode(nodeId: string, interactionState: InteractionState, sele
 }
 
 function isConnectionTarget(nodeId: string, hoveredNodeId: string | null, interactionState: InteractionState) {
-  return interactionState.kind === "connectingEdge" && interactionState.fromNodeId !== nodeId && hoveredNodeId === nodeId;
+  return interactionState.kind === "connectingEdge" && interactionState.fromId !== nodeId && hoveredNodeId === nodeId;
 }
 
 function emphasizedNode(kind: NodeVisualKind, stroke: string, visualTokens: CanvasVisualTokens): NodeVisualState {

@@ -5,7 +5,7 @@
 ## 目标
 
 - 目标设备按 MacBook 120Hz 触控板设计。
-- 触控板平移、捏合缩放、节点拖拽、框选、连线预览属于热路径，视觉反馈目标是下一帧内完成。
+- 触控板平移、捏合缩放、节点拖拽、组拖拽、框选、连线预览属于热路径，视觉反馈目标是下一帧内完成。
 - 源码同步、历史记录、文件 dirty 状态、localStorage、Mermaid render 属于提交路径或重任务路径，不能逐帧执行。
 
 ## 路径分层
@@ -24,6 +24,8 @@
 提交路径在明确边界运行：
 
 - 节点拖拽结束后同步 Mermaid 源码一次。
+- 组拖拽结束后同步 Mermaid 源码一次，拖拽中只更新组内节点位置的 draft graph。
+- 节点或组拖拽结束后再计算自动归组并提交源码，不能在 pointer move 中改 Mermaid 结构。
 - 连线创建、端点重连、文本编辑提交时同步 graph/source/history。
 - viewport 停顿后低频提交到 React state。
 - localStorage 使用 debounce 写入。
@@ -53,4 +55,6 @@ window.__MERMAID_EDITOR_PERF__
 
 - 不允许在 pointer move、wheel、gesture change 中执行 `serializeMermaid`、`mermaid.render`、localStorage 写入或历史记录写入。
 - 不允许在拖拽过程中逐帧写 Mermaid 源码；拖拽中只更新 graph draft，拖拽结束再同步 source。
+- 组 bounds 必须由节点几何和子组几何的 memoized pure helper 派生，不能在 Konva shape handler 中临时扫描 Mermaid 源码。
+- 组级连线必须复用现有边路由纯函数，不能在渲染组件中单独计算路径。
 - 新增大图能力前，优先复用现有几何、路由、视觉状态纯函数，并为缓存策略补测试。

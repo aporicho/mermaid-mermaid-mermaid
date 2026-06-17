@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { resolveConnectionPreview, resolveRetargetPreview } from "@/features/mermaid-editor/lib/connection-preview";
 import type { CanvasEdge, CanvasNode } from "@/features/mermaid-editor/lib/editor-types";
 import { buildNodeGeometry, type NodeGeometrySpec } from "@/features/mermaid-editor/lib/node-geometry";
+import type { SubgraphGeometry } from "@/features/mermaid-editor/lib/subgraph-geometry";
 
 const spec: NodeGeometrySpec = {
   minChars: 4,
@@ -21,6 +22,19 @@ const nodes: CanvasNode[] = [
 ];
 
 const geometries = nodes.map((node) => buildNodeGeometry(node, spec));
+const subgraphs: SubgraphGeometry[] = [
+  {
+    id: "Group",
+    frame: { x: 140, y: -30, width: 120, height: 100 },
+    titleBox: { x: 150, y: -20, width: 100, height: 28 },
+    contentBox: { x: 150, y: 10, width: 100, height: 60 },
+    anchorsLocal: [],
+    anchorsWorld: [],
+    alignmentRect: { id: "Group", x: 140, y: -30, width: 120, height: 100 },
+    routedRect: { id: "Group", x: 140, y: -30, width: 120, height: 100, shape: "rounded" },
+    depth: 0
+  }
+];
 
 const edge: CanvasEdge = {
   id: "edge-a-b",
@@ -32,7 +46,7 @@ const edge: CanvasEdge = {
 
 describe("connection preview", () => {
   it("treats a non-source node as a valid connection target", () => {
-    const preview = resolveConnectionPreview({ fromNodeId: "a", currentWorld: { x: 180, y: 20 }, nodes: geometries });
+    const preview = resolveConnectionPreview({ fromId: "a", currentWorld: { x: 180, y: 20 }, nodes: geometries });
 
     expect(preview.valid).toBe(true);
     expect(preview.targetNodeId).toBe("b");
@@ -41,8 +55,8 @@ describe("connection preview", () => {
   });
 
   it("treats the source node and blank space as invalid connection targets", () => {
-    const source = resolveConnectionPreview({ fromNodeId: "a", currentWorld: { x: 20, y: 20 }, nodes: geometries });
-    const blank = resolveConnectionPreview({ fromNodeId: "a", currentWorld: { x: 120, y: 120 }, nodes: geometries });
+    const source = resolveConnectionPreview({ fromId: "a", currentWorld: { x: 20, y: 20 }, nodes: geometries });
+    const blank = resolveConnectionPreview({ fromId: "a", currentWorld: { x: 120, y: 120 }, nodes: geometries });
 
     expect(source).toMatchObject({ valid: false, targetNodeId: null, invalidNodeId: "a", reason: "source-node" });
     expect(source.geometryTarget).toEqual({ kind: "point", point: { x: 20, y: 20 } });
@@ -55,6 +69,16 @@ describe("connection preview", () => {
     expect(preview.valid).toBe(true);
     expect(preview.targetNodeId).toBe("c");
     expect(preview.geometryTarget).toEqual({ kind: "node", rect: geometries[2].routedRect });
+  });
+
+  it("uses node targets before subgraph targets and supports subgraph fallback", () => {
+    const nodeTarget = resolveConnectionPreview({ fromId: "a", currentWorld: { x: 180, y: 20 }, nodes: geometries, subgraphs });
+    const subgraphTarget = resolveConnectionPreview({ fromId: "a", currentWorld: { x: 240, y: 50 }, nodes: geometries, subgraphs });
+
+    expect(nodeTarget.targetKind).toBe("node");
+    expect(nodeTarget.targetNodeId).toBe("b");
+    expect(subgraphTarget.targetKind).toBe("subgraph");
+    expect(subgraphTarget.targetSubgraphId).toBe("Group");
   });
 
   it("allows retargeting onto the opposite endpoint node for self-loops", () => {

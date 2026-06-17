@@ -143,8 +143,8 @@ describe("canvas interaction state", () => {
       viewport
     });
 
-    expect(selectResult.state).toMatchObject({ kind: "connectingEdge", fromNodeId: "a", startWorld: { x: 80, y: 80 } });
-    expect(connectResult.state).toMatchObject({ kind: "connectingEdge", fromNodeId: "a", startWorld: { x: 80, y: 80 } });
+    expect(selectResult.state).toMatchObject({ kind: "connectingEdge", fromId: "a", startWorld: { x: 80, y: 80 } });
+    expect(connectResult.state).toMatchObject({ kind: "connectingEdge", fromId: "a", startWorld: { x: 80, y: 80 } });
   });
 
   it("starts edge endpoint retargeting from selected edge endpoint handles", () => {

@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { computeEdgeDraftPath, computeEdgePath, computeEdgeRetargetPath, type RoutedNodeRect } from "@/features/mermaid-editor/lib/edge-geometry";
+import {
+  computeEdgeDraftPath,
+  computeEdgePath,
+  computeEdgeRetargetPath,
+  remapEdgePathGeometry,
+  type RoutedNodeRect
+} from "@/features/mermaid-editor/lib/edge-geometry";
 import type { CanvasEdge, EdgeRouting } from "@/features/mermaid-editor/lib/editor-types";
 
 const baseEdge: CanvasEdge = {
@@ -184,6 +190,61 @@ describe("computeEdgePath", () => {
     expectFinitePoints(geometry.points);
   });
 
+  it("builds manual mermaid routing with continuous boundary anchors", () => {
+    const geometry = edgePath("mermaid", [
+      { id: "a", x: 0, y: 0, width: 100, height: 50 },
+      { id: "b", x: 220, y: 120, width: 100, height: 50 }
+    ]);
+
+    expect(geometry.points.length).toBeGreaterThanOrEqual(8);
+    expect(geometry.pathData).toMatch(/^M/);
+    expectPointClose(pointAt(geometry.points, 0), { x: 101.1007, y: 52.8731 });
+    expectPointClose(lastPoint(geometry.points), { x: 215.3877, y: 115.2115 });
+    expectFinitePoints(geometry.points);
+  });
+
+  it("builds manual mermaid self loops as path geometry", () => {
+    const geometry = edgePath(
+      "mermaid",
+      [{ id: "a", x: 10, y: 20, width: 100, height: 60 }],
+      { ...baseEdge, to: "a" }
+    );
+
+    expect(geometry.pathData).toMatch(/^M/);
+    expect(geometry.endTangent.x).toBeLessThan(0);
+    expectFinitePoints(geometry.points);
+  });
+
+  it("remaps dagre route templates onto manual edge endpoints", () => {
+    const route = edgePath("mermaid", [
+      { id: "a", x: 0, y: 0, width: 100, height: 50 },
+      { id: "b", x: 220, y: 0, width: 100, height: 50 }
+    ]);
+    const manual = edgePath("mermaid", [
+      { id: "a", x: 30, y: 80, width: 100, height: 50 },
+      { id: "b", x: 260, y: 210, width: 100, height: 50 }
+    ]);
+    const remapped = remapEdgePathGeometry(route, manual);
+
+    expect(remapped.pathData).toMatch(/^M/);
+    expectPointClose(pointAt(remapped.points, 0), manual.start);
+    expectPointClose(lastPoint(remapped.points), manual.end);
+    expectFinitePoints(remapped.points);
+  });
+
+  it("routes orthogonal edges with rounded corner samples", () => {
+    const geometry = edgePath("orthogonal", [
+      { id: "a", x: 0, y: 0, width: 100, height: 50 },
+      { id: "b", x: 220, y: 120, width: 100, height: 50 }
+    ]);
+
+    expect(geometry.points.length).toBeGreaterThan(8);
+    expectPointClose(pointAt(geometry.points, 0), { x: 106, y: 25 });
+    expectPointClose(lastPoint(geometry.points), { x: 210, y: 145 });
+    expectPointClose(geometry.endTangent, { x: 1, y: 0 });
+    expectFinitePoints(geometry.points);
+  });
+
   it("falls back deterministically for self loops", () => {
     const geometry = edgePath(
       "bezier",
@@ -212,6 +273,15 @@ describe("computeEdgeDraftPath", () => {
     const nodes = defaultNodes();
     const draft = computeEdgeDraftPath(nodes[0], { kind: "node", rect: nodes[1] }, "bezier");
     const completed = edgePath("bezier", nodes);
+
+    expect(draft.points).toEqual(completed.points);
+    expect(draft.labelPoint).toEqual(completed.labelPoint);
+  });
+
+  it("matches completed orthogonal edge geometry when the draft target is a node", () => {
+    const nodes = defaultNodes();
+    const draft = computeEdgeDraftPath(nodes[0], { kind: "node", rect: nodes[1] }, "orthogonal");
+    const completed = edgePath("orthogonal", nodes);
 
     expect(draft.points).toEqual(completed.points);
     expect(draft.labelPoint).toEqual(completed.labelPoint);

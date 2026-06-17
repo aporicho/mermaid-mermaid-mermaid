@@ -9,6 +9,8 @@ export type HitTarget =
   | { kind: "blank" }
   | { kind: "node"; id: string }
   | { kind: "nodeAnchor"; nodeId: string; anchor: string }
+  | { kind: "subgraph"; id: string }
+  | { kind: "subgraphAnchor"; subgraphId: string; anchor: string }
   | { kind: "edge"; id: string }
   | { kind: "edgeLabel"; id: string }
   | { kind: "edgeEndpoint"; edgeId: string; side: "from" | "to" };
@@ -32,13 +34,23 @@ export type InteractionState =
       startedAt: number;
       selectionVersion: number;
     }
+  | {
+      kind: "pendingSubgraphPointer";
+      subgraphId: string;
+      pointerId: number;
+      startScreen: CanvasPoint;
+      startWorld: CanvasPoint;
+      startedAt: number;
+      selectionVersion: number;
+    }
   | { kind: "marqueeSelecting"; pointerId: number; startWorld: CanvasPoint; currentWorld: CanvasPoint }
   | { kind: "draggingNodes"; pointerId: number; nodeId: string; startScreen: CanvasPoint; startWorld: CanvasPoint }
+  | { kind: "draggingSubgraphs"; pointerId: number; subgraphId: string; startScreen: CanvasPoint; startWorld: CanvasPoint }
   | { kind: "panning"; pointerId: number; startScreen: CanvasPoint; originViewport: ViewportState }
   | {
       kind: "connectingEdge";
       pointerId: number;
-      fromNodeId: string;
+      fromId: string;
       startWorld: CanvasPoint;
       currentWorld: CanvasPoint;
     }
@@ -101,9 +113,11 @@ export type CanvasInteractionCommand =
   | { type: "recordBlankClick"; intent: BlankClickIntent }
   | { type: "addNodeAt"; point: CanvasPoint }
   | { type: "selectNode"; id: string; additive: boolean }
+  | { type: "selectSubgraph"; id: string; additive: boolean }
   | { type: "selectEdge"; id: string; additive: boolean }
   | { type: "startInlineEdit"; target: InlineEditCommandTarget }
   | { type: "startNodeDrag"; nodeId: string }
+  | { type: "startSubgraphDrag"; subgraphId: string }
   | { type: "selectMarquee"; rect: CanvasRect }
   | { type: "finishConnection"; draft: Extract<InteractionState, { kind: "connectingEdge" }> }
   | { type: "retargetEdge"; edgeId: string; side: "from" | "to"; point: CanvasPoint }
@@ -121,11 +135,11 @@ export const BLANK_DOUBLE_CLICK_DISTANCE_PX = 8;
 export const idleInteraction: InteractionState = { kind: "idle" };
 
 export function hasSelection(selection: Selection) {
-  return selection.nodeIds.length > 0 || selection.edgeIds.length > 0;
+  return selection.nodeIds.length > 0 || selection.edgeIds.length > 0 || (selection.subgraphIds?.length || 0) > 0;
 }
 
 export function selectionVersionKey(selection: Selection) {
-  return [...selection.nodeIds, "|", ...selection.edgeIds].join(",");
+  return [...selection.nodeIds, "|", ...selection.edgeIds, "|", ...(selection.subgraphIds || [])].join(",");
 }
 
 export function isPanningButton(button: number) {
@@ -188,7 +202,35 @@ export function beginCanvasPointer(input: PointerDownInput): InteractionTransiti
         state: {
           kind: "connectingEdge",
           pointerId: 0,
-          fromNodeId: input.hit.nodeId,
+          fromId: input.hit.nodeId,
+          startWorld: input.world,
+          currentWorld: input.world
+        },
+        clearBlankClickIntent: true
+      };
+    }
+
+    if (input.hit.kind === "subgraph") {
+      return {
+        state: {
+          kind: "pendingSubgraphPointer",
+          subgraphId: input.hit.id,
+          pointerId: 0,
+          startScreen: input.screen,
+          startWorld: input.world,
+          startedAt: input.now,
+          selectionVersion: input.selectionVersion
+        },
+        clearBlankClickIntent: true
+      };
+    }
+
+    if (input.hit.kind === "subgraphAnchor") {
+      return {
+        state: {
+          kind: "connectingEdge",
+          pointerId: 0,
+          fromId: input.hit.subgraphId,
           startWorld: input.world,
           currentWorld: input.world
         },
@@ -210,14 +252,21 @@ export function beginCanvasPointer(input: PointerDownInput): InteractionTransiti
     }
   }
 
-  if (input.tool === "connect" && (input.hit.kind === "node" || input.hit.kind === "nodeAnchor")) {
-    const fromNodeId = input.hit.kind === "node" ? input.hit.id : input.hit.nodeId;
+  if (input.tool === "connect" && (input.hit.kind === "node" || input.hit.kind === "nodeAnchor" || input.hit.kind === "subgraph" || input.hit.kind === "subgraphAnchor")) {
+    const fromId =
+      input.hit.kind === "node"
+        ? input.hit.id
+        : input.hit.kind === "nodeAnchor"
+          ? input.hit.nodeId
+          : input.hit.kind === "subgraph"
+            ? input.hit.id
+            : input.hit.subgraphId;
 
     return {
       state: {
         kind: "connectingEdge",
         pointerId: 0,
-        fromNodeId,
+        fromId,
         startWorld: input.world,
         currentWorld: input.world
       },
@@ -260,6 +309,19 @@ export function updateCanvasPointer(input: PointerMoveInput): InteractionTransit
     };
   }
 
+  if (state.kind === "pendingSubgraphPointer" && movedBeyondThreshold(state.startScreen, screen)) {
+    return {
+      state: {
+        kind: "draggingSubgraphs",
+        pointerId: state.pointerId,
+        subgraphId: state.subgraphId,
+        startScreen: state.startScreen,
+        startWorld: state.startWorld
+      },
+      clearBlankClickIntent: true
+    };
+  }
+
   if (state.kind === "marqueeSelecting") {
     return { state: { ...state, currentWorld: world }, clearBlankClickIntent: false };
   }
@@ -285,6 +347,10 @@ export function dispatchCanvasPointerMove(input: PointerMoveInput): CanvasDispat
 
   if (input.state.kind === "pendingNodePointer" && transition.state.kind === "draggingNodes") {
     commands.push({ type: "startNodeDrag", nodeId: transition.state.nodeId });
+  }
+
+  if (input.state.kind === "pendingSubgraphPointer" && transition.state.kind === "draggingSubgraphs") {
+    commands.push({ type: "startSubgraphDrag", subgraphId: transition.state.subgraphId });
   }
 
   return {
@@ -367,6 +433,14 @@ export function dispatchCanvasClick(input: { tool: EditorMode; hit: HitTarget; s
     commands.push({ type: "selectNode", id: input.hit.nodeId, additive: input.shiftKey });
   }
 
+  if (input.hit.kind === "subgraph") {
+    commands.push({ type: "selectSubgraph", id: input.hit.id, additive: input.shiftKey });
+  }
+
+  if (input.hit.kind === "subgraphAnchor") {
+    commands.push({ type: "selectSubgraph", id: input.hit.subgraphId, additive: input.shiftKey });
+  }
+
   if (input.hit.kind === "edge" || input.hit.kind === "edgeLabel") {
     commands.push({ type: "selectEdge", id: input.hit.id, additive: input.shiftKey });
   }
@@ -388,6 +462,11 @@ export function dispatchCanvasDoubleClick(input: { tool: EditorMode; hit: HitTar
     const id = input.hit.kind === "node" ? input.hit.id : input.hit.nodeId;
     commands.push({ type: "selectNode", id, additive: false });
     commands.push({ type: "startInlineEdit", target: { type: "node", id } });
+  }
+
+  if (input.hit.kind === "subgraph" || input.hit.kind === "subgraphAnchor") {
+    const id = input.hit.kind === "subgraph" ? input.hit.id : input.hit.subgraphId;
+    commands.push({ type: "selectSubgraph", id, additive: false });
   }
 
   if (input.hit.kind === "edge" || input.hit.kind === "edgeLabel") {
@@ -440,10 +519,10 @@ export function resolveBlankClick(input: {
 export function interactionCursor(tool: EditorMode, state: InteractionState, panningRequested: boolean, hit?: HitTarget) {
   if (state.kind === "panning") return "cursor-grabbing";
   if (panningRequested) return "cursor-grab";
-  if (state.kind === "draggingNodes") return "cursor-grabbing";
+  if (state.kind === "draggingNodes" || state.kind === "draggingSubgraphs") return "cursor-grabbing";
   if (isEditingInteraction(state)) return "cursor-text";
   if (state.kind === "connectingEdge" || state.kind === "retargetingEdge" || tool === "connect") return "cursor-crosshair";
-  if (tool === "select" && (hit?.kind === "nodeAnchor" || hit?.kind === "edgeEndpoint")) return "cursor-crosshair";
+  if (tool === "select" && (hit?.kind === "nodeAnchor" || hit?.kind === "subgraphAnchor" || hit?.kind === "edgeEndpoint")) return "cursor-crosshair";
   return "cursor-default";
 }
 

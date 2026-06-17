@@ -1,4 +1,13 @@
-import { DEFAULT_EDGE_ROUTING, type CanvasLayout, type EdgeRouting, type LegacyEdgePath, type MermaidGraph, type ViewportState } from "@/features/mermaid-editor/lib/editor-types";
+import {
+  DEFAULT_EDGE_ROUTING,
+  DEFAULT_LAYOUT_MODE,
+  type CanvasLayout,
+  type EdgeRouting,
+  type LayoutMode,
+  type LegacyEdgePath,
+  type MermaidGraph,
+  type ViewportState
+} from "@/features/mermaid-editor/lib/editor-types";
 
 export const CANVAS_LAYOUT_PREFIX = "%% canvas-layout:";
 
@@ -6,8 +15,14 @@ const defaultViewport: ViewportState = { x: 160, y: 90, scale: 1 };
 
 function normalizeEdgeRouting(value: unknown): EdgeRouting | undefined {
   if (value === "straight") return "straight";
-  if (value === "bezier" || value === "curved" || value === "smooth-step" || value === "orthogonal") return "bezier";
+  if (value === "orthogonal") return "orthogonal";
+  if (value === "mermaid") return "mermaid";
+  if (value === "bezier" || value === "curved" || value === "smooth-step") return "bezier";
   return undefined;
+}
+
+function normalizeLayoutMode(value: unknown): LayoutMode | undefined {
+  return value === "manual" || value === "auto" ? value : undefined;
 }
 
 function normalizeLegacyEdgePath(value: unknown): LegacyEdgePath | undefined {
@@ -15,7 +30,9 @@ function normalizeLegacyEdgePath(value: unknown): LegacyEdgePath | undefined {
 }
 
 function routingFromLegacyPath(value: LegacyEdgePath): EdgeRouting {
-  return value === "straight" ? "straight" : "bezier";
+  if (value === "straight") return "straight";
+  if (value === "orthogonal") return "orthogonal";
+  return "bezier";
 }
 
 export function edgeRoutingFromLayout(layout: CanvasLayout | null | undefined): EdgeRouting {
@@ -41,6 +58,10 @@ export function edgeRoutingFromLayout(layout: CanvasLayout | null | undefined): 
   return bestRouting || DEFAULT_EDGE_ROUTING;
 }
 
+export function layoutModeFromLayout(layout: CanvasLayout | null | undefined): LayoutMode {
+  return normalizeLayoutMode(layout?.layoutMode) || DEFAULT_LAYOUT_MODE;
+}
+
 export function stripCanvasLayout(source: string) {
   return source
     .split(/\r?\n/)
@@ -56,16 +77,22 @@ export function parseCanvasLayout(source: string): CanvasLayout | null {
   try {
     const parsed = JSON.parse(line.trimStart().slice(CANVAS_LAYOUT_PREFIX.length).trim()) as CanvasLayout;
     if (parsed.version !== 1 || !parsed.nodes || !parsed.viewport) return null;
-    return { ...parsed, edgeRouting: edgeRoutingFromLayout(parsed) };
+    return { ...parsed, edgeRouting: edgeRoutingFromLayout(parsed), layoutMode: layoutModeFromLayout(parsed) };
   } catch {
     return null;
   }
 }
 
-export function layoutFromGraph(graph: MermaidGraph, viewport: ViewportState = defaultViewport, edgeRouting: EdgeRouting = DEFAULT_EDGE_ROUTING): CanvasLayout {
+export function layoutFromGraph(
+  graph: MermaidGraph,
+  viewport: ViewportState = defaultViewport,
+  edgeRouting: EdgeRouting = DEFAULT_EDGE_ROUTING,
+  layoutMode: LayoutMode = DEFAULT_LAYOUT_MODE
+): CanvasLayout {
   return {
     version: 1,
     edgeRouting,
+    layoutMode,
     viewport,
     nodes: Object.fromEntries(
       graph.nodes.map((node) => [
@@ -92,12 +119,19 @@ export function applyLayout(graph: MermaidGraph, layout: CanvasLayout | null): M
   };
 }
 
-export function syncLayout(graph: MermaidGraph, previous: CanvasLayout | null, viewport: ViewportState, edgeRouting: EdgeRouting = edgeRoutingFromLayout(previous)): CanvasLayout {
+export function syncLayout(
+  graph: MermaidGraph,
+  previous: CanvasLayout | null,
+  viewport: ViewportState,
+  edgeRouting: EdgeRouting = edgeRoutingFromLayout(previous),
+  layoutMode: LayoutMode = layoutModeFromLayout(previous)
+): CanvasLayout {
   const previousNodes = previous?.nodes || {};
 
   return {
     version: 1,
     edgeRouting,
+    layoutMode,
     viewport,
     nodes: Object.fromEntries(
       graph.nodes.map((node) => {

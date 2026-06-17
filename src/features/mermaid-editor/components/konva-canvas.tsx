@@ -9,16 +9,23 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
   createEdge,
+  descendantNodeIds,
+  descendantSubgraphIds,
   emptySelection,
   selectOnlyEdge,
   selectOnlyNode,
+  selectOnlySubgraph,
   setNodePositions,
+  setNodeParent,
+  setSubgraphParent,
   toggleEdgeSelection,
   toggleNodeSelection,
+  toggleSubgraphSelection,
   updateEdge,
   updateNodeLabel
 } from "@/features/mermaid-editor/lib/editor-actions";
 import { computeAlignmentSnap, selectionBounds, type AlignmentGuide } from "@/features/mermaid-editor/lib/alignment-guides";
+import type { DagreEdgeRoute } from "@/features/mermaid-editor/lib/canvas-auto-layout";
 import {
   dispatchCanvasClick,
   dispatchCanvasDoubleClick,
@@ -44,7 +51,9 @@ import {
   edgeLabelHitId,
   nodeAnchorHitId,
   nodeHitId,
-  resolveKonvaHitTarget
+  resolveKonvaHitTarget,
+  subgraphAnchorHitId,
+  subgraphHitId
 } from "@/features/mermaid-editor/lib/canvas-hit-target";
 import { DEFAULT_CANVAS_GRID, firstGridCoordinateAtOrAfter, getCanvasGridRenderPlan, isGridCoordinate } from "@/features/mermaid-editor/lib/canvas-grid";
 import { resolveWheelNavigation, zoomViewportAtPoint } from "@/features/mermaid-editor/lib/canvas-viewport-navigation";
@@ -54,8 +63,14 @@ import {
   edgeLabelSingleLineText,
   type EdgeLabelGeometrySpec
 } from "@/features/mermaid-editor/lib/edge-label-geometry";
-import { computeEdgeDraftPath, computeEdgePath, computeEdgeRetargetPath, type EdgePathGeometry } from "@/features/mermaid-editor/lib/edge-geometry";
-import type { CanvasEdge, CanvasNode, EdgeRouting, EditorMode, MermaidGraph, Selection, ViewportState } from "@/features/mermaid-editor/lib/editor-types";
+import {
+  computeEdgeDraftPath,
+  computeEdgePath,
+  computeEdgeRetargetPath,
+  remapEdgePathGeometry,
+  type EdgePathGeometry
+} from "@/features/mermaid-editor/lib/edge-geometry";
+import type { CanvasEdge, CanvasNode, EdgeRouting, EditorMode, LayoutMode, MermaidGraph, Selection, ViewportState } from "@/features/mermaid-editor/lib/editor-types";
 import { flattenShapePoints, flowchartPolygonPoints } from "@/features/mermaid-editor/lib/flowchart-shape-geometry";
 import { DEFAULT_FLOWCHART_NODE_SHAPE, normalizeFlowchartShape } from "@/features/mermaid-editor/lib/flowchart-shapes";
 import {
@@ -64,6 +79,12 @@ import {
   defaultNodeGeometrySpec,
   nodeIntersectsRect
 } from "@/features/mermaid-editor/lib/node-geometry";
+import {
+  buildSubgraphGeometries,
+  subgraphAtPoint,
+  subgraphIntersectsRect,
+  type SubgraphGeometry
+} from "@/features/mermaid-editor/lib/subgraph-geometry";
 import {
   CANVAS_VISUAL_TOKENS,
   type CanvasVisualTokens,
@@ -101,13 +122,15 @@ type KonvaCanvasProps = {
   panningRequested: boolean;
   showGrid: boolean;
   edgeRouting: EdgeRouting;
+  mermaidEdgeRoutes?: DagreEdgeRoute[];
+  layoutMode: LayoutMode;
   visualTokens?: CanvasVisualTokens;
   onGraphDraft: (graph: MermaidGraph, message?: string, options?: { syncSource?: boolean }) => void;
   onGraphCommit: (graph: MermaidGraph, selection?: Selection, message?: string) => void;
   onCaptureHistory: () => void;
   onSelectionChange: (selection: Selection) => void;
   onViewportChange: (viewport: ViewportState) => void;
-  onAddNodeAt: (point: { x: number; y: number }) => void;
+  onAddNodeAt: (point: { x: number; y: number; parentId?: string }) => void;
 };
 
 type SelectionBox = {
@@ -120,6 +143,10 @@ type SelectionBox = {
 type InlineEdit =
   | { type: "node"; id: string; value: string }
   | { type: "edge"; id: string; value: string };
+
+function isPendingDragState(state: InteractionState) {
+  return state.kind === "pendingNodePointer" || state.kind === "pendingSubgraphPointer";
+}
 
 type SafariGestureEvent = Event & {
   scale?: number;
@@ -505,6 +532,31 @@ function EdgeEndMarker({
   );
 }
 
+function PathArrowMarker({ edge, geometry, fill }: { edge: CanvasEdge; geometry: EdgePathGeometry; fill: string }) {
+  if ((edge.arrowType || "arrow") !== "arrow") return null;
+
+  return <PathArrowHead geometry={geometry} fill={fill} length={edgePointerLength(edge)} width={edgePointerWidth(edge)} />;
+}
+
+function PathArrowHead({ geometry, fill, length, width }: { geometry: EdgePathGeometry; fill: string; length: number; width: number }) {
+  if (length <= 0 || width <= 0) return null;
+
+  const rotation = (Math.atan2(geometry.endTangent.y, geometry.endTangent.x) * 180) / Math.PI;
+
+  return (
+    <Line
+      x={geometry.end.x}
+      y={geometry.end.y}
+      rotation={rotation}
+      points={[0, 0, -length, -width / 2, -length, width / 2]}
+      closed
+      fill={fill}
+      stroke={fill}
+      listening={false}
+    />
+  );
+}
+
 export function KonvaCanvas({
   graph,
   selection,
@@ -513,6 +565,8 @@ export function KonvaCanvas({
   panningRequested,
   showGrid,
   edgeRouting,
+  mermaidEdgeRoutes = [],
+  layoutMode,
   visualTokens = CANVAS_VISUAL_TOKENS,
   onGraphDraft,
   onGraphCommit,
@@ -524,6 +578,7 @@ export function KonvaCanvas({
   const containerRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage>(null);
   const dragRef = useRef<Record<string, { x: number; y: number }> | null>(null);
+  const subgraphDragFrameRef = useRef<Record<string, { x: number; y: number }> | null>(null);
   const dragDraftGraphRef = useRef<MermaidGraph | null>(null);
   const blankClickIntentRef = useRef<BlankClickIntent | null>(null);
   const gestureNavigationRef = useRef<{ viewport: ViewportState; pointer: CanvasPoint } | null>(null);
@@ -540,6 +595,7 @@ export function KonvaCanvas({
   const lastSelectionKeyRef = useRef(selectionVersionKey(selection));
   const dimensions = useContainerSize(containerRef);
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
+  const [hoveredSubgraphId, setHoveredSubgraphId] = useState<string | null>(null);
   const [hoveredEdgeId, setHoveredEdgeId] = useState<string | null>(null);
   const [interactionState, setInteractionState] = useState<InteractionState>(idleInteraction);
   const [alignmentGuides, setAlignmentGuides] = useState<AlignmentGuide[]>([]);
@@ -550,6 +606,7 @@ export function KonvaCanvas({
   const nodeEditorMeasureRef = useRef<HTMLDivElement>(null);
 
   const selectedNodeIds = useMemo(() => new Set(selection.nodeIds), [selection.nodeIds]);
+  const selectedSubgraphIds = useMemo(() => new Set(selection.subgraphIds || []), [selection.subgraphIds]);
   const geometrySpec = useMemo(() => nodeGeometrySpec(), []);
   const edgeLabelSpec = useMemo(() => edgeLabelGeometrySpec(), []);
   const renderedNodes = useMemo(
@@ -560,10 +617,32 @@ export function KonvaCanvas({
     [graph.nodes, inlineEdit]
   );
   const renderedNodeGeometries = useMemo(() => renderedNodes.map((node) => buildNodeGeometry(node, geometrySpec)), [geometrySpec, renderedNodes]);
+  const renderedGraph = useMemo(() => ({ ...graph, nodes: renderedNodes }), [graph, renderedNodes]);
+  const renderedSubgraphGeometries = useMemo(
+    () => buildSubgraphGeometries(renderedGraph, renderedNodeGeometries),
+    [renderedGraph, renderedNodeGeometries]
+  );
   const nodeGeometryById = useMemo(() => new Map(renderedNodeGeometries.map((geometry) => [geometry.id, geometry])), [renderedNodeGeometries]);
+  const subgraphGeometryById = useMemo(() => new Map(renderedSubgraphGeometries.map((geometry) => [geometry.id, geometry])), [renderedSubgraphGeometries]);
   const routedNodeRects = useMemo(() => renderedNodeGeometries.map((geometry) => geometry.routedRect), [renderedNodeGeometries]);
+  const routedEntityRects = useMemo(
+    () => [...routedNodeRects, ...renderedSubgraphGeometries.map((geometry) => geometry.routedRect)],
+    [renderedSubgraphGeometries, routedNodeRects]
+  );
+  const dragEnabled = layoutMode === "manual";
+  const mermaidRouteByEdgeId = useMemo(() => new Map(mermaidEdgeRoutes.map((route) => [route.edgeId, route])), [mermaidEdgeRoutes]);
+  const draftEdgeRouting = edgeRouting;
+  function resolvedEdgeGeometry(edge: CanvasEdge) {
+    const fallbackGeometry = computeEdgePath(edge, routedEntityRects, draftEdgeRouting);
+    const routeGeometry = mermaidRouteByEdgeId.get(edge.id);
+    if (!routeGeometry) return fallbackGeometry;
+    if (layoutMode === "auto" || !fallbackGeometry) return routeGeometry;
+
+    return remapEdgePathGeometry(routeGeometry, fallbackGeometry);
+  }
+
   const selectedSingleEdge = selection.edgeIds.length === 1 ? graph.edges.find((edge) => edge.id === selection.edgeIds[0]) : undefined;
-  const selectedSingleEdgeBaseGeometry = selectedSingleEdge ? computeEdgePath(selectedSingleEdge, routedNodeRects, edgeRouting) : null;
+  const selectedSingleEdgeBaseGeometry = selectedSingleEdge ? resolvedEdgeGeometry(selectedSingleEdge) : null;
   const selectionBox =
     interactionState.kind === "marqueeSelecting"
       ? {
@@ -579,21 +658,26 @@ export function KonvaCanvas({
     () =>
       connectionDraft
         ? resolveConnectionPreview({
-            fromNodeId: connectionDraft.fromNodeId,
+            fromId: connectionDraft.fromId,
             currentWorld: connectionDraft.currentWorld,
-            nodes: renderedNodeGeometries
+            nodes: renderedNodeGeometries,
+            subgraphs: renderedSubgraphGeometries
           })
         : null,
-    [connectionDraft, renderedNodeGeometries]
+    [connectionDraft, renderedNodeGeometries, renderedSubgraphGeometries]
   );
   const connectionDraftGeometry = useMemo(() => {
     if (!connectionDraft || !connectionPreview) return null;
 
-    const sourceRect = routedNodeRects.find((rect) => rect.id === connectionDraft.fromNodeId);
+    const sourceRect = routedEntityRects.find((rect) => rect.id === connectionDraft.fromId);
     if (!sourceRect) return null;
 
-    return computeEdgeDraftPath(sourceRect, connectionPreview.geometryTarget, edgeRouting);
-  }, [connectionDraft, connectionPreview, edgeRouting, routedNodeRects]);
+    return computeEdgeDraftPath(sourceRect, connectionPreview.geometryTarget, draftEdgeRouting);
+  }, [connectionDraft, connectionPreview, draftEdgeRouting, routedEntityRects]);
+  const connectionDraftVisual = useMemo(
+    () => getConnectionDraftVisualState({ valid: connectionPreview?.valid ?? false, visualTokens }),
+    [connectionPreview?.valid, visualTokens]
+  );
   const retargetPreview = useMemo(() => {
     if (!retargetDraft) return null;
 
@@ -604,21 +688,24 @@ export function KonvaCanvas({
       edge,
       side: retargetDraft.side,
       currentWorld: retargetDraft.currentWorld,
-      nodes: renderedNodeGeometries
+      nodes: renderedNodeGeometries,
+      subgraphs: renderedSubgraphGeometries
     });
-  }, [graph.edges, renderedNodeGeometries, retargetDraft]);
+  }, [graph.edges, renderedNodeGeometries, renderedSubgraphGeometries, retargetDraft]);
   const retargetDraftGeometry = useMemo(() => {
     if (!retargetDraft || !retargetPreview) return null;
 
     const edge = graph.edges.find((item) => item.id === retargetDraft.edgeId);
     if (!edge) return null;
 
-    return computeEdgeRetargetPath(edge, routedNodeRects, retargetDraft.side, retargetPreview.geometryTarget, edgeRouting);
-  }, [edgeRouting, graph.edges, retargetDraft, retargetPreview, routedNodeRects]);
+    return computeEdgeRetargetPath(edge, routedEntityRects, retargetDraft.side, retargetPreview.geometryTarget, draftEdgeRouting);
+  }, [draftEdgeRouting, graph.edges, retargetDraft, retargetPreview, routedEntityRects]);
   const selectedSingleEdgeGeometry =
     retargetDraft?.edgeId === selectedSingleEdge?.id && retargetDraftGeometry ? retargetDraftGeometry : selectedSingleEdgeBaseGeometry;
   const connectionTargetNodeId = connectionPreview?.targetNodeId ?? retargetPreview?.targetNodeId ?? null;
   const connectionInvalidNodeId = connectionPreview?.invalidNodeId ?? retargetPreview?.invalidNodeId ?? null;
+  const connectionTargetSubgraphId = connectionPreview?.targetSubgraphId ?? retargetPreview?.targetSubgraphId ?? null;
+  const connectionInvalidSubgraphId = connectionPreview?.invalidSubgraphId ?? retargetPreview?.invalidSubgraphId ?? null;
 
   const currentViewport = useCallback(() => pendingViewportRef.current || visualViewportRef.current, []);
 
@@ -839,29 +926,48 @@ export function KonvaCanvas({
 
     if (hit.kind === "node") {
       setHoveredNodeId(hit.id);
+      setHoveredSubgraphId(null);
       setHoveredEdgeId(null);
       return;
     }
 
     if (hit.kind === "nodeAnchor") {
       setHoveredNodeId(hit.nodeId);
+      setHoveredSubgraphId(null);
+      setHoveredEdgeId(null);
+      return;
+    }
+
+    if (hit.kind === "subgraph") {
+      setHoveredNodeId(null);
+      setHoveredSubgraphId(hit.id);
+      setHoveredEdgeId(null);
+      return;
+    }
+
+    if (hit.kind === "subgraphAnchor") {
+      setHoveredNodeId(null);
+      setHoveredSubgraphId(hit.subgraphId);
       setHoveredEdgeId(null);
       return;
     }
 
     if (hit.kind === "edge" || hit.kind === "edgeLabel") {
       setHoveredNodeId(null);
+      setHoveredSubgraphId(null);
       setHoveredEdgeId(hit.id);
       return;
     }
 
     if (hit.kind === "edgeEndpoint") {
       setHoveredNodeId(null);
+      setHoveredSubgraphId(null);
       setHoveredEdgeId(hit.edgeId);
       return;
     }
 
     setHoveredNodeId(null);
+    setHoveredSubgraphId(null);
     setHoveredEdgeId(null);
   }
 
@@ -890,15 +996,22 @@ export function KonvaCanvas({
     if (command.type === "addNodeAt") {
       const newNode = { id: "", label: "新节点", x: 0, y: 0, fill: visualTokens.colors.surface };
       const newNodeFrame = buildNodeGeometry(newNode, geometrySpec).frame;
+      const parent = subgraphAtPoint(renderedSubgraphGeometries, command.point);
       onAddNodeAt({
         x: command.point.x - newNodeFrame.width / 2,
-        y: command.point.y - newNodeFrame.height / 2
+        y: command.point.y - newNodeFrame.height / 2,
+        parentId: parent?.id
       });
       return;
     }
 
     if (command.type === "selectNode") {
       onSelectionChange(command.additive ? toggleNodeSelection(selection, command.id) : selectOnlyNode(command.id));
+      return;
+    }
+
+    if (command.type === "selectSubgraph") {
+      onSelectionChange(command.additive ? toggleSubgraphSelection(selection, command.id) : selectOnlySubgraph(command.id));
       return;
     }
 
@@ -929,10 +1042,17 @@ export function KonvaCanvas({
       return;
     }
 
+    if (command.type === "startSubgraphDrag") {
+      const geometry = subgraphGeometryById.get(command.subgraphId);
+      if (geometry) startSubgraphDrag(command.subgraphId, geometry);
+      return;
+    }
+
     if (command.type === "selectMarquee") {
       if (command.rect.width > 4 || command.rect.height > 4) {
         const nodeIds = renderedNodeGeometries.filter((geometry) => nodeIntersectsRect(geometry, command.rect)).map((geometry) => geometry.id);
-        onSelectionChange({ nodeIds, edgeIds: [], primaryId: nodeIds[0] });
+        const subgraphIds = renderedSubgraphGeometries.filter((geometry) => subgraphIntersectsRect(geometry, command.rect)).map((geometry) => geometry.id);
+        onSelectionChange({ nodeIds, edgeIds: [], subgraphIds, primaryId: nodeIds[0] || subgraphIds[0] });
       } else {
         onSelectionChange(emptySelection);
       }
@@ -1004,7 +1124,7 @@ export function KonvaCanvas({
     });
 
     executeCanvasCommands(result.commands);
-    setInteractionState(result.state);
+    setInteractionState(!dragEnabled && isPendingDragState(result.state) ? idleInteraction : result.state);
   }
 
   function handleCanvasPointerMove(event: KonvaEventObject<MouseEvent>) {
@@ -1069,6 +1189,7 @@ export function KonvaCanvas({
   }
 
   function startNodeDrag(node: CanvasNode) {
+    if (!dragEnabled) return;
     if (dragRef.current) return;
     const ids = selectedNodeIds.has(node.id) ? selection.nodeIds : [node.id];
     const screen = pointerScreenPoint() || { x: 0, y: 0 };
@@ -1079,6 +1200,31 @@ export function KonvaCanvas({
     setInteractionState({ kind: "draggingNodes", pointerId: 0, nodeId: node.id, startScreen: screen, startWorld: world });
     dragRef.current = Object.fromEntries(
       graph.nodes.filter((item) => ids.includes(item.id)).map((item) => [item.id, { x: item.x, y: item.y }])
+    );
+    dragDraftGraphRef.current = null;
+    onCaptureHistory();
+  }
+
+  function startSubgraphDrag(subgraphId: string, geometry: SubgraphGeometry) {
+    if (!dragEnabled) return;
+    if (dragRef.current) return;
+    const ids = selectedSubgraphIds.has(subgraphId) ? selection.subgraphIds || [] : [subgraphId];
+    const nodeIds = unique(ids.flatMap((id) => descendantNodeIds(graph, id)));
+    if (!nodeIds.length) return;
+    const screen = pointerScreenPoint() || { x: 0, y: 0 };
+    const world = pointerWorldPoint() || { x: geometry.frame.x, y: geometry.frame.y };
+    if (!selectedSubgraphIds.has(subgraphId)) onSelectionChange(selectOnlySubgraph(subgraphId));
+    invalidateBlankClickIntent();
+    setAlignmentGuides([]);
+    setInteractionState({ kind: "draggingSubgraphs", pointerId: 0, subgraphId, startScreen: screen, startWorld: world });
+    dragRef.current = Object.fromEntries(
+      graph.nodes.filter((item) => nodeIds.includes(item.id)).map((item) => [item.id, { x: item.x, y: item.y }])
+    );
+    subgraphDragFrameRef.current = Object.fromEntries(
+      ids.map((id) => {
+        const item = subgraphGeometryById.get(id);
+        return [id, item ? { x: item.frame.x, y: item.frame.y } : { x: geometry.frame.x, y: geometry.frame.y }];
+      })
     );
     dragDraftGraphRef.current = null;
     onCaptureHistory();
@@ -1119,14 +1265,70 @@ export function KonvaCanvas({
     onGraphDraft(nextGraph, "正在移动节点。", { syncSource: false });
   }
 
+  function moveSelectedSubgraphs(subgraphId: string, target: Konva.Node) {
+    if (!dragRef.current || !subgraphDragFrameRef.current) return;
+    const origin = subgraphDragFrameRef.current[subgraphId];
+    if (!origin) return;
+    const deltaX = target.x() - origin.x;
+    const deltaY = target.y() - origin.y;
+    const positions = Object.fromEntries(
+      Object.entries(dragRef.current).map(([id, position]) => [id, { x: position.x + deltaX, y: position.y + deltaY }])
+    );
+    const draggedFrame = subgraphDragFrameRef.current[subgraphId];
+    if (draggedFrame) target.position({ x: draggedFrame.x + deltaX, y: draggedFrame.y + deltaY });
+    const nextGraph = setNodePositions(graph, positions);
+    dragDraftGraphRef.current = nextGraph;
+    onGraphDraft(nextGraph, "正在移动组。", { syncSource: false });
+  }
+
+  function finishDragWithMembership() {
+    if (!dragDraftGraphRef.current) return;
+    const movingNodeIds = Object.keys(dragRef.current || {});
+    let nextGraph = dragDraftGraphRef.current;
+    const ignoredSubgraphIds =
+      interactionState.kind === "draggingSubgraphs" ? [interactionState.subgraphId, ...descendantSubgraphIds(graph, interactionState.subgraphId)] : [];
+
+    for (const nodeId of movingNodeIds) {
+      const node = nextGraph.nodes.find((item) => item.id === nodeId);
+      if (!node) continue;
+      const geometry = buildNodeGeometry(node, geometrySpec);
+      const center = {
+        x: geometry.frame.x + geometry.frame.width / 2,
+        y: geometry.frame.y + geometry.frame.height / 2
+      };
+      const targetSubgraph = subgraphAtPoint(renderedSubgraphGeometries, center, ignoredSubgraphIds);
+      nextGraph = setNodeParent(nextGraph, nodeId, targetSubgraph?.id);
+    }
+
+    if (interactionState.kind === "draggingSubgraphs") {
+      const movingSubgraphIds = selectedSubgraphIds.has(interactionState.subgraphId) ? selection.subgraphIds || [] : [interactionState.subgraphId];
+      const nextNodeGeometries = nextGraph.nodes.map((node) => buildNodeGeometry(node, geometrySpec));
+      const nextSubgraphGeometries = buildSubgraphGeometries(nextGraph, nextNodeGeometries);
+
+      for (const subgraphId of movingSubgraphIds) {
+        const geometry = nextSubgraphGeometries.find((item) => item.id === subgraphId);
+        if (!geometry) continue;
+        const center = {
+          x: geometry.frame.x + geometry.frame.width / 2,
+          y: geometry.frame.y + geometry.frame.height / 2
+        };
+        const ignored = [subgraphId, ...descendantSubgraphIds(nextGraph, subgraphId)];
+        const targetSubgraph = subgraphAtPoint(renderedSubgraphGeometries, center, ignored);
+        nextGraph = setSubgraphParent(nextGraph, subgraphId, targetSubgraph?.id);
+      }
+    }
+
+    onGraphDraft(nextGraph, "已移动并更新组成员。", { syncSource: true });
+  }
+
   function finishConnection(draft: Extract<InteractionState, { kind: "connectingEdge" }>) {
     const point = pointerWorldPoint();
     if (!point) return;
 
-    const preview = resolveConnectionPreview({ fromNodeId: draft.fromNodeId, currentWorld: point, nodes: renderedNodeGeometries });
-    if (!preview.valid || !preview.targetNodeId) return;
+    const preview = resolveConnectionPreview({ fromId: draft.fromId, currentWorld: point, nodes: renderedNodeGeometries, subgraphs: renderedSubgraphGeometries });
+    if (!preview.valid || !preview.targetId) return;
 
-    const result = createEdge(graph, draft.fromNodeId, preview.targetNodeId);
+    const result = createEdge(graph, draft.fromId, preview.targetId);
     onGraphCommit(result.graph, result.selection, "已创建连线。");
   }
 
@@ -1134,10 +1336,10 @@ export function KonvaCanvas({
     const edge = graph.edges.find((item) => item.id === edgeId);
     if (!edge) return;
 
-    const preview = resolveRetargetPreview({ edge, side, currentWorld: point, nodes: renderedNodeGeometries });
-    if (!preview.valid || !preview.targetNodeId) return;
+    const preview = resolveRetargetPreview({ edge, side, currentWorld: point, nodes: renderedNodeGeometries, subgraphs: renderedSubgraphGeometries });
+    if (!preview.valid || !preview.targetId) return;
 
-    onGraphCommit(updateEdge(graph, edgeId, { [side]: preview.targetNodeId }), selectOnlyEdge(edgeId), "已重连连线。");
+    onGraphCommit(updateEdge(graph, edgeId, { [side]: preview.targetId }), selectOnlyEdge(edgeId), "已重连连线。");
   }
 
   function commitInlineEdit(save: boolean) {
@@ -1171,7 +1373,7 @@ export function KonvaCanvas({
     }
 
     const edge = graph.edges.find((item) => item.id === inlineEdit.id);
-    const geometry = edge ? computeEdgePath(edge, routedNodeRects, edgeRouting) : null;
+    const geometry = edge ? resolvedEdgeGeometry(edge) : null;
     if (!geometry) return null;
     const labelGeometry = buildEdgeLabelGeometry(inlineEdit.value, geometry.labelPoint, edgeLabelSpec);
     const screen = worldToScreen({ x: labelGeometry.frame.x, y: labelGeometry.frame.y });
@@ -1231,6 +1433,7 @@ export function KonvaCanvas({
             resetInteraction();
             setAlignmentGuides([]);
             setHoveredNodeId(null);
+            setHoveredSubgraphId(null);
             setHoveredEdgeId(null);
             setHoveredHitTarget({ kind: "blank" });
           }}
@@ -1238,45 +1441,201 @@ export function KonvaCanvas({
           {showGrid ? <CanvasGrid dimensions={dimensions} viewport={viewport} visualTokens={visualTokens} /> : null}
 
           <Layer>
+            {[...renderedSubgraphGeometries]
+              .sort((a, b) => a.depth - b.depth)
+              .map((geometry) => {
+                const subgraph = graph.subgraphs?.find((item) => item.id === geometry.id);
+                if (!subgraph) return null;
+                const selected = selectedSubgraphIds.has(geometry.id);
+                const hovered = hoveredSubgraphId === geometry.id;
+                const connectionTarget = connectionTargetSubgraphId === geometry.id;
+                const connectionInvalid = connectionInvalidSubgraphId === geometry.id;
+                const stroke = connectionInvalid
+                  ? visualTokens.colors.connectionInvalid
+                  : connectionTarget || selected
+                    ? visualTokens.colors.accent
+                    : hovered
+                      ? visualTokens.colors.accentHover
+                      : visualTokens.colors.labelStroke;
+                const anchorVisible =
+                  mode === "select" &&
+                  !inlineEdit &&
+                  (selected || hovered) &&
+                  interactionState.kind !== "panning" &&
+                  interactionState.kind !== "draggingNodes" &&
+                  interactionState.kind !== "draggingSubgraphs";
+
+                return (
+                  <Group
+                    id={subgraphHitId(geometry.id)}
+                    name={CANVAS_HIT_NAMES.subgraph}
+                    key={geometry.id}
+                    x={geometry.frame.x}
+                    y={geometry.frame.y}
+                    draggable={dragEnabled && mode === "select" && !panningRequested && interactionState.kind !== "panning"}
+                    onDragStart={(event) => {
+                      if (event.evt.button !== 0) {
+                        event.target.stopDrag();
+                        return;
+                      }
+                      executeCanvasCommand({ type: "startSubgraphDrag", subgraphId: geometry.id });
+                    }}
+                    onDragMove={(event) => moveSelectedSubgraphs(geometry.id, event.target)}
+                    onDragEnd={() => {
+                      if (dragDraftGraphRef.current) finishDragWithMembership();
+                      dragRef.current = null;
+                      subgraphDragFrameRef.current = null;
+                      dragDraftGraphRef.current = null;
+                      setAlignmentGuides([]);
+                      resetInteraction();
+                    }}
+                    onClick={(event) => handleCanvasClick(event, { kind: "subgraph", id: geometry.id })}
+                    onDblClick={(event) => handleCanvasDoubleClick(event, { kind: "subgraph", id: geometry.id })}
+                  >
+                    <Rect
+                      width={geometry.frame.width}
+                      height={geometry.frame.height}
+                      cornerRadius={visualTokens.node.cornerRadius}
+                      fill={visualTokens.colors.surface}
+                      opacity={0.34}
+                      listening={false}
+                    />
+                    <Rect
+                      width={geometry.frame.width}
+                      height={geometry.frame.height}
+                      cornerRadius={visualTokens.node.cornerRadius}
+                      stroke={stroke}
+                      strokeWidth={selected || connectionTarget || connectionInvalid ? visualTokens.node.emphasizedStrokeWidth : visualTokens.node.strokeWidth}
+                      dash={[8, 6]}
+                      fillEnabled={false}
+                    />
+                    <Rect
+                      x={geometry.titleBox.x - geometry.frame.x}
+                      y={geometry.titleBox.y - geometry.frame.y}
+                      width={geometry.titleBox.width}
+                      height={geometry.titleBox.height}
+                      cornerRadius={8}
+                      fill={visualTokens.colors.surface}
+                      stroke={stroke}
+                      strokeWidth={1}
+                    />
+                    <Text
+                      x={geometry.titleBox.x - geometry.frame.x + 10}
+                      y={geometry.titleBox.y - geometry.frame.y}
+                      width={Math.max(1, geometry.titleBox.width - 20)}
+                      height={geometry.titleBox.height}
+                      align="left"
+                      verticalAlign="middle"
+                      text={subgraph.title || subgraph.id}
+                      fontSize={12}
+                      fontStyle="bold"
+                      fontFamily={NODE_TEXT_FONT_FAMILY}
+                      fill={visualTokens.colors.nodeText}
+                      ellipsis
+                      listening={false}
+                    />
+                    {anchorVisible
+                      ? geometry.anchorsLocal.map((anchor) => (
+                          <Group
+                            id={subgraphAnchorHitId(geometry.id, anchor.key)}
+                            name={CANVAS_HIT_NAMES.subgraphAnchor}
+                            key={`${geometry.id}-${anchor.key}`}
+                            x={anchor.x}
+                            y={anchor.y}
+                            onMouseDown={(event) => {
+                              event.cancelBubble = true;
+                              handleCanvasPointerDown(event, { kind: "subgraphAnchor", subgraphId: geometry.id, anchor: anchor.key }, {
+                                x: geometry.frame.x + anchor.x,
+                                y: geometry.frame.y + anchor.y
+                              });
+                            }}
+                          >
+                            <Circle radius={visualTokens.anchor.radius} fill="rgba(0,0,0,0.001)" strokeEnabled={false} />
+                            <Circle
+                              radius={anchor.kind === "corner" ? visualTokens.anchor.radius * RECT_CORNER_ANCHOR_VISUAL_SCALE : visualTokens.anchor.radius}
+                              fill={visualTokens.colors.accent}
+                              stroke={visualTokens.colors.anchorStroke}
+                              strokeWidth={visualTokens.anchor.strokeWidth}
+                              opacity={anchor.kind === "corner" ? RECT_CORNER_ANCHOR_VISUAL_OPACITY : 1}
+                              listening={false}
+                            />
+                          </Group>
+                        ))
+                      : null}
+                  </Group>
+                );
+              })}
+
             {graph.edges.map((edge) => {
-              const baseGeometry = computeEdgePath(edge, routedNodeRects, edgeRouting);
+              const baseGeometry = resolvedEdgeGeometry(edge);
               if (!baseGeometry) return null;
               const isRetargetPreviewEdge = retargetDraft?.edgeId === edge.id && !!retargetDraftGeometry && !!retargetPreview;
               const geometry = isRetargetPreviewEdge ? retargetDraftGeometry : baseGeometry;
               const edgeVisual = getEdgeVisualState({ edge, selection, hoveredEdgeId, interactionState, inlineEdit, visualTokens });
               const edgePreviewVisual = isRetargetPreviewEdge ? getConnectionDraftVisualState({ valid: retargetPreview.valid, edge, visualTokens }) : null;
+              const shouldRenderPath = !!geometry.pathData;
               const isEditingEdgeLabel = inlineEdit?.type === "edge" && inlineEdit.id === edge.id;
               const edgeLabel = isEditingEdgeLabel ? inlineEdit.value : edge.label;
               const edgeLabelGeometry = edgeLabel || isEditingEdgeLabel ? buildEdgeLabelGeometry(edgeLabel, geometry.labelPoint, edgeLabelSpec) : null;
 
               return (
                 <Group key={edge.id}>
-                  <Arrow
-                    id={edgeHitId(edge.id)}
-                    name={CANVAS_HIT_NAMES.edge}
-                    points={geometry.points}
-                    stroke="transparent"
-                    fill="transparent"
-                    strokeWidth={visualTokens.edge.hitStrokeWidth}
-                    pointerLength={0}
-                    pointerWidth={0}
-                    onClick={(event) => handleCanvasClick(event, { kind: "edge", id: edge.id })}
-                    onDblClick={(event) => handleCanvasDoubleClick(event, { kind: "edge", id: edge.id })}
-                    onTap={(event) => handleCanvasTap(event, { kind: "edge", id: edge.id })}
-                  />
-                  <Arrow
-                    points={geometry.points}
-                    stroke={edgePreviewVisual?.stroke ?? edgeVisual.stroke}
-                    fill={edgePreviewVisual?.fill ?? edgeVisual.fill}
-                    strokeWidth={edgePreviewVisual?.strokeWidth ?? edgeVisual.strokeWidth}
-                    dash={edgePreviewVisual?.dash ?? edgeVisual.dash}
-                    opacity={edgePreviewVisual?.opacity ?? 1}
-                    lineCap="round"
-                    lineJoin="round"
-                    pointerLength={edgePreviewVisual?.pointerLength ?? edgePointerLength(edge)}
-                    pointerWidth={edgePreviewVisual?.pointerWidth ?? edgePointerWidth(edge)}
-                    listening={false}
-                  />
+                  {shouldRenderPath ? (
+                    <>
+                      <Path
+                        id={edgeHitId(edge.id)}
+                        name={CANVAS_HIT_NAMES.edge}
+                        data={geometry.pathData}
+                        stroke="transparent"
+                        strokeWidth={visualTokens.edge.hitStrokeWidth}
+                        fillEnabled={false}
+                        onClick={(event) => handleCanvasClick(event, { kind: "edge", id: edge.id })}
+                        onDblClick={(event) => handleCanvasDoubleClick(event, { kind: "edge", id: edge.id })}
+                        onTap={(event) => handleCanvasTap(event, { kind: "edge", id: edge.id })}
+                      />
+                      <Path
+                        data={geometry.pathData}
+                        stroke={edgePreviewVisual?.stroke ?? edgeVisual.stroke}
+                        strokeWidth={edgePreviewVisual?.strokeWidth ?? edgeVisual.strokeWidth}
+                        dash={edgePreviewVisual?.dash ?? edgeVisual.dash}
+                        opacity={edgePreviewVisual?.opacity ?? 1}
+                        lineCap="round"
+                        lineJoin="round"
+                        fillEnabled={false}
+                        listening={false}
+                      />
+                      <PathArrowMarker edge={edge} geometry={geometry} fill={edgePreviewVisual?.fill ?? edgeVisual.fill} />
+                    </>
+                  ) : (
+                    <>
+                      <Arrow
+                        id={edgeHitId(edge.id)}
+                        name={CANVAS_HIT_NAMES.edge}
+                        points={geometry.points}
+                        stroke="transparent"
+                        fill="transparent"
+                        strokeWidth={visualTokens.edge.hitStrokeWidth}
+                        pointerLength={0}
+                        pointerWidth={0}
+                        onClick={(event) => handleCanvasClick(event, { kind: "edge", id: edge.id })}
+                        onDblClick={(event) => handleCanvasDoubleClick(event, { kind: "edge", id: edge.id })}
+                        onTap={(event) => handleCanvasTap(event, { kind: "edge", id: edge.id })}
+                      />
+                      <Arrow
+                        points={geometry.points}
+                        stroke={edgePreviewVisual?.stroke ?? edgeVisual.stroke}
+                        fill={edgePreviewVisual?.fill ?? edgeVisual.fill}
+                        strokeWidth={edgePreviewVisual?.strokeWidth ?? edgeVisual.strokeWidth}
+                        dash={edgePreviewVisual?.dash ?? edgeVisual.dash}
+                        opacity={edgePreviewVisual?.opacity ?? 1}
+                        lineCap="round"
+                        lineJoin="round"
+                        pointerLength={edgePreviewVisual?.pointerLength ?? edgePointerLength(edge)}
+                        pointerWidth={edgePreviewVisual?.pointerWidth ?? edgePointerWidth(edge)}
+                        listening={false}
+                      />
+                    </>
+                  )}
                   {!edgePreviewVisual ? <EdgeEndMarker edge={edge} geometry={geometry} stroke={edgeVisual.stroke} strokeWidth={edgeVisual.strokeWidth} surfaceFill={visualTokens.colors.surface} /> : null}
                   {edgeLabelGeometry && !isEditingEdgeLabel ? (
                     <Group
@@ -1338,7 +1697,7 @@ export function KonvaCanvas({
                   key={node.id}
                   x={geometry.frame.x}
                   y={geometry.frame.y}
-                  draggable={mode === "select" && !panningRequested && interactionState.kind !== "panning"}
+                  draggable={dragEnabled && mode === "select" && !panningRequested && interactionState.kind !== "panning"}
                   onDragStart={(event) => {
                     if (event.evt.button !== 0) {
                       event.target.stopDrag();
@@ -1349,9 +1708,10 @@ export function KonvaCanvas({
                   onDragMove={(event) => moveSelectedNodes(node, event.target)}
                   onDragEnd={() => {
                     if (dragDraftGraphRef.current) {
-                      onGraphDraft(dragDraftGraphRef.current, "已移动节点。", { syncSource: true });
+                      finishDragWithMembership();
                     }
                     dragRef.current = null;
+                    subgraphDragFrameRef.current = null;
                     dragDraftGraphRef.current = null;
                     setAlignmentGuides([]);
                     resetInteraction();
@@ -1416,11 +1776,28 @@ export function KonvaCanvas({
             })}
 
             {connectionDraftGeometry ? (
-              <Arrow
-                points={connectionDraftGeometry.points}
-                {...getConnectionDraftVisualState({ valid: connectionPreview?.valid ?? false, visualTokens })}
-                listening={false}
-              />
+              connectionDraftGeometry.pathData ? (
+                <Group listening={false}>
+                  <Path
+                    data={connectionDraftGeometry.pathData}
+                    stroke={connectionDraftVisual.stroke}
+                    strokeWidth={connectionDraftVisual.strokeWidth}
+                    dash={connectionDraftVisual.dash}
+                    opacity={connectionDraftVisual.opacity}
+                    lineCap="round"
+                    lineJoin="round"
+                    fillEnabled={false}
+                  />
+                  <PathArrowHead
+                    geometry={connectionDraftGeometry}
+                    fill={connectionDraftVisual.fill}
+                    length={connectionDraftVisual.pointerLength}
+                    width={connectionDraftVisual.pointerWidth}
+                  />
+                </Group>
+              ) : (
+                <Arrow points={connectionDraftGeometry.points} {...connectionDraftVisual} listening={false} />
+              )
             ) : null}
 
             {selectionBox ? (
@@ -1646,4 +2023,8 @@ function useContainerSize(ref: React.RefObject<HTMLDivElement | null>) {
   }, [ref]);
 
   return size;
+}
+
+function unique(values: string[]) {
+  return Array.from(new Set(values));
 }

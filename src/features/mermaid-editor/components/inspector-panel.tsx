@@ -11,13 +11,26 @@ import { Separator } from "@/components/ui/separator";
 import type {
   CanvasEdge,
   CanvasNode,
+  CanvasSubgraph,
   EdgeStyle,
   FlowchartArrowType,
   FlowchartNodeShape,
+  GraphDirection,
   MermaidGraph,
   Selection
 } from "@/features/mermaid-editor/lib/editor-types";
-import { createEdge, renameNode, selectOnlyEdge, updateEdge, updateNodeFill, updateNodeLabel } from "@/features/mermaid-editor/lib/editor-actions";
+import {
+  createEdge,
+  descendantSubgraphIds,
+  renameNode,
+  renameSubgraph,
+  selectOnlyEdge,
+  selectOnlySubgraph,
+  updateEdge,
+  updateNodeFill,
+  updateNodeLabel,
+  updateSubgraph
+} from "@/features/mermaid-editor/lib/editor-actions";
 import { FLOWCHART_SHAPE_GROUPS, FLOWCHART_SHAPES } from "@/features/mermaid-editor/lib/flowchart-shapes";
 import { palette } from "@/features/mermaid-editor/lib/mermaid-graph";
 import { cn } from "@/lib/utils";
@@ -43,12 +56,26 @@ const edgeArrowOptions: { value: FlowchartArrowType; label: string }[] = [
   { value: "cross", label: "叉号" }
 ];
 
+const directionOptions: { value: GraphDirection; label: string }[] = [
+  { value: "LR", label: "LR" },
+  { value: "TD", label: "TD" },
+  { value: "TB", label: "TB" },
+  { value: "RL", label: "RL" },
+  { value: "BT", label: "BT" }
+];
+
 export function InspectorPanel({ graph, selection, onGraphChange, onSelectionChange, onDelete }: InspectorPanelProps) {
   const selectedNodes = graph.nodes.filter((node) => selection.nodeIds.includes(node.id));
   const selectedEdges = graph.edges.filter((edge) => selection.edgeIds.includes(edge.id));
-  const selectedNode = selectedNodes.length === 1 && selectedEdges.length === 0 ? selectedNodes[0] : undefined;
-  const selectedEdge = selectedEdges.length === 1 && selectedNodes.length === 0 ? selectedEdges[0] : undefined;
-  const multiNode = selectedNodes.length > 1 && selectedEdges.length === 0;
+  const selectedSubgraphs = (graph.subgraphs || []).filter((subgraph) => (selection.subgraphIds || []).includes(subgraph.id));
+  const selectedNode = selectedNodes.length === 1 && selectedEdges.length === 0 && selectedSubgraphs.length === 0 ? selectedNodes[0] : undefined;
+  const selectedEdge = selectedEdges.length === 1 && selectedNodes.length === 0 && selectedSubgraphs.length === 0 ? selectedEdges[0] : undefined;
+  const selectedSubgraph = selectedSubgraphs.length === 1 && selectedNodes.length === 0 && selectedEdges.length === 0 ? selectedSubgraphs[0] : undefined;
+  const multiNode = selectedNodes.length > 1 && selectedEdges.length === 0 && selectedSubgraphs.length === 0;
+  const endpointOptions = [
+    ...graph.nodes.map((node) => ({ id: node.id, label: `${node.id} · 节点` })),
+    ...(graph.subgraphs || []).map((subgraph) => ({ id: subgraph.id, label: `${subgraph.id} · 组` }))
+  ];
 
   function updateNode(id: string, patch: Partial<CanvasNode>) {
     const nextGraph =
@@ -70,6 +97,15 @@ export function InspectorPanel({ graph, selection, onGraphChange, onSelectionCha
     onGraphChange(result.graph, result.selection, "已重命名节点。");
   }
 
+  function renameSelectedSubgraph(subgraph: CanvasSubgraph, value: string) {
+    const result = renameSubgraph(graph, subgraph.id, value);
+    onGraphChange(result.graph, result.selection, "已重命名组。");
+  }
+
+  function updateSelectedSubgraph(id: string, patch: Partial<CanvasSubgraph>) {
+    onGraphChange(updateSubgraph(graph, id, patch), selection, "已更新组。");
+  }
+
   function addEdgeFrom(node: CanvasNode) {
     const target = graph.nodes.find((item) => item.id !== node.id);
     if (!target) return;
@@ -89,7 +125,7 @@ export function InspectorPanel({ graph, selection, onGraphChange, onSelectionCha
       </header>
       <ScrollArea className="min-h-0">
         <div className="grid gap-4 p-4">
-          {!selectedNode && !selectedEdge && !multiNode ? <EmptyInspector /> : null}
+          {!selectedNode && !selectedEdge && !selectedSubgraph && !multiNode ? <EmptyInspector /> : null}
 
           {selectedNode ? (
             <>
@@ -156,6 +192,74 @@ export function InspectorPanel({ graph, selection, onGraphChange, onSelectionCha
             </>
           ) : null}
 
+          {selectedSubgraph ? (
+            <>
+              <div className="grid gap-2">
+                <Label htmlFor="subgraph-id">组 ID</Label>
+                <Input id="subgraph-id" value={selectedSubgraph.id} onChange={(event) => renameSelectedSubgraph(selectedSubgraph, event.target.value)} />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="subgraph-title">组标题</Label>
+                <Input
+                  id="subgraph-title"
+                  value={selectedSubgraph.title}
+                  onChange={(event) => updateSelectedSubgraph(selectedSubgraph.id, { title: event.target.value })}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label>组方向</Label>
+                <Select
+                  value={selectedSubgraph.direction || "__inherit__"}
+                  onValueChange={(value) =>
+                    updateSelectedSubgraph(selectedSubgraph.id, { direction: value === "__inherit__" ? undefined : (value as GraphDirection) })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__inherit__">继承全局方向</SelectItem>
+                    {directionOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-2">
+                <Label>父组</Label>
+                <Select
+                  value={selectedSubgraph.parentId || "__root__"}
+                  onValueChange={(value) => updateSelectedSubgraph(selectedSubgraph.id, { parentId: value === "__root__" ? undefined : value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__root__">根层</SelectItem>
+                    {(graph.subgraphs || [])
+                      .filter((subgraph) => subgraph.id !== selectedSubgraph.id && !descendantSubgraphIds(graph, selectedSubgraph.id).includes(subgraph.id))
+                      .map((subgraph) => (
+                        <SelectItem key={subgraph.id} value={subgraph.id}>
+                          {subgraph.title || subgraph.id}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <Separator />
+              <Button variant="outline" className="h-8 justify-start px-2" onClick={() => onSelectionChange(selectOnlySubgraph(selectedSubgraph.id))}>
+                <PathArrow className="size-4" />
+                选中组
+              </Button>
+              <Button variant="destructive" className="h-8 justify-start px-2" onClick={onDelete}>
+                <Trash2 className="size-4" />
+                解散组
+              </Button>
+            </>
+          ) : null}
+
           {selectedEdge ? (
             <>
               <div className="grid gap-2">
@@ -165,9 +269,9 @@ export function InspectorPanel({ graph, selection, onGraphChange, onSelectionCha
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {graph.nodes.map((node) => (
-                      <SelectItem key={node.id} value={node.id}>
-                        {node.id}
+                    {endpointOptions.map((item) => (
+                      <SelectItem key={item.id} value={item.id}>
+                        {item.label}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -180,9 +284,9 @@ export function InspectorPanel({ graph, selection, onGraphChange, onSelectionCha
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {graph.nodes.map((node) => (
-                      <SelectItem key={node.id} value={node.id}>
-                        {node.id}
+                    {endpointOptions.map((item) => (
+                      <SelectItem key={item.id} value={item.id}>
+                        {item.label}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -270,7 +374,7 @@ function ColorGrid({ activeFill, onPick }: { activeFill: string; onPick: (fill: 
 function EmptyInspector() {
   return (
     <div className="text-sm leading-6 text-muted-foreground">
-      <p>选择节点或连线后，可以编辑文本、颜色和连接关系。</p>
+      <p>选择节点、组或连线后，可以编辑文本、颜色和连接关系。</p>
     </div>
   );
 }

@@ -31,10 +31,12 @@ export type CanvasNode = {
 
 export type EdgeStyle = "solid" | "thick" | "dotted";
 export type FlowchartArrowType = "arrow" | "none" | "circle" | "cross";
-export type EdgeRouting = "straight" | "bezier";
+export type EdgeRouting = "straight" | "bezier" | "orthogonal" | "mermaid";
 export type LegacyEdgePath = "straight" | "curved" | "orthogonal";
+export type LayoutMode = "manual" | "auto";
 
 export const DEFAULT_EDGE_ROUTING: EdgeRouting = "bezier";
+export const DEFAULT_LAYOUT_MODE: LayoutMode = "manual";
 
 export type CanvasEdge = {
   id: string;
@@ -49,6 +51,8 @@ export type CanvasSubgraph = {
   id: string;
   title: string;
   nodeIds: string[];
+  parentId?: string;
+  direction?: GraphDirection;
 };
 
 export type MermaidGraph = {
@@ -68,6 +72,7 @@ export type EditorMode = "select" | "connect";
 export type Selection = {
   nodeIds: string[];
   edgeIds: string[];
+  subgraphIds?: string[];
   primaryId?: string;
 };
 
@@ -90,6 +95,7 @@ export type CanvasLayoutEdge = {
 export type CanvasLayout = {
   version: 1;
   edgeRouting?: EdgeRouting;
+  layoutMode?: LayoutMode;
   nodes: Record<string, CanvasLayoutNode>;
   edges?: Record<string, CanvasLayoutEdge>;
   viewport: ViewportState;
@@ -106,6 +112,7 @@ export type EditorSnapshot = {
   selection: Selection;
   viewport: ViewportState;
   edgeRouting: EdgeRouting;
+  layoutMode: LayoutMode;
 };
 
 export type EditorHistory = {

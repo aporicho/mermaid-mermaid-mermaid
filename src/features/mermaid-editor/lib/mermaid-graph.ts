@@ -1,5 +1,4 @@
 import type {
-  CanvasEdge,
   CanvasNode,
   CanvasSubgraph,
   DiagramType,
@@ -51,6 +50,17 @@ type ParsedNodeToken = {
   label: string;
   shape: FlowchartNodeShape;
   hasShape: boolean;
+};
+
+type ParsedEdgeStatement = {
+  left: ParsedNodeToken;
+  right: ParsedNodeToken;
+  label: string;
+  operator: string;
+};
+
+type PendingEdgeStatement = ParsedEdgeStatement & {
+  parentId?: string;
 };
 
 const FLOWCHART_LINE_PATTERN = /^(flowchart|graph)\s+/i;
@@ -222,7 +232,7 @@ export function parseMermaid(source: string, previous?: MermaidGraph): MermaidGr
   }
 
   const nodes = new Map<string, CanvasNode>();
-  const edges: CanvasEdge[] = [];
+  const pendingEdges: PendingEdgeStatement[] = [];
   const subgraphs: CanvasSubgraph[] = [];
   const subgraphStack: CanvasSubgraph[] = [];
   const preservedStatements: string[] = [];
@@ -230,7 +240,7 @@ export function parseMermaid(source: string, previous?: MermaidGraph): MermaidGr
   const flowLine = lines.find((line) => FLOWCHART_LINE_PATTERN.test(line.trim()));
   const direction = ((flowLine?.trim().split(/\s+/)[1] || "LR") as GraphDirection) || "LR";
 
-  function ensureNode(id: string, label?: string, shape?: FlowchartNodeShape) {
+  function ensureNode(id: string, label?: string, shape?: FlowchartNodeShape, parentId?: string) {
     const old = previous?.nodes.find((node) => node.id === id);
 
     if (!nodes.has(id)) {
@@ -249,9 +259,7 @@ export function parseMermaid(source: string, previous?: MermaidGraph): MermaidGr
       if (shape) node.shape = shape;
     }
 
-    for (const subgraph of subgraphStack) {
-      if (!subgraph.nodeIds.includes(id)) subgraph.nodeIds.push(id);
-    }
+    if (parentId) assignNodeToSubgraph(subgraphs, id, parentId);
   }
 
   for (const line of lines) {
@@ -264,6 +272,7 @@ export function parseMermaid(source: string, previous?: MermaidGraph): MermaidGr
 
     if (/^subgraph\s+/i.test(clean)) {
       const subgraph = parseSubgraphHeader(clean, subgraphs.length);
+      subgraph.parentId = subgraphStack.at(-1)?.id;
       subgraphs.push(subgraph);
       subgraphStack.push(subgraph);
       continue;
@@ -274,32 +283,52 @@ export function parseMermaid(source: string, previous?: MermaidGraph): MermaidGr
       continue;
     }
 
+    if (subgraphStack.length && /^direction\s+/i.test(clean)) {
+      const localDirection = clean.split(/\s+/)[1] as GraphDirection | undefined;
+      if (isGraphDirection(localDirection)) subgraphStack[subgraphStack.length - 1].direction = localDirection;
+      continue;
+    }
+
     const edge = parseEdgeStatement(clean);
     if (edge) {
-      const { left, right, label, operator } = edge;
-      if (left && right) {
-        ensureNode(left.id, left.label, left.hasShape ? left.shape : undefined);
-        ensureNode(right.id, right.label, right.hasShape ? right.shape : undefined);
-        edges.push({
-          id: resolveEdgeId(previous, left.id, right.id, label, styleFromEdgeOperator(operator), arrowTypeFromEdgeOperator(operator), edges.length),
-          from: left.id,
-          to: right.id,
-          label,
-          style: styleFromEdgeOperator(operator),
-          arrowType: arrowTypeFromEdgeOperator(operator)
-        });
-      }
+      pendingEdges.push({ ...edge, parentId: subgraphStack.at(-1)?.id });
       continue;
     }
 
     const node = parseNodeToken(clean);
     if (node) {
-      ensureNode(node.id, node.label, node.hasShape ? node.shape : undefined);
+      ensureNode(node.id, node.label, node.hasShape ? node.shape : undefined, subgraphStack.at(-1)?.id);
       continue;
     }
 
     preservedStatements.push(line.trimEnd());
   }
+
+  const subgraphIds = new Set(subgraphs.map((subgraph) => subgraph.id));
+  const edges = pendingEdges.map((edge, index) => {
+    const leftKind = endpointKind(edge.left, subgraphIds);
+    const rightKind = endpointKind(edge.right, subgraphIds);
+
+    if (leftKind === "node") ensureNode(edge.left.id, edge.left.label, edge.left.hasShape ? edge.left.shape : undefined, edge.parentId);
+    if (rightKind === "node") ensureNode(edge.right.id, edge.right.label, edge.right.hasShape ? edge.right.shape : undefined, edge.parentId);
+
+    return {
+      id: resolveEdgeId(
+        previous,
+        edge.left.id,
+        edge.right.id,
+        edge.label,
+        styleFromEdgeOperator(edge.operator),
+        arrowTypeFromEdgeOperator(edge.operator),
+        index
+      ),
+      from: edge.left.id,
+      to: edge.right.id,
+      label: edge.label,
+      style: styleFromEdgeOperator(edge.operator),
+      arrowType: arrowTypeFromEdgeOperator(edge.operator)
+    };
+  });
 
   return {
     diagramType,
@@ -308,7 +337,7 @@ export function parseMermaid(source: string, previous?: MermaidGraph): MermaidGr
     direction,
     nodes: [...nodes.values()],
     edges,
-    subgraphs: subgraphs.filter((subgraph) => subgraph.nodeIds.length > 0),
+    subgraphs: subgraphs.filter((subgraph) => subgraph.nodeIds.length > 0 || subgraphs.some((child) => child.parentId === subgraph.id)),
     preservedStatements,
     frontmatter
   };
@@ -357,17 +386,10 @@ export function serializeMermaid(graph: MermaidGraph) {
 
   lines.push(`flowchart ${graph.direction || "LR"}`);
   const declaredInSubgraph = new Set<string>();
+  const childrenByParent = groupSubgraphsByParent(graph.subgraphs || []);
 
-  for (const subgraph of graph.subgraphs || []) {
-    const nodes = subgraph.nodeIds.map((id) => graph.nodes.find((node) => node.id === id)).filter(Boolean) as CanvasNode[];
-    if (!nodes.length) continue;
-
-    lines.push(`  ${serializeSubgraphHeader(subgraph)}`);
-    for (const node of nodes) {
-      declaredInSubgraph.add(node.id);
-      lines.push(`    ${serializeNodeToken(node)}`);
-    }
-    lines.push("  end");
+  for (const subgraph of childrenByParent.get("__root__") || []) {
+    serializeSubgraph(lines, graph, subgraph, childrenByParent, declaredInSubgraph, "  ");
   }
 
   for (const node of graph.nodes) {
@@ -375,7 +397,7 @@ export function serializeMermaid(graph: MermaidGraph) {
   }
 
   for (const edge of graph.edges) {
-    if (!graph.nodes.some((node) => node.id === edge.from) || !graph.nodes.some((node) => node.id === edge.to)) continue;
+    if (!graphEndpointExists(graph, edge.from) || !graphEndpointExists(graph, edge.to)) continue;
 
     const operator = edgeOperatorFromSemantics(edge.style || "solid", edge.arrowType || "arrow");
     const edgeText = edge.label ? `${operator}|${escapeMermaidLabel(edge.label)}|` : operator;
@@ -475,6 +497,63 @@ function parseSubgraphHeader(clean: string, index: number): CanvasSubgraph {
 function serializeSubgraphHeader(subgraph: CanvasSubgraph) {
   if (!subgraph.title || subgraph.title === subgraph.id) return `subgraph ${subgraph.id}`;
   return `subgraph ${subgraph.id} [${escapeMermaidLabel(subgraph.title)}]`;
+}
+
+function isGraphDirection(value: string | undefined): value is GraphDirection {
+  return value === "TD" || value === "TB" || value === "BT" || value === "RL" || value === "LR";
+}
+
+function assignNodeToSubgraph(subgraphs: CanvasSubgraph[], nodeId: string, parentId: string) {
+  for (const subgraph of subgraphs) {
+    subgraph.nodeIds = subgraph.nodeIds.filter((id) => id !== nodeId);
+  }
+
+  const parent = subgraphs.find((subgraph) => subgraph.id === parentId);
+  if (parent && !parent.nodeIds.includes(nodeId)) parent.nodeIds.push(nodeId);
+}
+
+function endpointKind(token: ParsedNodeToken, subgraphIds: Set<string>) {
+  return !token.hasShape && subgraphIds.has(token.id) ? "subgraph" : "node";
+}
+
+function groupSubgraphsByParent(subgraphs: CanvasSubgraph[]) {
+  const childrenByParent = new Map<string, CanvasSubgraph[]>();
+
+  for (const subgraph of subgraphs) {
+    const parentId = subgraph.parentId || "__root__";
+    const children = childrenByParent.get(parentId) || [];
+    children.push(subgraph);
+    childrenByParent.set(parentId, children);
+  }
+
+  return childrenByParent;
+}
+
+function serializeSubgraph(
+  lines: string[],
+  graph: MermaidGraph,
+  subgraph: CanvasSubgraph,
+  childrenByParent: Map<string, CanvasSubgraph[]>,
+  declaredInSubgraph: Set<string>,
+  indent: string
+) {
+  lines.push(`${indent}${serializeSubgraphHeader(subgraph)}`);
+  if (subgraph.direction) lines.push(`${indent}  direction ${subgraph.direction}`);
+
+  for (const child of childrenByParent.get(subgraph.id) || []) {
+    serializeSubgraph(lines, graph, child, childrenByParent, declaredInSubgraph, `${indent}  `);
+  }
+
+  for (const node of subgraph.nodeIds.map((id) => graph.nodes.find((item) => item.id === id)).filter(Boolean) as CanvasNode[]) {
+    declaredInSubgraph.add(node.id);
+    lines.push(`${indent}  ${serializeNodeToken(node)}`);
+  }
+
+  lines.push(`${indent}end`);
+}
+
+function graphEndpointExists(graph: MermaidGraph, id: string) {
+  return graph.nodes.some((node) => node.id === id) || (graph.subgraphs || []).some((subgraph) => subgraph.id === id);
 }
 
 function resolveEdgeId(

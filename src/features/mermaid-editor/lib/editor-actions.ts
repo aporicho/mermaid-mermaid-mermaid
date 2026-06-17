@@ -1,30 +1,41 @@
-import type { CanvasEdge, CanvasNode, ClipboardPayload, EditorMode, MermaidGraph, Selection, ViewportState } from "@/features/mermaid-editor/lib/editor-types";
+import type { CanvasEdge, CanvasNode, CanvasSubgraph, ClipboardPayload, EditorMode, GraphDirection, MermaidGraph, Selection, ViewportState } from "@/features/mermaid-editor/lib/editor-types";
 import { createNode, toSafeNodeId } from "@/features/mermaid-editor/lib/mermaid-graph";
 
-export const emptySelection: Selection = { nodeIds: [], edgeIds: [] };
+export const emptySelection: Selection = { nodeIds: [], edgeIds: [], subgraphIds: [] };
 
 export function hasSelection(selection: Selection) {
-  return selection.nodeIds.length > 0 || selection.edgeIds.length > 0;
+  return selection.nodeIds.length > 0 || selection.edgeIds.length > 0 || (selection.subgraphIds?.length || 0) > 0;
 }
 
 export function selectOnlyNode(id: string): Selection {
-  return { nodeIds: [id], edgeIds: [], primaryId: id };
+  return { nodeIds: [id], edgeIds: [], subgraphIds: [], primaryId: id };
 }
 
 export function selectOnlyEdge(id: string): Selection {
-  return { nodeIds: [], edgeIds: [id], primaryId: id };
+  return { nodeIds: [], edgeIds: [id], subgraphIds: [], primaryId: id };
+}
+
+export function selectOnlySubgraph(id: string): Selection {
+  return { nodeIds: [], edgeIds: [], subgraphIds: [id], primaryId: id };
 }
 
 export function toggleNodeSelection(selection: Selection, id: string): Selection {
   const hasNode = selection.nodeIds.includes(id);
   const nodeIds = hasNode ? selection.nodeIds.filter((nodeId) => nodeId !== id) : [...selection.nodeIds, id];
-  return { nodeIds, edgeIds: [], primaryId: hasNode ? nodeIds.at(-1) : id };
+  return { nodeIds, edgeIds: [], subgraphIds: [], primaryId: hasNode ? nodeIds.at(-1) : id };
 }
 
 export function toggleEdgeSelection(selection: Selection, id: string): Selection {
   const hasEdge = selection.edgeIds.includes(id);
   const edgeIds = hasEdge ? selection.edgeIds.filter((edgeId) => edgeId !== id) : [...selection.edgeIds, id];
-  return { nodeIds: [], edgeIds, primaryId: hasEdge ? edgeIds.at(-1) : id };
+  return { nodeIds: [], edgeIds, subgraphIds: [], primaryId: hasEdge ? edgeIds.at(-1) : id };
+}
+
+export function toggleSubgraphSelection(selection: Selection, id: string): Selection {
+  const current = selection.subgraphIds || [];
+  const hasSubgraph = current.includes(id);
+  const subgraphIds = hasSubgraph ? current.filter((subgraphId) => subgraphId !== id) : [...current, id];
+  return { nodeIds: [], edgeIds: [], subgraphIds, primaryId: hasSubgraph ? subgraphIds.at(-1) : id };
 }
 
 export function addNode(graph: MermaidGraph, viewport: ViewportState): { graph: MermaidGraph; selection: Selection } {
@@ -72,9 +83,73 @@ export function renameNode(graph: MermaidGraph, oldId: string, value: string): {
         ...edge,
         from: edge.from === oldId ? nextId : edge.from,
         to: edge.to === oldId ? nextId : edge.to
+      })),
+      subgraphs: graph.subgraphs?.map((subgraph) => ({
+        ...subgraph,
+        nodeIds: subgraph.nodeIds.map((id) => (id === oldId ? nextId : id))
       }))
     },
     selection: selectOnlyNode(nextId)
+  };
+}
+
+export function renameSubgraph(graph: MermaidGraph, oldId: string, value: string): { graph: MermaidGraph; selection: Selection } {
+  const existingIds = [...graph.nodes.map((node) => node.id), ...(graph.subgraphs || []).filter((subgraph) => subgraph.id !== oldId).map((subgraph) => subgraph.id)];
+  const nextId = toSafeNodeId(value, existingIds, oldId);
+
+  return {
+    graph: {
+      ...graph,
+      subgraphs: (graph.subgraphs || []).map((subgraph) => ({
+        ...subgraph,
+        id: subgraph.id === oldId ? nextId : subgraph.id,
+        parentId: subgraph.parentId === oldId ? nextId : subgraph.parentId
+      })),
+      edges: graph.edges.map((edge) => ({
+        ...edge,
+        from: edge.from === oldId ? nextId : edge.from,
+        to: edge.to === oldId ? nextId : edge.to
+      }))
+    },
+    selection: selectOnlySubgraph(nextId)
+  };
+}
+
+export function updateSubgraph(graph: MermaidGraph, id: string, patch: Partial<Pick<CanvasSubgraph, "title" | "parentId" | "direction">>): MermaidGraph {
+  return {
+    ...graph,
+    subgraphs: (graph.subgraphs || []).map((subgraph) => (subgraph.id === id ? { ...subgraph, ...patch } : subgraph))
+  };
+}
+
+export function createSubgraphFromSelection(graph: MermaidGraph, selection: Selection): { graph: MermaidGraph; selection: Selection } {
+  const selectedNodeIds = selection.nodeIds;
+  const selectedSubgraphIds = selection.subgraphIds || [];
+  if (!selectedNodeIds.length && !selectedSubgraphIds.length) return { graph, selection };
+
+  const id = toSafeNodeId("Group", [...graph.nodes.map((node) => node.id), ...(graph.subgraphs || []).map((subgraph) => subgraph.id)], "Group");
+  const selectedParents = [
+    ...selectedNodeIds.map((nodeId) => parentSubgraphForNode(graph, nodeId)),
+    ...selectedSubgraphIds.map((subgraphId) => (graph.subgraphs || []).find((subgraph) => subgraph.id === subgraphId)?.parentId)
+  ];
+  const parentId = selectedParents.every((item) => item === selectedParents[0]) ? selectedParents[0] : undefined;
+  const subgraph: CanvasSubgraph = { id, title: "新分组", nodeIds: selectedNodeIds, parentId };
+
+  return {
+    graph: {
+      ...graph,
+      subgraphs: [
+        ...(graph.subgraphs || []).map((item) => {
+          if (selectedNodeIds.length) {
+            return { ...item, nodeIds: item.nodeIds.filter((nodeId) => !selectedNodeIds.includes(nodeId)) };
+          }
+          if (selectedSubgraphIds.includes(item.id)) return { ...item, parentId: id };
+          return item;
+        }),
+        subgraph
+      ]
+    },
+    selection: selectOnlySubgraph(id)
   };
 }
 
@@ -118,11 +193,21 @@ export function updateEdge(graph: MermaidGraph, id: string, patch: Partial<Canva
 export function deleteSelection(graph: MermaidGraph, selection: Selection): MermaidGraph {
   const nodeIds = new Set(selection.nodeIds);
   const edgeIds = new Set(selection.edgeIds);
+  const subgraphIds = new Set(selection.subgraphIds || []);
+  const subgraphsAfterDissolve = dissolveSubgraphs(graph.subgraphs || [], subgraphIds);
 
   return {
     ...graph,
     nodes: graph.nodes.filter((node) => !nodeIds.has(node.id)),
-    edges: graph.edges.filter((edge) => !edgeIds.has(edge.id) && !nodeIds.has(edge.from) && !nodeIds.has(edge.to))
+    edges: graph.edges.filter(
+      (edge) => !edgeIds.has(edge.id) && !nodeIds.has(edge.from) && !nodeIds.has(edge.to) && !subgraphIds.has(edge.from) && !subgraphIds.has(edge.to)
+    ),
+    subgraphs: subgraphsAfterDissolve
+      .map((subgraph) => ({
+        ...subgraph,
+        nodeIds: subgraph.nodeIds.filter((nodeId) => !nodeIds.has(nodeId))
+      }))
+      .filter((subgraph) => subgraph.nodeIds.length > 0 || subgraphsAfterDissolve.some((child) => child.parentId === subgraph.id))
   };
 }
 
@@ -160,6 +245,74 @@ export function pasteClipboard(graph: MermaidGraph, payload: ClipboardPayload): 
     },
     selection: { nodeIds: pastedNodes.map((node) => node.id), edgeIds: [], primaryId: pastedNodes[0]?.id }
   };
+}
+
+export function setNodeParent(graph: MermaidGraph, nodeId: string, parentId?: string): MermaidGraph {
+  return {
+    ...graph,
+    subgraphs: (graph.subgraphs || []).map((subgraph) => {
+      const withoutNode = subgraph.nodeIds.filter((id) => id !== nodeId);
+      if (parentId && subgraph.id === parentId) return { ...subgraph, nodeIds: [...withoutNode, nodeId] };
+      return { ...subgraph, nodeIds: withoutNode };
+    })
+  };
+}
+
+export function setSubgraphParent(graph: MermaidGraph, subgraphId: string, parentId?: string): MermaidGraph {
+  if (subgraphId === parentId || parentId && descendantSubgraphIds(graph, subgraphId).includes(parentId)) return graph;
+
+  return {
+    ...graph,
+    subgraphs: (graph.subgraphs || []).map((subgraph) => (subgraph.id === subgraphId ? { ...subgraph, parentId } : subgraph))
+  };
+}
+
+export function parentSubgraphForNode(graph: MermaidGraph, nodeId: string) {
+  return (graph.subgraphs || []).find((subgraph) => subgraph.nodeIds.includes(nodeId))?.id;
+}
+
+export function descendantNodeIds(graph: MermaidGraph, subgraphId: string): string[] {
+  const childSubgraphIds = descendantSubgraphIds(graph, subgraphId);
+  return [
+    ...((graph.subgraphs || []).find((subgraph) => subgraph.id === subgraphId)?.nodeIds || []),
+    ...childSubgraphIds.flatMap((childId) => (graph.subgraphs || []).find((subgraph) => subgraph.id === childId)?.nodeIds || [])
+  ];
+}
+
+export function descendantSubgraphIds(graph: MermaidGraph, subgraphId: string): string[] {
+  const result: string[] = [];
+  const visit = (id: string) => {
+    for (const child of (graph.subgraphs || []).filter((subgraph) => subgraph.parentId === id)) {
+      result.push(child.id);
+      visit(child.id);
+    }
+  };
+  visit(subgraphId);
+  return result;
+}
+
+export function graphDirections(): GraphDirection[] {
+  return ["TD", "TB", "BT", "RL", "LR"];
+}
+
+function dissolveSubgraphs(subgraphs: CanvasSubgraph[], removed: Set<string>) {
+  return subgraphs
+    .filter((subgraph) => !removed.has(subgraph.id))
+    .map((subgraph) => {
+      const removedParent = subgraphs.find((item) => item.id === subgraph.parentId && removed.has(item.id));
+      return {
+        ...subgraph,
+        parentId: removedParent ? removedParent.parentId : subgraph.parentId
+      };
+    })
+    .map((subgraph) => {
+      const dissolvedChildren = subgraphs.filter((item) => item.parentId === subgraph.id && removed.has(item.id));
+      if (!dissolvedChildren.length) return subgraph;
+      return {
+        ...subgraph,
+        nodeIds: [...subgraph.nodeIds, ...dissolvedChildren.flatMap((item) => item.nodeIds).filter((nodeId) => !subgraph.nodeIds.includes(nodeId))]
+      };
+    });
 }
 
 export function setMode(mode: EditorMode) {
