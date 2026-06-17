@@ -47,7 +47,7 @@ export function useViewportScheduler<T>({
     };
   }, []);
 
-  const current = useCallback(() => pendingRef.current || visualRef.current, []);
+  const current = useCallback(() => (pendingRef.current !== null ? pendingRef.current : visualRef.current), []);
 
   const sync = useCallback((value: T, options: { applyVisual?: boolean } = {}) => {
     pendingRef.current = null;

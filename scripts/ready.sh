@@ -226,6 +226,19 @@ clear_dev_cache() {
   rm -rf "$PROJECT_DIR/.next/cache" "$PROJECT_DIR/.next/server" "$PROJECT_DIR/.next/static/development"
 }
 
+reset_check_artifacts() {
+  local attempt
+
+  for attempt in 1 2 3 4 5; do
+    if rm -rf "$PROJECT_DIR/.next" "$PROJECT_DIR/tsconfig.tsbuildinfo"; then
+      return 0
+    fi
+    sleep 1
+  done
+
+  die "Failed to reset generated check artifacts. Stop project dev processes and re-run npm run ready."
+}
+
 ensure_port_free_for_dev() {
   mapfile -t blockers < <(port_pids)
   if [[ "${#blockers[@]}" -eq 0 ]]; then
@@ -257,6 +270,9 @@ trap cleanup EXIT INT TERM
 
 log "Starting readiness check."
 stop_project_dev_server_if_needed
+
+log "Resetting generated check artifacts."
+reset_check_artifacts
 
 log "Running tests."
 npm test
