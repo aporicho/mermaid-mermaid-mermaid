@@ -76,7 +76,7 @@ export function useViewportScheduler<T>({
         const valueToCommit = commitValueRef.current;
         commitValueRef.current = null;
         commitTimerRef.current = null;
-        if (valueToCommit) commitRef.current(valueToCommit);
+        if (valueToCommit !== null) commitRef.current(valueToCommit);
       }, commitDelayMs);
 
       if (rafRef.current !== null) return;
@@ -85,7 +85,7 @@ export function useViewportScheduler<T>({
         rafRef.current = null;
         const pending = pendingRef.current;
         pendingRef.current = null;
-        if (pending) {
+        if (pending !== null) {
           applyVisualRef.current(pending);
           recordPerformanceMetric(metricName, performance.now() - scheduledAt);
         }

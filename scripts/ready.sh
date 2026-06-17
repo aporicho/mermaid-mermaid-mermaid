@@ -65,13 +65,30 @@ port_pids() {
   fi
 }
 
-command_looks_like_project_dev() {
+process_cwd_is_project() {
+  local files="$1"
+
+  printf '%s\n' "$files" | awk '$4 == "cwd" { print $NF }' | grep -Fxq "$PROJECT_DIR"
+}
+
+command_has_project_dev_path() {
   local command_line="$1"
 
   case "$command_line" in
     *"$PROJECT_DIR/node_modules/.bin/next dev"* | \
+    *"next dev"*"$PROJECT_DIR"* )
+      return 0
+      ;;
+  esac
+
+  return 1
+}
+
+command_looks_like_next_dev() {
+  local command_line="$1"
+
+  case "$command_line" in
     *"next dev --hostname $HOST --port $PORT"* | \
-    *"next dev"*"$PROJECT_DIR"* | \
     *"npm run dev"* | \
     *"next/dist/bin/next dev"* | \
     *"next-server"* )
@@ -87,7 +104,7 @@ is_project_dev_process() {
   local command_line
   command_line="$(process_command "$pid")"
 
-  if command_looks_like_project_dev "$command_line"; then
+  if command_has_project_dev_path "$command_line"; then
     return 0
   fi
 
@@ -97,6 +114,9 @@ is_project_dev_process() {
     return 0
   fi
   if printf '%s\n' "$files" | grep -Fq "$PROJECT_DIR/node_modules/@next"; then
+    return 0
+  fi
+  if command_looks_like_next_dev "$command_line" && process_cwd_is_project "$files"; then
     return 0
   fi
 
@@ -137,13 +157,14 @@ non_project_port_pids() {
 
 wait_for_port_free() {
   local seconds="${1:-8}"
-  local index
+  local remaining="$seconds"
 
-  for index in $(seq 1 "$seconds"); do
+  while [[ "$remaining" -gt 0 ]]; do
     if [[ -z "$(port_pids)" ]]; then
       return 0
     fi
     sleep 1
+    remaining=$((remaining - 1))
   done
 
   return 1
