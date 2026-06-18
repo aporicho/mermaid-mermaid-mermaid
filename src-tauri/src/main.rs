@@ -3,6 +3,7 @@
 use std::{
     collections::{HashMap, VecDeque},
     fs,
+    io,
     net::TcpListener,
     path::{Path, PathBuf},
     sync::{Arc, Mutex},
@@ -12,7 +13,7 @@ use std::{
 use chrono::{Duration, Utc};
 use serde::Serialize;
 use serde_json::{json, Value};
-use tauri::State;
+use tauri::{Emitter, Manager, State};
 use tiny_http::{Header, Method, Request, Response, StatusCode};
 use uuid::Uuid;
 
@@ -28,6 +29,11 @@ struct BridgeInner {
     results: HashMap<String, Value>,
 }
 
+#[derive(Clone, Default)]
+struct PendingOpenState {
+    inner: Arc<Mutex<VecDeque<PendingOpenFile>>>,
+}
+
 #[derive(Serialize)]
 struct OpenedFile {
     name: String,
@@ -41,10 +47,24 @@ struct SavedFile {
     path: String,
 }
 
+#[derive(Clone, Serialize)]
+struct PendingOpenFile {
+    name: String,
+    path: String,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct FileCommandError {
+    code: &'static str,
+    message: String,
+    path: Option<String>,
+}
+
 #[tauri::command]
-async fn open_mermaid_file() -> Result<Option<OpenedFile>, String> {
+async fn open_mermaid_file() -> Result<Option<OpenedFile>, FileCommandError> {
     let file = rfd::AsyncFileDialog::new()
-        .add_filter("Mermaid", &["mmd", "mermaid", "txt"])
+        .add_filter("Mermaid", &["mmd", "mermaid"])
         .pick_file()
         .await;
 
@@ -53,18 +73,20 @@ async fn open_mermaid_file() -> Result<Option<OpenedFile>, String> {
     };
 
     let path = file.path().to_path_buf();
-    let text = tokio::fs::read_to_string(&path).await.map_err(readable_error)?;
-    Ok(Some(OpenedFile {
-        name: file_name(&path),
-        path: path_to_string(&path),
-        text,
-    }))
+    open_mermaid_file_path_inner(path).await.map(Some)
 }
 
 #[tauri::command]
-async fn save_mermaid_file(path: String, text: String) -> Result<SavedFile, String> {
+async fn open_mermaid_file_path(path: String) -> Result<OpenedFile, FileCommandError> {
+    open_mermaid_file_path_inner(PathBuf::from(path)).await
+}
+
+#[tauri::command]
+async fn save_mermaid_file(path: String, text: String) -> Result<SavedFile, FileCommandError> {
     let path = PathBuf::from(path);
-    tokio::fs::write(&path, text).await.map_err(readable_error)?;
+    tokio::fs::write(&path, text)
+        .await
+        .map_err(|error| file_io_error("write_failed", &path, error))?;
     Ok(SavedFile {
         name: file_name(&path),
         path: path_to_string(&path),
@@ -72,7 +94,7 @@ async fn save_mermaid_file(path: String, text: String) -> Result<SavedFile, Stri
 }
 
 #[tauri::command]
-async fn save_mermaid_file_as(suggested_name: String, text: String) -> Result<Option<SavedFile>, String> {
+async fn save_mermaid_file_as(suggested_name: String, text: String) -> Result<Option<SavedFile>, FileCommandError> {
     let file = rfd::AsyncFileDialog::new()
         .add_filter("Mermaid", &["mmd", "mermaid"])
         .set_file_name(&suggested_name)
@@ -84,7 +106,9 @@ async fn save_mermaid_file_as(suggested_name: String, text: String) -> Result<Op
     };
 
     let path = file.path().to_path_buf();
-    tokio::fs::write(&path, text).await.map_err(readable_error)?;
+    tokio::fs::write(&path, text)
+        .await
+        .map_err(|error| file_io_error("write_failed", &path, error))?;
     Ok(Some(SavedFile {
         name: file_name(&path),
         path: path_to_string(&path),
@@ -108,6 +132,11 @@ fn read_app_state() -> Result<Option<Value>, String> {
     }
     let text = fs::read_to_string(path).map_err(readable_error)?;
     serde_json::from_str(&text).map(Some).map_err(readable_error)
+}
+
+#[tauri::command]
+fn take_pending_file_opens(state: State<'_, PendingOpenState>) -> Vec<PendingOpenFile> {
+    state.take_all()
 }
 
 #[tauri::command]
@@ -255,6 +284,50 @@ impl BridgeState {
     }
 }
 
+impl PendingOpenState {
+    fn push_many(&self, files: Vec<PendingOpenFile>) -> Vec<PendingOpenFile> {
+        if files.is_empty() {
+            return files;
+        }
+
+        if let Ok(mut inner) = self.inner.lock() {
+            for file in files.iter().cloned() {
+                if !inner.iter().any(|item| item.path == file.path) {
+                    inner.push_back(file);
+                }
+            }
+        }
+
+        files
+    }
+
+    fn take_all(&self) -> Vec<PendingOpenFile> {
+        let Ok(mut inner) = self.inner.lock() else {
+            return Vec::new();
+        };
+        inner.drain(..).collect()
+    }
+}
+
+async fn open_mermaid_file_path_inner(path: PathBuf) -> Result<OpenedFile, FileCommandError> {
+    if !is_supported_mermaid_path(&path) {
+        return Err(file_workflow_error(
+            "unsupported_type",
+            "只支持 .mmd 或 .mermaid 文件。",
+            Some(&path),
+        ));
+    }
+
+    let text = tokio::fs::read_to_string(&path)
+        .await
+        .map_err(|error| file_io_error("read_failed", &path, error))?;
+    Ok(OpenedFile {
+        name: file_name(&path),
+        path: path_to_string(&path),
+        text,
+    })
+}
+
 fn start_bridge(state: BridgeState, app_version: String) -> Result<(), String> {
     let token = Uuid::new_v4().to_string();
     let listener = TcpListener::bind("127.0.0.1:0").map_err(readable_error)?;
@@ -380,6 +453,58 @@ fn path_to_string(path: &Path) -> String {
     path.to_string_lossy().to_string()
 }
 
+fn is_supported_mermaid_path(path: &Path) -> bool {
+    path.extension()
+        .and_then(|value| value.to_str())
+        .map(|extension| extension.eq_ignore_ascii_case("mmd") || extension.eq_ignore_ascii_case("mermaid"))
+        .unwrap_or(false)
+}
+
+fn collect_mermaid_file_args(args: impl IntoIterator<Item = String>) -> Vec<PendingOpenFile> {
+    args.into_iter()
+        .filter_map(|arg| {
+            let path = PathBuf::from(arg);
+            if is_supported_mermaid_path(&path) {
+                Some(PendingOpenFile {
+                    name: file_name(&path),
+                    path: path_to_string(&path),
+                })
+            } else {
+                None
+            }
+        })
+        .collect()
+}
+
+fn emit_pending_file_opens<R: tauri::Runtime>(app: &tauri::AppHandle<R>, files: Vec<PendingOpenFile>) {
+    if files.is_empty() {
+        return;
+    }
+
+    let queued = app.state::<PendingOpenState>().push_many(files);
+    let _ = app.emit("file-workflow:external-open", queued);
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.set_focus();
+    }
+}
+
+fn file_workflow_error(code: &'static str, message: impl Into<String>, path: Option<&Path>) -> FileCommandError {
+    FileCommandError {
+        code,
+        message: message.into(),
+        path: path.map(path_to_string),
+    }
+}
+
+fn file_io_error(default_code: &'static str, path: &Path, error: io::Error) -> FileCommandError {
+    let code = match error.kind() {
+        io::ErrorKind::NotFound => "file_not_found",
+        io::ErrorKind::PermissionDenied => "permission_denied",
+        _ => default_code,
+    };
+    file_workflow_error(code, error.to_string(), Some(path))
+}
+
 fn diagnostic(code: &str, message: &str, suggestion: impl Into<Value>) -> Value {
     json!({
         "id": format!("bridge:{code}"),
@@ -406,21 +531,30 @@ fn readable_error(error: impl std::fmt::Display) -> String {
 pub fn run() {
     let bridge_state = BridgeState::default();
     let bridge_for_setup = bridge_state.clone();
+    let pending_open_state = PendingOpenState::default();
 
     tauri::Builder::default()
         .manage(bridge_state)
+        .manage(pending_open_state)
+        .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
+            emit_pending_file_opens(app, collect_mermaid_file_args(args));
+        }))
         .setup(move |app| {
             let version = app.package_info().version.to_string();
             start_bridge(bridge_for_setup.clone(), version)
                 .map_err(|error| std::io::Error::new(std::io::ErrorKind::Other, error))?;
+            let startup_files = collect_mermaid_file_args(std::env::args().skip(1));
+            app.state::<PendingOpenState>().push_many(startup_files);
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
             open_mermaid_file,
+            open_mermaid_file_path,
             save_mermaid_file,
             save_mermaid_file_as,
             write_app_state,
             read_app_state,
+            take_pending_file_opens,
             publish_editor_context,
             take_next_ai_command,
             finish_ai_command

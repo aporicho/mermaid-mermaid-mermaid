@@ -1,5 +1,6 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
+  ClockRotateRight,
   CodeBracketsSquare as FileCode2,
   ColorWheel,
   DotsGrid3x3 as Grid3X3,
@@ -25,6 +26,7 @@ import {
   SidebarExpand as PanelRightOpen,
   SquareCursor as SquareDashedMousePointer,
   Text,
+  WarningTriangle,
   Xmark
 } from "iconoir-react/regular";
 
@@ -54,8 +56,19 @@ import {
   createEditorRuntime,
   ensureRuntimeMermaidFileName,
   isRuntimeAbortError,
+  type RuntimeFileOpenRequest,
   type RuntimeFileRef
 } from "@/features/mermaid-editor/lib/editor-runtime";
+import {
+  fileWorkflowErrorSuggestion,
+  fileWorkflowErrorTitle,
+  isSupportedMermaidFilePath,
+  normalizeFileWorkflowError,
+  normalizeRecentFiles,
+  upsertRecentFile,
+  type FileWorkflowError,
+  type RecentFileEntry
+} from "@/features/mermaid-editor/lib/file-workflow";
 import type {
   ClipboardPayload,
   DiagramType,
@@ -133,12 +146,14 @@ type EditorPreferences = {
   panelOpenButtonMode: PanelOpenButtonMode;
   statusMessages: boolean;
   desktopTitlebarAutoHide: boolean;
+  restoreLastFile: boolean;
 };
 const DEFAULT_EDITOR_PREFERENCES: EditorPreferences = {
   startWithPanelsCollapsed: true,
   panelOpenButtonMode: "hover",
   statusMessages: false,
-  desktopTitlebarAutoHide: true
+  desktopTitlebarAutoHide: true,
+  restoreLastFile: true
 };
 type StoredEditor = {
   source: string;
@@ -153,6 +168,9 @@ type StoredEditor = {
   showEdges?: boolean;
   viewFilters?: ViewFilters;
   fileName?: string;
+  fileRef?: RuntimeFileRef | null;
+  recentFiles?: RecentFileEntry[];
+  lastSavedDocument?: string;
   themeId?: EditorThemeId;
   customTheme?: EditorTheme | null;
   preferences?: Partial<EditorPreferences>;
@@ -167,13 +185,28 @@ type CanvasLiveState = {
   editing?: Exclude<AiEditingContext, { kind: "source" }> | null;
   interaction?: string;
 };
+type FileOpenSource = "picker" | "recent" | "drop" | "external" | "restore";
+type UnsavedPromptChoice = "save" | "discard" | "cancel";
+type UnsavedPromptState = {
+  title: string;
+  description: string;
+  targetName?: string;
+  resolve: (choice: UnsavedPromptChoice) => void;
+};
+type StoredEditorApplyResult = {
+  currentDocument: string;
+  fileRef: RuntimeFileRef | null;
+  lastSavedDocument: string;
+  preferences: EditorPreferences;
+};
 
 function normalizeEditorPreferences(value: Partial<EditorPreferences> | undefined): EditorPreferences {
   return {
     startWithPanelsCollapsed: value?.startWithPanelsCollapsed ?? DEFAULT_EDITOR_PREFERENCES.startWithPanelsCollapsed,
     panelOpenButtonMode: value?.panelOpenButtonMode === "always" ? "always" : DEFAULT_EDITOR_PREFERENCES.panelOpenButtonMode,
     statusMessages: value?.statusMessages ?? DEFAULT_EDITOR_PREFERENCES.statusMessages,
-    desktopTitlebarAutoHide: value?.desktopTitlebarAutoHide ?? DEFAULT_EDITOR_PREFERENCES.desktopTitlebarAutoHide
+    desktopTitlebarAutoHide: value?.desktopTitlebarAutoHide ?? DEFAULT_EDITOR_PREFERENCES.desktopTitlebarAutoHide,
+    restoreLastFile: value?.restoreLastFile ?? DEFAULT_EDITOR_PREFERENCES.restoreLastFile
   };
 }
 
@@ -198,6 +231,9 @@ function loadInitialState() {
       workspaceView: "canvas" as WorkspaceView,
       viewFilters: DEFAULT_VIEW_FILTERS,
       fileName: FALLBACK_FILE_NAME,
+      fileRef: null,
+      recentFiles: [] as RecentFileEntry[],
+      lastSavedDocument: "",
       fileTheme: null,
       themeId: DEFAULT_EDITOR_THEME.id,
       customTheme: null,
@@ -241,6 +277,9 @@ function loadInitialState() {
       workspaceView: loaded.editableKind === "flowchart" ? stored.workspaceView || "canvas" : "render",
       viewFilters,
       fileName: stored.fileName || FALLBACK_FILE_NAME,
+      fileRef: stored.fileRef || null,
+      recentFiles: normalizeRecentFiles(stored.recentFiles),
+      lastSavedDocument: stored.lastSavedDocument || "",
       fileTheme,
       themeId,
       customTheme,
@@ -260,6 +299,9 @@ function loadInitialState() {
       workspaceView: "canvas" as WorkspaceView,
       viewFilters: DEFAULT_VIEW_FILTERS,
       fileName: FALLBACK_FILE_NAME,
+      fileRef: null,
+      recentFiles: [] as RecentFileEntry[],
+      lastSavedDocument: "",
       fileTheme: null,
       themeId: DEFAULT_EDITOR_THEME.id,
       customTheme: null,
@@ -275,6 +317,14 @@ function ensureMermaidFileName(value: string | undefined) {
 function comparableMermaidFileName(value: string | undefined) {
   const name = value?.split(/[\\/]/).pop();
   return ensureMermaidFileName(name).toLowerCase();
+}
+
+function serializableRuntimeFileRef(file: RuntimeFileRef | null): RuntimeFileRef | null {
+  if (!file) return null;
+  return {
+    name: file.name,
+    ...(file.path ? { path: file.path } : {})
+  };
 }
 
 function isAbortError(error: unknown) {
@@ -397,8 +447,13 @@ export function MermaidEditor() {
   const [viewFilters, setViewFilters] = useState<ViewFilters>(initial.viewFilters);
   const [fileName, setFileName] = useState(initial.fileName);
   const [fileTheme, setFileTheme] = useState<CanvasLayoutTheme | null>(initial.fileTheme);
-  const [fileRef, setFileRef] = useState<RuntimeFileRef | null>(null);
-  const [lastSavedDocument, setLastSavedDocument] = useState("");
+  const [fileRef, setFileRef] = useState<RuntimeFileRef | null>(initial.fileRef);
+  const [recentFiles, setRecentFiles] = useState<RecentFileEntry[]>(initial.recentFiles);
+  const [lastSavedDocument, setLastSavedDocument] = useState(initial.lastSavedDocument);
+  const [fileMenuOpen, setFileMenuOpen] = useState(false);
+  const [fileWorkflowError, setFileWorkflowError] = useState<FileWorkflowError | null>(null);
+  const [unsavedPrompt, setUnsavedPrompt] = useState<UnsavedPromptState | null>(null);
+  const [draftPersistenceReady, setDraftPersistenceReady] = useState(runtime.kind !== "desktop");
   const [secondaryActionsOpen, setSecondaryActionsOpen] = useState(false);
   const [viewFiltersOpen, setViewFiltersOpen] = useState(false);
   const [themeSettingsOpen, setThemeSettingsOpen] = useState(false);
@@ -420,6 +475,19 @@ export function MermaidEditor() {
   const desktopTitlebarFocusRef = useRef(false);
   const desktopTitlebarHoverRef = useRef(false);
   const desktopTitlebarPinnedRef = useRef(false);
+  const desktopFileWorkflowInitializedRef = useRef(false);
+  const isDirtyRef = useRef(false);
+  const currentDocumentRef = useRef("");
+  const canCloseWindowRef = useRef(false);
+  const openPathRequestRef = useRef<(file: RuntimeFileOpenRequest, source: FileOpenSource) => Promise<void>>(async () => undefined);
+  const prepareCloseRequestRef = useRef<() => Promise<boolean>>(async () => true);
+  const applyLoadedDocumentRef = useRef<(text: string, name: string, file: RuntimeFileRef | null, source?: FileOpenSource) => void>(() => undefined);
+  const applyStoredEditorStateRef = useRef<(stored: StoredEditor) => StoredEditorApplyResult>(() => ({
+    currentDocument: "",
+    fileRef: null,
+    lastSavedDocument: "",
+    preferences: DEFAULT_EDITOR_PREFERENCES
+  }));
 
   const currentDocument = useMemo(() => buildMermaidDocument(source, graph, viewport, edgeRouting, layoutMode, fileTheme), [source, graph, viewport, edgeRouting, layoutMode, fileTheme]);
   const hiddenViewFilters = useMemo(() => hiddenFilterCount(viewFilters), [viewFilters]);
@@ -435,7 +503,12 @@ export function MermaidEditor() {
   const canvasViewTooltip = isCanvasEditable ? "无限画布" : `${diagramTypeLabel(diagramType)} 仅支持渲染`;
   const isDesktopChrome = runtime.kind === "desktop";
   const desktopTitlebarAutoHide = isDesktopChrome && preferences.desktopTitlebarAutoHide;
-  const desktopTitlebarPinned = secondaryActionsOpen || viewFiltersOpen || themeSettingsOpen;
+  const desktopTitlebarPinned = fileMenuOpen || secondaryActionsOpen || viewFiltersOpen || themeSettingsOpen || Boolean(unsavedPrompt);
+
+  useEffect(() => {
+    isDirtyRef.current = isDirty;
+    currentDocumentRef.current = currentDocument;
+  }, [currentDocument, isDirty]);
 
   const updateCanvasLiveState = useCallback((next: CanvasLiveState) => {
     setCanvasLiveState((current) => (canvasLiveStateKey(current) === canvasLiveStateKey(next) ? current : next));
@@ -985,11 +1058,42 @@ export function MermaidEditor() {
     setStatus("主题已保存。");
   }
 
-  function confirmDiscardUnsaved() {
-    return !isDirty || window.confirm("当前文件有未保存更改，继续会丢失这些更改。");
+  function showFileWorkflowError(error: unknown, fallbackMessage = "文件操作失败。") {
+    setFileWorkflowError(normalizeFileWorkflowError(error, fallbackMessage));
   }
 
-  function applyLoadedDocument(text: string, name: string, file: RuntimeFileRef | null) {
+  function requestUnsavedChoice(targetName?: string): Promise<UnsavedPromptChoice> {
+    if (!isDirtyRef.current) return Promise.resolve("discard");
+    return new Promise((resolve) => {
+      setUnsavedPrompt({
+        title: "当前文件有未保存修改",
+        description: "切换文件前需要先决定如何处理当前修改。",
+        targetName,
+        resolve
+      });
+    });
+  }
+
+  const resolveUnsavedPrompt = useCallback((choice: UnsavedPromptChoice) => {
+    setUnsavedPrompt((current) => {
+      current?.resolve(choice);
+      return null;
+    });
+  }, []);
+
+  async function prepareFileSwitch(targetName?: string) {
+    if (!isDirtyRef.current) return true;
+    const choice = await requestUnsavedChoice(targetName);
+    if (choice === "cancel") return false;
+    if (choice === "discard") return true;
+    return saveMermaidFile();
+  }
+
+  async function prepareWindowClose() {
+    return prepareFileSwitch("关闭窗口");
+  }
+
+  function applyLoadedDocument(text: string, name: string, file: RuntimeFileRef | null, source: FileOpenSource = "picker") {
     flushSourceHistory();
     const loaded = loadMermaidDocument(text);
     const nextViewport = loaded.viewport || { x: 160, y: 90, scale: 1 };
@@ -1016,13 +1120,69 @@ export function MermaidEditor() {
     setCustomTheme(nextCustomTheme);
     setFileRef(file);
     setLastSavedDocument(savedDocument);
+    isDirtyRef.current = false;
+    setRecentFiles((current) => upsertRecentFile(current, file));
+    setFileWorkflowError(null);
     setStatus(loaded.editableKind === "flowchart" ? `已打开 ${name}。` : `已打开 ${name}，当前类型仅渲染。`);
-    recordRecentAction("document.open", { kind: "document" }, `打开 ${name}。`);
+    recordRecentAction(source === "restore" ? "document.restore" : "document.open", { kind: "document" }, `打开 ${name}。`);
+  }
+
+  function applyStoredEditorState(stored: StoredEditor) {
+    flushSourceHistory();
+    const loaded = loadMermaidDocument(stored.source);
+    const legacyLayout = parseCanvasLayout(stored.source);
+    const layout = stored.layout || legacyLayout;
+    const parsedGraph = loaded.editableKind === "flowchart" ? parseMermaid(loaded.source) : loaded.graph;
+    const nextGraph = loaded.editableKind === "flowchart" ? applyLayout(parsedGraph, layout) : parsedGraph;
+    const nextViewport = stored.viewport || layout?.viewport || { x: 160, y: 90, scale: 1 };
+    const nextEdgeRouting = stored.edgeRouting || edgeRoutingFromLayout(layout);
+    const nextLayoutMode = stored.layoutMode || layoutModeFromLayout(layout);
+    const resolvedGraph = loaded.editableKind === "flowchart" && nextLayoutMode === "auto" ? applyDagreAutoLayout(nextGraph) : nextGraph;
+    const nextFileTheme = layout?.theme ?? loaded.fileTheme ?? null;
+    const nextThemeId = normalizeThemeId(nextFileTheme?.themeId ?? stored.themeId);
+    const nextCustomTheme = nextFileTheme?.customTheme
+      ? normalizeEditorTheme(nextFileTheme.customTheme)
+      : stored.customTheme
+        ? normalizeEditorTheme(stored.customTheme)
+        : null;
+    const nextPreferences = normalizeEditorPreferences(stored.preferences);
+    const nextViewFilters = normalizeViewFilters(stored.viewFilters, { showGrid: stored.showGrid, showEdges: stored.showEdges });
+    const currentStoredDocument = buildMermaidDocument(loaded.source, resolvedGraph, nextViewport, nextEdgeRouting, nextLayoutMode, nextFileTheme);
+
+    setSource(loaded.source);
+    setGraph(resolvedGraph);
+    setDiagramType(loaded.diagramType);
+    setEditableKind(loaded.editableKind);
+    setViewport(nextViewport);
+    setEdgeRouting(nextEdgeRouting);
+    setLayoutMode(nextLayoutMode);
+    setLeftCollapsed(nextPreferences.startWithPanelsCollapsed ? true : stored.leftCollapsed || false);
+    setRightCollapsed(nextPreferences.startWithPanelsCollapsed ? true : stored.rightCollapsed || false);
+    setWorkspaceView(loaded.editableKind === "flowchart" ? stored.workspaceView || "canvas" : "render");
+    setViewFilters(nextViewFilters);
+    setSelection(emptySelection);
+    setDiagnostics([]);
+    setHistory(createHistory());
+    setFileName(stored.fileName || FALLBACK_FILE_NAME);
+    setFileRef(stored.fileRef || null);
+    setRecentFiles(normalizeRecentFiles(stored.recentFiles));
+    setLastSavedDocument(stored.lastSavedDocument || "");
+    isDirtyRef.current = !stored.lastSavedDocument || currentStoredDocument !== stored.lastSavedDocument;
+    setFileTheme(nextFileTheme);
+    setThemeId(nextThemeId);
+    setCustomTheme(nextCustomTheme);
+    setPreferences(nextPreferences);
+    setFileWorkflowError(null);
+
+    return {
+      currentDocument: currentStoredDocument,
+      fileRef: stored.fileRef || null,
+      lastSavedDocument: stored.lastSavedDocument || "",
+      preferences: nextPreferences
+    };
   }
 
   async function openMermaidFile() {
-    if (!confirmDiscardUnsaved()) return;
-
     try {
       const result = await runtime.openFile();
       if (result.status === "fallback") {
@@ -1030,9 +1190,10 @@ export function MermaidEditor() {
         return;
       }
       if (result.status === "cancelled") return;
+      if (!(await prepareFileSwitch(result.file.name))) return;
       applyLoadedDocument(result.text, result.file.name, result.file);
     } catch (error) {
-      if (!isAbortError(error)) setStatus("打开文件失败。");
+      if (!isAbortError(error)) showFileWorkflowError(error, "打开文件失败。");
     }
   }
 
@@ -1042,47 +1203,78 @@ export function MermaidEditor() {
     if (!file) return;
 
     try {
+      if (!(await prepareFileSwitch(file.name))) return;
       applyLoadedDocument(await file.text(), file.name, { name: file.name });
-    } catch {
-      setStatus("打开文件失败。");
+    } catch (error) {
+      showFileWorkflowError(error, "打开文件失败。");
     }
+  }
+
+  async function openRuntimeFileRequest(file: RuntimeFileOpenRequest, source: FileOpenSource) {
+    if (!isSupportedMermaidFilePath(file.path)) {
+      showFileWorkflowError({ code: "unsupported_type", path: file.path }, "文件类型不支持。");
+      return;
+    }
+    if (!(await prepareFileSwitch(file.name))) return;
+
+    try {
+      const result = await runtime.openFilePath(file.path);
+      if (result.status !== "opened") return;
+      applyLoadedDocument(result.text, result.file.name, result.file, source);
+    } catch (error) {
+      showFileWorkflowError(error, "打开文件失败。");
+    }
+  }
+
+  async function openRecentFile(file: RecentFileEntry) {
+    setFileMenuOpen(false);
+    await openRuntimeFileRequest(file, "recent");
   }
 
   async function saveMermaidFile() {
     flushSourceHistory();
     if (!fileRef) {
-      await saveMermaidFileAs();
-      return;
+      return saveMermaidFileAs();
     }
-    if (hasBlockingDiagnostics(diagnostics) && !window.confirm("当前 Mermaid 存在错误，仍要保存吗？")) return;
+    if (hasBlockingDiagnostics(diagnostics) && !window.confirm("当前 Mermaid 存在错误，仍要保存吗？")) return false;
 
     try {
       const result = await runtime.saveFile(fileRef, currentDocument, fileName);
-      if (result.status === "cancelled") return;
+      if (result.status === "cancelled") return false;
       setFileRef(result.file);
       setFileName(ensureMermaidFileName(result.file.name));
       setLastSavedDocument(currentDocument);
+      isDirtyRef.current = false;
+      setRecentFiles((current) => upsertRecentFile(current, result.file));
+      setFileWorkflowError(null);
       setStatus(`已保存 ${result.file.name}。`);
       recordRecentAction("document.save", { kind: "document" }, `保存 ${result.file.name}。`);
+      return true;
     } catch (error) {
-      if (!isAbortError(error)) setStatus("保存文件失败。");
+      if (!isAbortError(error)) showFileWorkflowError(error, "保存文件失败。");
+      return false;
     }
   }
 
   async function saveMermaidFileAs() {
     flushSourceHistory();
-    if (hasBlockingDiagnostics(diagnostics) && !window.confirm("当前 Mermaid 存在错误，仍要另存为吗？")) return;
+    if (hasBlockingDiagnostics(diagnostics) && !window.confirm("当前 Mermaid 存在错误，仍要另存为吗？")) return false;
     const suggestedName = ensureMermaidFileName(fileName);
     try {
       const result = await runtime.saveFileAs(currentDocument, suggestedName);
-      if (result.status === "cancelled") return;
+      if (result.status === "cancelled") return false;
       setFileName(ensureMermaidFileName(result.file.name || suggestedName));
       setFileRef(result.file);
       setLastSavedDocument(currentDocument);
+      isDirtyRef.current = false;
+      setRecentFiles((current) => upsertRecentFile(current, result.file));
+      setFileWorkflowError(null);
       setStatus(result.downloaded ? `已下载 ${result.file.name || suggestedName}。` : `已保存 ${result.file.name || suggestedName}。`);
       recordRecentAction("document.save-as", { kind: "document" }, result.downloaded ? `下载 ${result.file.name || suggestedName}。` : `另存为 ${result.file.name || suggestedName}。`);
+      return true;
     } catch (error) {
-      if (!isAbortError(error)) setStatus("保存文件失败。");
+      if (!isAbortError(error)) showFileWorkflowError(error, "保存文件失败。");
+      return false;
     }
   }
 
@@ -1168,7 +1360,10 @@ export function MermaidEditor() {
         } else {
           try {
             const saveResult = await runtime.saveFile(fileRef, nextDocument, fileName);
-            if (saveResult.status === "saved") setFileRef(saveResult.file);
+            if (saveResult.status === "saved") {
+              setFileRef(saveResult.file);
+              setRecentFiles((current) => upsertRecentFile(current, saveResult.file));
+            }
             saved = true;
           } catch (error) {
             resultDiagnostics.push(editorCommandDiagnostic("SAVE_FAILED", `AI 修改已应用，但保存失败：${readableError(error)}`));
@@ -1193,7 +1388,10 @@ export function MermaidEditor() {
       setSelection(emptySelection);
       setDiagnostics([]);
       if (fileRef) setFileName(ensureMermaidFileName(fileRef.name));
-      if (saved) setLastSavedDocument(nextDocument);
+      if (saved) {
+        setLastSavedDocument(nextDocument);
+        isDirtyRef.current = false;
+      }
       setStatus(saved ? "AI 修改已应用并保存。" : "AI 修改已应用。");
       recordRecentAction("ai.apply", { kind: "document" }, saved ? "AI 修改已应用并保存。" : "AI 修改已应用。");
 
@@ -1212,16 +1410,134 @@ export function MermaidEditor() {
   );
 
   useEffect(() => {
+    openPathRequestRef.current = openRuntimeFileRequest;
+    prepareCloseRequestRef.current = prepareWindowClose;
+    applyLoadedDocumentRef.current = applyLoadedDocument;
+    applyStoredEditorStateRef.current = applyStoredEditorState;
+  });
+
+  useEffect(() => {
+    function onBeforeUnload(event: BeforeUnloadEvent) {
+      if (!isDirtyRef.current) return;
+      event.preventDefault();
+      event.returnValue = "";
+    }
+
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, []);
+
+  useEffect(() => {
+    if (runtime.kind !== "desktop" || desktopFileWorkflowInitializedRef.current) return;
+    desktopFileWorkflowInitializedRef.current = true;
+    let disposed = false;
+    let unlistenExternal: (() => void) | undefined;
+    let unlistenDrop: (() => void) | undefined;
+    let unlistenClose: (() => void) | undefined;
+
+    async function restoreDesktopState() {
+      try {
+        const stored = (await runtime.loadSavedState()) as StoredEditor | null;
+        if (!stored) return;
+        const storedPreferences = normalizeEditorPreferences(stored.preferences);
+        setPreferences(storedPreferences);
+        setRecentFiles(normalizeRecentFiles(stored.recentFiles));
+        if (!storedPreferences.restoreLastFile) {
+          setFileName(FALLBACK_FILE_NAME);
+          setFileRef(null);
+          setLastSavedDocument(currentDocumentRef.current);
+          isDirtyRef.current = false;
+          return;
+        }
+        const restored = applyStoredEditorStateRef.current(stored);
+        const cleanStoredFile = Boolean(
+          restored.preferences.restoreLastFile &&
+            restored.fileRef?.path &&
+            restored.lastSavedDocument &&
+            restored.currentDocument === restored.lastSavedDocument
+        );
+        if (!cleanStoredFile || !restored.fileRef?.path) {
+          if (restored.lastSavedDocument && restored.currentDocument !== restored.lastSavedDocument) {
+            setStatus("已恢复未保存草稿。");
+          }
+          return;
+        }
+
+        try {
+          const result = await runtime.openFilePath(restored.fileRef.path);
+          if (!disposed && result.status === "opened") applyLoadedDocumentRef.current(result.text, result.file.name, result.file, "restore");
+        } catch (error) {
+          if (!disposed) showFileWorkflowError(error, "恢复上次文件失败。");
+        }
+      } catch (error) {
+        if (!disposed) showFileWorkflowError(error, "读取应用状态失败。");
+      }
+    }
+
+    async function registerDesktopFileWorkflow() {
+      await restoreDesktopState();
+      const pendingFiles = await runtime.takePendingOpenFiles();
+      if (!disposed && pendingFiles[0]) await openPathRequestRef.current(pendingFiles[0], "external");
+      if (!disposed) setDraftPersistenceReady(true);
+
+      unlistenExternal = await runtime.listenForExternalFileOpen((files) => {
+        const file = files[0];
+        if (!file) return;
+        void openPathRequestRef.current(file, "external");
+      });
+
+      unlistenDrop = await runtime.listenForFileDrops((files) => {
+        const supported = files.filter((file) => isSupportedMermaidFilePath(file.path));
+        if (!supported.length) {
+          showFileWorkflowError({ code: "unsupported_type", path: files[0]?.path }, "文件类型不支持。");
+          return;
+        }
+        if (files.length > 1) setStatus("已使用拖拽的第一个 Mermaid 文件。");
+        void openPathRequestRef.current(supported[0], "drop");
+      });
+
+      const windowRef = await getDesktopWindow();
+      unlistenClose = await windowRef?.onCloseRequested(async (event) => {
+        if (canCloseWindowRef.current || !isDirtyRef.current) return;
+        event.preventDefault();
+        const canClose = await prepareCloseRequestRef.current();
+        if (!canClose) return;
+        canCloseWindowRef.current = true;
+        await windowRef.close();
+      });
+    }
+
+    void registerDesktopFileWorkflow().catch((error) => {
+      if (!disposed) {
+        setDraftPersistenceReady(true);
+        showFileWorkflowError(error, "初始化桌面文件工作流失败。");
+      }
+    });
+
+    return () => {
+      disposed = true;
+      unlistenExternal?.();
+      unlistenDrop?.();
+      unlistenClose?.();
+    };
+  }, [runtime]);
+
+  useEffect(() => {
     if (!status) return;
     const timer = window.setTimeout(() => setStatus(""), 2600);
     return () => window.clearTimeout(timer);
   }, [status]);
 
   useEffect(() => {
-    if (!secondaryActionsOpen && !viewFiltersOpen) return;
+    if (!secondaryActionsOpen && !viewFiltersOpen && !fileMenuOpen && !unsavedPrompt) return;
 
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
+        if (unsavedPrompt) {
+          resolveUnsavedPrompt("cancel");
+          return;
+        }
+        setFileMenuOpen(false);
         setSecondaryActionsOpen(false);
         setViewFiltersOpen(false);
       }
@@ -1229,7 +1545,7 @@ export function MermaidEditor() {
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [secondaryActionsOpen, viewFiltersOpen]);
+  }, [fileMenuOpen, resolveUnsavedPrompt, secondaryActionsOpen, unsavedPrompt, viewFiltersOpen]);
 
   useEffect(() => {
     desktopTitlebarPinnedRef.current = desktopTitlebarPinned;
@@ -1252,6 +1568,7 @@ export function MermaidEditor() {
   }, [activeTheme]);
 
   useEffect(() => {
+    if (!draftPersistenceReady) return;
     if (storageWriteTimerRef.current) window.clearTimeout(storageWriteTimerRef.current);
 
     storageWriteTimerRef.current = window.setTimeout(() => {
@@ -1267,6 +1584,9 @@ export function MermaidEditor() {
           workspaceView,
           viewFilters,
           fileName,
+          fileRef: serializableRuntimeFileRef(fileRef),
+          recentFiles,
+          lastSavedDocument,
           themeId,
           customTheme,
           preferences
@@ -1277,7 +1597,7 @@ export function MermaidEditor() {
     return () => {
       if (storageWriteTimerRef.current) window.clearTimeout(storageWriteTimerRef.current);
     };
-  }, [source, graph, viewport, edgeRouting, layoutMode, leftCollapsed, rightCollapsed, workspaceView, viewFilters, fileName, fileTheme, themeId, customTheme, preferences, runtime]);
+  }, [source, graph, viewport, edgeRouting, layoutMode, leftCollapsed, rightCollapsed, workspaceView, viewFilters, fileName, fileRef, fileTheme, recentFiles, lastSavedDocument, themeId, customTheme, preferences, runtime, draftPersistenceReady]);
 
   useEffect(() => {
     if (aiContextPostTimerRef.current) window.clearTimeout(aiContextPostTimerRef.current);
@@ -1402,7 +1722,7 @@ export function MermaidEditor() {
 
   return (
     <TooltipProvider delayDuration={180}>
-      <input ref={fileInputRef} type="file" accept=".mmd,.mermaid,.txt,text/plain" className="hidden" onChange={openFallbackFile} />
+      <input ref={fileInputRef} type="file" accept=".mmd,.mermaid,text/plain" className="hidden" onChange={openFallbackFile} />
       <main className={cn("relative h-screen overflow-hidden bg-background", !desktopTitlebarAutoHide && "grid grid-rows-[42px_minmax(0,1fr)]")}>
         {desktopTitlebarAutoHide ? (
           <div className="absolute inset-x-0 top-0 z-30 h-3" aria-hidden onPointerEnter={showDesktopTitlebar} />
@@ -1433,14 +1753,13 @@ export function MermaidEditor() {
               <p className="truncate text-sm font-medium">{fileLabel}</p>
             </div>
             <div className="ml-1 flex shrink-0 items-center gap-1" data-window-drag-exclude>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button size="icon" variant="ghost" className="size-8 text-icon hover:text-icon" onClick={openMermaidFile} aria-label="打开 Mermaid 文件">
-                    <Folder className="size-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">打开文件</TooltipContent>
-              </Tooltip>
+              <FileMenu
+                open={fileMenuOpen}
+                recentFiles={recentFiles}
+                onOpenChange={setFileMenuOpen}
+                onOpenFile={() => void openMermaidFile()}
+                onOpenRecent={(file) => void openRecentFile(file)}
+              />
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
@@ -1580,6 +1899,8 @@ export function MermaidEditor() {
           {leftCollapsed ? <FloatingPanelOpenButton side="left" label="Mermaid" revealMode={preferences.panelOpenButtonMode} onOpen={() => setLeftCollapsed(false)} /> : null}
           {rightCollapsed ? <FloatingPanelOpenButton side="right" label="侧栏" revealMode={preferences.panelOpenButtonMode} onOpen={() => setRightCollapsed(false)} /> : null}
         </div>
+        {fileWorkflowError ? <FileWorkflowErrorBanner error={fileWorkflowError} onClose={() => setFileWorkflowError(null)} /> : null}
+        {unsavedPrompt ? <UnsavedFilePrompt prompt={unsavedPrompt} onResolve={resolveUnsavedPrompt} /> : null}
         {preferences.statusMessages && status ? (
           <div className="pointer-events-none fixed bottom-3 left-1/2 z-50 -translate-x-1/2 rounded-md border bg-card/95 px-3 py-1.5 text-xs text-muted-foreground backdrop-blur">
             {status}
@@ -1668,6 +1989,121 @@ function DesktopWindowControls() {
         </TooltipTrigger>
         <TooltipContent side="bottom">关闭</TooltipContent>
       </Tooltip>
+    </div>
+  );
+}
+
+function FileWorkflowErrorBanner({ error, onClose }: { error: FileWorkflowError; onClose: () => void }) {
+  return (
+    <div className="fixed left-1/2 top-14 z-[65] w-[min(520px,calc(100vw-24px))] -translate-x-1/2 rounded-md border border-destructive/30 bg-card/95 p-3 text-sm shadow-sm backdrop-blur">
+      <div className="flex items-start gap-3">
+        <WarningTriangle className="mt-0.5 size-4 shrink-0 text-destructive" />
+        <div className="min-w-0 flex-1">
+          <div className="font-medium text-foreground">{fileWorkflowErrorTitle(error.code)}</div>
+          <div className="mt-1 break-words text-xs text-muted-foreground">{error.message}</div>
+          {error.path ? <div className="mt-1 truncate font-mono text-[11px] text-muted-foreground">{error.path}</div> : null}
+          <div className="mt-2 text-xs text-muted-foreground">{fileWorkflowErrorSuggestion(error.code)}</div>
+        </div>
+        <Button size="icon" variant="ghost" className="size-7 shrink-0 text-icon hover:text-icon" onClick={onClose} aria-label="关闭文件错误提示">
+          <Xmark className="size-4" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function UnsavedFilePrompt({ prompt, onResolve }: { prompt: UnsavedPromptState; onResolve: (choice: UnsavedPromptChoice) => void }) {
+  return (
+    <div className="fixed inset-0 z-[80] grid place-items-center bg-foreground/10 px-4 backdrop-blur-[1px]">
+      <section className="w-[min(420px,100%)] rounded-md border bg-card p-4 shadow-sm">
+        <div className="flex items-start gap-3">
+          <WarningTriangle className="mt-0.5 size-4 shrink-0 text-icon" />
+          <div className="min-w-0">
+            <h2 className="text-sm font-medium text-foreground">{prompt.title}</h2>
+            <p className="mt-2 text-sm text-muted-foreground">{prompt.description}</p>
+            {prompt.targetName ? <p className="mt-2 truncate font-mono text-xs text-muted-foreground">{prompt.targetName}</p> : null}
+          </div>
+        </div>
+        <div className="mt-5 flex justify-end gap-2">
+          <Button variant="ghost" className="h-8 px-3" onClick={() => onResolve("cancel")}>
+            取消
+          </Button>
+          <Button variant="outline" className="h-8 px-3" onClick={() => onResolve("discard")}>
+            丢弃
+          </Button>
+          <Button className="h-8 px-3" onClick={() => onResolve("save")}>
+            保存
+          </Button>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function FileMenu({
+  open,
+  recentFiles,
+  onOpenChange,
+  onOpenFile,
+  onOpenRecent
+}: {
+  open: boolean;
+  recentFiles: RecentFileEntry[];
+  onOpenChange: (open: boolean) => void;
+  onOpenFile: () => void;
+  onOpenRecent: (file: RecentFileEntry) => void;
+}) {
+  function runAndClose(action: () => void) {
+    action();
+    onOpenChange(false);
+  }
+
+  return (
+    <div className="relative">
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            size="icon"
+            variant="ghost"
+            className="size-8 text-icon hover:text-icon"
+            onClick={() => onOpenChange(!open)}
+            aria-expanded={open}
+            aria-label="文件"
+          >
+            <Folder className="size-4" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom">文件</TooltipContent>
+      </Tooltip>
+
+      {open ? (
+        <div className="absolute left-0 top-10 z-50 w-72 rounded-md border bg-popover p-1.5 text-popover-foreground shadow-sm">
+          <div className="grid gap-0.5">
+            <Button variant="ghost" className="h-8 justify-start px-2 text-foreground [&_svg]:text-icon" onClick={() => runAndClose(onOpenFile)}>
+              <Folder className="size-4" />
+              打开文件
+            </Button>
+            <Separator className="my-1" />
+            <div className="px-2 py-1 text-xs text-muted-foreground">最近打开</div>
+            {recentFiles.length ? (
+              recentFiles.map((file) => (
+                <Button
+                  key={file.path}
+                  variant="ghost"
+                  className="h-9 justify-start gap-2 px-2 text-left text-foreground [&_svg]:text-icon"
+                  title={file.path}
+                  onClick={() => runAndClose(() => onOpenRecent(file))}
+                >
+                  <ClockRotateRight className="size-4 shrink-0" />
+                  <span className="min-w-0 flex-1 truncate">{file.name}</span>
+                </Button>
+              ))
+            ) : (
+              <div className="px-2 py-2 text-xs text-muted-foreground">暂无最近文件</div>
+            )}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -2064,6 +2500,17 @@ function SecondaryActionsMenu({
                   updatePreference(
                     { ...preferences, desktopTitlebarAutoHide: !preferences.desktopTitlebarAutoHide },
                     preferences.desktopTitlebarAutoHide ? "桌面标题栏将常驻显示。" : "桌面标题栏将自动隐藏。"
+                  )
+                }
+              />
+              <PreferenceToggle
+                active={preferences.restoreLastFile}
+                icon={<ClockRotateRight className="size-4" />}
+                label="启动时恢复上次文件"
+                onClick={() =>
+                  updatePreference(
+                    { ...preferences, restoreLastFile: !preferences.restoreLastFile },
+                    preferences.restoreLastFile ? "启动时将打开默认空白文件。" : "启动时将恢复上次文件。"
                   )
                 }
               />

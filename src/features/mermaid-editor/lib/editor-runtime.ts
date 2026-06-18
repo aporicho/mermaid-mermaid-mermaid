@@ -2,6 +2,7 @@ import type { AiEditorCommand } from "@/features/mermaid-editor/lib/ai-command-t
 import type { AiApplyResult } from "@/features/mermaid-editor/lib/ai-command-types";
 import type { AiEditorContext } from "@/features/mermaid-editor/lib/ai-context";
 import type { EditorDiagnostic } from "@/features/mermaid-editor/lib/editor-diagnostics";
+import { runtimeFileRefFromPath } from "@/features/mermaid-editor/lib/file-workflow";
 
 export type EditorDraftState = Record<string, unknown>;
 
@@ -34,13 +35,23 @@ export type RuntimeSaveFileResult =
       status: "cancelled";
     };
 
+export type RuntimeFileOpenRequest = {
+  name: string;
+  path: string;
+};
+
 export type EditorRuntime = {
   kind: "web" | "desktop";
   loadDraft: () => EditorDraftState | null;
+  loadSavedState: () => Promise<EditorDraftState | null>;
   saveDraft: (draft: EditorDraftState) => Promise<void>;
   openFile: () => Promise<RuntimeOpenFileResult>;
+  openFilePath: (path: string) => Promise<RuntimeOpenFileResult>;
   saveFile: (file: RuntimeFileRef | null, documentText: string, suggestedName: string) => Promise<RuntimeSaveFileResult>;
   saveFileAs: (documentText: string, suggestedName: string) => Promise<RuntimeSaveFileResult>;
+  takePendingOpenFiles: () => Promise<RuntimeFileOpenRequest[]>;
+  listenForExternalFileOpen: (handler: (files: RuntimeFileOpenRequest[]) => void) => Promise<() => void>;
+  listenForFileDrops: (handler: (files: RuntimeFileOpenRequest[]) => void) => Promise<() => void>;
   publishAiContext: (context: AiEditorContext) => Promise<void>;
   pollAiCommand: () => Promise<AiEditorCommand | null>;
   finishAiCommand: (result: AiApplyResult) => Promise<void>;
@@ -69,6 +80,11 @@ type DesktopOpenedFile = {
 };
 
 type DesktopSavedFile = {
+  name: string;
+  path: string;
+};
+
+type DesktopPendingFile = {
   name: string;
   path: string;
 };
@@ -111,6 +127,9 @@ function createWebRuntime(): EditorRuntime {
       const raw = window.localStorage.getItem(EDITOR_DRAFT_STORAGE_KEY);
       return raw ? (JSON.parse(raw) as EditorDraftState) : null;
     },
+    async loadSavedState() {
+      return this.loadDraft();
+    },
     async saveDraft(draft) {
       if (typeof window === "undefined") return;
       window.localStorage.setItem(EDITOR_DRAFT_STORAGE_KEY, JSON.stringify(draft));
@@ -132,6 +151,9 @@ function createWebRuntime(): EditorRuntime {
         file: { name: file.name, handle },
         text: await file.text()
       };
+    },
+    async openFilePath() {
+      return { status: "cancelled" };
     },
     async saveFile(file, documentText, suggestedName) {
       if (!file?.handle) return this.saveFileAs(documentText, suggestedName);
@@ -172,6 +194,15 @@ function createWebRuntime(): EditorRuntime {
         file: { name: ensureRuntimeMermaidFileName(handle.name || normalizedName), handle }
       };
     },
+    async takePendingOpenFiles() {
+      return [];
+    },
+    async listenForExternalFileOpen() {
+      return () => undefined;
+    },
+    async listenForFileDrops() {
+      return () => undefined;
+    },
     async publishAiContext() {
       // Static web builds intentionally do not expose the live AI bridge.
     },
@@ -190,12 +221,23 @@ function createDesktopRuntime(): EditorRuntime {
     loadDraft() {
       return null;
     },
+    async loadSavedState() {
+      return tauriInvoke<EditorDraftState | null>("read_app_state");
+    },
     async saveDraft(draft) {
       await tauriInvoke("write_app_state", { state: draft });
     },
     async openFile() {
       const opened = await tauriInvoke<DesktopOpenedFile | null>("open_mermaid_file");
       if (!opened) return { status: "cancelled" };
+      return {
+        status: "opened",
+        file: { name: opened.name, path: opened.path },
+        text: opened.text
+      };
+    },
+    async openFilePath(path) {
+      const opened = await tauriInvoke<DesktopOpenedFile>("open_mermaid_file_path", { path });
       return {
         status: "opened",
         file: { name: opened.name, path: opened.path },
@@ -223,6 +265,23 @@ function createDesktopRuntime(): EditorRuntime {
         status: "saved",
         file: { name: saved.name, path: saved.path }
       };
+    },
+    async takePendingOpenFiles() {
+      return tauriInvoke<DesktopPendingFile[]>("take_pending_file_opens");
+    },
+    async listenForExternalFileOpen(handler) {
+      const { listen } = await import("@tauri-apps/api/event");
+      return listen<DesktopPendingFile[]>("file-workflow:external-open", (event) => {
+        handler(event.payload);
+      });
+    },
+    async listenForFileDrops(handler) {
+      const { getCurrentWindow } = await import("@tauri-apps/api/window");
+      const unlisten = await getCurrentWindow().onDragDropEvent((event) => {
+        if (event.payload.type !== "drop") return;
+        handler(event.payload.paths.map(runtimeFileRefFromPath).filter((file): file is RuntimeFileOpenRequest => Boolean(file.path)));
+      });
+      return unlisten;
     },
     async publishAiContext(context) {
       await tauriInvoke("publish_editor_context", { context });

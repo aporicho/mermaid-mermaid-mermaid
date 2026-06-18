@@ -17,7 +17,8 @@
         "height": 820,
         "minWidth": 960,
         "minHeight": 640,
-        "decorations": false
+        "decorations": false,
+        "dragDropEnabled": true
       }
     ],
     "security": {
@@ -36,6 +37,15 @@
       "icons/icon.ico"
     ],
     "category": "DeveloperTool",
+    "fileAssociations": [
+      {
+        "ext": ["mmd", "mermaid"],
+        "name": "Mermaid Diagram",
+        "description": "Mermaid diagram source file",
+        "role": "Editor",
+        "mimeType": "text/plain"
+      }
+    ],
     "shortDescription": "Mermaid editor and AI collaboration canvas",
     "longDescription": "A Mermaid editor, viewer, infinite canvas, and local AI bridge for real-time diagram collaboration."
   }
