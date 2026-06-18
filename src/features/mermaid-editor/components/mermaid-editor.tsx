@@ -148,6 +148,7 @@ const arrowTypeFilterLabels: Record<FlowchartArrowType, string> = {
 };
 type WorkspaceView = "canvas" | "render";
 const FALLBACK_FILE_NAME = "diagram.mmd";
+const BLANK_FLOWCHART_SOURCE = "flowchart LR";
 type PanelOpenButtonMode = "hover" | "always";
 type EditorPreferences = {
   startWithPanelsCollapsed: boolean;
@@ -1363,7 +1364,7 @@ export function MermaidEditor() {
     if (!(await prepareFileSwitch(FALLBACK_FILE_NAME))) return;
 
     flushSourceHistory();
-    const nextGraph = parseMermaid(initialMermaidSource);
+    const nextGraph = parseMermaid(BLANK_FLOWCHART_SOURCE);
     const nextSource = serializeMermaid(nextGraph);
     const nextViewport = { x: 160, y: 90, scale: 1 };
 
@@ -1385,8 +1386,8 @@ export function MermaidEditor() {
     setLastSavedDocument("");
     isDirtyRef.current = true;
     setFileWorkflowError(null);
-    setStatus("已新建 Mermaid 文件。");
-    recordRecentAction("document.new", { kind: "document" }, "新建 Mermaid 文件。");
+    setStatus("已新建空白 Mermaid 文件。");
+    recordRecentAction("document.new", { kind: "document" }, "新建空白 Mermaid 文件。");
 
     try {
       await persistStoredEditorDraft({
@@ -1971,11 +1972,24 @@ export function MermaidEditor() {
               <p className="truncate text-sm font-medium">{fileLabel}</p>
             </div>
             <div className="ml-1 flex shrink-0 items-center gap-1" data-window-drag-exclude>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="size-8 text-icon hover:text-icon"
+                    onClick={() => void newMermaidFile()}
+                    aria-label="新建 Mermaid 文件"
+                  >
+                    <Plus className="size-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">新建文件</TooltipContent>
+              </Tooltip>
               <FileMenu
                 open={fileMenuOpen}
                 recentFiles={recentFiles}
                 onOpenChange={updateFileMenuOpen}
-                onNewFile={() => void newMermaidFile()}
                 onOpenFile={() => void openMermaidFile()}
                 onOpenRecent={(file) => void openRecentFile(file)}
               />
@@ -2263,14 +2277,12 @@ function FileMenu({
   open,
   recentFiles,
   onOpenChange,
-  onNewFile,
   onOpenFile,
   onOpenRecent
 }: {
   open: boolean;
   recentFiles: RecentFileEntry[];
   onOpenChange: (open: boolean) => void;
-  onNewFile: () => void;
   onOpenFile: () => void;
   onOpenRecent: (file: RecentFileEntry) => void;
 }) {
@@ -2302,10 +2314,6 @@ function FileMenu({
       {open ? (
         <div className="absolute left-0 top-10 z-50 w-72 rounded-md border bg-popover p-1.5 text-popover-foreground shadow-sm">
           <div className="grid gap-0.5">
-            <Button variant="ghost" className="h-8 justify-start px-2 text-foreground [&_svg]:text-icon" onClick={() => runAndClose(onNewFile)}>
-              <Plus className="size-4" />
-              新建文件
-            </Button>
             <Button variant="ghost" className="h-8 justify-start px-2 text-foreground [&_svg]:text-icon" onClick={() => runAndClose(onOpenFile)}>
               <Folder className="size-4" />
               打开文件
