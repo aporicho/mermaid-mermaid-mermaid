@@ -3,6 +3,7 @@
 use std::{
     collections::{HashMap, VecDeque},
     fs,
+    hash::{DefaultHasher, Hash, Hasher},
     io,
     net::TcpListener,
     path::{Path, PathBuf},
@@ -45,6 +46,14 @@ struct OpenedFile {
 struct SavedFile {
     name: String,
     path: String,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ImageAssetFile {
+    src: String,
+    path: String,
+    copied: bool,
 }
 
 #[derive(Clone, Serialize)]
@@ -113,6 +122,49 @@ async fn save_mermaid_file_as(suggested_name: String, text: String) -> Result<Op
         name: file_name(&path),
         path: path_to_string(&path),
     }))
+}
+
+#[tauri::command]
+async fn pick_image_asset(document_path: String) -> Result<Option<ImageAssetFile>, FileCommandError> {
+    let file = rfd::AsyncFileDialog::new()
+        .add_filter("Image", &["png", "jpg", "jpeg", "webp", "gif", "svg"])
+        .pick_file()
+        .await;
+
+    let Some(file) = file else {
+        return Ok(None);
+    };
+
+    import_image_asset_path_inner(PathBuf::from(document_path), file.path().to_path_buf())
+        .await
+        .map(Some)
+}
+
+#[tauri::command]
+async fn import_image_asset_path(document_path: String, image_path: String) -> Result<ImageAssetFile, FileCommandError> {
+    import_image_asset_path_inner(PathBuf::from(document_path), PathBuf::from(image_path)).await
+}
+
+#[tauri::command]
+fn resolve_image_asset_path(document_path: String, src: String) -> Result<Option<String>, FileCommandError> {
+    if is_external_asset_src(&src) {
+        return Ok(None);
+    }
+
+    let document = PathBuf::from(document_path);
+    let document_dir = document.parent().unwrap_or_else(|| Path::new("."));
+    let candidate = PathBuf::from(&src);
+    let path = if candidate.is_absolute() {
+        candidate
+    } else {
+        document_dir.join(candidate)
+    };
+
+    if !is_supported_image_path(&path) {
+        return Ok(None);
+    }
+
+    Ok(Some(path_to_string(&path)))
 }
 
 #[tauri::command]
@@ -328,6 +380,52 @@ async fn open_mermaid_file_path_inner(path: PathBuf) -> Result<OpenedFile, FileC
     })
 }
 
+async fn import_image_asset_path_inner(document_path: PathBuf, image_path: PathBuf) -> Result<ImageAssetFile, FileCommandError> {
+    if !is_supported_mermaid_path(&document_path) {
+        return Err(file_workflow_error(
+            "unsupported_type",
+            "请先保存为 .mmd 或 .mermaid 文件，再插入本地图片。",
+            Some(&document_path),
+        ));
+    }
+    if !is_supported_image_path(&image_path) {
+        return Err(file_workflow_error(
+            "unsupported_type",
+            "只支持 png、jpg、jpeg、webp、gif 或 svg 图片。",
+            Some(&image_path),
+        ));
+    }
+
+    let document_dir = document_path.parent().unwrap_or_else(|| Path::new("."));
+    let image_absolute = image_path
+        .canonicalize()
+        .map_err(|error| file_io_error("read_failed", &image_path, error))?;
+    let document_absolute_dir = document_dir
+        .canonicalize()
+        .unwrap_or_else(|_| document_dir.to_path_buf());
+
+    let (asset_path, copied) = if image_absolute.starts_with(&document_absolute_dir) {
+        (image_absolute, false)
+    } else {
+        let destination_dir = document_dir
+            .join("assets")
+            .join(document_stem(&document_path));
+        fs::create_dir_all(&destination_dir).map_err(|error| file_io_error("write_failed", &destination_dir, error))?;
+        let destination = destination_dir.join(copied_image_file_name(&image_absolute));
+        tokio::fs::copy(&image_absolute, &destination)
+            .await
+            .map_err(|error| file_io_error("write_failed", &destination, error))?;
+        (destination, true)
+    };
+
+    let src = relative_asset_src(document_dir, &asset_path);
+    Ok(ImageAssetFile {
+        src,
+        path: path_to_string(&asset_path),
+        copied,
+    })
+}
+
 fn start_bridge(state: BridgeState, app_version: String) -> Result<(), String> {
     let token = Uuid::new_v4().to_string();
     let listener = TcpListener::bind("127.0.0.1:0").map_err(readable_error)?;
@@ -460,6 +558,75 @@ fn is_supported_mermaid_path(path: &Path) -> bool {
         .unwrap_or(false)
 }
 
+fn is_supported_image_path(path: &Path) -> bool {
+    path.extension()
+        .and_then(|value| value.to_str())
+        .map(|extension| {
+            matches!(
+                extension.to_ascii_lowercase().as_str(),
+                "png" | "jpg" | "jpeg" | "webp" | "gif" | "svg"
+            )
+        })
+        .unwrap_or(false)
+}
+
+fn is_external_asset_src(src: &str) -> bool {
+    let lower = src.to_ascii_lowercase();
+    lower.starts_with("http://")
+        || lower.starts_with("https://")
+        || lower.starts_with("data:")
+        || lower.starts_with("blob:")
+        || lower.starts_with("asset:")
+        || lower.starts_with("tauri:")
+}
+
+fn document_stem(path: &Path) -> String {
+    path.file_stem()
+        .and_then(|value| value.to_str())
+        .unwrap_or("diagram")
+        .chars()
+        .map(|character| {
+            if character.is_ascii_alphanumeric() || character == '-' || character == '_' {
+                character
+            } else {
+                '-'
+            }
+        })
+        .collect()
+}
+
+fn copied_image_file_name(path: &Path) -> String {
+    let stem = path
+        .file_stem()
+        .and_then(|value| value.to_str())
+        .unwrap_or("image");
+    let extension = path.extension().and_then(|value| value.to_str()).unwrap_or("png");
+    format!("{stem}-{}.{}", short_path_hash(path), extension)
+}
+
+fn short_path_hash(path: &Path) -> String {
+    let mut hasher = DefaultHasher::new();
+    path.hash(&mut hasher);
+    if let Ok(metadata) = fs::metadata(path) {
+        metadata.len().hash(&mut hasher);
+        if let Ok(modified) = metadata.modified() {
+            modified.hash(&mut hasher);
+        }
+    }
+    format!("{:x}", hasher.finish())
+        .chars()
+        .take(8)
+        .collect()
+}
+
+fn relative_asset_src(base_dir: &Path, asset_path: &Path) -> String {
+    asset_path
+        .strip_prefix(base_dir)
+        .map(path_to_string)
+        .unwrap_or_else(|_| path_to_string(asset_path))
+        .replace('\\', "/")
+}
+
 fn collect_mermaid_file_args(args: impl IntoIterator<Item = String>) -> Vec<PendingOpenFile> {
     args.into_iter()
         .filter_map(|arg| {
@@ -552,6 +719,9 @@ pub fn run() {
             open_mermaid_file_path,
             save_mermaid_file,
             save_mermaid_file_as,
+            pick_image_asset,
+            import_image_asset_path,
+            resolve_image_asset_path,
             write_app_state,
             read_app_state,
             take_pending_file_opens,

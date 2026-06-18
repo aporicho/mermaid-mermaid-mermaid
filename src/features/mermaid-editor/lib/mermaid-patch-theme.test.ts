@@ -19,4 +19,32 @@ flowchart LR
     expect((reloaded.fileTheme?.customTheme as { ui?: { primary?: string } }).ui?.primary).toBe("#123456");
     expect(reloaded.graph.nodes[0].label).toBe("Beta");
   });
+
+  it("adds image nodes through graph patch operations", () => {
+    const patched = applyMermaidPatch("flowchart LR", {
+      ops: [
+        {
+          type: "addNode",
+          id: "Logo",
+          label: "Logo",
+          asset: { kind: "image", src: "assets/logo.png", width: 120, height: 80, labelPosition: "bottom" }
+        }
+      ]
+    });
+
+    expect(patched.ok).toBe(true);
+    const reloaded = loadMermaidDocument(patched.result?.source || "");
+    expect(reloaded.graph.nodes[0]).toMatchObject({
+      id: "Logo",
+      label: "Logo",
+      asset: {
+        kind: "image",
+        src: "assets/logo.png",
+        width: 120,
+        height: 80,
+        labelPosition: "bottom"
+      }
+    });
+    expect(patched.result?.source).toContain('Logo@{ img: "assets/logo.png", label: "Logo", pos: "b", w: 120, h: 80, constraint: "on" }');
+  });
 });

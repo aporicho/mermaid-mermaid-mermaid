@@ -40,6 +40,25 @@ export type RuntimeFileOpenRequest = {
   path: string;
 };
 
+export type RuntimeImageAssetResult =
+  | {
+      status: "ready";
+      src: string;
+      displaySrc: string;
+      path?: string;
+      copied?: boolean;
+    }
+  | {
+      status: "cancelled";
+    }
+  | {
+      status: "needs-document";
+    }
+  | {
+      status: "unsupported";
+      message: string;
+    };
+
 export type EditorRuntime = {
   kind: "web" | "desktop";
   loadDraft: () => EditorDraftState | null;
@@ -49,6 +68,9 @@ export type EditorRuntime = {
   openFilePath: (path: string) => Promise<RuntimeOpenFileResult>;
   saveFile: (file: RuntimeFileRef | null, documentText: string, suggestedName: string) => Promise<RuntimeSaveFileResult>;
   saveFileAs: (documentText: string, suggestedName: string) => Promise<RuntimeSaveFileResult>;
+  pickImageAsset: (file: RuntimeFileRef | null) => Promise<RuntimeImageAssetResult>;
+  importImageAssetPath: (file: RuntimeFileRef | null, path: string) => Promise<RuntimeImageAssetResult>;
+  resolveImageAssetSrc: (file: RuntimeFileRef | null, src: string) => Promise<string>;
   takePendingOpenFiles: () => Promise<RuntimeFileOpenRequest[]>;
   listenForExternalFileOpen: (handler: (files: RuntimeFileOpenRequest[]) => void) => Promise<() => void>;
   listenForFileDrops: (handler: (files: RuntimeFileOpenRequest[]) => void) => Promise<() => void>;
@@ -87,6 +109,12 @@ type DesktopSavedFile = {
 type DesktopPendingFile = {
   name: string;
   path: string;
+};
+
+type DesktopImageAsset = {
+  src: string;
+  path: string;
+  copied?: boolean;
 };
 
 type AiNextCommandResponse = {
@@ -194,6 +222,21 @@ function createWebRuntime(): EditorRuntime {
         file: { name: ensureRuntimeMermaidFileName(handle.name || normalizedName), handle }
       };
     },
+    async pickImageAsset() {
+      return {
+        status: "unsupported",
+        message: "网页版暂不支持稳定保存本地图片，请使用图片 URL 或桌面版。"
+      };
+    },
+    async importImageAssetPath() {
+      return {
+        status: "unsupported",
+        message: "网页版暂不支持稳定保存本地图片，请使用图片 URL 或桌面版。"
+      };
+    },
+    async resolveImageAssetSrc(_file, src) {
+      return src;
+    },
     async takePendingOpenFiles() {
       return [];
     },
@@ -266,6 +309,34 @@ function createDesktopRuntime(): EditorRuntime {
         file: { name: saved.name, path: saved.path }
       };
     },
+    async pickImageAsset(file) {
+      if (!file?.path) return { status: "needs-document" };
+      const asset = await tauriInvoke<DesktopImageAsset | null>("pick_image_asset", { documentPath: file.path });
+      if (!asset) return { status: "cancelled" };
+      return {
+        status: "ready",
+        src: asset.src,
+        path: asset.path,
+        copied: asset.copied,
+        displaySrc: await filePathToDisplaySrc(asset.path)
+      };
+    },
+    async importImageAssetPath(file, path) {
+      if (!file?.path) return { status: "needs-document" };
+      const asset = await tauriInvoke<DesktopImageAsset>("import_image_asset_path", { documentPath: file.path, imagePath: path });
+      return {
+        status: "ready",
+        src: asset.src,
+        path: asset.path,
+        copied: asset.copied,
+        displaySrc: await filePathToDisplaySrc(asset.path)
+      };
+    },
+    async resolveImageAssetSrc(file, src) {
+      if (isExternalAssetSrc(src) || !file?.path) return src;
+      const path = await tauriInvoke<string | null>("resolve_image_asset_path", { documentPath: file.path, src });
+      return path ? filePathToDisplaySrc(path) : src;
+    },
     async takePendingOpenFiles() {
       return tauriInvoke<DesktopPendingFile[]>("take_pending_file_opens");
     },
@@ -319,4 +390,13 @@ function isTauriRuntime() {
 async function tauriInvoke<T>(command: string, args?: Record<string, unknown>) {
   const { invoke } = await import("@tauri-apps/api/core");
   return invoke<T>(command, args);
+}
+
+async function filePathToDisplaySrc(path: string) {
+  const { convertFileSrc } = await import("@tauri-apps/api/core");
+  return convertFileSrc(path);
+}
+
+function isExternalAssetSrc(src: string) {
+  return /^(https?:|data:|blob:|asset:|tauri:)/i.test(src);
 }

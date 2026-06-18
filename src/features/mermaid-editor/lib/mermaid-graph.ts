@@ -1,5 +1,6 @@
 import type {
   CanvasNode,
+  CanvasNodeAsset,
   CanvasSubgraph,
   DiagramType,
   EdgeStyle,
@@ -13,6 +14,12 @@ import {
   DEFAULT_FLOWCHART_NODE_SHAPE,
   normalizeFlowchartShape
 } from "@/features/mermaid-editor/lib/flowchart-shapes";
+import {
+  createImageAsset,
+  imageLabelPositionFromMermaid,
+  mermaidImagePosition,
+  normalizeImageAsset
+} from "@/features/mermaid-editor/lib/node-assets";
 
 const NODE_COLORS = [
   "#fbf6ef",
@@ -49,6 +56,7 @@ type ParsedNodeToken = {
   id: string;
   label: string;
   shape: FlowchartNodeShape;
+  asset?: CanvasNodeAsset;
   hasShape: boolean;
 };
 
@@ -77,12 +85,13 @@ function parseNodeToken(raw: string): ParsedNodeToken | null {
 
   if (!rest) return { id, label: "", shape: DEFAULT_FLOWCHART_NODE_SHAPE, hasShape: false };
 
-  const modern = readModernNodeShape(rest);
+  const modern = readModernNodeProps(rest);
   if (modern) {
     return {
       id,
       label: normalizeLabel(modern.label),
       shape: modern.shape,
+      asset: modern.asset,
       hasShape: true
     };
   }
@@ -98,16 +107,19 @@ function parseNodeToken(raw: string): ParsedNodeToken | null {
   };
 }
 
-function readModernNodeShape(value: string): { shape: FlowchartNodeShape; label: string } | null {
+function readModernNodeProps(value: string): { shape: FlowchartNodeShape; label: string; asset?: CanvasNodeAsset } | null {
   const match = value.match(/^@\{\s*([\s\S]*?)\s*\}$/);
   if (!match) return null;
 
-  const shape = normalizeFlowchartShape(match[1].match(/\bshape\s*:\s*([A-Za-z0-9_-]+)/)?.[1]);
-  if (!shape) return null;
+  const fields = readObjectFields(match[1]);
+  const asset = readImageAsset(fields);
+  const shape = normalizeFlowchartShape(fields.get("shape")) || DEFAULT_FLOWCHART_NODE_SHAPE;
+  if (!asset && !normalizeFlowchartShape(fields.get("shape"))) return null;
 
   return {
     shape,
-    label: readObjectLabel(match[1])
+    label: fields.get("label") || "",
+    asset
   };
 }
 
@@ -135,14 +147,30 @@ function readNodeShape(value: string): { shape: FlowchartNodeShape; label: strin
   return null;
 }
 
-function readObjectLabel(value: string) {
-  const doubleQuoted = value.match(/\blabel\s*:\s*"((?:\\.|[^"\\])*)"/);
-  if (doubleQuoted) return unescapeMermaidString(doubleQuoted[1]);
+function readObjectFields(value: string) {
+  const fields = new Map<string, string>();
+  const fieldPattern = /([A-Za-z][\w-]*)\s*:\s*("((?:\\.|[^"\\])*)"|'((?:\\.|[^'\\])*)'|[^,\n\r}]+)/g;
+  let match: RegExpExecArray | null;
 
-  const singleQuoted = value.match(/\blabel\s*:\s*'((?:\\.|[^'\\])*)'/);
-  if (singleQuoted) return unescapeMermaidString(singleQuoted[1]);
+  while ((match = fieldPattern.exec(value))) {
+    const [, rawKey, rawValue, doubleQuoted, singleQuoted] = match;
+    fields.set(rawKey, unescapeMermaidString(doubleQuoted ?? singleQuoted ?? rawValue.trim()));
+  }
 
-  return "";
+  return fields;
+}
+
+function readImageAsset(fields: Map<string, string>) {
+  const src = fields.get("img");
+  if (!src) return undefined;
+
+  return createImageAsset({
+    src,
+    width: fields.has("w") ? Number(fields.get("w")) : undefined,
+    height: fields.has("h") ? Number(fields.get("h")) : undefined,
+    preserveAspectRatio: fields.get("constraint") !== "off",
+    labelPosition: imageLabelPositionFromMermaid(fields.get("pos"))
+  });
 }
 
 function unescapeMermaidString(value: string) {
@@ -240,7 +268,7 @@ export function parseMermaid(source: string, previous?: MermaidGraph): MermaidGr
   const flowLine = lines.find((line) => FLOWCHART_LINE_PATTERN.test(line.trim()));
   const direction = ((flowLine?.trim().split(/\s+/)[1] || "LR") as GraphDirection) || "LR";
 
-  function ensureNode(id: string, label?: string, shape?: FlowchartNodeShape, parentId?: string) {
+  function ensureNode(id: string, label?: string, shape?: FlowchartNodeShape, parentId?: string, asset?: CanvasNodeAsset) {
     const old = previous?.nodes.find((node) => node.id === id);
 
     if (!nodes.has(id)) {
@@ -251,12 +279,14 @@ export function parseMermaid(source: string, previous?: MermaidGraph): MermaidGr
         x: old?.x ?? 120 + (index % 3) * 250,
         y: old?.y ?? 120 + Math.floor(index / 3) * 150,
         fill: old?.fill || NODE_COLORS[index % NODE_COLORS.length],
-        shape: shape || old?.shape || DEFAULT_FLOWCHART_NODE_SHAPE
+        shape: shape || old?.shape || DEFAULT_FLOWCHART_NODE_SHAPE,
+        ...(asset || old?.asset ? { asset: asset || old?.asset } : {})
       });
     } else {
       const node = nodes.get(id)!;
       if (label) node.label = label;
       if (shape) node.shape = shape;
+      if (asset) node.asset = asset;
     }
 
     if (parentId) assignNodeToSubgraph(subgraphs, id, parentId);
@@ -297,7 +327,7 @@ export function parseMermaid(source: string, previous?: MermaidGraph): MermaidGr
 
     const node = parseNodeToken(clean);
     if (node) {
-      ensureNode(node.id, node.label, node.hasShape ? node.shape : undefined, subgraphStack.at(-1)?.id);
+      ensureNode(node.id, node.label, node.hasShape ? node.shape : undefined, subgraphStack.at(-1)?.id, node.asset);
       continue;
     }
 
@@ -309,8 +339,8 @@ export function parseMermaid(source: string, previous?: MermaidGraph): MermaidGr
     const leftKind = endpointKind(edge.left, subgraphIds);
     const rightKind = endpointKind(edge.right, subgraphIds);
 
-    if (leftKind === "node") ensureNode(edge.left.id, edge.left.label, edge.left.hasShape ? edge.left.shape : undefined, edge.parentId);
-    if (rightKind === "node") ensureNode(edge.right.id, edge.right.label, edge.right.hasShape ? edge.right.shape : undefined, edge.parentId);
+    if (leftKind === "node") ensureNode(edge.left.id, edge.left.label, edge.left.hasShape ? edge.left.shape : undefined, edge.parentId, edge.left.asset);
+    if (rightKind === "node") ensureNode(edge.right.id, edge.right.label, edge.right.hasShape ? edge.right.shape : undefined, edge.parentId, edge.right.asset);
 
     return {
       id: resolveEdgeId(
@@ -374,6 +404,11 @@ function escapeMermaidLabel(value: string) {
 
 function serializeNodeToken(node: CanvasNode) {
   const label = escapeMermaidLabel(node.label || node.id);
+  const asset = normalizeImageAsset(node.asset);
+  if (asset) {
+    return `${node.id}@{ img: "${escapeMermaidLabel(asset.src)}", label: "${label}", pos: "${mermaidImagePosition(asset.labelPosition)}", w: ${asset.width}, h: ${asset.height}, constraint: "${asset.preserveAspectRatio ? "on" : "off"}" }`;
+  }
+
   const shape = node.shape || DEFAULT_FLOWCHART_NODE_SHAPE;
 
   return `${node.id}@{ shape: ${shape}, label: "${label}" }`;

@@ -2,6 +2,7 @@ import type { EditorDiagnostic } from "@/features/mermaid-editor/lib/editor-diag
 import type { MermaidGraph, Selection, ViewportState } from "@/features/mermaid-editor/lib/editor-types";
 import {
   addNode,
+  addImageNodeAt,
   addNodeAt,
   createEdge,
   createSubgraphFromSelection,
@@ -127,6 +128,12 @@ export function applyEditorCommandTransaction(state: EditorTransactionState, com
     return commitGraphState({ ...state, graph, selection: result.selection }, message);
   }
 
+  if (command.type === "graph.addImageNodeAt") {
+    const result = addImageNodeAt(state.graph, command.point.x, command.point.y, command.asset, command.label);
+    const graph = command.point.parentId ? setNodeParent(result.graph, result.selection.nodeIds[0], command.point.parentId) : result.graph;
+    return commitGraphState({ ...state, graph, selection: result.selection }, command.message || "已添加图片节点。");
+  }
+
   if (command.type === "graph.addNodeAtViewportCenter") {
     const result = addNode(state.graph, state.viewport);
     return commitGraphState({ ...state, graph: result.graph, selection: result.selection }, command.message || "已新增节点。");
@@ -184,13 +191,10 @@ export function applyEditorCommandTransaction(state: EditorTransactionState, com
   }
 
   if (command.type === "graph.updateNode") {
-    const graph =
-      command.patch.label !== undefined
-        ? updateNodeLabel(state.graph, command.nodeId, command.patch.label)
-        : {
-            ...state.graph,
-            nodes: state.graph.nodes.map((node) => (node.id === command.nodeId ? { ...node, ...command.patch } : node))
-          };
+    const graph = {
+      ...state.graph,
+      nodes: state.graph.nodes.map((node) => (node.id === command.nodeId ? { ...node, ...command.patch } : node))
+    };
     return commitGraphState({ ...state, graph }, command.message || "已更新节点。");
   }
 

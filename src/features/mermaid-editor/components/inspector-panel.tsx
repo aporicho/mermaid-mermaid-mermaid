@@ -23,6 +23,7 @@ import { descendantSubgraphIds, selectOnlyEdge, selectOnlySubgraph } from "@/fea
 import { FLOWCHART_SHAPE_GROUPS, FLOWCHART_SHAPES } from "@/features/mermaid-editor/lib/flowchart-shapes";
 import type { EditorCommand } from "@/features/mermaid-editor/lib/interaction/commands";
 import { palette } from "@/features/mermaid-editor/lib/mermaid-graph";
+import { createImageAsset, DEFAULT_IMAGE_ASSET_HEIGHT, DEFAULT_IMAGE_ASSET_WIDTH } from "@/features/mermaid-editor/lib/node-assets";
 import { cn } from "@/lib/utils";
 
 type InspectorPanelProps = {
@@ -67,6 +68,22 @@ export function InspectorPanel({ graph, selection, onEditorCommand }: InspectorP
 
   function updateNode(id: string, patch: Partial<CanvasNode>) {
     onEditorCommand({ type: "graph.updateNode", nodeId: id, patch: normalizeNodePatch(patch), source: "menu" });
+  }
+
+  function updateNodeAsset(node: CanvasNode, patch: Partial<NonNullable<CanvasNode["asset"]>>) {
+    const current = node.asset;
+    const src = patch.src ?? current?.src ?? "";
+    updateNode(node.id, {
+      asset: src.trim()
+        ? createImageAsset({
+            src,
+            width: patch.width ?? current?.width ?? DEFAULT_IMAGE_ASSET_WIDTH,
+            height: patch.height ?? current?.height ?? DEFAULT_IMAGE_ASSET_HEIGHT,
+            preserveAspectRatio: patch.preserveAspectRatio ?? current?.preserveAspectRatio ?? true,
+            labelPosition: patch.labelPosition ?? current?.labelPosition ?? "bottom"
+          })
+        : undefined
+    });
   }
 
   function updateSelectedEdge(id: string, patch: Partial<CanvasEdge>) {
@@ -144,6 +161,61 @@ export function InspectorPanel({ graph, selection, onEditorCommand }: InspectorP
                 </Select>
               </div>
               <ColorGrid activeFill={selectedNode.fill} onPick={(fill) => updateNode(selectedNode.id, { fill })} />
+              <Separator />
+              <div className="grid gap-2">
+                <Label htmlFor="node-image-src">图片 URL / 路径</Label>
+                <Input
+                  id="node-image-src"
+                  value={selectedNode.asset?.src || ""}
+                  placeholder="https:// 或 assets/..."
+                  onChange={(event) => updateNodeAsset(selectedNode, { src: event.target.value })}
+                />
+              </div>
+              {selectedNode.asset ? (
+                <>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="grid gap-2">
+                      <Label htmlFor="node-image-width">图片宽度</Label>
+                      <Input
+                        id="node-image-width"
+                        type="number"
+                        min={24}
+                        value={selectedNode.asset.width}
+                        onChange={(event) => updateNodeAsset(selectedNode, { width: Number(event.target.value) })}
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="node-image-height">图片高度</Label>
+                      <Input
+                        id="node-image-height"
+                        type="number"
+                        min={24}
+                        value={selectedNode.asset.height}
+                        onChange={(event) => updateNodeAsset(selectedNode, { height: Number(event.target.value) })}
+                      />
+                    </div>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>标签位置</Label>
+                    <Select value={selectedNode.asset.labelPosition} onValueChange={(value) => updateNodeAsset(selectedNode, { labelPosition: value as NonNullable<CanvasNode["asset"]>["labelPosition"] })}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="bottom">图片下方</SelectItem>
+                        <SelectItem value="top">图片上方</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Button
+                    variant="outline"
+                    className="h-8 justify-start px-2"
+                    onClick={() => updateNodeAsset(selectedNode, { preserveAspectRatio: !selectedNode.asset?.preserveAspectRatio })}
+                  >
+                    {selectedNode.asset.preserveAspectRatio ? "保持比例" : "不保持比例"}
+                  </Button>
+                </>
+              ) : null}
               <Separator />
               <Button variant="outline" className="h-8 justify-start px-2" onClick={() => addEdgeFrom(selectedNode)} disabled={graph.nodes.length < 2}>
                 <PathArrow className="size-4" />
@@ -360,7 +432,8 @@ function normalizeNodePatch(patch: Partial<CanvasNode>) {
   return {
     ...(patch.label !== undefined ? { label: patch.label } : {}),
     ...(patch.fill !== undefined ? { fill: patch.fill } : {}),
-    ...(patch.shape !== undefined ? { shape: patch.shape } : {})
+    ...(patch.shape !== undefined ? { shape: patch.shape } : {}),
+    ...("asset" in patch ? { asset: patch.asset } : {})
   };
 }
 

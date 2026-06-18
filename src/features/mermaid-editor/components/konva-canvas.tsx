@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { Arrow, Circle, Ellipse, Group, Layer, Line, Path, Rect, Shape, Stage, Text } from "react-konva";
+import { Arrow, Circle, Ellipse, Group, Image as KonvaImage, Layer, Line, Path, Rect, Shape, Stage, Text } from "react-konva";
 import type Konva from "konva";
 import type { KonvaEventObject } from "konva/lib/Node";
 
@@ -61,6 +61,7 @@ import {
 import type { CanvasEdge, CanvasNode, EdgeRouting, EditorMode, LayoutMode, MermaidGraph, Selection, ViewportState } from "@/features/mermaid-editor/lib/editor-types";
 import { flattenShapePoints, flowchartPolygonPoints } from "@/features/mermaid-editor/lib/flowchart-shape-geometry";
 import { DEFAULT_FLOWCHART_NODE_SHAPE, normalizeFlowchartShape } from "@/features/mermaid-editor/lib/flowchart-shapes";
+import { normalizeImageAsset } from "@/features/mermaid-editor/lib/node-assets";
 import {
   DEFAULT_NODE_GEOMETRY_TOKENS,
   buildNodeGeometry,
@@ -125,6 +126,7 @@ type KonvaCanvasProps = {
   edgeRouting: EdgeRouting;
   mermaidEdgeRoutes?: DagreEdgeRoute[];
   layoutMode: LayoutMode;
+  imageDisplaySrcBySrc?: Record<string, string>;
   visualTokens?: CanvasVisualTokens;
   geometryTokens?: EditorThemeGeometryTokens;
   onEditorCommand: (command: EditorCommand) => void;
@@ -257,6 +259,65 @@ function CanvasNodeShape({
   if (shape === "stadium") return <Rect width={width} height={height} cornerRadius={height / 2} {...common} />;
 
   return <Rect width={width} height={height} cornerRadius={visualTokens.shape.fallbackCornerRadius} {...common} />;
+}
+
+function CanvasNodeImage({
+  src,
+  x,
+  y,
+  width,
+  height,
+  stroke
+}: {
+  src: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  stroke: string;
+}) {
+  const image = useCanvasImage(src);
+
+  if (!image) {
+    return (
+      <Group x={x} y={y} listening={false}>
+        <Rect width={width} height={height} fill="rgba(255,255,255,0.35)" stroke={stroke} strokeWidth={1} dash={[5, 5]} />
+        <Line points={[0, 0, width, height]} stroke={stroke} strokeWidth={1} opacity={0.45} />
+        <Line points={[width, 0, 0, height]} stroke={stroke} strokeWidth={1} opacity={0.45} />
+      </Group>
+    );
+  }
+
+  return <KonvaImage image={image} x={x} y={y} width={width} height={height} listening={false} />;
+}
+
+function useCanvasImage(src: string) {
+  const [image, setImage] = useState<HTMLImageElement | null>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !src) {
+      setImage(null);
+      return;
+    }
+
+    let disposed = false;
+    setImage(null);
+    const nextImage = new window.Image();
+    nextImage.crossOrigin = "anonymous";
+    nextImage.onload = () => {
+      if (!disposed) setImage(nextImage);
+    };
+    nextImage.onerror = () => {
+      if (!disposed) setImage(null);
+    };
+    nextImage.src = src;
+
+    return () => {
+      disposed = true;
+    };
+  }, [src]);
+
+  return image;
 }
 
 function PolygonShape({ points, radius = CANVAS_VISUAL_TOKENS.shape.polygonCornerRadius, fill, stroke, strokeWidth }: { points: number[]; radius?: number; fill: string; stroke: string; strokeWidth: number }) {
@@ -579,6 +640,7 @@ export function KonvaCanvas({
   edgeRouting,
   mermaidEdgeRoutes = [],
   layoutMode,
+  imageDisplaySrcBySrc = {},
   visualTokens = CANVAS_VISUAL_TOKENS,
   geometryTokens,
   onEditorCommand,
@@ -1882,6 +1944,8 @@ export function KonvaCanvas({
                 visualTokens
               });
               const anchorVisual = getAnchorVisualState({ nodeId: node.id, mode, selection, hoveredNodeId, interactionState, inlineEdit, visualTokens });
+              const imageAsset = normalizeImageAsset(node.asset);
+              const imageDisplaySrc = imageAsset ? imageDisplaySrcBySrc[imageAsset.src] || imageAsset.src : undefined;
 
               return (
                 <Group
@@ -1920,6 +1984,16 @@ export function KonvaCanvas({
                     strokeWidth={nodeVisual.strokeWidth}
                     visualTokens={visualTokens}
                   />
+                  {imageAsset && imageDisplaySrc && geometry.imageBox ? (
+                    <CanvasNodeImage
+                      src={imageDisplaySrc}
+                      x={geometry.imageBox.x}
+                      y={geometry.imageBox.y}
+                      width={geometry.imageBox.width}
+                      height={geometry.imageBox.height}
+                      stroke={nodeVisual.stroke}
+                    />
+                  ) : null}
                   <Text
                     x={geometry.textBox.x}
                     y={geometry.textBox.y}

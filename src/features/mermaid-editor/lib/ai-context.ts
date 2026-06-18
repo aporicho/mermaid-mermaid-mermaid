@@ -55,6 +55,7 @@ export type AiNodeContext = {
   id: string;
   label: string;
   shape: string;
+  asset?: CanvasNode["asset"];
   x: number;
   y: number;
   parentId?: string;
@@ -409,6 +410,7 @@ function nodeContext(
     id: node.id,
     label: node.label,
     shape: node.shape || "rect",
+    ...(node.asset ? { asset: node.asset } : {}),
     x: node.x,
     y: node.y,
     parentId: parentByNodeId.get(node.id),

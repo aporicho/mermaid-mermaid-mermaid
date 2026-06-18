@@ -14,6 +14,16 @@ import { normalizeMermaidError, type EditorDiagnostic } from "@/features/mermaid
 import { buildMermaidDocument, loadMermaidDocument, type MermaidDocument } from "@/features/mermaid-editor/lib/mermaid-document";
 import { isFlowchartNodeShape, normalizeFlowchartShape } from "@/features/mermaid-editor/lib/flowchart-shapes";
 import { nextCanvasNodeId, serializeMermaid, toSafeNodeId } from "@/features/mermaid-editor/lib/mermaid-graph";
+import { createImageAsset } from "@/features/mermaid-editor/lib/node-assets";
+
+type ImageAssetPatch = {
+  kind?: "image";
+  src: string;
+  width?: number;
+  height?: number;
+  preserveAspectRatio?: boolean;
+  labelPosition?: "top" | "bottom";
+};
 
 export type PatchOperation =
   | {
@@ -24,6 +34,8 @@ export type PatchOperation =
       y?: number;
       fill?: string;
       shape?: string;
+      asset?: ImageAssetPatch;
+      imageSrc?: string;
       parentId?: string;
     }
   | {
@@ -34,6 +46,8 @@ export type PatchOperation =
       y?: number;
       fill?: string;
       shape?: string;
+      asset?: ImageAssetPatch | null;
+      imageSrc?: string | null;
       parentId?: string | null;
     }
   | { type: "deleteNode"; id: string }
@@ -309,6 +323,7 @@ function addNodeOp(graph: MermaidGraph, op: Extract<PatchOperation, { type: "add
 
   const shape = normalizeOptionalShape(op.shape);
   if (shape.diagnostic) return { diagnostic: shape.diagnostic };
+  const asset = normalizeOptionalImageAsset(op.asset, op.imageSrc);
 
   const node: CanvasNode = {
     id,
@@ -316,7 +331,8 @@ function addNodeOp(graph: MermaidGraph, op: Extract<PatchOperation, { type: "add
     x: finiteNumber(op.x, 120),
     y: finiteNumber(op.y, 120),
     fill: op.fill || "#fbf6ef",
-    shape: shape.value || "rect"
+    shape: shape.value || "rect",
+    ...(asset === undefined ? {} : { asset })
   };
 
   return {
@@ -335,6 +351,7 @@ function updateNodeOp(graph: MermaidGraph, op: Extract<PatchOperation, { type: "
 
   const shape = normalizeOptionalShape(op.shape);
   if (shape.diagnostic) return { diagnostic: shape.diagnostic };
+  const asset = normalizeOptionalImageAsset(op.asset, op.imageSrc);
 
   return {
     graph: {
@@ -347,7 +364,8 @@ function updateNodeOp(graph: MermaidGraph, op: Extract<PatchOperation, { type: "
               ...(op.x === undefined ? {} : { x: finiteNumber(op.x, item.x) }),
               ...(op.y === undefined ? {} : { y: finiteNumber(op.y, item.y) }),
               ...(op.fill === undefined ? {} : { fill: op.fill }),
-              ...(shape.value === undefined ? {} : { shape: shape.value })
+              ...(shape.value === undefined ? {} : { shape: shape.value }),
+              ...(!("asset" in op) && !("imageSrc" in op) ? {} : { asset })
             }
           : item
       ),
@@ -524,6 +542,20 @@ function setGraphOp(
   };
 }
 
+function normalizeOptionalImageAsset(asset: ImageAssetPatch | null | undefined, imageSrc: string | null | undefined): CanvasNode["asset"] | undefined {
+  if (asset === null || imageSrc === null) return undefined;
+  const src = asset?.src ?? imageSrc;
+  if (!src?.trim()) return undefined;
+
+  return createImageAsset({
+    src,
+    width: asset?.width,
+    height: asset?.height,
+    preserveAspectRatio: asset?.preserveAspectRatio,
+    labelPosition: asset?.labelPosition
+  });
+}
+
 function normalizeOptionalShape(value: string | undefined): { value?: CanvasNode["shape"]; diagnostic?: EditorDiagnostic } {
   if (value === undefined) return {};
   const shape = normalizeFlowchartShape(value);
@@ -560,7 +592,7 @@ function diffRecord(before: Record<string, unknown>, after: Record<string, unkno
 }
 
 function semanticNode(node: CanvasNode) {
-  return { id: node.id, label: node.label, shape: node.shape || "rect" };
+  return { id: node.id, label: node.label, shape: node.shape || "rect", asset: node.asset };
 }
 
 function layoutNode(node: CanvasNode) {

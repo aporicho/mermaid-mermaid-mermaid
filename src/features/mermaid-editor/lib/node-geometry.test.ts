@@ -80,6 +80,29 @@ describe("node geometry", () => {
     expect(nodeIntersectsRect(geometry, { x: 90, y: 70, width: 30, height: 30 })).toBe(true);
   });
 
+  it("builds image node geometry from image size and label position", () => {
+    const geometry = buildNodeGeometry(
+      {
+        ...node,
+        label: "Logo",
+        asset: {
+          kind: "image",
+          src: "assets/logo.png",
+          width: 120,
+          height: 80,
+          preserveAspectRatio: true,
+          labelPosition: "bottom"
+        }
+      },
+      spec
+    );
+
+    expect(geometry.frame).toEqual({ x: 100, y: 80, width: 120, height: 108 });
+    expect(geometry.imageBox).toEqual({ x: 0, y: 0, width: 120, height: 80 });
+    expect(geometry.textBox).toEqual({ x: 40, y: 88, width: 40, height: 20 });
+    expect(geometry.routedRect).toEqual({ id: "node-a", x: 100, y: 80, width: 120, height: 108, shape: "rect" });
+  });
+
   it("caps wrapped text height at the configured maximum line count", () => {
     const geometry = buildNodeGeometry({ ...node, label: "abcdefghijklmnopqrstuvwxyz" }, spec);
 

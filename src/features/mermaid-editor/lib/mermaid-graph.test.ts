@@ -84,6 +84,27 @@ describe("mermaid graph parser", () => {
     expect(graph.nodes.find((node) => node.id === "B")).toMatchObject({ label: "Mermaid 文件", shape: "cyl" });
   });
 
+  it("round-trips Mermaid image nodes through the canonical serializer", () => {
+    const graph = parseMermaid(`flowchart LR
+  Logo@{ img: "assets/demo/logo.png", label: "产品 Logo", pos: "t", w: 180, h: 120, constraint: "on" }
+  Logo --> A[Alpha]`);
+    const imageNode = graph.nodes.find((item) => item.id === "Logo");
+    const serialized = serializeMermaid(graph);
+
+    expect(imageNode).toMatchObject({
+      label: "产品 Logo",
+      asset: {
+        kind: "image",
+        src: "assets/demo/logo.png",
+        width: 180,
+        height: 120,
+        preserveAspectRatio: true,
+        labelPosition: "top"
+      }
+    });
+    expect(serialized).toContain('Logo@{ img: "assets/demo/logo.png", label: "产品 Logo", pos: "t", w: 180, h: 120, constraint: "on" }');
+  });
+
   it("round-trips every public Mermaid 11 flowchart shape through the canonical serializer", () => {
     const source = [
       "flowchart LR",

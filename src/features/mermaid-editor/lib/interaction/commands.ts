@@ -1,6 +1,7 @@
 import type {
   CanvasEdge,
   CanvasNode,
+  CanvasNodeAsset,
   CanvasSubgraph,
   ClipboardPayload,
   EdgeRouting,
@@ -33,6 +34,7 @@ export type EditorCommand =
   | { type: "clipboard.copy"; source: UiCommandSource }
   | { type: "graph.addNodeAtViewportCenter"; message?: string; source: GraphCommandSource }
   | { type: "graph.addNodeAt"; point: { x: number; y: number; parentId?: string }; message?: string; source: GraphCommandSource }
+  | { type: "graph.addImageNodeAt"; point: { x: number; y: number; parentId?: string }; asset: CanvasNodeAsset; label?: string; message?: string; source: GraphCommandSource }
   | { type: "graph.createSubgraphFromSelection"; source: GraphCommandSource }
   | { type: "graph.deleteSelection"; source: GraphCommandSource }
   | { type: "graph.pasteClipboard"; payload: ClipboardPayload; source: GraphCommandSource }
@@ -41,7 +43,7 @@ export type EditorCommand =
   | { type: "graph.retargetEdge"; edgeId: string; side: "from" | "to"; targetId: string; message?: string; source: Extract<EditorCommandSource, "pointer" | "menu" | "api"> }
   | { type: "graph.renameNode"; nodeId: string; value: string; source: GraphCommandSource }
   | { type: "graph.renameSubgraph"; subgraphId: string; value: string; source: GraphCommandSource }
-  | { type: "graph.updateNode"; nodeId: string; patch: Partial<Pick<CanvasNode, "label" | "fill" | "shape">>; message?: string; source: GraphCommandSource }
+  | { type: "graph.updateNode"; nodeId: string; patch: Partial<Pick<CanvasNode, "label" | "fill" | "shape" | "asset">>; message?: string; source: GraphCommandSource }
   | { type: "graph.updateNodeFill"; nodeIds: string[]; fill: string; source: GraphCommandSource }
   | { type: "graph.updateEdge"; edgeId: string; patch: Partial<Pick<CanvasEdge, "from" | "to" | "label" | "style" | "arrowType">>; message?: string; source: GraphCommandSource }
   | { type: "graph.updateSubgraph"; subgraphId: string; patch: Partial<Pick<CanvasSubgraph, "title" | "parentId" | "direction">>; message?: string; source: GraphCommandSource }

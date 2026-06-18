@@ -3,6 +3,7 @@ import type { RoutedNodeRect } from "@/features/mermaid-editor/lib/edge-geometry
 import type { CanvasNode } from "@/features/mermaid-editor/lib/editor-types";
 import { flowchartPortPoints, isEllipseLikeFlowchartShape, opticalWeightScaleForShape, type ShapeGeometryPortKind } from "@/features/mermaid-editor/lib/flowchart-shape-geometry";
 import { DEFAULT_FLOWCHART_NODE_SHAPE, isEqualAspectFlowchartShape, normalizeFlowchartShape, type FlowchartNodeShape } from "@/features/mermaid-editor/lib/flowchart-shapes";
+import { normalizeImageAsset } from "@/features/mermaid-editor/lib/node-assets";
 
 export type NodeAnchorKey = string;
 
@@ -47,6 +48,7 @@ export type NodeGeometry = {
   id: string;
   frame: Rect;
   textBox: Rect;
+  imageBox?: Rect;
   anchorsLocal: NodeAnchorPoint[];
   anchorsWorld: NodeAnchorPoint[];
   alignmentRect: AlignmentRect;
@@ -91,6 +93,9 @@ export function defaultNodeGeometrySpec(measureText: (value: string) => number =
 }
 
 export function buildNodeGeometry(node: CanvasNode, spec: NodeGeometrySpec): NodeGeometry {
+  const asset = normalizeImageAsset(node.asset);
+  if (asset) return buildImageNodeGeometry(node, asset, spec);
+
   const shape = normalizeFlowchartShape(node.shape) || DEFAULT_FLOWCHART_NODE_SHAPE;
   const textWidth = nodeTextWidth(node, spec);
   const textHeight = Math.min(spec.maxLines, countWrappedLines(node.label, textWidth, spec.measureText)) * spec.lineHeight;
@@ -122,6 +127,48 @@ export function buildNodeGeometry(node: CanvasNode, spec: NodeGeometrySpec): Nod
     anchorsWorld,
     alignmentRect: { id: node.id, ...frame },
     routedRect: { id: node.id, ...frame, shape }
+  };
+}
+
+function buildImageNodeGeometry(node: CanvasNode, asset: NonNullable<ReturnType<typeof normalizeImageAsset>>, spec: NodeGeometrySpec): NodeGeometry {
+  const hasLabel = Boolean(node.label.trim());
+  const textWidth = hasLabel ? nodeTextWidth(node, spec) : 0;
+  const textHeight = hasLabel ? Math.min(spec.maxLines, countWrappedLines(node.label, textWidth, spec.measureText)) * spec.lineHeight : 0;
+  const labelGap = hasLabel ? 8 : 0;
+  const frame = {
+    x: node.x,
+    y: node.y,
+    width: Math.max(asset.width, textWidth),
+    height: asset.height + textHeight + labelGap
+  };
+  const imageBox = {
+    x: (frame.width - asset.width) / 2,
+    y: asset.labelPosition === "top" ? textHeight + labelGap : 0,
+    width: asset.width,
+    height: asset.height
+  };
+  const textBox = {
+    x: (frame.width - textWidth) / 2,
+    y: asset.labelPosition === "top" ? 0 : asset.height + labelGap,
+    width: textWidth,
+    height: textHeight
+  };
+  const anchorsLocal = localAnchorPoints(DEFAULT_FLOWCHART_NODE_SHAPE, frame.width, frame.height);
+  const anchorsWorld = anchorsLocal.map((anchor) => ({
+    ...anchor,
+    x: frame.x + anchor.x,
+    y: frame.y + anchor.y
+  }));
+
+  return {
+    id: node.id,
+    frame,
+    textBox,
+    imageBox,
+    anchorsLocal,
+    anchorsWorld,
+    alignmentRect: { id: node.id, ...frame },
+    routedRect: { id: node.id, ...frame, shape: DEFAULT_FLOWCHART_NODE_SHAPE }
   };
 }
 

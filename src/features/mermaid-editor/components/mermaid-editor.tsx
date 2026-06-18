@@ -10,6 +10,7 @@ import {
   FloppyDisk,
   FloppyDiskArrowOut,
   Folder,
+  FrameSimple,
   Group as GroupIcon,
   GitBranch as Workflow,
   Link,
@@ -113,6 +114,7 @@ import {
   type ViewFilters
 } from "@/features/mermaid-editor/lib/view-filters";
 import { useDismissableFloatingMenu } from "@/features/mermaid-editor/lib/use-dismissable-floating-menu";
+import { createImageAsset, DEFAULT_IMAGE_ASSET_HEIGHT, DEFAULT_IMAGE_ASSET_WIDTH, isSupportedImagePath } from "@/features/mermaid-editor/lib/node-assets";
 import { cn } from "@/lib/utils";
 import {
   WINDOW_CLOSE_TARGET_NAME,
@@ -402,6 +404,50 @@ function layoutThemeFromState(themeId: EditorThemeId, customTheme: EditorTheme |
   };
 }
 
+function resolveGraphImageDisplaySources(graph: MermaidGraph, displaySrcBySrc: Record<string, string>): MermaidGraph {
+  return {
+    ...graph,
+    nodes: graph.nodes.map((node) => {
+      if (node.asset?.kind !== "image") return node;
+      const displaySrc = displaySrcBySrc[node.asset.src];
+      return displaySrc && displaySrc !== node.asset.src ? { ...node, asset: { ...node.asset, src: displaySrc } } : node;
+    })
+  };
+}
+
+function viewportCenterPoint(viewport: ViewportState, canvasSize?: AiCanvasSize) {
+  const width = canvasSize?.width || 840;
+  const height = canvasSize?.height || 520;
+  return {
+    x: (width / 2 - viewport.x) / viewport.scale,
+    y: (height / 2 - viewport.y) / viewport.scale
+  };
+}
+
+function imageLabelFromSrc(src: string) {
+  return src.split(/[\\/]/).filter(Boolean).at(-1)?.replace(/\.[^.]+$/, "") || "图片";
+}
+
+async function loadImageDimensions(src: string) {
+  if (typeof window === "undefined" || !src) return { width: DEFAULT_IMAGE_ASSET_WIDTH, height: DEFAULT_IMAGE_ASSET_HEIGHT };
+
+  return new Promise<{ width: number; height: number }>((resolve) => {
+    const image = new window.Image();
+    image.onload = () => {
+      const width = image.naturalWidth || DEFAULT_IMAGE_ASSET_WIDTH;
+      const height = image.naturalHeight || DEFAULT_IMAGE_ASSET_HEIGHT;
+      const maxSide = Math.max(width, height, 1);
+      const scale = maxSide > 360 ? 360 / maxSide : 1;
+      resolve({
+        width: Math.max(48, Math.round(width * scale)),
+        height: Math.max(48, Math.round(height * scale))
+      });
+    };
+    image.onerror = () => resolve({ width: DEFAULT_IMAGE_ASSET_WIDTH, height: DEFAULT_IMAGE_ASSET_HEIGHT });
+    image.src = src;
+  });
+}
+
 function selectionKey(selection: Selection) {
   return [selection.primaryId || "", ...selection.nodeIds, "|", ...selection.edgeIds, "|", ...(selection.subgraphIds || [])].join(",");
 }
@@ -511,6 +557,7 @@ export function MermaidEditor() {
   const [preferences, setPreferences] = useState<EditorPreferences>(initial.preferences);
   const [canvasLiveState, setCanvasLiveState] = useState<CanvasLiveState>({});
   const [recentActions, setRecentActions] = useState<AiRecentAction[]>([]);
+  const [imageDisplaySrcBySrc, setImageDisplaySrcBySrc] = useState<Record<string, string>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
   const sourceEditBaseRef = useRef<EditorSnapshot | null>(null);
   const sourceEditTimerRef = useRef<number | null>(null);
@@ -528,6 +575,7 @@ export function MermaidEditor() {
   const currentDocumentRef = useRef("");
   const canCloseWindowRef = useRef(false);
   const openPathRequestRef = useRef<(file: RuntimeFileOpenRequest, source: FileOpenSource) => Promise<void>>(async () => undefined);
+  const importImagePathRequestRef = useRef<(file: RuntimeFileOpenRequest) => Promise<void>>(async () => undefined);
   const prepareCloseRequestRef = useRef<() => Promise<boolean>>(async () => true);
   const applyLoadedDocumentRef = useRef<(text: string, name: string, file: RuntimeFileRef | null, source?: FileOpenSource) => void>(() => undefined);
   const applyStoredEditorStateRef = useRef<(stored: StoredEditor) => StoredEditorApplyResult>(() => ({
@@ -538,6 +586,13 @@ export function MermaidEditor() {
   }));
 
   const currentDocument = useMemo(() => buildMermaidDocument(source, graph, viewport, edgeRouting, layoutMode, fileTheme), [source, graph, viewport, edgeRouting, layoutMode, fileTheme]);
+  const previewSource = useMemo(
+    () =>
+      editableKind === "flowchart"
+        ? buildMermaidDocument(serializeMermaid(resolveGraphImageDisplaySources(graph, imageDisplaySrcBySrc)), graph, viewport, edgeRouting, layoutMode, fileTheme)
+        : source,
+    [editableKind, edgeRouting, fileTheme, graph, imageDisplaySrcBySrc, layoutMode, source, viewport]
+  );
   const hiddenViewFilters = useMemo(() => hiddenFilterCount(viewFilters), [viewFilters]);
   const mermaidEdgeRoutes = useMemo(
     () => (edgeRouting === "mermaid" ? deriveDagreAutoLayoutResult(graph).edgeRoutes : []),
@@ -558,6 +613,31 @@ export function MermaidEditor() {
     isDirtyRef.current = isDirty;
     currentDocumentRef.current = currentDocument;
   }, [currentDocument, isDirty]);
+
+  useEffect(() => {
+    const assetSources = Array.from(new Set(graph.nodes.map((node) => node.asset?.src).filter((src): src is string => Boolean(src))));
+    if (!assetSources.length) {
+      setImageDisplaySrcBySrc({});
+      return;
+    }
+
+    let disposed = false;
+    void Promise.all(
+      assetSources.map(async (src) => {
+        try {
+          return [src, await runtime.resolveImageAssetSrc(fileRef, src)] as const;
+        } catch {
+          return [src, src] as const;
+        }
+      })
+    ).then((entries) => {
+      if (!disposed) setImageDisplaySrcBySrc(Object.fromEntries(entries));
+    });
+
+    return () => {
+      disposed = true;
+    };
+  }, [fileRef, graph.nodes, runtime]);
 
   useEffect(() => {
     let link = document.querySelector<HTMLLinkElement>("link[rel='icon']");
@@ -988,6 +1068,46 @@ export function MermaidEditor() {
   function addNode() {
     if (!isCanvasEditable) return;
     applyEditorCommand({ type: "graph.addNodeAtViewportCenter", source: "menu" });
+  }
+
+  async function addImageNode() {
+    if (!isCanvasEditable) return;
+    if (!fileRef?.path) {
+      setStatus("请先保存 Mermaid 文件，再添加本地图片节点。");
+      return;
+    }
+
+    try {
+      const result = await runtime.pickImageAsset(fileRef);
+      if (result.status === "cancelled") return;
+      if (result.status === "needs-document") {
+        setStatus("请先保存 Mermaid 文件，再添加本地图片节点。");
+        return;
+      }
+      if (result.status === "unsupported") {
+        setStatus(result.message);
+        return;
+      }
+
+      const dimensions = await loadImageDimensions(result.displaySrc);
+      const point = viewportCenterPoint(viewport, canvasLiveState.canvasSize);
+      applyEditorCommand({
+        type: "graph.addImageNodeAt",
+        point,
+        asset: createImageAsset({
+          src: result.src,
+          width: dimensions.width,
+          height: dimensions.height,
+          preserveAspectRatio: true,
+          labelPosition: "bottom"
+        }),
+        label: imageLabelFromSrc(result.src),
+        message: result.copied ? "已复制并添加图片节点。" : "已添加图片节点。",
+        source: "menu"
+      });
+    } catch (error) {
+      showFileWorkflowError(error, "添加图片节点失败。");
+    }
   }
 
   function createGroupFromSelection() {
@@ -1436,6 +1556,42 @@ export function MermaidEditor() {
     }
   }
 
+  async function importImageAssetRequest(file: RuntimeFileOpenRequest) {
+    if (!isCanvasEditable) return;
+    if (!fileRef?.path) {
+      setStatus("请先保存 Mermaid 文件，再拖入本地图片。");
+      return;
+    }
+
+    try {
+      const result = await runtime.importImageAssetPath(fileRef, file.path);
+      if (result.status !== "ready") {
+        if (result.status === "unsupported") setStatus(result.message);
+        if (result.status === "needs-document") setStatus("请先保存 Mermaid 文件，再拖入本地图片。");
+        return;
+      }
+
+      const dimensions = await loadImageDimensions(result.displaySrc);
+      const point = viewportCenterPoint(viewport, canvasLiveState.canvasSize);
+      applyEditorCommand({
+        type: "graph.addImageNodeAt",
+        point,
+        asset: createImageAsset({
+          src: result.src,
+          width: dimensions.width,
+          height: dimensions.height,
+          preserveAspectRatio: true,
+          labelPosition: "bottom"
+        }),
+        label: imageLabelFromSrc(result.src),
+        message: result.copied ? "已复制并添加拖入的图片节点。" : "已添加拖入的图片节点。",
+        source: "api"
+      });
+    } catch (error) {
+      showFileWorkflowError(error, "导入图片失败。");
+    }
+  }
+
   async function openRecentFile(file: RecentFileEntry) {
     setFileMenuOpen(false);
     await openRuntimeFileRequest(file, "recent");
@@ -1635,6 +1791,7 @@ export function MermaidEditor() {
 
   useEffect(() => {
     openPathRequestRef.current = openRuntimeFileRequest;
+    importImagePathRequestRef.current = importImageAssetRequest;
     prepareCloseRequestRef.current = prepareWindowClose;
     applyLoadedDocumentRef.current = applyLoadedDocument;
     applyStoredEditorStateRef.current = applyStoredEditorState;
@@ -1713,12 +1870,23 @@ export function MermaidEditor() {
 
       unlistenDrop = await runtime.listenForFileDrops((files) => {
         const supported = files.filter((file) => isSupportedMermaidFilePath(file.path));
+        if (supported.length) {
+          if (files.length > 1) setStatus("已使用拖拽的第一个 Mermaid 文件。");
+          void openPathRequestRef.current(supported[0], "drop");
+          return;
+        }
+
+        const imageFiles = files.filter((file) => isSupportedImagePath(file.path));
+        if (imageFiles.length) {
+          if (files.length > 1) setStatus("已使用拖拽的第一张图片。");
+          void importImagePathRequestRef.current(imageFiles[0]);
+          return;
+        }
+
         if (!supported.length) {
           showFileWorkflowError({ code: "unsupported_type", path: files[0]?.path }, "文件类型不支持。");
           return;
         }
-        if (files.length > 1) setStatus("已使用拖拽的第一个 Mermaid 文件。");
-        void openPathRequestRef.current(supported[0], "drop");
       });
 
       const windowRef = await getDesktopWindow();
@@ -2070,6 +2238,7 @@ export function MermaidEditor() {
               editable={isCanvasEditable}
               onOpenChange={updateSecondaryActionsOpen}
               onAddNode={addNode}
+              onAddImageNode={() => void addImageNode()}
               onCreateGroup={createGroupFromSelection}
               onSaveAs={() => void saveMermaidFileAs()}
               onDirectionChange={updateDirection}
@@ -2099,6 +2268,7 @@ export function MermaidEditor() {
                   edgeRouting={edgeRouting}
                   mermaidEdgeRoutes={mermaidEdgeRoutes}
                   layoutMode={layoutMode}
+                  imageDisplaySrcBySrc={imageDisplaySrcBySrc}
                   visualTokens={compiledTheme.canvasVisualTokens}
                   geometryTokens={compiledTheme.geometry}
                   onEditorCommand={applyEditorCommand}
@@ -2107,7 +2277,7 @@ export function MermaidEditor() {
               </Suspense>
             ) : (
               <PreviewPanel
-                source={source}
+                source={previewSource}
                 graph={isCanvasEditable ? graph : undefined}
                 framed={false}
                 diagnostics={diagnostics}
@@ -2537,6 +2707,7 @@ function SecondaryActionsMenu({
   editable,
   onOpenChange,
   onAddNode,
+  onAddImageNode,
   onCreateGroup,
   onSaveAs,
   onDirectionChange,
@@ -2556,6 +2727,7 @@ function SecondaryActionsMenu({
   editable: boolean;
   onOpenChange: (open: boolean) => void;
   onAddNode: () => void;
+  onAddImageNode: () => void;
   onCreateGroup: () => void;
   onSaveAs: () => void;
   onDirectionChange: (direction: GraphDirection) => void;
@@ -2611,6 +2783,15 @@ function SecondaryActionsMenu({
             >
               <Plus className="size-4" />
               新增节点
+            </Button>
+            <Button
+              variant="ghost"
+              className="h-8 justify-start px-2 text-foreground disabled:opacity-40 [&_svg]:text-icon"
+              onClick={() => runAndClose(onAddImageNode)}
+              disabled={!editable}
+            >
+              <FrameSimple className="size-4" />
+              添加图片节点
             </Button>
             <Button
               variant="ghost"

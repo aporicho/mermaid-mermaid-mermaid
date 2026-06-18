@@ -27,6 +27,18 @@ export type CanvasNode = {
   y: number;
   fill: string;
   shape?: FlowchartNodeShape;
+  asset?: CanvasNodeAsset;
+};
+
+export type ImageLabelPosition = "top" | "bottom";
+
+export type CanvasNodeAsset = {
+  kind: "image";
+  src: string;
+  width: number;
+  height: number;
+  preserveAspectRatio: boolean;
+  labelPosition: ImageLabelPosition;
 };
 
 export type EdgeStyle = "solid" | "thick" | "dotted";

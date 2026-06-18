@@ -1,5 +1,6 @@
 import type { CanvasEdge, CanvasNode, CanvasSubgraph, ClipboardPayload, EditorMode, GraphDirection, MermaidGraph, Selection, ViewportState } from "@/features/mermaid-editor/lib/editor-types";
-import { createNode, toSafeNodeId } from "@/features/mermaid-editor/lib/mermaid-graph";
+import { createImageAsset } from "@/features/mermaid-editor/lib/node-assets";
+import { createNode, nextCanvasNodeId, toSafeNodeId } from "@/features/mermaid-editor/lib/mermaid-graph";
 
 export const emptySelection: Selection = { nodeIds: [], edgeIds: [], subgraphIds: [] };
 
@@ -91,6 +92,28 @@ export function renameNode(graph: MermaidGraph, oldId: string, value: string): {
     },
     selection: selectOnlyNode(nextId)
   };
+}
+
+export function addImageNodeAt(graph: MermaidGraph, x: number, y: number, asset: NonNullable<CanvasNode["asset"]>, label?: string): { graph: MermaidGraph; selection: Selection } {
+  const id = nextCanvasNodeId(graph.nodes);
+  const node: CanvasNode = {
+    id,
+    label: label || imageLabelFromSrc(asset.src),
+    x,
+    y,
+    fill: "#fbf6ef",
+    shape: "rect",
+    asset: createImageAsset(asset)
+  };
+
+  return {
+    graph: { ...graph, nodes: [...graph.nodes, node] },
+    selection: selectOnlyNode(id)
+  };
+}
+
+function imageLabelFromSrc(src: string) {
+  return src.split(/[\\/]/).filter(Boolean).at(-1)?.replace(/\.[^.]+$/, "") || "图片";
 }
 
 export function renameSubgraph(graph: MermaidGraph, oldId: string, value: string): { graph: MermaidGraph; selection: Selection } {
