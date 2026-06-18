@@ -113,6 +113,13 @@ import {
   type ViewFilters
 } from "@/features/mermaid-editor/lib/view-filters";
 import { cn } from "@/lib/utils";
+import {
+  WINDOW_CLOSE_TARGET_NAME,
+  cleanCloseDocument,
+  resolveWindowCloseChoice,
+  unsavedPromptDescription,
+  type UnsavedPromptChoice
+} from "@/features/mermaid-editor/lib/desktop-close-workflow";
 
 const KonvaCanvas = lazy(() => import("@/features/mermaid-editor/components/konva-canvas").then((mod) => ({ default: mod.KonvaCanvas })));
 
@@ -186,7 +193,6 @@ type CanvasLiveState = {
   interaction?: string;
 };
 type FileOpenSource = "picker" | "recent" | "drop" | "external" | "restore";
-type UnsavedPromptChoice = "save" | "discard" | "cancel";
 type UnsavedPromptState = {
   title: string;
   description: string;
@@ -198,6 +204,21 @@ type StoredEditorApplyResult = {
   fileRef: RuntimeFileRef | null;
   lastSavedDocument: string;
   preferences: EditorPreferences;
+};
+type StoredEditorDraftOverrides = {
+  source?: string;
+  graph?: MermaidGraph;
+  viewport?: ViewportState;
+  edgeRouting?: EdgeRouting;
+  layoutMode?: LayoutMode;
+  fileTheme?: CanvasLayoutTheme | null;
+  fileName?: string;
+  fileRef?: RuntimeFileRef | null;
+  recentFiles?: RecentFileEntry[];
+  lastSavedDocument?: string;
+  workspaceView?: WorkspaceView;
+  themeId?: EditorThemeId;
+  customTheme?: EditorTheme | null;
 };
 
 function normalizeEditorPreferences(value: Partial<EditorPreferences> | undefined): EditorPreferences {
@@ -310,6 +331,12 @@ function loadInitialState() {
   }
 }
 
+function buildFallbackCleanDocument() {
+  const graph = parseMermaid(initialMermaidSource);
+  const source = serializeMermaid(graph);
+  return buildMermaidDocument(source, graph, { x: 160, y: 90, scale: 1 }, DEFAULT_EDGE_ROUTING, DEFAULT_LAYOUT_MODE, null);
+}
+
 function ensureMermaidFileName(value: string | undefined) {
   return ensureRuntimeMermaidFileName(value || FALLBACK_FILE_NAME);
 }
@@ -415,7 +442,23 @@ function isDesktopWindowRuntime() {
 
 function isWindowDragExcluded(target: EventTarget | null) {
   if (!(target instanceof Element)) return false;
-  return Boolean(target.closest("[data-window-drag-exclude],button,a,input,textarea,select,[role='button'],[contenteditable='true']"));
+  return Boolean(
+    target.closest(
+      [
+        "[data-window-drag-exclude]",
+        "button",
+        "a",
+        "input",
+        "textarea",
+        "select",
+        "[role='button']",
+        "[role='combobox']",
+        "[role='listbox']",
+        "[role='option']",
+        "[contenteditable='true']"
+      ].join(",")
+    )
+  );
 }
 
 async function getDesktopWindow() {
@@ -1062,12 +1105,75 @@ export function MermaidEditor() {
     setFileWorkflowError(normalizeFileWorkflowError(error, fallbackMessage));
   }
 
+  function buildStoredEditorDraft(overrides: StoredEditorDraftOverrides = {}): StoredEditor {
+    const draftSource = overrides.source ?? source;
+    const draftGraph = overrides.graph ?? graph;
+    const draftViewport = overrides.viewport ?? viewport;
+    const draftEdgeRouting = overrides.edgeRouting ?? edgeRouting;
+    const draftLayoutMode = overrides.layoutMode ?? layoutMode;
+    const draftFileTheme = "fileTheme" in overrides ? overrides.fileTheme : fileTheme;
+    const draftFileRef = "fileRef" in overrides ? overrides.fileRef : fileRef;
+    const draftThemeId = overrides.themeId ?? themeId;
+    const draftCustomTheme = "customTheme" in overrides ? overrides.customTheme : customTheme;
+
+    return {
+      source: draftSource,
+      layout: layoutFromGraph(draftGraph, draftViewport, draftEdgeRouting, draftLayoutMode, draftFileTheme),
+      viewport: draftViewport,
+      edgeRouting: draftEdgeRouting,
+      layoutMode: draftLayoutMode,
+      leftCollapsed,
+      rightCollapsed,
+      workspaceView: overrides.workspaceView ?? workspaceView,
+      viewFilters,
+      fileName: overrides.fileName ?? fileName,
+      fileRef: serializableRuntimeFileRef(draftFileRef ?? null),
+      recentFiles: overrides.recentFiles ?? recentFiles,
+      lastSavedDocument: overrides.lastSavedDocument ?? lastSavedDocument,
+      themeId: draftThemeId,
+      customTheme: draftCustomTheme ?? null,
+      preferences
+    };
+  }
+
+  async function persistStoredEditorDraft(overrides: StoredEditorDraftOverrides = {}) {
+    await runtime.saveDraft(buildStoredEditorDraft(overrides));
+  }
+
+  async function persistDiscardedCloseDraft() {
+    const cleanDocument = cleanCloseDocument(lastSavedDocument, buildFallbackCleanDocument());
+    const loaded = loadMermaidDocument(cleanDocument);
+    const nextViewport = loaded.viewport || { x: 160, y: 90, scale: 1 };
+    const nextLayoutMode = loaded.layoutMode;
+    const nextGraph = loaded.editableKind === "flowchart" && nextLayoutMode === "auto" ? applyDagreAutoLayout(loaded.graph) : loaded.graph;
+    const nextFileTheme = loaded.fileTheme ?? null;
+    const normalizedDocument = buildMermaidDocument(loaded.source, nextGraph, nextViewport, loaded.edgeRouting, nextLayoutMode, nextFileTheme);
+    const keepCurrentFile = Boolean(lastSavedDocument?.trim());
+    const nextThemeId = normalizeThemeId(nextFileTheme?.themeId);
+    const nextCustomTheme = nextFileTheme?.customTheme ? normalizeEditorTheme(nextFileTheme.customTheme) : null;
+
+    await persistStoredEditorDraft({
+      source: loaded.source,
+      graph: nextGraph,
+      viewport: nextViewport,
+      edgeRouting: loaded.edgeRouting,
+      layoutMode: nextLayoutMode,
+      fileTheme: nextFileTheme,
+      fileName: keepCurrentFile ? fileName : FALLBACK_FILE_NAME,
+      fileRef: keepCurrentFile ? fileRef : null,
+      lastSavedDocument: normalizedDocument,
+      workspaceView: loaded.editableKind === "flowchart" ? workspaceView : "render",
+      themeId: nextThemeId,
+      customTheme: nextCustomTheme
+    });
+  }
+
   function requestUnsavedChoice(targetName?: string): Promise<UnsavedPromptChoice> {
     if (!isDirtyRef.current) return Promise.resolve("discard");
     return new Promise((resolve) => {
       setUnsavedPrompt({
         title: "当前文件有未保存修改",
-        description: "切换文件前需要先决定如何处理当前修改。",
+        description: unsavedPromptDescription(targetName),
         targetName,
         resolve
       });
@@ -1090,7 +1196,24 @@ export function MermaidEditor() {
   }
 
   async function prepareWindowClose() {
-    return prepareFileSwitch("关闭窗口");
+    if (!isDirtyRef.current) return true;
+    const choice = await requestUnsavedChoice(WINDOW_CLOSE_TARGET_NAME);
+    const decision = resolveWindowCloseChoice(choice);
+
+    if (decision.shouldSave) {
+      const saved = await saveMermaidFile();
+      return resolveWindowCloseChoice(choice, saved).shouldClose;
+    }
+
+    if (decision.shouldPersistDiscard) {
+      try {
+        await persistDiscardedCloseDraft();
+      } catch {
+        // Closing should not be blocked by best-effort draft cleanup.
+      }
+    }
+
+    return decision.shouldClose;
   }
 
   function applyLoadedDocument(text: string, name: string, file: RuntimeFileRef | null, source: FileOpenSource = "picker") {
@@ -1241,14 +1364,21 @@ export function MermaidEditor() {
     try {
       const result = await runtime.saveFile(fileRef, currentDocument, fileName);
       if (result.status === "cancelled") return false;
+      const savedName = ensureMermaidFileName(result.file.name);
+      const nextRecentFiles = upsertRecentFile(recentFiles, result.file);
       setFileRef(result.file);
-      setFileName(ensureMermaidFileName(result.file.name));
+      setFileName(savedName);
       setLastSavedDocument(currentDocument);
       isDirtyRef.current = false;
       setRecentFiles((current) => upsertRecentFile(current, result.file));
       setFileWorkflowError(null);
       setStatus(`已保存 ${result.file.name}。`);
       recordRecentAction("document.save", { kind: "document" }, `保存 ${result.file.name}。`);
+      try {
+        await persistStoredEditorDraft({ fileRef: result.file, fileName: savedName, recentFiles: nextRecentFiles, lastSavedDocument: currentDocument });
+      } catch {
+        // File save succeeded; draft persistence is best-effort.
+      }
       return true;
     } catch (error) {
       if (!isAbortError(error)) showFileWorkflowError(error, "保存文件失败。");
@@ -1263,7 +1393,9 @@ export function MermaidEditor() {
     try {
       const result = await runtime.saveFileAs(currentDocument, suggestedName);
       if (result.status === "cancelled") return false;
-      setFileName(ensureMermaidFileName(result.file.name || suggestedName));
+      const savedName = ensureMermaidFileName(result.file.name || suggestedName);
+      const nextRecentFiles = upsertRecentFile(recentFiles, result.file);
+      setFileName(savedName);
       setFileRef(result.file);
       setLastSavedDocument(currentDocument);
       isDirtyRef.current = false;
@@ -1271,6 +1403,11 @@ export function MermaidEditor() {
       setFileWorkflowError(null);
       setStatus(result.downloaded ? `已下载 ${result.file.name || suggestedName}。` : `已保存 ${result.file.name || suggestedName}。`);
       recordRecentAction("document.save-as", { kind: "document" }, result.downloaded ? `下载 ${result.file.name || suggestedName}。` : `另存为 ${result.file.name || suggestedName}。`);
+      try {
+        await persistStoredEditorDraft({ fileRef: result.file, fileName: savedName, recentFiles: nextRecentFiles, lastSavedDocument: currentDocument });
+      } catch {
+        // File save succeeded; draft persistence is best-effort.
+      }
       return true;
     } catch (error) {
       if (!isAbortError(error)) showFileWorkflowError(error, "保存文件失败。");
@@ -1418,6 +1555,7 @@ export function MermaidEditor() {
 
   useEffect(() => {
     function onBeforeUnload(event: BeforeUnloadEvent) {
+      if (canCloseWindowRef.current) return;
       if (!isDirtyRef.current) return;
       event.preventDefault();
       event.returnValue = "";
@@ -1503,7 +1641,7 @@ export function MermaidEditor() {
         const canClose = await prepareCloseRequestRef.current();
         if (!canClose) return;
         canCloseWindowRef.current = true;
-        await windowRef.close();
+        await windowRef.destroy();
       });
     }
 
@@ -2385,7 +2523,6 @@ function SecondaryActionsMenu({
                 value={direction}
                 onValueChange={(value) => {
                   onDirectionChange(value as GraphDirection);
-                  onOpenChange(false);
                 }}
                 disabled={!editable}
               >
@@ -2411,7 +2548,6 @@ function SecondaryActionsMenu({
                 value={layoutMode}
                 onValueChange={(value) => {
                   onLayoutModeChange(value as LayoutMode);
-                  onOpenChange(false);
                 }}
                 disabled={!editable}
               >
@@ -2437,7 +2573,6 @@ function SecondaryActionsMenu({
                 value={edgeRouting}
                 onValueChange={(value) => {
                   onEdgeRoutingChange(value as EdgeRouting);
-                  onOpenChange(false);
                 }}
                 disabled={!editable}
               >

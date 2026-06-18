@@ -53,6 +53,18 @@ flowchart LR
     expect(document.graph.edges).toHaveLength(1);
   });
 
+  it("writes selected layout mode and edge routing into canvas metadata", () => {
+    const document = loadMermaidDocument(`flowchart LR
+  A[Alpha] --> B[Beta]`);
+    const saved = buildMermaidDocument(document.source, document.graph, { x: 10, y: 20, scale: 1 }, "mermaid", "auto");
+    const reloaded = loadMermaidDocument(saved);
+
+    expect(reloaded.edgeRouting).toBe("mermaid");
+    expect(reloaded.layoutMode).toBe("auto");
+    expect(saved).toContain('"edgeRouting":"mermaid"');
+    expect(saved).toContain('"layoutMode":"auto"');
+  });
+
   it("round-trips file theme through the canvas layout comment", () => {
     const document = loadMermaidDocument(`%% canvas-layout: {"version":1,"edgeRouting":"bezier","layoutMode":"manual","theme":{"themeId":"custom","customTheme":{"version":2,"name":"文件主题","ui":{"primary":"#123456"},"space":{"nodePaddingX":20}}},"viewport":{"x":0,"y":0,"scale":1},"nodes":{"A":{"x":10,"y":20,"fill":"#fff"}}}
 flowchart LR
