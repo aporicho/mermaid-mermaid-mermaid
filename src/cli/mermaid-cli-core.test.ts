@@ -14,6 +14,7 @@ import {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
 });
 
 describe("mermaid CLI core", () => {
@@ -111,11 +112,11 @@ flowchart LR
     const result = aiContextSchema();
 
     expect(result.ok).toBe(true);
-    expect(result.result?.commands.context).toContain("WebUI");
+    expect(result.result?.commands.context).toContain("桌面编辑器");
     expect(result.result?.contextExample.version).toBe(1);
   });
 
-  it("fetches live WebUI editor context as a CLI envelope", async () => {
+  it("fetches live desktop editor context as a CLI envelope", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async () => ({
@@ -129,11 +130,11 @@ flowchart LR
       }))
     );
 
-    const result = await fetchAiEditorContext({ server: "http://127.0.0.1:3000/" });
+    const result = await fetchAiEditorContext({ server: "http://127.0.0.1:49152/" });
 
     expect(result.ok).toBe(true);
     expect(result.command).toBe("context");
-    expect(result.server).toBe("http://127.0.0.1:3000");
+    expect(result.server).toBe("http://127.0.0.1:49152");
     expect(result.file).toBeUndefined();
     expect(result.result?.selection.nodeIds).toEqual(["User"]);
   });
@@ -153,8 +154,9 @@ flowchart LR
     expect(result.diagnostics[0]).toMatchObject({ code: "EDITOR_SERVICE_UNREACHABLE" });
   });
 
-  it("submits live apply commands to WebUI and returns the editor result", async () => {
-    const fetchMock = vi.fn(async (url: string) => {
+  it("submits live apply commands to the desktop bridge and returns the editor result", async () => {
+    vi.stubEnv("MMM_BRIDGE_TOKEN", "test-token");
+    const fetchMock = vi.fn(async (url: string, _init?: RequestInit) => {
       if (url.endsWith("/api/ai/commands")) {
         return {
           ok: true,
@@ -196,19 +198,19 @@ flowchart LR
 
     const result = await submitAiApplyCommand(
       { ops: [{ type: "updateNode", id: "A", label: "Alpha" }] },
-      { server: "http://127.0.0.1:3000/", targetFileName: "demo.mmd", timeoutMs: 1000 }
+      { server: "http://127.0.0.1:49152/", targetFileName: "demo.mmd", timeoutMs: 1000 }
     );
 
     expect(result.ok).toBe(true);
     expect(result.command).toBe("apply");
-    expect(result.server).toBe("http://127.0.0.1:3000");
+    expect(result.server).toBe("http://127.0.0.1:49152");
     expect(result.result).toMatchObject({ applied: true, saved: true, fileName: "demo.mmd" });
-    expect(fetchMock).toHaveBeenCalledWith(
-      "http://127.0.0.1:3000/api/ai/commands",
-      expect.objectContaining({
-        method: "POST",
-        body: expect.stringContaining('"targetFileName":"demo.mmd"')
-      })
-    );
+    const [, requestInit] = fetchMock.mock.calls[0];
+    expect(fetchMock.mock.calls[0][0]).toBe("http://127.0.0.1:49152/api/ai/commands");
+    expect(requestInit).toMatchObject({
+      method: "POST",
+      body: expect.stringContaining('"targetFileName":"demo.mmd"')
+    });
+    expect((requestInit?.headers as Headers).get("authorization")).toBe("Bearer test-token");
   });
 });

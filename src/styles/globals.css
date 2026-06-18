@@ -1,0 +1,82 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --font-sans: "Noto Sans SC Variable", "Noto Sans SC", "PingFang SC", "Microsoft YaHei UI", "Microsoft YaHei", system-ui, sans-serif;
+    --font-mono: "Maple Mono", "SF Mono", "Cascadia Code", "JetBrains Mono", "Noto Sans SC Variable", ui-monospace, monospace;
+    --background: 36 36% 96%;
+    --foreground: 28 20% 8%;
+    --icon: 28 11% 32%;
+    --card: 36 40% 97%;
+    --card-foreground: 28 20% 8%;
+    --popover: 36 40% 97%;
+    --popover-foreground: 28 20% 8%;
+    --primary: 356 100% 63%;
+    --primary-foreground: 36 38% 97%;
+    --secondary: 34 26% 91%;
+    --secondary-foreground: 28 20% 12%;
+    --muted: 34 23% 92%;
+    --muted-foreground: 28 10% 38%;
+    --accent: 356 100% 94%;
+    --accent-foreground: 356 72% 42%;
+    --destructive: 355 72% 42%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 30 16% 68%;
+    --input: 30 16% 68%;
+    --ring: 356 100% 63%;
+    --source-line: 30 24% 79%;
+    --render-background: 36 36% 96%;
+    --render-grid-dot: 28 20% 8%;
+    --theme-source-line-height: 30px;
+    --radius: 0.5rem;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    @apply overflow-hidden bg-background font-sans text-foreground antialiased;
+  }
+}
+
+.render-grid {
+  background:
+    radial-gradient(circle at 0 0, hsl(var(--render-grid-dot) / 0.1) 1px, transparent 1px) 0 0 / 24px 24px,
+    hsl(var(--render-background));
+}
+
+.source-grid {
+  background:
+    linear-gradient(hsl(var(--card)) calc(var(--theme-source-line-height) - 1px), hsl(var(--source-line) / 0.56) var(--theme-source-line-height)) 0 0 / 100% var(--theme-source-line-height);
+}
+
+.mermaid-render svg {
+  overflow: visible;
+}
+
+.mermaid-render svg text,
+.mermaid-render svg foreignObject,
+.mermaid-render svg foreignObject * {
+  font-family: var(--font-sans) !important;
+}
+
+.mermaid-render svg foreignObject {
+  overflow: visible;
+}
+
+.node-inline-editor {
+  scrollbar-width: none;
+}
+
+.node-inline-editor::-webkit-scrollbar {
+  display: none;
+}

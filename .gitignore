@@ -5,6 +5,7 @@ node_modules
 .next-build
 out
 dist
+src-tauri/target
 coverage
 *.tsbuildinfo
 work/*.log

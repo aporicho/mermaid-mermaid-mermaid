@@ -25,7 +25,7 @@ export function getLatestAiEditorContext(now = new Date()): AiContextResponse {
   if (!latestContext) {
     return {
       ok: false,
-      diagnostics: [aiContextDiagnostic("NO_ACTIVE_EDITOR_CONTEXT", "当前没有可用的编辑器上下文。", "请先打开 WebUI，并保持页面处于运行状态。")]
+      diagnostics: [aiContextDiagnostic("NO_ACTIVE_EDITOR_CONTEXT", "当前没有可用的编辑器上下文。", "请先打开编辑器，并保持页面或窗口处于运行状态。")]
     };
   }
 
@@ -36,7 +36,7 @@ export function getLatestAiEditorContext(now = new Date()): AiContextResponse {
     ok: !context.stale,
     context,
     diagnostics: context.stale
-      ? [aiContextDiagnostic("STALE_EDITOR_CONTEXT", "编辑器上下文已过期。", "请确认 WebUI 页面仍在打开，并重新执行 context 命令。")]
+      ? [aiContextDiagnostic("STALE_EDITOR_CONTEXT", "编辑器上下文已过期。", "请确认编辑器仍在打开，并重新执行 context 命令。")]
       : []
   };
 }

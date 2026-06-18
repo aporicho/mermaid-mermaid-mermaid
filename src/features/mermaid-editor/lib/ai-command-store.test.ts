@@ -24,7 +24,7 @@ describe("AI command store", () => {
     expect(takeNextAiCommand(new Date("2026-06-17T00:00:02.000Z"))).toBeUndefined();
   });
 
-  it("drops expired commands before WebUI can take them", () => {
+  it("drops expired commands before the editor can take them", () => {
     submitAiApplyCommand({
       ops: [{ type: "updateNode", id: "A", label: "Alpha" }],
       now: new Date("2026-06-17T00:00:00.000Z"),

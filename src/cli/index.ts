@@ -27,8 +27,8 @@ program.name("mmm").description("AI-oriented Mermaid canvas CLI").version("0.1.0
 
 program
   .command("context")
-  .description("Read the live WebUI editor context: selection, visible canvas, editing draft, recent actions, and diagnostics.")
-  .option("--server <url>", `Editor server URL. Defaults to MMM_SERVER_URL or ${defaultAiServerUrl()}`)
+  .description("Read the live desktop editor context: selection, visible canvas, editing draft, recent actions, and diagnostics.")
+  .option("--server <url>", `Editor bridge URL. Defaults to MMM_SERVER_URL or ${defaultAiServerUrl()}`)
   .option("--timeout <ms>", "Request timeout in milliseconds")
   .action(async (options: { server?: string; timeout?: string }) => {
     await run(async () => {
@@ -40,8 +40,8 @@ program
 
 program
   .command("ping")
-  .description("Check whether the WebUI editor context service is reachable.")
-  .option("--server <url>", `Editor server URL. Defaults to MMM_SERVER_URL or ${defaultAiServerUrl()}`)
+  .description("Check whether the desktop editor bridge is reachable.")
+  .option("--server <url>", `Editor bridge URL. Defaults to MMM_SERVER_URL or ${defaultAiServerUrl()}`)
   .option("--timeout <ms>", "Request timeout in milliseconds")
   .action(async (options: { server?: string; timeout?: string }) => {
     await run(async () => {
@@ -60,12 +60,12 @@ program
 
 program
   .command("apply")
-  .description("Apply structured JSON operations through the live WebUI editor session and wait for the result.")
+  .description("Apply structured JSON operations through the live desktop editor session and wait for the result.")
   .requiredOption("--ops <file>", "JSON file containing an ops array, or an object with an ops array")
-  .option("--target <fileName>", "Only apply when the open WebUI document filename matches")
-  .option("--server <url>", `Editor server URL. Defaults to MMM_SERVER_URL or ${defaultAiServerUrl()}`)
+  .option("--target <fileName>", "Only apply when the open desktop editor document filename matches")
+  .option("--server <url>", `Editor bridge URL. Defaults to MMM_SERVER_URL or ${defaultAiServerUrl()}`)
   .option("--timeout <ms>", "End-to-end timeout in milliseconds")
-  .option("--no-save", "Apply in WebUI without writing through the current file handle")
+  .option("--no-save", "Apply in the desktop editor without writing through the current file path")
   .action(async (options: { ops: string; target?: string; server?: string; timeout?: string; save?: boolean }) => {
     await run(async () => {
       const timeoutMs = parseTimeoutMs(options.timeout);

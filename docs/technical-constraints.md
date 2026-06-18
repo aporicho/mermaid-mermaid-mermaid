@@ -2,6 +2,14 @@
 
 本文档记录跨模块的基础技术约束。新增编辑器能力时，优先遵守这里的术语和边界，避免 UI、CLI、Mermaid 源码和内部模型互相污染。
 
+## 应用运行边界
+
+- 前端统一使用 Vite + React SPA。普通网页版只承诺 Mermaid 编辑、查看、导入和导出；实时 AI 上下文属于桌面版或显式本地 bridge。
+- 桌面版使用 Tauri v2。Tauri 负责窗口、真实文件读写、应用状态、安装包和本地 AI bridge；React 负责编辑器体验。
+- 不再依赖 Next runtime、Next API routes 或固定 `127.0.0.1:3000`。新增本地服务能力必须放在 Tauri/CLI bridge 边界。
+- `editor-runtime.ts` 是 Web/desktop 平台能力的唯一前端适配层。组件不能直接调用浏览器文件选择 API、Tauri invoke、AI bridge HTTP endpoint 或本地持久化 API。
+- AI CLI 实时命令默认读取 `~/.mermaid-canvas-editor/bridge.json`，并带 bearer token 访问随机 loopback bridge。CLI 读到的是当前编辑器会话状态，不是磁盘文件快照。
+
 ## Mermaid 术语边界
 
 - 内部图模型使用 `node` 和 `edge`。`CanvasNode`、`MermaidGraph.nodes`、布局、选择、几何和连线路由都继续使用图论语义。

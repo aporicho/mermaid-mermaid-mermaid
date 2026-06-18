@@ -1,7 +1,4 @@
-"use client";
-
-import dynamic from "next/dynamic";
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   CodeBracketsSquare as FileCode2,
   ColorWheel,
@@ -16,6 +13,8 @@ import {
   Group as GroupIcon,
   GitBranch as Workflow,
   Link,
+  Maximize,
+  Minus,
   MoreHoriz,
   PathArrow,
   PositionAlign,
@@ -25,7 +24,8 @@ import {
   SidebarExpand as PanelLeftOpen,
   SidebarExpand as PanelRightOpen,
   SquareCursor as SquareDashedMousePointer,
-  Text
+  Text,
+  Xmark
 } from "iconoir-react/regular";
 
 import { InspectorPanel } from "@/features/mermaid-editor/components/inspector-panel";
@@ -40,7 +40,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { applyLayout, edgeRoutingFromLayout, layoutFromGraph, layoutModeFromLayout, parseCanvasLayout } from "@/features/mermaid-editor/lib/canvas-layout";
 import { applyDagreAutoLayout, deriveDagreAutoLayoutResult } from "@/features/mermaid-editor/lib/canvas-auto-layout";
 import { buildAiEditorContext, type AiCanvasSize, type AiEditingContext, type AiRecentAction } from "@/features/mermaid-editor/lib/ai-context";
-import type { AiApplyResult, AiEditorCommand, AiNextCommandResponse } from "@/features/mermaid-editor/lib/ai-command-types";
+import type { AiApplyResult, AiEditorCommand } from "@/features/mermaid-editor/lib/ai-command-types";
 import { buildMermaidDocument, loadMermaidDocument } from "@/features/mermaid-editor/lib/mermaid-document";
 import {
   copySelection,
@@ -50,6 +50,12 @@ import {
 } from "@/features/mermaid-editor/lib/editor-actions";
 import { createHistory, pushHistory, redo, undo } from "@/features/mermaid-editor/lib/editor-history";
 import { hasBlockingDiagnostics, normalizeMermaidError, type EditorDiagnostic } from "@/features/mermaid-editor/lib/editor-diagnostics";
+import {
+  createEditorRuntime,
+  ensureRuntimeMermaidFileName,
+  isRuntimeAbortError,
+  type RuntimeFileRef
+} from "@/features/mermaid-editor/lib/editor-runtime";
 import type {
   ClipboardPayload,
   DiagramType,
@@ -95,12 +101,7 @@ import {
 } from "@/features/mermaid-editor/lib/view-filters";
 import { cn } from "@/lib/utils";
 
-const STORAGE_KEY = "mermaid-canvas-editor:v1";
-
-const KonvaCanvas = dynamic(() => import("@/features/mermaid-editor/components/konva-canvas").then((mod) => mod.KonvaCanvas), {
-  ssr: false,
-  loading: () => <div className="grid min-h-0 place-items-center bg-card text-sm text-muted-foreground">正在载入画布</div>
-});
+const KonvaCanvas = lazy(() => import("@/features/mermaid-editor/components/konva-canvas").then((mod) => ({ default: mod.KonvaCanvas })));
 
 const directions: GraphDirection[] = ["LR", "TD", "TB", "RL", "BT"];
 const edgeRoutingOptions: { value: EdgeRouting; label: string }[] = [
@@ -126,15 +127,19 @@ const arrowTypeFilterLabels: Record<FlowchartArrowType, string> = {
 };
 type WorkspaceView = "canvas" | "render";
 const FALLBACK_FILE_NAME = "diagram.mmd";
-const FILE_PICKER_TYPES = [
-  {
-    description: "Mermaid 文件",
-    accept: {
-      "text/plain": [".mmd", ".mermaid", ".txt"]
-    }
-  }
-];
-
+type PanelOpenButtonMode = "hover" | "always";
+type EditorPreferences = {
+  startWithPanelsCollapsed: boolean;
+  panelOpenButtonMode: PanelOpenButtonMode;
+  statusMessages: boolean;
+  desktopTitlebarAutoHide: boolean;
+};
+const DEFAULT_EDITOR_PREFERENCES: EditorPreferences = {
+  startWithPanelsCollapsed: true,
+  panelOpenButtonMode: "hover",
+  statusMessages: false,
+  desktopTitlebarAutoHide: true
+};
 type StoredEditor = {
   source: string;
   layout?: CanvasLayout;
@@ -150,27 +155,12 @@ type StoredEditor = {
   fileName?: string;
   themeId?: EditorThemeId;
   customTheme?: EditorTheme | null;
+  preferences?: Partial<EditorPreferences>;
 };
 
 type NumberKeys<T> = {
   [K in keyof T]: T[K] extends number ? K : never;
 }[keyof T];
-
-type MermaidWritableFile = {
-  write: (data: string) => Promise<void>;
-  close: () => Promise<void>;
-};
-
-type MermaidFileHandle = {
-  name: string;
-  getFile: () => Promise<File>;
-  createWritable: () => Promise<MermaidWritableFile>;
-};
-
-type MermaidFilePickerWindow = Window & {
-  showOpenFilePicker?: (options?: unknown) => Promise<MermaidFileHandle[]>;
-  showSaveFilePicker?: (options?: unknown) => Promise<MermaidFileHandle>;
-};
 
 type CanvasLiveState = {
   canvasSize?: AiCanvasSize;
@@ -178,11 +168,21 @@ type CanvasLiveState = {
   interaction?: string;
 };
 
+function normalizeEditorPreferences(value: Partial<EditorPreferences> | undefined): EditorPreferences {
+  return {
+    startWithPanelsCollapsed: value?.startWithPanelsCollapsed ?? DEFAULT_EDITOR_PREFERENCES.startWithPanelsCollapsed,
+    panelOpenButtonMode: value?.panelOpenButtonMode === "always" ? "always" : DEFAULT_EDITOR_PREFERENCES.panelOpenButtonMode,
+    statusMessages: value?.statusMessages ?? DEFAULT_EDITOR_PREFERENCES.statusMessages,
+    desktopTitlebarAutoHide: value?.desktopTitlebarAutoHide ?? DEFAULT_EDITOR_PREFERENCES.desktopTitlebarAutoHide
+  };
+}
+
 function loadInitialState() {
   const fallbackGraph = parseMermaid(initialMermaidSource);
   const fallbackViewport = { x: 160, y: 90, scale: 1 };
   const fallbackSource = serializeMermaid(fallbackGraph);
   const fallbackDocument = loadMermaidDocument(fallbackSource);
+  const fallbackPreferences = DEFAULT_EDITOR_PREFERENCES;
 
   if (typeof window === "undefined") {
     return {
@@ -193,21 +193,21 @@ function loadInitialState() {
       viewport: fallbackViewport,
       edgeRouting: DEFAULT_EDGE_ROUTING,
       layoutMode: DEFAULT_LAYOUT_MODE,
-      leftCollapsed: false,
-      rightCollapsed: false,
+      leftCollapsed: true,
+      rightCollapsed: true,
       workspaceView: "canvas" as WorkspaceView,
       viewFilters: DEFAULT_VIEW_FILTERS,
       fileName: FALLBACK_FILE_NAME,
       fileTheme: null,
       themeId: DEFAULT_EDITOR_THEME.id,
-      customTheme: null
+      customTheme: null,
+      preferences: fallbackPreferences
     };
   }
 
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) throw new Error("No saved editor state");
-    const stored = JSON.parse(raw) as StoredEditor;
+    const stored = createEditorRuntime().loadDraft() as StoredEditor | null;
+    if (!stored) throw new Error("No saved editor state");
     const loaded = loadMermaidDocument(stored.source);
     const legacyLayout = parseCanvasLayout(stored.source);
     const source = loaded.source;
@@ -226,6 +226,7 @@ function loadInitialState() {
         ? normalizeEditorTheme(stored.customTheme)
         : null;
     const viewFilters = normalizeViewFilters(stored.viewFilters, { showGrid: stored.showGrid, showEdges: stored.showEdges });
+    const preferences = normalizeEditorPreferences(stored.preferences);
 
     return {
       source,
@@ -235,14 +236,15 @@ function loadInitialState() {
       viewport,
       edgeRouting,
       layoutMode,
-      leftCollapsed: stored.leftCollapsed || false,
-      rightCollapsed: stored.rightCollapsed || false,
+      leftCollapsed: preferences.startWithPanelsCollapsed ? true : stored.leftCollapsed || false,
+      rightCollapsed: preferences.startWithPanelsCollapsed ? true : stored.rightCollapsed || false,
       workspaceView: loaded.editableKind === "flowchart" ? stored.workspaceView || "canvas" : "render",
       viewFilters,
       fileName: stored.fileName || FALLBACK_FILE_NAME,
       fileTheme,
       themeId,
-      customTheme
+      customTheme,
+      preferences
     };
   } catch {
     return {
@@ -253,21 +255,21 @@ function loadInitialState() {
       viewport: fallbackViewport,
       edgeRouting: DEFAULT_EDGE_ROUTING,
       layoutMode: DEFAULT_LAYOUT_MODE,
-      leftCollapsed: false,
-      rightCollapsed: false,
+      leftCollapsed: true,
+      rightCollapsed: true,
       workspaceView: "canvas" as WorkspaceView,
       viewFilters: DEFAULT_VIEW_FILTERS,
       fileName: FALLBACK_FILE_NAME,
       fileTheme: null,
       themeId: DEFAULT_EDITOR_THEME.id,
-      customTheme: null
+      customTheme: null,
+      preferences: fallbackPreferences
     };
   }
 }
 
 function ensureMermaidFileName(value: string | undefined) {
-  const name = value?.trim() || FALLBACK_FILE_NAME;
-  return /\.(mmd|mermaid)$/i.test(name) ? name : `${name.replace(/\.[^.]+$/, "")}.mmd`;
+  return ensureRuntimeMermaidFileName(value || FALLBACK_FILE_NAME);
 }
 
 function comparableMermaidFileName(value: string | undefined) {
@@ -276,7 +278,7 @@ function comparableMermaidFileName(value: string | undefined) {
 }
 
 function isAbortError(error: unknown) {
-  return error instanceof DOMException && error.name === "AbortError";
+  return isRuntimeAbortError(error);
 }
 
 function readableError(error: unknown) {
@@ -338,22 +340,6 @@ function canvasLiveStateKey(state: CanvasLiveState) {
   });
 }
 
-async function writeDocumentToHandle(handle: MermaidFileHandle, documentText: string) {
-  const writable = await handle.createWritable();
-  await writable.write(documentText);
-  await writable.close();
-}
-
-function downloadMermaidDocument(documentText: string, name: string) {
-  const blob = new Blob([documentText], { type: "text/plain;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = ensureMermaidFileName(name);
-  link.click();
-  window.setTimeout(() => URL.revokeObjectURL(url), 0);
-}
-
 function editorCommandDiagnostic(code: string, message: string, suggestion?: string, severity: EditorDiagnostic["severity"] = "error"): EditorDiagnostic {
   return {
     id: `editor-command:${code}:${hashText(message)}`,
@@ -373,7 +359,23 @@ function hashText(value: string) {
   return hash.toString(36);
 }
 
+function isDesktopWindowRuntime() {
+  return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+}
+
+function isWindowDragExcluded(target: EventTarget | null) {
+  if (!(target instanceof Element)) return false;
+  return Boolean(target.closest("[data-window-drag-exclude],button,a,input,textarea,select,[role='button'],[contenteditable='true']"));
+}
+
+async function getDesktopWindow() {
+  if (!isDesktopWindowRuntime()) return null;
+  const { getCurrentWindow } = await import("@tauri-apps/api/window");
+  return getCurrentWindow();
+}
+
 export function MermaidEditor() {
+  const runtime = useMemo(() => createEditorRuntime(), []);
   const initial = useMemo(loadInitialState, []);
   const [source, setSource] = useState(initial.source);
   const [graph, setGraph] = useState<MermaidGraph>(initial.graph);
@@ -395,13 +397,15 @@ export function MermaidEditor() {
   const [viewFilters, setViewFilters] = useState<ViewFilters>(initial.viewFilters);
   const [fileName, setFileName] = useState(initial.fileName);
   const [fileTheme, setFileTheme] = useState<CanvasLayoutTheme | null>(initial.fileTheme);
-  const [fileHandle, setFileHandle] = useState<MermaidFileHandle | null>(null);
+  const [fileRef, setFileRef] = useState<RuntimeFileRef | null>(null);
   const [lastSavedDocument, setLastSavedDocument] = useState("");
   const [secondaryActionsOpen, setSecondaryActionsOpen] = useState(false);
   const [viewFiltersOpen, setViewFiltersOpen] = useState(false);
   const [themeSettingsOpen, setThemeSettingsOpen] = useState(false);
+  const [desktopTitlebarVisible, setDesktopTitlebarVisible] = useState(false);
   const [themeId, setThemeId] = useState<EditorThemeId>(initial.themeId);
   const [customTheme, setCustomTheme] = useState<EditorTheme | null>(initial.customTheme);
+  const [preferences, setPreferences] = useState<EditorPreferences>(initial.preferences);
   const [canvasLiveState, setCanvasLiveState] = useState<CanvasLiveState>({});
   const [recentActions, setRecentActions] = useState<AiRecentAction[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -412,6 +416,10 @@ export function MermaidEditor() {
   const aiContextPostTimerRef = useRef<number | null>(null);
   const aiCommandBusyRef = useRef(false);
   const actionCounterRef = useRef(0);
+  const desktopTitlebarHideTimerRef = useRef<number | null>(null);
+  const desktopTitlebarFocusRef = useRef(false);
+  const desktopTitlebarHoverRef = useRef(false);
+  const desktopTitlebarPinnedRef = useRef(false);
 
   const currentDocument = useMemo(() => buildMermaidDocument(source, graph, viewport, edgeRouting, layoutMode, fileTheme), [source, graph, viewport, edgeRouting, layoutMode, fileTheme]);
   const hiddenViewFilters = useMemo(() => hiddenFilterCount(viewFilters), [viewFilters]);
@@ -425,10 +433,75 @@ export function MermaidEditor() {
   const fileLabel = `${fileName || FALLBACK_FILE_NAME}${isDirty ? " *" : ""}`;
   const isCanvasEditable = editableKind === "flowchart";
   const canvasViewTooltip = isCanvasEditable ? "无限画布" : `${diagramTypeLabel(diagramType)} 仅支持渲染`;
+  const isDesktopChrome = runtime.kind === "desktop";
+  const desktopTitlebarAutoHide = isDesktopChrome && preferences.desktopTitlebarAutoHide;
+  const desktopTitlebarPinned = secondaryActionsOpen || viewFiltersOpen || themeSettingsOpen;
 
   const updateCanvasLiveState = useCallback((next: CanvasLiveState) => {
     setCanvasLiveState((current) => (canvasLiveStateKey(current) === canvasLiveStateKey(next) ? current : next));
   }, []);
+
+  const startDesktopWindowDrag = useCallback(
+    async (event: React.PointerEvent<HTMLElement>) => {
+      if (runtime.kind !== "desktop" || event.button !== 0 || event.detail > 1 || isWindowDragExcluded(event.target)) return;
+      try {
+        await (await getDesktopWindow())?.startDragging();
+      } catch {
+        // Window dragging is desktop-only; ignore capability/runtime failures in web-like shells.
+      }
+    },
+    [runtime.kind]
+  );
+
+  const toggleDesktopWindowMaximize = useCallback(
+    async (event: React.MouseEvent<HTMLElement>) => {
+      if (runtime.kind !== "desktop" || isWindowDragExcluded(event.target)) return;
+      try {
+        await (await getDesktopWindow())?.toggleMaximize();
+      } catch {
+        // Window controls are optional outside the Tauri desktop shell.
+      }
+    },
+    [runtime.kind]
+  );
+
+  const showDesktopTitlebar = useCallback(() => {
+    if (runtime.kind !== "desktop") return;
+    if (desktopTitlebarHideTimerRef.current) {
+      window.clearTimeout(desktopTitlebarHideTimerRef.current);
+      desktopTitlebarHideTimerRef.current = null;
+    }
+    setDesktopTitlebarVisible(true);
+  }, [runtime.kind]);
+
+  const scheduleDesktopTitlebarHide = useCallback(() => {
+    if (runtime.kind !== "desktop" || desktopTitlebarPinnedRef.current || desktopTitlebarFocusRef.current || desktopTitlebarHoverRef.current) return;
+    if (desktopTitlebarHideTimerRef.current) window.clearTimeout(desktopTitlebarHideTimerRef.current);
+    desktopTitlebarHideTimerRef.current = window.setTimeout(() => {
+      if (!desktopTitlebarPinnedRef.current && !desktopTitlebarFocusRef.current && !desktopTitlebarHoverRef.current) setDesktopTitlebarVisible(false);
+      desktopTitlebarHideTimerRef.current = null;
+    }, 180);
+  }, [runtime.kind]);
+
+  const enterDesktopTitlebar = useCallback(() => {
+    desktopTitlebarHoverRef.current = true;
+    showDesktopTitlebar();
+  }, [showDesktopTitlebar]);
+
+  const leaveDesktopTitlebar = useCallback(() => {
+    desktopTitlebarHoverRef.current = false;
+    scheduleDesktopTitlebarHide();
+  }, [scheduleDesktopTitlebarHide]);
+
+  const focusDesktopTitlebar = useCallback(() => {
+    desktopTitlebarFocusRef.current = true;
+    showDesktopTitlebar();
+  }, [showDesktopTitlebar]);
+
+  const blurDesktopTitlebar = useCallback(() => {
+    desktopTitlebarFocusRef.current = false;
+    scheduleDesktopTitlebarHide();
+  }, [scheduleDesktopTitlebarHide]);
 
   const buildCurrentAiContext = useCallback(() => {
     const editing: AiEditingContext | null =
@@ -489,14 +562,10 @@ export function MermaidEditor() {
   ]);
 
   const postAiEditorContext = useCallback((context: ReturnType<typeof buildAiEditorContext>) => {
-    return fetch("/api/ai/context", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(context)
-    }).catch(() => {
+    return runtime.publishAiContext(context).catch(() => {
       // The CLI context bridge is best-effort; editor usage should not be blocked by it.
     });
-  }, []);
+  }, [runtime]);
 
   function recordRecentAction(type: string, target?: AiRecentAction["target"], summary?: string) {
     const action: AiRecentAction = {
@@ -885,6 +954,15 @@ export function MermaidEditor() {
     setSecondaryActionsOpen(false);
   }
 
+  function updatePreferences(nextPreferences: EditorPreferences, message?: string) {
+    setPreferences(nextPreferences);
+    if (!nextPreferences.statusMessages) {
+      setStatus("");
+      return;
+    }
+    if (message) setStatus(message);
+  }
+
   function previewTheme(nextThemeId: EditorThemeId, nextCustomTheme: EditorTheme | null) {
     setThemeId(nextThemeId);
     setCustomTheme(nextCustomTheme);
@@ -911,7 +989,7 @@ export function MermaidEditor() {
     return !isDirty || window.confirm("当前文件有未保存更改，继续会丢失这些更改。");
   }
 
-  function applyLoadedDocument(text: string, name: string, handle: MermaidFileHandle | null) {
+  function applyLoadedDocument(text: string, name: string, file: RuntimeFileRef | null) {
     flushSourceHistory();
     const loaded = loadMermaidDocument(text);
     const nextViewport = loaded.viewport || { x: 160, y: 90, scale: 1 };
@@ -936,7 +1014,7 @@ export function MermaidEditor() {
     setFileTheme(loaded.fileTheme ?? null);
     setThemeId(nextThemeId);
     setCustomTheme(nextCustomTheme);
-    setFileHandle(handle);
+    setFileRef(file);
     setLastSavedDocument(savedDocument);
     setStatus(loaded.editableKind === "flowchart" ? `已打开 ${name}。` : `已打开 ${name}，当前类型仅渲染。`);
     recordRecentAction("document.open", { kind: "document" }, `打开 ${name}。`);
@@ -945,22 +1023,14 @@ export function MermaidEditor() {
   async function openMermaidFile() {
     if (!confirmDiscardUnsaved()) return;
 
-    const picker = window as MermaidFilePickerWindow;
-    if (!picker.showOpenFilePicker) {
-      fileInputRef.current?.click();
-      return;
-    }
-
     try {
-      const [handle] = await picker.showOpenFilePicker({
-        multiple: false,
-        types: FILE_PICKER_TYPES,
-        excludeAcceptAllOption: false
-      });
-      if (!handle) return;
-
-      const file = await handle.getFile();
-      applyLoadedDocument(await file.text(), file.name, handle);
+      const result = await runtime.openFile();
+      if (result.status === "fallback") {
+        fileInputRef.current?.click();
+        return;
+      }
+      if (result.status === "cancelled") return;
+      applyLoadedDocument(result.text, result.file.name, result.file);
     } catch (error) {
       if (!isAbortError(error)) setStatus("打开文件失败。");
     }
@@ -972,7 +1042,7 @@ export function MermaidEditor() {
     if (!file) return;
 
     try {
-      applyLoadedDocument(await file.text(), file.name, null);
+      applyLoadedDocument(await file.text(), file.name, { name: file.name });
     } catch {
       setStatus("打开文件失败。");
     }
@@ -980,18 +1050,20 @@ export function MermaidEditor() {
 
   async function saveMermaidFile() {
     flushSourceHistory();
-    if (!fileHandle) {
+    if (!fileRef) {
       await saveMermaidFileAs();
       return;
     }
     if (hasBlockingDiagnostics(diagnostics) && !window.confirm("当前 Mermaid 存在错误，仍要保存吗？")) return;
 
     try {
-      await writeDocumentToHandle(fileHandle, currentDocument);
-      setFileName(ensureMermaidFileName(fileHandle.name));
+      const result = await runtime.saveFile(fileRef, currentDocument, fileName);
+      if (result.status === "cancelled") return;
+      setFileRef(result.file);
+      setFileName(ensureMermaidFileName(result.file.name));
       setLastSavedDocument(currentDocument);
-      setStatus(`已保存 ${fileHandle.name}。`);
-      recordRecentAction("document.save", { kind: "document" }, `保存 ${fileHandle.name}。`);
+      setStatus(`已保存 ${result.file.name}。`);
+      recordRecentAction("document.save", { kind: "document" }, `保存 ${result.file.name}。`);
     } catch (error) {
       if (!isAbortError(error)) setStatus("保存文件失败。");
     }
@@ -1001,49 +1073,22 @@ export function MermaidEditor() {
     flushSourceHistory();
     if (hasBlockingDiagnostics(diagnostics) && !window.confirm("当前 Mermaid 存在错误，仍要另存为吗？")) return;
     const suggestedName = ensureMermaidFileName(fileName);
-    const picker = window as MermaidFilePickerWindow;
-
-    if (!picker.showSaveFilePicker) {
-      downloadMermaidDocument(currentDocument, suggestedName);
-      setFileName(suggestedName);
-      setFileHandle(null);
-      setLastSavedDocument(currentDocument);
-      setStatus(`已下载 ${suggestedName}。`);
-      recordRecentAction("document.save-as", { kind: "document" }, `下载 ${suggestedName}。`);
-      return;
-    }
-
     try {
-      const handle = await picker.showSaveFilePicker({
-        suggestedName,
-        types: [
-          {
-            description: "Mermaid 文件",
-            accept: {
-              "text/plain": [".mmd", ".mermaid"]
-            }
-          }
-        ],
-        excludeAcceptAllOption: false
-      });
-      await writeDocumentToHandle(handle, currentDocument);
-      setFileName(ensureMermaidFileName(handle.name || suggestedName));
-      setFileHandle(handle);
+      const result = await runtime.saveFileAs(currentDocument, suggestedName);
+      if (result.status === "cancelled") return;
+      setFileName(ensureMermaidFileName(result.file.name || suggestedName));
+      setFileRef(result.file);
       setLastSavedDocument(currentDocument);
-      setStatus(`已保存 ${handle.name || suggestedName}。`);
-      recordRecentAction("document.save-as", { kind: "document" }, `另存为 ${handle.name || suggestedName}。`);
+      setStatus(result.downloaded ? `已下载 ${result.file.name || suggestedName}。` : `已保存 ${result.file.name || suggestedName}。`);
+      recordRecentAction("document.save-as", { kind: "document" }, result.downloaded ? `下载 ${result.file.name || suggestedName}。` : `另存为 ${result.file.name || suggestedName}。`);
     } catch (error) {
       if (!isAbortError(error)) setStatus("保存文件失败。");
     }
   }
 
   const postAiApplyResult = useCallback(async (result: AiApplyResult) => {
-    await fetch(`/api/ai/commands/${encodeURIComponent(result.commandId)}/result`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(result)
-    });
-  }, []);
+    await runtime.finishAiCommand(result);
+  }, [runtime]);
 
   const processAiCommand = useCallback(
     async (command: AiEditorCommand) => {
@@ -1111,18 +1156,19 @@ export function MermaidEditor() {
       let saved = false;
 
       if (command.autoSave) {
-        if (!fileHandle) {
+        if (!fileRef) {
           resultDiagnostics.push(
             editorCommandDiagnostic(
               "NO_FILE_HANDLE",
-              "当前 WebUI 没有可覆盖保存的文件句柄，已更新编辑器但无法写回原文件。",
-              "先通过浏览器打开文件，或在编辑器里另存为一次。",
+              "当前编辑器没有可覆盖保存的文件路径，已更新编辑器但无法写回原文件。",
+              "先打开文件，或在编辑器里另存为一次。",
               "warning"
             )
           );
         } else {
           try {
-            await writeDocumentToHandle(fileHandle, nextDocument);
+            const saveResult = await runtime.saveFile(fileRef, nextDocument, fileName);
+            if (saveResult.status === "saved") setFileRef(saveResult.file);
             saved = true;
           } catch (error) {
             resultDiagnostics.push(editorCommandDiagnostic("SAVE_FAILED", `AI 修改已应用，但保存失败：${readableError(error)}`));
@@ -1146,7 +1192,7 @@ export function MermaidEditor() {
       setWorkspaceView(loaded.editableKind === "flowchart" ? workspaceView : "render");
       setSelection(emptySelection);
       setDiagnostics([]);
-      if (fileHandle) setFileName(ensureMermaidFileName(fileHandle.name));
+      if (fileRef) setFileName(ensureMermaidFileName(fileRef.name));
       if (saved) setLastSavedDocument(nextDocument);
       setStatus(saved ? "AI 修改已应用并保存。" : "AI 修改已应用。");
       recordRecentAction("ai.apply", { kind: "document" }, saved ? "AI 修改已应用并保存。" : "AI 修改已应用。");
@@ -1156,13 +1202,13 @@ export function MermaidEditor() {
         applied: true,
         saved,
         changed: patched.result.changed,
-        fileName: fileHandle?.name || fileName,
+        fileName: fileRef?.name || fileName,
         source: nextDocument,
         diff: patched.result.diff,
         diagnostics: resultDiagnostics
       });
     },
-    [currentDocument, fileHandle, fileName, fileTheme, graph, postAiApplyResult, snapshot, viewport, workspaceView]
+    [currentDocument, fileName, fileRef, fileTheme, graph, postAiApplyResult, runtime, snapshot, viewport, workspaceView]
   );
 
   useEffect(() => {
@@ -1186,6 +1232,22 @@ export function MermaidEditor() {
   }, [secondaryActionsOpen, viewFiltersOpen]);
 
   useEffect(() => {
+    desktopTitlebarPinnedRef.current = desktopTitlebarPinned;
+    if (!desktopTitlebarAutoHide) return;
+    if (desktopTitlebarPinned) {
+      showDesktopTitlebar();
+      return;
+    }
+    if (desktopTitlebarVisible) scheduleDesktopTitlebarHide();
+  }, [desktopTitlebarAutoHide, desktopTitlebarPinned, desktopTitlebarVisible, scheduleDesktopTitlebarHide, showDesktopTitlebar]);
+
+  useEffect(() => {
+    return () => {
+      if (desktopTitlebarHideTimerRef.current) window.clearTimeout(desktopTitlebarHideTimerRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
     applyEditorThemeToDocument(activeTheme);
   }, [activeTheme]);
 
@@ -1194,9 +1256,7 @@ export function MermaidEditor() {
 
     storageWriteTimerRef.current = window.setTimeout(() => {
       incrementPerformanceCounter("local-storage-write");
-      window.localStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify({
+      void runtime.saveDraft({
           source,
           layout: layoutFromGraph(graph, viewport, edgeRouting, layoutMode, fileTheme),
           viewport,
@@ -1208,16 +1268,16 @@ export function MermaidEditor() {
           viewFilters,
           fileName,
           themeId,
-          customTheme
-        } satisfies StoredEditor)
-      );
+          customTheme,
+          preferences
+        } satisfies StoredEditor);
       storageWriteTimerRef.current = null;
     }, 160);
 
     return () => {
       if (storageWriteTimerRef.current) window.clearTimeout(storageWriteTimerRef.current);
     };
-  }, [source, graph, viewport, edgeRouting, layoutMode, leftCollapsed, rightCollapsed, workspaceView, viewFilters, fileName, fileTheme, themeId, customTheme]);
+  }, [source, graph, viewport, edgeRouting, layoutMode, leftCollapsed, rightCollapsed, workspaceView, viewFilters, fileName, fileTheme, themeId, customTheme, preferences, runtime]);
 
   useEffect(() => {
     if (aiContextPostTimerRef.current) window.clearTimeout(aiContextPostTimerRef.current);
@@ -1246,11 +1306,9 @@ export function MermaidEditor() {
       aiCommandBusyRef.current = true;
 
       try {
-        const response = await fetch("/api/ai/commands/next", { headers: { accept: "application/json" } });
-        if (!response.ok) return;
-        const body = (await response.json()) as AiNextCommandResponse;
-        if (disposed || !body.command) return;
-        await processAiCommand(body.command);
+        const command = await runtime.pollAiCommand();
+        if (disposed || !command) return;
+        await processAiCommand(command);
       } catch {
         // The AI command bridge is optional while a human edits in the browser.
       } finally {
@@ -1267,7 +1325,7 @@ export function MermaidEditor() {
       disposed = true;
       window.clearInterval(timer);
     };
-  }, [processAiCommand]);
+  }, [processAiCommand, runtime]);
 
   useEffect(() => {
     function isTextInput(target: EventTarget | null) {
@@ -1345,15 +1403,36 @@ export function MermaidEditor() {
   return (
     <TooltipProvider delayDuration={180}>
       <input ref={fileInputRef} type="file" accept=".mmd,.mermaid,.txt,text/plain" className="hidden" onChange={openFallbackFile} />
-      <main className="relative grid h-screen grid-rows-[52px_minmax(0,1fr)] overflow-hidden bg-background">
-        <header className="relative z-40 grid grid-cols-[minmax(220px,360px)_minmax(0,1fr)_auto] items-center gap-3 border-b bg-background px-3 backdrop-blur">
+      <main className={cn("relative h-screen overflow-hidden bg-background", !desktopTitlebarAutoHide && "grid grid-rows-[42px_minmax(0,1fr)]")}>
+        {desktopTitlebarAutoHide ? (
+          <div className="absolute inset-x-0 top-0 z-30 h-3" aria-hidden onPointerEnter={showDesktopTitlebar} />
+        ) : null}
+        <header
+          className={cn(
+            "z-40 grid h-[42px] grid-cols-[minmax(220px,360px)_minmax(0,1fr)_auto] items-center gap-3 border-b bg-background pl-3 pr-2 backdrop-blur",
+            desktopTitlebarAutoHide
+              ? "absolute inset-x-0 top-0 transition-transform duration-150 ease-out will-change-transform"
+              : "relative",
+            desktopTitlebarAutoHide && (desktopTitlebarVisible ? "translate-y-0 shadow-sm" : "-translate-y-full")
+          )}
+          onDoubleClick={toggleDesktopWindowMaximize}
+          onPointerEnter={enterDesktopTitlebar}
+          onPointerLeave={leaveDesktopTitlebar}
+          onPointerDown={startDesktopWindowDrag}
+          onFocus={focusDesktopTitlebar}
+          onBlur={(event) => {
+            const nextTarget = event.relatedTarget;
+            if (nextTarget instanceof Node && event.currentTarget.contains(nextTarget)) return;
+            blurDesktopTitlebar();
+          }}
+        >
           <div className="flex min-w-0 items-center gap-2">
             <FileCode2 className="size-4 shrink-0 text-icon" />
             <div className="min-w-0">
               <h1 className="sr-only">Mermaid Canvas Editor</h1>
               <p className="truncate text-sm font-medium">{fileLabel}</p>
             </div>
-            <div className="ml-1 flex shrink-0 items-center gap-1">
+            <div className="ml-1 flex shrink-0 items-center gap-1" data-window-drag-exclude>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button size="icon" variant="ghost" className="size-8 text-icon hover:text-icon" onClick={openMermaidFile} aria-label="打开 Mermaid 文件">
@@ -1383,8 +1462,8 @@ export function MermaidEditor() {
             {isCanvasEditable ? <ToolModeBar mode={mode} onModeChange={changeMode} /> : null}
           </div>
 
-          <div className="flex items-center gap-1">
-            <div className="flex gap-1">
+          <div className="flex items-center justify-end gap-1" data-window-drag-exclude>
+            <div className="flex gap-1" data-window-drag-exclude>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
@@ -1435,6 +1514,7 @@ export function MermaidEditor() {
               direction={graph.direction}
               edgeRouting={edgeRouting}
               layoutMode={layoutMode}
+              preferences={preferences}
               editable={isCanvasEditable}
               onOpenChange={setSecondaryActionsOpen}
               onAddNode={addNode}
@@ -1443,32 +1523,36 @@ export function MermaidEditor() {
               onDirectionChange={updateDirection}
               onEdgeRoutingChange={updateEdgeRouting}
               onLayoutModeChange={updateLayoutMode}
+              onPreferencesChange={updatePreferences}
               onRefreshSource={refreshFromSource}
               onSyncAutoLayout={() => applyEditorCommand({ type: "layout.syncAuto", source: "menu" })}
               onResetView={() => updateViewport({ x: 160, y: 90, scale: 1 }, "menu")}
               onOpenThemeSettings={openThemeSettings}
             />
+            <DesktopWindowControls />
           </div>
         </header>
 
-        <div className="relative z-0 min-h-0 overflow-hidden">
+        <div className={cn("relative z-0 min-h-0 overflow-hidden", desktopTitlebarAutoHide && "absolute inset-0")}>
           <div className="absolute inset-0 z-0">
             {workspaceView === "canvas" && isCanvasEditable ? (
-              <KonvaCanvas
-                graph={graph}
-                selection={selection}
-                viewport={viewport}
-                mode={mode}
-                panningRequested={spacePanning}
-                viewFilters={viewFilters}
-                edgeRouting={edgeRouting}
-                mermaidEdgeRoutes={mermaidEdgeRoutes}
-                layoutMode={layoutMode}
-                visualTokens={compiledTheme.canvasVisualTokens}
-                geometryTokens={compiledTheme.geometry}
-                onEditorCommand={applyEditorCommand}
-                onLiveStateChange={updateCanvasLiveState}
-              />
+              <Suspense fallback={<div className="grid min-h-0 place-items-center bg-card text-sm text-muted-foreground">正在载入画布</div>}>
+                <KonvaCanvas
+                  graph={graph}
+                  selection={selection}
+                  viewport={viewport}
+                  mode={mode}
+                  panningRequested={spacePanning}
+                  viewFilters={viewFilters}
+                  edgeRouting={edgeRouting}
+                  mermaidEdgeRoutes={mermaidEdgeRoutes}
+                  layoutMode={layoutMode}
+                  visualTokens={compiledTheme.canvasVisualTokens}
+                  geometryTokens={compiledTheme.geometry}
+                  onEditorCommand={applyEditorCommand}
+                  onLiveStateChange={updateCanvasLiveState}
+                />
+              </Suspense>
             ) : (
               <PreviewPanel
                 source={source}
@@ -1493,10 +1577,10 @@ export function MermaidEditor() {
               </div>
             </aside>
           ) : null}
-          {leftCollapsed ? <FloatingPanelOpenButton side="left" label="Mermaid" onOpen={() => setLeftCollapsed(false)} /> : null}
-          {rightCollapsed ? <FloatingPanelOpenButton side="right" label="侧栏" onOpen={() => setRightCollapsed(false)} /> : null}
+          {leftCollapsed ? <FloatingPanelOpenButton side="left" label="Mermaid" revealMode={preferences.panelOpenButtonMode} onOpen={() => setLeftCollapsed(false)} /> : null}
+          {rightCollapsed ? <FloatingPanelOpenButton side="right" label="侧栏" revealMode={preferences.panelOpenButtonMode} onOpen={() => setRightCollapsed(false)} /> : null}
         </div>
-        {status ? (
+        {preferences.statusMessages && status ? (
           <div className="pointer-events-none fixed bottom-3 left-1/2 z-50 -translate-x-1/2 rounded-md border bg-card/95 px-3 py-1.5 text-xs text-muted-foreground backdrop-blur">
             {status}
           </div>
@@ -1513,6 +1597,78 @@ export function MermaidEditor() {
         ) : null}
       </main>
     </TooltipProvider>
+  );
+}
+
+function DesktopWindowControls() {
+  const [available, setAvailable] = useState(false);
+
+  useEffect(() => {
+    setAvailable(isDesktopWindowRuntime());
+  }, []);
+
+  async function runWindowAction(action: "minimize" | "toggleMaximize" | "close") {
+    try {
+      const windowRef = await getDesktopWindow();
+      if (!windowRef) return;
+      if (action === "minimize") await windowRef.minimize();
+      if (action === "toggleMaximize") await windowRef.toggleMaximize();
+      if (action === "close") await windowRef.close();
+    } catch {
+      // Window controls are desktop-only; ignore capability/runtime failures in web-like shells.
+    }
+  }
+
+  if (!available) return null;
+
+  return (
+    <div className="ml-1 flex items-center gap-0.5" data-window-drag-exclude>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            type="button"
+            size="icon"
+            variant="ghost"
+            className="size-8 text-icon hover:text-icon"
+            onClick={() => void runWindowAction("minimize")}
+            aria-label="最小化窗口"
+          >
+            <Minus className="size-4" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom">最小化</TooltipContent>
+      </Tooltip>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            type="button"
+            size="icon"
+            variant="ghost"
+            className="size-8 text-icon hover:text-icon"
+            onClick={() => void runWindowAction("toggleMaximize")}
+            aria-label="最大化或还原窗口"
+          >
+            <Maximize className="size-4" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom">最大化/还原</TooltipContent>
+      </Tooltip>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            type="button"
+            size="icon"
+            variant="ghost"
+            className="size-8 text-icon hover:bg-destructive/10 hover:text-destructive"
+            onClick={() => void runWindowAction("close")}
+            aria-label="关闭窗口"
+          >
+            <Xmark className="size-4" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom">关闭</TooltipContent>
+      </Tooltip>
+    </div>
   );
 }
 
@@ -1673,6 +1829,24 @@ function FilterToggle({ active, label, icon, compact = false, onClick }: { activ
   );
 }
 
+function PreferenceToggle({ active, label, icon, onClick }: { active: boolean; label: string; icon: ReactNode; onClick: () => void }) {
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      className={cn("h-8 justify-start gap-2 px-2 text-foreground [&_svg]:text-icon", !active && "text-muted-foreground")}
+      aria-pressed={active}
+      onClick={onClick}
+    >
+      <span className={cn("flex size-4 shrink-0 items-center justify-center", active ? "text-icon" : "text-muted-foreground")}>
+        {active ? <Eye className="size-4" /> : <EyeClosed className="size-4" />}
+      </span>
+      {icon}
+      <span className="truncate">{label}</span>
+    </Button>
+  );
+}
+
 function LabelIcon() {
   return <Text className="size-4" />;
 }
@@ -1682,6 +1856,7 @@ function SecondaryActionsMenu({
   direction,
   edgeRouting,
   layoutMode,
+  preferences,
   editable,
   onOpenChange,
   onAddNode,
@@ -1690,6 +1865,7 @@ function SecondaryActionsMenu({
   onDirectionChange,
   onEdgeRoutingChange,
   onLayoutModeChange,
+  onPreferencesChange,
   onRefreshSource,
   onSyncAutoLayout,
   onResetView,
@@ -1699,6 +1875,7 @@ function SecondaryActionsMenu({
   direction: GraphDirection;
   edgeRouting: EdgeRouting;
   layoutMode: LayoutMode;
+  preferences: EditorPreferences;
   editable: boolean;
   onOpenChange: (open: boolean) => void;
   onAddNode: () => void;
@@ -1707,6 +1884,7 @@ function SecondaryActionsMenu({
   onDirectionChange: (direction: GraphDirection) => void;
   onEdgeRoutingChange: (edgeRouting: EdgeRouting) => void;
   onLayoutModeChange: (layoutMode: LayoutMode) => void;
+  onPreferencesChange: (preferences: EditorPreferences, message?: string) => void;
   onRefreshSource: () => void;
   onSyncAutoLayout: () => void;
   onResetView: () => void;
@@ -1715,6 +1893,10 @@ function SecondaryActionsMenu({
   function runAndClose(action: () => void) {
     action();
     onOpenChange(false);
+  }
+
+  function updatePreference(nextPreferences: EditorPreferences, message: string) {
+    onPreferencesChange(nextPreferences, message);
   }
 
   return (
@@ -1736,7 +1918,7 @@ function SecondaryActionsMenu({
       </Tooltip>
 
       {open ? (
-        <div className="absolute right-0 top-10 z-50 w-52 rounded-md border bg-popover p-1.5 text-popover-foreground">
+        <div className="absolute right-0 top-10 z-50 w-64 rounded-md border bg-popover p-1.5 text-popover-foreground">
           <div className="grid gap-0.5">
             <Button
               variant="ghost"
@@ -1834,6 +2016,57 @@ function SecondaryActionsMenu({
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+            <Separator className="my-1" />
+            <div className="grid gap-0.5 px-1 py-1">
+              <span className="flex items-center gap-1.5 px-1 py-1 text-xs text-muted-foreground">
+                <Eye className="size-3.5 text-icon" />
+                应用设置
+              </span>
+              <PreferenceToggle
+                active={preferences.startWithPanelsCollapsed}
+                icon={<PanelLeftOpen className="size-4" />}
+                label="启动时收起侧栏"
+                onClick={() =>
+                  updatePreference(
+                    { ...preferences, startWithPanelsCollapsed: !preferences.startWithPanelsCollapsed },
+                    preferences.startWithPanelsCollapsed ? "启动时将恢复侧栏状态。" : "启动时将收起两侧栏。"
+                  )
+                }
+              />
+              <PreferenceToggle
+                active={preferences.panelOpenButtonMode === "hover"}
+                icon={<PanelRightOpen className="size-4" />}
+                label="侧栏入口悬停显示"
+                onClick={() =>
+                  updatePreference(
+                    { ...preferences, panelOpenButtonMode: preferences.panelOpenButtonMode === "hover" ? "always" : "hover" },
+                    preferences.panelOpenButtonMode === "hover" ? "侧栏入口将始终显示。" : "侧栏入口将仅在悬停时显示。"
+                  )
+                }
+              />
+              <PreferenceToggle
+                active={preferences.statusMessages}
+                icon={<Text className="size-4" />}
+                label="底部操作消息"
+                onClick={() =>
+                  updatePreference(
+                    { ...preferences, statusMessages: !preferences.statusMessages },
+                    preferences.statusMessages ? "底部操作消息已隐藏。" : "底部操作消息已显示。"
+                  )
+                }
+              />
+              <PreferenceToggle
+                active={preferences.desktopTitlebarAutoHide}
+                icon={<PanelRightClose className="size-4" />}
+                label="桌面标题栏自动隐藏"
+                onClick={() =>
+                  updatePreference(
+                    { ...preferences, desktopTitlebarAutoHide: !preferences.desktopTitlebarAutoHide },
+                    preferences.desktopTitlebarAutoHide ? "桌面标题栏将常驻显示。" : "桌面标题栏将自动隐藏。"
+                  )
+                }
+              />
             </div>
             <Button variant="ghost" className="h-8 justify-start px-2 text-foreground [&_svg]:text-icon" onClick={() => runAndClose(onOpenThemeSettings)}>
               <ColorWheel className="size-4" />
@@ -2229,17 +2462,41 @@ function PanelHeader({ onCollapse }: { onCollapse: () => void }) {
   );
 }
 
-function FloatingPanelOpenButton({ side, label, onOpen }: { side: "left" | "right"; label: string; onOpen: () => void }) {
+function FloatingPanelOpenButton({
+  side,
+  label,
+  revealMode,
+  onOpen
+}: {
+  side: "left" | "right";
+  label: string;
+  revealMode: PanelOpenButtonMode;
+  onOpen: () => void;
+}) {
   const Icon = side === "left" ? PanelLeftOpen : PanelRightOpen;
+  const [visible, setVisible] = useState(false);
+  const alwaysVisible = revealMode === "always";
 
   return (
-    <div className={side === "left" ? "absolute left-2 top-3 z-30" : "absolute right-2 top-3 z-30"}>
+    <div
+      className={cn(
+        "absolute top-0 z-30 flex h-24 w-14 items-start pt-3",
+        side === "left" ? "left-0 justify-start pl-2" : "right-0 justify-end pr-2"
+      )}
+      onPointerEnter={() => setVisible(true)}
+      onPointerLeave={() => setVisible(false)}
+    >
       <Tooltip>
         <TooltipTrigger asChild>
           <Button
             size="icon"
             variant="outline"
-            className="size-8 bg-card/95 text-icon backdrop-blur hover:text-icon"
+            className={cn(
+              "size-8 bg-card/95 text-icon opacity-0 backdrop-blur transition-[opacity,transform] duration-150 ease-out hover:text-icon focus-visible:translate-x-0 focus-visible:opacity-100",
+              side === "left" ? "-translate-x-2" : "translate-x-2",
+              (alwaysVisible || visible) && "pointer-events-auto translate-x-0 opacity-100",
+              !alwaysVisible && !visible && "pointer-events-none"
+            )}
             onClick={onOpen}
             aria-label={`展开${label}面板`}
           >
