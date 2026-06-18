@@ -3,8 +3,11 @@ import { describe, expect, it } from "vitest";
 import {
   computeEdgeDraftPath,
   computeEdgePath,
+  computeEdgePathMap,
   computeEdgeRetargetPath,
   remapEdgePathGeometry,
+  resolveParallelEdgeLanes,
+  type EdgePathGeometry,
   type RoutedNodeRect
 } from "@/features/mermaid-editor/lib/edge-geometry";
 import type { CanvasEdge, EdgeRouting } from "@/features/mermaid-editor/lib/editor-types";
@@ -50,6 +53,12 @@ function expectFinitePoints(points: number[]) {
   for (const point of points) {
     expect(Number.isFinite(point)).toBe(true);
   }
+}
+
+function expectGeometry(map: Map<string, EdgePathGeometry>, edgeId: string) {
+  const geometry = map.get(edgeId);
+  if (!geometry) throw new Error(`Expected geometry for ${edgeId}`);
+  return geometry;
 }
 
 describe("computeEdgePath", () => {
@@ -256,6 +265,70 @@ describe("computeEdgePath", () => {
     expect(lastPoint(geometry.points).x).toBeGreaterThan(110);
     expect(geometry.endTangent.x).toBeLessThan(0);
     expectFinitePoints(geometry.points);
+  });
+});
+
+describe("computeEdgePathMap", () => {
+  it("separates same-direction parallel straight edges with stable lanes", () => {
+    const edges: CanvasEdge[] = [
+      { ...baseEdge, id: "edge-1" },
+      { ...baseEdge, id: "edge-2" }
+    ];
+    const lanes = resolveParallelEdgeLanes(edges, defaultNodes(), { laneSpacing: 20 });
+    const map = computeEdgePathMap(edges, defaultNodes(), "straight", { laneSpacing: 20 });
+    const first = expectGeometry(map, "edge-1");
+    const second = expectGeometry(map, "edge-2");
+
+    expect(lanes.get("edge-1")?.laneIndex).toBe(-0.5);
+    expect(lanes.get("edge-2")?.laneIndex).toBe(0.5);
+    expect(pointAt(first.points, 0).y).toBeLessThan(pointAt(second.points, 0).y);
+    expect(first.labelPoint.y).toBeLessThan(second.labelPoint.y);
+  });
+
+  it("puts opposite-direction edges in one undirected lane group", () => {
+    const edges: CanvasEdge[] = [
+      { ...baseEdge, id: "a-to-b", from: "a", to: "b" },
+      { ...baseEdge, id: "b-to-a", from: "b", to: "a" }
+    ];
+    const lanes = resolveParallelEdgeLanes(edges, defaultNodes(), { laneSpacing: 20 });
+    const map = computeEdgePathMap(edges, defaultNodes(), "straight", { laneSpacing: 20 });
+    const forward = expectGeometry(map, "a-to-b");
+    const backward = expectGeometry(map, "b-to-a");
+
+    expect(lanes.get("a-to-b")?.groupKey).toBe(lanes.get("b-to-a")?.groupKey);
+    expect(lanes.get("b-to-a")?.directionSign).toBe(-1);
+    expect(forward.labelPoint.y).not.toBeCloseTo(backward.labelPoint.y, 4);
+    expect(forward.endTangent.x).toBeGreaterThan(0);
+    expect(backward.endTangent.x).toBeLessThan(0);
+  });
+
+  it("separates every routing mode for repeated edges", () => {
+    const edges: CanvasEdge[] = [
+      { ...baseEdge, id: "edge-1" },
+      { ...baseEdge, id: "edge-2" },
+      { ...baseEdge, id: "edge-3" }
+    ];
+
+    for (const routing of ["straight", "bezier", "orthogonal", "mermaid"] as const) {
+      const map = computeEdgePathMap(edges, defaultNodes(), routing, { laneSpacing: 20 });
+      const labels = edges.map((edge) => expectGeometry(map, edge.id).labelPoint.y);
+
+      expect(new Set(labels.map((value) => value.toFixed(3))).size).toBe(3);
+      for (const edge of edges) expectFinitePoints(expectGeometry(map, edge.id).points);
+    }
+  });
+
+  it("fans out repeated self loops", () => {
+    const nodes = [{ id: "a", x: 10, y: 20, width: 100, height: 60 }];
+    const edges: CanvasEdge[] = [
+      { ...baseEdge, id: "loop-1", to: "a" },
+      { ...baseEdge, id: "loop-2", to: "a" },
+      { ...baseEdge, id: "loop-3", to: "a" }
+    ];
+    const map = computeEdgePathMap(edges, nodes, "bezier", { laneSpacing: 20 });
+    const starts = edges.map((edge) => expectGeometry(map, edge.id).start.y);
+
+    expect(new Set(starts.map((value) => value.toFixed(3))).size).toBe(3);
   });
 });
 

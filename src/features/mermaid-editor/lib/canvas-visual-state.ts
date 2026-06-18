@@ -79,6 +79,7 @@ export type CanvasVisualTokens = {
     dottedDash: readonly number[];
     pointerLength: number;
     pointerWidth: number;
+    parallelSpacing: number;
     labelCornerRadius: number;
     endpointMarkerRadius: number;
   };
@@ -141,6 +142,7 @@ export const CANVAS_VISUAL_TOKENS: CanvasVisualTokens = {
     dottedDash: [1, 8],
     pointerLength: 10,
     pointerWidth: 10,
+    parallelSpacing: 18,
     labelCornerRadius: 8,
     endpointMarkerRadius: 4.5
   },

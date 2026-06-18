@@ -1,7 +1,6 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   ClockRotateRight,
-  CodeBracketsSquare as FileCode2,
   ColorWheel,
   DotsGrid3x3 as Grid3X3,
   Eye,
@@ -38,6 +37,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { APP_LOGOS, appLogoById, DEFAULT_APP_LOGO_ID, normalizeAppLogoId, type AppLogoId } from "@/features/mermaid-editor/lib/app-logo";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { applyLayout, edgeRoutingFromLayout, layoutFromGraph, layoutModeFromLayout, parseCanvasLayout } from "@/features/mermaid-editor/lib/canvas-layout";
 import { applyDagreAutoLayout, deriveDagreAutoLayoutResult } from "@/features/mermaid-editor/lib/canvas-auto-layout";
@@ -112,6 +112,7 @@ import {
   normalizeViewFilters,
   type ViewFilters
 } from "@/features/mermaid-editor/lib/view-filters";
+import { useDismissableFloatingMenu } from "@/features/mermaid-editor/lib/use-dismissable-floating-menu";
 import { cn } from "@/lib/utils";
 import {
   WINDOW_CLOSE_TARGET_NAME,
@@ -154,13 +155,15 @@ type EditorPreferences = {
   statusMessages: boolean;
   desktopTitlebarAutoHide: boolean;
   restoreLastFile: boolean;
+  appLogo: AppLogoId;
 };
 const DEFAULT_EDITOR_PREFERENCES: EditorPreferences = {
   startWithPanelsCollapsed: true,
   panelOpenButtonMode: "hover",
   statusMessages: false,
   desktopTitlebarAutoHide: true,
-  restoreLastFile: true
+  restoreLastFile: true,
+  appLogo: DEFAULT_APP_LOGO_ID
 };
 type StoredEditor = {
   source: string;
@@ -227,7 +230,8 @@ function normalizeEditorPreferences(value: Partial<EditorPreferences> | undefine
     panelOpenButtonMode: value?.panelOpenButtonMode === "always" ? "always" : DEFAULT_EDITOR_PREFERENCES.panelOpenButtonMode,
     statusMessages: value?.statusMessages ?? DEFAULT_EDITOR_PREFERENCES.statusMessages,
     desktopTitlebarAutoHide: value?.desktopTitlebarAutoHide ?? DEFAULT_EDITOR_PREFERENCES.desktopTitlebarAutoHide,
-    restoreLastFile: value?.restoreLastFile ?? DEFAULT_EDITOR_PREFERENCES.restoreLastFile
+    restoreLastFile: value?.restoreLastFile ?? DEFAULT_EDITOR_PREFERENCES.restoreLastFile,
+    appLogo: normalizeAppLogoId(value?.appLogo)
   };
 }
 
@@ -540,6 +544,7 @@ export function MermaidEditor() {
   );
   const activeTheme = useMemo(() => resolveEditorTheme(themeId, customTheme), [customTheme, themeId]);
   const compiledTheme = useMemo(() => compileEditorTheme(activeTheme), [activeTheme]);
+  const activeAppLogo = useMemo(() => appLogoById(preferences.appLogo), [preferences.appLogo]);
   const isDirty = !lastSavedDocument || currentDocument !== lastSavedDocument;
   const fileLabel = `${fileName || FALLBACK_FILE_NAME}${isDirty ? " *" : ""}`;
   const isCanvasEditable = editableKind === "flowchart";
@@ -552,6 +557,17 @@ export function MermaidEditor() {
     isDirtyRef.current = isDirty;
     currentDocumentRef.current = currentDocument;
   }, [currentDocument, isDirty]);
+
+  useEffect(() => {
+    let link = document.querySelector<HTMLLinkElement>("link[rel='icon']");
+    if (!link) {
+      link = document.createElement("link");
+      link.rel = "icon";
+      document.head.append(link);
+    }
+    link.type = "image/svg+xml";
+    link.href = activeAppLogo.href;
+  }, [activeAppLogo.href]);
 
   const updateCanvasLiveState = useCallback((next: CanvasLiveState) => {
     setCanvasLiveState((current) => (canvasLiveStateKey(current) === canvasLiveStateKey(next) ? current : next));
@@ -1064,9 +1080,32 @@ export function MermaidEditor() {
     applyEditorCommand({ type: "viewport.set", viewport: nextViewport, source });
   }
 
+  const updateFileMenuOpen = useCallback((open: boolean) => {
+    setFileMenuOpen(open);
+    if (!open) return;
+    setViewFiltersOpen(false);
+    setSecondaryActionsOpen(false);
+  }, []);
+
+  const updateViewFiltersOpen = useCallback((open: boolean) => {
+    setViewFiltersOpen(open);
+    if (!open) return;
+    setFileMenuOpen(false);
+    setSecondaryActionsOpen(false);
+  }, []);
+
+  const updateSecondaryActionsOpen = useCallback((open: boolean) => {
+    setSecondaryActionsOpen(open);
+    if (!open) return;
+    setFileMenuOpen(false);
+    setViewFiltersOpen(false);
+  }, []);
+
   function openThemeSettings() {
     themeEditBaseRef.current = { themeId, customTheme };
     setThemeSettingsOpen(true);
+    setFileMenuOpen(false);
+    setViewFiltersOpen(false);
     setSecondaryActionsOpen(false);
   }
 
@@ -1317,6 +1356,53 @@ export function MermaidEditor() {
       applyLoadedDocument(result.text, result.file.name, result.file);
     } catch (error) {
       if (!isAbortError(error)) showFileWorkflowError(error, "打开文件失败。");
+    }
+  }
+
+  async function newMermaidFile() {
+    if (!(await prepareFileSwitch(FALLBACK_FILE_NAME))) return;
+
+    flushSourceHistory();
+    const nextGraph = parseMermaid(initialMermaidSource);
+    const nextSource = serializeMermaid(nextGraph);
+    const nextViewport = { x: 160, y: 90, scale: 1 };
+
+    setSource(nextSource);
+    setGraph(nextGraph);
+    setDiagramType("flowchart");
+    setEditableKind("flowchart");
+    setViewport(nextViewport);
+    setEdgeRouting(DEFAULT_EDGE_ROUTING);
+    setLayoutMode(DEFAULT_LAYOUT_MODE);
+    setWorkspaceView("canvas");
+    setViewFilters(DEFAULT_VIEW_FILTERS);
+    setSelection(emptySelection);
+    setDiagnostics([]);
+    setHistory(createHistory());
+    setFileName(FALLBACK_FILE_NAME);
+    setFileRef(null);
+    setFileTheme(null);
+    setLastSavedDocument("");
+    isDirtyRef.current = true;
+    setFileWorkflowError(null);
+    setStatus("已新建 Mermaid 文件。");
+    recordRecentAction("document.new", { kind: "document" }, "新建 Mermaid 文件。");
+
+    try {
+      await persistStoredEditorDraft({
+        source: nextSource,
+        graph: nextGraph,
+        viewport: nextViewport,
+        edgeRouting: DEFAULT_EDGE_ROUTING,
+        layoutMode: DEFAULT_LAYOUT_MODE,
+        fileTheme: null,
+        fileName: FALLBACK_FILE_NAME,
+        fileRef: null,
+        lastSavedDocument: "",
+        workspaceView: "canvas"
+      });
+    } catch {
+      // New document state is already applied; draft persistence is best-effort.
     }
   }
 
@@ -1667,23 +1753,17 @@ export function MermaidEditor() {
   }, [status]);
 
   useEffect(() => {
-    if (!secondaryActionsOpen && !viewFiltersOpen && !fileMenuOpen && !unsavedPrompt) return;
+    if (!unsavedPrompt) return;
 
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
-        if (unsavedPrompt) {
-          resolveUnsavedPrompt("cancel");
-          return;
-        }
-        setFileMenuOpen(false);
-        setSecondaryActionsOpen(false);
-        setViewFiltersOpen(false);
+        resolveUnsavedPrompt("cancel");
       }
     }
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [fileMenuOpen, resolveUnsavedPrompt, secondaryActionsOpen, unsavedPrompt, viewFiltersOpen]);
+  }, [resolveUnsavedPrompt, unsavedPrompt]);
 
   useEffect(() => {
     desktopTitlebarPinnedRef.current = desktopTitlebarPinned;
@@ -1885,7 +1965,7 @@ export function MermaidEditor() {
           }}
         >
           <div className="flex min-w-0 items-center gap-2">
-            <FileCode2 className="size-4 shrink-0 text-icon" />
+            <img className="size-5 shrink-0 rounded-[5px] object-cover" src={activeAppLogo.href} alt="" aria-hidden />
             <div className="min-w-0">
               <h1 className="sr-only">Mermaid Canvas Editor</h1>
               <p className="truncate text-sm font-medium">{fileLabel}</p>
@@ -1894,7 +1974,8 @@ export function MermaidEditor() {
               <FileMenu
                 open={fileMenuOpen}
                 recentFiles={recentFiles}
-                onOpenChange={setFileMenuOpen}
+                onOpenChange={updateFileMenuOpen}
+                onNewFile={() => void newMermaidFile()}
                 onOpenFile={() => void openMermaidFile()}
                 onOpenRecent={(file) => void openRecentFile(file)}
               />
@@ -1962,7 +2043,7 @@ export function MermaidEditor() {
               filters={viewFilters}
               hiddenCount={hiddenViewFilters}
               editable={isCanvasEditable}
-              onOpenChange={setViewFiltersOpen}
+              onOpenChange={updateViewFiltersOpen}
               onChange={updateViewFilter}
               onReset={resetViewFilters}
             />
@@ -1973,7 +2054,7 @@ export function MermaidEditor() {
               layoutMode={layoutMode}
               preferences={preferences}
               editable={isCanvasEditable}
-              onOpenChange={setSecondaryActionsOpen}
+              onOpenChange={updateSecondaryActionsOpen}
               onAddNode={addNode}
               onCreateGroup={createGroupFromSelection}
               onSaveAs={() => void saveMermaidFileAs()}
@@ -2182,22 +2263,26 @@ function FileMenu({
   open,
   recentFiles,
   onOpenChange,
+  onNewFile,
   onOpenFile,
   onOpenRecent
 }: {
   open: boolean;
   recentFiles: RecentFileEntry[];
   onOpenChange: (open: boolean) => void;
+  onNewFile: () => void;
   onOpenFile: () => void;
   onOpenRecent: (file: RecentFileEntry) => void;
 }) {
+  const menuRef = useDismissableFloatingMenu<HTMLDivElement>({ open, onOpenChange });
+
   function runAndClose(action: () => void) {
     action();
     onOpenChange(false);
   }
 
   return (
-    <div className="relative">
+    <div ref={menuRef} className="relative">
       <Tooltip>
         <TooltipTrigger asChild>
           <Button
@@ -2217,6 +2302,10 @@ function FileMenu({
       {open ? (
         <div className="absolute left-0 top-10 z-50 w-72 rounded-md border bg-popover p-1.5 text-popover-foreground shadow-sm">
           <div className="grid gap-0.5">
+            <Button variant="ghost" className="h-8 justify-start px-2 text-foreground [&_svg]:text-icon" onClick={() => runAndClose(onNewFile)}>
+              <Plus className="size-4" />
+              新建文件
+            </Button>
             <Button variant="ghost" className="h-8 justify-start px-2 text-foreground [&_svg]:text-icon" onClick={() => runAndClose(onOpenFile)}>
               <Folder className="size-4" />
               打开文件
@@ -2263,6 +2352,12 @@ function ViewFilterMenu({
   onChange: (filters: ViewFilters, message: string) => void;
   onReset: () => void;
 }) {
+  const menuRef = useDismissableFloatingMenu<HTMLDivElement>({ open, onOpenChange });
+
+  useEffect(() => {
+    if (open && !editable) onOpenChange(false);
+  }, [editable, onOpenChange, open]);
+
   function toggleTopLevel(key: keyof Pick<ViewFilters, "nodes" | "subgraphs" | "edges" | "nodeLabels" | "edgeLabels" | "grid">, label: string) {
     const nextVisible = !filters[key];
     onChange({ ...filters, [key]: nextVisible }, `${nextVisible ? "显示" : "隐藏"}${label}。`);
@@ -2306,7 +2401,7 @@ function ViewFilterMenu({
   }
 
   return (
-    <div className="relative">
+    <div ref={menuRef} className="relative">
       <Tooltip>
         <TooltipTrigger asChild>
           <Button
@@ -2464,6 +2559,12 @@ function SecondaryActionsMenu({
   onResetView: () => void;
   onOpenThemeSettings: () => void;
 }) {
+  const menuRef = useDismissableFloatingMenu<HTMLDivElement>({ open, onOpenChange });
+
+  useEffect(() => {
+    if (open && !editable) onOpenChange(false);
+  }, [editable, onOpenChange, open]);
+
   function runAndClose(action: () => void) {
     action();
     onOpenChange(false);
@@ -2474,7 +2575,7 @@ function SecondaryActionsMenu({
   }
 
   return (
-    <div className="relative">
+    <div ref={menuRef} className="relative">
       <Tooltip>
         <TooltipTrigger asChild>
           <Button
@@ -2594,6 +2695,27 @@ function SecondaryActionsMenu({
                 <Eye className="size-3.5 text-icon" />
                 应用设置
               </span>
+              <div className="grid gap-1.5 px-1 py-1">
+                <span className="text-xs text-muted-foreground">应用 LOGO</span>
+                <Select
+                  value={preferences.appLogo}
+                  onValueChange={(value) => {
+                    updatePreference({ ...preferences, appLogo: normalizeAppLogoId(value) }, "应用 LOGO 已切换。");
+                  }}
+                >
+                  <SelectTrigger className="h-8 gap-2">
+                    <img className="size-4 shrink-0 rounded-[4px] object-cover" src={appLogoById(preferences.appLogo).href} alt="" aria-hidden />
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {APP_LOGOS.map((logo) => (
+                      <SelectItem key={logo.id} value={logo.id}>
+                        {logo.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               <PreferenceToggle
                 active={preferences.startWithPanelsCollapsed}
                 icon={<PanelLeftOpen className="size-4" />}

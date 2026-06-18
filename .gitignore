@@ -11,3 +11,4 @@ coverage
 work/*.log
 work/*.err.log
 .env*
+*:Zone.Identifier

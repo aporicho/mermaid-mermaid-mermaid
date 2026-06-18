@@ -53,7 +53,7 @@ import {
 } from "@/features/mermaid-editor/lib/edge-label-geometry";
 import {
   computeEdgeDraftPath,
-  computeEdgePath,
+  computeEdgePathMap,
   computeEdgeRetargetPath,
   remapEdgePathGeometry,
   type EdgePathGeometry
@@ -638,18 +638,36 @@ export function KonvaCanvas({
     [renderedSubgraphGeometries, routedNodeRects]
   );
   const dragEnabled = layoutMode === "manual";
+  const visibleEdges = useMemo(() => graph.edges.filter((edge) => isEdgeVisible(edge, graph, viewFilters)), [graph, viewFilters]);
   const mermaidRouteByEdgeId = useMemo(() => new Map(mermaidEdgeRoutes.map((route) => [route.edgeId, route])), [mermaidEdgeRoutes]);
   const draftEdgeRouting = edgeRouting;
-  function resolvedEdgeGeometry(edge: CanvasEdge) {
-    const fallbackGeometry = computeEdgePath(edge, routedEntityRects, draftEdgeRouting);
-    const routeGeometry = mermaidRouteByEdgeId.get(edge.id);
-    if (!routeGeometry) return fallbackGeometry;
-    if (layoutMode === "auto" || !fallbackGeometry) return routeGeometry;
+  const parallelEdgeLaneSpacing = visualTokens.edge.parallelSpacing;
+  const fallbackEdgeGeometryById = useMemo(
+    () => computeEdgePathMap(visibleEdges, routedEntityRects, draftEdgeRouting, { laneSpacing: parallelEdgeLaneSpacing }),
+    [draftEdgeRouting, parallelEdgeLaneSpacing, routedEntityRects, visibleEdges]
+  );
+  const edgeGeometryById = useMemo(() => {
+    const resolved = new Map(fallbackEdgeGeometryById);
 
-    return remapEdgePathGeometry(routeGeometry, fallbackGeometry);
+    for (const edge of visibleEdges) {
+      const routeGeometry = mermaidRouteByEdgeId.get(edge.id);
+      if (!routeGeometry) continue;
+
+      const fallbackGeometry = fallbackEdgeGeometryById.get(edge.id);
+      if (layoutMode === "auto" || !fallbackGeometry) {
+        resolved.set(edge.id, routeGeometry);
+      } else {
+        resolved.set(edge.id, remapEdgePathGeometry(routeGeometry, fallbackGeometry));
+      }
+    }
+
+    return resolved;
+  }, [fallbackEdgeGeometryById, layoutMode, mermaidRouteByEdgeId, visibleEdges]);
+
+  function resolvedEdgeGeometry(edge: CanvasEdge) {
+    return edgeGeometryById.get(edge.id) || null;
   }
 
-  const visibleEdges = useMemo(() => graph.edges.filter((edge) => isEdgeVisible(edge, graph, viewFilters)), [graph, viewFilters]);
   const selectedSingleEdge =
     selection.edgeIds.length === 1 ? visibleEdges.find((edge) => edge.id === selection.edgeIds[0]) : undefined;
   const selectedSingleEdgeBaseGeometry = selectedSingleEdge ? resolvedEdgeGeometry(selectedSingleEdge) : null;
@@ -682,8 +700,21 @@ export function KonvaCanvas({
     const sourceRect = routedEntityRects.find((rect) => rect.id === connectionDraft.fromId);
     if (!sourceRect) return null;
 
+    if (connectionPreview.valid && connectionPreview.targetId) {
+      const draftEdge: CanvasEdge = {
+        id: "__connection_draft__",
+        from: connectionDraft.fromId,
+        to: connectionPreview.targetId,
+        label: "",
+        style: "solid",
+        arrowType: "arrow"
+      };
+      const draftGeometryById = computeEdgePathMap([...visibleEdges, draftEdge], routedEntityRects, draftEdgeRouting, { laneSpacing: parallelEdgeLaneSpacing });
+      return draftGeometryById.get(draftEdge.id) || computeEdgeDraftPath(sourceRect, connectionPreview.geometryTarget, draftEdgeRouting);
+    }
+
     return computeEdgeDraftPath(sourceRect, connectionPreview.geometryTarget, draftEdgeRouting);
-  }, [connectionDraft, connectionPreview, draftEdgeRouting, routedEntityRects]);
+  }, [connectionDraft, connectionPreview, draftEdgeRouting, parallelEdgeLaneSpacing, routedEntityRects, visibleEdges]);
   const connectionDraftVisual = useMemo(
     () => getConnectionDraftVisualState({ valid: connectionPreview?.valid ?? false, visualTokens }),
     [connectionPreview?.valid, visualTokens]
@@ -708,8 +739,17 @@ export function KonvaCanvas({
     const edge = graph.edges.find((item) => item.id === retargetDraft.edgeId);
     if (!edge) return null;
 
+    if (retargetPreview.valid && retargetPreview.targetId) {
+      const retargetedEdge = { ...edge, [retargetDraft.side]: retargetPreview.targetId };
+      const previewEdges = visibleEdges.some((item) => item.id === edge.id)
+        ? visibleEdges.map((item) => (item.id === edge.id ? retargetedEdge : item))
+        : [...visibleEdges, retargetedEdge];
+      const previewGeometryById = computeEdgePathMap(previewEdges, routedEntityRects, draftEdgeRouting, { laneSpacing: parallelEdgeLaneSpacing });
+      return previewGeometryById.get(edge.id) || computeEdgeRetargetPath(edge, routedEntityRects, retargetDraft.side, retargetPreview.geometryTarget, draftEdgeRouting);
+    }
+
     return computeEdgeRetargetPath(edge, routedEntityRects, retargetDraft.side, retargetPreview.geometryTarget, draftEdgeRouting);
-  }, [draftEdgeRouting, graph.edges, retargetDraft, retargetPreview, routedEntityRects]);
+  }, [draftEdgeRouting, graph.edges, parallelEdgeLaneSpacing, retargetDraft, retargetPreview, routedEntityRects, visibleEdges]);
   const selectedSingleEdgeGeometry =
     retargetDraft?.edgeId === selectedSingleEdge?.id && retargetDraftGeometry ? retargetDraftGeometry : selectedSingleEdgeBaseGeometry;
   const connectionTargetNodeId = connectionPreview?.targetNodeId ?? retargetPreview?.targetNodeId ?? null;

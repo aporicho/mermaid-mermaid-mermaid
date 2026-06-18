@@ -102,6 +102,7 @@ describe("editor theme", () => {
       },
       canvasInteraction: {
         edgeHitStrokeWidth: 24,
+        parallelEdgeSpacing: 26,
         gridMaxDots: 9000
       }
     });
@@ -116,6 +117,7 @@ describe("editor theme", () => {
     expect(compiled.geometry.grid.maxDots).toBe(9000);
     expect(compiled.canvasVisualTokens.node.cornerRadius).toBe(20);
     expect(compiled.canvasVisualTokens.edge.hitStrokeWidth).toBe(24);
+    expect(compiled.canvasVisualTokens.edge.parallelSpacing).toBe(26);
     expect(compiled.canvasVisualTokens.edge.labelCornerRadius).toBe(10);
   });
 

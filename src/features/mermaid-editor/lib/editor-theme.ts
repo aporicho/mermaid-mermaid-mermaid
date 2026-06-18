@@ -122,6 +122,7 @@ export type EditorTheme = {
     edgeHitStrokeWidth: number;
     pointerLength: number;
     pointerWidth: number;
+    parallelEdgeSpacing: number;
     endpointMarkerRadius: number;
     gridMinorAlpha: number;
     gridMajorAlpha: number;
@@ -287,6 +288,7 @@ export const DEFAULT_EDITOR_THEME: EditorTheme = {
     edgeHitStrokeWidth: CANVAS_VISUAL_TOKENS.edge.hitStrokeWidth,
     pointerLength: CANVAS_VISUAL_TOKENS.edge.pointerLength,
     pointerWidth: CANVAS_VISUAL_TOKENS.edge.pointerWidth,
+    parallelEdgeSpacing: CANVAS_VISUAL_TOKENS.edge.parallelSpacing,
     endpointMarkerRadius: CANVAS_VISUAL_TOKENS.edge.endpointMarkerRadius,
     gridMinorAlpha: DEFAULT_CANVAS_GRID.minorAlpha,
     gridMajorAlpha: DEFAULT_CANVAS_GRID.majorAlpha,
@@ -528,6 +530,7 @@ export function themeToCanvasVisualTokens(theme: EditorTheme): CanvasVisualToken
       dottedDash: [...theme.stroke.edgeDotted],
       pointerLength: theme.canvasInteraction.pointerLength,
       pointerWidth: theme.canvasInteraction.pointerWidth,
+      parallelSpacing: theme.canvasInteraction.parallelEdgeSpacing,
       labelCornerRadius: theme.radius.edgeLabel,
       endpointMarkerRadius: theme.canvasInteraction.endpointMarkerRadius
     },
@@ -771,6 +774,7 @@ const numberRanges = {
     edgeHitStrokeWidth: [8, 40],
     pointerLength: [0, 32],
     pointerWidth: [0, 32],
+    parallelEdgeSpacing: [0, 48],
     endpointMarkerRadius: [2, 12],
     gridMinorAlpha: [0, 1],
     gridMajorAlpha: [0, 1],

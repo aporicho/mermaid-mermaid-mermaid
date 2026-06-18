@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { spawn, spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import {
   chmodSync,
   copyFileSync,
@@ -365,7 +366,9 @@ function installWindowsApp() {
     run(installer, ["/S"], { cwd: path.dirname(installer) });
   }
 
-  return findInstalledWindowsApp() ?? releaseBinary() ?? installer;
+  const launchTarget = findInstalledWindowsApp() ?? releaseBinary() ?? installer;
+  refreshWindowsAppIcons(launchTarget);
+  return launchTarget;
 }
 
 function findInstalledWindowsApp() {
@@ -387,6 +390,58 @@ function findInstalledWindowsApp() {
   }
 
   return null;
+}
+
+function refreshWindowsAppIcons(launchTarget) {
+  if (process.platform !== "win32" || !launchTarget.toLowerCase().endsWith(".exe")) {
+    return;
+  }
+
+  const sourceIcon = path.join(PROJECT_DIR, "src-tauri", "icons", "icon.ico");
+  if (!existsSync(sourceIcon)) {
+    warn(`Windows shortcut icon refresh skipped because ${sourceIcon} was not found.`);
+    return;
+  }
+
+  const iconHash = createHash("sha256").update(readFileSync(sourceIcon)).digest("hex").slice(0, 10);
+  const installedIcon = path.join(path.dirname(launchTarget), `app-icon-${iconHash}.ico`);
+  copyFileSync(sourceIcon, installedIcon);
+
+  const shortcutRoots = [
+    path.join(os.homedir(), "Desktop"),
+    process.env.OneDrive && path.join(process.env.OneDrive, "Desktop"),
+    process.env.APPDATA && path.join(process.env.APPDATA, "Microsoft", "Windows", "Start Menu", "Programs"),
+    process.env.ProgramData && path.join(process.env.ProgramData, "Microsoft", "Windows", "Start Menu", "Programs")
+  ].filter(Boolean);
+  const shellNotifySignature = [
+    "using System;",
+    "using System.Runtime.InteropServices;",
+    "public static class ShellIconRefresh {",
+    "  [DllImport(\"shell32.dll\")] public static extern void SHChangeNotify(int wEventId, uint uFlags, IntPtr dwItem1, IntPtr dwItem2);",
+    "}"
+  ].join(" ");
+
+  run("powershell.exe", [
+    "-NoProfile",
+    "-ExecutionPolicy",
+    "Bypass",
+    "-Command",
+    [
+      "$ErrorActionPreference = 'Stop'",
+      "[Console]::OutputEncoding = [Text.UTF8Encoding]::UTF8",
+      `$iconLocation = ${psQuote(`${installedIcon},0`)}`,
+      `$shortcutRoots = @(${shortcutRoots.map(psQuote).join(", ")})`,
+      "$shell = New-Object -ComObject WScript.Shell",
+      "$shortcuts = foreach ($root in $shortcutRoots) { if (Test-Path -LiteralPath $root) { Get-ChildItem -LiteralPath $root -Filter '*.lnk' -Recurse -ErrorAction SilentlyContinue } }",
+      `$shortcuts | Where-Object { $_.BaseName -like ${psQuote(`${APP_NAME}*`)} -or $_.BaseName -like ${psQuote(`${BIN_NAME}*`)} } | ForEach-Object { $shortcut = $shell.CreateShortcut($_.FullName); $shortcut.IconLocation = $iconLocation; $shortcut.Save() }`,
+      "if (Get-Command ie4uinit.exe -ErrorAction SilentlyContinue) { & ie4uinit.exe -show }",
+      `$signature = ${psQuote(shellNotifySignature)}`,
+      "Add-Type -TypeDefinition $signature -ErrorAction SilentlyContinue",
+      "[ShellIconRefresh]::SHChangeNotify(0x08000000, 0x0000, [IntPtr]::Zero, [IntPtr]::Zero)"
+    ].join("; ")
+  ]);
+
+  log(`Refreshed Windows shortcuts with icon: ${installedIcon}`);
 }
 
 function installLinuxApp() {
@@ -463,4 +518,8 @@ function launchWithCommand(command, args) {
     shell: false
   });
   child.unref();
+}
+
+function psQuote(value) {
+  return `'${String(value).replaceAll("'", "''")}'`;
 }
