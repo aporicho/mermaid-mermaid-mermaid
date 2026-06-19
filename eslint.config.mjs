@@ -4,7 +4,19 @@ import tseslint from "typescript-eslint";
 
 export default [
   {
-    ignores: [".next/**", "dist/**", "node_modules/**", "src-tauri/**", "package-lock.json"]
+    ignores: [
+      ".next/**",
+      ".next-build/**",
+      ".next-dev/**",
+      "coverage/**",
+      "dist/**",
+      "node_modules/**",
+      "out/**",
+      "outputs/**",
+      "src-tauri/**",
+      "*.tsbuildinfo",
+      "package-lock.json"
+    ]
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,

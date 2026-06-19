@@ -89,6 +89,7 @@ npm run ready
 For local debugging only, the lower-level commands remain available:
 
 ```bash
+npm run lint
 npm test
 npm run typecheck
 npm run build
@@ -97,6 +98,26 @@ npm run dev
 
 Prefer `npm run ready` for final validation and hands-on browser testing. It handles project dev server restart automatically and keeps the app available by remaining attached to the Vite dev server after checks pass.
 Prefer `npm run ready` for browser validation. Use `npm run desktop:dev` for Tauri validation.
+
+## CI And Releases
+
+GitHub Actions runs the standard CI checks on pushes and pull requests to `main`:
+
+```bash
+npm run lint
+npm test
+npm run typecheck
+npm run build
+```
+
+Desktop installers are published by pushing a version tag:
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+The release workflow builds and uploads macOS, Windows, and Linux desktop installers to the matching GitHub Release. The first public release uses the current app version, `v0.1.0`.
 
 ## Mermaid Support Boundary
 
