@@ -8,6 +8,7 @@
     "mmm": "node --import tsx src/cli/index.ts",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview --host 127.0.0.1 --port 4173",
+    "tauri": "tauri",
     "desktop:dev": "tauri dev",
     "desktop:build": "tauri build",
     "desktop:ship": "node scripts/desktop-ship.mjs",
