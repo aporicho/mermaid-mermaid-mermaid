@@ -24,6 +24,7 @@ const TARGET_DIR = path.join(PROJECT_DIR, "src-tauri", "target", "release");
 const BUNDLE_DIR = path.join(TARGET_DIR, "bundle");
 const APP_NAME = "Mermaid Canvas Editor";
 const BIN_NAME = "mermaid-canvas-editor";
+const WINDOWS_FILE_ASSOCIATION_EXTENSIONS = [".mmd", ".mermaid"];
 
 const skipChecks = isEnabled("MMM_SHIP_SKIP_CHECKS");
 const packageOnly = isEnabled("MMM_SHIP_PACKAGE_ONLY");
@@ -399,7 +400,7 @@ function refreshWindowsAppIcons(launchTarget) {
 
   const sourceIcon = path.join(PROJECT_DIR, "src-tauri", "icons", "icon.ico");
   if (!existsSync(sourceIcon)) {
-    warn(`Windows shortcut icon refresh skipped because ${sourceIcon} was not found.`);
+    warn(`Windows icon refresh skipped because ${sourceIcon} was not found.`);
     return;
   }
 
@@ -430,10 +431,15 @@ function refreshWindowsAppIcons(launchTarget) {
       "$ErrorActionPreference = 'Stop'",
       "[Console]::OutputEncoding = [Text.UTF8Encoding]::UTF8",
       `$iconLocation = ${psQuote(`${installedIcon},0`)}`,
+      `$fileExtensions = @(${WINDOWS_FILE_ASSOCIATION_EXTENSIONS.map(psQuote).join(", ")})`,
       `$shortcutRoots = @(${shortcutRoots.map(psQuote).join(", ")})`,
       "$shell = New-Object -ComObject WScript.Shell",
       "$shortcuts = foreach ($root in $shortcutRoots) { if (Test-Path -LiteralPath $root) { Get-ChildItem -LiteralPath $root -Filter '*.lnk' -Recurse -ErrorAction SilentlyContinue } }",
       `$shortcuts | Where-Object { $_.BaseName -like ${psQuote(`${APP_NAME}*`)} -or $_.BaseName -like ${psQuote(`${BIN_NAME}*`)} } | ForEach-Object { $shortcut = $shell.CreateShortcut($_.FullName); $shortcut.IconLocation = $iconLocation; $shortcut.Save() }`,
+      "$classesRoot = [Microsoft.Win32.Registry]::CurrentUser.CreateSubKey('Software\\Classes')",
+      "$updatedProgIds = @{}",
+      "foreach ($extension in $fileExtensions) { $extensionKey = $classesRoot.OpenSubKey($extension); if (!$extensionKey) { continue }; $progId = [string]$extensionKey.GetValue(''); $extensionKey.Close(); if ([string]::IsNullOrWhiteSpace($progId) -or $updatedProgIds.ContainsKey($progId)) { continue }; $updatedProgIds[$progId] = $true; $iconKey = $classesRoot.CreateSubKey($progId + '\\DefaultIcon'); $iconKey.SetValue('', $iconLocation, [Microsoft.Win32.RegistryValueKind]::String); $iconKey.Close() }",
+      "$classesRoot.Close()",
       "if (Get-Command ie4uinit.exe -ErrorAction SilentlyContinue) { & ie4uinit.exe -show }",
       `$signature = ${psQuote(shellNotifySignature)}`,
       "Add-Type -TypeDefinition $signature -ErrorAction SilentlyContinue",
@@ -441,7 +447,7 @@ function refreshWindowsAppIcons(launchTarget) {
     ].join("; ")
   ]);
 
-  log(`Refreshed Windows shortcuts with icon: ${installedIcon}`);
+  log(`Refreshed Windows shortcuts and file association icons with: ${installedIcon}`);
 }
 
 function installLinuxApp() {
