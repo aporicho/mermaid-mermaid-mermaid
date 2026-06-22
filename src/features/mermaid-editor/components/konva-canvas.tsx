@@ -163,6 +163,8 @@ type SafariGestureEvent = Event & {
   clientY?: number;
 };
 
+const CONNECTION_ANCHOR_SNAP_RADIUS_PX = 14;
+
 function measureTextWidth(value: string, tokens: { fontSize: number; fontFamily: string; fontWeight: number }) {
   if (typeof document === "undefined") return value.length * tokens.fontSize * 0.58;
 
@@ -303,7 +305,9 @@ function useCanvasImage(src: string) {
     let disposed = false;
     setImage(null);
     const nextImage = new window.Image();
-    nextImage.crossOrigin = "anonymous";
+    if (shouldUseAnonymousImageCrossOrigin(src)) {
+      nextImage.crossOrigin = "anonymous";
+    }
     nextImage.onload = () => {
       if (!disposed) setImage(nextImage);
     };
@@ -318,6 +322,16 @@ function useCanvasImage(src: string) {
   }, [src]);
 
   return image;
+}
+
+function shouldUseAnonymousImageCrossOrigin(src: string) {
+  if (!/^https?:\/\//i.test(src)) return false;
+  try {
+    const url = new URL(src);
+    return url.hostname !== "asset.localhost" && url.hostname !== "localhost" && url.hostname !== "127.0.0.1";
+  } catch {
+    return false;
+  }
 }
 
 function PolygonShape({ points, radius = CANVAS_VISUAL_TOKENS.shape.polygonCornerRadius, fill, stroke, strokeWidth }: { points: number[]; radius?: number; fill: string; stroke: string; strokeWidth: number }) {
@@ -704,6 +718,7 @@ export function KonvaCanvas({
   const mermaidRouteByEdgeId = useMemo(() => new Map(mermaidEdgeRoutes.map((route) => [route.edgeId, route])), [mermaidEdgeRoutes]);
   const draftEdgeRouting = edgeRouting;
   const parallelEdgeLaneSpacing = visualTokens.edge.parallelSpacing;
+  const connectionAnchorSnapRadiusWorld = CONNECTION_ANCHOR_SNAP_RADIUS_PX / Math.max(viewport.scale, 0.01);
   const fallbackEdgeGeometryById = useMemo(
     () => computeEdgePathMap(visibleEdges, routedEntityRects, draftEdgeRouting, { laneSpacing: parallelEdgeLaneSpacing }),
     [draftEdgeRouting, parallelEdgeLaneSpacing, routedEntityRects, visibleEdges]
@@ -716,6 +731,11 @@ export function KonvaCanvas({
       if (!routeGeometry) continue;
 
       const fallbackGeometry = fallbackEdgeGeometryById.get(edge.id);
+      if ((edge.fromAnchor || edge.toAnchor) && fallbackGeometry) {
+        resolved.set(edge.id, fallbackGeometry);
+        continue;
+      }
+
       if (layoutMode === "auto" || !fallbackGeometry) {
         resolved.set(edge.id, routeGeometry);
       } else {
@@ -751,10 +771,11 @@ export function KonvaCanvas({
             fromId: connectionDraft.fromId,
             currentWorld: connectionDraft.currentWorld,
             nodes: renderedNodeGeometries,
-            subgraphs: renderedSubgraphGeometries
+            subgraphs: renderedSubgraphGeometries,
+            anchorSnapRadiusWorld: connectionAnchorSnapRadiusWorld
           })
         : null,
-    [connectionDraft, renderedNodeGeometries, renderedSubgraphGeometries]
+    [connectionAnchorSnapRadiusWorld, connectionDraft, renderedNodeGeometries, renderedSubgraphGeometries]
   );
   const connectionDraftGeometry = useMemo(() => {
     if (!connectionDraft || !connectionPreview) return null;
@@ -769,7 +790,9 @@ export function KonvaCanvas({
         to: connectionPreview.targetId,
         label: "",
         style: "solid",
-        arrowType: "arrow"
+        arrowType: "arrow",
+        ...(connectionDraft.fromAnchor ? { fromAnchor: connectionDraft.fromAnchor } : {}),
+        ...(connectionPreview.targetAnchor ? { toAnchor: connectionPreview.targetAnchor } : {})
       };
       const draftGeometryById = computeEdgePathMap([...visibleEdges, draftEdge], routedEntityRects, draftEdgeRouting, { laneSpacing: parallelEdgeLaneSpacing });
       return draftGeometryById.get(draftEdge.id) || computeEdgeDraftPath(sourceRect, connectionPreview.geometryTarget, draftEdgeRouting);
@@ -792,9 +815,10 @@ export function KonvaCanvas({
       side: retargetDraft.side,
       currentWorld: retargetDraft.currentWorld,
       nodes: renderedNodeGeometries,
-      subgraphs: renderedSubgraphGeometries
+      subgraphs: renderedSubgraphGeometries,
+      anchorSnapRadiusWorld: connectionAnchorSnapRadiusWorld
     });
-  }, [graph.edges, renderedNodeGeometries, renderedSubgraphGeometries, retargetDraft]);
+  }, [connectionAnchorSnapRadiusWorld, graph.edges, renderedNodeGeometries, renderedSubgraphGeometries, retargetDraft]);
   const retargetDraftGeometry = useMemo(() => {
     if (!retargetDraft || !retargetPreview) return null;
 
@@ -802,7 +826,8 @@ export function KonvaCanvas({
     if (!edge) return null;
 
     if (retargetPreview.valid && retargetPreview.targetId) {
-      const retargetedEdge = { ...edge, [retargetDraft.side]: retargetPreview.targetId };
+      const anchorKey = retargetDraft.side === "from" ? "fromAnchor" : "toAnchor";
+      const retargetedEdge = { ...edge, [retargetDraft.side]: retargetPreview.targetId, [anchorKey]: retargetPreview.targetAnchor || undefined };
       const previewEdges = visibleEdges.some((item) => item.id === edge.id)
         ? visibleEdges.map((item) => (item.id === edge.id ? retargetedEdge : item))
         : [...visibleEdges, retargetedEdge];
@@ -1573,20 +1598,49 @@ export function KonvaCanvas({
     const point = pointerWorldPoint();
     if (!point) return;
 
-    const preview = resolveConnectionPreview({ fromId: draft.fromId, currentWorld: point, nodes: renderedNodeGeometries, subgraphs: renderedSubgraphGeometries });
+    const preview = resolveConnectionPreview({
+      fromId: draft.fromId,
+      currentWorld: point,
+      nodes: renderedNodeGeometries,
+      subgraphs: renderedSubgraphGeometries,
+      anchorSnapRadiusWorld: connectionAnchorSnapRadiusWorld
+    });
     if (!preview.valid || !preview.targetId) return;
 
-    onEditorCommand({ type: "graph.createEdge", fromId: draft.fromId, toId: preview.targetId, message: "已创建连线。", source: "pointer" });
+    onEditorCommand({
+      type: "graph.createEdge",
+      fromId: draft.fromId,
+      toId: preview.targetId,
+      fromAnchor: draft.fromAnchor,
+      toAnchor: preview.targetAnchor || undefined,
+      message: preview.targetAnchor || draft.fromAnchor ? "已创建固定端点连线。" : "已创建连线。",
+      source: "pointer"
+    });
   }
 
   function retargetEdge(edgeId: string, side: "from" | "to", point: CanvasPoint) {
     const edge = graph.edges.find((item) => item.id === edgeId);
     if (!edge) return;
 
-    const preview = resolveRetargetPreview({ edge, side, currentWorld: point, nodes: renderedNodeGeometries, subgraphs: renderedSubgraphGeometries });
+    const preview = resolveRetargetPreview({
+      edge,
+      side,
+      currentWorld: point,
+      nodes: renderedNodeGeometries,
+      subgraphs: renderedSubgraphGeometries,
+      anchorSnapRadiusWorld: connectionAnchorSnapRadiusWorld
+    });
     if (!preview.valid || !preview.targetId) return;
 
-    onEditorCommand({ type: "graph.retargetEdge", edgeId, side, targetId: preview.targetId, message: "已重连连线。", source: "pointer" });
+    onEditorCommand({
+      type: "graph.retargetEdge",
+      edgeId,
+      side,
+      targetId: preview.targetId,
+      anchor: preview.targetAnchor,
+      message: preview.targetAnchor ? "已重连并固定端点。" : "已重连为自动端点。",
+      source: "pointer"
+    });
   }
 
   function commitInlineEdit(save: boolean) {
@@ -1700,6 +1754,17 @@ export function KonvaCanvas({
                 const hovered = hoveredSubgraphId === geometry.id;
                 const connectionTarget = connectionTargetSubgraphId === geometry.id;
                 const connectionInvalid = connectionInvalidSubgraphId === geometry.id;
+                const connectionAnchorTarget =
+                  connectionPreview?.targetSubgraphId === geometry.id || connectionPreview?.invalidSubgraphId === geometry.id
+                    ? connectionPreview.targetAnchor
+                    : retargetPreview?.targetSubgraphId === geometry.id || retargetPreview?.invalidSubgraphId === geometry.id
+                      ? retargetPreview.targetAnchor
+                      : null;
+                const connectionAnchorsVisible =
+                  connectionPreview?.targetSubgraphId === geometry.id ||
+                  connectionPreview?.invalidSubgraphId === geometry.id ||
+                  retargetPreview?.targetSubgraphId === geometry.id ||
+                  retargetPreview?.invalidSubgraphId === geometry.id;
                 const stroke = connectionInvalid
                   ? visualTokens.colors.connectionInvalid
                   : connectionTarget || selected
@@ -1710,7 +1775,7 @@ export function KonvaCanvas({
                 const anchorVisible =
                   mode === "select" &&
                   !inlineEdit &&
-                  (selected || hovered) &&
+                  (selected || hovered || connectionAnchorsVisible) &&
                   interactionState.kind !== "panning" &&
                   interactionState.kind !== "draggingNodes" &&
                   interactionState.kind !== "draggingSubgraphs";
@@ -1803,7 +1868,7 @@ export function KonvaCanvas({
                             <Circle radius={visualTokens.anchor.radius} fill="rgba(0,0,0,0.001)" strokeEnabled={false} />
                             <Circle
                               radius={anchor.kind === "corner" ? visualTokens.anchor.radius * visualTokens.subgraph.anchorCornerScale : visualTokens.anchor.radius}
-                              fill={visualTokens.colors.accent}
+                              fill={anchor.key === connectionAnchorTarget ? visualTokens.colors.connection : visualTokens.colors.accent}
                               stroke={visualTokens.colors.anchorStroke}
                               strokeWidth={visualTokens.anchor.strokeWidth}
                               opacity={anchor.kind === "corner" ? visualTokens.subgraph.anchorCornerOpacity : 1}
@@ -1944,6 +2009,18 @@ export function KonvaCanvas({
                 visualTokens
               });
               const anchorVisual = getAnchorVisualState({ nodeId: node.id, mode, selection, hoveredNodeId, interactionState, inlineEdit, visualTokens });
+              const connectionAnchorTarget =
+                connectionPreview?.targetNodeId === node.id || connectionPreview?.invalidNodeId === node.id
+                  ? connectionPreview.targetAnchor
+                  : retargetPreview?.targetNodeId === node.id || retargetPreview?.invalidNodeId === node.id
+                    ? retargetPreview.targetAnchor
+                    : null;
+              const connectionAnchorsVisible =
+                connectionPreview?.targetNodeId === node.id ||
+                connectionPreview?.invalidNodeId === node.id ||
+                retargetPreview?.targetNodeId === node.id ||
+                retargetPreview?.invalidNodeId === node.id;
+              const nodeAnchorsVisible = anchorVisual.visible || connectionAnchorsVisible;
               const imageAsset = normalizeImageAsset(node.asset);
               const imageDisplaySrc = imageAsset ? imageDisplaySrcBySrc[imageAsset.src] || imageAsset.src : undefined;
 
@@ -2011,7 +2088,7 @@ export function KonvaCanvas({
                     ellipsis
                     visible={viewFilters.nodeLabels && !(inlineEdit?.type === "node" && inlineEdit.id === node.id)}
                   />
-                  {anchorVisual.visible
+                  {nodeAnchorsVisible
                     ? geometry.anchorsLocal.map((anchor) => (
                         <Group
                           id={nodeAnchorHitId(node.id, anchor.key)}
@@ -2030,7 +2107,7 @@ export function KonvaCanvas({
                           <Circle radius={anchorVisual.radius} fill="rgba(0,0,0,0.001)" strokeEnabled={false} />
                           <Circle
                             radius={anchor.kind === "corner" ? anchorVisual.radius * visualTokens.subgraph.anchorCornerScale : anchorVisual.radius}
-                            fill={anchorVisual.fill}
+                            fill={anchor.key === connectionAnchorTarget ? visualTokens.colors.connection : anchorVisual.fill}
                             stroke={anchorVisual.stroke}
                             strokeWidth={anchorVisual.strokeWidth}
                             opacity={anchor.kind === "corner" ? visualTokens.subgraph.anchorCornerOpacity : 1}

@@ -39,13 +39,29 @@ export type EditorCommand =
   | { type: "graph.deleteSelection"; source: GraphCommandSource }
   | { type: "graph.pasteClipboard"; payload: ClipboardPayload; source: GraphCommandSource }
   | { type: "graph.setDirection"; direction: GraphDirection; source: GraphCommandSource }
-  | { type: "graph.createEdge"; fromId: string; toId: string; message?: string; source: Extract<EditorCommandSource, "pointer" | "menu" | "api"> }
-  | { type: "graph.retargetEdge"; edgeId: string; side: "from" | "to"; targetId: string; message?: string; source: Extract<EditorCommandSource, "pointer" | "menu" | "api"> }
+  | {
+      type: "graph.createEdge";
+      fromId: string;
+      toId: string;
+      fromAnchor?: string;
+      toAnchor?: string;
+      message?: string;
+      source: Extract<EditorCommandSource, "pointer" | "menu" | "api">;
+    }
+  | {
+      type: "graph.retargetEdge";
+      edgeId: string;
+      side: "from" | "to";
+      targetId: string;
+      anchor?: string | null;
+      message?: string;
+      source: Extract<EditorCommandSource, "pointer" | "menu" | "api">;
+    }
   | { type: "graph.renameNode"; nodeId: string; value: string; source: GraphCommandSource }
   | { type: "graph.renameSubgraph"; subgraphId: string; value: string; source: GraphCommandSource }
   | { type: "graph.updateNode"; nodeId: string; patch: Partial<Pick<CanvasNode, "label" | "fill" | "shape" | "asset">>; message?: string; source: GraphCommandSource }
   | { type: "graph.updateNodeFill"; nodeIds: string[]; fill: string; source: GraphCommandSource }
-  | { type: "graph.updateEdge"; edgeId: string; patch: Partial<Pick<CanvasEdge, "from" | "to" | "label" | "style" | "arrowType">>; message?: string; source: GraphCommandSource }
+  | { type: "graph.updateEdge"; edgeId: string; patch: Partial<Pick<CanvasEdge, "from" | "to" | "label" | "style" | "arrowType" | "fromAnchor" | "toAnchor">>; message?: string; source: GraphCommandSource }
   | { type: "graph.updateSubgraph"; subgraphId: string; patch: Partial<Pick<CanvasSubgraph, "title" | "parentId" | "direction">>; message?: string; source: GraphCommandSource }
   | { type: "graph.updateNodeLabel"; nodeId: string; label: string; message?: string; source: GraphCommandSource }
   | { type: "graph.updateEdgeLabel"; edgeId: string; label: string; message?: string; source: GraphCommandSource }

@@ -119,7 +119,7 @@ function computeEdgePathFromRectMap(edge: CanvasEdge, rectById: Map<string, Rout
 
   if (from.id === to.id) return edgeRouting === "mermaid" ? routeMermaidSelfLoop(from, options.lane) : routeSelfLoop(from, options.lane);
 
-  return routeBetweenRects(from, to, edgeRouting, options.lane);
+  return routeBetweenRects(from, to, edgeRouting, options.lane, edge);
 }
 
 export function computeEdgePathMap(edges: CanvasEdge[], nodes: RoutedNodeRect[], edgeRouting: EdgeRouting, options: EdgePathMapOptions = {}): Map<string, EdgePathGeometry> {
@@ -238,9 +238,9 @@ export function remapEdgePathGeometry(route: EdgePathGeometry, fallback: EdgePat
   return buildGeometry(transformed, fallback.start, fallback.end, fallback.endTangent, basisLine(transformed) || undefined);
 }
 
-function routeBetweenRects(from: RoutedNodeRect, to: RoutedNodeRect, edgeRouting: EdgeRouting, lane?: EdgeLaneAssignment): EdgePathGeometry {
+function routeBetweenRects(from: RoutedNodeRect, to: RoutedNodeRect, edgeRouting: EdgeRouting, lane?: EdgeLaneAssignment, edge?: Pick<CanvasEdge, "fromAnchor" | "toAnchor">): EdgePathGeometry {
   const preset = routingPresets[edgeRouting];
-  const anchors = computeAnchorsForPreset(from, to, preset, lane);
+  const anchors = computeAnchorsForPreset(from, to, preset, lane, edge);
 
   if (preset.pathKind === "cubic-bezier") return routeCubicBezier(anchors);
   if (preset.pathKind === "rounded-orthogonal") return routeRoundedOrthogonal(anchors);
@@ -267,9 +267,18 @@ function routeFromPointToRect(point: Point, to: RoutedNodeRect, edgeRouting: Edg
   return buildGeometry(points, reversed.end, reversed.start, multiply(reversed.endTangent, -1));
 }
 
-function computeAnchorsForPreset(from: RoutedNodeRect, to: RoutedNodeRect, preset: EdgeRoutingPreset, lane?: EdgeLaneAssignment): EdgeAnchors {
-  if (preset.anchorPolicy === "fixed-port") return computeFixedPortAnchors(from, to, effectiveLaneOffset(lane));
-  return computeBoundaryRayAnchors(from, to, effectiveLaneOffset(lane));
+function computeAnchorsForPreset(from: RoutedNodeRect, to: RoutedNodeRect, preset: EdgeRoutingPreset, lane?: EdgeLaneAssignment, edge?: Pick<CanvasEdge, "fromAnchor" | "toAnchor">): EdgeAnchors {
+  const autoAnchors = preset.anchorPolicy === "fixed-port" ? computeFixedPortAnchors(from, to, effectiveLaneOffset(lane)) : computeBoundaryRayAnchors(from, to, effectiveLaneOffset(lane));
+  const sourcePort = edge?.fromAnchor ? shapePortByKey(from, edge.fromAnchor) : null;
+  const targetPort = edge?.toAnchor ? shapePortByKey(to, edge.toAnchor) : null;
+  if (!sourcePort && !targetPort) return autoAnchors;
+
+  return {
+    start: sourcePort ? add(sourcePort.point, multiply(sourcePort.outward, SOURCE_GAP)) : autoAnchors.start,
+    end: targetPort ? add(targetPort.point, multiply(targetPort.outward, TARGET_GAP)) : autoAnchors.end,
+    sourceTangent: sourcePort ? sourcePort.outward : autoAnchors.sourceTangent,
+    endTangent: targetPort ? multiply(targetPort.outward, -1) : autoAnchors.endTangent
+  };
 }
 
 function computePointAnchorsForPreset(from: RoutedNodeRect, point: Point, preset: EdgeRoutingPreset): EdgeAnchors {
@@ -588,6 +597,12 @@ function shapePort(rect: RoutedNodeRect, direction: Point): ShapePort {
   }
 
   return best || { point: rectCenter(rect), outward: normalizedDirection };
+}
+
+function shapePortByKey(rect: RoutedNodeRect, key: string): ShapePort | null {
+  const shape = normalizeFlowchartShape(rect.shape) || DEFAULT_FLOWCHART_NODE_SHAPE;
+  const port = flowchartPortPoints(shape, rect).find((item) => item.key === key);
+  return port ? { point: toPoint(port.point), outward: toPoint(port.outward) } : null;
 }
 
 function intersectRectBoundary(rect: RoutedNodeRect, direction: Point): Point {

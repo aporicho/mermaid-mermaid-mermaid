@@ -20,10 +20,11 @@ import type {
   Selection
 } from "@/features/mermaid-editor/lib/editor-types";
 import { descendantSubgraphIds, selectOnlyEdge, selectOnlySubgraph } from "@/features/mermaid-editor/lib/editor-actions";
-import { FLOWCHART_SHAPE_GROUPS, FLOWCHART_SHAPES } from "@/features/mermaid-editor/lib/flowchart-shapes";
+import { DEFAULT_FLOWCHART_NODE_SHAPE, FLOWCHART_SHAPE_GROUPS, FLOWCHART_SHAPES, normalizeFlowchartShape } from "@/features/mermaid-editor/lib/flowchart-shapes";
 import type { EditorCommand } from "@/features/mermaid-editor/lib/interaction/commands";
 import { palette } from "@/features/mermaid-editor/lib/mermaid-graph";
 import { createImageAsset, DEFAULT_IMAGE_ASSET_HEIGHT, DEFAULT_IMAGE_ASSET_WIDTH } from "@/features/mermaid-editor/lib/node-assets";
+import { flowchartPortPoints, type ShapeGeometryPortKind } from "@/features/mermaid-editor/lib/flowchart-shape-geometry";
 import { cn } from "@/lib/utils";
 
 type InspectorPanelProps = {
@@ -53,6 +54,26 @@ const directionOptions: { value: GraphDirection; label: string }[] = [
   { value: "BT", label: "BT" }
 ];
 
+const anchorKindLabels: Record<ShapeGeometryPortKind, string> = {
+  "edge-midpoint": "边中点",
+  corner: "角点",
+  "polygon-edge": "边中点",
+  "polygon-vertex": "顶点",
+  "ellipse-cardinal": "主方向",
+  "ellipse-diagonal": "斜向"
+};
+
+const anchorKeyLabels: Record<string, string> = {
+  top: "上",
+  "top-right": "右上",
+  right: "右",
+  "bottom-right": "右下",
+  bottom: "下",
+  "bottom-left": "左下",
+  left: "左",
+  "top-left": "左上"
+};
+
 export function InspectorPanel({ graph, selection, onEditorCommand }: InspectorPanelProps) {
   const selectedNodes = graph.nodes.filter((node) => selection.nodeIds.includes(node.id));
   const selectedEdges = graph.edges.filter((edge) => selection.edgeIds.includes(edge.id));
@@ -61,6 +82,10 @@ export function InspectorPanel({ graph, selection, onEditorCommand }: InspectorP
   const selectedEdge = selectedEdges.length === 1 && selectedNodes.length === 0 && selectedSubgraphs.length === 0 ? selectedEdges[0] : undefined;
   const selectedSubgraph = selectedSubgraphs.length === 1 && selectedNodes.length === 0 && selectedEdges.length === 0 ? selectedSubgraphs[0] : undefined;
   const multiNode = selectedNodes.length > 1 && selectedEdges.length === 0 && selectedSubgraphs.length === 0;
+  const selectedEdgeFromNode = selectedEdge ? graph.nodes.find((node) => node.id === selectedEdge.from) : undefined;
+  const selectedEdgeToNode = selectedEdge ? graph.nodes.find((node) => node.id === selectedEdge.to) : undefined;
+  const selectedEdgeFromAnchorOptions = nodeAnchorOptions(selectedEdgeFromNode);
+  const selectedEdgeToAnchorOptions = nodeAnchorOptions(selectedEdgeToNode);
   const endpointOptions = [
     ...graph.nodes.map((node) => ({ id: node.id, label: `${node.id} · 节点` })),
     ...(graph.subgraphs || []).map((subgraph) => ({ id: subgraph.id, label: `${subgraph.id} · 组` }))
@@ -343,6 +368,46 @@ export function InspectorPanel({ graph, selection, onEditorCommand }: InspectorP
                 </Select>
               </div>
               <div className="grid gap-2">
+                <Label>起点连接点</Label>
+                <Select
+                  value={edgeAnchorSelectValue(selectedEdge.fromAnchor, selectedEdgeFromAnchorOptions)}
+                  onValueChange={(value) => updateSelectedEdge(selectedEdge.id, { fromAnchor: value === "auto" ? undefined : value })}
+                  disabled={!selectedEdgeFromNode}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="auto">自动选择</SelectItem>
+                    {selectedEdgeFromAnchorOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-2">
+                <Label>终点连接点</Label>
+                <Select
+                  value={edgeAnchorSelectValue(selectedEdge.toAnchor, selectedEdgeToAnchorOptions)}
+                  onValueChange={(value) => updateSelectedEdge(selectedEdge.id, { toAnchor: value === "auto" ? undefined : value })}
+                  disabled={!selectedEdgeToNode}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="auto">自动选择</SelectItem>
+                    {selectedEdgeToAnchorOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-2">
                 <Label htmlFor="edge-label">连线文本</Label>
                 <Input
                   id="edge-label"
@@ -428,6 +493,25 @@ function EmptyInspector() {
     </div>
   );
 }
+
+function nodeAnchorOptions(node: CanvasNode | undefined) {
+  if (!node) return [];
+  const shape = normalizeFlowchartShape(node.shape) || DEFAULT_FLOWCHART_NODE_SHAPE;
+  return flowchartPortPoints(shape, { x: 0, y: 0, width: 100, height: 100 }).map((port, index) => ({
+    value: port.key,
+    label: anchorLabel(port.key, port.kind, index)
+  }));
+}
+
+function edgeAnchorSelectValue(value: string | undefined, options: { value: string }[]) {
+  return value && options.some((option) => option.value === value) ? value : "auto";
+}
+
+function anchorLabel(key: string, kind: ShapeGeometryPortKind, index: number) {
+  const readableKey = anchorKeyLabels[key] || key.replace(/^edge-(\d+)$/, "边 $1").replace(/^vertex-(\d+)$/, "顶点 $1");
+  return `${readableKey} · ${anchorKindLabels[kind] || `连接点 ${index + 1}`}`;
+}
+
 function normalizeNodePatch(patch: Partial<CanvasNode>) {
   return {
     ...(patch.label !== undefined ? { label: patch.label } : {}),
@@ -443,7 +527,9 @@ function normalizeEdgePatch(patch: Partial<CanvasEdge>) {
     ...(patch.to !== undefined ? { to: patch.to } : {}),
     ...(patch.label !== undefined ? { label: patch.label } : {}),
     ...(patch.style !== undefined ? { style: patch.style } : {}),
-    ...(patch.arrowType !== undefined ? { arrowType: patch.arrowType } : {})
+    ...(patch.arrowType !== undefined ? { arrowType: patch.arrowType } : {}),
+    ...("fromAnchor" in patch ? { fromAnchor: patch.fromAnchor } : {}),
+    ...("toAnchor" in patch ? { toAnchor: patch.toAnchor } : {})
   };
 }
 

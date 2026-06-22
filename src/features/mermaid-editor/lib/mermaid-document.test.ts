@@ -65,6 +65,28 @@ flowchart LR
     expect(saved).toContain('"layoutMode":"auto"');
   });
 
+  it("round-trips pinned edge anchors through canvas metadata", () => {
+    const document = loadMermaidDocument(`flowchart LR
+  A[Alpha] --> B[Beta]`);
+    const graph = {
+      ...document.graph,
+      edges: document.graph.edges.map((edge) => ({
+        ...edge,
+        fromAnchor: "bottom",
+        toAnchor: "top"
+      }))
+    };
+    const saved = buildMermaidDocument(document.source, graph, { x: 10, y: 20, scale: 1 }, document.edgeRouting, document.layoutMode);
+    const reloaded = loadMermaidDocument(saved);
+
+    expect(saved).toContain('"fromAnchor":"bottom"');
+    expect(saved).toContain('"toAnchor":"top"');
+    expect(reloaded.graph.edges[0]).toMatchObject({
+      fromAnchor: "bottom",
+      toAnchor: "top"
+    });
+  });
+
   it("round-trips file theme through the canvas layout comment", () => {
     const document = loadMermaidDocument(`%% canvas-layout: {"version":1,"edgeRouting":"bezier","layoutMode":"manual","theme":{"themeId":"custom","customTheme":{"version":2,"name":"文件主题","ui":{"primary":"#123456"},"space":{"nodePaddingX":20}}},"viewport":{"x":0,"y":0,"scale":1},"nodes":{"A":{"x":10,"y":20,"fill":"#fff"}}}
 flowchart LR

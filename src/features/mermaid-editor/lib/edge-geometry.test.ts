@@ -92,6 +92,32 @@ describe("computeEdgePath", () => {
     expectFinitePoints(geometry.points);
   });
 
+  it("uses pinned endpoint anchors when an edge selects node ports", () => {
+    const geometry = edgePath("bezier", defaultNodes(), {
+      ...baseEdge,
+      fromAnchor: "bottom",
+      toAnchor: "top"
+    });
+
+    expectPointClose(pointAt(geometry.points, 0), { x: 50, y: 56 });
+    expectPointClose(lastPoint(geometry.points), { x: 270, y: -10 });
+    expectPointClose(geometry.endTangent, { x: 0, y: 1 });
+    expectFinitePoints(geometry.points);
+  });
+
+  it("falls back to automatic anchors when a pinned port no longer exists", () => {
+    const geometry = edgePath("bezier", defaultNodes(), {
+      ...baseEdge,
+      fromAnchor: "missing-port",
+      toAnchor: "right"
+    });
+
+    expectPointClose(pointAt(geometry.points, 0), { x: 106, y: 25 });
+    expectPointClose(lastPoint(geometry.points), { x: 330, y: 25 });
+    expectPointClose(geometry.endTangent, { x: -1, y: 0 });
+    expectFinitePoints(geometry.points);
+  });
+
   it("uses shape-aware boundaries for bezier edge endpoints", () => {
     const geometry = edgePath("bezier", [
       { id: "a", x: 0, y: 0, width: 100, height: 100, shape: "diam" },

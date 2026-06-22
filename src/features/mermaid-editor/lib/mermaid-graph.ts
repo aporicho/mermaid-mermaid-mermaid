@@ -341,6 +341,9 @@ export function parseMermaid(source: string, previous?: MermaidGraph): MermaidGr
 
     if (leftKind === "node") ensureNode(edge.left.id, edge.left.label, edge.left.hasShape ? edge.left.shape : undefined, edge.parentId, edge.left.asset);
     if (rightKind === "node") ensureNode(edge.right.id, edge.right.label, edge.right.hasShape ? edge.right.shape : undefined, edge.parentId, edge.right.asset);
+    const style = styleFromEdgeOperator(edge.operator);
+    const arrowType = arrowTypeFromEdgeOperator(edge.operator);
+    const previousEdge = findPreviousEdge(previous, edge.left.id, edge.right.id, edge.label, style, arrowType);
 
     return {
       id: resolveEdgeId(
@@ -348,15 +351,17 @@ export function parseMermaid(source: string, previous?: MermaidGraph): MermaidGr
         edge.left.id,
         edge.right.id,
         edge.label,
-        styleFromEdgeOperator(edge.operator),
-        arrowTypeFromEdgeOperator(edge.operator),
+        style,
+        arrowType,
         index
       ),
       from: edge.left.id,
       to: edge.right.id,
       label: edge.label,
-      style: styleFromEdgeOperator(edge.operator),
-      arrowType: arrowTypeFromEdgeOperator(edge.operator)
+      style,
+      arrowType,
+      ...(previousEdge?.fromAnchor ? { fromAnchor: previousEdge.fromAnchor } : {}),
+      ...(previousEdge?.toAnchor ? { toAnchor: previousEdge.toAnchor } : {})
     };
   });
 
@@ -600,7 +605,20 @@ function resolveEdgeId(
   arrowType: FlowchartArrowType,
   index: number
 ) {
-  const previousEdge = previous?.edges.find(
+  const previousEdge = findPreviousEdge(previous, from, to, label, style, arrowType);
+
+  return previousEdge?.id || `${from}_${to}_${index}`;
+}
+
+function findPreviousEdge(
+  previous: MermaidGraph | undefined,
+  from: string,
+  to: string,
+  label: string,
+  style: EdgeStyle,
+  arrowType: FlowchartArrowType
+) {
+  return previous?.edges.find(
     (edge) =>
       edge.from === from &&
       edge.to === to &&
@@ -608,6 +626,4 @@ function resolveEdgeId(
       edge.style === style &&
       (edge.arrowType || "arrow") === arrowType
   );
-
-  return previousEdge?.id || `${from}_${to}_${index}`;
 }

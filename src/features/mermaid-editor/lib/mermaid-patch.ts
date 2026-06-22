@@ -59,6 +59,8 @@ export type PatchOperation =
       label?: string;
       style?: EdgeStyle;
       arrowType?: FlowchartArrowType;
+      fromAnchor?: string;
+      toAnchor?: string;
     }
   | {
       type: "updateEdge";
@@ -68,6 +70,8 @@ export type PatchOperation =
       label?: string;
       style?: EdgeStyle;
       arrowType?: FlowchartArrowType;
+      fromAnchor?: string | null;
+      toAnchor?: string | null;
     }
   | { type: "deleteEdge"; id: string }
   | {
@@ -410,7 +414,9 @@ function addEdgeOp(graph: MermaidGraph, op: Extract<PatchOperation, { type: "add
           to: op.to,
           label: op.label || "",
           style,
-          arrowType
+          arrowType,
+          ...(normalizeAnchorKey(op.fromAnchor) ? { fromAnchor: normalizeAnchorKey(op.fromAnchor) } : {}),
+          ...(normalizeAnchorKey(op.toAnchor) ? { toAnchor: normalizeAnchorKey(op.toAnchor) } : {})
         }
       ]
     }
@@ -428,20 +434,30 @@ function updateEdgeOp(graph: MermaidGraph, op: Extract<PatchOperation, { type: "
   return {
     graph: {
       ...graph,
-      edges: graph.edges.map((item) =>
-        item.id === op.id
-          ? {
-              ...item,
-              ...(op.from === undefined ? {} : { from: op.from }),
-              ...(op.to === undefined ? {} : { to: op.to }),
-              ...(op.label === undefined ? {} : { label: op.label }),
-              ...(op.style === undefined ? {} : { style: op.style }),
-              ...(op.arrowType === undefined ? {} : { arrowType: op.arrowType })
-            }
-          : item
-      )
+      edges: graph.edges.map((item) => {
+        if (item.id !== op.id) return item;
+        const fromChanged = op.from !== undefined && op.from !== item.from;
+        const toChanged = op.to !== undefined && op.to !== item.to;
+
+        return {
+          ...item,
+          ...(op.from === undefined ? {} : { from: op.from }),
+          ...(op.to === undefined ? {} : { to: op.to }),
+          ...(op.label === undefined ? {} : { label: op.label }),
+          ...(op.style === undefined ? {} : { style: op.style }),
+          ...(op.arrowType === undefined ? {} : { arrowType: op.arrowType }),
+          ...(fromChanged ? { fromAnchor: undefined } : {}),
+          ...(toChanged ? { toAnchor: undefined } : {}),
+          ...(!("fromAnchor" in op) ? {} : { fromAnchor: normalizeAnchorKey(op.fromAnchor) }),
+          ...(!("toAnchor" in op) ? {} : { toAnchor: normalizeAnchorKey(op.toAnchor) })
+        };
+      })
     }
   };
+}
+
+function normalizeAnchorKey(value: string | null | undefined) {
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
 
 function createSubgraphOp(graph: MermaidGraph, op: Extract<PatchOperation, { type: "createSubgraph" }>) {

@@ -72,6 +72,8 @@ export type AiEdgeContext = {
   label: string;
   style: CanvasEdge["style"];
   arrowType: NonNullable<CanvasEdge["arrowType"]>;
+  fromAnchor?: string;
+  toAnchor?: string;
 };
 
 export type AiSubgraphContext = {
@@ -428,7 +430,9 @@ function edgeContext(edge: CanvasEdge): AiEdgeContext {
     to: edge.to,
     label: edge.label,
     style: edge.style,
-    arrowType: edge.arrowType || "arrow"
+    arrowType: edge.arrowType || "arrow",
+    ...(edge.fromAnchor ? { fromAnchor: edge.fromAnchor } : {}),
+    ...(edge.toAnchor ? { toAnchor: edge.toAnchor } : {})
   };
 }
 

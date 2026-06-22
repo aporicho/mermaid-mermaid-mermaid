@@ -100,7 +100,7 @@ export function fileWorkflowErrorSuggestion(code: FileWorkflowErrorCode) {
   const suggestions: Record<FileWorkflowErrorCode, string> = {
     file_not_found: "确认文件没有被移动或删除，然后从最近文件或打开菜单重新选择。",
     permission_denied: "检查文件权限，或使用另存为保存到可写位置。",
-    unsupported_type: "请选择 .mmd 或 .mermaid 文件。",
+    unsupported_type: "请选择 .mmd/.mermaid 文件，或在无限画布中拖入支持的图片文件。",
     read_failed: "确认文件内容可读，然后重新打开。",
     write_failed: "检查目标目录权限，或使用另存为保存到其它位置。",
     association_failed: "重新安装桌面版后再尝试双击打开 Mermaid 文件。"
@@ -127,7 +127,7 @@ function messageForFileWorkflowCode(code: FileWorkflowErrorCode, path: string | 
   const messages: Record<FileWorkflowErrorCode, string> = {
     file_not_found: `找不到文件${target}`,
     permission_denied: `没有权限访问文件${target}`,
-    unsupported_type: `只支持 .mmd 或 .mermaid 文件${target}`,
+    unsupported_type: `只支持 .mmd/.mermaid 文件，或支持的图片文件${target}`,
     read_failed: `读取文件失败${target}`,
     write_failed: `保存文件失败${target}`,
     association_failed: `通过系统文件关联打开失败${target}`

@@ -51,6 +51,7 @@ export type InteractionState =
       kind: "connectingEdge";
       pointerId: number;
       fromId: string;
+      fromAnchor?: string;
       startWorld: CanvasPoint;
       currentWorld: CanvasPoint;
     }
@@ -203,6 +204,7 @@ export function beginCanvasPointer(input: PointerDownInput): InteractionTransiti
           kind: "connectingEdge",
           pointerId: 0,
           fromId: input.hit.nodeId,
+          fromAnchor: input.hit.anchor,
           startWorld: input.world,
           currentWorld: input.world
         },
@@ -231,6 +233,7 @@ export function beginCanvasPointer(input: PointerDownInput): InteractionTransiti
           kind: "connectingEdge",
           pointerId: 0,
           fromId: input.hit.subgraphId,
+          fromAnchor: input.hit.anchor,
           startWorld: input.world,
           currentWorld: input.world
         },
@@ -261,12 +264,14 @@ export function beginCanvasPointer(input: PointerDownInput): InteractionTransiti
           : input.hit.kind === "subgraph"
             ? input.hit.id
             : input.hit.subgraphId;
+    const fromAnchor = input.hit.kind === "nodeAnchor" || input.hit.kind === "subgraphAnchor" ? input.hit.anchor : undefined;
 
     return {
       state: {
         kind: "connectingEdge",
         pointerId: 0,
         fromId,
+        ...(fromAnchor ? { fromAnchor } : {}),
         startWorld: input.world,
         currentWorld: input.world
       },

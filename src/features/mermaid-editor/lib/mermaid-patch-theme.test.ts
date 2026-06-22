@@ -47,4 +47,35 @@ flowchart LR
     });
     expect(patched.result?.source).toContain('Logo@{ img: "assets/logo.png", label: "Logo", pos: "b", w: 120, h: 80, constraint: "on" }');
   });
+
+  it("updates and clears pinned edge anchors through graph patch operations", () => {
+    const pinned = applyMermaidPatch(
+      `flowchart LR
+  A[Alpha] --> B[Beta]
+  B[Beta] --> C[Gamma]`,
+      {
+        ops: [{ type: "updateEdge", id: "A_B_0", fromAnchor: "bottom", toAnchor: "top" }]
+      }
+    );
+
+    expect(pinned.ok).toBe(true);
+    let reloaded = loadMermaidDocument(pinned.result?.source || "");
+    expect(reloaded.graph.edges[0]).toMatchObject({
+      fromAnchor: "bottom",
+      toAnchor: "top"
+    });
+
+    const retargeted = applyMermaidPatch(pinned.result?.source || "", {
+      ops: [{ type: "updateEdge", id: "A_B_0", to: "C" }]
+    });
+
+    expect(retargeted.ok).toBe(true);
+    reloaded = loadMermaidDocument(retargeted.result?.source || "");
+    expect(reloaded.graph.edges[0]).toMatchObject({
+      from: "A",
+      to: "C",
+      fromAnchor: "bottom"
+    });
+    expect(reloaded.graph.edges[0].toAnchor).toBeUndefined();
+  });
 });

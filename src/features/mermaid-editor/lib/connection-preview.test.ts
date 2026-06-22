@@ -50,8 +50,17 @@ describe("connection preview", () => {
 
     expect(preview.valid).toBe(true);
     expect(preview.targetNodeId).toBe("b");
+    expect(preview.targetAnchor).toBeNull();
     expect(preview.invalidNodeId).toBeNull();
     expect(preview.geometryTarget).toEqual({ kind: "node", rect: geometries[1].routedRect });
+  });
+
+  it("returns a fixed target anchor only when the pointer is near a connection point", () => {
+    const fixed = resolveConnectionPreview({ fromId: "a", currentWorld: { x: 160, y: 18 }, nodes: geometries, anchorSnapRadiusWorld: 16 });
+    const automatic = resolveConnectionPreview({ fromId: "a", currentWorld: { x: 180, y: 20 }, nodes: geometries, anchorSnapRadiusWorld: 16 });
+
+    expect(fixed).toMatchObject({ valid: true, targetNodeId: "b", targetAnchor: "left" });
+    expect(automatic).toMatchObject({ valid: true, targetNodeId: "b", targetAnchor: null });
   });
 
   it("treats the source node and blank space as invalid connection targets", () => {
@@ -69,6 +78,27 @@ describe("connection preview", () => {
     expect(preview.valid).toBe(true);
     expect(preview.targetNodeId).toBe("c");
     expect(preview.geometryTarget).toEqual({ kind: "node", rect: geometries[2].routedRect });
+  });
+
+  it("allows retargeting the same endpoint to a different anchor or back to automatic", () => {
+    const pinnedEdge = { ...edge, toAnchor: "top" };
+    const differentAnchor = resolveRetargetPreview({
+      edge: pinnedEdge,
+      side: "to",
+      currentWorld: { x: 220, y: 18 },
+      nodes: geometries,
+      anchorSnapRadiusWorld: 16
+    });
+    const automatic = resolveRetargetPreview({
+      edge: pinnedEdge,
+      side: "to",
+      currentWorld: { x: 180, y: 20 },
+      nodes: geometries,
+      anchorSnapRadiusWorld: 16
+    });
+
+    expect(differentAnchor).toMatchObject({ valid: true, targetNodeId: "b", targetAnchor: "right" });
+    expect(automatic).toMatchObject({ valid: true, targetNodeId: "b", targetAnchor: null });
   });
 
   it("uses node targets before subgraph targets and supports subgraph fallback", () => {

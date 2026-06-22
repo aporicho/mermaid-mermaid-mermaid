@@ -2,7 +2,9 @@ import {
   DEFAULT_EDGE_ROUTING,
   DEFAULT_LAYOUT_MODE,
   type CanvasLayout,
+  type CanvasLayoutEdge,
   type CanvasLayoutTheme,
+  type CanvasEdge,
   type EdgeRouting,
   type LayoutMode,
   type LegacyEdgePath,
@@ -41,10 +43,57 @@ function normalizeLayoutTheme(value: unknown): CanvasLayoutTheme | undefined {
   return theme.themeId || "customTheme" in theme ? theme : undefined;
 }
 
+function normalizeEdgeAnchor(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+function layoutEdgesFromGraph(graph: MermaidGraph) {
+  const entries = graph.edges.flatMap((edge, index) => {
+    const fromAnchor = normalizeEdgeAnchor(edge.fromAnchor);
+    const toAnchor = normalizeEdgeAnchor(edge.toAnchor);
+    if (!fromAnchor && !toAnchor) return [];
+    return [
+      [
+        edge.id,
+        {
+          from: edge.from,
+          to: edge.to,
+          label: edge.label,
+          style: edge.style,
+          arrowType: edge.arrowType || "arrow",
+          index,
+          ...(fromAnchor ? { fromAnchor } : {}),
+          ...(toAnchor ? { toAnchor } : {})
+        }
+      ] as const
+    ];
+  });
+
+  return entries.length ? Object.fromEntries(entries) : undefined;
+}
+
 function routingFromLegacyPath(value: LegacyEdgePath): EdgeRouting {
   if (value === "straight") return "straight";
   if (value === "orthogonal") return "orthogonal";
   return "bezier";
+}
+
+function layoutEdgeFor(edge: CanvasEdge, index: number, layoutEdges: Record<string, CanvasLayoutEdge> | undefined) {
+  if (!layoutEdges) return undefined;
+  const byId = layoutEdges[edge.id];
+  if (byId) return byId;
+
+  return Object.values(layoutEdges).find((saved) => layoutEdgeMatches(edge, index, saved));
+}
+
+function layoutEdgeMatches(edge: CanvasEdge, index: number, saved: CanvasLayoutEdge) {
+  if (typeof saved.from !== "string" || typeof saved.to !== "string") return false;
+  if (saved.from !== edge.from || saved.to !== edge.to) return false;
+  if (typeof saved.index === "number" && saved.index !== index) return false;
+  if (typeof saved.label === "string" && saved.label !== edge.label) return false;
+  if (typeof saved.style === "string" && saved.style !== edge.style) return false;
+  if (typeof saved.arrowType === "string" && saved.arrowType !== (edge.arrowType || "arrow")) return false;
+  return true;
 }
 
 export function edgeRoutingFromLayout(layout: CanvasLayout | null | undefined): EdgeRouting {
@@ -103,11 +152,13 @@ export function layoutFromGraph(
   theme?: CanvasLayoutTheme | null
 ): CanvasLayout {
   const normalizedTheme = normalizeLayoutTheme(theme);
+  const edges = layoutEdgesFromGraph(graph);
   return {
     version: 1,
     edgeRouting,
     layoutMode,
     ...(normalizedTheme ? { theme: normalizedTheme } : {}),
+    ...(edges ? { edges } : {}),
     viewport,
     nodes: Object.fromEntries(
       graph.nodes.map((node) => [
@@ -130,6 +181,15 @@ export function applyLayout(graph: MermaidGraph, layout: CanvasLayout | null): M
     nodes: graph.nodes.map((node) => {
       const saved = layout.nodes[node.id];
       return saved ? { ...node, x: saved.x, y: saved.y, fill: saved.fill || node.fill } : node;
+    }),
+    edges: graph.edges.map((edge, index) => {
+      const saved = layoutEdgeFor(edge, index, layout.edges);
+      if (!saved) return edge;
+      return {
+        ...edge,
+        ...("fromAnchor" in saved ? { fromAnchor: normalizeEdgeAnchor(saved.fromAnchor) } : {}),
+        ...("toAnchor" in saved ? { toAnchor: normalizeEdgeAnchor(saved.toAnchor) } : {})
+      };
     })
   };
 }
@@ -144,12 +204,14 @@ export function syncLayout(
 ): CanvasLayout {
   const previousNodes = previous?.nodes || {};
   const normalizedTheme = normalizeLayoutTheme(theme);
+  const edges = layoutEdgesFromGraph(graph);
 
   return {
     version: 1,
     edgeRouting,
     layoutMode,
     ...(normalizedTheme ? { theme: normalizedTheme } : {}),
+    ...(edges ? { edges } : {}),
     viewport,
     nodes: Object.fromEntries(
       graph.nodes.map((node) => {

@@ -165,15 +165,22 @@ export function applyEditorCommandTransaction(state: EditorTransactionState, com
   }
 
   if (command.type === "graph.createEdge") {
-    const result = createEdge(state.graph, command.fromId, command.toId);
+    const result = createEdge(state.graph, command.fromId, command.toId, "", {
+      fromAnchor: command.fromAnchor,
+      toAnchor: command.toAnchor
+    });
     return commitGraphState({ ...state, graph: result.graph, selection: result.selection }, command.message || "已创建连线。");
   }
 
   if (command.type === "graph.retargetEdge") {
+    const anchorKey = command.side === "from" ? "fromAnchor" : "toAnchor";
     return commitGraphState(
       {
         ...state,
-        graph: updateEdge(state.graph, command.edgeId, { [command.side]: command.targetId }),
+        graph: updateEdge(state.graph, command.edgeId, {
+          [command.side]: command.targetId,
+          ...("anchor" in command ? { [anchorKey]: command.anchor || undefined } : {})
+        }),
         selection: selectOnlyEdge(command.edgeId)
       },
       command.message || "已重连连线。"

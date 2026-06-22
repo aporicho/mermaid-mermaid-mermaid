@@ -57,6 +57,7 @@ import {
   createEditorRuntime,
   ensureRuntimeMermaidFileName,
   isRuntimeAbortError,
+  type RuntimeFileDropRequest,
   type RuntimeFileOpenRequest,
   type RuntimeFileRef
 } from "@/features/mermaid-editor/lib/editor-runtime";
@@ -123,6 +124,7 @@ import {
   unsavedPromptDescription,
   type UnsavedPromptChoice
 } from "@/features/mermaid-editor/lib/desktop-close-workflow";
+import { canvasScreenToWorldPoint, classifyFileDrop, windowPointToSurfacePoint, type DropPoint } from "@/features/mermaid-editor/lib/file-drop";
 
 const KonvaCanvas = lazy(() => import("@/features/mermaid-editor/components/konva-canvas").then((mod) => ({ default: mod.KonvaCanvas })));
 
@@ -197,6 +199,11 @@ type CanvasLiveState = {
   canvasSize?: AiCanvasSize;
   editing?: Exclude<AiEditingContext, { kind: "source" }> | null;
   interaction?: string;
+};
+type FileDropFeedback = {
+  message: string;
+  tone: "ready" | "blocked";
+  position?: DropPoint;
 };
 type FileOpenSource = "picker" | "recent" | "drop" | "external" | "restore";
 type UnsavedPromptState = {
@@ -558,7 +565,9 @@ export function MermaidEditor() {
   const [canvasLiveState, setCanvasLiveState] = useState<CanvasLiveState>({});
   const [recentActions, setRecentActions] = useState<AiRecentAction[]>([]);
   const [imageDisplaySrcBySrc, setImageDisplaySrcBySrc] = useState<Record<string, string>>({});
+  const [fileDropFeedback, setFileDropFeedback] = useState<FileDropFeedback | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const workspaceSurfaceRef = useRef<HTMLDivElement>(null);
   const sourceEditBaseRef = useRef<EditorSnapshot | null>(null);
   const sourceEditTimerRef = useRef<number | null>(null);
   const themeEditBaseRef = useRef<{ themeId: EditorThemeId; customTheme: EditorTheme | null } | null>(null);
@@ -575,7 +584,8 @@ export function MermaidEditor() {
   const currentDocumentRef = useRef("");
   const canCloseWindowRef = useRef(false);
   const openPathRequestRef = useRef<(file: RuntimeFileOpenRequest, source: FileOpenSource) => Promise<void>>(async () => undefined);
-  const importImagePathRequestRef = useRef<(file: RuntimeFileOpenRequest) => Promise<void>>(async () => undefined);
+  const importImagePathRequestRef = useRef<(file: RuntimeFileOpenRequest, position?: DropPoint) => Promise<void>>(async () => undefined);
+  const fileDropRequestRef = useRef<(request: RuntimeFileDropRequest) => void>(() => undefined);
   const prepareCloseRequestRef = useRef<() => Promise<boolean>>(async () => true);
   const applyLoadedDocumentRef = useRef<(text: string, name: string, file: RuntimeFileRef | null, source?: FileOpenSource) => void>(() => undefined);
   const applyStoredEditorStateRef = useRef<(stored: StoredEditor) => StoredEditorApplyResult>(() => ({
@@ -1556,23 +1566,90 @@ export function MermaidEditor() {
     }
   }
 
-  async function importImageAssetRequest(file: RuntimeFileOpenRequest) {
-    if (!isCanvasEditable) return;
-    if (!fileRef?.path) {
-      setStatus("请先保存 Mermaid 文件，再拖入本地图片。");
+  function windowPointToWorkspacePoint(point: DropPoint | undefined): DropPoint | undefined {
+    const surface = workspaceSurfaceRef.current;
+    if (!surface || !point) return undefined;
+    return windowPointToSurfacePoint(point, surface.getBoundingClientRect());
+  }
+
+  function windowPointToCanvasWorldPoint(point: DropPoint | undefined): DropPoint | undefined {
+    const workspacePoint = windowPointToWorkspacePoint(point);
+    if (!workspacePoint) return undefined;
+    return canvasScreenToWorldPoint(workspacePoint, viewport);
+  }
+
+  function dropFeedbackForFiles(files: RuntimeFileOpenRequest[], position?: DropPoint): FileDropFeedback {
+    const localPosition = windowPointToWorkspacePoint(position);
+    const classification = classifyFileDrop(files);
+    if (classification.kind === "mermaid") {
+      return { message: "释放以打开 Mermaid 文件", tone: "ready", position: localPosition };
+    }
+    if (classification.kind === "image") {
+      if (!isCanvasEditable || workspaceView !== "canvas") {
+        return { message: "请切换到无限画布后拖入图片", tone: "blocked", position: localPosition };
+      }
+      return {
+        message: fileRef?.path ? "释放以添加图片节点" : "释放后先保存文档再添加图片",
+        tone: "ready",
+        position: localPosition
+      };
+    }
+    return { message: "不支持的文件类型", tone: "blocked", position: localPosition };
+  }
+
+  async function ensureDocumentFileForImageImport(): Promise<RuntimeFileRef | null> {
+    if (fileRef?.path) return fileRef;
+    const savedFile = await saveMermaidFileAsResult();
+    if (savedFile?.path) return savedFile;
+    if (savedFile && !savedFile.path) {
+      showFileWorkflowError(
+        {
+          code: "unsupported_type",
+          message: "网页版下载保存后没有稳定文件路径，无法复制本地图片资源。请使用桌面版保存到磁盘文件后再拖入图片。"
+        },
+        "无法导入图片。"
+      );
+    }
+    return null;
+  }
+
+  async function importImageAssetRequest(file: RuntimeFileOpenRequest, dropPosition?: DropPoint) {
+    if (!isCanvasEditable || workspaceView !== "canvas") {
+      showFileWorkflowError(
+        {
+          code: "unsupported_type",
+          message: "请切换到无限画布后拖入图片。",
+          path: file.path
+        },
+        "无法导入图片。"
+      );
+      return;
+    }
+    if (!isSupportedImagePath(file.path)) {
+      showFileWorkflowError({ code: "unsupported_type", path: file.path }, "文件类型不支持。");
+      return;
+    }
+
+    const targetFile = await ensureDocumentFileForImageImport();
+    if (!targetFile?.path) {
+      setStatus("已取消图片导入。");
       return;
     }
 
     try {
-      const result = await runtime.importImageAssetPath(fileRef, file.path);
+      const result = await runtime.importImageAssetPath(targetFile, file.path);
       if (result.status !== "ready") {
-        if (result.status === "unsupported") setStatus(result.message);
-        if (result.status === "needs-document") setStatus("请先保存 Mermaid 文件，再拖入本地图片。");
+        if (result.status === "unsupported") {
+          showFileWorkflowError({ code: "unsupported_type", message: result.message, path: file.path }, "文件类型不支持。");
+        }
+        if (result.status === "needs-document") {
+          showFileWorkflowError({ code: "unsupported_type", message: "请先保存 Mermaid 文件，再拖入本地图片。", path: file.path }, "无法导入图片。");
+        }
         return;
       }
 
       const dimensions = await loadImageDimensions(result.displaySrc);
-      const point = viewportCenterPoint(viewport, canvasLiveState.canvasSize);
+      const point = windowPointToCanvasWorldPoint(dropPosition) || viewportCenterPoint(viewport, canvasLiveState.canvasSize);
       applyEditorCommand({
         type: "graph.addImageNodeAt",
         point,
@@ -1590,6 +1667,45 @@ export function MermaidEditor() {
     } catch (error) {
       showFileWorkflowError(error, "导入图片失败。");
     }
+  }
+
+  function handleRuntimeFileDropRequest(request: RuntimeFileDropRequest) {
+    if (request.type === "leave") {
+      setFileDropFeedback(null);
+      return;
+    }
+
+    if (request.type === "enter" || request.type === "over") {
+      if (request.files.length) {
+        setFileDropFeedback(dropFeedbackForFiles(request.files, request.position));
+        return;
+      }
+      setFileDropFeedback((current) =>
+        current
+          ? { ...current, position: windowPointToWorkspacePoint(request.position) || current.position }
+          : { message: "释放以导入文件", tone: "ready", position: windowPointToWorkspacePoint(request.position) }
+      );
+      return;
+    }
+
+    setFileDropFeedback(null);
+    const files = request.files;
+    if (!files.length) return;
+
+    const classification = classifyFileDrop(files);
+    if (classification.kind === "mermaid") {
+      if (files.length > 1) setStatus("已使用拖拽的第一个 Mermaid 文件。");
+      void openPathRequestRef.current(classification.file, "drop");
+      return;
+    }
+
+    if (classification.kind === "image") {
+      if (files.length > 1) setStatus("已使用拖拽的第一张图片。");
+      void importImagePathRequestRef.current(classification.file, request.position);
+      return;
+    }
+
+    showFileWorkflowError({ code: "unsupported_type", path: classification.file?.path }, "文件类型不支持。");
   }
 
   async function openRecentFile(file: RecentFileEntry) {
@@ -1629,13 +1745,13 @@ export function MermaidEditor() {
     }
   }
 
-  async function saveMermaidFileAs() {
+  async function saveMermaidFileAsResult(): Promise<RuntimeFileRef | null> {
     flushSourceHistory();
-    if (hasBlockingDiagnostics(diagnostics) && !window.confirm("当前 Mermaid 存在错误，仍要另存为吗？")) return false;
+    if (hasBlockingDiagnostics(diagnostics) && !window.confirm("当前 Mermaid 存在错误，仍要另存为吗？")) return null;
     const suggestedName = ensureMermaidFileName(fileName);
     try {
       const result = await runtime.saveFileAs(currentDocument, suggestedName);
-      if (result.status === "cancelled") return false;
+      if (result.status === "cancelled") return null;
       const savedName = ensureMermaidFileName(result.file.name || suggestedName);
       const nextRecentFiles = upsertRecentFile(recentFiles, result.file);
       setFileName(savedName);
@@ -1651,11 +1767,15 @@ export function MermaidEditor() {
       } catch {
         // File save succeeded; draft persistence is best-effort.
       }
-      return true;
+      return result.file;
     } catch (error) {
       if (!isAbortError(error)) showFileWorkflowError(error, "保存文件失败。");
-      return false;
+      return null;
     }
+  }
+
+  async function saveMermaidFileAs() {
+    return Boolean(await saveMermaidFileAsResult());
   }
 
   const postAiApplyResult = useCallback(async (result: AiApplyResult) => {
@@ -1792,6 +1912,7 @@ export function MermaidEditor() {
   useEffect(() => {
     openPathRequestRef.current = openRuntimeFileRequest;
     importImagePathRequestRef.current = importImageAssetRequest;
+    fileDropRequestRef.current = handleRuntimeFileDropRequest;
     prepareCloseRequestRef.current = prepareWindowClose;
     applyLoadedDocumentRef.current = applyLoadedDocument;
     applyStoredEditorStateRef.current = applyStoredEditorState;
@@ -1868,26 +1989,7 @@ export function MermaidEditor() {
         void openPathRequestRef.current(file, "external");
       });
 
-      unlistenDrop = await runtime.listenForFileDrops((files) => {
-        const supported = files.filter((file) => isSupportedMermaidFilePath(file.path));
-        if (supported.length) {
-          if (files.length > 1) setStatus("已使用拖拽的第一个 Mermaid 文件。");
-          void openPathRequestRef.current(supported[0], "drop");
-          return;
-        }
-
-        const imageFiles = files.filter((file) => isSupportedImagePath(file.path));
-        if (imageFiles.length) {
-          if (files.length > 1) setStatus("已使用拖拽的第一张图片。");
-          void importImagePathRequestRef.current(imageFiles[0]);
-          return;
-        }
-
-        if (!supported.length) {
-          showFileWorkflowError({ code: "unsupported_type", path: files[0]?.path }, "文件类型不支持。");
-          return;
-        }
-      });
+      unlistenDrop = await runtime.listenForFileDrops((request) => fileDropRequestRef.current(request));
 
       const windowRef = await getDesktopWindow();
       unlistenClose = await windowRef?.onCloseRequested(async (event) => {
@@ -2255,7 +2357,7 @@ export function MermaidEditor() {
         </header>
 
         <div className={cn("relative z-0 min-h-0 overflow-hidden", desktopTitlebarAutoHide && "absolute inset-0")}>
-          <div className="absolute inset-0 z-0">
+          <div ref={workspaceSurfaceRef} className="absolute inset-0 z-0">
             {workspaceView === "canvas" && isCanvasEditable ? (
               <Suspense fallback={<div className="grid min-h-0 place-items-center bg-card text-sm text-muted-foreground">正在载入画布</div>}>
                 <KonvaCanvas
@@ -2286,6 +2388,7 @@ export function MermaidEditor() {
               />
             )}
           </div>
+          {fileDropFeedback ? <FileDropFeedbackBadge feedback={fileDropFeedback} /> : null}
           {!leftCollapsed ? (
             <div className="absolute inset-y-0 left-0 z-20 w-[clamp(300px,31vw,420px)]">
               <SourcePanel value={source} diagnostics={diagnostics} onChange={applySource} onRun={refreshFromSource} onCollapse={() => setLeftCollapsed(true)} />
@@ -2392,6 +2495,30 @@ function DesktopWindowControls() {
         </TooltipTrigger>
         <TooltipContent side="bottom">关闭</TooltipContent>
       </Tooltip>
+    </div>
+  );
+}
+
+function FileDropFeedbackBadge({ feedback }: { feedback: FileDropFeedback }) {
+  const style = feedback.position
+    ? {
+        left: Math.max(12, feedback.position.x),
+        top: Math.max(12, feedback.position.y)
+      }
+    : {
+        left: "50%",
+        top: "50%"
+      };
+
+  return (
+    <div
+      className={cn(
+        "pointer-events-none absolute z-30 -translate-x-1/2 -translate-y-1/2 rounded-md border bg-card/95 px-3 py-1.5 text-xs shadow-sm backdrop-blur",
+        feedback.tone === "blocked" ? "border-destructive/30 text-destructive" : "border-border text-foreground"
+      )}
+      style={style}
+    >
+      {feedback.message}
     </div>
   );
 }

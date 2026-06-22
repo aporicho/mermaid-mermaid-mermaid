@@ -40,6 +40,15 @@ export type RuntimeFileOpenRequest = {
   path: string;
 };
 
+export type RuntimeFileDropRequest = {
+  type: "enter" | "over" | "drop" | "leave";
+  files: RuntimeFileOpenRequest[];
+  position?: {
+    x: number;
+    y: number;
+  };
+};
+
 export type RuntimeImageAssetResult =
   | {
       status: "ready";
@@ -73,7 +82,7 @@ export type EditorRuntime = {
   resolveImageAssetSrc: (file: RuntimeFileRef | null, src: string) => Promise<string>;
   takePendingOpenFiles: () => Promise<RuntimeFileOpenRequest[]>;
   listenForExternalFileOpen: (handler: (files: RuntimeFileOpenRequest[]) => void) => Promise<() => void>;
-  listenForFileDrops: (handler: (files: RuntimeFileOpenRequest[]) => void) => Promise<() => void>;
+  listenForFileDrops: (handler: (request: RuntimeFileDropRequest) => void) => Promise<() => void>;
   publishAiContext: (context: AiEditorContext) => Promise<void>;
   pollAiCommand: () => Promise<AiEditorCommand | null>;
   finishAiCommand: (result: AiApplyResult) => Promise<void>;
@@ -348,9 +357,25 @@ function createDesktopRuntime(): EditorRuntime {
     },
     async listenForFileDrops(handler) {
       const { getCurrentWindow } = await import("@tauri-apps/api/window");
-      const unlisten = await getCurrentWindow().onDragDropEvent((event) => {
-        if (event.payload.type !== "drop") return;
-        handler(event.payload.paths.map(runtimeFileRefFromPath).filter((file): file is RuntimeFileOpenRequest => Boolean(file.path)));
+      const windowRef = getCurrentWindow();
+      const scaleFactor = await windowRef.scaleFactor().catch(() => 1);
+      const unlisten = await windowRef.onDragDropEvent((event) => {
+        const files =
+          "paths" in event.payload
+            ? event.payload.paths.map(runtimeFileRefFromPath).filter((file): file is RuntimeFileOpenRequest => Boolean(file.path))
+            : [];
+        handler({
+          type: event.payload.type,
+          files,
+          ...("position" in event.payload
+            ? {
+                position: {
+                  x: event.payload.position.x / scaleFactor,
+                  y: event.payload.position.y / scaleFactor
+                }
+              }
+            : {})
+        });
       });
       return unlisten;
     },

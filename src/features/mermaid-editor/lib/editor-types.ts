@@ -57,6 +57,8 @@ export type CanvasEdge = {
   label: string;
   style: EdgeStyle;
   arrowType?: FlowchartArrowType;
+  fromAnchor?: string;
+  toAnchor?: string;
 };
 
 export type CanvasSubgraph = {
@@ -102,6 +104,14 @@ export type CanvasLayoutNode = {
 
 export type CanvasLayoutEdge = {
   path?: LegacyEdgePath;
+  from?: string;
+  to?: string;
+  label?: string;
+  style?: EdgeStyle;
+  arrowType?: FlowchartArrowType;
+  index?: number;
+  fromAnchor?: string;
+  toAnchor?: string;
 };
 
 export type CanvasLayoutTheme = {

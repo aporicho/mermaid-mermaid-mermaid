@@ -190,14 +190,16 @@ export function setNodePositions(graph: MermaidGraph, positions: Record<string, 
   };
 }
 
-export function createEdge(graph: MermaidGraph, from: string, to: string, label = ""): { graph: MermaidGraph; selection: Selection } {
+export function createEdge(graph: MermaidGraph, from: string, to: string, label = "", anchors: Pick<CanvasEdge, "fromAnchor" | "toAnchor"> = {}): { graph: MermaidGraph; selection: Selection } {
   const edge: CanvasEdge = {
     id: `${from}_${to}_${Date.now()}`,
     from,
     to,
     label,
     style: "solid",
-    arrowType: "arrow"
+    arrowType: "arrow",
+    ...(anchors.fromAnchor ? { fromAnchor: anchors.fromAnchor } : {}),
+    ...(anchors.toAnchor ? { toAnchor: anchors.toAnchor } : {})
   };
 
   return {
@@ -209,7 +211,15 @@ export function createEdge(graph: MermaidGraph, from: string, to: string, label 
 export function updateEdge(graph: MermaidGraph, id: string, patch: Partial<CanvasEdge>): MermaidGraph {
   return {
     ...graph,
-    edges: graph.edges.map((edge) => (edge.id === id ? { ...edge, ...patch } : edge))
+    edges: graph.edges.map((edge) => {
+      if (edge.id !== id) return edge;
+      return {
+        ...edge,
+        ...("from" in patch && patch.from !== edge.from && !("fromAnchor" in patch) ? { fromAnchor: undefined } : {}),
+        ...("to" in patch && patch.to !== edge.to && !("toAnchor" in patch) ? { toAnchor: undefined } : {}),
+        ...patch
+      };
+    })
   };
 }
 

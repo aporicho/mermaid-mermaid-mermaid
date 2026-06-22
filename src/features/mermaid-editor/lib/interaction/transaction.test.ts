@@ -137,11 +137,13 @@ describe("editor command transaction", () => {
       type: "graph.createEdge",
       fromId: "A",
       toId: "Group",
+      fromAnchor: "right",
+      toAnchor: "left",
       source: "pointer"
     });
     const edge = created.state.graph.edges.at(-1);
 
-    expect(edge).toMatchObject({ from: "A", to: "Group", style: "solid", arrowType: "arrow" });
+    expect(edge).toMatchObject({ from: "A", to: "Group", style: "solid", arrowType: "arrow", fromAnchor: "right", toAnchor: "left" });
     expect(created.state.selection.edgeIds).toEqual([edge?.id]);
     expect(created.effect.sourceSync).toBe("commit");
 
@@ -150,11 +152,24 @@ describe("editor command transaction", () => {
       edgeId: edge!.id,
       side: "to",
       targetId: "B",
+      anchor: "top",
       source: "pointer"
     });
 
     expect(retargeted.state.graph.edges.find((item) => item.id === edge!.id)?.to).toBe("B");
+    expect(retargeted.state.graph.edges.find((item) => item.id === edge!.id)?.toAnchor).toBe("top");
     expect(retargeted.state.selection.edgeIds).toEqual([edge!.id]);
+
+    const automatic = applyEditorCommandTransaction(retargeted.state, {
+      type: "graph.retargetEdge",
+      edgeId: edge!.id,
+      side: "to",
+      targetId: "B",
+      anchor: null,
+      source: "pointer"
+    });
+
+    expect(automatic.state.graph.edges.find((item) => item.id === edge!.id)?.toAnchor).toBeUndefined();
   });
 
   it("updates node and edge labels as graph commits", () => {
