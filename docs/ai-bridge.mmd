@@ -1,0 +1,80 @@
+%% Offline CLI and live desktop AI bridge
+flowchart LR
+  subgraph AgentSide[AI / shell caller]
+    direction TB
+    Agent["AI Agent"]
+    Cli["npm run mmm -- ..."]
+  end
+
+  subgraph OfflineCli[离线文件 CLI]
+    direction TB
+    Read["read"]
+    Validate["validate"]
+    Diff["diff"]
+    Patch["patch"]
+    Layout["layout"]
+    Fixture["fixture"]
+    CliEnvelope["JSON envelope<br/>ok / result / diagnostics"]
+  end
+
+  subgraph LiveCli[实时桌面 CLI]
+    direction TB
+    Discovery["~/.mermaid-canvas-editor/bridge.json<br/>port + token"]
+    Ping["ping"]
+    Context["context"]
+    Apply["apply"]
+    HttpBridge["loopback HTTP<br/>Bearer token"]
+  end
+
+  subgraph DesktopBridge[桌面 bridge 与编辑器会话]
+    direction TB
+    TauriBridge["Tauri bridge server"]
+    ContextStore["latest AI editor context"]
+    CommandQueue["apply command queue"]
+    EditorSession["open editor session"]
+    Transaction["EditorCommand / transaction"]
+    ResultStore["command result polling"]
+  end
+
+  subgraph SharedLogic[共享文档逻辑]
+    direction TB
+    LoadDoc["loadMermaidDocument"]
+    PatchDoc["applyMermaidPatch"]
+    AutoLayout["applyDagreAutoLayout"]
+    ValidateSyntax["official Mermaid parser"]
+  end
+
+  Agent --> Cli
+  Cli --> Read
+  Cli --> Validate
+  Cli --> Diff
+  Cli --> Patch
+  Cli --> Layout
+  Cli --> Fixture
+  Cli --> Discovery
+  Discovery --> Ping
+  Discovery --> Context
+  Discovery --> Apply
+
+  Read --> LoadDoc
+  Validate --> ValidateSyntax
+  Diff --> LoadDoc
+  Patch --> PatchDoc
+  Layout --> AutoLayout
+  Fixture --> CliEnvelope
+  LoadDoc --> CliEnvelope
+  PatchDoc --> CliEnvelope
+  AutoLayout --> CliEnvelope
+  ValidateSyntax --> CliEnvelope
+
+  Ping --> HttpBridge
+  Context --> HttpBridge
+  Apply --> HttpBridge
+  HttpBridge --> TauriBridge
+  TauriBridge --> ContextStore
+  TauriBridge --> CommandQueue
+  ContextStore --> EditorSession
+  CommandQueue --> EditorSession
+  EditorSession --> Transaction
+  Transaction --> ResultStore
+  ResultStore --> HttpBridge

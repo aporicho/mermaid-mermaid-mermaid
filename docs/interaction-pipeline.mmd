@@ -1,0 +1,58 @@
+%% Input to command transaction pipeline
+flowchart LR
+  subgraph Inputs[输入来源]
+    direction TB
+    Pointer["pointer / drag"]
+    Wheel["wheel / trackpad / gesture"]
+    Keyboard["keyboard"]
+    Menu["toolbar / inspector / menu"]
+    FileDrop["file drop"]
+    ApiCommand["AI / CLI apply"]
+  end
+
+  subgraph Normalize[标准化与上下文]
+    direction TB
+    StandardInput["interaction/input.ts<br/>standard input"]
+    InteractionContext["interaction/context.ts<br/>capabilities / visible scope"]
+    HitTarget["canvas-hit-target.ts<br/>Konva shape -> business target"]
+    Intent["interaction/intent.ts<br/>business intent"]
+  end
+
+  subgraph Decide[状态机与命令]
+    direction TB
+    CanvasState["canvas-interaction.ts<br/>transient state machine"]
+    Commands["interaction/commands.ts<br/>EditorCommand"]
+    Transaction["interaction/transaction.ts<br/>commit boundary"]
+  end
+
+  subgraph Effects[结果与反馈]
+    direction TB
+    DraftGraph["draft graph<br/>high-frequency visual move"]
+    CommitGraph["graph commit<br/>source sync / history"]
+    Viewport["viewport scheduler<br/>imperative visual first"]
+    VisualState["canvas-visual-state.ts<br/>hover / selected / dragging"]
+    Feedback["status / diagnostics / AI result"]
+  end
+
+  Pointer --> StandardInput
+  Wheel --> StandardInput
+  Keyboard --> StandardInput
+  Menu --> StandardInput
+  FileDrop --> StandardInput
+  ApiCommand --> Commands
+
+  StandardInput --> HitTarget
+  StandardInput --> InteractionContext
+  HitTarget --> Intent
+  InteractionContext --> Intent
+  Intent --> CanvasState
+  CanvasState --> Commands
+  Commands --> Transaction
+
+  Transaction --> DraftGraph
+  Transaction --> CommitGraph
+  Transaction --> Viewport
+  CommitGraph --> Feedback
+  DraftGraph --> VisualState
+  CommitGraph --> VisualState
+  Viewport --> VisualState

@@ -9,6 +9,7 @@ use std::{
     path::{Path, PathBuf},
     sync::{Arc, Mutex},
     thread,
+    time::{SystemTime, UNIX_EPOCH},
 };
 
 use chrono::{Duration, Utc};
@@ -17,6 +18,8 @@ use serde_json::{json, Value};
 use tauri::{Emitter, Manager, State};
 use tiny_http::{Header, Method, Request, Response, StatusCode};
 use uuid::Uuid;
+
+const PROJECT_FILE_LIMIT: usize = 500;
 
 #[derive(Clone, Default)]
 struct BridgeState {
@@ -46,6 +49,25 @@ struct OpenedFile {
 struct SavedFile {
     name: String,
     path: String,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ProjectFileEntry {
+    name: String,
+    path: String,
+    relative_path: String,
+    modified_at: Option<u64>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ProjectWorkspace {
+    root_name: String,
+    root_path: String,
+    files: Vec<ProjectFileEntry>,
+    scanned_at: u64,
+    truncated: bool,
 }
 
 #[derive(Serialize)]
@@ -88,6 +110,22 @@ async fn open_mermaid_file() -> Result<Option<OpenedFile>, FileCommandError> {
 #[tauri::command]
 async fn open_mermaid_file_path(path: String) -> Result<OpenedFile, FileCommandError> {
     open_mermaid_file_path_inner(PathBuf::from(path)).await
+}
+
+#[tauri::command]
+async fn open_mermaid_project_folder() -> Result<Option<ProjectWorkspace>, FileCommandError> {
+    let folder = rfd::AsyncFileDialog::new().pick_folder().await;
+
+    let Some(folder) = folder else {
+        return Ok(None);
+    };
+
+    scan_mermaid_project_folder(folder.path().to_path_buf()).map(Some)
+}
+
+#[tauri::command]
+fn read_mermaid_project_folder(root_path: String) -> Result<ProjectWorkspace, FileCommandError> {
+    scan_mermaid_project_folder(PathBuf::from(root_path))
 }
 
 #[tauri::command]
@@ -426,6 +464,85 @@ async fn import_image_asset_path_inner(document_path: PathBuf, image_path: PathB
     })
 }
 
+fn scan_mermaid_project_folder(root: PathBuf) -> Result<ProjectWorkspace, FileCommandError> {
+    let root = root
+        .canonicalize()
+        .map_err(|error| file_io_error("read_failed", &root, error))?;
+    let mut files = Vec::new();
+    let mut truncated = false;
+
+    collect_project_files(&root, &root, &mut files, &mut truncated)?;
+    files.sort_by(|left, right| {
+        left.relative_path
+            .to_ascii_lowercase()
+            .cmp(&right.relative_path.to_ascii_lowercase())
+    });
+
+    Ok(ProjectWorkspace {
+        root_name: project_root_name(&root),
+        root_path: path_to_string(&root),
+        files,
+        scanned_at: unix_time_millis(SystemTime::now()),
+        truncated,
+    })
+}
+
+fn collect_project_files(
+    root: &Path,
+    directory: &Path,
+    files: &mut Vec<ProjectFileEntry>,
+    truncated: &mut bool,
+) -> Result<(), FileCommandError> {
+    if files.len() >= PROJECT_FILE_LIMIT {
+        *truncated = true;
+        return Ok(());
+    }
+
+    let entries = fs::read_dir(directory).map_err(|error| file_io_error("read_failed", directory, error))?;
+    let mut entries = entries.filter_map(Result::ok).collect::<Vec<_>>();
+    entries.sort_by_key(|entry| entry.path());
+
+    for entry in entries {
+        if files.len() >= PROJECT_FILE_LIMIT {
+            *truncated = true;
+            return Ok(());
+        }
+
+        let path = entry.path();
+        let Ok(file_type) = entry.file_type() else {
+            continue;
+        };
+
+        if file_type.is_dir() {
+            if should_skip_project_directory(&path) {
+                continue;
+            }
+            if let Err(error) = collect_project_files(root, &path, files, truncated) {
+                if path == root {
+                    return Err(error);
+                }
+            }
+            continue;
+        }
+
+        if !file_type.is_file() || !is_supported_mermaid_path(&path) {
+            continue;
+        }
+
+        let metadata = fs::metadata(&path).ok();
+        files.push(ProjectFileEntry {
+            name: file_name(&path),
+            path: path_to_string(&path),
+            relative_path: relative_project_path(root, &path),
+            modified_at: metadata
+                .and_then(|value| value.modified().ok())
+                .map(unix_time_millis),
+        });
+    }
+
+    Ok(())
+}
+
 fn start_bridge(state: BridgeState, app_version: String) -> Result<(), String> {
     let token = Uuid::new_v4().to_string();
     let listener = TcpListener::bind("127.0.0.1:0").map_err(readable_error)?;
@@ -549,6 +666,38 @@ fn file_name(path: &Path) -> String {
 
 fn path_to_string(path: &Path) -> String {
     path.to_string_lossy().to_string()
+}
+
+fn project_root_name(path: &Path) -> String {
+    path.file_name()
+        .and_then(|value| value.to_str())
+        .map(String::from)
+        .unwrap_or_else(|| path_to_string(path))
+}
+
+fn relative_project_path(root: &Path, path: &Path) -> String {
+    path.strip_prefix(root)
+        .map(path_to_string)
+        .unwrap_or_else(|_| path_to_string(path))
+        .replace('\\', "/")
+}
+
+fn should_skip_project_directory(path: &Path) -> bool {
+    let name = path
+        .file_name()
+        .and_then(|value| value.to_str())
+        .map(|value| value.to_ascii_lowercase());
+
+    matches!(
+        name.as_deref(),
+        Some(".git" | ".hg" | ".svn" | "node_modules" | "dist" | "build" | ".vite" | ".next" | "target")
+    )
+}
+
+fn unix_time_millis(time: SystemTime) -> u64 {
+    time.duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_millis().min(u128::from(u64::MAX)) as u64)
+        .unwrap_or(0)
 }
 
 fn is_supported_mermaid_path(path: &Path) -> bool {
@@ -717,6 +866,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             open_mermaid_file,
             open_mermaid_file_path,
+            open_mermaid_project_folder,
+            read_mermaid_project_folder,
             save_mermaid_file,
             save_mermaid_file_as,
             pick_image_asset,

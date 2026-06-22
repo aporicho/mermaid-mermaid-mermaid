@@ -3,6 +3,7 @@ import type { AiApplyResult } from "@/features/mermaid-editor/lib/ai-command-typ
 import type { AiEditorContext } from "@/features/mermaid-editor/lib/ai-context";
 import type { EditorDiagnostic } from "@/features/mermaid-editor/lib/editor-diagnostics";
 import { runtimeFileRefFromPath } from "@/features/mermaid-editor/lib/file-workflow";
+import type { ProjectWorkspace } from "@/features/mermaid-editor/lib/project-workspace";
 
 export type EditorDraftState = Record<string, unknown>;
 
@@ -68,6 +69,19 @@ export type RuntimeImageAssetResult =
       message: string;
     };
 
+export type RuntimeProjectFolderResult =
+  | {
+      status: "opened";
+      workspace: ProjectWorkspace;
+    }
+  | {
+      status: "cancelled";
+    }
+  | {
+      status: "unsupported";
+      message: string;
+    };
+
 export type EditorRuntime = {
   kind: "web" | "desktop";
   loadDraft: () => EditorDraftState | null;
@@ -80,6 +94,8 @@ export type EditorRuntime = {
   pickImageAsset: (file: RuntimeFileRef | null) => Promise<RuntimeImageAssetResult>;
   importImageAssetPath: (file: RuntimeFileRef | null, path: string) => Promise<RuntimeImageAssetResult>;
   resolveImageAssetSrc: (file: RuntimeFileRef | null, src: string) => Promise<string>;
+  openProjectFolder: () => Promise<RuntimeProjectFolderResult>;
+  readProjectFolder: (rootPath: string) => Promise<RuntimeProjectFolderResult>;
   takePendingOpenFiles: () => Promise<RuntimeFileOpenRequest[]>;
   listenForExternalFileOpen: (handler: (files: RuntimeFileOpenRequest[]) => void) => Promise<() => void>;
   listenForFileDrops: (handler: (request: RuntimeFileDropRequest) => void) => Promise<() => void>;
@@ -246,6 +262,18 @@ function createWebRuntime(): EditorRuntime {
     async resolveImageAssetSrc(_file, src) {
       return src;
     },
+    async openProjectFolder() {
+      return {
+        status: "unsupported",
+        message: "网页版暂不支持浏览本地项目文件夹，请使用桌面版。"
+      };
+    },
+    async readProjectFolder() {
+      return {
+        status: "unsupported",
+        message: "网页版暂不支持刷新本地项目文件夹，请使用桌面版。"
+      };
+    },
     async takePendingOpenFiles() {
       return [];
     },
@@ -345,6 +373,15 @@ function createDesktopRuntime(): EditorRuntime {
       if (isExternalAssetSrc(src) || !file?.path) return src;
       const path = await tauriInvoke<string | null>("resolve_image_asset_path", { documentPath: file.path, src });
       return path ? filePathToDisplaySrc(path) : src;
+    },
+    async openProjectFolder() {
+      const workspace = await tauriInvoke<ProjectWorkspace | null>("open_mermaid_project_folder");
+      if (!workspace) return { status: "cancelled" };
+      return { status: "opened", workspace };
+    },
+    async readProjectFolder(rootPath) {
+      const workspace = await tauriInvoke<ProjectWorkspace>("read_mermaid_project_folder", { rootPath });
+      return { status: "opened", workspace };
     },
     async takePendingOpenFiles() {
       return tauriInvoke<DesktopPendingFile[]>("take_pending_file_opens");

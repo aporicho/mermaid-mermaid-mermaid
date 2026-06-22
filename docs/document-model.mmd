@@ -1,0 +1,56 @@
+%% Document model and source synchronization
+flowchart LR
+  subgraph PersistedFile[持久文件]
+    direction TB
+    DiskFile[".mmd / .mermaid file"]
+    Source["Mermaid source"]
+    Layout["%% canvas-layout<br/>positions / viewport / routing / theme"]
+    AssetSrc["asset.src<br/>portable relative path"]
+  end
+
+  subgraph LoadPipeline[加载与解析]
+    direction TB
+    StripLayout["stripCanvasLayout"]
+    ParseMermaid["parseMermaid"]
+    ApplyLayout["applyLayout"]
+    DetectKind["detect diagram type<br/>editable vs render-only"]
+  end
+
+  subgraph RuntimeModel[运行时模型]
+    direction TB
+    Graph["MermaidGraph<br/>nodes / edges / subgraphs / assets"]
+    EditorState["EditorState<br/>selection / history / filters"]
+    Viewport["ViewportState"]
+    Draft["Editor draft state"]
+  end
+
+  subgraph BuildPipeline[写回与渲染]
+    direction TB
+    Serialize["serializeMermaid"]
+    LayoutFromGraph["layoutFromGraph"]
+    BuildDocument["buildMermaidDocument"]
+    MermaidRender["official Mermaid render"]
+  end
+
+  DiskFile --> Source
+  Source --> StripLayout
+  Source --> Layout
+  StripLayout --> DetectKind
+  DetectKind -->|flowchart| ParseMermaid
+  DetectKind -->|other Mermaid type| MermaidRender
+  ParseMermaid --> Graph
+  Layout --> ApplyLayout
+  Graph --> ApplyLayout
+  ApplyLayout --> Graph
+  Layout --> Viewport
+  Graph --> EditorState
+  EditorState --> Draft
+
+  Graph --> Serialize
+  Graph --> LayoutFromGraph
+  Viewport --> LayoutFromGraph
+  LayoutFromGraph --> BuildDocument
+  Serialize --> BuildDocument
+  BuildDocument --> DiskFile
+  Source --> MermaidRender
+  AssetSrc --> Graph

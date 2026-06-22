@@ -1,0 +1,59 @@
+%% Theme source, resolution, compilation, and adapters
+flowchart LR
+  subgraph Sources[主题来源]
+    direction TB
+    Defaults["platform defaults"]
+    AppTheme["app preference"]
+    FileTheme["canvas-layout.theme"]
+    ObjectOverride["object overrides<br/>node / edge / subgraph"]
+    InteractionOverride["interaction state<br/>hover / selected / dragging"]
+    PreviewOverride["preview override"]
+  end
+
+  subgraph Resolution[裁决与编译]
+    direction TB
+    TokenContract["theme token contract<br/>theme-tokens.md"]
+    Priority["priority resolver"]
+    Fallback["fallback / migration"]
+    Compiler["compileEditorTheme"]
+    Diagnostics["theme diagnostics"]
+  end
+
+  subgraph Artifacts[编译产物]
+    direction TB
+    CssVars["CSS variables<br/>shadcn / app UI"]
+    CanvasTokens["CanvasVisualTokens<br/>Konva nodes / edges / grid"]
+    GeometryTokens["geometry tokens<br/>sizes / radius / stroke"]
+    MermaidVars["Mermaid themeVariables"]
+    Provenance["theme provenance"]
+  end
+
+  subgraph Outputs[视觉输出]
+    direction TB
+    WebUi["Web UI"]
+    Canvas["editing canvas"]
+    SourcePanel["source panel"]
+    RenderPreview["official Mermaid preview"]
+  end
+
+  Defaults --> Priority
+  AppTheme --> Priority
+  FileTheme --> Priority
+  ObjectOverride --> Priority
+  InteractionOverride --> Priority
+  PreviewOverride --> Priority
+  TokenContract --> Priority
+  Priority --> Fallback
+  Fallback --> Compiler
+  Compiler --> Diagnostics
+  Compiler --> CssVars
+  Compiler --> CanvasTokens
+  Compiler --> GeometryTokens
+  Compiler --> MermaidVars
+  Compiler --> Provenance
+  CssVars --> WebUi
+  CssVars --> SourcePanel
+  CanvasTokens --> Canvas
+  GeometryTokens --> Canvas
+  MermaidVars --> RenderPreview
+  Diagnostics --> WebUi

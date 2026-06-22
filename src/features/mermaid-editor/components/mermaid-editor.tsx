@@ -35,6 +35,7 @@ import { PreviewPanel } from "@/features/mermaid-editor/components/preview-panel
 import { SourcePanel } from "@/features/mermaid-editor/components/source-panel";
 import { ToolModeBar } from "@/features/mermaid-editor/components/tool-mode-bar";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
@@ -71,6 +72,13 @@ import {
   type FileWorkflowError,
   type RecentFileEntry
 } from "@/features/mermaid-editor/lib/file-workflow";
+import {
+  filterProjectFiles,
+  isProjectFileActive,
+  normalizeProjectWorkspace,
+  type ProjectFileEntry,
+  type ProjectWorkspace
+} from "@/features/mermaid-editor/lib/project-workspace";
 import type {
   ClipboardPayload,
   DiagramType,
@@ -185,6 +193,7 @@ type StoredEditor = {
   fileName?: string;
   fileRef?: RuntimeFileRef | null;
   recentFiles?: RecentFileEntry[];
+  projectWorkspace?: ProjectWorkspace | null;
   lastSavedDocument?: string;
   themeId?: EditorThemeId;
   customTheme?: EditorTheme | null;
@@ -205,7 +214,7 @@ type FileDropFeedback = {
   tone: "ready" | "blocked";
   position?: DropPoint;
 };
-type FileOpenSource = "picker" | "recent" | "drop" | "external" | "restore";
+type FileOpenSource = "picker" | "recent" | "project" | "drop" | "external" | "restore";
 type UnsavedPromptState = {
   title: string;
   description: string;
@@ -228,6 +237,7 @@ type StoredEditorDraftOverrides = {
   fileName?: string;
   fileRef?: RuntimeFileRef | null;
   recentFiles?: RecentFileEntry[];
+  projectWorkspace?: ProjectWorkspace | null;
   lastSavedDocument?: string;
   workspaceView?: WorkspaceView;
   themeId?: EditorThemeId;
@@ -268,6 +278,7 @@ function loadInitialState() {
       fileName: FALLBACK_FILE_NAME,
       fileRef: null,
       recentFiles: [] as RecentFileEntry[],
+      projectWorkspace: null,
       lastSavedDocument: "",
       fileTheme: null,
       themeId: DEFAULT_EDITOR_THEME.id,
@@ -314,6 +325,7 @@ function loadInitialState() {
       fileName: stored.fileName || FALLBACK_FILE_NAME,
       fileRef: stored.fileRef || null,
       recentFiles: normalizeRecentFiles(stored.recentFiles),
+      projectWorkspace: normalizeProjectWorkspace(stored.projectWorkspace),
       lastSavedDocument: stored.lastSavedDocument || "",
       fileTheme,
       themeId,
@@ -336,6 +348,7 @@ function loadInitialState() {
       fileName: FALLBACK_FILE_NAME,
       fileRef: null,
       recentFiles: [] as RecentFileEntry[],
+      projectWorkspace: null,
       lastSavedDocument: "",
       fileTheme: null,
       themeId: DEFAULT_EDITOR_THEME.id,
@@ -550,6 +563,9 @@ export function MermaidEditor() {
   const [fileTheme, setFileTheme] = useState<CanvasLayoutTheme | null>(initial.fileTheme);
   const [fileRef, setFileRef] = useState<RuntimeFileRef | null>(initial.fileRef);
   const [recentFiles, setRecentFiles] = useState<RecentFileEntry[]>(initial.recentFiles);
+  const [projectWorkspace, setProjectWorkspace] = useState<ProjectWorkspace | null>(initial.projectWorkspace);
+  const [projectFileQuery, setProjectFileQuery] = useState("");
+  const [projectBusy, setProjectBusy] = useState(false);
   const [lastSavedDocument, setLastSavedDocument] = useState(initial.lastSavedDocument);
   const [fileMenuOpen, setFileMenuOpen] = useState(false);
   const [fileWorkflowError, setFileWorkflowError] = useState<FileWorkflowError | null>(null);
@@ -604,6 +620,10 @@ export function MermaidEditor() {
     [editableKind, edgeRouting, fileTheme, graph, imageDisplaySrcBySrc, layoutMode, source, viewport]
   );
   const hiddenViewFilters = useMemo(() => hiddenFilterCount(viewFilters), [viewFilters]);
+  const filteredProjectFiles = useMemo(
+    () => filterProjectFiles(projectWorkspace?.files || [], projectFileQuery),
+    [projectFileQuery, projectWorkspace]
+  );
   const mermaidEdgeRoutes = useMemo(
     () => (edgeRouting === "mermaid" ? deriveDagreAutoLayoutResult(graph).edgeRoutes : []),
     [edgeRouting, graph]
@@ -1285,6 +1305,7 @@ export function MermaidEditor() {
     const draftFileRef = "fileRef" in overrides ? overrides.fileRef : fileRef;
     const draftThemeId = overrides.themeId ?? themeId;
     const draftCustomTheme = "customTheme" in overrides ? overrides.customTheme : customTheme;
+    const draftProjectWorkspace = "projectWorkspace" in overrides ? overrides.projectWorkspace : projectWorkspace;
 
     return {
       source: draftSource,
@@ -1299,6 +1320,7 @@ export function MermaidEditor() {
       fileName: overrides.fileName ?? fileName,
       fileRef: serializableRuntimeFileRef(draftFileRef ?? null),
       recentFiles: overrides.recentFiles ?? recentFiles,
+      projectWorkspace: draftProjectWorkspace ?? null,
       lastSavedDocument: overrides.lastSavedDocument ?? lastSavedDocument,
       themeId: draftThemeId,
       customTheme: draftCustomTheme ?? null,
@@ -1459,6 +1481,8 @@ export function MermaidEditor() {
     setFileName(stored.fileName || FALLBACK_FILE_NAME);
     setFileRef(stored.fileRef || null);
     setRecentFiles(normalizeRecentFiles(stored.recentFiles));
+    setProjectWorkspace(normalizeProjectWorkspace(stored.projectWorkspace));
+    setProjectFileQuery("");
     setLastSavedDocument(stored.lastSavedDocument || "");
     isDirtyRef.current = !stored.lastSavedDocument || currentStoredDocument !== stored.lastSavedDocument;
     setFileTheme(nextFileTheme);
@@ -1563,6 +1587,79 @@ export function MermaidEditor() {
       applyLoadedDocument(result.text, result.file.name, result.file, source);
     } catch (error) {
       showFileWorkflowError(error, "打开文件失败。");
+    }
+  }
+
+  async function openProjectFolder() {
+    setProjectBusy(true);
+    try {
+      const result = await runtime.openProjectFolder();
+      if (result.status === "cancelled") return;
+      if (result.status === "unsupported") {
+        showFileWorkflowError({ code: "unsupported_type", message: result.message }, "项目文件夹不可用。");
+        return;
+      }
+
+      const workspace = normalizeProjectWorkspace(result.workspace);
+      if (!workspace) {
+        showFileWorkflowError({ code: "read_failed", message: "项目文件夹扫描结果无效。" }, "打开项目文件夹失败。");
+        return;
+      }
+
+      setProjectWorkspace(workspace);
+      setProjectFileQuery("");
+      setStatus(`已打开项目 ${workspace.rootName}，发现 ${workspace.files.length} 个 Mermaid 文件。`);
+      try {
+        await persistStoredEditorDraft({ projectWorkspace: workspace });
+      } catch {
+        // Project scanning succeeded; draft persistence is best-effort.
+      }
+    } catch (error) {
+      if (!isAbortError(error)) showFileWorkflowError(error, "打开项目文件夹失败。");
+    } finally {
+      setProjectBusy(false);
+    }
+  }
+
+  async function refreshProjectWorkspace(rootPath = projectWorkspace?.rootPath) {
+    if (!rootPath) return;
+    setProjectBusy(true);
+    try {
+      const result = await runtime.readProjectFolder(rootPath);
+      if (result.status === "unsupported") {
+        showFileWorkflowError({ code: "unsupported_type", message: result.message, path: rootPath }, "刷新项目文件夹失败。");
+        return;
+      }
+      if (result.status === "cancelled") return;
+
+      const workspace = normalizeProjectWorkspace(result.workspace);
+      if (!workspace) {
+        showFileWorkflowError({ code: "read_failed", message: "项目文件夹扫描结果无效。", path: rootPath }, "刷新项目文件夹失败。");
+        return;
+      }
+
+      setProjectWorkspace(workspace);
+      setStatus(`已刷新项目 ${workspace.rootName}，发现 ${workspace.files.length} 个 Mermaid 文件。`);
+      try {
+        await persistStoredEditorDraft({ projectWorkspace: workspace });
+      } catch {
+        // Project scanning succeeded; draft persistence is best-effort.
+      }
+    } catch (error) {
+      if (!isAbortError(error)) showFileWorkflowError(error, "刷新项目文件夹失败。");
+    } finally {
+      setProjectBusy(false);
+    }
+  }
+
+  async function closeProjectWorkspace() {
+    setProjectWorkspace(null);
+    setProjectFileQuery("");
+    setStatus("已关闭项目文件夹。");
+    try {
+      await persistStoredEditorDraft({ projectWorkspace: null });
+    } catch {
+      // Closing a project only affects draft metadata.
     }
   }
 
@@ -1711,6 +1808,11 @@ export function MermaidEditor() {
   async function openRecentFile(file: RecentFileEntry) {
     setFileMenuOpen(false);
     await openRuntimeFileRequest(file, "recent");
+  }
+
+  async function openProjectFile(file: ProjectFileEntry) {
+    setFileMenuOpen(false);
+    await openRuntimeFileRequest(file, "project");
   }
 
   async function saveMermaidFile() {
@@ -1943,8 +2045,11 @@ export function MermaidEditor() {
         const stored = (await runtime.loadSavedState()) as StoredEditor | null;
         if (!stored) return;
         const storedPreferences = normalizeEditorPreferences(stored.preferences);
+        const storedProjectWorkspace = normalizeProjectWorkspace(stored.projectWorkspace);
         setPreferences(storedPreferences);
         setRecentFiles(normalizeRecentFiles(stored.recentFiles));
+        setProjectWorkspace(storedProjectWorkspace);
+        if (storedProjectWorkspace) void refreshRestoredProjectWorkspace(storedProjectWorkspace.rootPath);
         if (!storedPreferences.restoreLastFile) {
           setFileName(FALLBACK_FILE_NAME);
           setFileRef(null);
@@ -1974,6 +2079,19 @@ export function MermaidEditor() {
         }
       } catch (error) {
         if (!disposed) showFileWorkflowError(error, "读取应用状态失败。");
+      }
+    }
+
+    async function refreshRestoredProjectWorkspace(rootPath: string) {
+      setProjectBusy(true);
+      try {
+        const result = await runtime.readProjectFolder(rootPath);
+        if (disposed || result.status !== "opened") return;
+        setProjectWorkspace(normalizeProjectWorkspace(result.workspace));
+      } catch {
+        // Restored project metadata is still useful if the folder cannot be refreshed.
+      } finally {
+        if (!disposed) setProjectBusy(false);
       }
     }
 
@@ -2075,6 +2193,7 @@ export function MermaidEditor() {
           fileName,
           fileRef: serializableRuntimeFileRef(fileRef),
           recentFiles,
+          projectWorkspace,
           lastSavedDocument,
           themeId,
           customTheme,
@@ -2086,7 +2205,7 @@ export function MermaidEditor() {
     return () => {
       if (storageWriteTimerRef.current) window.clearTimeout(storageWriteTimerRef.current);
     };
-  }, [source, graph, viewport, edgeRouting, layoutMode, leftCollapsed, rightCollapsed, workspaceView, viewFilters, fileName, fileRef, fileTheme, recentFiles, lastSavedDocument, themeId, customTheme, preferences, runtime, draftPersistenceReady]);
+  }, [source, graph, viewport, edgeRouting, layoutMode, leftCollapsed, rightCollapsed, workspaceView, viewFilters, fileName, fileRef, fileTheme, recentFiles, projectWorkspace, lastSavedDocument, themeId, customTheme, preferences, runtime, draftPersistenceReady]);
 
   useEffect(() => {
     if (aiContextPostTimerRef.current) window.clearTimeout(aiContextPostTimerRef.current);
@@ -2259,9 +2378,20 @@ export function MermaidEditor() {
               <FileMenu
                 open={fileMenuOpen}
                 recentFiles={recentFiles}
+                runtimeKind={runtime.kind}
+                projectWorkspace={projectWorkspace}
+                projectFiles={filteredProjectFiles}
+                projectFileQuery={projectFileQuery}
+                currentFileRef={fileRef}
+                projectBusy={projectBusy}
                 onOpenChange={updateFileMenuOpen}
                 onOpenFile={() => void openMermaidFile()}
                 onOpenRecent={(file) => void openRecentFile(file)}
+                onOpenProject={() => void openProjectFolder()}
+                onRefreshProject={() => void refreshProjectWorkspace()}
+                onCloseProject={() => void closeProjectWorkspace()}
+                onProjectQueryChange={setProjectFileQuery}
+                onOpenProjectFile={(file) => void openProjectFile(file)}
               />
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -2573,17 +2703,40 @@ function UnsavedFilePrompt({ prompt, onResolve }: { prompt: UnsavedPromptState; 
 function FileMenu({
   open,
   recentFiles,
+  runtimeKind,
+  projectWorkspace,
+  projectFiles,
+  projectFileQuery,
+  currentFileRef,
+  projectBusy,
   onOpenChange,
   onOpenFile,
-  onOpenRecent
+  onOpenRecent,
+  onOpenProject,
+  onRefreshProject,
+  onCloseProject,
+  onProjectQueryChange,
+  onOpenProjectFile
 }: {
   open: boolean;
   recentFiles: RecentFileEntry[];
+  runtimeKind: "web" | "desktop";
+  projectWorkspace: ProjectWorkspace | null;
+  projectFiles: ProjectFileEntry[];
+  projectFileQuery: string;
+  currentFileRef: RuntimeFileRef | null;
+  projectBusy: boolean;
   onOpenChange: (open: boolean) => void;
   onOpenFile: () => void;
   onOpenRecent: (file: RecentFileEntry) => void;
+  onOpenProject: () => void;
+  onRefreshProject: () => void;
+  onCloseProject: () => void;
+  onProjectQueryChange: (query: string) => void;
+  onOpenProjectFile: (file: ProjectFileEntry) => void;
 }) {
   const menuRef = useDismissableFloatingMenu<HTMLDivElement>({ open, onOpenChange });
+  const projectAvailable = runtimeKind === "desktop";
 
   function runAndClose(action: () => void) {
     action();
@@ -2609,12 +2762,104 @@ function FileMenu({
       </Tooltip>
 
       {open ? (
-        <div className="absolute left-0 top-10 z-50 w-72 rounded-md border bg-popover p-1.5 text-popover-foreground shadow-sm">
+        <div className="absolute left-0 top-10 z-50 w-[360px] rounded-md border bg-popover p-1.5 text-popover-foreground shadow-sm">
           <div className="grid gap-0.5">
             <Button variant="ghost" className="h-8 justify-start px-2 text-foreground [&_svg]:text-icon" onClick={() => runAndClose(onOpenFile)}>
               <Folder className="size-4" />
               打开文件
             </Button>
+            {projectAvailable ? (
+              <Button
+                variant="ghost"
+                className="h-8 justify-start px-2 text-foreground [&_svg]:text-icon"
+                disabled={projectBusy}
+                onClick={onOpenProject}
+              >
+                <Workflow className="size-4" />
+                打开项目文件夹
+              </Button>
+            ) : null}
+            {projectAvailable ? (
+              <>
+                <Separator className="my-1" />
+                <div className="grid gap-1 px-1 pb-1">
+                  <div className="flex items-center gap-2 px-1">
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-xs font-medium text-foreground" title={projectWorkspace?.rootPath}>
+                        {projectWorkspace ? projectWorkspace.rootName : "项目文件"}
+                      </div>
+                      <div className="truncate text-[11px] text-muted-foreground">
+                        {projectWorkspace
+                          ? `${projectWorkspace.files.length}${projectWorkspace.truncated ? "+" : ""} 个 Mermaid 文件`
+                          : "未打开项目文件夹"}
+                      </div>
+                    </div>
+                    {projectWorkspace ? (
+                      <>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="size-7 text-icon hover:text-icon"
+                          disabled={projectBusy}
+                          onClick={onRefreshProject}
+                          aria-label="刷新项目文件"
+                          title="刷新项目文件"
+                        >
+                          <RefreshCw className={cn("size-3.5", projectBusy ? "animate-spin" : "")} />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="size-7 text-icon hover:text-icon"
+                          disabled={projectBusy}
+                          onClick={onCloseProject}
+                          aria-label="关闭项目文件夹"
+                          title="关闭项目文件夹"
+                        >
+                          <Xmark className="size-3.5" />
+                        </Button>
+                      </>
+                    ) : null}
+                  </div>
+                  {projectWorkspace ? (
+                    <>
+                      <Input
+                        value={projectFileQuery}
+                        onChange={(event) => onProjectQueryChange(event.target.value)}
+                        placeholder="筛选 .mmd / .mermaid"
+                        className="h-8 px-2 text-xs"
+                      />
+                      {projectWorkspace.truncated ? (
+                        <div className="px-1 text-[11px] text-muted-foreground">文件较多，已显示前 500 个结果。</div>
+                      ) : null}
+                      <div className="max-h-72 overflow-y-auto pr-0.5">
+                        {projectFiles.length ? (
+                          projectFiles.map((file) => {
+                            const active = isProjectFileActive(file, currentFileRef);
+                            return (
+                              <Button
+                                key={file.path}
+                                variant={active ? "secondary" : "ghost"}
+                                className="h-auto min-h-8 w-full justify-start gap-2 px-2 py-1.5 text-left text-foreground [&_svg]:text-icon"
+                                title={file.path}
+                                onClick={() => runAndClose(() => onOpenProjectFile(file))}
+                              >
+                                <Text className="size-4 shrink-0" />
+                                <span className="min-w-0 flex-1 truncate text-xs">{file.relativePath}</span>
+                              </Button>
+                            );
+                          })
+                        ) : (
+                          <div className="px-2 py-2 text-xs text-muted-foreground">没有匹配的 Mermaid 文件</div>
+                        )}
+                      </div>
+                    </>
+                  ) : (
+                    <div className="px-1 py-2 text-xs text-muted-foreground">暂无项目文件夹</div>
+                  )}
+                </div>
+              </>
+            ) : null}
             <Separator className="my-1" />
             <div className="px-2 py-1 text-xs text-muted-foreground">最近打开</div>
             {recentFiles.length ? (

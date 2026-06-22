@@ -1,0 +1,74 @@
+%% Performance path classification
+flowchart LR
+  subgraph Events[事件与任务]
+    direction TB
+    Trackpad["wheel / trackpad / gesture"]
+    PointerMove["pointer move<br/>drag / marquee / connect"]
+    CommitEvent["pointer up / text submit / menu command"]
+    SourceEdit["source edit"]
+    AiPublish["AI context publish"]
+    RenderRequest["Mermaid render request"]
+  end
+
+  subgraph HotPath[热路径：下一帧反馈]
+    direction TB
+    Raf["requestAnimationFrame batching"]
+    ViewportScheduler["useViewportScheduler<br/>visual first"]
+    DraftUpdate["ref / draft graph update"]
+    RenderScope["canvas render scope"]
+    NoHeavyWork["no serialize / render / history / bridge"]
+  end
+
+  subgraph CommitPath[提交路径：明确边界]
+    direction TB
+    GraphCommit["graph commit"]
+    SourceSync["serialize source once"]
+    History["history snapshot"]
+    DraftPersist["debounced draft persist"]
+    AiContext["stable AI context publish"]
+  end
+
+  subgraph HeavyPath[重任务路径：缓存与版本保护]
+    direction TB
+    Parse["parse source"]
+    Serialize["serialize Mermaid"]
+    MermaidRender["official Mermaid render"]
+    Cache["source / theme cache"]
+    VersionToken["version token<br/>discard stale async result"]
+  end
+
+  subgraph Observability[开发态观测]
+    direction TB
+    Metrics["window.__MERMAID_EDITOR_PERF__.metrics"]
+    Counters["performance counters"]
+    Acceptance["800 node p95 target<br/>canvas viewport latency <= 20ms"]
+  end
+
+  Trackpad --> HotPath
+  PointerMove --> HotPath
+  HotPath --> Raf
+  Raf --> ViewportScheduler
+  Raf --> DraftUpdate
+  DraftUpdate --> RenderScope
+  HotPath --> NoHeavyWork
+
+  CommitEvent --> CommitPath
+  CommitPath --> GraphCommit
+  GraphCommit --> SourceSync
+  GraphCommit --> History
+  CommitPath --> DraftPersist
+  CommitPath --> AiContext
+
+  SourceEdit --> HeavyPath
+  RenderRequest --> HeavyPath
+  HeavyPath --> Parse
+  HeavyPath --> Serialize
+  HeavyPath --> MermaidRender
+  MermaidRender --> Cache
+  MermaidRender --> VersionToken
+
+  HotPath --> Metrics
+  CommitPath --> Metrics
+  HeavyPath --> Metrics
+  Metrics --> Acceptance
+  Counters --> Acceptance

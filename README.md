@@ -11,6 +11,7 @@ The app is built with Vite, React, TypeScript, Tailwind CSS, shadcn-style UI pri
 - Renders non-flowchart Mermaid diagrams in a preview-only mode.
 - Stores canvas positions, node colors, edge routing, and viewport in a `%% canvas-layout:` comment.
 - Supports file open, save, save as, download fallback, undo, redo, copy, paste, node editing, edge editing, connection creation, and endpoint retargeting.
+- Browses desktop project folders and switches between multiple `.mmd` / `.mermaid` files from the file menu.
 - Applies editor themes across CSS variables, Konva canvas tokens, and Mermaid render variables.
 
 ## Getting Started
@@ -160,6 +161,19 @@ src/features/mermaid-editor/lib/
 docs/
   Architecture and interaction constraints for future changes.
 ```
+
+## Architecture Docs
+
+Use [docs/mermaid设计.mmd](docs/mermaid设计.mmd) as the compact system overview. It keeps the shared document model at the center and links the user surfaces, React editor runtime, platform adapters, AI/CLI bridge, and quality rails.
+
+Topic diagrams split the implementation details by question:
+
+- [docs/document-model.mmd](docs/document-model.mmd): Mermaid source, `canvas-layout`, graph state, render-only fallback, and source sync.
+- [docs/runtime-file-assets.mmd](docs/runtime-file-assets.mmd): browser/desktop runtime adapters, file workflows, project folder scans, drafts, image assets, and display URLs.
+- [docs/interaction-pipeline.mmd](docs/interaction-pipeline.mmd): input normalization, intent resolution, commands, transactions, and visual feedback.
+- [docs/ai-bridge.mmd](docs/ai-bridge.mmd): offline CLI commands and live desktop bridge commands.
+- [docs/theme-system.mmd](docs/theme-system.mmd): theme source priority, compiler outputs, and CSS/Konva/Mermaid adapters.
+- [docs/performance-flow.mmd](docs/performance-flow.mmd): hot path, commit path, heavy work path, and performance observability.
 
 ## Development Constraints
 

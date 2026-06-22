@@ -43,4 +43,13 @@ describe("application style contract", () => {
     expect(globals).toContain("hsl(var(--render-grid-dot)");
     expect(globals).toContain("var(--theme-source-line-height)");
   });
+
+  it("allows desktop image assets to load through the Tauri asset protocol", () => {
+    const tauriConfig = JSON.parse(readProjectFile("src-tauri/tauri.conf.json"));
+
+    expect(tauriConfig.app.security.assetProtocol).toEqual({
+      enable: true,
+      scope: ["**"]
+    });
+  });
 });
