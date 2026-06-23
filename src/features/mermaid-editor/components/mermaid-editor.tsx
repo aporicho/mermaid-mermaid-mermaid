@@ -36,6 +36,7 @@ import {
 } from "iconoir-react/regular";
 
 import { InspectorPanel } from "@/features/mermaid-editor/components/inspector-panel";
+import { FloatingButtonCluster, FloatingChromeLayer, FloatingChromeSlot, FloatingIconButton } from "@/features/mermaid-editor/components/floating-chrome";
 import { PreviewPanel } from "@/features/mermaid-editor/components/preview-panel";
 import { SourcePanel } from "@/features/mermaid-editor/components/source-panel";
 import { Button } from "@/components/ui/button";
@@ -130,8 +131,8 @@ import {
 } from "@/features/mermaid-editor/lib/view-filters";
 import { useDismissableFloatingMenu } from "@/features/mermaid-editor/lib/use-dismissable-floating-menu";
 import { useDisableNativeContextMenu } from "@/features/mermaid-editor/lib/native-context-menu";
-import { FLOATING_CHROME_HIDE_DELAY_MS, shouldRevealFloatingGroup } from "@/features/mermaid-editor/lib/floating-chrome";
-import { nextWorkspaceView, workspaceViewForDocument, type WorkspaceView } from "@/features/mermaid-editor/lib/workspace-view";
+import { EDITOR_CHROME_CLASSES } from "@/features/mermaid-editor/lib/editor-chrome";
+import { workspaceViewForDocument, type WorkspaceView } from "@/features/mermaid-editor/lib/workspace-view";
 import { createImageAsset, DEFAULT_IMAGE_ASSET_HEIGHT, DEFAULT_IMAGE_ASSET_WIDTH, isSupportedImagePath } from "@/features/mermaid-editor/lib/node-assets";
 import { cn } from "@/lib/utils";
 import {
@@ -2347,12 +2348,13 @@ export function MermaidEditor() {
     if (!rightCollapsed) setRightCollapsed(true);
   }
 
-  function cycleWorkspaceView() {
-    setWorkspaceView((current) => nextWorkspaceView(current, editableKind));
+  function changeWorkspaceView(nextView: WorkspaceView) {
+    setWorkspaceView(workspaceViewForDocument(editableKind, nextView));
   }
 
-  function toggleSelectConnectMode() {
-    applyEditorCommand({ type: "mode.set", mode: setEditorMode(mode === "connect" ? "select" : "connect"), source: "menu" });
+  function changeToolMode(nextMode: EditorMode) {
+    if (mode === nextMode) return;
+    applyEditorCommand({ type: "mode.set", mode: setEditorMode(nextMode), source: "menu" });
   }
 
   return (
@@ -2405,7 +2407,7 @@ export function MermaidEditor() {
           <div className="absolute inset-0 z-10" aria-hidden onPointerDown={closeSidePanels} />
         ) : null}
         {!leftCollapsed ? (
-          <div className="absolute bottom-16 left-4 top-16 z-20 w-[clamp(300px,31vw,420px)] overflow-hidden rounded-md border bg-card/95 shadow-sm backdrop-blur">
+          <div className={cn(EDITOR_CHROME_CLASSES.sidePanel, "left-4 w-[clamp(320px,31vw,420px)]")}>
             <ExplorerPanel
               runtimeKind={runtime.kind}
               projectWorkspace={projectWorkspace}
@@ -2421,7 +2423,7 @@ export function MermaidEditor() {
           </div>
         ) : null}
         {!rightCollapsed ? (
-          <aside className="absolute bottom-16 right-4 top-16 z-20 grid w-[clamp(280px,28vw,380px)] min-h-0 overflow-hidden rounded-md border bg-card/95 shadow-sm backdrop-blur">
+          <aside className={cn(EDITOR_CHROME_CLASSES.sidePanel, "right-4 grid w-[clamp(320px,28vw,400px)] min-h-0")}>
             <PanelHeader onCollapse={() => setRightCollapsed(true)} />
             <div className="grid min-h-0">
               <InspectorPanel graph={graph} selection={selection} onEditorCommand={applyEditorCommand} />
@@ -2429,114 +2431,88 @@ export function MermaidEditor() {
           </aside>
         ) : null}
 
-        <div className="pointer-events-none absolute inset-0 z-30">
-          <FloatingControlGroup className="left-0 top-0" hotZoneClassName="h-28 w-32 items-start justify-start p-4" pinned={fileMenuOpen}>
-              <FileMenu
-                open={fileMenuOpen}
-                recentFiles={recentFiles}
-                runtimeKind={runtime.kind}
-                projectBusy={projectBusy}
-                isDirty={isDirty}
-                onOpenChange={updateFileMenuOpen}
-                onNewFile={() => void newMermaidFile()}
-                onOpenFile={() => void openMermaidFile()}
-                onOpenRecent={(file) => void openRecentFile(file)}
-                onOpenProject={() => void openProjectFolder()}
-                onSaveFile={() => void saveMermaidFile()}
-                onSaveAs={() => void saveMermaidFileAs()}
-              />
-          </FloatingControlGroup>
+        <FloatingChromeLayer>
+          <FloatingChromeSlot placement="topLeft" pinned={fileMenuOpen}>
+            <FileMenu
+              open={fileMenuOpen}
+              recentFiles={recentFiles}
+              runtimeKind={runtime.kind}
+              projectBusy={projectBusy}
+              isDirty={isDirty}
+              onOpenChange={updateFileMenuOpen}
+              onNewFile={() => void newMermaidFile()}
+              onOpenFile={() => void openMermaidFile()}
+              onOpenRecent={(file) => void openRecentFile(file)}
+              onOpenProject={() => void openProjectFolder()}
+              onSaveFile={() => void saveMermaidFile()}
+              onSaveAs={() => void saveMermaidFileAs()}
+            />
+          </FloatingChromeSlot>
 
           {isDesktopChrome ? (
-            <FloatingControlGroup className="left-1/2 top-0 -translate-x-1/2" hotZoneClassName="h-24 w-48 items-start justify-center p-4">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    type="button"
-                    size="icon"
-                    variant="outline"
-                    className="size-9 border bg-card/95 text-icon shadow-sm backdrop-blur hover:text-icon"
-                    onPointerDown={startDesktopWindowDragHandle}
-                    onDoubleClick={() => void toggleDesktopWindowMaximizeHandle()}
-                    aria-label="移动窗口"
-                  >
-                    <Grid3X3 className="size-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">拖拽移动窗口，双击最大化</TooltipContent>
-              </Tooltip>
-            </FloatingControlGroup>
+            <FloatingChromeSlot placement="topCenter">
+              <FloatingIconButton
+                type="button"
+                label="拖拽移动窗口，双击最大化"
+                tooltipSide="bottom"
+                onPointerDown={startDesktopWindowDragHandle}
+                onDoubleClick={() => void toggleDesktopWindowMaximizeHandle()}
+              >
+                <Grid3X3 />
+              </FloatingIconButton>
+            </FloatingChromeSlot>
           ) : null}
 
           {isDesktopChrome ? (
-            <FloatingControlGroup className="right-0 top-0" hotZoneClassName="h-24 w-44 items-start justify-end p-4">
+            <FloatingChromeSlot placement="topRight">
               <DesktopWindowControls />
-            </FloatingControlGroup>
+            </FloatingChromeSlot>
           ) : null}
 
-          <FloatingControlGroup className="right-0 top-16" hotZoneClassName="h-28 w-28 items-start justify-end p-4" pinned={viewFiltersOpen}>
-            <div className="flex flex-col items-end gap-2">
-              <ViewFilterMenu
-                open={viewFiltersOpen}
-                filters={viewFilters}
-                hiddenCount={hiddenViewFilters}
-                editable={isCanvasEditable}
-                onOpenChange={updateViewFiltersOpen}
-                onChange={updateViewFilter}
-                onReset={resetViewFilters}
-              />
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    size="icon"
-                    variant="outline"
-                    className="size-9 border bg-card/95 text-icon shadow-sm backdrop-blur hover:text-icon"
-                    onClick={cycleWorkspaceView}
-                    aria-label="切换视图"
-                  >
-                    {workspaceView === "canvas" ? <SquareDashedMousePointer className="size-4" /> : workspaceView === "render" ? <Workflow className="size-4" /> : <Code className="size-4" />}
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="left">{`当前：${workspaceView === "canvas" ? canvasViewTooltip : workspaceViewLabels[workspaceView]}，点击切换到 ${workspaceViewLabels[nextWorkspaceView(workspaceView, editableKind)]}`}</TooltipContent>
-              </Tooltip>
-            </div>
-          </FloatingControlGroup>
+          <FloatingChromeSlot placement="rightView">
+            <WorkspaceViewCluster
+              workspaceView={workspaceView}
+              editableKind={editableKind}
+              canvasViewTooltip={canvasViewTooltip}
+              onChange={changeWorkspaceView}
+            />
+          </FloatingChromeSlot>
 
-          <FloatingControlGroup className="left-0 top-1/2 -translate-y-1/2" hotZoneClassName="h-32 w-20 items-center justify-start p-4" pinned={!leftCollapsed}>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  size="icon"
-                  variant={leftCollapsed ? "outline" : "default"}
-                  className={cn("size-9 shadow-sm backdrop-blur", leftCollapsed ? "border bg-card/95 text-icon hover:text-icon" : "text-background hover:text-background")}
-                  onClick={() => setLeftCollapsed((current) => !current)}
-                  aria-label={leftCollapsed ? "展开左侧文件夹" : "收起左侧文件夹"}
-                >
-                  {leftCollapsed ? <PanelLeftOpen className="size-4" /> : <PanelLeftClose className="size-4" />}
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="right">{leftCollapsed ? "展开左侧文件夹" : "收起左侧文件夹"}</TooltipContent>
-            </Tooltip>
-          </FloatingControlGroup>
+          <FloatingChromeSlot placement="rightFilter" pinned={viewFiltersOpen}>
+            <ViewFilterMenu
+              open={viewFiltersOpen}
+              filters={viewFilters}
+              hiddenCount={hiddenViewFilters}
+              editable={isCanvasEditable}
+              onOpenChange={updateViewFiltersOpen}
+              onChange={updateViewFilter}
+              onReset={resetViewFilters}
+            />
+          </FloatingChromeSlot>
 
-          <FloatingControlGroup className="right-0 top-1/2 -translate-y-1/2" hotZoneClassName="h-32 w-20 items-center justify-end p-4" pinned={!rightCollapsed}>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  size="icon"
-                  variant={rightCollapsed ? "outline" : "default"}
-                  className={cn("size-9 shadow-sm backdrop-blur", rightCollapsed ? "border bg-card/95 text-icon hover:text-icon" : "text-background hover:text-background")}
-                  onClick={() => setRightCollapsed((current) => !current)}
-                  aria-label={rightCollapsed ? "展开右侧检查器" : "收起右侧检查器"}
-                >
-                  {rightCollapsed ? <PanelRightOpen className="size-4" /> : <PanelRightClose className="size-4" />}
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="left">{rightCollapsed ? "展开右侧检查器" : "收起右侧检查器"}</TooltipContent>
-            </Tooltip>
-          </FloatingControlGroup>
+          <FloatingChromeSlot placement="leftCenter" pinned={!leftCollapsed}>
+            <FloatingIconButton
+              label={leftCollapsed ? "展开左侧文件夹" : "收起左侧文件夹"}
+              tooltipSide="right"
+              active={!leftCollapsed}
+              onClick={() => setLeftCollapsed((current) => !current)}
+            >
+              {leftCollapsed ? <PanelLeftOpen /> : <PanelLeftClose />}
+            </FloatingIconButton>
+          </FloatingChromeSlot>
 
-          <FloatingControlGroup className="left-0 bottom-0" hotZoneClassName="h-32 w-24 items-end justify-start p-4" pinned={secondaryActionsOpen}>
+          <FloatingChromeSlot placement="rightCenter" pinned={!rightCollapsed}>
+            <FloatingIconButton
+              label={rightCollapsed ? "展开右侧检查器" : "收起右侧检查器"}
+              tooltipSide="left"
+              active={!rightCollapsed}
+              onClick={() => setRightCollapsed((current) => !current)}
+            >
+              {rightCollapsed ? <PanelRightOpen /> : <PanelRightClose />}
+            </FloatingIconButton>
+          </FloatingChromeSlot>
+
+          <FloatingChromeSlot placement="leftBottom" pinned={secondaryActionsOpen}>
             <SecondaryActionsMenu
               open={secondaryActionsOpen}
               direction={graph.direction}
@@ -2558,27 +2534,14 @@ export function MermaidEditor() {
               onResetView={() => updateViewport({ x: 160, y: 90, scale: 1 }, "menu")}
               onOpenThemeSettings={openThemeSettings}
             />
-          </FloatingControlGroup>
+          </FloatingChromeSlot>
 
           {isCanvasEditable && workspaceView === "canvas" ? (
-            <FloatingControlGroup className="right-0 bottom-0" hotZoneClassName="h-32 w-28 items-end justify-end p-4">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    size="icon"
-                    variant={mode === "connect" ? "default" : "outline"}
-                    className={cn("size-9 shadow-sm backdrop-blur", mode === "connect" ? "text-background hover:text-background" : "border bg-card/95 text-icon hover:text-icon")}
-                    onClick={toggleSelectConnectMode}
-                    aria-label={mode === "connect" ? "切换到选择模式" : "切换到连接模式"}
-                  >
-                    {mode === "connect" ? <Link className="size-4" /> : <SquareDashedMousePointer className="size-4" />}
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="left">{mode === "connect" ? "切换到选择模式" : "切换到连接模式"}</TooltipContent>
-              </Tooltip>
-            </FloatingControlGroup>
+            <FloatingChromeSlot placement="rightBottom">
+              <ToolModeCluster mode={mode} onChange={changeToolMode} />
+            </FloatingChromeSlot>
           ) : null}
-        </div>
+        </FloatingChromeLayer>
         {fileWorkflowError ? <FileWorkflowErrorBanner error={fileWorkflowError} onClose={() => setFileWorkflowError(null)} /> : null}
         {unsavedPrompt ? <UnsavedFilePrompt prompt={unsavedPrompt} onResolve={resolveUnsavedPrompt} /> : null}
         {preferences.statusMessages && status ? (
@@ -2601,66 +2564,67 @@ export function MermaidEditor() {
   );
 }
 
-function FloatingControlGroup({
-  className,
-  hotZoneClassName,
-  pinned = false,
-  children
+function workspaceViewOptionsFor(editableKind: EditableKind): WorkspaceView[] {
+  return editableKind === "flowchart" ? ["canvas", "render", "source"] : ["render", "source"];
+}
+
+function WorkspaceViewCluster({
+  workspaceView,
+  editableKind,
+  canvasViewTooltip,
+  onChange
 }: {
-  className: string;
-  hotZoneClassName: string;
-  pinned?: boolean;
-  children: ReactNode;
+  workspaceView: WorkspaceView;
+  editableKind: EditableKind;
+  canvasViewTooltip: string;
+  onChange: (view: WorkspaceView) => void;
 }) {
-  const [hovered, setHovered] = useState(false);
-  const [focusWithin, setFocusWithin] = useState(false);
-  const hideTimerRef = useRef<number | null>(null);
-  const visible = shouldRevealFloatingGroup({ hovered, focusWithin, pinned });
-
-  useEffect(() => {
-    return () => {
-      if (hideTimerRef.current) window.clearTimeout(hideTimerRef.current);
-    };
-  }, []);
-
-  function clearHideTimer() {
-    if (!hideTimerRef.current) return;
-    window.clearTimeout(hideTimerRef.current);
-    hideTimerRef.current = null;
-  }
-
-  function show() {
-    clearHideTimer();
-    setHovered(true);
-  }
-
-  function scheduleHide() {
-    clearHideTimer();
-    hideTimerRef.current = window.setTimeout(() => {
-      setHovered(false);
-      hideTimerRef.current = null;
-    }, FLOATING_CHROME_HIDE_DELAY_MS);
-  }
-
-  function blur(event: React.FocusEvent<HTMLDivElement>) {
-    const nextTarget = event.relatedTarget;
-    if (nextTarget instanceof Node && event.currentTarget.contains(nextTarget)) return;
-    setFocusWithin(false);
-  }
+  const views = workspaceViewOptionsFor(editableKind);
 
   return (
-    <div className={cn("pointer-events-auto absolute", className)}>
-      <div className={cn("flex", hotZoneClassName)} onPointerEnter={show} onPointerLeave={scheduleHide} onFocus={() => setFocusWithin(true)} onBlur={blur}>
-        <div
-          className={cn(
-            "transition-[opacity,transform] duration-150 ease-out",
-            visible ? "pointer-events-auto translate-y-0 opacity-100" : "pointer-events-none translate-y-1 opacity-0"
-          )}
-        >
-          {children}
-        </div>
-      </div>
-    </div>
+    <FloatingButtonCluster orientation="vertical">
+      {views.map((view) => {
+        const label = view === "canvas" ? canvasViewTooltip : workspaceViewLabels[view];
+        const Icon = view === "canvas" ? SquareDashedMousePointer : view === "render" ? Workflow : Code;
+        return (
+          <FloatingIconButton
+            key={view}
+            label={label}
+            tooltipSide="left"
+            active={workspaceView === view}
+            aria-pressed={workspaceView === view}
+            onClick={() => onChange(view)}
+          >
+            <Icon />
+          </FloatingIconButton>
+        );
+      })}
+    </FloatingButtonCluster>
+  );
+}
+
+function ToolModeCluster({ mode, onChange }: { mode: EditorMode; onChange: (mode: EditorMode) => void }) {
+  return (
+    <FloatingButtonCluster>
+      <FloatingIconButton
+        label="选择模式"
+        tooltipSide="top"
+        active={mode === "select"}
+        aria-pressed={mode === "select"}
+        onClick={() => onChange("select")}
+      >
+        <SquareDashedMousePointer />
+      </FloatingIconButton>
+      <FloatingIconButton
+        label="连接模式"
+        tooltipSide="top"
+        active={mode === "connect"}
+        aria-pressed={mode === "connect"}
+        onClick={() => onChange("connect")}
+      >
+        <Link />
+      </FloatingIconButton>
+    </FloatingButtonCluster>
   );
 }
 
@@ -2687,51 +2651,15 @@ function DesktopWindowControls() {
 
   return (
     <div className="flex items-center gap-2" data-window-drag-exclude>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            type="button"
-            size="icon"
-            variant="outline"
-            className="size-9 border bg-card/95 text-icon shadow-sm backdrop-blur hover:text-icon"
-            onClick={() => void runWindowAction("minimize")}
-            aria-label="最小化窗口"
-          >
-            <Minus className="size-4" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="bottom">最小化</TooltipContent>
-      </Tooltip>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            type="button"
-            size="icon"
-            variant="outline"
-            className="size-9 border bg-card/95 text-icon shadow-sm backdrop-blur hover:text-icon"
-            onClick={() => void runWindowAction("toggleMaximize")}
-            aria-label="最大化或还原窗口"
-          >
-            <Maximize className="size-4" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="bottom">最大化/还原</TooltipContent>
-      </Tooltip>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            type="button"
-            size="icon"
-            variant="outline"
-            className="size-9 border bg-card/95 text-icon shadow-sm backdrop-blur hover:bg-destructive/10 hover:text-destructive"
-            onClick={() => void runWindowAction("close")}
-            aria-label="关闭窗口"
-          >
-            <Xmark className="size-4" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="bottom">关闭</TooltipContent>
-      </Tooltip>
+      <FloatingIconButton type="button" label="最小化" tooltipSide="bottom" onClick={() => void runWindowAction("minimize")}>
+        <Minus />
+      </FloatingIconButton>
+      <FloatingIconButton type="button" label="最大化/还原" tooltipSide="bottom" onClick={() => void runWindowAction("toggleMaximize")}>
+        <Maximize />
+      </FloatingIconButton>
+      <FloatingIconButton type="button" label="关闭" tooltipSide="bottom" danger onClick={() => void runWindowAction("close")}>
+        <Xmark />
+      </FloatingIconButton>
     </div>
   );
 }
@@ -2860,7 +2788,7 @@ function ExplorerPanel({
         <div className="flex shrink-0 items-center gap-1">
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button size="icon" variant="ghost" className="size-8 text-icon hover:text-icon" onClick={onCollapse} aria-label="收起资源管理器">
+              <Button size="icon" variant="ghost" className={EDITOR_CHROME_CLASSES.panelIconButton} onClick={onCollapse} aria-label="收起资源管理器">
                 <PanelLeftClose className="size-4" />
               </Button>
             </TooltipTrigger>
@@ -2884,7 +2812,7 @@ function ExplorerPanel({
           <div className="flex shrink-0 items-center gap-1">
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button size="icon" variant="ghost" className="size-8 text-icon hover:text-icon" disabled={!projectAvailable || projectBusy} onClick={onOpenProject} aria-label="打开工作区文件夹">
+                <Button size="icon" variant="ghost" className={EDITOR_CHROME_CLASSES.panelIconButton} disabled={!projectAvailable || projectBusy} onClick={onOpenProject} aria-label="打开工作区文件夹">
                   <Folder className="size-4" />
                 </Button>
               </TooltipTrigger>
@@ -2894,7 +2822,7 @@ function ExplorerPanel({
               <>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button size="icon" variant="ghost" className="size-8 text-icon hover:text-icon" disabled={projectBusy} onClick={onRefreshProject} aria-label="刷新工作区文件">
+                    <Button size="icon" variant="ghost" className={EDITOR_CHROME_CLASSES.panelIconButton} disabled={projectBusy} onClick={onRefreshProject} aria-label="刷新工作区文件">
                       <RefreshCw className={cn("size-4", projectBusy && "animate-spin")} />
                     </Button>
                   </TooltipTrigger>
@@ -2902,7 +2830,7 @@ function ExplorerPanel({
                 </Tooltip>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button size="icon" variant="ghost" className="size-8 text-icon hover:text-icon" disabled={projectBusy} onClick={onCloseProject} aria-label="关闭工作区文件夹">
+                    <Button size="icon" variant="ghost" className={EDITOR_CHROME_CLASSES.panelIconButton} disabled={projectBusy} onClick={onCloseProject} aria-label="关闭工作区文件夹">
                       <Xmark className="size-4" />
                     </Button>
                   </TooltipTrigger>
@@ -2955,7 +2883,7 @@ function WorkspaceFolderEmptyState({
   return (
     <div className="grid gap-2 px-2 py-3">
       <div className="text-xs text-muted-foreground">{projectAvailable ? "打开 Mermaid 文件后会自动显示同目录图表" : "桌面版支持文件夹浏览"}</div>
-      <Button variant="outline" className="h-8 justify-start px-2 text-xs" disabled={!projectAvailable || projectBusy} onClick={onOpenProject}>
+      <Button variant="outline" className={cn(EDITOR_CHROME_CLASSES.menuRow, "text-xs")} disabled={!projectAvailable || projectBusy} onClick={onOpenProject}>
         <Folder className="size-4" />
         选择文件夹
       </Button>
@@ -2987,7 +2915,7 @@ function ProjectTreeRow({
         <Button
           type="button"
           variant="ghost"
-          className="h-7 justify-start gap-1 px-2 text-left text-foreground [&_svg]:text-icon"
+          className={cn(EDITOR_CHROME_CLASSES.treeRow, "gap-1")}
           style={{ paddingLeft }}
           aria-expanded={expanded}
           onClick={() => onToggleDirectory(node.id)}
@@ -3020,7 +2948,7 @@ function ProjectTreeRow({
     <Button
       type="button"
       variant={active ? "secondary" : "ghost"}
-      className="h-7 justify-start gap-2 px-2 text-left text-foreground [&_svg]:text-icon"
+      className={cn(EDITOR_CHROME_CLASSES.treeRow, "gap-2")}
       style={{ paddingLeft }}
       title={node.file.path}
       onClick={() => onOpenProjectFile(node.file)}
@@ -3068,37 +2996,25 @@ function FileMenu({
 
   return (
     <div ref={menuRef} className="relative">
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            size="icon"
-            variant="outline"
-            className={cn("size-9 border bg-card/95 text-icon shadow-sm backdrop-blur hover:text-icon", isDirty && "border-primary/45 text-primary hover:text-primary")}
-            onClick={() => onOpenChange(!open)}
-            aria-expanded={open}
-            aria-label="文件"
-          >
-            <Folder className="size-4" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="bottom">文件</TooltipContent>
-      </Tooltip>
+      <FloatingIconButton label="文件" dirty={isDirty} onClick={() => onOpenChange(!open)} aria-expanded={open}>
+        <Folder />
+      </FloatingIconButton>
 
       {open ? (
-        <div className="absolute left-0 top-11 z-50 w-72 rounded-md border bg-popover p-1.5 text-popover-foreground shadow-sm">
+        <div className="absolute left-0 top-12 z-50 w-72 rounded-md border bg-popover p-1.5 text-popover-foreground shadow-sm">
           <div className="grid gap-0.5">
-            <Button variant="ghost" className="h-8 justify-start px-2 text-foreground [&_svg]:text-icon" onClick={() => runAndClose(onNewFile)}>
+            <Button variant="ghost" className={EDITOR_CHROME_CLASSES.menuRow} onClick={() => runAndClose(onNewFile)}>
               <Plus className="size-4" />
               新建文件
             </Button>
-            <Button variant="ghost" className="h-8 justify-start px-2 text-foreground [&_svg]:text-icon" onClick={() => runAndClose(onOpenFile)}>
+            <Button variant="ghost" className={EDITOR_CHROME_CLASSES.menuRow} onClick={() => runAndClose(onOpenFile)}>
               <Folder className="size-4" />
               打开文件
             </Button>
             {projectAvailable ? (
               <Button
                 variant="ghost"
-                className="h-8 justify-start px-2 text-foreground [&_svg]:text-icon"
+                className={EDITOR_CHROME_CLASSES.menuRow}
                 disabled={projectBusy}
                 onClick={() => runAndClose(onOpenProject)}
               >
@@ -3107,11 +3023,11 @@ function FileMenu({
               </Button>
             ) : null}
             <Separator className="my-1" />
-            <Button variant="ghost" className="h-8 justify-start px-2 text-foreground [&_svg]:text-icon" onClick={() => runAndClose(onSaveFile)}>
+            <Button variant="ghost" className={EDITOR_CHROME_CLASSES.menuRow} onClick={() => runAndClose(onSaveFile)}>
               <FloppyDisk className="size-4" />
               保存
             </Button>
-            <Button variant="ghost" className="h-8 justify-start px-2 text-foreground [&_svg]:text-icon" onClick={() => runAndClose(onSaveAs)}>
+            <Button variant="ghost" className={EDITOR_CHROME_CLASSES.menuRow} onClick={() => runAndClose(onSaveAs)}>
               <FloppyDiskArrowOut className="size-4" />
               另存为
             </Button>
@@ -3122,7 +3038,7 @@ function FileMenu({
                 <Button
                   key={file.path}
                   variant="ghost"
-                  className="h-9 justify-start gap-2 px-2 text-left text-foreground [&_svg]:text-icon"
+                  className={cn(EDITOR_CHROME_CLASSES.menuRow, "gap-2 text-left")}
                   title={file.path}
                   onClick={() => runAndClose(() => onOpenRecent(file))}
                 >
@@ -3207,43 +3123,38 @@ function ViewFilterMenu({
 
   return (
     <div ref={menuRef} className="relative">
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            size="icon"
-            variant={hiddenCount > 0 ? "default" : "outline"}
-            className={hiddenCount > 0 ? "size-9 text-background shadow-sm backdrop-blur hover:text-background" : "size-9 border bg-card/95 text-icon shadow-sm backdrop-blur hover:text-icon disabled:opacity-40"}
-            onClick={() => onOpenChange(!open)}
-            disabled={!editable}
-            aria-expanded={open}
-            aria-label="视图过滤器"
-          >
-            <FilterAlt className="size-4" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="bottom">{hiddenCount > 0 ? `视图过滤器：已隐藏 ${hiddenCount} 项` : "视图过滤器"}</TooltipContent>
-      </Tooltip>
+      <FloatingIconButton
+        label={hiddenCount > 0 ? `视图过滤器：已隐藏 ${hiddenCount} 项` : "视图过滤器"}
+        tooltipSide="left"
+        active={hiddenCount > 0}
+        badgeCount={hiddenCount}
+        onClick={() => onOpenChange(!open)}
+        disabled={!editable}
+        aria-expanded={open}
+      >
+        <FilterAlt />
+      </FloatingIconButton>
 
       {open ? (
-        <div className="absolute right-0 top-11 z-50 w-72 rounded-md border bg-popover p-2 text-popover-foreground shadow-sm">
+        <div className="absolute right-0 top-12 z-50 w-72 rounded-md border bg-popover p-2 text-popover-foreground shadow-sm">
           <div className="flex items-center justify-between px-1 pb-1">
             <span className="text-xs font-medium text-foreground">视图过滤器</span>
             <span className="text-[11px] text-muted-foreground">{hiddenCount > 0 ? `隐藏 ${hiddenCount} 项` : "全部显示"}</span>
           </div>
           <div className="grid grid-cols-2 gap-1">
-            <Button variant="ghost" className="h-8 justify-start px-2 text-foreground [&_svg]:text-icon" onClick={onReset}>
+            <Button variant="ghost" className={EDITOR_CHROME_CLASSES.menuRow} onClick={onReset}>
               <Eye className="size-4" />
               全部显示
             </Button>
-            <Button variant="ghost" className="h-8 justify-start px-2 text-foreground [&_svg]:text-icon" onClick={hideEdges}>
+            <Button variant="ghost" className={EDITOR_CHROME_CLASSES.menuRow} onClick={hideEdges}>
               <Link className="size-4" />
               隐藏连线
             </Button>
-            <Button variant="ghost" className="h-8 justify-start px-2 text-foreground [&_svg]:text-icon" onClick={showNodesOnly}>
+            <Button variant="ghost" className={EDITOR_CHROME_CLASSES.menuRow} onClick={showNodesOnly}>
               <SquareDashedMousePointer className="size-4" />
               仅节点
             </Button>
-            <Button variant="ghost" className="h-8 justify-start px-2 text-foreground [&_svg]:text-icon" onClick={hideLabels}>
+            <Button variant="ghost" className={EDITOR_CHROME_CLASSES.menuRow} onClick={hideLabels}>
               <Text className="size-4" />
               隐藏标签
             </Button>
@@ -3287,7 +3198,7 @@ function FilterToggle({ active, label, icon, compact = false, onClick }: { activ
       type="button"
       variant="ghost"
       className={cn(
-        "h-8 justify-start px-2 text-foreground [&_svg]:text-icon",
+        EDITOR_CHROME_CLASSES.menuRow,
         compact ? "gap-1.5 text-xs" : "",
         !active ? "text-muted-foreground" : ""
       )}
@@ -3308,7 +3219,7 @@ function PreferenceToggle({ active, label, icon, onClick }: { active: boolean; l
     <Button
       type="button"
       variant="ghost"
-      className={cn("h-8 justify-start gap-2 px-2 text-foreground [&_svg]:text-icon", !active && "text-muted-foreground")}
+      className={cn(EDITOR_CHROME_CLASSES.menuRow, "gap-2", !active && "text-muted-foreground")}
       aria-pressed={active}
       onClick={onClick}
     >
@@ -3379,28 +3290,16 @@ function SecondaryActionsMenu({
 
   return (
     <div ref={menuRef} className="relative">
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            size="icon"
-            variant="outline"
-            className="size-9 border bg-card/95 text-icon shadow-sm backdrop-blur hover:text-icon"
-            onClick={() => onOpenChange(!open)}
-            aria-expanded={open}
-            aria-label="更多操作"
-          >
-            <MoreHoriz className="size-4" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="bottom">更多操作</TooltipContent>
-      </Tooltip>
+      <FloatingIconButton label="更多操作" tooltipSide="top" onClick={() => onOpenChange(!open)} aria-expanded={open}>
+        <MoreHoriz />
+      </FloatingIconButton>
 
       {open ? (
-        <div className="absolute bottom-11 left-0 z-50 w-64 rounded-md border bg-popover p-1.5 text-popover-foreground shadow-sm">
+        <div className="absolute bottom-12 left-0 z-50 w-64 rounded-md border bg-popover p-1.5 text-popover-foreground shadow-sm">
           <div className="grid gap-0.5">
             <Button
               variant="ghost"
-              className="h-8 justify-start px-2 text-foreground disabled:opacity-40 [&_svg]:text-icon"
+              className={cn(EDITOR_CHROME_CLASSES.menuRow, "disabled:opacity-40")}
               onClick={() => runAndClose(onAddNode)}
               disabled={!editable}
             >
@@ -3409,7 +3308,7 @@ function SecondaryActionsMenu({
             </Button>
             <Button
               variant="ghost"
-              className="h-8 justify-start px-2 text-foreground disabled:opacity-40 [&_svg]:text-icon"
+              className={cn(EDITOR_CHROME_CLASSES.menuRow, "disabled:opacity-40")}
               onClick={() => runAndClose(onAddImageNode)}
               disabled={!editable}
             >
@@ -3418,14 +3317,14 @@ function SecondaryActionsMenu({
             </Button>
             <Button
               variant="ghost"
-              className="h-8 justify-start px-2 text-foreground disabled:opacity-40 [&_svg]:text-icon"
+              className={cn(EDITOR_CHROME_CLASSES.menuRow, "disabled:opacity-40")}
               onClick={() => runAndClose(onCreateGroup)}
               disabled={!editable}
             >
               <SquareDashedMousePointer className="size-4" />
               选中内容成组
             </Button>
-            <Button variant="ghost" className="h-8 justify-start px-2 text-foreground [&_svg]:text-icon" onClick={() => runAndClose(onSaveAs)}>
+            <Button variant="ghost" className={EDITOR_CHROME_CLASSES.menuRow} onClick={() => runAndClose(onSaveAs)}>
               <FloppyDiskArrowOut className="size-4" />
               另存为
             </Button>
@@ -3562,17 +3461,17 @@ function SecondaryActionsMenu({
                 }
               />
             </div>
-            <Button variant="ghost" className="h-8 justify-start px-2 text-foreground [&_svg]:text-icon" onClick={() => runAndClose(onOpenThemeSettings)}>
+            <Button variant="ghost" className={EDITOR_CHROME_CLASSES.menuRow} onClick={() => runAndClose(onOpenThemeSettings)}>
               <ColorWheel className="size-4" />
               主题
             </Button>
-            <Button variant="ghost" className="h-8 justify-start px-2 text-foreground [&_svg]:text-icon" onClick={() => runAndClose(onRefreshSource)}>
+            <Button variant="ghost" className={EDITOR_CHROME_CLASSES.menuRow} onClick={() => runAndClose(onRefreshSource)}>
               <RefreshCw className="size-4" />
               从源码刷新
             </Button>
             <Button
               variant="ghost"
-              className="h-8 justify-start px-2 text-foreground disabled:opacity-40 [&_svg]:text-icon"
+              className={cn(EDITOR_CHROME_CLASSES.menuRow, "disabled:opacity-40")}
               onClick={() => runAndClose(onSyncAutoLayout)}
               disabled={!editable}
             >
@@ -3581,7 +3480,7 @@ function SecondaryActionsMenu({
             </Button>
             <Button
               variant="ghost"
-              className="h-8 justify-start px-2 text-foreground disabled:opacity-40 [&_svg]:text-icon"
+              className={cn(EDITOR_CHROME_CLASSES.menuRow, "disabled:opacity-40")}
               onClick={() => runAndClose(onResetView)}
               disabled={!editable}
             >
@@ -3946,7 +3845,7 @@ function PanelHeader({ onCollapse }: { onCollapse: () => void }) {
     <div className="absolute right-2 top-2 z-30">
       <Tooltip>
         <TooltipTrigger asChild>
-          <Button size="icon" variant="ghost" className="size-8 bg-card/95 text-icon hover:text-icon" onClick={onCollapse} aria-label="收起右侧面板">
+          <Button size="icon" variant="ghost" className={cn(EDITOR_CHROME_CLASSES.panelIconButton, "bg-card/95")} onClick={onCollapse} aria-label="收起右侧面板">
             <PanelRightClose className="size-4" />
           </Button>
         </TooltipTrigger>

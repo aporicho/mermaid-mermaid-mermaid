@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { DiagnosticPanel } from "@/features/mermaid-editor/components/diagnostic-panel";
+import { EDITOR_CHROME_CLASSES } from "@/features/mermaid-editor/lib/editor-chrome";
 import type { EditorDiagnostic } from "@/features/mermaid-editor/lib/editor-diagnostics";
 import { cn } from "@/lib/utils";
 
@@ -27,7 +28,7 @@ export function SourcePanel({ value, title = "Mermaid", className, diagnostics =
         <div className="flex items-center gap-1">
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button size="icon" variant="ghost" className="size-8 text-icon hover:text-icon" onClick={onRun} aria-label="刷新画布">
+              <Button size="icon" variant="ghost" className={EDITOR_CHROME_CLASSES.panelIconButton} onClick={onRun} aria-label="刷新画布">
                 <RefreshCw className="size-4" />
               </Button>
             </TooltipTrigger>
@@ -36,7 +37,7 @@ export function SourcePanel({ value, title = "Mermaid", className, diagnostics =
           {onCollapse ? (
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button size="icon" variant="ghost" className="size-8 text-icon hover:text-icon" onClick={onCollapse} aria-label="收起 Mermaid 面板">
+                <Button size="icon" variant="ghost" className={EDITOR_CHROME_CLASSES.panelIconButton} onClick={onCollapse} aria-label="收起 Mermaid 面板">
                   <PanelLeftClose className="size-4" />
                 </Button>
               </TooltipTrigger>
