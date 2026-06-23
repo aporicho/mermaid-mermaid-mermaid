@@ -7,7 +7,8 @@ import {
   resolveEditorTheme,
   themeToCanvasVisualTokens,
   themeToCssVariables,
-  themeToMermaidThemeVariables
+  themeToMermaidThemeVariables,
+  themeToTerminalTheme
 } from "@/features/mermaid-editor/lib/editor-theme";
 
 describe("editor theme", () => {
@@ -25,6 +26,12 @@ describe("editor theme", () => {
       },
       source: {
         line: "#111111"
+      },
+      ansi: {
+        red: "#cc0000"
+      },
+      terminal: {
+        background: "#ffffff"
       }
     });
 
@@ -40,6 +47,12 @@ describe("editor theme", () => {
       },
       source: {
         line: "#111111"
+      },
+      ansi: {
+        red: "#cc0000"
+      },
+      terminal: {
+        background: "#ffffff"
       }
     });
   });
@@ -51,6 +64,8 @@ describe("editor theme", () => {
     expect(variables["--icon"]).toBeDefined();
     expect(variables["--primary"]).toBeDefined();
     expect(variables["--source-line"]).toBeDefined();
+    expect(variables["--terminal-background"]).toBeDefined();
+    expect(variables["--ansi-bright-red"]).toBeDefined();
     expect(variables["--primary-foreground"]).toBe(variables["--background"]);
   });
 
@@ -121,6 +136,77 @@ describe("editor theme", () => {
     expect(compiled.canvasVisualTokens.edge.labelCornerRadius).toBe(10);
   });
 
+  it("normalizes terminal and ANSI theme tokens", () => {
+    const theme = normalizeEditorTheme({
+      version: 2,
+      ansi: {
+        green: "#00aa66",
+        brightGreen: "bad-color"
+      },
+      terminal: {
+        background: "#101010",
+        foreground: "#f5f5f5",
+        cursor: "#ff5500"
+      },
+      font: {
+        sizeTerminal: 15,
+        lineHeightTerminal: 22
+      }
+    });
+
+    const terminalTheme = themeToTerminalTheme(theme);
+
+    expect(theme.version).toBe(4);
+    expect(theme.ansi.green).toBe("#00aa66");
+    expect(theme.ansi.brightGreen).toBe(DEFAULT_EDITOR_THEME.ansi.brightGreen);
+    expect(theme.terminal.background).toBe("#101010");
+    expect(theme.terminal.foreground).toBe("#f5f5f5");
+    expect(theme.font.sizeTerminal).toBe(15);
+    expect(theme.font.lineHeightTerminal).toBe(22);
+    expect(terminalTheme.green).toBe("#00aa66");
+    expect(terminalTheme.background).toBe("#101010");
+    expect(terminalTheme.selectionInactiveBackground).toContain("rgba");
+  });
+
+  it("normalizes motion tokens and exports motion css variables", () => {
+    const theme = normalizeEditorTheme({
+      version: 3,
+      motion: {
+        duration: {
+          fast: 0.12,
+          layout: 9
+        },
+        ease: {
+          standard: "power1.out",
+          exit: "bad value ;"
+        },
+        distance: {
+          panel: 48
+        },
+        stagger: {
+          button: 0.04
+        },
+        canvas: {
+          maxAnimatedItems: 120,
+          selectedScale: 1.04
+        }
+      }
+    });
+    const compiled = compileEditorTheme(theme);
+
+    expect(theme.version).toBe(4);
+    expect(theme.motion.duration.fast).toBe(0.12);
+    expect(theme.motion.duration.layout).toBe(1.6);
+    expect(theme.motion.ease.standard).toBe("power1.out");
+    expect(theme.motion.ease.exit).toBe(DEFAULT_EDITOR_THEME.motion.ease.exit);
+    expect(theme.motion.distance.panel).toBe(48);
+    expect(theme.motion.stagger.button).toBe(0.04);
+    expect(theme.motion.canvas.maxAnimatedItems).toBe(120);
+    expect(theme.motion.canvas.selectedScale).toBe(1.04);
+    expect(compiled.cssVariables["--motion-duration-fast"]).toBe("120ms");
+    expect(compiled.motion.duration.base).toBe(DEFAULT_EDITOR_THEME.motion.duration.base);
+  });
+
   it("compiles every runtime adapter from one theme snapshot", () => {
     const compiled = compileEditorTheme(DEFAULT_EDITOR_THEME);
 
@@ -129,6 +215,9 @@ describe("editor theme", () => {
     expect(compiled.canvasVisualTokens.overlay.subgraphDash).toEqual([...DEFAULT_EDITOR_THEME.stroke.subgraphDash]);
     expect(compiled.geometry.subgraph.paddingTop).toBe(DEFAULT_EDITOR_THEME.subgraph.paddingTop);
     expect(compiled.mermaidThemeVariables.background).toBe(DEFAULT_EDITOR_THEME.render.background);
+    expect(compiled.terminalTheme.brightRed).toBe(DEFAULT_EDITOR_THEME.ansi.brightRed);
+    expect(compiled.cssVariables["--theme-terminal-line-height"]).toBe(`${DEFAULT_EDITOR_THEME.font.lineHeightTerminal}px`);
+    expect(compiled.motion.duration.layout).toBe(DEFAULT_EDITOR_THEME.motion.duration.layout);
     expect(compiled.diagnostics.every((diagnostic) => diagnostic.severity === "warning")).toBe(true);
   });
 });

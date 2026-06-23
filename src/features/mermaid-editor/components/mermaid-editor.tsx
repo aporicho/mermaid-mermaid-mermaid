@@ -30,16 +30,18 @@ import {
   SidebarExpand as PanelLeftOpen,
   SidebarExpand as PanelRightOpen,
   SquareCursor as SquareDashedMousePointer,
+  Terminal,
   Text,
   WarningTriangle,
   Xmark
 } from "iconoir-react/regular";
 
 import { InspectorPanel } from "@/features/mermaid-editor/components/inspector-panel";
-import { FloatingButtonCluster, FloatingChromeLayer, FloatingChromeSlot, FloatingIconButton } from "@/features/mermaid-editor/components/floating-chrome";
+import { FloatingButtonCluster, FloatingChromeLayer, FloatingChromeSlot, FloatingIconButton, MotionPresence } from "@/features/mermaid-editor/components/floating-chrome";
 import { MarkdownPanel } from "@/features/mermaid-editor/components/markdown-panel";
 import { PreviewPanel } from "@/features/mermaid-editor/components/preview-panel";
 import { SourcePanel } from "@/features/mermaid-editor/components/source-panel";
+import { TerminalPanel } from "@/features/mermaid-editor/components/terminal-panel";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -117,6 +119,7 @@ import {
   normalizeEditorTheme,
   resolveEditorTheme
 } from "@/features/mermaid-editor/lib/editor-theme";
+import { EditorMotionProvider, gsap, useResolvedEditorMotion } from "@/features/mermaid-editor/lib/use-gsap-motion";
 import { incrementPerformanceCounter, measurePerformance } from "@/features/mermaid-editor/lib/editor-performance";
 import { buildInteractionContext } from "@/features/mermaid-editor/lib/interaction/context";
 import type { EditorCommand } from "@/features/mermaid-editor/lib/interaction/commands";
@@ -170,6 +173,28 @@ const arrowTypeFilterLabels: Record<FlowchartArrowType, string> = {
   none: "无箭头",
   circle: "圆点",
   cross: "叉号"
+};
+const ansiColorRows = [
+  ["black", "red", "green", "yellow", "blue", "magenta", "cyan", "white"],
+  ["brightBlack", "brightRed", "brightGreen", "brightYellow", "brightBlue", "brightMagenta", "brightCyan", "brightWhite"]
+] as const satisfies readonly (readonly (keyof EditorTheme["ansi"])[])[];
+const ansiColorLabels: Record<keyof EditorTheme["ansi"], string> = {
+  black: "黑",
+  red: "红",
+  green: "绿",
+  yellow: "黄",
+  blue: "蓝",
+  magenta: "品红",
+  cyan: "青",
+  white: "白",
+  brightBlack: "亮黑",
+  brightRed: "亮红",
+  brightGreen: "亮绿",
+  brightYellow: "亮黄",
+  brightBlue: "亮蓝",
+  brightMagenta: "亮品红",
+  brightCyan: "亮青",
+  brightWhite: "亮白"
 };
 const workspaceViewLabels: Record<WorkspaceView, string> = {
   canvas: "无限画布",
@@ -615,6 +640,12 @@ function isDesktopWindowRuntime() {
   return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 }
 
+function parentDirectoryPath(path: string | undefined) {
+  if (!path) return undefined;
+  const index = Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\"));
+  return index > 0 ? path.slice(0, index) : undefined;
+}
+
 async function getDesktopWindow() {
   if (!isDesktopWindowRuntime()) return null;
   const { getCurrentWindow } = await import("@tauri-apps/api/window");
@@ -658,6 +689,7 @@ export function MermaidEditor() {
   const [draftPersistenceReady, setDraftPersistenceReady] = useState(runtime.kind !== "desktop");
   const [secondaryActionsOpen, setSecondaryActionsOpen] = useState(false);
   const [viewFiltersOpen, setViewFiltersOpen] = useState(false);
+  const [terminalOpen, setTerminalOpen] = useState(false);
   const [themeSettingsOpen, setThemeSettingsOpen] = useState(false);
   const [themeId, setThemeId] = useState<EditorThemeId>(initial.themeId);
   const [customTheme, setCustomTheme] = useState<EditorTheme | null>(initial.customTheme);
@@ -673,6 +705,7 @@ export function MermaidEditor() {
   const themeEditBaseRef = useRef<{ themeId: EditorThemeId; customTheme: EditorTheme | null } | null>(null);
   const storageWriteTimerRef = useRef<number | null>(null);
   const aiContextPostTimerRef = useRef<number | null>(null);
+  const viewportMotionTweenRef = useRef<gsap.core.Tween | null>(null);
   const aiCommandBusyRef = useRef(false);
   const actionCounterRef = useRef(0);
   const desktopFileWorkflowInitializedRef = useRef(false);
@@ -711,7 +744,9 @@ export function MermaidEditor() {
   );
   const activeTheme = useMemo(() => resolveEditorTheme(themeId, customTheme), [customTheme, themeId]);
   const compiledTheme = useMemo(() => compileEditorTheme(activeTheme), [activeTheme]);
+  const resolvedMotion = useResolvedEditorMotion(compiledTheme.motion);
   const activeAppLogo = useMemo(() => appLogoById(preferences.appLogo), [preferences.appLogo]);
+  const terminalCwd = useMemo(() => projectWorkspace?.rootPath || parentDirectoryPath(fileRef?.path), [fileRef?.path, projectWorkspace?.rootPath]);
   const isDirty = !lastSavedDocument || currentDocument !== lastSavedDocument;
   const isCanvasEditable = documentKind === "mermaid" && editableKind === "flowchart";
   const canvasViewTooltip = isCanvasEditable ? "无限画布" : `${diagramTypeLabel(diagramType)} 仅支持渲染`;
@@ -721,6 +756,12 @@ export function MermaidEditor() {
     isDirtyRef.current = isDirty;
     currentDocumentRef.current = currentDocument;
   }, [currentDocument, isDirty]);
+
+  useEffect(() => {
+    return () => {
+      viewportMotionTweenRef.current?.kill();
+    };
+  }, []);
 
   useEffect(() => {
     const assetSources = Array.from(new Set(graph.nodes.map((node) => node.asset?.src).filter((src): src is string => Boolean(src))));
@@ -1311,6 +1352,27 @@ export function MermaidEditor() {
   }
 
   function updateViewport(nextViewport: ViewportState, source: "wheel" | "gesture" | "keyboard" | "menu" | "api" = "wheel") {
+    viewportMotionTweenRef.current?.kill();
+    viewportMotionTweenRef.current = null;
+
+    if ((source === "menu" || source === "api") && resolvedMotion.duration.slow > 0) {
+      const proxy = { ...viewport };
+      viewportMotionTweenRef.current = gsap.to(proxy, {
+        x: nextViewport.x,
+        y: nextViewport.y,
+        scale: nextViewport.scale,
+        duration: resolvedMotion.duration.slow,
+        ease: resolvedMotion.ease.emphasized,
+        overwrite: "auto",
+        onUpdate: () => setViewport({ x: proxy.x, y: proxy.y, scale: proxy.scale }),
+        onComplete: () => {
+          viewportMotionTweenRef.current = null;
+          applyEditorCommand({ type: "viewport.set", viewport: nextViewport, source });
+        }
+      });
+      return;
+    }
+
     applyEditorCommand({ type: "viewport.set", viewport: nextViewport, source });
   }
 
@@ -2570,7 +2632,14 @@ export function MermaidEditor() {
       return element.tagName === "INPUT" || element.tagName === "TEXTAREA" || element.isContentEditable;
     }
 
+    function isTerminalInput(target: EventTarget | null) {
+      const element = target as HTMLElement | null;
+      return Boolean(element?.closest(".terminal-panel"));
+    }
+
     function onKeyDown(event: KeyboardEvent) {
+      if (isTerminalInput(event.target)) return;
+
       if (event.key === "Escape" && closeFloatingOverlays()) {
         event.preventDefault();
         return;
@@ -2656,11 +2725,18 @@ export function MermaidEditor() {
   }
 
   return (
+    <EditorMotionProvider value={resolvedMotion}>
     <TooltipProvider delayDuration={180}>
       <input ref={fileInputRef} type="file" accept=".mmd,.mermaid,.md,.markdown,text/plain" className="hidden" onChange={openFallbackFile} />
       <main className="relative h-screen overflow-hidden bg-background">
         <h1 className="sr-only">Mermaid Canvas Editor</h1>
-        <div ref={workspaceSurfaceRef} className="absolute inset-0 z-0">
+        <MotionPresence
+          key={`${workspaceView}:${documentKind}:${editableKind}`}
+          present
+          variant="workspace"
+          className="absolute inset-0 z-0"
+        >
+        <div ref={workspaceSurfaceRef} className="h-full min-h-0">
           {workspaceView === "canvas" && isCanvasEditable ? (
             <Suspense fallback={<div className="grid min-h-0 place-items-center bg-card text-sm text-muted-foreground">正在载入画布</div>}>
               <KonvaCanvas
@@ -2676,6 +2752,7 @@ export function MermaidEditor() {
                 imageDisplaySrcBySrc={imageDisplaySrcBySrc}
                 visualTokens={compiledTheme.canvasVisualTokens}
                 geometryTokens={compiledTheme.geometry}
+                motion={resolvedMotion}
                 onEditorCommand={applyEditorCommand}
                 onLiveStateChange={updateCanvasLiveState}
               />
@@ -2706,12 +2783,12 @@ export function MermaidEditor() {
             />
           )}
         </div>
+        </MotionPresence>
         {fileDropFeedback ? <FileDropFeedbackBadge feedback={fileDropFeedback} /> : null}
         {!leftCollapsed || (documentKind === "mermaid" && !rightCollapsed) ? (
           <div className="absolute inset-0 z-10" aria-hidden onPointerDown={closeSidePanels} />
         ) : null}
-        {!leftCollapsed ? (
-          <div className={cn(EDITOR_CHROME_CLASSES.sidePanel, "left-4 w-[clamp(320px,31vw,416px)]")}>
+        <MotionPresence present={!leftCollapsed} variant="left" className={cn(EDITOR_CHROME_CLASSES.sidePanel, "left-4 w-[clamp(320px,31vw,416px)]")}>
             <ExplorerPanel
               runtimeKind={runtime.kind}
               projectWorkspace={projectWorkspace}
@@ -2724,16 +2801,25 @@ export function MermaidEditor() {
               onOpenProjectFile={(file) => void openProjectFile(file)}
               onCollapse={() => setLeftCollapsed(true)}
             />
-          </div>
-        ) : null}
-        {!rightCollapsed && documentKind === "mermaid" ? (
-          <aside className={cn(EDITOR_CHROME_CLASSES.sidePanel, "right-4 grid w-[clamp(320px,28vw,400px)] min-h-0")}>
+        </MotionPresence>
+        <MotionPresence present={!rightCollapsed && documentKind === "mermaid"} variant="right" className={cn(EDITOR_CHROME_CLASSES.sidePanel, "right-4 grid w-[clamp(320px,28vw,400px)] min-h-0")}>
             <PanelHeader onCollapse={() => setRightCollapsed(true)} />
             <div className="grid min-h-0">
               <InspectorPanel graph={graph} selection={selection} onEditorCommand={applyEditorCommand} />
             </div>
-          </aside>
-        ) : null}
+        </MotionPresence>
+        <MotionPresence present={terminalOpen} variant="bottom" className="pointer-events-none absolute inset-0 z-20">
+          <div className="pointer-events-auto">
+          <TerminalPanel
+            runtime={runtime}
+            cwd={terminalCwd}
+            theme={activeTheme}
+            terminalTheme={compiledTheme.terminalTheme}
+            onClose={() => setTerminalOpen(false)}
+            onStatus={setStatus}
+          />
+          </div>
+        </MotionPresence>
 
         <FloatingChromeLayer>
           <FloatingChromeSlot placement="topLeft" pinned={fileMenuOpen}>
@@ -2846,6 +2932,18 @@ export function MermaidEditor() {
             />
           </FloatingChromeSlot>
 
+          <FloatingChromeSlot placement="bottomCenter" pinned={terminalOpen}>
+            <FloatingIconButton
+              label={terminalOpen ? "关闭终端" : "打开终端"}
+              tooltipSide="top"
+              active={terminalOpen}
+              aria-pressed={terminalOpen}
+              onClick={() => setTerminalOpen((current) => !current)}
+            >
+              <Terminal />
+            </FloatingIconButton>
+          </FloatingChromeSlot>
+
           {isCanvasEditable && workspaceView === "canvas" ? (
             <FloatingChromeSlot placement="rightBottom">
               <ToolModeCluster mode={mode} onChange={changeToolMode} />
@@ -2871,6 +2969,7 @@ export function MermaidEditor() {
         ) : null}
       </main>
     </TooltipProvider>
+    </EditorMotionProvider>
   );
 }
 
@@ -3857,6 +3956,22 @@ function ThemeSettingsPanel({
     updateCustomTheme((theme) => ({ ...theme, render: { ...theme.render, [key]: value } }));
   }
 
+  function updateTerminalColor(key: keyof EditorTheme["terminal"], value: string) {
+    updateCustomTheme((theme) => ({ ...theme, terminal: { ...theme.terminal, [key]: value } }));
+  }
+
+  function updateAnsiColor(key: keyof EditorTheme["ansi"], value: string) {
+    updateCustomTheme((theme) => ({ ...theme, ansi: { ...theme.ansi, [key]: value } }));
+  }
+
+  function resetTerminalColors() {
+    updateCustomTheme((theme) => ({ ...theme, terminal: { ...DEFAULT_EDITOR_THEME.terminal } }));
+  }
+
+  function resetAnsiColors() {
+    updateCustomTheme((theme) => ({ ...theme, ansi: { ...DEFAULT_EDITOR_THEME.ansi } }));
+  }
+
   function updateFontNumber(key: NumberKeys<EditorTheme["font"]>, value: number) {
     updateCustomTheme((theme) => ({ ...theme, font: { ...theme.font, [key]: value } }));
   }
@@ -3883,6 +3998,26 @@ function ThemeSettingsPanel({
 
   function updateEdgeLabelNumber(key: NumberKeys<EditorTheme["edgeLabel"]>, value: number) {
     updateCustomTheme((theme) => ({ ...theme, edgeLabel: { ...theme.edgeLabel, [key]: value } }));
+  }
+
+  function updateMotionDurationNumber(key: keyof EditorTheme["motion"]["duration"], value: number) {
+    updateCustomTheme((theme) => ({ ...theme, motion: { ...theme.motion, duration: { ...theme.motion.duration, [key]: value } } }));
+  }
+
+  function updateMotionDistanceNumber(key: keyof EditorTheme["motion"]["distance"], value: number) {
+    updateCustomTheme((theme) => ({ ...theme, motion: { ...theme.motion, distance: { ...theme.motion.distance, [key]: value } } }));
+  }
+
+  function updateMotionStaggerNumber(key: keyof EditorTheme["motion"]["stagger"], value: number) {
+    updateCustomTheme((theme) => ({ ...theme, motion: { ...theme.motion, stagger: { ...theme.motion.stagger, [key]: value } } }));
+  }
+
+  function updateMotionCanvasNumber(key: keyof EditorTheme["motion"]["canvas"], value: number) {
+    updateCustomTheme((theme) => ({ ...theme, motion: { ...theme.motion, canvas: { ...theme.motion.canvas, [key]: value } } }));
+  }
+
+  function resetMotion() {
+    updateCustomTheme((theme) => ({ ...theme, motion: { ...DEFAULT_EDITOR_THEME.motion } }));
   }
 
   const themeDiagnostics = useMemo(() => compileEditorTheme(activeTheme).diagnostics, [activeTheme]);
@@ -3930,6 +4065,29 @@ function ThemeSettingsPanel({
             <ThemePreview theme={activeTheme} />
 
             <div className="grid gap-3">
+              <div className="flex items-center justify-between gap-3">
+                <h3 className="text-xs font-medium text-muted-foreground">动效</h3>
+                <Button variant="ghost" className="h-8 px-2" onClick={resetMotion}>
+                  重置动效
+                </Button>
+              </div>
+              <ThemeMotionPreview theme={activeTheme} />
+              <ThemeNumberField label="快速时长" value={activeTheme.motion.duration.fast} min={0} max={0.4} step={0.01} onChange={(value) => updateMotionDurationNumber("fast", value)} />
+              <ThemeNumberField label="基础时长" value={activeTheme.motion.duration.base} min={0} max={0.8} step={0.01} onChange={(value) => updateMotionDurationNumber("base", value)} />
+              <ThemeNumberField label="面板时长" value={activeTheme.motion.duration.slow} min={0} max={1.2} step={0.01} onChange={(value) => updateMotionDurationNumber("slow", value)} />
+              <ThemeNumberField label="布局时长" value={activeTheme.motion.duration.layout} min={0} max={1.6} step={0.01} onChange={(value) => updateMotionDurationNumber("layout", value)} />
+              <ThemeNumberField label="控件距离" value={activeTheme.motion.distance.chrome} min={0} max={32} step={1} onChange={(value) => updateMotionDistanceNumber("chrome", value)} />
+              <ThemeNumberField label="面板距离" value={activeTheme.motion.distance.panel} min={0} max={96} step={1} onChange={(value) => updateMotionDistanceNumber("panel", value)} />
+              <ThemeNumberField label="视图距离" value={activeTheme.motion.distance.viewport} min={0} max={320} step={4} onChange={(value) => updateMotionDistanceNumber("viewport", value)} />
+              <ThemeNumberField label="按钮错峰" value={activeTheme.motion.stagger.button} min={0} max={0.16} step={0.005} onChange={(value) => updateMotionStaggerNumber("button", value)} />
+              <ThemeNumberField label="列表错峰" value={activeTheme.motion.stagger.list} min={0} max={0.16} step={0.005} onChange={(value) => updateMotionStaggerNumber("list", value)} />
+              <ThemeNumberField label="新建缩放" value={activeTheme.motion.canvas.createScale} min={0.7} max={1} step={0.01} onChange={(value) => updateMotionCanvasNumber("createScale", value)} />
+              <ThemeNumberField label="选中缩放" value={activeTheme.motion.canvas.selectedScale} min={1} max={1.08} step={0.005} onChange={(value) => updateMotionCanvasNumber("selectedScale", value)} />
+              <ThemeNumberField label="高亮时长" value={activeTheme.motion.canvas.highlightDuration} min={0} max={1.8} step={0.01} onChange={(value) => updateMotionCanvasNumber("highlightDuration", value)} />
+              <ThemeNumberField label="动画上限" value={activeTheme.motion.canvas.maxAnimatedItems} min={0} max={400} step={10} onChange={(value) => updateMotionCanvasNumber("maxAnimatedItems", value)} />
+            </div>
+
+            <div className="grid gap-3">
               <h3 className="text-xs font-medium text-muted-foreground">界面</h3>
               <ThemeColorField label="背景" value={activeTheme.ui.background} onChange={(value) => updateUiColor("background", value)} />
               <ThemeColorField label="文字" value={activeTheme.ui.foreground} onChange={(value) => updateUiColor("foreground", value)} />
@@ -3963,6 +4121,42 @@ function ThemeSettingsPanel({
               <ThemeColorField label="行分隔" value={activeTheme.source.line} onChange={(value) => updateSourceColor("line", value)} />
               <ThemeColorField label="渲染背景" value={activeTheme.render.background} onChange={(value) => updateRenderColor("background", value)} />
               <ThemeColorField label="渲染网格" value={activeTheme.render.gridDot} onChange={(value) => updateRenderColor("gridDot", value)} />
+            </div>
+
+            <div className="grid gap-3">
+              <div className="flex items-center justify-between gap-3">
+                <h3 className="text-xs font-medium text-muted-foreground">终端</h3>
+                <Button variant="ghost" className="h-8 px-2" onClick={resetTerminalColors}>
+                  重置终端
+                </Button>
+              </div>
+              <ThemeTerminalPreview theme={activeTheme} />
+              <ThemeColorField label="背景" value={activeTheme.terminal.background} onChange={(value) => updateTerminalColor("background", value)} />
+              <ThemeColorField label="文字" value={activeTheme.terminal.foreground} onChange={(value) => updateTerminalColor("foreground", value)} />
+              <ThemeColorField label="光标" value={activeTheme.terminal.cursor} onChange={(value) => updateTerminalColor("cursor", value)} />
+              <ThemeColorField label="光标文字" value={activeTheme.terminal.cursorAccent} onChange={(value) => updateTerminalColor("cursorAccent", value)} />
+              <ThemeColorField label="选区" value={activeTheme.terminal.selectionBackground} onChange={(value) => updateTerminalColor("selectionBackground", value)} />
+              <ThemeColorField label="选区文字" value={activeTheme.terminal.selectionForeground} onChange={(value) => updateTerminalColor("selectionForeground", value)} />
+              <ThemeNumberField label="字号" value={activeTheme.font.sizeTerminal} min={10} max={22} step={1} onChange={(value) => updateFontNumber("sizeTerminal", value)} />
+              <ThemeNumberField label="行高" value={activeTheme.font.lineHeightTerminal} min={14} max={32} step={1} onChange={(value) => updateFontNumber("lineHeightTerminal", value)} />
+            </div>
+
+            <div className="grid gap-3">
+              <div className="flex items-center justify-between gap-3">
+                <h3 className="text-xs font-medium text-muted-foreground">ANSI 16 色</h3>
+                <Button variant="ghost" className="h-8 px-2" onClick={resetAnsiColors}>
+                  重置 ANSI
+                </Button>
+              </div>
+              <div className="grid gap-2">
+                {ansiColorRows.map((row, rowIndex) => (
+                  <div key={rowIndex} className="grid grid-cols-4 gap-2">
+                    {row.map((key) => (
+                      <ThemeAnsiColorField key={key} label={ansiColorLabels[key]} value={activeTheme.ansi[key]} onChange={(value) => updateAnsiColor(key, value)} />
+                    ))}
+                  </div>
+                ))}
+              </div>
             </div>
 
             <div className="grid gap-3">
@@ -4105,6 +4299,69 @@ function ThemeNumberField({
   );
 }
 
+function ThemeAnsiColorField({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
+  return (
+    <label className="grid gap-1 text-xs text-muted-foreground">
+      <span>{label}</span>
+      <input
+        type="color"
+        value={isHexColor(value) ? value : "#000000"}
+        className="h-8 w-full cursor-pointer rounded-md border bg-background p-1"
+        onChange={(event) => onChange(event.target.value)}
+      />
+      <span className="truncate font-mono text-[10px] leading-4">{value}</span>
+    </label>
+  );
+}
+
+function ThemeTerminalPreview({ theme }: { theme: EditorTheme }) {
+  return (
+    <div
+      className="grid gap-2 rounded-md border p-3 font-mono text-xs"
+      style={{
+        borderColor: theme.ui.border,
+        backgroundColor: theme.terminal.background,
+        color: theme.terminal.foreground,
+        fontSize: theme.font.sizeTerminal,
+        lineHeight: `${theme.font.lineHeightTerminal}px`
+      }}
+    >
+      <div className="flex items-center gap-2">
+        <Terminal className="size-4" style={{ color: theme.ui.icon }} />
+        <span style={{ color: theme.ansi.green }}>project</span>
+        <span style={{ color: theme.ansi.blue }}>main</span>
+        <span style={{ color: theme.terminal.cursor }}>$</span>
+        <span>npm run build</span>
+      </div>
+      <div className="grid gap-1">
+        <span style={{ color: theme.ansi.green }}>✓ 类型检查通过</span>
+        <span style={{ color: theme.ansi.yellow }}>! 发现 1 条主题诊断</span>
+        <span style={{ color: theme.ansi.red }}>x 终端输出错误示例</span>
+      </div>
+      <div className="grid grid-cols-8 gap-1">
+        {ansiColorRows.flat().map((key) => (
+          <span key={key} className="h-5 rounded-sm border" style={{ borderColor: theme.ui.border, backgroundColor: theme.ansi[key] }} title={ansiColorLabels[key]} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ThemeMotionPreview({ theme }: { theme: EditorTheme }) {
+  return (
+    <div className="grid gap-2 rounded-md border p-3" style={{ borderColor: theme.ui.border, backgroundColor: theme.ui.background }}>
+      <div className="flex items-center gap-2">
+        <span className="size-3 rounded-full" style={{ backgroundColor: theme.ui.primary }} />
+        <span className="size-3 rounded-full opacity-80" style={{ backgroundColor: theme.ui.icon }} />
+        <span className="size-3 rounded-full opacity-60" style={{ backgroundColor: theme.ui.border }} />
+      </div>
+      <div className="text-xs text-muted-foreground">
+        {`快速 ${Math.round(theme.motion.duration.fast * 1000)}ms · 基础 ${Math.round(theme.motion.duration.base * 1000)}ms · 布局 ${Math.round(theme.motion.duration.layout * 1000)}ms`}
+      </div>
+    </div>
+  );
+}
+
 function ThemePreview({ theme }: { theme: EditorTheme }) {
   return (
     <div className="grid gap-2 rounded-md border p-3" style={{ backgroundColor: theme.ui.background, color: theme.ui.foreground }}>
@@ -4125,13 +4382,16 @@ function ThemePreview({ theme }: { theme: EditorTheme }) {
           Mermaid
         </div>
       </div>
+      <div className="rounded-md border px-2 py-1 font-mono text-xs" style={{ borderColor: theme.ui.border, backgroundColor: theme.terminal.background, color: theme.terminal.foreground }}>
+        <span style={{ color: theme.ansi.green }}>project</span> <span style={{ color: theme.terminal.cursor }}>$</span> terminal
+      </div>
     </div>
   );
 }
 
 function toCustomTheme(theme: EditorTheme): EditorTheme {
   return {
-    version: 2,
+    version: 4,
     id: "custom",
     name: theme.id === "custom" ? theme.name : "自定义主题",
     description: theme.description,
@@ -4140,6 +4400,8 @@ function toCustomTheme(theme: EditorTheme): EditorTheme {
     canvas: { ...theme.canvas },
     source: { ...theme.source },
     render: { ...theme.render },
+    ansi: { ...theme.ansi },
+    terminal: { ...theme.terminal },
     font: { ...theme.font },
     space: { ...theme.space },
     radius: { ...theme.radius },
@@ -4155,6 +4417,13 @@ function toCustomTheme(theme: EditorTheme): EditorTheme {
     canvasInteraction: { ...theme.canvasInteraction },
     subgraph: { ...theme.subgraph },
     edgeLabel: { ...theme.edgeLabel },
+    motion: {
+      duration: { ...theme.motion.duration },
+      ease: { ...theme.motion.ease },
+      distance: { ...theme.motion.distance },
+      stagger: { ...theme.motion.stagger },
+      canvas: { ...theme.motion.canvas }
+    },
     diagnostics: { ...theme.diagnostics }
   };
 }

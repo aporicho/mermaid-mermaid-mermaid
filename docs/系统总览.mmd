@@ -9,6 +9,7 @@ flowchart LR
     CanvasView["无限画布"]
     RenderView["Mermaid 渲染视图"]
     SourceView["源码视图"]
+    TerminalView["底部终端面板"]
     Inspector["属性 / 主题 / 诊断"]
   end
 
@@ -20,7 +21,7 @@ flowchart LR
     CommandTx["命令与事务<br/>interaction/commands.ts<br/>interaction/transaction.ts"]
     CanvasEngine["画布引擎<br/>Konva + geometry + visual state"]
     MermaidEngine["Mermaid 引擎<br/>parse / serialize / render"]
-    ThemeCompiler["主题编译器<br/>CSS / Canvas / Mermaid adapters"]
+    ThemeCompiler["主题编译器<br/>CSS / Canvas / Mermaid / xterm adapters"]
   end
 
   subgraph Truth[共同事实源]
@@ -36,7 +37,8 @@ flowchart LR
     direction TB
     RuntimeAdapter["运行时适配器<br/>editor-runtime.ts"]
     BrowserRuntime["浏览器运行时<br/>文件选择 / 下载 / localStorage"]
-    TauriNative["Tauri 原生层<br/>文件 / 项目扫描 / 应用状态 / 图片资源 / bridge"]
+    TauriNative["Tauri 原生层<br/>文件 / 项目扫描 / 应用状态 / 图片资源 / PTY / bridge"]
+    PtySession["本地 PTY 会话<br/>portable-pty / shell / resize"]
     WindowsFlow["Windows 验收流程<br/>WSL 同步 -> desktop:ship -> launch"]
   end
 
@@ -59,12 +61,14 @@ flowchart LR
   FloatingChrome --> CanvasView
   FloatingChrome --> RenderView
   FloatingChrome --> SourceView
+  FloatingChrome --> TerminalView
   FloatingChrome --> Inspector
 
   ProjectBrowser -->|打开项目文件| Orchestrator
   SourceView -->|源码编辑| Orchestrator
   CanvasView -->|pointer / wheel / gesture| CanvasEngine
   RenderView -->|查看与导航| Orchestrator
+  TerminalView -->|终端输入 / 输出| RuntimeAdapter
   Inspector -->|属性命令| Orchestrator
   FloatingChrome -->|菜单 / 视图 / 模式| Orchestrator
 
@@ -89,11 +93,14 @@ flowchart LR
   ThemeCompiler -->|CSS 变量| UserSurfaces
   ThemeCompiler -->|画布 token| CanvasEngine
   ThemeCompiler -->|themeVariables| MermaidEngine
+  ThemeCompiler -->|xterm theme / ANSI 色| TerminalView
 
   Orchestrator --> RuntimeAdapter
   Orchestrator --> ProjectWorkspace
   RuntimeAdapter --> BrowserRuntime
   RuntimeAdapter --> TauriNative
+  TauriNative --> PtySession
+  PtySession -->|data / exit event| RuntimeAdapter
   TauriNative --> WindowsFlow
   RuntimeAdapter -->|打开 / 保存 / 草稿 / 图片显示 URL| Truth
 

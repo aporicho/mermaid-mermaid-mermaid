@@ -43,6 +43,11 @@ import {
 import { DEFAULT_CANVAS_GRID, firstGridCoordinateAtOrAfter, getCanvasGridRenderPlan, isGridCoordinate, type CanvasGridSpec } from "@/features/mermaid-editor/lib/canvas-grid";
 import { resolveCanvasRenderScope } from "@/features/mermaid-editor/lib/canvas-render-scope";
 import { createWheelIntentTracker } from "@/features/mermaid-editor/lib/canvas-viewport-navigation";
+import {
+  resolveCanvasMotionChanges,
+  snapshotCanvasNodes,
+  type CanvasMotionNodeSnapshot
+} from "@/features/mermaid-editor/lib/canvas-motion";
 import { resolveConnectionPreview, resolveRetargetPreview } from "@/features/mermaid-editor/lib/connection-preview";
 import {
   buildEdgeLabelGeometry,
@@ -78,6 +83,7 @@ import {
   type SubgraphGeometry
 } from "@/features/mermaid-editor/lib/subgraph-geometry";
 import type { EditorThemeGeometryTokens } from "@/features/mermaid-editor/lib/editor-theme";
+import { resolveRuntimeEditorMotion, type RuntimeEditorMotion } from "@/features/mermaid-editor/lib/editor-motion";
 import {
   CANVAS_VISUAL_TOKENS,
   type CanvasVisualTokens,
@@ -112,6 +118,7 @@ import {
 import { resolveInteractionIntent } from "@/features/mermaid-editor/lib/interaction/intent";
 import { useViewportScheduler } from "@/features/mermaid-editor/lib/interaction/viewport-scheduler";
 import { isEdgeVisible, type ViewFilters } from "@/features/mermaid-editor/lib/view-filters";
+import { gsap } from "@/features/mermaid-editor/lib/use-gsap-motion";
 import { cn } from "@/lib/utils";
 
 let textMeasureCanvas: HTMLCanvasElement | null = null;
@@ -129,6 +136,7 @@ type KonvaCanvasProps = {
   imageDisplaySrcBySrc?: Record<string, string>;
   visualTokens?: CanvasVisualTokens;
   geometryTokens?: EditorThemeGeometryTokens;
+  motion?: RuntimeEditorMotion;
   onEditorCommand: (command: EditorCommand) => void;
   onLiveStateChange?: (state: CanvasLiveState) => void;
 };
@@ -155,6 +163,18 @@ type CanvasLiveState = {
   canvasSize?: { width: number; height: number };
   editing?: { kind: "node" | "edge"; id: string; draftText: string } | null;
   interaction?: string;
+};
+
+type CanvasNodeMotionVisual = {
+  x: number;
+  y: number;
+  opacity: number;
+  scale: number;
+  highlight: number;
+};
+
+type CanvasEdgeMotionVisual = {
+  highlight: number;
 };
 
 type SafariGestureEvent = Event & {
@@ -680,11 +700,13 @@ export function KonvaCanvas({
   imageDisplaySrcBySrc = {},
   visualTokens = CANVAS_VISUAL_TOKENS,
   geometryTokens,
+  motion: motionProp,
   onEditorCommand,
   onLiveStateChange
 }: KonvaCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage>(null);
+  const runtimeMotion = useMemo(() => motionProp ?? resolveRuntimeEditorMotion(), [motionProp]);
   const dragRef = useRef<Record<string, { x: number; y: number }> | null>(null);
   const subgraphDragFrameRef = useRef<Record<string, { x: number; y: number }> | null>(null);
   const dragDraftGraphRef = useRef<MermaidGraph | null>(null);
@@ -696,6 +718,13 @@ export function KonvaCanvas({
   const interactionGenerationRef = useRef(0);
   const selectionVersionRef = useRef(0);
   const lastSelectionKeyRef = useRef(selectionVersionKey(selection));
+  const previousNodeSnapshotRef = useRef<Map<string, CanvasMotionNodeSnapshot>>(snapshotCanvasNodes(graph));
+  const previousFullNodeByIdRef = useRef<Map<string, CanvasNode>>(new Map(graph.nodes.map((node) => [node.id, node])));
+  const previousSelectionRef = useRef(selection);
+  const nodeMotionRef = useRef<Record<string, CanvasNodeMotionVisual>>({});
+  const edgeMotionRef = useRef<Record<string, CanvasEdgeMotionVisual>>({});
+  const activeMotionTweensRef = useRef<gsap.core.Tween[]>([]);
+  const motionCommitFrameRef = useRef<number | null>(null);
   const dimensions = useContainerSize(containerRef);
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
   const [hoveredSubgraphId, setHoveredSubgraphId] = useState<string | null>(null);
@@ -704,6 +733,9 @@ export function KonvaCanvas({
   const [alignmentGuides, setAlignmentGuides] = useState<AlignmentGuide[]>([]);
   const [inlineEdit, setInlineEdit] = useState<InlineEdit | null>(null);
   const [hoveredHitTarget, setHoveredHitTarget] = useState<HitTarget>({ kind: "blank" });
+  const [nodeMotion, setNodeMotion] = useState<Record<string, CanvasNodeMotionVisual>>({});
+  const [edgeMotion, setEdgeMotion] = useState<Record<string, CanvasEdgeMotionVisual>>({});
+  const [exitingNodes, setExitingNodes] = useState<CanvasNode[]>([]);
   const nodeThemeTokens = geometryTokens?.node ?? DEFAULT_NODE_GEOMETRY_TOKENS;
   const edgeLabelThemeTokens = geometryTokens?.edgeLabel ?? DEFAULT_EDGE_LABEL_GEOMETRY_TOKENS;
   const subgraphThemeTokens: SubgraphGeometryTokens = geometryTokens?.subgraph ?? SUBGRAPH_GEOMETRY_TOKENS;
@@ -718,10 +750,12 @@ export function KonvaCanvas({
   const edgeLabelSpec = useMemo(() => edgeLabelGeometrySpec(edgeLabelThemeTokens), [edgeLabelThemeTokens]);
   const renderedNodes = useMemo(
     () =>
-      inlineEdit?.type === "node"
-        ? graph.nodes.map((node) => (node.id === inlineEdit.id ? { ...node, label: inlineEdit.value } : node))
-        : graph.nodes,
-    [graph.nodes, inlineEdit]
+      graph.nodes.map((node) => {
+        const animated = nodeMotion[node.id];
+        const labeled = inlineEdit?.type === "node" && node.id === inlineEdit.id ? { ...node, label: inlineEdit.value } : node;
+        return animated ? { ...labeled, x: animated.x, y: animated.y } : labeled;
+      }),
+    [graph.nodes, inlineEdit, nodeMotion]
   );
   const renderedNodeGeometries = useMemo(() => renderedNodes.map((node) => buildNodeGeometry(node, geometrySpec)), [geometrySpec, renderedNodes]);
   const renderedGraph = useMemo(() => ({ ...graph, nodes: renderedNodes }), [graph, renderedNodes]);
@@ -950,6 +984,183 @@ export function KonvaCanvas({
     },
     [scheduleScheduledViewport]
   );
+
+  function scheduleMotionCommit() {
+    if (motionCommitFrameRef.current) return;
+    motionCommitFrameRef.current = window.requestAnimationFrame(() => {
+      motionCommitFrameRef.current = null;
+      setNodeMotion({ ...nodeMotionRef.current });
+      setEdgeMotion({ ...edgeMotionRef.current });
+    });
+  }
+
+  function setNodeMotionVisual(id: string, visual: CanvasNodeMotionVisual) {
+    nodeMotionRef.current = { ...nodeMotionRef.current, [id]: visual };
+    scheduleMotionCommit();
+  }
+
+  function clearNodeMotionVisual(id: string) {
+    if (!nodeMotionRef.current[id]) return;
+    const next = { ...nodeMotionRef.current };
+    delete next[id];
+    nodeMotionRef.current = next;
+    scheduleMotionCommit();
+  }
+
+  function setEdgeMotionVisual(id: string, visual: CanvasEdgeMotionVisual) {
+    edgeMotionRef.current = { ...edgeMotionRef.current, [id]: visual };
+    scheduleMotionCommit();
+  }
+
+  function clearEdgeMotionVisual(id: string) {
+    if (!edgeMotionRef.current[id]) return;
+    const next = { ...edgeMotionRef.current };
+    delete next[id];
+    edgeMotionRef.current = next;
+    scheduleMotionCommit();
+  }
+
+  function stopActiveMotionTweens() {
+    for (const tween of activeMotionTweensRef.current) tween.kill();
+    activeMotionTweensRef.current = [];
+  }
+
+  function trackMotionTween(tween: gsap.core.Tween) {
+    activeMotionTweensRef.current.push(tween);
+  }
+
+  function animateNodeVisual(id: string, from: CanvasNodeMotionVisual, to: CanvasNodeMotionVisual, duration: number) {
+    const proxy = { ...from };
+    setNodeMotionVisual(id, proxy);
+    const tween = gsap.to(proxy, {
+      ...to,
+      duration,
+      ease: runtimeMotion.ease.emphasized,
+      overwrite: "auto",
+      onUpdate: () => setNodeMotionVisual(id, { ...proxy }),
+      onComplete: () => {
+        if (to.opacity >= 1 && to.scale === 1 && to.highlight === 0) clearNodeMotionVisual(id);
+      }
+    });
+    trackMotionTween(tween);
+  }
+
+  function animateNodeHighlight(id: string, node: CanvasNode) {
+    const current = nodeMotionRef.current[id] ?? { x: node.x, y: node.y, opacity: 1, scale: runtimeMotion.canvas.selectedScale, highlight: 1 };
+    const proxy = { ...current, scale: runtimeMotion.canvas.selectedScale, highlight: 1 };
+    setNodeMotionVisual(id, proxy);
+    const tween = gsap.to(proxy, {
+      scale: 1,
+      highlight: 0,
+      duration: runtimeMotion.canvas.highlightDuration,
+      ease: runtimeMotion.ease.standard,
+      overwrite: "auto",
+      onUpdate: () => setNodeMotionVisual(id, { ...proxy }),
+      onComplete: () => clearNodeMotionVisual(id)
+    });
+    trackMotionTween(tween);
+  }
+
+  function animateEdgeHighlight(id: string) {
+    const proxy = { highlight: 1 };
+    setEdgeMotionVisual(id, proxy);
+    const tween = gsap.to(proxy, {
+      highlight: 0,
+      duration: runtimeMotion.canvas.highlightDuration,
+      ease: runtimeMotion.ease.standard,
+      overwrite: "auto",
+      onUpdate: () => setEdgeMotionVisual(id, { ...proxy }),
+      onComplete: () => clearEdgeMotionVisual(id)
+    });
+    trackMotionTween(tween);
+  }
+
+  useEffect(() => {
+    return () => {
+      stopActiveMotionTweens();
+      if (motionCommitFrameRef.current) window.cancelAnimationFrame(motionCommitFrameRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    const changes = resolveCanvasMotionChanges({
+      previousNodes: previousNodeSnapshotRef.current,
+      graph,
+      previousSelection: previousSelectionRef.current,
+      selection,
+      motion: runtimeMotion,
+      interactionKind: interactionState.kind
+    });
+    const currentNodeById = new Map(graph.nodes.map((node) => [node.id, node]));
+    const previousFullNodeById = previousFullNodeByIdRef.current;
+
+    previousNodeSnapshotRef.current = snapshotCanvasNodes(graph);
+    previousFullNodeByIdRef.current = new Map(graph.nodes.map((node) => [node.id, node]));
+    previousSelectionRef.current = selection;
+
+    if (!changes.animateLayout && !changes.highlightedNodeIds.length && !changes.highlightedEdgeIds.length) return;
+
+    stopActiveMotionTweens();
+
+    if (changes.animateLayout) {
+      const exiting = changes.removedNodeIds.map((id) => previousFullNodeById.get(id)).filter((node): node is CanvasNode => Boolean(node));
+      if (exiting.length) setExitingNodes((current) => [...current.filter((node) => !changes.removedNodeIds.includes(node.id)), ...exiting]);
+
+      for (const id of changes.movedNodeIds) {
+        const previous = previousFullNodeById.get(id);
+        const node = currentNodeById.get(id);
+        if (!previous || !node) continue;
+        animateNodeVisual(
+          id,
+          { x: previous.x, y: previous.y, opacity: 1, scale: 1, highlight: 0 },
+          { x: node.x, y: node.y, opacity: 1, scale: 1, highlight: 0 },
+          runtimeMotion.duration.layout
+        );
+      }
+
+      for (const id of changes.createdNodeIds) {
+        const node = currentNodeById.get(id);
+        if (!node) continue;
+        animateNodeVisual(
+          id,
+          { x: node.x, y: node.y, opacity: 0, scale: runtimeMotion.canvas.createScale, highlight: 1 },
+          { x: node.x, y: node.y, opacity: 1, scale: 1, highlight: 0 },
+          runtimeMotion.duration.slow
+        );
+      }
+
+      for (const id of changes.removedNodeIds) {
+        const previous = previousFullNodeById.get(id);
+        if (!previous) continue;
+        const proxy = { x: previous.x, y: previous.y, opacity: 1, scale: 1, highlight: 0 };
+        setNodeMotionVisual(id, proxy);
+        const tween = gsap.to(proxy, {
+          opacity: 0,
+          scale: runtimeMotion.canvas.createScale,
+          duration: runtimeMotion.duration.base,
+          ease: runtimeMotion.ease.exit,
+          overwrite: "auto",
+          onUpdate: () => setNodeMotionVisual(id, { ...proxy }),
+          onComplete: () => {
+            clearNodeMotionVisual(id);
+            setExitingNodes((current) => current.filter((node) => node.id !== id));
+          }
+        });
+        trackMotionTween(tween);
+      }
+    }
+
+    if (runtimeMotion.canvas.highlightDuration > 0) {
+      for (const id of changes.highlightedNodeIds) {
+        const node = currentNodeById.get(id);
+        if (node) animateNodeHighlight(id, node);
+      }
+      for (const id of changes.highlightedEdgeIds) animateEdgeHighlight(id);
+    }
+    // Animation helpers intentionally stay outside the dependency list; runtimeMotion,
+    // graph, selection and interaction kind are the semantic invalidation boundary.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [graph, interactionState.kind, runtimeMotion, selection]);
 
   useEffect(() => {
     const nextSelectionKey = selectionVersionKey(selection);
@@ -1916,6 +2127,8 @@ export function KonvaCanvas({
                   const geometry = isRetargetPreviewEdge ? retargetDraftGeometry : baseGeometry;
                   const edgeVisual = getEdgeVisualState({ edge, selection, hoveredEdgeId, interactionState, inlineEdit, visualTokens });
                   const edgePreviewVisual = isRetargetPreviewEdge ? getConnectionDraftVisualState({ valid: retargetPreview.valid, edge, visualTokens }) : null;
+                  const edgeMotionVisual = edgeMotion[edge.id];
+                  const edgeStrokeWidth = (edgePreviewVisual?.strokeWidth ?? edgeVisual.strokeWidth) + (edgeMotionVisual?.highlight ?? 0) * visualTokens.node.emphasizedStrokeWidth;
                   const shouldRenderPath = !!geometry.pathData;
                   const isEditingEdgeLabel = inlineEdit?.type === "edge" && inlineEdit.id === edge.id;
                   const edgeLabel = isEditingEdgeLabel ? inlineEdit.value : edge.label;
@@ -1939,7 +2152,7 @@ export function KonvaCanvas({
                           <Path
                             data={geometry.pathData}
                             stroke={edgePreviewVisual?.stroke ?? edgeVisual.stroke}
-                            strokeWidth={edgePreviewVisual?.strokeWidth ?? edgeVisual.strokeWidth}
+                            strokeWidth={edgeStrokeWidth}
                             dash={edgePreviewVisual?.dash ?? edgeVisual.dash}
                             opacity={edgePreviewVisual?.opacity ?? edgeVisual.opacity ?? 1}
                             lineCap="round"
@@ -1967,7 +2180,7 @@ export function KonvaCanvas({
                             points={geometry.points}
                             stroke={edgePreviewVisual?.stroke ?? edgeVisual.stroke}
                             fill={edgePreviewVisual?.fill ?? edgeVisual.fill}
-                            strokeWidth={edgePreviewVisual?.strokeWidth ?? edgeVisual.strokeWidth}
+                            strokeWidth={edgeStrokeWidth}
                             dash={edgePreviewVisual?.dash ?? edgeVisual.dash}
                             opacity={edgePreviewVisual?.opacity ?? edgeVisual.opacity ?? 1}
                             lineCap="round"
@@ -1979,7 +2192,7 @@ export function KonvaCanvas({
                         </>
                       )}
                       {!edgePreviewVisual ? (
-                        <EdgeMarkers edge={edge} geometry={geometry} stroke={edgeVisual.stroke} strokeWidth={edgeVisual.strokeWidth} surfaceFill={visualTokens.colors.surface} visualTokens={visualTokens} />
+                        <EdgeMarkers edge={edge} geometry={geometry} stroke={edgeVisual.stroke} strokeWidth={edgeStrokeWidth} surfaceFill={visualTokens.colors.surface} visualTokens={visualTokens} />
                       ) : null}
                       {viewFilters.edgeLabels && edgeLabelGeometry && !isEditingEdgeLabel ? (
                         <Group
@@ -2023,6 +2236,7 @@ export function KonvaCanvas({
             {viewFilters.nodes ? scopedRenderedNodes.map((node) => {
               const geometry = nodeGeometryById.get(node.id);
               if (!geometry) return null;
+              const motionVisual = nodeMotion[node.id];
               const nodeVisual = getNodeVisualState({
                 nodeId: node.id,
                 selection,
@@ -2056,6 +2270,9 @@ export function KonvaCanvas({
                   key={node.id}
                   x={geometry.frame.x}
                   y={geometry.frame.y}
+                  opacity={motionVisual?.opacity ?? 1}
+                  scaleX={motionVisual?.scale ?? 1}
+                  scaleY={motionVisual?.scale ?? 1}
                   draggable={dragEnabled && mode === "select" && !panningRequested && interactionState.kind !== "panning"}
                   onDragStart={(event) => {
                     if (event.evt.button !== 0) {
@@ -2083,7 +2300,7 @@ export function KonvaCanvas({
                     width={geometry.frame.width}
                     height={geometry.frame.height}
                     stroke={nodeVisual.stroke}
-                    strokeWidth={nodeVisual.strokeWidth}
+                    strokeWidth={nodeVisual.strokeWidth + (motionVisual?.highlight ?? 0) * visualTokens.node.emphasizedStrokeWidth}
                     visualTokens={visualTokens}
                   />
                   {imageAsset && imageDisplaySrc && geometry.imageBox ? (
@@ -2144,6 +2361,63 @@ export function KonvaCanvas({
                 </Group>
               );
             }) : null}
+
+            {viewFilters.nodes
+              ? exitingNodes.map((node) => {
+                  const geometry = buildNodeGeometry(node, geometrySpec);
+                  const motionVisual = nodeMotion[node.id] ?? { x: node.x, y: node.y, opacity: 0, scale: runtimeMotion.canvas.createScale, highlight: 0 };
+                  const imageAsset = normalizeImageAsset(node.asset);
+                  const imageDisplaySrc = imageAsset ? imageDisplaySrcBySrc[imageAsset.src] || imageAsset.src : undefined;
+
+                  return (
+                    <Group
+                      key={`exiting-${node.id}`}
+                      x={motionVisual.x}
+                      y={motionVisual.y}
+                      opacity={motionVisual.opacity}
+                      scaleX={motionVisual.scale}
+                      scaleY={motionVisual.scale}
+                      listening={false}
+                    >
+                      <CanvasNodeShape
+                        node={node}
+                        width={geometry.frame.width}
+                        height={geometry.frame.height}
+                        stroke={visualTokens.colors.accent}
+                        strokeWidth={visualTokens.node.strokeWidth + motionVisual.highlight * visualTokens.node.emphasizedStrokeWidth}
+                        visualTokens={visualTokens}
+                      />
+                      {imageAsset && imageDisplaySrc && geometry.imageBox ? (
+                        <CanvasNodeImage
+                          src={imageDisplaySrc}
+                          x={geometry.imageBox.x}
+                          y={geometry.imageBox.y}
+                          width={geometry.imageBox.width}
+                          height={geometry.imageBox.height}
+                          stroke={visualTokens.colors.accent}
+                        />
+                      ) : null}
+                      <Text
+                        x={geometry.textBox.x}
+                        y={geometry.textBox.y}
+                        width={geometry.textBox.width}
+                        height={geometry.textBox.height}
+                        align="center"
+                        verticalAlign="middle"
+                        text={node.label}
+                        fontSize={nodeThemeTokens.fontSize}
+                        fontStyle={String(nodeThemeTokens.fontWeight)}
+                        fontFamily={nodeThemeTokens.fontFamily}
+                        lineHeight={nodeThemeTokens.lineHeight / nodeThemeTokens.fontSize}
+                        wrap="word"
+                        fill={visualTokens.colors.nodeText}
+                        ellipsis
+                        visible={viewFilters.nodeLabels}
+                      />
+                    </Group>
+                  );
+                })
+              : null}
 
             {connectionDraftGeometry ? (
               connectionDraftGeometry.pathData ? (

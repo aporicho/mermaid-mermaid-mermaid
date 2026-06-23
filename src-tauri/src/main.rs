@@ -4,7 +4,7 @@ use std::{
     collections::{HashMap, VecDeque},
     fs,
     hash::{DefaultHasher, Hash, Hasher},
-    io,
+    io::{self, Read, Write},
     net::TcpListener,
     path::{Path, PathBuf},
     sync::{Arc, Mutex},
@@ -13,6 +13,7 @@ use std::{
 };
 
 use chrono::{Duration, Utc};
+use portable_pty::{native_pty_system, ChildKiller, CommandBuilder, MasterPty, PtySize};
 use serde::Serialize;
 use serde_json::{json, Value};
 use tauri::{Emitter, Manager, State};
@@ -36,6 +37,17 @@ struct BridgeInner {
 #[derive(Clone, Default)]
 struct PendingOpenState {
     inner: Arc<Mutex<VecDeque<PendingOpenFile>>>,
+}
+
+#[derive(Clone, Default)]
+struct TerminalState {
+    inner: Arc<Mutex<HashMap<String, TerminalSession>>>,
+}
+
+struct TerminalSession {
+    master: Box<dyn MasterPty + Send>,
+    writer: Box<dyn Write + Send>,
+    killer: Box<dyn ChildKiller + Send + Sync>,
 }
 
 #[derive(Serialize)]
@@ -82,6 +94,48 @@ struct ImageAssetFile {
 struct PendingOpenFile {
     name: String,
     path: String,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct TerminalSessionInfo {
+    session_id: String,
+    cwd: String,
+    shell_id: String,
+    shell_label: String,
+    shell: String,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct TerminalShellOption {
+    id: String,
+    label: String,
+    command: String,
+    available: bool,
+}
+
+#[derive(Clone)]
+struct TerminalShellSpec {
+    id: &'static str,
+    label: &'static str,
+    program: String,
+    args: Vec<String>,
+    available: bool,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct TerminalDataEvent {
+    session_id: String,
+    data: String,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct TerminalExitEvent {
+    session_id: String,
+    exit_code: Option<i32>,
 }
 
 #[derive(Serialize)]
@@ -253,6 +307,121 @@ fn finish_ai_command(state: State<'_, BridgeState>, result: Value) -> Result<(),
     Ok(())
 }
 
+#[tauri::command]
+fn terminal_open(
+    app: tauri::AppHandle,
+    state: State<'_, TerminalState>,
+    cwd: Option<String>,
+    shell_id: Option<String>,
+    cols: u16,
+    rows: u16,
+) -> Result<TerminalSessionInfo, String> {
+    let session_id = format!("term_{}", Uuid::new_v4());
+    let cwd_path = resolve_terminal_cwd(cwd);
+    let cwd_display = path_to_string(&cwd_path);
+    let shell = resolve_terminal_shell(shell_id.as_deref())?;
+    let pty_system = native_pty_system();
+    let pair = pty_system
+        .openpty(terminal_size(cols, rows))
+        .map_err(readable_error)?;
+    let mut command = CommandBuilder::new(&shell.program);
+    for arg in &shell.args {
+        command.arg(arg.as_str());
+    }
+    command.cwd(&cwd_path);
+
+    let mut child = pair.slave.spawn_command(command).map_err(readable_error)?;
+    let killer = child.clone_killer();
+    let mut reader = pair.master.try_clone_reader().map_err(readable_error)?;
+    let writer = pair.master.take_writer().map_err(readable_error)?;
+
+    let reader_session_id = session_id.clone();
+    let reader_app = app.clone();
+    thread::spawn(move || {
+        let mut buffer = [0_u8; 8192];
+        loop {
+            match reader.read(&mut buffer) {
+                Ok(0) => break,
+                Ok(size) => {
+                    let data = String::from_utf8_lossy(&buffer[..size]).to_string();
+                    let _ = reader_app.emit(
+                        "terminal:data",
+                        TerminalDataEvent {
+                            session_id: reader_session_id.clone(),
+                            data,
+                        },
+                    );
+                }
+                Err(_) => break,
+            }
+        }
+    });
+
+    let wait_session_id = session_id.clone();
+    let wait_app = app.clone();
+    let wait_state = state.inner.clone();
+    thread::spawn(move || {
+        let exit_code = child.wait().ok().map(|status| status.exit_code() as i32);
+        if let Ok(mut sessions) = wait_state.lock() {
+            sessions.remove(&wait_session_id);
+        }
+        let _ = wait_app.emit(
+            "terminal:exit",
+            TerminalExitEvent {
+                session_id: wait_session_id,
+                exit_code,
+            },
+        );
+    });
+
+    let info = TerminalSessionInfo {
+        session_id: session_id.clone(),
+        cwd: cwd_display.clone(),
+        shell_id: shell.id.to_string(),
+        shell_label: shell.label.to_string(),
+        shell: shell.command_label(),
+    };
+
+    state.insert(
+        session_id,
+        TerminalSession {
+            master: pair.master,
+            writer,
+            killer,
+        },
+    )?;
+
+    Ok(info)
+}
+
+#[tauri::command]
+fn terminal_list_shells() -> Vec<TerminalShellOption> {
+    terminal_shell_specs()
+        .into_iter()
+        .map(|shell| TerminalShellOption {
+            id: shell.id.to_string(),
+            label: shell.label.to_string(),
+            command: shell.command_label(),
+            available: shell.available,
+        })
+        .collect()
+}
+
+#[tauri::command]
+fn terminal_write(state: State<'_, TerminalState>, session_id: String, data: String) -> Result<(), String> {
+    state.write(&session_id, data.as_bytes())
+}
+
+#[tauri::command]
+fn terminal_resize(state: State<'_, TerminalState>, session_id: String, cols: u16, rows: u16) -> Result<(), String> {
+    state.resize(&session_id, terminal_size(cols, rows))
+}
+
+#[tauri::command]
+fn terminal_close(state: State<'_, TerminalState>, session_id: String) -> Result<(), String> {
+    state.close(&session_id)
+}
+
 impl BridgeState {
     fn set_context(&self, context: Value) {
         if let Ok(mut inner) = self.inner.lock() {
@@ -396,6 +565,61 @@ impl PendingOpenState {
             return Vec::new();
         };
         inner.drain(..).collect()
+    }
+}
+
+impl TerminalState {
+    fn insert(&self, session_id: String, session: TerminalSession) -> Result<(), String> {
+        let mut sessions = self
+            .inner
+            .lock()
+            .map_err(|_| "无法保存终端会话。".to_string())?;
+        sessions.insert(session_id, session);
+        Ok(())
+    }
+
+    fn write(&self, session_id: &str, data: &[u8]) -> Result<(), String> {
+        let mut sessions = self
+            .inner
+            .lock()
+            .map_err(|_| "无法访问终端会话。".to_string())?;
+        let session = sessions
+            .get_mut(session_id)
+            .ok_or_else(|| "终端会话不存在。".to_string())?;
+        session.writer.write_all(data).map_err(readable_error)?;
+        session.writer.flush().map_err(readable_error)
+    }
+
+    fn resize(&self, session_id: &str, size: PtySize) -> Result<(), String> {
+        let sessions = self
+            .inner
+            .lock()
+            .map_err(|_| "无法访问终端会话。".to_string())?;
+        let session = sessions
+            .get(session_id)
+            .ok_or_else(|| "终端会话不存在。".to_string())?;
+        session.master.resize(size).map_err(readable_error)
+    }
+
+    fn close(&self, session_id: &str) -> Result<(), String> {
+        let mut sessions = self
+            .inner
+            .lock()
+            .map_err(|_| "无法访问终端会话。".to_string())?;
+        let Some(mut session) = sessions.remove(session_id) else {
+            return Ok(());
+        };
+        let _ = session.killer.kill();
+        Ok(())
+    }
+
+    fn close_all(&self) {
+        let Ok(mut sessions) = self.inner.lock() else {
+            return;
+        };
+        for (_, mut session) in sessions.drain() {
+            let _ = session.killer.kill();
+        }
     }
 }
 
@@ -657,6 +881,128 @@ fn app_data_dir() -> Result<PathBuf, String> {
     Ok(home.join(".mermaid-canvas-editor"))
 }
 
+fn home_dir() -> PathBuf {
+    std::env::var_os("HOME")
+        .or_else(|| std::env::var_os("USERPROFILE"))
+        .map(PathBuf::from)
+        .unwrap_or_else(|| std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")))
+}
+
+fn resolve_terminal_cwd(cwd: Option<String>) -> PathBuf {
+    cwd.map(PathBuf::from)
+        .filter(|path| path.is_dir())
+        .and_then(|path| path.canonicalize().ok())
+        .unwrap_or_else(home_dir)
+}
+
+fn default_terminal_shell() -> String {
+    if cfg!(windows) {
+        return std::env::var("ComSpec").unwrap_or_else(|_| "powershell.exe".to_string());
+    }
+
+    std::env::var("SHELL").unwrap_or_else(|_| "sh".to_string())
+}
+
+impl TerminalShellSpec {
+    fn command_label(&self) -> String {
+        std::iter::once(self.program.as_str())
+            .chain(self.args.iter().map(String::as_str))
+            .collect::<Vec<_>>()
+            .join(" ")
+    }
+}
+
+fn terminal_shell_specs() -> Vec<TerminalShellSpec> {
+    let default_program = default_terminal_shell();
+    let mut shells = vec![TerminalShellSpec {
+        id: "default",
+        label: "默认",
+        available: command_exists(&default_program),
+        program: default_program,
+        args: Vec::new(),
+    }];
+
+    if cfg!(windows) {
+        shells.extend([
+            shell_spec("powershell", "PowerShell", "powershell.exe", &["-NoLogo"]),
+            shell_spec("pwsh", "PowerShell 7", "pwsh.exe", &["-NoLogo"]),
+            shell_spec("cmd", "CMD", "cmd.exe", &[]),
+            shell_spec("wsl", "WSL", "wsl.exe", &[]),
+        ]);
+    } else {
+        shells.extend([
+            shell_spec("bash", "Bash", "bash", &[]),
+            shell_spec("zsh", "Zsh", "zsh", &[]),
+            shell_spec("sh", "sh", "sh", &[]),
+        ]);
+    }
+
+    shells
+}
+
+fn shell_spec(id: &'static str, label: &'static str, program: &str, args: &[&str]) -> TerminalShellSpec {
+    TerminalShellSpec {
+        id,
+        label,
+        program: program.to_string(),
+        args: args.iter().map(|arg| (*arg).to_string()).collect(),
+        available: command_exists(program),
+    }
+}
+
+fn resolve_terminal_shell(shell_id: Option<&str>) -> Result<TerminalShellSpec, String> {
+    let shells = terminal_shell_specs();
+    let requested = shell_id.unwrap_or("default");
+    let shell = shells
+        .iter()
+        .find(|shell| shell.id == requested)
+        .or_else(|| shells.iter().find(|shell| shell.id == "default"))
+        .cloned()
+        .ok_or_else(|| "没有可用终端 shell。".to_string())?;
+
+    if !shell.available {
+        return Err(format!("当前系统不可用 shell：{}", shell.label));
+    }
+
+    Ok(shell)
+}
+
+fn command_exists(program: &str) -> bool {
+    let path = PathBuf::from(program);
+    if path.is_absolute() || program.contains('/') || program.contains('\\') {
+        return path.is_file();
+    }
+
+    if std::env::split_paths(&std::env::var_os("PATH").unwrap_or_default())
+        .any(|dir| dir.join(program).is_file())
+    {
+        return true;
+    }
+
+    if cfg!(windows) {
+        return [
+            format!(r"C:\Windows\System32\{program}"),
+            format!(r"C:\Windows\SysWOW64\{program}"),
+            format!(r"C:\Windows\System32\WindowsPowerShell\v1.0\{program}"),
+        ]
+        .iter()
+        .any(|candidate| PathBuf::from(candidate).is_file());
+    }
+
+    ["/bin", "/usr/bin", "/usr/local/bin"]
+        .iter()
+        .any(|dir| Path::new(dir).join(program).is_file())
+}
+
+fn terminal_size(cols: u16, rows: u16) -> PtySize {
+    PtySize {
+        cols: cols.clamp(20, 240),
+        rows: rows.clamp(4, 80),
+        pixel_width: 0,
+        pixel_height: 0,
+    }
+}
+
 fn file_name(path: &Path) -> String {
     path.file_name()
         .and_then(|value| value.to_str())
@@ -860,13 +1206,21 @@ pub fn run() {
     let bridge_state = BridgeState::default();
     let bridge_for_setup = bridge_state.clone();
     let pending_open_state = PendingOpenState::default();
+    let terminal_state = TerminalState::default();
+    let terminal_for_window = terminal_state.clone();
 
     tauri::Builder::default()
         .manage(bridge_state)
         .manage(pending_open_state)
+        .manage(terminal_state)
         .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
             emit_pending_file_opens(app, collect_mermaid_file_args(args));
         }))
+        .on_window_event(move |_window, event| {
+            if matches!(event, tauri::WindowEvent::Destroyed) {
+                terminal_for_window.close_all();
+            }
+        })
         .setup(move |app| {
             let version = app.package_info().version.to_string();
             start_bridge(bridge_for_setup.clone(), version)
@@ -890,7 +1244,12 @@ pub fn run() {
             take_pending_file_opens,
             publish_editor_context,
             take_next_ai_command,
-            finish_ai_command
+            finish_ai_command,
+            terminal_list_shells,
+            terminal_open,
+            terminal_write,
+            terminal_resize,
+            terminal_close
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

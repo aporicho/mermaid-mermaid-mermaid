@@ -1,6 +1,6 @@
 # Mermaid 画布编辑器
 
-这是一个本地项目文档编辑器，把 Mermaid 源码编辑、官方渲染预览、可编辑无限画布和 Markdown 阅读/编辑放在同一个工作区里。项目使用 Vite、React、TypeScript、Tailwind CSS、shadcn 风格 UI 原语、Mermaid、Milkdown、React Konva 和 Tauri 构建。
+这是一个本地项目文档编辑器，把 Mermaid 源码编辑、官方渲染预览、可编辑无限画布、Markdown 阅读/编辑和桌面端集成终端放在同一个工作区里。项目使用 Vite、React、TypeScript、Tailwind CSS、shadcn 风格 UI 原语、Mermaid、Milkdown、xterm.js、React Konva 和 Tauri 构建。
 
 ## 核心能力
 
@@ -12,7 +12,8 @@
 - 支持打开、保存、另存为、下载兜底、撤销、重做、复制、粘贴、节点编辑、连线编辑、创建连接和端点重连。
 - 桌面端支持项目文件夹浏览，递归展示 `.mmd` / `.mermaid` / `.md` / `.markdown` 文件，并可在多个项目文档之间切换。
 - Mermaid 支持无限画布、渲染视图和源码视图；Markdown 支持 Markdown 视图和源码视图。
-- 应用主题会同时作用于 CSS 变量、Konva 画布 token 和 Mermaid `themeVariables`。
+- 桌面端支持底部悬浮终端面板，终端在当前项目目录或当前文件目录中启动，并可在可用的受控 shell 之间切换。
+- 应用主题会同时作用于 CSS 变量、Konva 画布 token、Mermaid `themeVariables` 和终端 ANSI 16 色。
 
 ## 快速开始
 
@@ -40,7 +41,7 @@ http://127.0.0.1:5173
 
 ## 桌面端与智能体桥接
 
-浏览器构建是静态 Vite 应用，负责人工编辑、查看、导入和导出 Mermaid/Markdown 项目文档。桌面端在此基础上增加真实文件读写、项目文件夹扫描、图片资源导入和实时智能体桥接。
+浏览器构建是静态 Vite 应用，负责人工编辑、查看、导入和导出 Mermaid/Markdown 项目文档。桌面端在此基础上增加真实文件读写、项目文件夹扫描、图片资源导入、本地 PTY 终端和实时智能体桥接。
 
 桌面端相关命令：
 
@@ -88,9 +89,12 @@ npm run windows:run
 - 右上角是窗口控制、筛选和三视图切换。
 - 右侧中部是属性、主题和诊断面板入口。
 - 左下角是设置和辅助操作入口。
+- 底部中间是桌面终端入口。
 - 右下角是选择/连接模式切换。
 
 左侧面板是项目文件浏览器。桌面端会围绕当前文件或用户选择的文件夹递归扫描 Mermaid 和 Markdown 项目文档；面板本身保持简洁，不放筛选输入框。右侧面板承载 Mermaid 属性、主题和诊断。两个侧栏都以覆盖层形式浮在工作区上，不改变画布坐标系。
+
+终端是项目级工具面板，不属于文档视图。它从底部悬浮展开，不挤压无限画布、渲染视图、Markdown 视图或源码视图。终端默认使用项目根目录作为 cwd；没有项目文件夹时使用当前文件所在目录。桌面端会从后端提供的受控列表中选择 shell：Windows 下包括默认 shell、PowerShell、PowerShell 7、CMD 和 WSL；不存在的 shell 不会出现在下拉列表里。
 
 三视图切换规则：
 
@@ -173,13 +177,13 @@ src/main.tsx, src/App.tsx, src/styles/
   Vite React 应用入口和全局样式。
 
 src-tauri/
-  Tauri 桌面壳、原生文件命令和本地智能体桥接。
+  Tauri 桌面壳、原生文件命令、本地 PTY 终端和本地智能体桥接。
 
 src/components/ui/
   共享 UI 原语。
 
 src/features/mermaid-editor/components/
-  React UI、源码视图、渲染视图、属性面板、浮动控件和 Konva 画布桥接。
+  React UI、源码视图、渲染视图、Markdown 视图、终端面板、属性面板、浮动控件和 Konva 画布桥接。
 
 src/features/mermaid-editor/lib/
   纯编辑器逻辑：解析、序列化、布局、交互状态、命中目标、
@@ -211,7 +215,7 @@ docs/
 - [docs/技术约束.md](docs/技术约束.md)：运行时边界、Mermaid 术语边界、文档命名和主题边界。
 - [docs/技术选型与库使用.md](docs/技术选型与库使用.md)：技术栈、关键库用途、使用边界、脚本和新增依赖原则。
 - [docs/性能设计.md](docs/性能设计.md)：输入延迟、渲染吞吐、大图验收和性能禁止项。
-- [docs/主题令牌清单.md](docs/主题令牌清单.md)：主题 token、颜色、字体、尺寸、圆角、描边、控件、画布交互和 Mermaid 映射。
+- [docs/主题令牌清单.md](docs/主题令牌清单.md)：主题 token、颜色、字体、尺寸、圆角、描边、控件、画布交互、终端 ANSI 色和 Mermaid 映射。
 
 ## 开发约束
 
@@ -223,7 +227,7 @@ docs/
 - `node-geometry.ts` 负责节点 frame、文本、锚点、路由、对齐和命中测试几何。
 - `edge-geometry.ts` 负责完成连线和草稿连线路由。
 - Konva 组件只翻译事件、渲染图形、执行返回命令；不要在组件里分散业务规则。
-- 浏览器和桌面平台行为必须经过 `editor-runtime.ts`；编辑器组件不要直接调用 Tauri API、浏览器文件选择 API 或智能体桥接 endpoint。
+- 浏览器和桌面平台行为必须经过 `editor-runtime.ts`；编辑器组件不要直接调用 Tauri API、浏览器文件选择 API、PTY 终端或智能体桥接 endpoint。
 - 新节点 ID 默认使用 `N1`、`N2`、`N3` 序列，除非保留用户已有 ID。
 - 新增图标按钮必须沿用圆形 `size="icon"` 规则。
 
@@ -231,7 +235,8 @@ docs/
 
 - `src/features/mermaid-editor/components/mermaid-editor.tsx`：顶层编辑器状态、命令、浮动控件和工作区视图。
 - `src/features/mermaid-editor/components/konva-canvas.tsx`：Konva 渲染和事件桥接。
-- `src/features/mermaid-editor/lib/editor-runtime.ts`：Web/desktop 文件、草稿和智能体桥接运行时适配。
+- `src/features/mermaid-editor/components/terminal-panel.tsx`：xterm 终端面板、尺寸适配和终端会话事件桥接。
+- `src/features/mermaid-editor/lib/editor-runtime.ts`：Web/desktop 文件、草稿、终端和智能体桥接运行时适配。
 - `src/features/mermaid-editor/lib/mermaid-graph.ts`：Mermaid flowchart 解析与序列化。
 - `src/features/mermaid-editor/lib/mermaid-document.ts`：文档加载、构建和 `canvas-layout` 处理。
 - `src/features/mermaid-editor/lib/editor-types.ts`：共享编辑器数据模型。

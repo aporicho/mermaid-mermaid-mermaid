@@ -74,6 +74,41 @@ export type RuntimeImageAssetResult =
       message: string;
     };
 
+export type RuntimeTerminalSession = {
+  sessionId: string;
+  cwd: string;
+  shellId: string;
+  shellLabel: string;
+  shell: string;
+};
+
+export type RuntimeTerminalShellOption = {
+  id: string;
+  label: string;
+  command: string;
+  available: boolean;
+};
+
+export type RuntimeTerminalOpenResult =
+  | {
+      status: "opened";
+      session: RuntimeTerminalSession;
+    }
+  | {
+      status: "unsupported";
+      message: string;
+    };
+
+export type RuntimeTerminalDataEvent = {
+  sessionId: string;
+  data: string;
+};
+
+export type RuntimeTerminalExitEvent = {
+  sessionId: string;
+  exitCode: number | null;
+};
+
 export type RuntimeProjectFolderResult =
   | {
       status: "opened";
@@ -109,6 +144,13 @@ export type EditorRuntime = {
   takePendingOpenFiles: () => Promise<RuntimeFileOpenRequest[]>;
   listenForExternalFileOpen: (handler: (files: RuntimeFileOpenRequest[]) => void) => Promise<() => void>;
   listenForFileDrops: (handler: (request: RuntimeFileDropRequest) => void) => Promise<() => void>;
+  listTerminalShells: () => Promise<RuntimeTerminalShellOption[]>;
+  openTerminal: (request: { cwd?: string; shellId?: string; cols: number; rows: number }) => Promise<RuntimeTerminalOpenResult>;
+  writeTerminal: (sessionId: string, data: string) => Promise<void>;
+  resizeTerminal: (sessionId: string, cols: number, rows: number) => Promise<void>;
+  closeTerminal: (sessionId: string) => Promise<void>;
+  listenForTerminalData: (handler: (event: RuntimeTerminalDataEvent) => void) => Promise<() => void>;
+  listenForTerminalExit: (handler: (event: RuntimeTerminalExitEvent) => void) => Promise<() => void>;
   publishAiContext: (context: AiEditorContext) => Promise<void>;
   pollAiCommand: () => Promise<AiEditorCommand | null>;
   finishAiCommand: (result: AiApplyResult) => Promise<void>;
@@ -289,6 +331,37 @@ function createWebRuntime(): EditorRuntime {
     async listenForFileDrops() {
       return () => undefined;
     },
+    async openTerminal() {
+      return {
+        status: "unsupported",
+        message: "网页版不支持本地终端，请使用桌面版。"
+      };
+    },
+    async listTerminalShells() {
+      return [
+        {
+          id: "default",
+          label: "默认",
+          command: "desktop",
+          available: false
+        }
+      ];
+    },
+    async writeTerminal() {
+      // Static web builds intentionally do not expose local terminal access.
+    },
+    async resizeTerminal() {
+      // Static web builds intentionally do not expose local terminal access.
+    },
+    async closeTerminal() {
+      // Static web builds intentionally do not expose local terminal access.
+    },
+    async listenForTerminalData() {
+      return () => undefined;
+    },
+    async listenForTerminalExit() {
+      return () => undefined;
+    },
     async publishAiContext() {
       // Static web builds intentionally do not expose the live AI bridge.
     },
@@ -421,6 +494,34 @@ function createDesktopRuntime(): EditorRuntime {
         });
       });
       return unlisten;
+    },
+    async openTerminal(request) {
+      const session = await tauriInvoke<RuntimeTerminalSession>("terminal_open", request);
+      return { status: "opened", session };
+    },
+    async listTerminalShells() {
+      return tauriInvoke<RuntimeTerminalShellOption[]>("terminal_list_shells");
+    },
+    async writeTerminal(sessionId, data) {
+      await tauriInvoke("terminal_write", { sessionId, data });
+    },
+    async resizeTerminal(sessionId, cols, rows) {
+      await tauriInvoke("terminal_resize", { sessionId, cols, rows });
+    },
+    async closeTerminal(sessionId) {
+      await tauriInvoke("terminal_close", { sessionId });
+    },
+    async listenForTerminalData(handler) {
+      const { listen } = await import("@tauri-apps/api/event");
+      return listen<RuntimeTerminalDataEvent>("terminal:data", (event) => {
+        handler(event.payload);
+      });
+    },
+    async listenForTerminalExit(handler) {
+      const { listen } = await import("@tauri-apps/api/event");
+      return listen<RuntimeTerminalExitEvent>("terminal:exit", (event) => {
+        handler(event.payload);
+      });
     },
     async publishAiContext(context) {
       await tauriInvoke("publish_editor_context", { context });

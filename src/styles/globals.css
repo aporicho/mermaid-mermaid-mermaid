@@ -29,7 +29,31 @@
     --source-line: 30 24% 79%;
     --render-background: 36 36% 96%;
     --render-grid-dot: 28 20% 8%;
+    --terminal-background: 36 40% 97%;
+    --terminal-foreground: 28 20% 8%;
+    --terminal-cursor: 356 100% 63%;
+    --terminal-cursor-accent: 36 38% 97%;
+    --terminal-selection-background: 356 100% 94%;
+    --terminal-selection-foreground: 28 20% 8%;
+    --ansi-black: 28 15% 14%;
+    --ansi-red: 355 72% 42%;
+    --ansi-green: 143 35% 33%;
+    --ansi-yellow: 38 100% 33%;
+    --ansi-blue: 214 54% 40%;
+    --ansi-magenta: 309 30% 42%;
+    --ansi-cyan: 189 46% 34%;
+    --ansi-white: 32 31% 87%;
+    --ansi-bright-black: 29 11% 42%;
+    --ansi-bright-red: 356 100% 63%;
+    --ansi-bright-green: 143 32% 44%;
+    --ansi-bright-yellow: 36 77% 48%;
+    --ansi-bright-blue: 214 51% 54%;
+    --ansi-bright-magenta: 309 35% 57%;
+    --ansi-bright-cyan: 189 41% 47%;
+    --ansi-bright-white: 33 100% 98%;
     --theme-source-line-height: 30px;
+    --theme-terminal-font-size: 13px;
+    --theme-terminal-line-height: 20px;
     --radius: 0.5rem;
   }
 
@@ -57,6 +81,20 @@
 .source-grid {
   background:
     linear-gradient(hsl(var(--card)) calc(var(--theme-source-line-height) - 1px), hsl(var(--source-line) / 0.56) var(--theme-source-line-height)) 0 0 / 100% var(--theme-source-line-height);
+}
+
+.terminal-panel .xterm {
+  height: 100%;
+  padding: 4px;
+}
+
+.terminal-panel .xterm .xterm-viewport {
+  background-color: hsl(var(--terminal-background)) !important;
+  scrollbar-color: hsl(var(--terminal-foreground) / 0.24) transparent;
+}
+
+.terminal-panel .xterm .xterm-screen {
+  background-color: hsl(var(--terminal-background));
 }
 
 .markdown-editor-panel .milkdown {

@@ -43,6 +43,7 @@ export type FloatingChromePlacement =
   | "leftCenter"
   | "rightCenter"
   | "leftBottom"
+  | "bottomCenter"
   | "rightBottom";
 
 export type FloatingChromePlacementSpec = {
@@ -90,6 +91,11 @@ export const FLOATING_CHROME_PLACEMENTS: Record<FloatingChromePlacement, Floatin
   leftBottom: {
     rootClassName: "left-0 bottom-0",
     hotZoneClassName: "h-32 w-28 items-end justify-start p-4",
+    hiddenClassName: "translate-y-1"
+  },
+  bottomCenter: {
+    rootClassName: "left-1/2 bottom-0 -translate-x-1/2",
+    hotZoneClassName: "h-28 w-28 items-end justify-center p-4",
     hiddenClassName: "translate-y-1"
   },
   rightBottom: {

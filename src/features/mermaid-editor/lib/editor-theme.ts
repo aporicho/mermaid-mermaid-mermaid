@@ -15,8 +15,75 @@ export type ThemeDiagnostic = {
   message: string;
 };
 
+export type AnsiColorTokens = {
+  black: string;
+  red: string;
+  green: string;
+  yellow: string;
+  blue: string;
+  magenta: string;
+  cyan: string;
+  white: string;
+  brightBlack: string;
+  brightRed: string;
+  brightGreen: string;
+  brightYellow: string;
+  brightBlue: string;
+  brightMagenta: string;
+  brightCyan: string;
+  brightWhite: string;
+};
+
+export type TerminalColorTokens = {
+  background: string;
+  foreground: string;
+  cursor: string;
+  cursorAccent: string;
+  selectionBackground: string;
+  selectionForeground: string;
+};
+
+export type EditorMotionTokens = {
+  duration: {
+    fast: number;
+    base: number;
+    slow: number;
+    layout: number;
+  };
+  ease: {
+    standard: string;
+    emphasized: string;
+    exit: string;
+    linear: string;
+  };
+  distance: {
+    chrome: number;
+    panel: number;
+    viewport: number;
+  };
+  stagger: {
+    button: number;
+    list: number;
+  };
+  canvas: {
+    createScale: number;
+    selectedScale: number;
+    highlightDuration: number;
+    maxAnimatedItems: number;
+  };
+};
+
+export type XtermThemeTokens = TerminalColorTokens &
+  AnsiColorTokens & {
+    selectionInactiveBackground: string;
+    scrollbarSliderBackground: string;
+    scrollbarSliderHoverBackground: string;
+    scrollbarSliderActiveBackground: string;
+    overviewRulerBorder: string;
+  };
+
 export type EditorTheme = {
-  version: 2;
+  version: 4;
   id: EditorThemeId;
   name: string;
   description: string;
@@ -53,6 +120,8 @@ export type EditorTheme = {
     background: string;
     gridDot: string;
   };
+  ansi: AnsiColorTokens;
+  terminal: TerminalColorTokens;
   font: {
     familySans: string;
     familyMono: string;
@@ -61,12 +130,14 @@ export type EditorTheme = {
     sizeNode: number;
     sizeEdgeLabel: number;
     sizeSource: number;
+    sizeTerminal: number;
     weightRegular: number;
     weightMedium: number;
     weightBold: number;
     lineHeightNode: number;
     lineHeightEdgeLabel: number;
     lineHeightSource: number;
+    lineHeightTerminal: number;
     letterSpacing: number;
   };
   space: {
@@ -157,6 +228,7 @@ export type EditorTheme = {
     fontSize: number;
     lineHeight: number;
   };
+  motion: EditorMotionTokens;
   diagnostics: {
     minTextContrast: number;
     minFocusContrast: number;
@@ -178,12 +250,44 @@ export type CompiledEditorTheme = {
   cssVariables: Record<string, string>;
   canvasVisualTokens: CanvasVisualTokens;
   mermaidThemeVariables: MermaidThemeVariables;
+  terminalTheme: XtermThemeTokens;
+  motion: EditorMotionTokens;
   geometry: EditorThemeGeometryTokens;
   diagnostics: ThemeDiagnostic[];
 };
 
+export const DEFAULT_EDITOR_MOTION: EditorMotionTokens = {
+  duration: {
+    fast: 0.1,
+    base: 0.18,
+    slow: 0.28,
+    layout: 0.36
+  },
+  ease: {
+    standard: "power2.out",
+    emphasized: "power3.out",
+    exit: "power2.in",
+    linear: "none"
+  },
+  distance: {
+    chrome: 8,
+    panel: 24,
+    viewport: 64
+  },
+  stagger: {
+    button: 0.025,
+    list: 0.018
+  },
+  canvas: {
+    createScale: 0.94,
+    selectedScale: 1.015,
+    highlightDuration: 0.55,
+    maxAnimatedItems: 80
+  }
+};
+
 export const DEFAULT_EDITOR_THEME: EditorTheme = {
-  version: 2,
+  version: 4,
   id: "warm-paper",
   name: "暖纸红",
   description: "暖色纸面、近黑细线和珊瑚红强调。",
@@ -219,6 +323,32 @@ export const DEFAULT_EDITOR_THEME: EditorTheme = {
     background: "#f8f3ec",
     gridDot: "#18130f"
   },
+  ansi: {
+    black: "#2a251f",
+    red: "#b91f31",
+    green: "#36724f",
+    yellow: "#a66a00",
+    blue: "#2f5f9f",
+    magenta: "#8b4a82",
+    cyan: "#2f7380",
+    white: "#e7ded3",
+    brightBlack: "#76695e",
+    brightRed: "#ff4050",
+    brightGreen: "#4c9567",
+    brightYellow: "#d8901e",
+    brightBlue: "#4f7fc5",
+    brightMagenta: "#b869a9",
+    brightCyan: "#4896a6",
+    brightWhite: "#fffaf4"
+  },
+  terminal: {
+    background: "#fcf8f2",
+    foreground: "#18130f",
+    cursor: "#ff4050",
+    cursorAccent: "#f8f3ec",
+    selectionBackground: "#ffe7ea",
+    selectionForeground: "#18130f"
+  },
   font: {
     familySans: MERMAID_FONT_FAMILY,
     familyMono: MONO_FONT_FAMILY,
@@ -227,12 +357,14 @@ export const DEFAULT_EDITOR_THEME: EditorTheme = {
     sizeNode: DEFAULT_NODE_GEOMETRY_TOKENS.fontSize,
     sizeEdgeLabel: DEFAULT_EDGE_LABEL_GEOMETRY_TOKENS.fontSize,
     sizeSource: 13,
+    sizeTerminal: 13,
     weightRegular: 400,
     weightMedium: 500,
     weightBold: DEFAULT_NODE_GEOMETRY_TOKENS.fontWeight,
     lineHeightNode: DEFAULT_NODE_GEOMETRY_TOKENS.lineHeight,
     lineHeightEdgeLabel: DEFAULT_EDGE_LABEL_GEOMETRY_TOKENS.lineHeight,
     lineHeightSource: 30,
+    lineHeightTerminal: 20,
     letterSpacing: 0
   },
   space: {
@@ -323,6 +455,7 @@ export const DEFAULT_EDITOR_THEME: EditorTheme = {
     fontSize: DEFAULT_EDGE_LABEL_GEOMETRY_TOKENS.fontSize,
     lineHeight: DEFAULT_EDGE_LABEL_GEOMETRY_TOKENS.lineHeight
   },
+  motion: DEFAULT_EDITOR_MOTION,
   diagnostics: {
     minTextContrast: 4.5,
     minFocusContrast: 3,
@@ -367,6 +500,32 @@ export const BUILT_IN_EDITOR_THEMES: EditorTheme[] = [
     render: {
       background: "#f7faf9",
       gridDot: "#172022"
+    },
+    ansi: {
+      black: "#25302f",
+      red: "#b63e4b",
+      green: "#1f7a68",
+      yellow: "#8a6f19",
+      blue: "#326c8a",
+      magenta: "#80618f",
+      cyan: "#297782",
+      white: "#e8f0ee",
+      brightBlack: "#667977",
+      brightRed: "#d85a66",
+      brightGreen: "#2f9a83",
+      brightYellow: "#ae8d2a",
+      brightBlue: "#4c8aac",
+      brightMagenta: "#9e78ad",
+      brightCyan: "#3b98a5",
+      brightWhite: "#ffffff"
+    },
+    terminal: {
+      background: "#ffffff",
+      foreground: "#172022",
+      cursor: "#1f7a68",
+      cursorAccent: "#f7faf9",
+      selectionBackground: "#e4f3ef",
+      selectionForeground: "#172022"
     }
   }),
   builtInTheme({
@@ -404,6 +563,32 @@ export const BUILT_IN_EDITOR_THEMES: EditorTheme[] = [
     render: {
       background: "#fdfbf7",
       gridDot: "#090807"
+    },
+    ansi: {
+      black: "#090807",
+      red: "#9f1020",
+      green: "#126b45",
+      yellow: "#8c6100",
+      blue: "#174f94",
+      magenta: "#7a2875",
+      cyan: "#126a72",
+      white: "#e8e0d8",
+      brightBlack: "#4d463f",
+      brightRed: "#ff3045",
+      brightGreen: "#0f8a58",
+      brightYellow: "#b87f00",
+      brightBlue: "#276fc2",
+      brightMagenta: "#a43a9d",
+      brightCyan: "#188996",
+      brightWhite: "#ffffff"
+    },
+    terminal: {
+      background: "#ffffff",
+      foreground: "#090807",
+      cursor: "#ff3045",
+      cursorAccent: "#fdfbf7",
+      selectionBackground: "#ffe0e4",
+      selectionForeground: "#090807"
     }
   })
 ];
@@ -421,7 +606,7 @@ export function normalizeEditorTheme(value: unknown, fallback: EditorTheme = DEF
   const raw = value as Partial<EditorTheme> & Record<string, unknown>;
 
   return {
-    version: 2,
+    version: 4,
     id: "custom",
     name: typeof raw.name === "string" && raw.name.trim() ? raw.name : fallback.name,
     description: typeof raw.description === "string" ? raw.description : fallback.description,
@@ -430,6 +615,8 @@ export function normalizeEditorTheme(value: unknown, fallback: EditorTheme = DEF
     canvas: normalizeColorGroup(raw.canvas, fallback.canvas),
     source: normalizeColorGroup(raw.source, fallback.source),
     render: normalizeColorGroup(raw.render, fallback.render),
+    ansi: normalizeColorGroup(raw.ansi, fallback.ansi),
+    terminal: normalizeColorGroup(raw.terminal, fallback.terminal),
     font: normalizeFontGroup(raw.font, fallback.font),
     space: normalizeNumberGroup(raw.space, fallback.space, numberRanges.space),
     radius: normalizeNumberGroup(raw.radius, fallback.radius, numberRanges.radius),
@@ -438,6 +625,7 @@ export function normalizeEditorTheme(value: unknown, fallback: EditorTheme = DEF
     canvasInteraction: normalizeNumberGroup(raw.canvasInteraction, fallback.canvasInteraction, numberRanges.canvasInteraction),
     subgraph: normalizeNumberGroup(raw.subgraph, fallback.subgraph, numberRanges.subgraph),
     edgeLabel: normalizeNumberGroup(raw.edgeLabel, fallback.edgeLabel, numberRanges.edgeLabel),
+    motion: normalizeMotionGroup(raw.motion, fallback.motion),
     diagnostics: normalizeNumberGroup(raw.diagnostics, fallback.diagnostics, numberRanges.diagnostics)
   };
 }
@@ -448,6 +636,8 @@ export function compileEditorTheme(theme: EditorTheme): CompiledEditorTheme {
     cssVariables: themeToCssVariables(theme),
     canvasVisualTokens: themeToCanvasVisualTokens(theme),
     mermaidThemeVariables: themeToMermaidThemeVariables(theme),
+    terminalTheme: themeToTerminalTheme(theme),
+    motion: theme.motion,
     geometry: themeToGeometryTokens(theme),
     diagnostics: themeDiagnostics(theme)
   };
@@ -480,11 +670,21 @@ export function themeToCssVariables(theme: EditorTheme): Record<string, string> 
     "--source-line": hexToHslTriplet(theme.source.line),
     "--render-background": hexToHslTriplet(theme.render.background),
     "--render-grid-dot": hexToHslTriplet(theme.render.gridDot),
+    "--terminal-background": hexToHslTriplet(theme.terminal.background),
+    "--terminal-foreground": hexToHslTriplet(theme.terminal.foreground),
+    "--terminal-cursor": hexToHslTriplet(theme.terminal.cursor),
+    "--terminal-cursor-accent": hexToHslTriplet(theme.terminal.cursorAccent),
+    "--terminal-selection-background": hexToHslTriplet(theme.terminal.selectionBackground),
+    "--terminal-selection-foreground": hexToHslTriplet(theme.terminal.selectionForeground),
+    ...ansiToCssVariables(theme.ansi),
     "--radius": `${theme.radius.app}px`,
     "--theme-panel-padding": `${theme.space.panelPadding}px`,
     "--theme-panel-header-height": `${theme.space.panelHeaderHeight}px`,
     "--theme-panel-footer-height": `${theme.space.panelFooterHeight}px`,
-    "--theme-source-line-height": `${theme.font.lineHeightSource}px`
+    "--theme-source-line-height": `${theme.font.lineHeightSource}px`,
+    "--theme-terminal-font-size": `${theme.font.sizeTerminal}px`,
+    "--theme-terminal-line-height": `${theme.font.lineHeightTerminal}px`,
+    ...motionToCssVariables(theme.motion)
   };
 }
 
@@ -632,6 +832,23 @@ export function themeToMermaidThemeVariables(theme: EditorTheme): MermaidThemeVa
   };
 }
 
+export function themeToTerminalTheme(theme: EditorTheme): XtermThemeTokens {
+  return {
+    background: theme.terminal.background,
+    foreground: theme.terminal.foreground,
+    cursor: theme.terminal.cursor,
+    cursorAccent: theme.terminal.cursorAccent,
+    selectionBackground: hexToRgba(theme.terminal.selectionBackground, 0.72),
+    selectionForeground: theme.terminal.selectionForeground,
+    selectionInactiveBackground: hexToRgba(theme.terminal.selectionBackground, 0.42),
+    scrollbarSliderBackground: hexToRgba(theme.terminal.foreground, 0.18),
+    scrollbarSliderHoverBackground: hexToRgba(theme.terminal.foreground, 0.32),
+    scrollbarSliderActiveBackground: hexToRgba(theme.terminal.foreground, 0.44),
+    overviewRulerBorder: theme.ui.border,
+    ...theme.ansi
+  };
+}
+
 export function isHexColor(value: string) {
   return hexColorPattern.test(value);
 }
@@ -640,11 +857,13 @@ function builtInTheme(overrides: Pick<EditorTheme, "id" | "name" | "description"
   return {
     ...DEFAULT_EDITOR_THEME,
     ...overrides,
-    version: 2,
+    version: 4,
     ui: { ...DEFAULT_EDITOR_THEME.ui, ...overrides.ui },
     canvas: { ...DEFAULT_EDITOR_THEME.canvas, ...overrides.canvas },
     source: { ...DEFAULT_EDITOR_THEME.source, ...overrides.source },
     render: { ...DEFAULT_EDITOR_THEME.render, ...overrides.render },
+    ansi: { ...DEFAULT_EDITOR_THEME.ansi, ...overrides.ansi },
+    terminal: { ...DEFAULT_EDITOR_THEME.terminal, ...overrides.terminal },
     font: { ...DEFAULT_EDITOR_THEME.font, ...overrides.font },
     space: { ...DEFAULT_EDITOR_THEME.space, ...overrides.space },
     radius: { ...DEFAULT_EDITOR_THEME.radius, ...overrides.radius },
@@ -653,6 +872,7 @@ function builtInTheme(overrides: Pick<EditorTheme, "id" | "name" | "description"
     canvasInteraction: { ...DEFAULT_EDITOR_THEME.canvasInteraction, ...overrides.canvasInteraction },
     subgraph: { ...DEFAULT_EDITOR_THEME.subgraph, ...overrides.subgraph },
     edgeLabel: { ...DEFAULT_EDITOR_THEME.edgeLabel, ...overrides.edgeLabel },
+    motion: mergeMotionTokens(DEFAULT_EDITOR_THEME.motion, overrides.motion),
     diagnostics: { ...DEFAULT_EDITOR_THEME.diagnostics, ...overrides.diagnostics }
   };
 }
@@ -681,12 +901,14 @@ function normalizeFontGroup(raw: unknown, fallback: EditorTheme["font"]): Editor
     sizeNode: numberValue(source.sizeNode, fallback.sizeNode, 10, 28),
     sizeEdgeLabel: numberValue(source.sizeEdgeLabel, fallback.sizeEdgeLabel, 9, 24),
     sizeSource: numberValue(source.sizeSource, fallback.sizeSource, 10, 22),
+    sizeTerminal: numberValue(source.sizeTerminal, fallback.sizeTerminal, 10, 22),
     weightRegular: numberValue(source.weightRegular, fallback.weightRegular, 300, 700),
     weightMedium: numberValue(source.weightMedium, fallback.weightMedium, 400, 800),
     weightBold: numberValue(source.weightBold, fallback.weightBold, 500, 900),
     lineHeightNode: numberValue(source.lineHeightNode, fallback.lineHeightNode, 12, 42),
     lineHeightEdgeLabel: numberValue(source.lineHeightEdgeLabel, fallback.lineHeightEdgeLabel, 12, 36),
     lineHeightSource: numberValue(source.lineHeightSource, fallback.lineHeightSource, 20, 44),
+    lineHeightTerminal: numberValue(source.lineHeightTerminal, fallback.lineHeightTerminal, 14, 32),
     letterSpacing: numberValue(source.letterSpacing, fallback.letterSpacing, 0, 2)
   };
 }
@@ -728,6 +950,42 @@ function normalizeIconGroup(raw: unknown, fallback: EditorTheme["icon"]): Editor
     buttonHeightSm: numberValue(source.buttonHeightSm, fallback.buttonHeightSm, 24, 48),
     buttonHeightMd: numberValue(source.buttonHeightMd, fallback.buttonHeightMd, 32, 56)
   };
+}
+
+function normalizeMotionGroup(raw: unknown, fallback: EditorMotionTokens): EditorMotionTokens {
+  const source = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+  return mergeMotionTokens(fallback, {
+    duration: normalizeNumberGroup(source.duration, fallback.duration, numberRanges.motion.duration),
+    ease: normalizeEaseGroup(source.ease, fallback.ease),
+    distance: normalizeNumberGroup(source.distance, fallback.distance, numberRanges.motion.distance),
+    stagger: normalizeNumberGroup(source.stagger, fallback.stagger, numberRanges.motion.stagger),
+    canvas: normalizeNumberGroup(source.canvas, fallback.canvas, numberRanges.motion.canvas)
+  });
+}
+
+function mergeMotionTokens(fallback: EditorMotionTokens, overrides: Partial<EditorMotionTokens> | undefined): EditorMotionTokens {
+  return {
+    duration: { ...fallback.duration, ...overrides?.duration },
+    ease: { ...fallback.ease, ...overrides?.ease },
+    distance: { ...fallback.distance, ...overrides?.distance },
+    stagger: { ...fallback.stagger, ...overrides?.stagger },
+    canvas: { ...fallback.canvas, ...overrides?.canvas }
+  };
+}
+
+function normalizeEaseGroup(raw: unknown, fallback: EditorMotionTokens["ease"]): EditorMotionTokens["ease"] {
+  const source = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+  return {
+    standard: easeValue(source.standard, fallback.standard),
+    emphasized: easeValue(source.emphasized, fallback.emphasized),
+    exit: easeValue(source.exit, fallback.exit),
+    linear: easeValue(source.linear, fallback.linear)
+  };
+}
+
+function easeValue(value: unknown, fallback: string) {
+  if (typeof value !== "string" || !value.trim()) return fallback;
+  return /^[a-z0-9.(),_-]+$/i.test(value) ? value : fallback;
 }
 
 function numberValue(value: unknown, fallback: number, min: number, max: number) {
@@ -809,6 +1067,29 @@ const numberRanges = {
     fontSize: [9, 24],
     lineHeight: [10, 36]
   },
+  motion: {
+    duration: {
+      fast: [0, 0.4],
+      base: [0, 0.8],
+      slow: [0, 1.2],
+      layout: [0, 1.6]
+    },
+    distance: {
+      chrome: [0, 32],
+      panel: [0, 96],
+      viewport: [0, 320]
+    },
+    stagger: {
+      button: [0, 0.16],
+      list: [0, 0.16]
+    },
+    canvas: {
+      createScale: [0.7, 1],
+      selectedScale: [1, 1.08],
+      highlightDuration: [0, 1.8],
+      maxAnimatedItems: [0, 400]
+    }
+  },
   diagnostics: {
     minTextContrast: [1, 7],
     minFocusContrast: [1, 7],
@@ -820,6 +1101,12 @@ const numberRanges = {
   canvasInteraction: Record<keyof EditorTheme["canvasInteraction"], [number, number]>;
   subgraph: Record<keyof EditorTheme["subgraph"], [number, number]>;
   edgeLabel: Record<keyof EditorTheme["edgeLabel"], [number, number]>;
+  motion: {
+    duration: Record<keyof EditorMotionTokens["duration"], [number, number]>;
+    distance: Record<keyof EditorMotionTokens["distance"], [number, number]>;
+    stagger: Record<keyof EditorMotionTokens["stagger"], [number, number]>;
+    canvas: Record<keyof EditorMotionTokens["canvas"], [number, number]>;
+  };
   diagnostics: Record<keyof EditorTheme["diagnostics"], [number, number]>;
 };
 
@@ -827,8 +1114,20 @@ function themeDiagnostics(theme: EditorTheme): ThemeDiagnostic[] {
   const diagnostics: ThemeDiagnostic[] = [];
   addContrastDiagnostic(diagnostics, "APP_TEXT_CONTRAST", "应用文字与背景对比度不足。", theme.ui.foreground, theme.ui.background, theme.diagnostics.minTextContrast);
   addContrastDiagnostic(diagnostics, "CANVAS_NODE_TEXT_CONTRAST", "节点文字与节点表面对比度不足。", theme.canvas.nodeText, theme.canvas.surface, theme.diagnostics.minTextContrast);
+  addContrastDiagnostic(diagnostics, "TERMINAL_TEXT_CONTRAST", "终端文字与终端背景对比度不足。", theme.terminal.foreground, theme.terminal.background, theme.diagnostics.minTextContrast);
+  addContrastDiagnostic(diagnostics, "TERMINAL_CURSOR_CONTRAST", "终端光标与终端背景对比度偏低。", theme.terminal.cursor, theme.terminal.background, theme.diagnostics.minFocusContrast);
   addContrastDiagnostic(diagnostics, "FOCUS_CONTRAST", "主强调色与应用背景对比度偏低，焦点和选中状态可能不清晰。", theme.ui.primary, theme.ui.background, theme.diagnostics.minFocusContrast);
   addContrastDiagnostic(diagnostics, "SELECTION_CONTRAST", "主强调色与画布表面对比度偏低，画布选中状态可能不清晰。", theme.ui.primary, theme.canvas.surface, theme.diagnostics.minSelectionContrast);
+  for (const [key, value] of Object.entries(theme.ansi)) {
+    addContrastDiagnostic(
+      diagnostics,
+      `ANSI_${key.toUpperCase()}_CONTRAST`,
+      `ANSI ${key} 与终端背景对比度偏低。`,
+      value,
+      theme.terminal.background,
+      2
+    );
+  }
   return diagnostics;
 }
 
@@ -854,6 +1153,30 @@ function hexToRgbCsv(value: string) {
 function hexToRgba(value: string, alpha: number) {
   const rgb = hexToRgb(value);
   return `rgba(${rgb.r},${rgb.g},${rgb.b},${alpha})`;
+}
+
+function ansiToCssVariables(ansi: AnsiColorTokens): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(ansi).map(([key, value]) => [`--ansi-${kebabCase(key)}`, hexToHslTriplet(value)])
+  );
+}
+
+function motionToCssVariables(motion: EditorMotionTokens): Record<string, string> {
+  return {
+    "--motion-duration-fast": `${motion.duration.fast * 1000}ms`,
+    "--motion-duration-base": `${motion.duration.base * 1000}ms`,
+    "--motion-duration-slow": `${motion.duration.slow * 1000}ms`,
+    "--motion-duration-layout": `${motion.duration.layout * 1000}ms`,
+    "--motion-distance-chrome": `${motion.distance.chrome}px`,
+    "--motion-distance-panel": `${motion.distance.panel}px`,
+    "--motion-distance-viewport": `${motion.distance.viewport}px`,
+    "--motion-stagger-button": `${motion.stagger.button * 1000}ms`,
+    "--motion-stagger-list": `${motion.stagger.list * 1000}ms`
+  };
+}
+
+function kebabCase(value: string) {
+  return value.replace(/[A-Z]/g, (character) => `-${character.toLowerCase()}`);
 }
 
 function hexToHslTriplet(value: string) {

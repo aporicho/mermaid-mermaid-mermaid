@@ -25,6 +25,7 @@ flowchart LR
     CanvasTokens["CanvasVisualTokens<br/>Konva 节点 / 连线 / 网格"]
     GeometryTokens["几何 token<br/>尺寸 / 圆角 / 描边"]
     MermaidVars["Mermaid themeVariables"]
+    TerminalVars["xterm theme<br/>terminal / ANSI 16 色"]
     Provenance["主题来源记录"]
   end
 
@@ -35,6 +36,7 @@ flowchart LR
     Canvas["编辑画布"]
     SourcePanel["源码视图"]
     RenderPreview["官方 Mermaid 预览"]
+    TerminalPanel["终端面板"]
   end
 
   Defaults --> Priority
@@ -51,11 +53,14 @@ flowchart LR
   Compiler --> CanvasTokens
   Compiler --> GeometryTokens
   Compiler --> MermaidVars
+  Compiler --> TerminalVars
   Compiler --> Provenance
   CssVars --> WebUi
   CssVars --> FloatingButtons
   CssVars --> SourcePanel
+  CssVars --> TerminalPanel
   CanvasTokens --> Canvas
   GeometryTokens --> Canvas
   MermaidVars --> RenderPreview
+  TerminalVars --> TerminalPanel
   Diagnostics --> WebUi
