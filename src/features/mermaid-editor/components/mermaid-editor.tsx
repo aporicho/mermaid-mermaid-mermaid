@@ -40,7 +40,6 @@ import { PreviewPanel } from "@/features/mermaid-editor/components/preview-panel
 import { SourcePanel } from "@/features/mermaid-editor/components/source-panel";
 import { ToolModeBar } from "@/features/mermaid-editor/components/tool-mode-bar";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
@@ -80,10 +79,8 @@ import {
 import { shouldCollapseExplorerOnStartup } from "@/features/mermaid-editor/lib/explorer-state";
 import {
   buildProjectFileTree,
-  filterProjectFiles,
   isProjectFileActive,
   normalizeProjectWorkspace,
-  projectTreeDirectoryIds,
   workspaceRootForOpenedFile,
   type ProjectFileEntry,
   type ProjectTreeNode,
@@ -596,7 +593,6 @@ export function MermaidEditor() {
   const [fileRef, setFileRef] = useState<RuntimeFileRef | null>(initial.fileRef);
   const [recentFiles, setRecentFiles] = useState<RecentFileEntry[]>(initial.recentFiles);
   const [projectWorkspace, setProjectWorkspace] = useState<ProjectWorkspace | null>(initial.projectWorkspace);
-  const [projectFileQuery, setProjectFileQuery] = useState("");
   const [projectBusy, setProjectBusy] = useState(false);
   const [lastSavedDocument, setLastSavedDocument] = useState(initial.lastSavedDocument);
   const [fileMenuOpen, setFileMenuOpen] = useState(false);
@@ -652,10 +648,7 @@ export function MermaidEditor() {
     [editableKind, edgeRouting, fileTheme, graph, imageDisplaySrcBySrc, layoutMode, source, viewport]
   );
   const hiddenViewFilters = useMemo(() => hiddenFilterCount(viewFilters), [viewFilters]);
-  const filteredProjectFiles = useMemo(
-    () => filterProjectFiles(projectWorkspace?.files || [], projectFileQuery),
-    [projectFileQuery, projectWorkspace]
-  );
+  const projectFiles = useMemo(() => projectWorkspace?.files || [], [projectWorkspace]);
   const mermaidEdgeRoutes = useMemo(
     () => (edgeRouting === "mermaid" ? deriveDagreAutoLayoutResult(graph).edgeRoutes : []),
     [edgeRouting, graph]
@@ -1499,7 +1492,6 @@ export function MermaidEditor() {
       }
 
       setProjectWorkspace(workspace);
-      setProjectFileQuery("");
       setLeftCollapsed(false);
       if (options.announce ?? true) setStatus(`已显示 ${workspace.rootName}，发现 ${workspace.files.length} 个 Mermaid 文件。`);
     } catch (error) {
@@ -1559,7 +1551,6 @@ export function MermaidEditor() {
     setFileRef(stored.fileRef || null);
     setRecentFiles(nextRecentFiles);
     setProjectWorkspace(nextProjectWorkspace);
-    setProjectFileQuery("");
     setLastSavedDocument(stored.lastSavedDocument || "");
     isDirtyRef.current = !stored.lastSavedDocument || currentStoredDocument !== stored.lastSavedDocument;
     setFileTheme(nextFileTheme);
@@ -1684,7 +1675,6 @@ export function MermaidEditor() {
       }
 
       setProjectWorkspace(workspace);
-      setProjectFileQuery("");
       setLeftCollapsed(false);
       setStatus(`已打开工作区 ${workspace.rootName}，发现 ${workspace.files.length} 个 Mermaid 文件。`);
       try {
@@ -1732,7 +1722,6 @@ export function MermaidEditor() {
 
   async function closeProjectWorkspace() {
     setProjectWorkspace(null);
-    setProjectFileQuery("");
     setStatus("已关闭工作区文件夹。");
     try {
       await persistStoredEditorDraft({ projectWorkspace: null });
@@ -2618,23 +2607,17 @@ export function MermaidEditor() {
             <div className="absolute inset-y-0 left-0 z-20 w-[clamp(300px,31vw,420px)]">
               <ExplorerPanel
                 runtimeKind={runtime.kind}
-                fileName={fileName}
-                fileRef={fileRef}
                 isDirty={isDirty}
-                recentFiles={recentFiles}
                 projectWorkspace={projectWorkspace}
-                projectFiles={filteredProjectFiles}
-                projectFileQuery={projectFileQuery}
+                projectFiles={projectFiles}
                 currentFileRef={fileRef}
                 projectBusy={projectBusy}
                 onNewFile={() => void newMermaidFile()}
                 onOpenFile={() => void openMermaidFile()}
                 onSaveFile={() => void saveMermaidFile()}
-                onOpenRecent={(file) => void openRecentFile(file)}
                 onOpenProject={() => void openProjectFolder()}
                 onRefreshProject={() => void refreshProjectWorkspace()}
                 onCloseProject={() => void closeProjectWorkspace()}
-                onProjectQueryChange={setProjectFileQuery}
                 onOpenProjectFile={(file) => void openProjectFile(file)}
                 onCollapse={() => setLeftCollapsed(true)}
               />
@@ -2818,44 +2801,32 @@ function UnsavedFilePrompt({ prompt, onResolve }: { prompt: UnsavedPromptState; 
 
 function ExplorerPanel({
   runtimeKind,
-  fileName,
-  fileRef,
   isDirty,
-  recentFiles,
   projectWorkspace,
   projectFiles,
-  projectFileQuery,
   currentFileRef,
   projectBusy,
   onNewFile,
   onOpenFile,
   onSaveFile,
-  onOpenRecent,
   onOpenProject,
   onRefreshProject,
   onCloseProject,
-  onProjectQueryChange,
   onOpenProjectFile,
   onCollapse
 }: {
   runtimeKind: "web" | "desktop";
-  fileName: string;
-  fileRef: RuntimeFileRef | null;
   isDirty: boolean;
-  recentFiles: RecentFileEntry[];
   projectWorkspace: ProjectWorkspace | null;
   projectFiles: ProjectFileEntry[];
-  projectFileQuery: string;
   currentFileRef: RuntimeFileRef | null;
   projectBusy: boolean;
   onNewFile: () => void;
   onOpenFile: () => void;
   onSaveFile: () => void;
-  onOpenRecent: (file: RecentFileEntry) => void;
   onOpenProject: () => void;
   onRefreshProject: () => void;
   onCloseProject: () => void;
-  onProjectQueryChange: (query: string) => void;
   onOpenProjectFile: (file: ProjectFileEntry) => void;
   onCollapse: () => void;
 }) {
@@ -2864,12 +2835,8 @@ function ExplorerPanel({
     () => tree.filter((node): node is Extract<ProjectTreeNode, { kind: "directory" }> => node.kind === "directory").map((node) => node.id).join("\n"),
     [tree]
   );
-  const allDirectoryIds = useMemo(() => projectTreeDirectoryIds(tree), [tree]);
   const [expandedDirectoryIds, setExpandedDirectoryIds] = useState<Set<string>>(() => new Set());
-  const queryActive = Boolean(projectFileQuery.trim());
-  const visibleExpandedIds = queryActive ? new Set(allDirectoryIds) : expandedDirectoryIds;
   const projectAvailable = runtimeKind === "desktop";
-  const recentPreview = recentFiles.slice(0, 3);
 
   useEffect(() => {
     setExpandedDirectoryIds(new Set(topLevelDirectoryKey ? topLevelDirectoryKey.split("\n") : []));
@@ -2885,7 +2852,7 @@ function ExplorerPanel({
   }
 
   return (
-    <aside className="grid h-full min-h-0 grid-rows-[42px_auto_minmax(0,1fr)_auto] border-r bg-card">
+    <aside className="grid h-full min-h-0 grid-rows-[42px_minmax(0,1fr)] border-r bg-card">
       <header className="flex min-w-0 items-center justify-between gap-2 border-b bg-card/95 px-3">
         <div className="min-w-0">
           <div className="truncate text-sm font-medium">资源管理器</div>
@@ -2932,22 +2899,7 @@ function ExplorerPanel({
         </div>
       </header>
 
-      <div className={cn("flex min-w-0 items-center gap-2 border-b px-3 py-2", isDirty && "bg-primary/5")}>
-        <EmptyPage className="size-4 shrink-0 text-icon" />
-        <div className="min-w-0 flex-1">
-          <div className="flex min-w-0 items-center gap-2">
-            <div className="truncate text-xs font-medium" title={fileName}>
-              {fileName}
-            </div>
-            {isDirty ? <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-primary" aria-label="有未保存修改" /> : null}
-          </div>
-          <div className="truncate text-[11px] text-muted-foreground" title={fileRef?.path}>
-            {fileRef?.path || "未保存草稿"}
-          </div>
-        </div>
-      </div>
-
-      <div className="grid min-h-0 grid-rows-[auto_auto_minmax(0,1fr)]">
+      <div className="grid min-h-0 grid-rows-[auto_minmax(0,1fr)]">
         <div className="flex min-w-0 items-center justify-between gap-2 border-b px-3 py-2">
           <div className="min-w-0">
             <ExplorerSectionTitle>文件夹</ExplorerSectionTitle>
@@ -2991,17 +2943,6 @@ function ExplorerPanel({
           </div>
         </div>
 
-        <div className="grid gap-2 border-b px-3 py-2">
-          <Input
-            value={projectFileQuery}
-            onChange={(event) => onProjectQueryChange(event.target.value)}
-            placeholder="筛选 .mmd / .mermaid"
-            className="h-7 px-2 text-xs"
-            disabled={!projectWorkspace}
-          />
-          {projectWorkspace?.truncated ? <div className="text-[11px] text-muted-foreground">文件较多，已显示前 500 个结果。</div> : null}
-        </div>
-
         <div className="min-h-0 overflow-y-auto px-1 py-1.5">
           {!projectWorkspace ? (
             <WorkspaceFolderEmptyState projectAvailable={projectAvailable} projectBusy={projectBusy} onOpenProject={onOpenProject} />
@@ -3012,7 +2953,7 @@ function ExplorerPanel({
                   key={node.id}
                   node={node}
                   depth={0}
-                  expandedIds={visibleExpandedIds}
+                  expandedIds={expandedDirectoryIds}
                   currentFileRef={currentFileRef}
                   onToggleDirectory={toggleDirectory}
                   onOpenProjectFile={onOpenProjectFile}
@@ -3020,34 +2961,9 @@ function ExplorerPanel({
               ))}
             </div>
           ) : (
-            <div className="px-2 py-2 text-xs text-muted-foreground">没有匹配的 Mermaid 文件</div>
+            <div className="px-2 py-2 text-xs text-muted-foreground">此文件夹下没有 Mermaid 文件</div>
           )}
         </div>
-      </div>
-
-      <div className="grid gap-1 border-t px-2 py-2">
-        <div className="flex items-center justify-between px-1">
-          <ExplorerSectionTitle>最近</ExplorerSectionTitle>
-          {recentFiles.length > recentPreview.length ? <span className="text-[11px] text-muted-foreground">{recentFiles.length}</span> : null}
-        </div>
-        {recentPreview.length ? (
-          <div className="grid gap-0.5">
-            {recentPreview.map((file) => (
-              <Button
-                key={file.path}
-                variant="ghost"
-                className="h-7 justify-start gap-2 px-2 text-left text-foreground [&_svg]:text-icon"
-                title={file.path}
-                onClick={() => onOpenRecent(file)}
-              >
-                <ClockRotateRight className="size-3.5 shrink-0" />
-                <span className="min-w-0 flex-1 truncate text-xs">{file.name}</span>
-              </Button>
-            ))}
-          </div>
-        ) : (
-          <div className="px-1 text-[11px] text-muted-foreground">暂无最近文件</div>
-        )}
       </div>
     </aside>
   );
