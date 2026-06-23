@@ -63,7 +63,8 @@ describe("mermaid graph parser", () => {
         { id: "e1", from: "A", to: "B", label: "review", style: "dotted", arrowType: "arrow" },
         { id: "e2", from: "B", to: "C", label: "", style: "dotted", arrowType: "none" },
         { id: "e3", from: "C", to: "D", label: "ship", style: "thick", arrowType: "arrow" },
-        { id: "e4", from: "D", to: "A", label: "", style: "solid", arrowType: "cross" }
+        { id: "e4", from: "D", to: "A", label: "", style: "solid", arrowType: "cross" },
+        { id: "e5", from: "B", to: "A", label: "", style: "solid", markerStart: "circle", markerEnd: "none", arrowType: "none" }
       ]
     });
 
@@ -71,6 +72,7 @@ describe("mermaid graph parser", () => {
     expect(serialized).toContain("B -.- C");
     expect(serialized).toContain("C ==>|ship| D");
     expect(serialized).toContain("D --x A");
+    expect(serialized).toContain("B o--> A");
     expect(serialized).not.toContain("-.>|");
   });
 
@@ -134,13 +136,61 @@ describe("mermaid graph parser", () => {
     expect(serialized).toContain("style A fill:#eee");
   });
 
-  it("preserves unsupported flowchart statements instead of dropping source", () => {
+  it("parses inline edge labels and preserves unrelated flowchart statements", () => {
     const serialized = serializeMermaid(parseMermaid(`flowchart LR
   A -- unsupported label syntax --> B
   click A href "https://example.com"`));
 
-    expect(serialized).toContain("A -- unsupported label syntax --> B");
+    expect(serialized).toContain("A -->|unsupported label syntax| B");
     expect(serialized).toContain('click A href "https://example.com"');
+  });
+
+  it("round-trips Mermaid flowchart edge markers, length, ids, animation, classes and styles", () => {
+    const graph = parseMermaid(`flowchart LR
+  A e1@<==>|sync| B
+  B x--o C
+  C -..-> D
+  D ~~~ A
+  e1@{ animation: fast, curve: stepBefore }
+  class e1 animate,primary
+  linkStyle 0 stroke:#f66,stroke-width:4px;
+  linkStyle default color:#333;`);
+    const edge = graph.edges.find((item) => item.mermaidId === "e1");
+    const serialized = serializeMermaid(graph);
+
+    expect(edge).toMatchObject({
+      from: "A",
+      to: "B",
+      label: "sync",
+      style: "thick",
+      markerStart: "arrow",
+      markerEnd: "arrow",
+      mermaidId: "e1",
+      animation: "fast",
+      curve: "stepBefore",
+      classes: ["animate", "primary"],
+      styleText: "stroke:#f66,stroke-width:4px"
+    });
+    expect(graph.edges.find((item) => item.from === "B" && item.to === "C")).toMatchObject({ markerStart: "cross", markerEnd: "circle" });
+    expect(graph.edges.find((item) => item.from === "C" && item.to === "D")).toMatchObject({ style: "dotted", minLength: 2 });
+    expect(graph.edges.find((item) => item.from === "D" && item.to === "A")).toMatchObject({ style: "invisible", markerStart: "none", markerEnd: "none" });
+    expect(graph.defaultEdgeStyleText).toBe("color:#333");
+    expect(serialized).toContain("A e1@<==>|sync| B");
+    expect(serialized).toContain("e1@{ animation: fast, curve: stepBefore }");
+    expect(serialized).toContain("class e1 animate,primary");
+    expect(serialized).toContain("linkStyle 0 stroke:#f66,stroke-width:4px");
+    expect(serialized).toContain("linkStyle default color:#333");
+  });
+
+  it("expands chained and multi-target edge declarations into canonical edges", () => {
+    const graph = parseMermaid(`flowchart LR
+  A --> B --> C
+  A & B --> D & E`);
+    const serialized = serializeMermaid(graph);
+
+    expect(graph.edges.map((edge) => `${edge.from}->${edge.to}`)).toEqual(["A->B", "B->C", "A->D", "A->E", "B->D", "B->E"]);
+    expect(serialized).toContain("A --> B");
+    expect(serialized).toContain("B --> E");
   });
 
   it("captures subgraph membership without treating subgraph syntax as loose nodes", () => {

@@ -58,7 +58,7 @@ import {
   remapEdgePathGeometry,
   type EdgePathGeometry
 } from "@/features/mermaid-editor/lib/edge-geometry";
-import type { CanvasEdge, CanvasNode, EdgeRouting, EditorMode, LayoutMode, MermaidGraph, Selection, ViewportState } from "@/features/mermaid-editor/lib/editor-types";
+import type { CanvasEdge, CanvasNode, EdgeMarker, EdgeRouting, EditorMode, LayoutMode, MermaidGraph, Selection, ViewportState } from "@/features/mermaid-editor/lib/editor-types";
 import { flattenShapePoints, flowchartPolygonPoints } from "@/features/mermaid-editor/lib/flowchart-shape-geometry";
 import { DEFAULT_FLOWCHART_NODE_SHAPE, normalizeFlowchartShape } from "@/features/mermaid-editor/lib/flowchart-shapes";
 import { normalizeImageAsset } from "@/features/mermaid-editor/lib/node-assets";
@@ -206,16 +206,14 @@ function normalizeBox(box: SelectionBox) {
   return { x, y, width, height };
 }
 
-function edgePointerLength(edge: CanvasEdge, visualTokens: CanvasVisualTokens) {
-  return (edge.arrowType || "arrow") === "arrow" ? visualTokens.edge.pointerLength : 0;
-}
-
 function isEdgeHitTarget(hit: HitTarget) {
   return hit.kind === "edge" || hit.kind === "edgeLabel" || hit.kind === "edgeEndpoint";
 }
 
-function edgePointerWidth(edge: CanvasEdge, visualTokens: CanvasVisualTokens) {
-  return (edge.arrowType || "arrow") === "arrow" ? visualTokens.edge.pointerWidth : 0;
+function edgeMarker(edge: CanvasEdge, side: "start" | "end"): EdgeMarker {
+  if (edge.style === "invisible") return "none";
+  if (side === "start") return edge.markerStart || "none";
+  return edge.markerEnd || edge.arrowType || "arrow";
 }
 
 function CanvasNodeShape({
@@ -588,7 +586,7 @@ function delayPath(width: number, height: number) {
   return `M0,0 L${width - height / 2},0 C${width},0 ${width},${height} ${width - height / 2},${height} L0,${height} Z`;
 }
 
-function EdgeEndMarker({
+function EdgeMarkers({
   edge,
   geometry,
   stroke,
@@ -603,37 +601,62 @@ function EdgeEndMarker({
   surfaceFill: string;
   visualTokens: CanvasVisualTokens;
 }) {
-  const arrowType = edge.arrowType || "arrow";
-  if (arrowType === "arrow" || arrowType === "none") return null;
+  return (
+    <>
+      <EdgeMarkerShape side="start" marker={edgeMarker(edge, "start")} geometry={geometry} stroke={stroke} strokeWidth={strokeWidth} surfaceFill={surfaceFill} visualTokens={visualTokens} />
+      <EdgeMarkerShape side="end" marker={edgeMarker(edge, "end")} geometry={geometry} stroke={stroke} strokeWidth={strokeWidth} surfaceFill={surfaceFill} visualTokens={visualTokens} />
+    </>
+  );
+}
 
-  if (arrowType === "circle") {
-    return <Circle x={geometry.end.x} y={geometry.end.y} radius={visualTokens.edge.endpointMarkerRadius} fill={surfaceFill} stroke={stroke} strokeWidth={strokeWidth} listening={false} />;
+function EdgeMarkerShape({
+  side,
+  marker,
+  geometry,
+  stroke,
+  strokeWidth,
+  surfaceFill,
+  visualTokens
+}: {
+  side: "start" | "end";
+  marker: EdgeMarker;
+  geometry: EdgePathGeometry;
+  stroke: string;
+  strokeWidth: number;
+  surfaceFill: string;
+  visualTokens: CanvasVisualTokens;
+}) {
+  if (marker === "none") return null;
+
+  if (marker === "arrow") {
+    const tangent = side === "start" ? { x: -geometry.startTangent.x, y: -geometry.startTangent.y } : geometry.endTangent;
+    const point = side === "start" ? geometry.start : geometry.end;
+    return <PathArrowHead point={point} tangent={tangent} fill={stroke} length={visualTokens.edge.pointerLength} width={visualTokens.edge.pointerWidth} />;
+  }
+
+  const point = side === "start" ? geometry.start : geometry.end;
+  if (marker === "circle") {
+    return <Circle x={point.x} y={point.y} radius={visualTokens.edge.endpointMarkerRadius} fill={surfaceFill} stroke={stroke} strokeWidth={strokeWidth} listening={false} />;
   }
 
   const size = visualTokens.edge.endpointMarkerRadius + 1;
   return (
-    <Group x={geometry.end.x} y={geometry.end.y} listening={false}>
+    <Group x={point.x} y={point.y} listening={false}>
       <Line points={[-size, -size, size, size]} stroke={stroke} strokeWidth={strokeWidth} lineCap="round" />
       <Line points={[-size, size, size, -size]} stroke={stroke} strokeWidth={strokeWidth} lineCap="round" />
     </Group>
   );
 }
 
-function PathArrowMarker({ edge, geometry, fill, visualTokens }: { edge: CanvasEdge; geometry: EdgePathGeometry; fill: string; visualTokens: CanvasVisualTokens }) {
-  if ((edge.arrowType || "arrow") !== "arrow") return null;
-
-  return <PathArrowHead geometry={geometry} fill={fill} length={edgePointerLength(edge, visualTokens)} width={edgePointerWidth(edge, visualTokens)} />;
-}
-
-function PathArrowHead({ geometry, fill, length, width }: { geometry: EdgePathGeometry; fill: string; length: number; width: number }) {
+function PathArrowHead({ point, tangent, fill, length, width }: { point: { x: number; y: number }; tangent: { x: number; y: number }; fill: string; length: number; width: number }) {
   if (length <= 0 || width <= 0) return null;
 
-  const rotation = (Math.atan2(geometry.endTangent.y, geometry.endTangent.x) * 180) / Math.PI;
+  const rotation = (Math.atan2(tangent.y, tangent.x) * 180) / Math.PI;
 
   return (
     <Line
-      x={geometry.end.x}
-      y={geometry.end.y}
+      x={point.x}
+      y={point.y}
       rotation={rotation}
       points={[0, 0, -length, -width / 2, -length, width / 2]}
       closed
@@ -790,6 +813,9 @@ export function KonvaCanvas({
         to: connectionPreview.targetId,
         label: "",
         style: "solid",
+        markerStart: "none",
+        markerEnd: "arrow",
+        minLength: 1,
         arrowType: "arrow",
         ...(connectionDraft.fromAnchor ? { fromAnchor: connectionDraft.fromAnchor } : {}),
         ...(connectionPreview.targetAnchor ? { toAnchor: connectionPreview.targetAnchor } : {})
@@ -1915,13 +1941,12 @@ export function KonvaCanvas({
                             stroke={edgePreviewVisual?.stroke ?? edgeVisual.stroke}
                             strokeWidth={edgePreviewVisual?.strokeWidth ?? edgeVisual.strokeWidth}
                             dash={edgePreviewVisual?.dash ?? edgeVisual.dash}
-                            opacity={edgePreviewVisual?.opacity ?? 1}
+                            opacity={edgePreviewVisual?.opacity ?? edgeVisual.opacity ?? 1}
                             lineCap="round"
                             lineJoin="round"
                             fillEnabled={false}
                             listening={false}
                           />
-                          <PathArrowMarker edge={edge} geometry={geometry} fill={edgePreviewVisual?.fill ?? edgeVisual.fill} visualTokens={visualTokens} />
                         </>
                       ) : (
                         <>
@@ -1944,17 +1969,17 @@ export function KonvaCanvas({
                             fill={edgePreviewVisual?.fill ?? edgeVisual.fill}
                             strokeWidth={edgePreviewVisual?.strokeWidth ?? edgeVisual.strokeWidth}
                             dash={edgePreviewVisual?.dash ?? edgeVisual.dash}
-                            opacity={edgePreviewVisual?.opacity ?? 1}
+                            opacity={edgePreviewVisual?.opacity ?? edgeVisual.opacity ?? 1}
                             lineCap="round"
                             lineJoin="round"
-                            pointerLength={edgePreviewVisual?.pointerLength ?? edgePointerLength(edge, visualTokens)}
-                            pointerWidth={edgePreviewVisual?.pointerWidth ?? edgePointerWidth(edge, visualTokens)}
+                            pointerLength={0}
+                            pointerWidth={0}
                             listening={false}
                           />
                         </>
                       )}
                       {!edgePreviewVisual ? (
-                        <EdgeEndMarker edge={edge} geometry={geometry} stroke={edgeVisual.stroke} strokeWidth={edgeVisual.strokeWidth} surfaceFill={visualTokens.colors.surface} visualTokens={visualTokens} />
+                        <EdgeMarkers edge={edge} geometry={geometry} stroke={edgeVisual.stroke} strokeWidth={edgeVisual.strokeWidth} surfaceFill={visualTokens.colors.surface} visualTokens={visualTokens} />
                       ) : null}
                       {viewFilters.edgeLabels && edgeLabelGeometry && !isEditingEdgeLabel ? (
                         <Group
@@ -2134,7 +2159,8 @@ export function KonvaCanvas({
                     fillEnabled={false}
                   />
                   <PathArrowHead
-                    geometry={connectionDraftGeometry}
+                    point={connectionDraftGeometry.end}
+                    tangent={connectionDraftGeometry.endTangent}
                     fill={connectionDraftVisual.fill}
                     length={connectionDraftVisual.pointerLength}
                     width={connectionDraftVisual.pointerWidth}

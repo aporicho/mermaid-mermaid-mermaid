@@ -103,8 +103,24 @@ describe("editor actions", () => {
     const source = { ...graph([node("A"), node("B"), node("C")]), edges };
     const next = updateEdges(source, ["A_B"], { style: "dotted", arrowType: "circle" });
 
-    expect(next.edges.find((item) => item.id === "A_B")).toMatchObject({ style: "dotted", arrowType: "circle" });
+    expect(next.edges.find((item) => item.id === "A_B")).toMatchObject({ style: "dotted", arrowType: "circle", markerEnd: "circle" });
     expect(next.edges.find((item) => item.id === "B_C")).toMatchObject({ style: "thick", arrowType: "none" });
+  });
+
+  it("normalizes Mermaid edge marker combinations and generated edge metadata IDs", () => {
+    const edges: CanvasEdge[] = [
+      { id: "A_B", from: "A", to: "B", label: "", style: "solid", arrowType: "none" },
+      { id: "B_C", from: "B", to: "C", label: "", style: "solid", arrowType: "arrow" }
+    ];
+    const source = { ...graph([node("A"), node("B"), node("C")]), edges };
+    const bidirectional = updateEdges(source, ["A_B"], { markerStart: "circle", markerEnd: "none" });
+    const invisible = updateEdges(bidirectional, ["A_B"], { style: "invisible" });
+    const animated = updateEdges(source, ["A_B", "B_C"], { animation: "fast", curve: "stepBefore", classes: ["animate"] });
+
+    expect(bidirectional.edges.find((item) => item.id === "A_B")).toMatchObject({ markerStart: "circle", markerEnd: "arrow", arrowType: "arrow" });
+    expect(invisible.edges.find((item) => item.id === "A_B")).toMatchObject({ style: "invisible", markerStart: "none", markerEnd: "none", arrowType: "none" });
+    expect(animated.edges.find((item) => item.id === "A_B")).toMatchObject({ mermaidId: "e1", animation: "fast", curve: "stepBefore", classes: ["animate"] });
+    expect(animated.edges.find((item) => item.id === "B_C")).toMatchObject({ mermaidId: "e2", animation: "fast", curve: "stepBefore", classes: ["animate"] });
   });
 
   it("updates selected subgraphs in batches while preventing parent cycles", () => {

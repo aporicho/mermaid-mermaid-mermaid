@@ -158,7 +158,8 @@ const layoutModeOptions: { value: LayoutMode; label: string }[] = [
 const edgeStyleFilterLabels: Record<EdgeStyle, string> = {
   solid: "实线",
   thick: "粗线",
-  dotted: "虚线"
+  dotted: "虚线",
+  invisible: "隐藏线"
 };
 const arrowTypeFilterLabels: Record<FlowchartArrowType, string> = {
   arrow: "箭头",

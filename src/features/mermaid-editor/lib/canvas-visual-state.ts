@@ -22,6 +22,7 @@ export type EdgeVisualState = {
   fill: string;
   strokeWidth: number;
   dash?: number[];
+  opacity?: number;
   labelFill: string;
   labelStroke: string;
   labelTextFill: string;
@@ -269,6 +270,7 @@ export function getEdgeVisualState(input: {
     fill: stroke,
     strokeWidth: semantic.strokeWidth + (emphasized ? 1 : 0),
     dash: semantic.dash,
+    opacity: semantic.opacity,
     labelFill: visualTokens.colors.surface,
     labelStroke: emphasized || hovered ? stroke : visualTokens.colors.labelStroke,
     labelTextFill: emphasized || hovered ? visualTokens.colors.accent : visualTokens.colors.edgeText
@@ -280,7 +282,7 @@ export function getConnectionDraftVisualState(input: { valid?: boolean; edge?: C
   const semantic = input.edge ? edgeSemanticStyle(input.edge, visualTokens) : { strokeWidth: visualTokens.edge.strokeWidth, dash: visualTokens.overlay.connectionDash };
   const valid = input.valid ?? false;
   const stroke = valid ? visualTokens.colors.connection : visualTokens.colors.previewInvalid;
-  const arrowType = input.edge?.arrowType || "arrow";
+  const arrowType = input.edge?.style === "invisible" ? "none" : input.edge?.markerEnd || input.edge?.arrowType || "arrow";
 
   return {
     stroke,
@@ -399,5 +401,7 @@ function emphasizedNode(kind: NodeVisualKind, stroke: string, visualTokens: Canv
 function edgeSemanticStyle(edge: CanvasEdge, visualTokens: CanvasVisualTokens = CANVAS_VISUAL_TOKENS) {
   if (edge.style === "thick") return { strokeWidth: visualTokens.edge.thickStrokeWidth, dash: undefined };
   if (edge.style === "dotted") return { strokeWidth: visualTokens.edge.dottedStrokeWidth, dash: [...visualTokens.edge.dottedDash] };
+  if (edge.style === "invisible") return { strokeWidth: visualTokens.edge.strokeWidth, dash: [...visualTokens.overlay.connectionDash], opacity: 0.32 };
+  if (edge.animation && edge.animation !== "none") return { strokeWidth: visualTokens.edge.strokeWidth, dash: [...visualTokens.edge.dottedDash] };
   return { strokeWidth: visualTokens.edge.strokeWidth, dash: undefined };
 }

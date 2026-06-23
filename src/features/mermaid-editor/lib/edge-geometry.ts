@@ -29,6 +29,7 @@ export type EdgePathGeometry = {
   labelPoint: Point;
   start: Point;
   end: Point;
+  startTangent: Point;
   endTangent: Point;
 };
 
@@ -478,6 +479,7 @@ function routeMermaidSelfLoop(node: RoutedNodeRect, lane?: EdgeLaneAssignment): 
 function buildGeometry(points: Point[], start: Point, end: Point, endTangent: Point, pathData?: string): EdgePathGeometry {
   const safePoints = dedupePoints(points);
   const labelPoint = pointAtHalfLength(safePoints);
+  const startTangent = safePoints.length > 1 ? normalize({ x: safePoints[1].x - safePoints[0].x, y: safePoints[1].y - safePoints[0].y }, { x: 1, y: 0 }) : { x: 1, y: 0 };
 
   return {
     points: flattenPoints(safePoints),
@@ -485,6 +487,7 @@ function buildGeometry(points: Point[], start: Point, end: Point, endTangent: Po
     labelPoint,
     start,
     end,
+    startTangent,
     endTangent
   };
 }

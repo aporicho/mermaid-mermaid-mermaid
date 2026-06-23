@@ -72,6 +72,14 @@ export type AiEdgeContext = {
   label: string;
   style: CanvasEdge["style"];
   arrowType: NonNullable<CanvasEdge["arrowType"]>;
+  markerStart: NonNullable<CanvasEdge["markerStart"]>;
+  markerEnd: NonNullable<CanvasEdge["markerEnd"]>;
+  minLength: number;
+  mermaidId?: string;
+  animation: NonNullable<CanvasEdge["animation"]>;
+  curve?: CanvasEdge["curve"];
+  classes: string[];
+  styleText?: string;
   fromAnchor?: string;
   toAnchor?: string;
 };
@@ -430,7 +438,15 @@ function edgeContext(edge: CanvasEdge): AiEdgeContext {
     to: edge.to,
     label: edge.label,
     style: edge.style,
-    arrowType: edge.arrowType || "arrow",
+    arrowType: edge.markerEnd || edge.arrowType || "arrow",
+    markerStart: edge.markerStart || "none",
+    markerEnd: edge.markerEnd || edge.arrowType || "arrow",
+    minLength: edge.minLength || 1,
+    ...(edge.mermaidId ? { mermaidId: edge.mermaidId } : {}),
+    animation: edge.animation || "none",
+    ...(edge.curve ? { curve: edge.curve } : {}),
+    classes: edge.classes || [],
+    ...(edge.styleText ? { styleText: edge.styleText } : {}),
     ...(edge.fromAnchor ? { fromAnchor: edge.fromAnchor } : {}),
     ...(edge.toAnchor ? { toAnchor: edge.toAnchor } : {})
   };

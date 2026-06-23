@@ -11,7 +11,7 @@ export type ViewFilters = {
   arrowTypes: Record<FlowchartArrowType, boolean>;
 };
 
-export const EDGE_STYLE_FILTERS: EdgeStyle[] = ["solid", "thick", "dotted"];
+export const EDGE_STYLE_FILTERS: EdgeStyle[] = ["solid", "thick", "dotted", "invisible"];
 export const ARROW_TYPE_FILTERS: FlowchartArrowType[] = ["arrow", "none", "circle", "cross"];
 
 export const DEFAULT_VIEW_FILTERS: ViewFilters = {
@@ -24,7 +24,8 @@ export const DEFAULT_VIEW_FILTERS: ViewFilters = {
   edgeStyles: {
     solid: true,
     thick: true,
-    dotted: true
+    dotted: true,
+    invisible: true
   },
   arrowTypes: {
     arrow: true,
@@ -54,7 +55,7 @@ export function edgeStyleFilterKey(edge: CanvasEdge): EdgeStyle {
 }
 
 export function arrowTypeFilterKey(edge: CanvasEdge): FlowchartArrowType {
-  return edge.arrowType || "arrow";
+  return edge.markerEnd || edge.arrowType || "arrow";
 }
 
 export function isNodeVisible(filters: ViewFilters) {

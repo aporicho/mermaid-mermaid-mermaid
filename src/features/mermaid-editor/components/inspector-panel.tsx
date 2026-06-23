@@ -15,10 +15,12 @@ import type {
   CanvasNodeBatchPatch,
   CanvasSubgraph,
   CanvasSubgraphBatchPatch,
+  EdgeAnimation,
+  EdgeMarker,
   EdgeStyle,
-  FlowchartArrowType,
   FlowchartNodeShape,
   GraphDirection,
+  MermaidCurve,
   MermaidGraph,
   Selection
 } from "@/features/mermaid-editor/lib/editor-types";
@@ -39,14 +41,37 @@ type InspectorPanelProps = {
 const edgeStyleOptions: { value: EdgeStyle; label: string }[] = [
   { value: "solid", label: "实线" },
   { value: "thick", label: "粗线" },
-  { value: "dotted", label: "点线" }
+  { value: "dotted", label: "点线" },
+  { value: "invisible", label: "隐藏线" }
 ];
 
-const edgeArrowOptions: { value: FlowchartArrowType; label: string }[] = [
+const edgeMarkerOptions: { value: EdgeMarker; label: string }[] = [
   { value: "arrow", label: "箭头" },
-  { value: "none", label: "无箭头" },
+  { value: "none", label: "无端点" },
   { value: "circle", label: "圆点" },
   { value: "cross", label: "叉号" }
+];
+
+const edgeAnimationOptions: { value: EdgeAnimation; label: string }[] = [
+  { value: "none", label: "不动画" },
+  { value: "on", label: "开启" },
+  { value: "fast", label: "快速" },
+  { value: "slow", label: "慢速" }
+];
+
+const edgeCurveOptions: { value: MermaidCurve; label: string }[] = [
+  { value: "basis", label: "basis" },
+  { value: "bumpX", label: "bumpX" },
+  { value: "bumpY", label: "bumpY" },
+  { value: "cardinal", label: "cardinal" },
+  { value: "catmullRom", label: "catmullRom" },
+  { value: "linear", label: "linear" },
+  { value: "monotoneX", label: "monotoneX" },
+  { value: "monotoneY", label: "monotoneY" },
+  { value: "natural", label: "natural" },
+  { value: "step", label: "step" },
+  { value: "stepAfter", label: "stepAfter" },
+  { value: "stepBefore", label: "stepBefore" }
 ];
 
 const directionOptions: { value: GraphDirection; label: string }[] = [
@@ -60,6 +85,7 @@ const directionOptions: { value: GraphDirection; label: string }[] = [
 const MIXED_VALUE = "__mixed__";
 const INHERIT_VALUE = "__inherit__";
 const ROOT_VALUE = "__root__";
+const DEFAULT_CURVE_VALUE = "__default_curve__";
 
 const anchorKindLabels: Record<ShapeGeometryPortKind, string> = {
   "edge-midpoint": "边中点",
@@ -103,7 +129,13 @@ export function InspectorPanel({ graph, selection, onEditorCommand }: InspectorP
   const batchAssetLabelPosition = sharedSelectionValue(selectedNodes, (node) => node.asset?.labelPosition || "bottom", "bottom");
   const batchAssetPreserveAspectRatio = sharedSelectionValue(selectedNodes, (node) => node.asset?.preserveAspectRatio ?? true, true);
   const batchEdgeStyle = sharedSelectionValue(selectedEdges, (edge) => edge.style || "solid", "solid");
-  const batchEdgeArrowType = sharedSelectionValue(selectedEdges, (edge) => edge.arrowType || "arrow", "arrow");
+  const batchEdgeMarkerStart = sharedSelectionValue(selectedEdges, (edge) => edge.markerStart || "none", "none");
+  const batchEdgeMarkerEnd = sharedSelectionValue(selectedEdges, edgeEndMarker, "arrow");
+  const batchEdgeMinLength = sharedSelectionValue(selectedEdges, (edge) => edge.minLength || 1, 1);
+  const batchEdgeAnimation = sharedSelectionValue(selectedEdges, (edge) => edge.animation || "none", "none");
+  const batchEdgeCurve = sharedSelectionValue(selectedEdges, (edge) => edge.curve || DEFAULT_CURVE_VALUE, DEFAULT_CURVE_VALUE);
+  const batchEdgeClasses = sharedSelectionValue(selectedEdges, (edge) => edgeClassesInput(edge.classes), "");
+  const batchEdgeStyleText = sharedSelectionValue(selectedEdges, (edge) => edge.styleText || "", "");
   const batchSubgraphDirection = sharedSelectionValue(selectedSubgraphs, (subgraph) => subgraph.direction || INHERIT_VALUE, INHERIT_VALUE);
   const batchSubgraphParent = sharedSelectionValue(selectedSubgraphs, (subgraph) => subgraph.parentId || ROOT_VALUE, ROOT_VALUE);
   const batchSubgraphParentOptions = subgraphParentOptionsForBatch(graph, selectedSubgraphs);
@@ -609,7 +641,16 @@ export function InspectorPanel({ graph, selection, onEditorCommand }: InspectorP
               </div>
               <div className="grid gap-2">
                 <Label>连线样式</Label>
-                <Select value={selectedEdge.style || "solid"} onValueChange={(value) => updateSelectedEdge(selectedEdge.id, { style: value as EdgeStyle })}>
+                <Select
+                  value={selectedEdge.style || "solid"}
+                  onValueChange={(value) => {
+                    const style = value as EdgeStyle;
+                    updateSelectedEdge(selectedEdge.id, {
+                      style,
+                      ...(style === "invisible" ? { markerStart: "none", markerEnd: "none", arrowType: "none" } : {})
+                    });
+                  }}
+                >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -622,23 +663,127 @@ export function InspectorPanel({ graph, selection, onEditorCommand }: InspectorP
                   </SelectContent>
                 </Select>
               </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="grid gap-2">
+                  <Label>起点端点</Label>
+                  <Select
+                    value={selectedEdge.markerStart || "none"}
+                    onValueChange={(value) => updateSelectedEdge(selectedEdge.id, { markerStart: value as EdgeMarker })}
+                    disabled={selectedEdge.style === "invisible"}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {edgeMarkerOptions.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid gap-2">
+                  <Label>终点端点</Label>
+                  <Select
+                    value={edgeEndMarker(selectedEdge)}
+                    onValueChange={(value) => {
+                      const markerEnd = value as EdgeMarker;
+                      updateSelectedEdge(selectedEdge.id, {
+                        markerEnd,
+                        arrowType: markerEnd,
+                        ...(markerEnd === "none" ? { markerStart: "none" } : {})
+                      });
+                    }}
+                    disabled={selectedEdge.style === "invisible"}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {edgeMarkerOptions.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="grid gap-2">
+                  <Label htmlFor="edge-min-length">最小长度</Label>
+                  <Input
+                    id="edge-min-length"
+                    type="number"
+                    min={1}
+                    value={selectedEdge.minLength || 1}
+                    onChange={(event) => updateSelectedEdgeNumber(updateSelectedEdge, selectedEdge.id, "minLength", event.target.value)}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="edge-mermaid-id">边 ID</Label>
+                  <Input
+                    id="edge-mermaid-id"
+                    value={selectedEdge.mermaidId || ""}
+                    placeholder="e1"
+                    onChange={(event) => updateSelectedEdge(selectedEdge.id, { mermaidId: normalizeMermaidEdgeId(event.target.value) })}
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="grid gap-2">
+                  <Label>动画</Label>
+                  <Select value={selectedEdge.animation || "none"} onValueChange={(value) => updateSelectedEdge(selectedEdge.id, { animation: value as EdgeAnimation })}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {edgeAnimationOptions.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid gap-2">
+                  <Label>曲线</Label>
+                  <Select
+                    value={selectedEdge.curve || DEFAULT_CURVE_VALUE}
+                    onValueChange={(value) => updateSelectedEdge(selectedEdge.id, { curve: value === DEFAULT_CURVE_VALUE ? undefined : (value as MermaidCurve) })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={DEFAULT_CURVE_VALUE}>默认</SelectItem>
+                      {edgeCurveOptions.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
               <div className="grid gap-2">
-                <Label>箭头类型</Label>
-                <Select
-                  value={selectedEdge.arrowType || "arrow"}
-                  onValueChange={(value) => updateSelectedEdge(selectedEdge.id, { arrowType: value as FlowchartArrowType })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {edgeArrowOptions.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label htmlFor="edge-classes">Class</Label>
+                <Input
+                  id="edge-classes"
+                  value={edgeClassesInput(selectedEdge.classes)}
+                  placeholder="animate, primary"
+                  onChange={(event) => updateSelectedEdge(selectedEdge.id, { classes: parseEdgeClasses(event.target.value) })}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="edge-style-text">linkStyle</Label>
+                <Input
+                  id="edge-style-text"
+                  value={selectedEdge.styleText || ""}
+                  placeholder="stroke:#f66,stroke-width:4px"
+                  onChange={(event) => updateSelectedEdge(selectedEdge.id, { styleText: event.target.value.trim() || undefined })}
+                />
               </div>
               <Separator />
               <Button variant="outline" className="h-8 justify-start px-2" onClick={() => onEditorCommand({ type: "selection.set", selection: selectOnlyEdge(selectedEdge.id), source: "menu" })}>
@@ -663,7 +808,11 @@ export function InspectorPanel({ graph, selection, onEditorCommand }: InspectorP
                   value={batchEdgeStyle.mixed ? MIXED_VALUE : batchEdgeStyle.value}
                   onValueChange={(value) => {
                     if (value === MIXED_VALUE) return;
-                    updateSelectedEdges({ style: value as EdgeStyle });
+                    const style = value as EdgeStyle;
+                    updateSelectedEdges({
+                      style,
+                      ...(style === "invisible" ? { markerStart: "none", markerEnd: "none", arrowType: "none" } : {})
+                    });
                   }}
                 >
                   <SelectTrigger>
@@ -680,28 +829,136 @@ export function InspectorPanel({ graph, selection, onEditorCommand }: InspectorP
                   </SelectContent>
                 </Select>
               </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="grid gap-2">
+                  <Label>起点端点</Label>
+                  <Select
+                    value={batchEdgeMarkerStart.mixed ? MIXED_VALUE : batchEdgeMarkerStart.value}
+                    onValueChange={(value) => {
+                      if (value === MIXED_VALUE) return;
+                      updateSelectedEdges({ markerStart: value as EdgeMarker });
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <MixedSelectItem mixed={batchEdgeMarkerStart.mixed} />
+                      {batchEdgeMarkerStart.mixed ? <SelectSeparator /> : null}
+                      {edgeMarkerOptions.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid gap-2">
+                  <Label>终点端点</Label>
+                  <Select
+                    value={batchEdgeMarkerEnd.mixed ? MIXED_VALUE : batchEdgeMarkerEnd.value}
+                    onValueChange={(value) => {
+                      if (value === MIXED_VALUE) return;
+                      const markerEnd = value as EdgeMarker;
+                      updateSelectedEdges({
+                        markerEnd,
+                        arrowType: markerEnd,
+                        ...(markerEnd === "none" ? { markerStart: "none" } : {})
+                      });
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <MixedSelectItem mixed={batchEdgeMarkerEnd.mixed} />
+                      {batchEdgeMarkerEnd.mixed ? <SelectSeparator /> : null}
+                      {edgeMarkerOptions.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="grid gap-2">
+                  <Label htmlFor="batch-edge-min-length">最小长度</Label>
+                  <Input
+                    id="batch-edge-min-length"
+                    type="number"
+                    min={1}
+                    value={batchEdgeMinLength.mixed ? "" : batchEdgeMinLength.value}
+                    placeholder={batchEdgeMinLength.mixed ? "混合" : undefined}
+                    onChange={(event) => updateBatchEdgeNumber(updateSelectedEdges, "minLength", event.target.value)}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label>动画</Label>
+                  <Select
+                    value={batchEdgeAnimation.mixed ? MIXED_VALUE : batchEdgeAnimation.value}
+                    onValueChange={(value) => {
+                      if (value === MIXED_VALUE) return;
+                      updateSelectedEdges({ animation: value as EdgeAnimation });
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <MixedSelectItem mixed={batchEdgeAnimation.mixed} />
+                      {batchEdgeAnimation.mixed ? <SelectSeparator /> : null}
+                      {edgeAnimationOptions.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
               <div className="grid gap-2">
-                <Label>箭头类型</Label>
+                <Label>曲线</Label>
                 <Select
-                  value={batchEdgeArrowType.mixed ? MIXED_VALUE : batchEdgeArrowType.value}
+                  value={batchEdgeCurve.mixed ? MIXED_VALUE : batchEdgeCurve.value}
                   onValueChange={(value) => {
                     if (value === MIXED_VALUE) return;
-                    updateSelectedEdges({ arrowType: value as FlowchartArrowType });
+                    updateSelectedEdges({ curve: value === DEFAULT_CURVE_VALUE ? undefined : (value as MermaidCurve) });
                   }}
                 >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <MixedSelectItem mixed={batchEdgeArrowType.mixed} />
-                    {batchEdgeArrowType.mixed ? <SelectSeparator /> : null}
-                    {edgeArrowOptions.map((option) => (
+                    <MixedSelectItem mixed={batchEdgeCurve.mixed} />
+                    {batchEdgeCurve.mixed ? <SelectSeparator /> : null}
+                    <SelectItem value={DEFAULT_CURVE_VALUE}>默认</SelectItem>
+                    {edgeCurveOptions.map((option) => (
                       <SelectItem key={option.value} value={option.value}>
                         {option.label}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="batch-edge-classes">Class</Label>
+                <Input
+                  id="batch-edge-classes"
+                  value={batchEdgeClasses.mixed ? "" : batchEdgeClasses.value}
+                  placeholder={batchEdgeClasses.mixed ? "混合" : "animate, primary"}
+                  onChange={(event) => updateSelectedEdges({ classes: parseEdgeClasses(event.target.value) })}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="batch-edge-style-text">linkStyle</Label>
+                <Input
+                  id="batch-edge-style-text"
+                  value={batchEdgeStyleText.mixed ? "" : batchEdgeStyleText.value}
+                  placeholder={batchEdgeStyleText.mixed ? "混合" : "stroke:#f66"}
+                  onChange={(event) => updateSelectedEdges({ styleText: event.target.value.trim() || undefined })}
+                />
               </div>
               <Separator />
               <Button variant="destructive" className="h-8 justify-start px-2" onClick={() => onEditorCommand({ type: "graph.deleteSelection", source: "menu" })}>
@@ -768,6 +1025,28 @@ function edgeAnchorSelectValue(value: string | undefined, options: { value: stri
   return value && options.some((option) => option.value === value) ? value : "auto";
 }
 
+function edgeEndMarker(edge: Pick<CanvasEdge, "markerEnd" | "arrowType">): EdgeMarker {
+  return edge.markerEnd || edge.arrowType || "arrow";
+}
+
+function normalizeMermaidEdgeId(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+  const safe = trimmed.replace(/[^\w-]/g, "_");
+  return /^[A-Za-z]/.test(safe) ? safe : `e${safe}`;
+}
+
+function edgeClassesInput(classes: string[] | undefined) {
+  return (classes || []).join(", ");
+}
+
+function parseEdgeClasses(value: string) {
+  return value
+    .split(/[,\s]+/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
 function anchorLabel(key: string, kind: ShapeGeometryPortKind, index: number) {
   const readableKey = anchorKeyLabels[key] || key.replace(/^edge-(\d+)$/, "边 $1").replace(/^vertex-(\d+)$/, "顶点 $1");
   return `${readableKey} · ${anchorKindLabels[kind] || `连接点 ${index + 1}`}`;
@@ -789,6 +1068,14 @@ function normalizeEdgePatch(patch: Partial<CanvasEdge>) {
     ...(patch.label !== undefined ? { label: patch.label } : {}),
     ...(patch.style !== undefined ? { style: patch.style } : {}),
     ...(patch.arrowType !== undefined ? { arrowType: patch.arrowType } : {}),
+    ...(patch.markerStart !== undefined ? { markerStart: patch.markerStart } : {}),
+    ...(patch.markerEnd !== undefined ? { markerEnd: patch.markerEnd } : {}),
+    ...(patch.minLength !== undefined ? { minLength: patch.minLength } : {}),
+    ...("mermaidId" in patch ? { mermaidId: patch.mermaidId } : {}),
+    ...(patch.animation !== undefined ? { animation: patch.animation } : {}),
+    ...("curve" in patch ? { curve: patch.curve } : {}),
+    ...("classes" in patch ? { classes: patch.classes } : {}),
+    ...("styleText" in patch ? { styleText: patch.styleText } : {}),
     ...("fromAnchor" in patch ? { fromAnchor: patch.fromAnchor } : {}),
     ...("toAnchor" in patch ? { toAnchor: patch.toAnchor } : {})
   };
@@ -817,6 +1104,24 @@ function updateBatchNodeAssetNumber(updateSelectedNodes: (patch: CanvasNodeBatch
   if (!Number.isFinite(parsed)) return;
 
   updateSelectedNodes({ asset: key === "width" ? { width: parsed } : { height: parsed } });
+}
+
+function updateSelectedEdgeNumber(updateSelectedEdge: (id: string, patch: Partial<CanvasEdge>) => void, edgeId: string, key: "minLength", value: string) {
+  if (!value.trim()) return;
+
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return;
+
+  updateSelectedEdge(edgeId, { [key]: Math.max(1, Math.round(parsed)) });
+}
+
+function updateBatchEdgeNumber(updateSelectedEdges: (patch: CanvasEdgeBatchPatch) => void, key: "minLength", value: string) {
+  if (!value.trim()) return;
+
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return;
+
+  updateSelectedEdges({ [key]: Math.max(1, Math.round(parsed)) });
 }
 
 function subgraphParentOptionsForBatch(graph: MermaidGraph, selectedSubgraphs: CanvasSubgraph[]) {

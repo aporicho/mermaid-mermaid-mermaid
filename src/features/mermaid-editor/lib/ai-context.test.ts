@@ -65,6 +65,42 @@ describe("AI editor context", () => {
     expect(result.document.workspaceView).toBe("source");
   });
 
+  it("includes complete Mermaid edge semantics in selected edge context", () => {
+    const result = context({
+      graph: {
+        ...graph,
+        edges: [
+          {
+            ...graph.edges[0],
+            markerStart: "circle",
+            markerEnd: "cross",
+            minLength: 3,
+            mermaidId: "e1",
+            animation: "slow",
+            curve: "stepBefore",
+            classes: ["animate", "primary"],
+            styleText: "stroke:#f66"
+          },
+          graph.edges[1]
+        ]
+      },
+      selection: { nodeIds: [], edgeIds: ["A_B"], subgraphIds: [], primaryId: "A_B" }
+    });
+
+    expect(result.selection.edges[0]).toMatchObject({
+      id: "A_B",
+      markerStart: "circle",
+      markerEnd: "cross",
+      arrowType: "cross",
+      minLength: 3,
+      mermaidId: "e1",
+      animation: "slow",
+      curve: "stepBefore",
+      classes: ["animate", "primary"],
+      styleText: "stroke:#f66"
+    });
+  });
+
   it("ranks active editing and selected nodes before merely visible nodes", () => {
     const result = context({
       editing: { kind: "node", id: "A", draftText: "Draft Alpha" },

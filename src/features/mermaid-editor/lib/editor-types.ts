@@ -41,8 +41,23 @@ export type CanvasNodeAsset = {
   labelPosition: ImageLabelPosition;
 };
 
-export type EdgeStyle = "solid" | "thick" | "dotted";
+export type EdgeStyle = "solid" | "thick" | "dotted" | "invisible";
 export type FlowchartArrowType = "arrow" | "none" | "circle" | "cross";
+export type EdgeMarker = FlowchartArrowType;
+export type EdgeAnimation = "none" | "on" | "fast" | "slow";
+export type MermaidCurve =
+  | "basis"
+  | "bumpX"
+  | "bumpY"
+  | "cardinal"
+  | "catmullRom"
+  | "linear"
+  | "monotoneX"
+  | "monotoneY"
+  | "natural"
+  | "step"
+  | "stepAfter"
+  | "stepBefore";
 export type EdgeRouting = "straight" | "bezier" | "orthogonal" | "mermaid";
 export type LegacyEdgePath = "straight" | "curved" | "orthogonal";
 export type LayoutMode = "manual" | "auto";
@@ -56,7 +71,15 @@ export type CanvasEdge = {
   to: string;
   label: string;
   style: EdgeStyle;
+  markerStart?: EdgeMarker;
+  markerEnd?: EdgeMarker;
   arrowType?: FlowchartArrowType;
+  minLength?: number;
+  mermaidId?: string;
+  animation?: EdgeAnimation;
+  curve?: MermaidCurve;
+  classes?: string[];
+  styleText?: string;
   fromAnchor?: string;
   toAnchor?: string;
 };
@@ -73,7 +96,7 @@ export type CanvasNodeBatchPatch = Partial<Pick<CanvasNode, "fill" | "shape">> &
   asset?: Partial<Pick<CanvasNodeAsset, "width" | "height" | "preserveAspectRatio" | "labelPosition">>;
 };
 
-export type CanvasEdgeBatchPatch = Partial<Pick<CanvasEdge, "style" | "arrowType">>;
+export type CanvasEdgeBatchPatch = Partial<Pick<CanvasEdge, "style" | "arrowType" | "markerStart" | "markerEnd" | "minLength" | "animation" | "curve" | "classes" | "styleText">>;
 
 export type CanvasSubgraphBatchPatch = Partial<Pick<CanvasSubgraph, "parentId" | "direction">>;
 
@@ -86,6 +109,7 @@ export type MermaidGraph = {
   edges: CanvasEdge[];
   subgraphs?: CanvasSubgraph[];
   preservedStatements?: string[];
+  defaultEdgeStyleText?: string;
   frontmatter?: string;
 };
 
@@ -117,6 +141,10 @@ export type CanvasLayoutEdge = {
   label?: string;
   style?: EdgeStyle;
   arrowType?: FlowchartArrowType;
+  markerStart?: EdgeMarker;
+  markerEnd?: EdgeMarker;
+  minLength?: number;
+  mermaidId?: string;
   index?: number;
   fromAnchor?: string;
   toAnchor?: string;

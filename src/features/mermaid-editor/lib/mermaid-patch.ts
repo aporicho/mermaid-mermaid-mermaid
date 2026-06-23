@@ -2,11 +2,14 @@ import type {
   CanvasEdge,
   CanvasNode,
   CanvasSubgraph,
+  EdgeAnimation,
+  EdgeMarker,
   EdgeRouting,
   EdgeStyle,
   FlowchartArrowType,
   GraphDirection,
   LayoutMode,
+  MermaidCurve,
   MermaidGraph,
   ViewportState
 } from "@/features/mermaid-editor/lib/editor-types";
@@ -59,6 +62,14 @@ export type PatchOperation =
       label?: string;
       style?: EdgeStyle;
       arrowType?: FlowchartArrowType;
+      markerStart?: EdgeMarker;
+      markerEnd?: EdgeMarker;
+      minLength?: number;
+      mermaidId?: string;
+      animation?: EdgeAnimation;
+      curve?: MermaidCurve;
+      classes?: string[];
+      styleText?: string;
       fromAnchor?: string;
       toAnchor?: string;
     }
@@ -70,6 +81,14 @@ export type PatchOperation =
       label?: string;
       style?: EdgeStyle;
       arrowType?: FlowchartArrowType;
+      markerStart?: EdgeMarker;
+      markerEnd?: EdgeMarker;
+      minLength?: number;
+      mermaidId?: string | null;
+      animation?: EdgeAnimation;
+      curve?: MermaidCurve | null;
+      classes?: string[];
+      styleText?: string | null;
       fromAnchor?: string | null;
       toAnchor?: string | null;
     }
@@ -138,8 +157,24 @@ type DiffChange = {
 };
 
 const DEFAULT_VIEWPORT: ViewportState = { x: 160, y: 90, scale: 1 };
-const VALID_EDGE_STYLES = new Set<EdgeStyle>(["solid", "thick", "dotted"]);
+const VALID_EDGE_STYLES = new Set<EdgeStyle>(["solid", "thick", "dotted", "invisible"]);
 const VALID_ARROW_TYPES = new Set<FlowchartArrowType>(["arrow", "none", "circle", "cross"]);
+const VALID_EDGE_MARKERS = new Set<EdgeMarker>(["arrow", "none", "circle", "cross"]);
+const VALID_EDGE_ANIMATIONS = new Set<EdgeAnimation>(["none", "on", "fast", "slow"]);
+const VALID_MERMAID_CURVES = new Set<MermaidCurve>([
+  "basis",
+  "bumpX",
+  "bumpY",
+  "cardinal",
+  "catmullRom",
+  "linear",
+  "monotoneX",
+  "monotoneY",
+  "natural",
+  "step",
+  "stepAfter",
+  "stepBefore"
+]);
 const VALID_DIRECTIONS = new Set<GraphDirection>(["TD", "TB", "BT", "RL", "LR"]);
 const VALID_EDGE_ROUTINGS = new Set<EdgeRouting>(["straight", "bezier", "orthogonal", "mermaid"]);
 const VALID_LAYOUT_MODES = new Set<LayoutMode>(["manual", "auto"]);
@@ -401,24 +436,37 @@ function addEdgeOp(graph: MermaidGraph, op: Extract<PatchOperation, { type: "add
   const arrowType = op.arrowType || "arrow";
   if (!VALID_EDGE_STYLES.has(style)) return invalidEnum("edge style", style);
   if (!VALID_ARROW_TYPES.has(arrowType)) return invalidEnum("arrow type", arrowType);
+  if (op.markerStart && !VALID_EDGE_MARKERS.has(op.markerStart)) return invalidEnum("edge marker", op.markerStart);
+  if (op.markerEnd && !VALID_EDGE_MARKERS.has(op.markerEnd)) return invalidEnum("edge marker", op.markerEnd);
+  if (op.animation && !VALID_EDGE_ANIMATIONS.has(op.animation)) return invalidEnum("edge animation", op.animation);
+  if (op.curve && !VALID_MERMAID_CURVES.has(op.curve)) return invalidEnum("edge curve", op.curve);
+  if (op.mermaidId && !isValidEdgeMermaidId(graph, op.mermaidId)) return { diagnostic: invalidEdgeMermaidId(op.mermaidId) };
 
   const id = op.id && !graph.edges.some((edge) => edge.id === op.id) ? op.id : nextEdgeId(graph, op.from, op.to);
+  const mermaidId = op.mermaidId || (edgePatchNeedsMermaidId(op) ? nextEdgeMermaidId(graph) : undefined);
+  const edge = normalizePatchEdge({
+    id,
+    from: op.from,
+    to: op.to,
+    label: op.label || "",
+    style,
+    markerStart: op.markerStart || "none",
+    markerEnd: op.markerEnd || arrowType,
+    arrowType,
+    minLength: edgeMinLength(op.minLength),
+    ...(mermaidId ? { mermaidId } : {}),
+    ...(op.animation && op.animation !== "none" ? { animation: op.animation } : {}),
+    ...(op.curve ? { curve: op.curve } : {}),
+    ...edgeClassesPatch(op.classes),
+    ...edgeStyleTextPatch(op.styleText),
+    ...(normalizeAnchorKey(op.fromAnchor) ? { fromAnchor: normalizeAnchorKey(op.fromAnchor) } : {}),
+    ...(normalizeAnchorKey(op.toAnchor) ? { toAnchor: normalizeAnchorKey(op.toAnchor) } : {})
+  });
+
   return {
     graph: {
       ...graph,
-      edges: [
-        ...graph.edges,
-        {
-          id,
-          from: op.from,
-          to: op.to,
-          label: op.label || "",
-          style,
-          arrowType,
-          ...(normalizeAnchorKey(op.fromAnchor) ? { fromAnchor: normalizeAnchorKey(op.fromAnchor) } : {}),
-          ...(normalizeAnchorKey(op.toAnchor) ? { toAnchor: normalizeAnchorKey(op.toAnchor) } : {})
-        }
-      ]
+      edges: [...graph.edges, edge]
     }
   };
 }
@@ -430,6 +478,12 @@ function updateEdgeOp(graph: MermaidGraph, op: Extract<PatchOperation, { type: "
   if (op.to && !graphEndpointExists(graph, op.to)) return missing("endpoint", op.to);
   if (op.style && !VALID_EDGE_STYLES.has(op.style)) return invalidEnum("edge style", op.style);
   if (op.arrowType && !VALID_ARROW_TYPES.has(op.arrowType)) return invalidEnum("arrow type", op.arrowType);
+  if (op.markerStart && !VALID_EDGE_MARKERS.has(op.markerStart)) return invalidEnum("edge marker", op.markerStart);
+  if (op.markerEnd && !VALID_EDGE_MARKERS.has(op.markerEnd)) return invalidEnum("edge marker", op.markerEnd);
+  if (op.animation && !VALID_EDGE_ANIMATIONS.has(op.animation)) return invalidEnum("edge animation", op.animation);
+  if (op.curve && !VALID_MERMAID_CURVES.has(op.curve)) return invalidEnum("edge curve", op.curve);
+  if (op.mermaidId && !isValidEdgeMermaidId(graph, op.mermaidId, op.id)) return { diagnostic: invalidEdgeMermaidId(op.mermaidId) };
+  const generatedMermaidId = !("mermaidId" in op) && !edge.mermaidId && edgePatchNeedsMermaidId(op) ? nextEdgeMermaidId(graph) : undefined;
 
   return {
     graph: {
@@ -439,21 +493,76 @@ function updateEdgeOp(graph: MermaidGraph, op: Extract<PatchOperation, { type: "
         const fromChanged = op.from !== undefined && op.from !== item.from;
         const toChanged = op.to !== undefined && op.to !== item.to;
 
-        return {
+        const next = {
           ...item,
           ...(op.from === undefined ? {} : { from: op.from }),
           ...(op.to === undefined ? {} : { to: op.to }),
           ...(op.label === undefined ? {} : { label: op.label }),
           ...(op.style === undefined ? {} : { style: op.style }),
-          ...(op.arrowType === undefined ? {} : { arrowType: op.arrowType }),
+          ...(op.arrowType === undefined ? {} : { arrowType: op.arrowType, markerEnd: op.arrowType }),
+          ...(op.markerStart === undefined ? {} : { markerStart: op.markerStart }),
+          ...(op.markerEnd === undefined ? {} : { markerEnd: op.markerEnd, arrowType: op.markerEnd }),
+          ...(!("minLength" in op) ? {} : { minLength: edgeMinLength(op.minLength) }),
+          ...(!("mermaidId" in op) ? (generatedMermaidId ? { mermaidId: generatedMermaidId } : {}) : { mermaidId: op.mermaidId || undefined }),
+          ...(!("animation" in op) ? {} : { animation: op.animation === "none" ? undefined : op.animation }),
+          ...(!("curve" in op) ? {} : { curve: op.curve || undefined }),
+          ...(!("classes" in op) ? {} : edgeClassesPatch(op.classes)),
+          ...(!("styleText" in op) ? {} : edgeStyleTextPatch(op.styleText)),
           ...(fromChanged ? { fromAnchor: undefined } : {}),
           ...(toChanged ? { toAnchor: undefined } : {}),
           ...(!("fromAnchor" in op) ? {} : { fromAnchor: normalizeAnchorKey(op.fromAnchor) }),
           ...(!("toAnchor" in op) ? {} : { toAnchor: normalizeAnchorKey(op.toAnchor) })
         };
+
+        return normalizePatchEdge(next);
       })
     }
   };
+}
+
+function normalizePatchEdge(edge: CanvasEdge): CanvasEdge {
+  const style = edge.style || "solid";
+  const markerStart = style === "invisible" ? "none" : edge.markerStart || "none";
+  let markerEnd = style === "invisible" ? "none" : edge.markerEnd || edge.arrowType || "arrow";
+  if (markerStart !== "none" && markerEnd === "none") markerEnd = "arrow";
+
+  return {
+    ...edge,
+    style,
+    markerStart,
+    markerEnd,
+    arrowType: markerEnd,
+    minLength: edgeMinLength(edge.minLength),
+    classes: edge.classes?.length ? edge.classes : undefined,
+    styleText: edge.styleText || undefined
+  };
+}
+
+function edgeMinLength(value: unknown) {
+  return Math.max(1, Math.round(finiteNumber(value, 1)));
+}
+
+function edgeClassesPatch(value: string[] | undefined) {
+  if (!Array.isArray(value)) return {};
+  const classes = Array.from(new Set(value.map((item) => (typeof item === "string" ? item.trim() : "")).filter(Boolean)));
+  return { classes: classes.length ? classes : undefined };
+}
+
+function edgeStyleTextPatch(value: string | null | undefined) {
+  if (value === undefined) return {};
+  const styleText = typeof value === "string" ? value.trim() : "";
+  return { styleText: styleText || undefined };
+}
+
+function edgePatchNeedsMermaidId(value: { animation?: EdgeAnimation; curve?: MermaidCurve | null; classes?: string[] }) {
+  return Boolean((value.animation && value.animation !== "none") || value.curve || (Array.isArray(value.classes) && value.classes.length));
+}
+
+function nextEdgeMermaidId(graph: MermaidGraph) {
+  const usedIds = new Set(graph.edges.flatMap((edge) => [edge.id, edge.mermaidId]).filter(Boolean) as string[]);
+  let index = 1;
+  while (usedIds.has(`e${index}`)) index += 1;
+  return `e${index}`;
 }
 
 function normalizeAnchorKey(value: string | null | undefined) {
@@ -616,7 +725,22 @@ function layoutNode(node: CanvasNode) {
 }
 
 function semanticEdge(edge: CanvasEdge) {
-  return { id: edge.id, from: edge.from, to: edge.to, label: edge.label, style: edge.style, arrowType: edge.arrowType || "arrow" };
+  return {
+    id: edge.id,
+    from: edge.from,
+    to: edge.to,
+    label: edge.label,
+    style: edge.style,
+    markerStart: edge.markerStart || "none",
+    markerEnd: edge.markerEnd || edge.arrowType || "arrow",
+    arrowType: edge.markerEnd || edge.arrowType || "arrow",
+    minLength: edge.minLength || 1,
+    mermaidId: edge.mermaidId,
+    animation: edge.animation || "none",
+    curve: edge.curve,
+    classes: edge.classes || [],
+    styleText: edge.styleText
+  };
 }
 
 function semanticSubgraph(subgraph: CanvasSubgraph) {
@@ -682,12 +806,20 @@ function isValidNewId(graph: MermaidGraph, id: string) {
   return MERMAID_ID_PATTERN.test(id) && !graphEndpointExists(graph, id);
 }
 
+function isValidEdgeMermaidId(graph: MermaidGraph, id: string, currentEdgeId?: string) {
+  return MERMAID_ID_PATTERN.test(id) && !graph.edges.some((edge) => edge.id !== currentEdgeId && edge.mermaidId === id);
+}
+
 function missing(kind: string, id: string) {
   return { diagnostic: patchDiagnostic("MISSING_TARGET", `找不到 ${kind}：${id}`) };
 }
 
 function invalidId(id: string) {
   return patchDiagnostic("INVALID_ID", `无效或重复的 Mermaid ID：${id}`, "ID 必须以字母开头，并且只能包含字母、数字、下划线或连字符。");
+}
+
+function invalidEdgeMermaidId(id: string) {
+  return patchDiagnostic("INVALID_ID", `无效或重复的 Mermaid 边 ID：${id}`, "边 ID 必须以字母开头，并且不能和其他边 ID 重复。");
 }
 
 function invalidEnum(kind: string, value: string) {

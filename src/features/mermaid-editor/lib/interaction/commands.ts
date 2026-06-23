@@ -65,7 +65,18 @@ export type EditorCommand =
   | { type: "graph.updateNode"; nodeId: string; patch: Partial<Pick<CanvasNode, "label" | "fill" | "shape" | "asset">>; message?: string; source: GraphCommandSource }
   | { type: "graph.updateNodes"; nodeIds: string[]; patch: CanvasNodeBatchPatch; message?: string; source: GraphCommandSource }
   | { type: "graph.updateNodeFill"; nodeIds: string[]; fill: string; source: GraphCommandSource }
-  | { type: "graph.updateEdge"; edgeId: string; patch: Partial<Pick<CanvasEdge, "from" | "to" | "label" | "style" | "arrowType" | "fromAnchor" | "toAnchor">>; message?: string; source: GraphCommandSource }
+  | {
+      type: "graph.updateEdge";
+      edgeId: string;
+      patch: Partial<
+        Pick<
+          CanvasEdge,
+          "from" | "to" | "label" | "style" | "arrowType" | "markerStart" | "markerEnd" | "minLength" | "mermaidId" | "animation" | "curve" | "classes" | "styleText" | "fromAnchor" | "toAnchor"
+        >
+      >;
+      message?: string;
+      source: GraphCommandSource;
+    }
   | { type: "graph.updateEdges"; edgeIds: string[]; patch: CanvasEdgeBatchPatch; message?: string; source: GraphCommandSource }
   | { type: "graph.updateSubgraph"; subgraphId: string; patch: Partial<Pick<CanvasSubgraph, "title" | "parentId" | "direction">>; message?: string; source: GraphCommandSource }
   | { type: "graph.updateSubgraphs"; subgraphIds: string[]; patch: CanvasSubgraphBatchPatch; message?: string; source: GraphCommandSource }

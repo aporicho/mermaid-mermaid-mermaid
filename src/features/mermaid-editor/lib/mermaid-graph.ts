@@ -1,11 +1,13 @@
 import type {
+  CanvasEdge,
   CanvasNode,
   CanvasNodeAsset,
   CanvasSubgraph,
   DiagramType,
+  EdgeAnimation,
+  EdgeMarker,
   EdgeStyle,
   EditableKind,
-  FlowchartArrowType,
   FlowchartNodeShape,
   GraphDirection,
   MermaidGraph
@@ -64,15 +66,44 @@ type ParsedEdgeStatement = {
   left: ParsedNodeToken;
   right: ParsedNodeToken;
   label: string;
-  operator: string;
+  operator: ParsedEdgeOperator;
 };
 
 type PendingEdgeStatement = ParsedEdgeStatement & {
   parentId?: string;
 };
 
+type ParsedEdgeOperator = {
+  raw: string;
+  style: EdgeStyle;
+  markerStart: EdgeMarker;
+  markerEnd: EdgeMarker;
+  minLength: number;
+  mermaidId?: string;
+};
+
+type PendingEdgeProperty = {
+  mermaidId: string;
+  fields: Map<string, string>;
+  raw: string;
+};
+
+type PendingLinkStyle = {
+  targets: "default" | number[];
+  styleText: string;
+  raw: string;
+};
+
+type PendingClassStatement = {
+  ids: string[];
+  classes: string[];
+  raw: string;
+};
+
 const FLOWCHART_LINE_PATTERN = /^(flowchart|graph)\s+/i;
-const EDGE_OPERATOR_PATTERN = "-\\.->|-\\.-|-\\.o|-\\.x|==>|===|==o|==x|-->|---|--o|--x";
+const EDGE_OPERATOR_SCAN_PATTERN = /(?:\b[A-Za-z][\w-]*@)?[<ox]?(?:-\.{1,}-|-{2,}|={2,}|~~~)[>ox]?/g;
+const EDGE_ID_PREFIX_PATTERN = /^([A-Za-z][\w-]*)@/;
+const MERMAID_CURVES = new Set(["basis", "bumpX", "bumpY", "cardinal", "catmullRom", "linear", "monotoneX", "monotoneY", "natural", "step", "stepAfter", "stepBefore"]);
 
 function parseNodeToken(raw: string): ParsedNodeToken | null {
   const token = raw.trim().replace(/;$/, "");
@@ -177,42 +208,104 @@ function unescapeMermaidString(value: string) {
   return value.replace(/\\"/g, '"').replace(/\\'/g, "'").replace(/\\\\/g, "\\");
 }
 
-function styleFromEdgeOperator(operator: string): EdgeStyle {
-  if (operator.includes("=")) return "thick";
-  if (operator.includes(".")) return "dotted";
-  return "solid";
-}
-
-function arrowTypeFromEdgeOperator(operator: string): FlowchartArrowType {
-  if (operator.endsWith("o")) return "circle";
-  if (operator.endsWith("x")) return "cross";
-  if (operator.endsWith(">")) return "arrow";
+function markerFromStart(value: string | undefined): EdgeMarker {
+  if (value === "<") return "arrow";
+  if (value === "o") return "circle";
+  if (value === "x") return "cross";
   return "none";
 }
 
-function edgeOperatorFromSemantics(style: EdgeStyle = "solid", arrowType: FlowchartArrowType = "arrow") {
-  const operators: Record<EdgeStyle, Record<FlowchartArrowType, string>> = {
-    solid: {
-      arrow: "-->",
-      none: "---",
-      circle: "--o",
-      cross: "--x"
-    },
-    thick: {
-      arrow: "==>",
-      none: "===",
-      circle: "==o",
-      cross: "==x"
-    },
-    dotted: {
-      arrow: "-.->",
-      none: "-.-",
-      circle: "-.o",
-      cross: "-.x"
-    }
-  };
+function markerFromEnd(value: string | undefined): EdgeMarker {
+  if (value === ">") return "arrow";
+  if (value === "o") return "circle";
+  if (value === "x") return "cross";
+  return "none";
+}
 
-  return operators[style][arrowType];
+function markerStartChar(marker: EdgeMarker | undefined) {
+  if (marker === "arrow") return "<";
+  if (marker === "circle") return "o";
+  if (marker === "cross") return "x";
+  return "";
+}
+
+function markerEndChar(marker: EdgeMarker | undefined) {
+  if (marker === "arrow") return ">";
+  if (marker === "circle") return "o";
+  if (marker === "cross") return "x";
+  return "";
+}
+
+function normalizeEdgeMarker(value: EdgeMarker | undefined, fallback: EdgeMarker): EdgeMarker {
+  return value === "arrow" || value === "circle" || value === "cross" || value === "none" ? value : fallback;
+}
+
+function edgeMarkerStart(edge: Pick<CanvasEdge, "markerStart">): EdgeMarker {
+  return normalizeEdgeMarker(edge.markerStart, "none");
+}
+
+function edgeMarkerEnd(edge: Pick<CanvasEdge, "markerEnd" | "arrowType">): EdgeMarker {
+  return normalizeEdgeMarker(edge.markerEnd || edge.arrowType, "arrow");
+}
+
+function parseEdgeOperator(rawOperator: string): ParsedEdgeOperator | null {
+  let raw = rawOperator.trim();
+  const idMatch = raw.match(EDGE_ID_PREFIX_PATTERN);
+  const mermaidId = idMatch?.[1];
+  if (mermaidId) raw = raw.slice(idMatch[0].length);
+
+  if (raw === "~~~") {
+    return {
+      raw: rawOperator,
+      style: "invisible",
+      markerStart: "none",
+      markerEnd: "none",
+      minLength: 1,
+      ...(mermaidId ? { mermaidId } : {})
+    };
+  }
+
+  const markerStart = markerFromStart(raw[0]);
+  if (markerStart !== "none") raw = raw.slice(1);
+
+  const markerEnd = markerFromEnd(raw.at(-1));
+  if (markerEnd !== "none") raw = raw.slice(0, -1);
+
+  const style: EdgeStyle = raw.includes("=") ? "thick" : raw.includes(".") ? "dotted" : "solid";
+  if (style === "dotted" && !/^-\.{1,}-$/.test(raw)) return null;
+  if (style === "thick" && !/^={2,}$/.test(raw)) return null;
+  if (style === "solid" && !/^-{2,}$/.test(raw)) return null;
+
+  const hasMarker = markerStart !== "none" || markerEnd !== "none";
+  const minLength = style === "dotted" ? raw.replace(/[^.]/g, "").length : Math.max(1, raw.length - (hasMarker ? 1 : 2));
+
+  return {
+    raw: rawOperator,
+    style,
+    markerStart,
+    markerEnd,
+    minLength: Math.max(1, minLength),
+    ...(mermaidId ? { mermaidId } : {})
+  };
+}
+
+function edgeOperatorFromSemantics(edge: Pick<CanvasEdge, "style" | "arrowType" | "markerStart" | "markerEnd" | "minLength" | "mermaidId">) {
+  const style = edge.style || "solid";
+  const markerStart = style === "invisible" ? "none" : edgeMarkerStart(edge);
+  let markerEnd = style === "invisible" ? "none" : edgeMarkerEnd(edge);
+  if (markerStart !== "none" && markerEnd === "none") markerEnd = "arrow";
+  const minLength = Math.max(1, Math.round(edge.minLength || 1));
+  const idPrefix = edge.mermaidId ? `${edge.mermaidId}@` : "";
+
+  if (style === "invisible") return `${idPrefix}~~~`;
+
+  const hasMarker = markerStart !== "none" || markerEnd !== "none";
+  const body =
+    style === "dotted"
+      ? `-${".".repeat(minLength)}-`
+      : (style === "thick" ? "=" : "-").repeat(minLength + (hasMarker ? 1 : 2));
+
+  return `${idPrefix}${markerStartChar(markerStart)}${body}${markerEndChar(markerEnd)}`;
 }
 
 export function toSafeNodeId(value: string, existingIds: string[], fallback = "Node") {
@@ -261,6 +354,9 @@ export function parseMermaid(source: string, previous?: MermaidGraph): MermaidGr
 
   const nodes = new Map<string, CanvasNode>();
   const pendingEdges: PendingEdgeStatement[] = [];
+  const pendingEdgeProperties: PendingEdgeProperty[] = [];
+  const pendingLinkStyles: PendingLinkStyle[] = [];
+  const pendingClassStatements: PendingClassStatement[] = [];
   const subgraphs: CanvasSubgraph[] = [];
   const subgraphStack: CanvasSubgraph[] = [];
   const preservedStatements: string[] = [];
@@ -319,9 +415,27 @@ export function parseMermaid(source: string, previous?: MermaidGraph): MermaidGr
       continue;
     }
 
-    const edge = parseEdgeStatement(clean);
-    if (edge) {
-      pendingEdges.push({ ...edge, parentId: subgraphStack.at(-1)?.id });
+    const edgeProperty = parseEdgePropertyStatement(clean);
+    if (edgeProperty) {
+      pendingEdgeProperties.push(edgeProperty);
+      continue;
+    }
+
+    const linkStyle = parseLinkStyleStatement(clean);
+    if (linkStyle) {
+      pendingLinkStyles.push(linkStyle);
+      continue;
+    }
+
+    const classStatement = parseClassStatement(clean);
+    if (classStatement) {
+      pendingClassStatements.push(classStatement);
+      continue;
+    }
+
+    const edgeStatements = parseEdgeStatements(clean);
+    if (edgeStatements) {
+      pendingEdges.push(...edgeStatements.map((edge) => ({ ...edge, parentId: subgraphStack.at(-1)?.id })));
       continue;
     }
 
@@ -341,9 +455,13 @@ export function parseMermaid(source: string, previous?: MermaidGraph): MermaidGr
 
     if (leftKind === "node") ensureNode(edge.left.id, edge.left.label, edge.left.hasShape ? edge.left.shape : undefined, edge.parentId, edge.left.asset);
     if (rightKind === "node") ensureNode(edge.right.id, edge.right.label, edge.right.hasShape ? edge.right.shape : undefined, edge.parentId, edge.right.asset);
-    const style = styleFromEdgeOperator(edge.operator);
-    const arrowType = arrowTypeFromEdgeOperator(edge.operator);
-    const previousEdge = findPreviousEdge(previous, edge.left.id, edge.right.id, edge.label, style, arrowType);
+    const style = edge.operator.style;
+    const markerStart = edge.operator.markerStart;
+    const markerEnd = edge.operator.markerEnd;
+    const arrowType = markerEnd;
+    const minLength = edge.operator.minLength;
+    const mermaidId = edge.operator.mermaidId;
+    const previousEdge = findPreviousEdge(previous, edge.left.id, edge.right.id, edge.label, style, markerStart, markerEnd, minLength, mermaidId);
 
     return {
       id: resolveEdgeId(
@@ -352,18 +470,26 @@ export function parseMermaid(source: string, previous?: MermaidGraph): MermaidGr
         edge.right.id,
         edge.label,
         style,
-        arrowType,
+        markerStart,
+        markerEnd,
+        minLength,
+        mermaidId,
         index
       ),
       from: edge.left.id,
       to: edge.right.id,
       label: edge.label,
       style,
+      markerStart,
+      markerEnd,
       arrowType,
+      minLength,
+      ...(mermaidId ? { mermaidId } : {}),
       ...(previousEdge?.fromAnchor ? { fromAnchor: previousEdge.fromAnchor } : {}),
       ...(previousEdge?.toAnchor ? { toAnchor: previousEdge.toAnchor } : {})
     };
   });
+  const preservedAfterEdgeMetadata = applyEdgeMetadata(edges, pendingEdgeProperties, pendingLinkStyles, pendingClassStatements);
 
   return {
     diagramType,
@@ -373,34 +499,225 @@ export function parseMermaid(source: string, previous?: MermaidGraph): MermaidGr
     nodes: [...nodes.values()],
     edges,
     subgraphs: subgraphs.filter((subgraph) => subgraph.nodeIds.length > 0 || subgraphs.some((child) => child.parentId === subgraph.id)),
-    preservedStatements,
+    preservedStatements: [...preservedStatements, ...preservedAfterEdgeMetadata],
+    defaultEdgeStyleText: pendingLinkStyles.find((style) => style.targets === "default")?.styleText,
     frontmatter
   };
 }
 
-function parseEdgeStatement(clean: string) {
-  const edgeMatch = clean.match(new RegExp(`^(.*?)\\s*(${EDGE_OPERATOR_PATTERN})\\s*(.*)$`));
-  if (!edgeMatch) return null;
+function parseEdgeStatements(clean: string): ParsedEdgeStatement[] | null {
+  const inlineLabel = parseInlineLabelEdgeStatement(clean);
+  if (inlineLabel) return [inlineLabel];
 
-  const left = parseNodeToken(edgeMatch[1]);
-  let rightRaw = edgeMatch[3].trim().replace(/;$/, "");
-  let label = "";
-  const labelMatch = rightRaw.match(/^\|([^|]*)\|\s*(.*)$/);
+  const source = clean.trim().replace(/;$/, "");
+  EDGE_OPERATOR_SCAN_PATTERN.lastIndex = 0;
 
-  if (labelMatch) {
-    label = normalizeLabel(labelMatch[1]);
-    rightRaw = labelMatch[2].trim();
+  const operands: string[] = [];
+  const operators: (ParsedEdgeOperator & { label: string })[] = [];
+  let cursor = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = EDGE_OPERATOR_SCAN_PATTERN.exec(source))) {
+    const token = match[0];
+
+    const operand = source.slice(cursor, match.index).trim();
+    if (!operand && !operands.length) return null;
+    operands.push(operand);
+
+    const operator = parseEdgeOperator(token);
+    if (!operator) return null;
+
+    cursor = EDGE_OPERATOR_SCAN_PATTERN.lastIndex;
+    const pipeLabel = readPipeLabel(source, cursor);
+    if (pipeLabel) cursor = pipeLabel.nextIndex;
+
+    operators.push({ ...operator, label: pipeLabel?.label || "" });
   }
 
-  const right = parseNodeToken(rightRaw);
-  if (!left || !right) return null;
+  if (!operators.length) return null;
+  const tail = source.slice(cursor).trim();
+  if (!tail) return null;
+  operands.push(tail);
+  if (operands.length !== operators.length + 1) return null;
+
+  const edges: ParsedEdgeStatement[] = [];
+  for (const [index, operator] of operators.entries()) {
+    const leftNodes = parseEndpointList(operands[index]);
+    const rightNodes = parseEndpointList(operands[index + 1]);
+    if (!leftNodes.length || !rightNodes.length) return null;
+
+    for (const left of leftNodes) {
+      for (const right of rightNodes) {
+        edges.push({
+          left,
+          right,
+          label: operator.label,
+          operator
+        });
+      }
+    }
+  }
+
+  return edges.length ? edges : null;
+}
+
+function parseInlineLabelEdgeStatement(clean: string): ParsedEdgeStatement | null {
+  const source = clean.trim().replace(/;$/, "");
+  const patterns = [
+    /^(.*?)\s+(([A-Za-z][\w-]*)@)?([<ox]?-{2,})\s+(.+?)\s+(-{2,}[>ox]?)\s+(.*?)$/,
+    /^(.*?)\s+(([A-Za-z][\w-]*)@)?([<ox]?={2,})\s+(.+?)\s+(={2,}[>ox]?)\s+(.*?)$/,
+    /^(.*?)\s+(([A-Za-z][\w-]*)@)?([<ox]?-\.)\s+(.+?)\s+(\.-[>ox]?)\s+(.*?)$/
+  ];
+
+  for (const pattern of patterns) {
+    const match = source.match(pattern);
+    if (!match) continue;
+    const [, leftRaw, , mermaidId, operatorStart, label, operatorEnd, rightRaw] = match;
+    const left = parseNodeToken(leftRaw);
+    const right = parseNodeToken(rightRaw);
+    const operator = parseEdgeOperator(`${mermaidId ? `${mermaidId}@` : ""}${inlineLabelOperator(operatorStart, operatorEnd)}`);
+    if (!left || !right || !operator) continue;
+
+    return {
+      left,
+      right,
+      label: normalizeLabel(label),
+      operator
+    };
+  }
+
+  return null;
+}
+
+function inlineLabelOperator(start: string, end: string) {
+  const startMarker = markerStartChar(markerFromStart(start[0]));
+  if (start.includes(".")) return `${startMarker}-.${end.replace(/^\./, "")}`;
+  return `${startMarker}${end}`;
+}
+
+function readPipeLabel(source: string, index: number) {
+  const leading = source.slice(index).match(/^\s*/)?.[0] || "";
+  const start = index + leading.length;
+  if (source[start] !== "|") return null;
+
+  const end = source.indexOf("|", start + 1);
+  if (end < 0) return null;
 
   return {
-    left,
-    right,
-    label,
-    operator: edgeMatch[2]
+    label: normalizeLabel(source.slice(start + 1, end)),
+    nextIndex: end + 1
   };
+}
+
+function parseEndpointList(value: string) {
+  return value
+    .split("&")
+    .map((part) => parseNodeToken(part.trim()))
+    .filter(Boolean) as ParsedNodeToken[];
+}
+
+function parseEdgePropertyStatement(clean: string): PendingEdgeProperty | null {
+  const match = clean.match(/^([A-Za-z][\w-]*)@\{\s*([\s\S]*?)\s*\};?$/);
+  if (!match) return null;
+
+  const fields = readObjectFields(match[2]);
+  if (!fields.has("animate") && !fields.has("animation") && !fields.has("curve")) return null;
+
+  return {
+    mermaidId: match[1],
+    fields,
+    raw: clean
+  };
+}
+
+function parseLinkStyleStatement(clean: string): PendingLinkStyle | null {
+  const match = clean.match(/^linkStyle\s+(.+?)\s+(.+?);?$/i);
+  if (!match) return null;
+
+  const targetText = match[1].trim();
+  if (targetText === "default") {
+    return { targets: "default", styleText: match[2].trim(), raw: clean };
+  }
+
+  const targets = targetText.split(",").map((value) => Number(value.trim()));
+  if (!targets.length || targets.some((value) => !Number.isInteger(value) || value < 0)) return null;
+
+  return {
+    targets,
+    styleText: match[2].trim(),
+    raw: clean
+  };
+}
+
+function parseClassStatement(clean: string): PendingClassStatement | null {
+  const match = clean.match(/^class\s+(.+?)\s+(.+?);?$/i);
+  if (!match) return null;
+
+  const ids = match[1].split(",").map((value) => value.trim()).filter(Boolean);
+  const classes = match[2].split(/[,\s]+/).map((value) => value.trim()).filter(Boolean);
+  if (!ids.length || !classes.length) return null;
+
+  return { ids, classes, raw: clean };
+}
+
+function applyEdgeMetadata(edges: CanvasEdge[], properties: PendingEdgeProperty[], linkStyles: PendingLinkStyle[], classStatements: PendingClassStatement[]) {
+  const preserved: string[] = [];
+  const edgesByMermaidId = new Map(edges.flatMap((edge) => (edge.mermaidId ? [[edge.mermaidId, edge] as const] : [])));
+
+  for (const property of properties) {
+    const edge = edgesByMermaidId.get(property.mermaidId);
+    if (!edge) {
+      preserved.push(property.raw);
+      continue;
+    }
+
+    const animation = edgeAnimationFromFields(property.fields);
+    const curve = property.fields.get("curve");
+    if (animation) edge.animation = animation;
+    if (isMermaidCurve(curve)) edge.curve = curve;
+  }
+
+  for (const linkStyle of linkStyles) {
+    if (linkStyle.targets === "default") continue;
+
+    for (const target of linkStyle.targets) {
+      const edge = edges[target];
+      if (edge) edge.styleText = linkStyle.styleText;
+    }
+  }
+
+  for (const classStatement of classStatements) {
+    const targetEdges = classStatement.ids.map((id) => edgesByMermaidId.get(id));
+    if (targetEdges.some((edge) => !edge)) {
+      preserved.push(classStatement.raw);
+      continue;
+    }
+
+    for (const edge of targetEdges) {
+      edge!.classes = uniqueStrings([...(edge!.classes || []), ...classStatement.classes]);
+    }
+  }
+
+  return preserved;
+}
+
+function edgeAnimationFromFields(fields: Map<string, string>): EdgeAnimation | undefined {
+  const animation = fields.get("animation");
+  if (animation === "fast" || animation === "slow") return animation;
+
+  const animate = fields.get("animate");
+  if (animate === "true") return "on";
+  if (animate === "false") return "none";
+
+  return undefined;
+}
+
+function isMermaidCurve(value: string | undefined): value is NonNullable<CanvasEdge["curve"]> {
+  return Boolean(value && MERMAID_CURVES.has(value));
+}
+
+function uniqueStrings(values: string[]) {
+  return [...new Set(values)];
 }
 
 function escapeMermaidLabel(value: string) {
@@ -439,16 +756,42 @@ export function serializeMermaid(graph: MermaidGraph) {
   for (const edge of graph.edges) {
     if (!graphEndpointExists(graph, edge.from) || !graphEndpointExists(graph, edge.to)) continue;
 
-    const operator = edgeOperatorFromSemantics(edge.style || "solid", edge.arrowType || "arrow");
+    const operator = edgeOperatorFromSemantics(edge);
     const edgeText = edge.label ? `${operator}|${escapeMermaidLabel(edge.label)}|` : operator;
     lines.push(`  ${edge.from} ${edgeText} ${edge.to}`);
   }
+
+  for (const edge of graph.edges) {
+    if (!edge.mermaidId) continue;
+    const propertyText = serializeEdgeProperties(edge);
+    if (propertyText) lines.push(`  ${edge.mermaidId}@{ ${propertyText} }`);
+  }
+
+  for (const edge of graph.edges) {
+    if (edge.mermaidId && edge.classes?.length) lines.push(`  class ${edge.mermaidId} ${edge.classes.join(",")}`);
+  }
+
+  if (graph.defaultEdgeStyleText) lines.push(`  linkStyle default ${graph.defaultEdgeStyleText}`);
+
+  graph.edges.forEach((edge, index) => {
+    if (edge.styleText) lines.push(`  linkStyle ${index} ${edge.styleText}`);
+  });
 
   for (const statement of graph.preservedStatements || []) {
     if (statement.trim()) lines.push(statement);
   }
 
   return lines.join("\n");
+}
+
+function serializeEdgeProperties(edge: CanvasEdge) {
+  const fields: string[] = [];
+  if (edge.animation && edge.animation !== "none") {
+    if (edge.animation === "on") fields.push("animate: true");
+    else fields.push(`animation: ${edge.animation}`);
+  }
+  if (edge.curve) fields.push(`curve: ${edge.curve}`);
+  return fields.join(", ");
 }
 
 export function detectDiagramType(source: string): DiagramType {
@@ -602,12 +945,15 @@ function resolveEdgeId(
   to: string,
   label: string,
   style: EdgeStyle,
-  arrowType: FlowchartArrowType,
+  markerStart: EdgeMarker,
+  markerEnd: EdgeMarker,
+  minLength: number,
+  mermaidId: string | undefined,
   index: number
 ) {
-  const previousEdge = findPreviousEdge(previous, from, to, label, style, arrowType);
+  const previousEdge = findPreviousEdge(previous, from, to, label, style, markerStart, markerEnd, minLength, mermaidId);
 
-  return previousEdge?.id || `${from}_${to}_${index}`;
+  return previousEdge?.id || mermaidId || `${from}_${to}_${index}`;
 }
 
 function findPreviousEdge(
@@ -616,14 +962,24 @@ function findPreviousEdge(
   to: string,
   label: string,
   style: EdgeStyle,
-  arrowType: FlowchartArrowType
+  markerStart: EdgeMarker,
+  markerEnd: EdgeMarker,
+  minLength: number,
+  mermaidId?: string
 ) {
+  if (mermaidId) {
+    const byMermaidId = previous?.edges.find((edge) => edge.mermaidId === mermaidId || edge.id === mermaidId);
+    if (byMermaidId) return byMermaidId;
+  }
+
   return previous?.edges.find(
     (edge) =>
       edge.from === from &&
       edge.to === to &&
       edge.label === label &&
       edge.style === style &&
-      (edge.arrowType || "arrow") === arrowType
+      edgeMarkerStart(edge) === markerStart &&
+      edgeMarkerEnd(edge) === markerEnd &&
+      (edge.minLength || 1) === minLength
   );
 }

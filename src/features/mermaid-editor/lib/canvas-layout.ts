@@ -61,6 +61,10 @@ function layoutEdgesFromGraph(graph: MermaidGraph) {
           label: edge.label,
           style: edge.style,
           arrowType: edge.arrowType || "arrow",
+          markerStart: edge.markerStart || "none",
+          markerEnd: edge.markerEnd || edge.arrowType || "arrow",
+          minLength: edge.minLength || 1,
+          ...(edge.mermaidId ? { mermaidId: edge.mermaidId } : {}),
           index,
           ...(fromAnchor ? { fromAnchor } : {}),
           ...(toAnchor ? { toAnchor } : {})
@@ -92,7 +96,11 @@ function layoutEdgeMatches(edge: CanvasEdge, index: number, saved: CanvasLayoutE
   if (typeof saved.index === "number" && saved.index !== index) return false;
   if (typeof saved.label === "string" && saved.label !== edge.label) return false;
   if (typeof saved.style === "string" && saved.style !== edge.style) return false;
-  if (typeof saved.arrowType === "string" && saved.arrowType !== (edge.arrowType || "arrow")) return false;
+  if (typeof saved.markerStart === "string" && saved.markerStart !== (edge.markerStart || "none")) return false;
+  if (typeof saved.markerEnd === "string" && saved.markerEnd !== (edge.markerEnd || edge.arrowType || "arrow")) return false;
+  if (typeof saved.arrowType === "string" && saved.arrowType !== (edge.markerEnd || edge.arrowType || "arrow")) return false;
+  if (typeof saved.minLength === "number" && saved.minLength !== (edge.minLength || 1)) return false;
+  if (typeof saved.mermaidId === "string" && saved.mermaidId !== edge.mermaidId) return false;
   return true;
 }
 

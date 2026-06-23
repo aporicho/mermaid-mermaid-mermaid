@@ -78,4 +78,51 @@ flowchart LR
     });
     expect(reloaded.graph.edges[0].toAnchor).toBeUndefined();
   });
+
+  it("applies full Mermaid edge semantics through graph patch operations", () => {
+    const patched = applyMermaidPatch(
+      `flowchart LR
+  A[Alpha]
+  B[Beta]`,
+      {
+        ops: [
+          {
+            type: "addEdge",
+            from: "A",
+            to: "B",
+            label: "sync",
+            style: "thick",
+            markerStart: "circle",
+            markerEnd: "cross",
+            minLength: 2,
+            animation: "fast",
+            curve: "stepBefore",
+            classes: ["animate", "primary"],
+            styleText: "stroke:#f66,stroke-width:4px"
+          }
+        ]
+      }
+    );
+
+    expect(patched.ok).toBe(true);
+    const reloaded = loadMermaidDocument(patched.result?.source || "");
+    expect(reloaded.graph.edges[0]).toMatchObject({
+      mermaidId: "e1",
+      from: "A",
+      to: "B",
+      label: "sync",
+      style: "thick",
+      markerStart: "circle",
+      markerEnd: "cross",
+      minLength: 2,
+      animation: "fast",
+      curve: "stepBefore",
+      classes: ["animate", "primary"],
+      styleText: "stroke:#f66,stroke-width:4px"
+    });
+    expect(patched.result?.source).toContain("A e1@o===x|sync| B");
+    expect(patched.result?.source).toContain("e1@{ animation: fast, curve: stepBefore }");
+    expect(patched.result?.source).toContain("class e1 animate,primary");
+    expect(patched.result?.source).toContain("linkStyle 0 stroke:#f66,stroke-width:4px");
+  });
 });

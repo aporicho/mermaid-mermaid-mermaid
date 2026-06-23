@@ -207,7 +207,9 @@ function edgeRouteFromPoints(edgeId: string, points: { x: number; y: number }[])
 
   const start = safePoints[0];
   const end = safePoints[safePoints.length - 1];
+  const next = safePoints[1];
   const previous = safePoints[safePoints.length - 2];
+  const startTangent = normalize({ x: next.x - start.x, y: next.y - start.y }, { x: 1, y: 0 });
   const endTangent = normalize({ x: end.x - previous.x, y: end.y - previous.y }, { x: 1, y: 0 });
 
   return {
@@ -217,6 +219,7 @@ function edgeRouteFromPoints(edgeId: string, points: { x: number; y: number }[])
     labelPoint: pointAtHalfLength(safePoints),
     start,
     end,
+    startTangent,
     endTangent
   };
 }

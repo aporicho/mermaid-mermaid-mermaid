@@ -246,6 +246,9 @@ export function createEdge(graph: MermaidGraph, from: string, to: string, label 
     to,
     label,
     style: "solid",
+    markerStart: "none",
+    markerEnd: "arrow",
+    minLength: 1,
     arrowType: "arrow",
     ...(anchors.fromAnchor ? { fromAnchor: anchors.fromAnchor } : {}),
     ...(anchors.toAnchor ? { toAnchor: anchors.toAnchor } : {})
@@ -258,15 +261,20 @@ export function createEdge(graph: MermaidGraph, from: string, to: string, label 
 }
 
 export function updateEdge(graph: MermaidGraph, id: string, patch: Partial<CanvasEdge>): MermaidGraph {
+  const usedMermaidIds = new Set(graph.edges.map((edge) => edge.mermaidId).filter(Boolean) as string[]);
+
   return {
     ...graph,
     edges: graph.edges.map((edge) => {
       if (edge.id !== id) return edge;
       return {
-        ...edge,
-        ...("from" in patch && patch.from !== edge.from && !("fromAnchor" in patch) ? { fromAnchor: undefined } : {}),
-        ...("to" in patch && patch.to !== edge.to && !("toAnchor" in patch) ? { toAnchor: undefined } : {}),
-        ...patch
+        ...normalizeEdgeAfterPatch({
+          ...edge,
+          ...edgeMermaidIdPatch(edge, patch, usedMermaidIds),
+          ...("from" in patch && patch.from !== edge.from && !("fromAnchor" in patch) ? { fromAnchor: undefined } : {}),
+          ...("to" in patch && patch.to !== edge.to && !("toAnchor" in patch) ? { toAnchor: undefined } : {}),
+          ...patch
+        })
       };
     })
   };
@@ -274,10 +282,47 @@ export function updateEdge(graph: MermaidGraph, id: string, patch: Partial<Canva
 
 export function updateEdges(graph: MermaidGraph, ids: string[], patch: CanvasEdgeBatchPatch): MermaidGraph {
   const idSet = new Set(ids);
+  const usedMermaidIds = new Set(graph.edges.map((edge) => edge.mermaidId).filter(Boolean) as string[]);
 
   return {
     ...graph,
-    edges: graph.edges.map((edge) => (idSet.has(edge.id) ? { ...edge, ...patch } : edge))
+    edges: graph.edges.map((edge) => {
+      if (!idSet.has(edge.id)) return edge;
+      return normalizeEdgeAfterPatch({ ...edge, ...edgeMermaidIdPatch(edge, patch, usedMermaidIds), ...patch });
+    })
+  };
+}
+
+function edgeMermaidIdPatch(edge: CanvasEdge, patch: Partial<CanvasEdge>, usedMermaidIds: Set<string>) {
+  if (edge.mermaidId || patch.mermaidId || !edgePatchNeedsMermaidId(patch)) return {};
+  const mermaidId = nextEdgeMermaidId(usedMermaidIds);
+  usedMermaidIds.add(mermaidId);
+  return { mermaidId };
+}
+
+function edgePatchNeedsMermaidId(patch: Partial<CanvasEdge>) {
+  return Boolean(("animation" in patch && patch.animation && patch.animation !== "none") || ("curve" in patch && patch.curve) || ("classes" in patch && patch.classes?.length));
+}
+
+function nextEdgeMermaidId(usedIds: Set<string>) {
+  let index = 1;
+  while (usedIds.has(`e${index}`)) index += 1;
+  return `e${index}`;
+}
+
+function normalizeEdgeAfterPatch(edge: CanvasEdge): CanvasEdge {
+  const style = edge.style || "solid";
+  const markerStart = style === "invisible" ? "none" : edge.markerStart || "none";
+  let markerEnd = style === "invisible" ? "none" : edge.markerEnd || edge.arrowType || "arrow";
+  if (markerStart !== "none" && markerEnd === "none") markerEnd = "arrow";
+
+  return {
+    ...edge,
+    style,
+    markerStart,
+    markerEnd,
+    arrowType: markerEnd,
+    ...(edge.minLength !== undefined ? { minLength: Math.max(1, Math.round(edge.minLength)) } : {})
   };
 }
 
