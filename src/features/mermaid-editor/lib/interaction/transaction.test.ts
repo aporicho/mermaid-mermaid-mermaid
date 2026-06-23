@@ -211,10 +211,22 @@ describe("editor command transaction", () => {
       fill: "#0f0",
       source: "menu"
     });
+    const batchUpdatedNodes = applyEditorCommandTransaction(state, {
+      type: "graph.updateNodes",
+      nodeIds: ["A", "B"],
+      patch: { fill: "#00f", shape: "circle" },
+      source: "menu"
+    });
     const updatedEdge = applyEditorCommandTransaction(state, {
       type: "graph.updateEdge",
       edgeId: "A_B",
       patch: { style: "dotted", arrowType: "circle", label: "go" },
+      source: "menu"
+    });
+    const batchUpdatedEdges = applyEditorCommandTransaction(state, {
+      type: "graph.updateEdges",
+      edgeIds: ["A_B"],
+      patch: { style: "thick", arrowType: "none" },
       source: "menu"
     });
     const renamedSubgraph = applyEditorCommandTransaction(state, {
@@ -229,13 +241,23 @@ describe("editor command transaction", () => {
       patch: { title: "Title", direction: "BT" },
       source: "menu"
     });
+    const batchUpdatedSubgraphs = applyEditorCommandTransaction(state, {
+      type: "graph.updateSubgraphs",
+      subgraphIds: ["Group"],
+      patch: { direction: "RL", parentId: undefined },
+      source: "menu"
+    });
 
     expect(renamedNode.state.graph.nodes.find((node) => node.id === "Alpha")).toBeTruthy();
     expect(updatedNode.state.graph.nodes.find((node) => node.id === "A")).toMatchObject({ fill: "#f00", shape: "circle" });
     expect(filledNodes.state.graph.nodes.every((node) => node.fill === "#0f0")).toBe(true);
+    expect(batchUpdatedNodes.state.graph.nodes.every((node) => node.fill === "#00f" && node.shape === "circle")).toBe(true);
+    expect(batchUpdatedNodes.effect).toMatchObject({ history: "push", sourceSync: "commit", status: "已批量更新节点。" });
     expect(updatedEdge.state.graph.edges[0]).toMatchObject({ style: "dotted", arrowType: "circle", label: "go" });
+    expect(batchUpdatedEdges.state.graph.edges[0]).toMatchObject({ style: "thick", arrowType: "none" });
     expect(renamedSubgraph.state.graph.subgraphs?.[0].id).toBe("Renamed");
     expect(updatedSubgraph.state.graph.subgraphs?.[0]).toMatchObject({ title: "Title", direction: "BT" });
+    expect(batchUpdatedSubgraphs.state.graph.subgraphs?.[0]).toMatchObject({ direction: "RL", parentId: undefined });
   });
 
   it("drafts node positions without history or source sync", () => {

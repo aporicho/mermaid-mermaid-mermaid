@@ -15,7 +15,7 @@ import type {
 import type { EditorDiagnostic } from "@/features/mermaid-editor/lib/editor-diagnostics";
 import type { InteractionContext } from "@/features/mermaid-editor/lib/interaction/context";
 
-export type AiWorkspaceView = "canvas" | "render";
+export type AiWorkspaceView = "canvas" | "render" | "source";
 
 export type AiContextEntityKind = "node" | "edge" | "subgraph";
 

@@ -1,8 +1,11 @@
 import type {
   CanvasEdge,
+  CanvasEdgeBatchPatch,
   CanvasNode,
   CanvasNodeAsset,
+  CanvasNodeBatchPatch,
   CanvasSubgraph,
+  CanvasSubgraphBatchPatch,
   ClipboardPayload,
   EdgeRouting,
   EditorMode,
@@ -60,9 +63,12 @@ export type EditorCommand =
   | { type: "graph.renameNode"; nodeId: string; value: string; source: GraphCommandSource }
   | { type: "graph.renameSubgraph"; subgraphId: string; value: string; source: GraphCommandSource }
   | { type: "graph.updateNode"; nodeId: string; patch: Partial<Pick<CanvasNode, "label" | "fill" | "shape" | "asset">>; message?: string; source: GraphCommandSource }
+  | { type: "graph.updateNodes"; nodeIds: string[]; patch: CanvasNodeBatchPatch; message?: string; source: GraphCommandSource }
   | { type: "graph.updateNodeFill"; nodeIds: string[]; fill: string; source: GraphCommandSource }
   | { type: "graph.updateEdge"; edgeId: string; patch: Partial<Pick<CanvasEdge, "from" | "to" | "label" | "style" | "arrowType" | "fromAnchor" | "toAnchor">>; message?: string; source: GraphCommandSource }
+  | { type: "graph.updateEdges"; edgeIds: string[]; patch: CanvasEdgeBatchPatch; message?: string; source: GraphCommandSource }
   | { type: "graph.updateSubgraph"; subgraphId: string; patch: Partial<Pick<CanvasSubgraph, "title" | "parentId" | "direction">>; message?: string; source: GraphCommandSource }
+  | { type: "graph.updateSubgraphs"; subgraphIds: string[]; patch: CanvasSubgraphBatchPatch; message?: string; source: GraphCommandSource }
   | { type: "graph.updateNodeLabel"; nodeId: string; label: string; message?: string; source: GraphCommandSource }
   | { type: "graph.updateEdgeLabel"; edgeId: string; label: string; message?: string; source: GraphCommandSource }
   | { type: "graph.draftNodePositions"; positions: Record<string, { x: number; y: number }>; message?: string; syncSource?: boolean; source: Extract<EditorCommandSource, "pointer" | "api"> }

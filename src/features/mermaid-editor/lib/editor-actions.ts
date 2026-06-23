@@ -1,4 +1,17 @@
-import type { CanvasEdge, CanvasNode, CanvasSubgraph, ClipboardPayload, EditorMode, GraphDirection, MermaidGraph, Selection, ViewportState } from "@/features/mermaid-editor/lib/editor-types";
+import type {
+  CanvasEdge,
+  CanvasEdgeBatchPatch,
+  CanvasNode,
+  CanvasNodeBatchPatch,
+  CanvasSubgraph,
+  CanvasSubgraphBatchPatch,
+  ClipboardPayload,
+  EditorMode,
+  GraphDirection,
+  MermaidGraph,
+  Selection,
+  ViewportState
+} from "@/features/mermaid-editor/lib/editor-types";
 import { createImageAsset } from "@/features/mermaid-editor/lib/node-assets";
 import { createNode, nextCanvasNodeId, toSafeNodeId } from "@/features/mermaid-editor/lib/mermaid-graph";
 
@@ -63,9 +76,24 @@ export function updateNodeLabel(graph: MermaidGraph, id: string, label: string):
 }
 
 export function updateNodeFill(graph: MermaidGraph, ids: string[], fill: string): MermaidGraph {
+  return updateNodes(graph, ids, { fill });
+}
+
+export function updateNodes(graph: MermaidGraph, ids: string[], patch: CanvasNodeBatchPatch): MermaidGraph {
+  const idSet = new Set(ids);
+
   return {
     ...graph,
-    nodes: graph.nodes.map((node) => (ids.includes(node.id) ? { ...node, fill } : node))
+    nodes: graph.nodes.map((node) => {
+      if (!idSet.has(node.id)) return node;
+
+      return {
+        ...node,
+        ...(patch.fill !== undefined ? { fill: patch.fill } : {}),
+        ...(patch.shape !== undefined ? { shape: patch.shape } : {}),
+        ...(patch.asset && node.asset ? { asset: createImageAsset({ ...node.asset, ...patch.asset }) } : {})
+      };
+    })
   };
 }
 
@@ -145,6 +173,27 @@ export function updateSubgraph(graph: MermaidGraph, id: string, patch: Partial<P
   };
 }
 
+export function updateSubgraphs(graph: MermaidGraph, ids: string[], patch: CanvasSubgraphBatchPatch): MermaidGraph {
+  const idSet = new Set(ids);
+  const canApplyParent =
+    !("parentId" in patch) ||
+    !patch.parentId ||
+    (!idSet.has(patch.parentId) && ids.every((id) => id !== patch.parentId && !descendantSubgraphIds(graph, id).includes(patch.parentId!)));
+
+  return {
+    ...graph,
+    subgraphs: (graph.subgraphs || []).map((subgraph) => {
+      if (!idSet.has(subgraph.id)) return subgraph;
+
+      return {
+        ...subgraph,
+        ...("direction" in patch ? { direction: patch.direction } : {}),
+        ...("parentId" in patch && canApplyParent ? { parentId: patch.parentId } : {})
+      };
+    })
+  };
+}
+
 export function createSubgraphFromSelection(graph: MermaidGraph, selection: Selection): { graph: MermaidGraph; selection: Selection } {
   const selectedNodeIds = selection.nodeIds;
   const selectedSubgraphIds = selection.subgraphIds || [];
@@ -220,6 +269,15 @@ export function updateEdge(graph: MermaidGraph, id: string, patch: Partial<Canva
         ...patch
       };
     })
+  };
+}
+
+export function updateEdges(graph: MermaidGraph, ids: string[], patch: CanvasEdgeBatchPatch): MermaidGraph {
+  const idSet = new Set(ids);
+
+  return {
+    ...graph,
+    edges: graph.edges.map((edge) => (idSet.has(edge.id) ? { ...edge, ...patch } : edge))
   };
 }
 

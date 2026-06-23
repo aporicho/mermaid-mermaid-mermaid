@@ -1,7 +1,16 @@
 import { describe, expect, it } from "vitest";
 
-import type { CanvasNode, MermaidGraph } from "@/features/mermaid-editor/lib/editor-types";
-import { addNodeAt, createSubgraphFromSelection, deleteSelection, pasteClipboard, setNodeParent } from "@/features/mermaid-editor/lib/editor-actions";
+import type { CanvasEdge, CanvasNode, CanvasSubgraph, MermaidGraph } from "@/features/mermaid-editor/lib/editor-types";
+import {
+  addNodeAt,
+  createSubgraphFromSelection,
+  deleteSelection,
+  pasteClipboard,
+  setNodeParent,
+  updateEdges,
+  updateNodes,
+  updateSubgraphs
+} from "@/features/mermaid-editor/lib/editor-actions";
 
 function node(id: string): CanvasNode {
   return { id, label: id, x: 0, y: 0, fill: "#ffffff", shape: "rect" };
@@ -66,5 +75,51 @@ describe("editor actions", () => {
 
     expect(next.subgraphs?.find((item) => item.id === "G1")?.nodeIds).toEqual([]);
     expect(next.subgraphs?.find((item) => item.id === "G2")?.nodeIds).toEqual(["A"]);
+  });
+
+  it("updates selected nodes in batches without overwriting unrelated nodes", () => {
+    const source = graph([
+      { ...node("A"), asset: { kind: "image", src: "a.png", width: 80, height: 60, preserveAspectRatio: true, labelPosition: "bottom" } },
+      { ...node("B"), asset: { kind: "image", src: "b.png", width: 90, height: 70, preserveAspectRatio: true, labelPosition: "top" } },
+      node("C")
+    ]);
+    const next = updateNodes(source, ["A", "B"], {
+      fill: "#ff0000",
+      shape: "circle",
+      asset: { width: 160, preserveAspectRatio: false }
+    });
+
+    expect(next.nodes.find((item) => item.id === "A")).toMatchObject({ fill: "#ff0000", shape: "circle", asset: { src: "a.png", width: 160, preserveAspectRatio: false } });
+    expect(next.nodes.find((item) => item.id === "B")).toMatchObject({ fill: "#ff0000", shape: "circle", asset: { src: "b.png", width: 160, preserveAspectRatio: false } });
+    expect(next.nodes.find((item) => item.id === "C")).toMatchObject({ fill: "#ffffff", shape: "rect" });
+    expect(next.nodes.find((item) => item.id === "C")?.asset).toBeUndefined();
+  });
+
+  it("updates selected edges in batches", () => {
+    const edges: CanvasEdge[] = [
+      { id: "A_B", from: "A", to: "B", label: "", style: "solid", arrowType: "arrow" },
+      { id: "B_C", from: "B", to: "C", label: "", style: "thick", arrowType: "none" }
+    ];
+    const source = { ...graph([node("A"), node("B"), node("C")]), edges };
+    const next = updateEdges(source, ["A_B"], { style: "dotted", arrowType: "circle" });
+
+    expect(next.edges.find((item) => item.id === "A_B")).toMatchObject({ style: "dotted", arrowType: "circle" });
+    expect(next.edges.find((item) => item.id === "B_C")).toMatchObject({ style: "thick", arrowType: "none" });
+  });
+
+  it("updates selected subgraphs in batches while preventing parent cycles", () => {
+    const subgraphs: CanvasSubgraph[] = [
+      { id: "G1", title: "G1", nodeIds: ["A"] },
+      { id: "G2", title: "G2", nodeIds: ["B"], parentId: "G1" },
+      { id: "G3", title: "G3", nodeIds: ["C"] }
+    ];
+    const source = { ...graph([node("A"), node("B"), node("C")]), subgraphs };
+    const updated = updateSubgraphs(source, ["G2", "G3"], { direction: "BT", parentId: "G1" });
+    const blocked = updateSubgraphs(source, ["G1"], { direction: "RL", parentId: "G2" });
+
+    expect(updated.subgraphs?.find((item) => item.id === "G2")).toMatchObject({ direction: "BT", parentId: "G1" });
+    expect(updated.subgraphs?.find((item) => item.id === "G3")).toMatchObject({ direction: "BT", parentId: "G1" });
+    expect(blocked.subgraphs?.find((item) => item.id === "G1")).toMatchObject({ direction: "RL" });
+    expect(blocked.subgraphs?.find((item) => item.id === "G1")?.parentId).toBeUndefined();
   });
 });

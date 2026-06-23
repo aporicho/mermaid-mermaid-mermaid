@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  buildProjectFileTree,
   filterProjectFiles,
   isProjectFileActive,
   normalizeProjectFiles,
   normalizeProjectWorkspace,
+  projectTreeDirectoryIds,
   PROJECT_FILE_LIMIT,
   type ProjectFileEntry
 } from "@/features/mermaid-editor/lib/project-workspace";
@@ -57,6 +59,55 @@ describe("project workspace", () => {
     expect(filterProjectFiles(files, "core doc")).toEqual([files[1]]);
     expect(filterProjectFiles(files, "assets")).toEqual([files[0]]);
     expect(filterProjectFiles(files, "missing")).toEqual([]);
+  });
+
+  it("builds a sorted directory tree from project files", () => {
+    const files: ProjectFileEntry[] = [
+      { name: "zeta.mmd", path: "/project/zeta.mmd", relativePath: "zeta.mmd" },
+      { name: "runtime.mmd", path: "/project/docs/runtime.mmd", relativePath: "docs/runtime.mmd" },
+      { name: "alpha.mmd", path: "/project/docs/core/alpha.mmd", relativePath: "docs/core/alpha.mmd" },
+      { name: "beta.mermaid", path: "/project/docs/core/beta.mermaid", relativePath: "docs/core/beta.mermaid" }
+    ];
+
+    const tree = buildProjectFileTree(files);
+
+    expect(tree).toEqual([
+      expect.objectContaining({
+        kind: "directory",
+        name: "docs",
+        fileCount: 3,
+        children: [
+          expect.objectContaining({
+            kind: "directory",
+            name: "core",
+            fileCount: 2,
+            children: [
+              expect.objectContaining({ kind: "file", name: "alpha.mmd" }),
+              expect.objectContaining({ kind: "file", name: "beta.mermaid" })
+            ]
+          }),
+          expect.objectContaining({ kind: "file", name: "runtime.mmd" })
+        ]
+      }),
+      expect.objectContaining({ kind: "file", name: "zeta.mmd" })
+    ]);
+  });
+
+  it("keeps parent directories when building a filtered tree", () => {
+    const files: ProjectFileEntry[] = [
+      { name: "runtime-file-assets.mmd", path: "/docs/runtime-file-assets.mmd", relativePath: "runtime-file-assets.mmd" },
+      { name: "document-model.mmd", path: "/docs/document-model.mmd", relativePath: "core/document-model.mmd" }
+    ];
+    const tree = buildProjectFileTree(filterProjectFiles(files, "core doc"));
+
+    expect(tree).toEqual([
+      expect.objectContaining({
+        kind: "directory",
+        id: "dir:core",
+        children: [expect.objectContaining({ kind: "file", name: "document-model.mmd" })]
+      })
+    ]);
+    expect(projectTreeDirectoryIds(tree)).toEqual(["dir:core"]);
   });
 
   it("matches active project files with Windows path casing tolerance", () => {

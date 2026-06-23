@@ -63,5 +63,10 @@ describe("interaction context", () => {
     expect(context().capabilities.canEditGraph).toBe(true);
     expect(context({ workspaceView: "render" }).capabilities.canEditGraph).toBe(false);
     expect(context({ editableKind: "render-only" }).capabilities.canEditText).toBe(false);
+    expect(context({ workspaceView: "source", editableKind: "render-only" }).capabilities).toMatchObject({
+      canEditGraph: false,
+      canEditText: true,
+      canUseSelection: false
+    });
   });
 });

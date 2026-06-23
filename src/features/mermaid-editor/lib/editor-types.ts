@@ -69,6 +69,14 @@ export type CanvasSubgraph = {
   direction?: GraphDirection;
 };
 
+export type CanvasNodeBatchPatch = Partial<Pick<CanvasNode, "fill" | "shape">> & {
+  asset?: Partial<Pick<CanvasNodeAsset, "width" | "height" | "preserveAspectRatio" | "labelPosition">>;
+};
+
+export type CanvasEdgeBatchPatch = Partial<Pick<CanvasEdge, "style" | "arrowType">>;
+
+export type CanvasSubgraphBatchPatch = Partial<Pick<CanvasSubgraph, "parentId" | "direction">>;
+
 export type MermaidGraph = {
   diagramType?: DiagramType;
   editableKind?: EditableKind;

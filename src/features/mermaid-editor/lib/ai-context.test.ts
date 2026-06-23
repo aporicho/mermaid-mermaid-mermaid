@@ -59,6 +59,12 @@ describe("AI editor context", () => {
     ]);
   });
 
+  it("reports the source workspace view", () => {
+    const result = context({ workspaceView: "source" });
+
+    expect(result.document.workspaceView).toBe("source");
+  });
+
   it("ranks active editing and selected nodes before merely visible nodes", () => {
     const result = context({
       editing: { kind: "node", id: "A", draftText: "Draft Alpha" },

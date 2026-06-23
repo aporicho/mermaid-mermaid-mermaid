@@ -15,9 +15,12 @@ import {
   setNodeParent,
   setNodePositions,
   updateEdge,
+  updateEdges,
   updateNodeFill,
   updateNodeLabel,
-  updateSubgraph
+  updateNodes,
+  updateSubgraph,
+  updateSubgraphs
 } from "@/features/mermaid-editor/lib/editor-actions";
 import {
   DEFAULT_VIEW_FILTERS,
@@ -205,6 +208,16 @@ export function applyEditorCommandTransaction(state: EditorTransactionState, com
     return commitGraphState({ ...state, graph }, command.message || "已更新节点。");
   }
 
+  if (command.type === "graph.updateNodes") {
+    return commitGraphState(
+      {
+        ...state,
+        graph: updateNodes(state.graph, command.nodeIds, command.patch)
+      },
+      command.message || "已批量更新节点。"
+    );
+  }
+
   if (command.type === "graph.updateNodeFill") {
     return commitGraphState(
       {
@@ -225,6 +238,16 @@ export function applyEditorCommandTransaction(state: EditorTransactionState, com
     );
   }
 
+  if (command.type === "graph.updateEdges") {
+    return commitGraphState(
+      {
+        ...state,
+        graph: updateEdges(state.graph, command.edgeIds, command.patch)
+      },
+      command.message || "已批量更新连线。"
+    );
+  }
+
   if (command.type === "graph.updateSubgraph") {
     return commitGraphState(
       {
@@ -232,6 +255,16 @@ export function applyEditorCommandTransaction(state: EditorTransactionState, com
         graph: updateSubgraph(state.graph, command.subgraphId, command.patch)
       },
       command.message || "已更新组。"
+    );
+  }
+
+  if (command.type === "graph.updateSubgraphs") {
+    return commitGraphState(
+      {
+        ...state,
+        graph: updateSubgraphs(state.graph, command.subgraphIds, command.patch)
+      },
+      command.message || "已批量更新组。"
     );
   }
 

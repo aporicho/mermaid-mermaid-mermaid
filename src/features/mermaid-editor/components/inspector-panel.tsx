@@ -10,8 +10,11 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectSepa
 import { Separator } from "@/components/ui/separator";
 import type {
   CanvasEdge,
+  CanvasEdgeBatchPatch,
   CanvasNode,
+  CanvasNodeBatchPatch,
   CanvasSubgraph,
+  CanvasSubgraphBatchPatch,
   EdgeStyle,
   FlowchartArrowType,
   FlowchartNodeShape,
@@ -54,6 +57,10 @@ const directionOptions: { value: GraphDirection; label: string }[] = [
   { value: "BT", label: "BT" }
 ];
 
+const MIXED_VALUE = "__mixed__";
+const INHERIT_VALUE = "__inherit__";
+const ROOT_VALUE = "__root__";
+
 const anchorKindLabels: Record<ShapeGeometryPortKind, string> = {
   "edge-midpoint": "边中点",
   corner: "角点",
@@ -82,10 +89,24 @@ export function InspectorPanel({ graph, selection, onEditorCommand }: InspectorP
   const selectedEdge = selectedEdges.length === 1 && selectedNodes.length === 0 && selectedSubgraphs.length === 0 ? selectedEdges[0] : undefined;
   const selectedSubgraph = selectedSubgraphs.length === 1 && selectedNodes.length === 0 && selectedEdges.length === 0 ? selectedSubgraphs[0] : undefined;
   const multiNode = selectedNodes.length > 1 && selectedEdges.length === 0 && selectedSubgraphs.length === 0;
+  const multiEdge = selectedEdges.length > 1 && selectedNodes.length === 0 && selectedSubgraphs.length === 0;
+  const multiSubgraph = selectedSubgraphs.length > 1 && selectedNodes.length === 0 && selectedEdges.length === 0;
   const selectedEdgeFromNode = selectedEdge ? graph.nodes.find((node) => node.id === selectedEdge.from) : undefined;
   const selectedEdgeToNode = selectedEdge ? graph.nodes.find((node) => node.id === selectedEdge.to) : undefined;
   const selectedEdgeFromAnchorOptions = nodeAnchorOptions(selectedEdgeFromNode);
   const selectedEdgeToAnchorOptions = nodeAnchorOptions(selectedEdgeToNode);
+  const batchNodeShape = sharedSelectionValue(selectedNodes, (node) => node.shape || DEFAULT_FLOWCHART_NODE_SHAPE, DEFAULT_FLOWCHART_NODE_SHAPE);
+  const batchNodeFill = sharedSelectionValue(selectedNodes, (node) => node.fill, "");
+  const canBatchNodeAsset = multiNode && selectedNodes.every((node) => node.asset);
+  const batchAssetWidth = sharedSelectionValue(selectedNodes, (node) => node.asset?.width || DEFAULT_IMAGE_ASSET_WIDTH, DEFAULT_IMAGE_ASSET_WIDTH);
+  const batchAssetHeight = sharedSelectionValue(selectedNodes, (node) => node.asset?.height || DEFAULT_IMAGE_ASSET_HEIGHT, DEFAULT_IMAGE_ASSET_HEIGHT);
+  const batchAssetLabelPosition = sharedSelectionValue(selectedNodes, (node) => node.asset?.labelPosition || "bottom", "bottom");
+  const batchAssetPreserveAspectRatio = sharedSelectionValue(selectedNodes, (node) => node.asset?.preserveAspectRatio ?? true, true);
+  const batchEdgeStyle = sharedSelectionValue(selectedEdges, (edge) => edge.style || "solid", "solid");
+  const batchEdgeArrowType = sharedSelectionValue(selectedEdges, (edge) => edge.arrowType || "arrow", "arrow");
+  const batchSubgraphDirection = sharedSelectionValue(selectedSubgraphs, (subgraph) => subgraph.direction || INHERIT_VALUE, INHERIT_VALUE);
+  const batchSubgraphParent = sharedSelectionValue(selectedSubgraphs, (subgraph) => subgraph.parentId || ROOT_VALUE, ROOT_VALUE);
+  const batchSubgraphParentOptions = subgraphParentOptionsForBatch(graph, selectedSubgraphs);
   const endpointOptions = [
     ...graph.nodes.map((node) => ({ id: node.id, label: `${node.id} · 节点` })),
     ...(graph.subgraphs || []).map((subgraph) => ({ id: subgraph.id, label: `${subgraph.id} · 组` }))
@@ -127,6 +148,18 @@ export function InspectorPanel({ graph, selection, onEditorCommand }: InspectorP
     onEditorCommand({ type: "graph.updateSubgraph", subgraphId: id, patch: normalizeSubgraphPatch(patch), source: "menu" });
   }
 
+  function updateSelectedNodes(patch: CanvasNodeBatchPatch) {
+    onEditorCommand({ type: "graph.updateNodes", nodeIds: selectedNodes.map((node) => node.id), patch, source: "menu" });
+  }
+
+  function updateSelectedEdges(patch: CanvasEdgeBatchPatch) {
+    onEditorCommand({ type: "graph.updateEdges", edgeIds: selectedEdges.map((edge) => edge.id), patch, source: "menu" });
+  }
+
+  function updateSelectedSubgraphs(patch: CanvasSubgraphBatchPatch) {
+    onEditorCommand({ type: "graph.updateSubgraphs", subgraphIds: selectedSubgraphs.map((subgraph) => subgraph.id), patch, source: "menu" });
+  }
+
   function addEdgeFrom(node: CanvasNode) {
     const target = graph.nodes.find((item) => item.id !== node.id);
     if (!target) return;
@@ -134,7 +167,7 @@ export function InspectorPanel({ graph, selection, onEditorCommand }: InspectorP
   }
 
   function batchFill(fill: string) {
-    onEditorCommand({ type: "graph.updateNodeFill", nodeIds: selectedNodes.map((node) => node.id), fill, source: "menu" });
+    updateSelectedNodes({ fill });
   }
 
   return (
@@ -145,7 +178,7 @@ export function InspectorPanel({ graph, selection, onEditorCommand }: InspectorP
       </header>
       <ScrollArea className="min-h-0">
         <div className="grid gap-4 p-4">
-          {!selectedNode && !selectedEdge && !selectedSubgraph && !multiNode ? <EmptyInspector /> : null}
+          {!selectedNode && !selectedEdge && !selectedSubgraph && !multiNode && !multiEdge && !multiSubgraph ? <EmptyInspector /> : null}
 
           {selectedNode ? (
             <>
@@ -258,7 +291,104 @@ export function InspectorPanel({ graph, selection, onEditorCommand }: InspectorP
               <div className="rounded-md border bg-muted/35 p-3 text-sm">
                 已选择 <strong>{selectedNodes.length}</strong> 个节点
               </div>
-              <ColorGrid activeFill={allSameFill(selectedNodes) ? selectedNodes[0].fill : ""} onPick={batchFill} />
+              <div className="grid gap-2">
+                <Label>节点形状</Label>
+                <Select
+                  value={batchNodeShape.mixed ? MIXED_VALUE : batchNodeShape.value}
+                  onValueChange={(value) => {
+                    if (value === MIXED_VALUE) return;
+                    updateSelectedNodes({ shape: value as FlowchartNodeShape });
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-[360px]">
+                    <MixedSelectItem mixed={batchNodeShape.mixed} />
+                    {FLOWCHART_SHAPE_GROUPS.map((group, groupIndex) => (
+                      <SelectGroup key={group}>
+                        {groupIndex > 0 || batchNodeShape.mixed ? <SelectSeparator /> : null}
+                        <SelectLabel>{group}</SelectLabel>
+                        {FLOWCHART_SHAPES.filter((shape) => shape.group === group).map((shape) => (
+                          <SelectItem key={shape.id} value={shape.id}>
+                            {shape.label}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <ColorGrid activeFill={batchNodeFill.mixed ? "" : batchNodeFill.value} mixed={batchNodeFill.mixed} onPick={batchFill} />
+              {canBatchNodeAsset ? (
+                <>
+                  <Separator />
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="grid gap-2">
+                      <Label htmlFor="batch-node-image-width">图片宽度</Label>
+                      <Input
+                        id="batch-node-image-width"
+                        type="number"
+                        min={24}
+                        value={batchAssetWidth.mixed ? "" : batchAssetWidth.value || ""}
+                        placeholder={batchAssetWidth.mixed ? "混合" : undefined}
+                        onChange={(event) => updateBatchNodeAssetNumber(updateSelectedNodes, "width", event.target.value)}
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="batch-node-image-height">图片高度</Label>
+                      <Input
+                        id="batch-node-image-height"
+                        type="number"
+                        min={24}
+                        value={batchAssetHeight.mixed ? "" : batchAssetHeight.value || ""}
+                        placeholder={batchAssetHeight.mixed ? "混合" : undefined}
+                        onChange={(event) => updateBatchNodeAssetNumber(updateSelectedNodes, "height", event.target.value)}
+                      />
+                    </div>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>标签位置</Label>
+                    <Select
+                      value={batchAssetLabelPosition.mixed ? MIXED_VALUE : batchAssetLabelPosition.value}
+                      onValueChange={(value) => {
+                        if (value === MIXED_VALUE) return;
+                        updateSelectedNodes({ asset: { labelPosition: value as NonNullable<CanvasNode["asset"]>["labelPosition"] } });
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <MixedSelectItem mixed={batchAssetLabelPosition.mixed} />
+                        {batchAssetLabelPosition.mixed ? <SelectSeparator /> : null}
+                        <SelectItem value="bottom">图片下方</SelectItem>
+                        <SelectItem value="top">图片上方</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>图片比例</Label>
+                    <Select
+                      value={batchAssetPreserveAspectRatio.mixed ? MIXED_VALUE : batchAssetPreserveAspectRatio.value ? "true" : "false"}
+                      onValueChange={(value) => {
+                        if (value === MIXED_VALUE) return;
+                        updateSelectedNodes({ asset: { preserveAspectRatio: value === "true" } });
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <MixedSelectItem mixed={batchAssetPreserveAspectRatio.mixed} />
+                        {batchAssetPreserveAspectRatio.mixed ? <SelectSeparator /> : null}
+                        <SelectItem value="true">保持比例</SelectItem>
+                        <SelectItem value="false">不保持比例</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </>
+              ) : null}
               <Separator />
               <Button variant="destructive" className="h-8 justify-start px-2" onClick={() => onEditorCommand({ type: "graph.deleteSelection", source: "menu" })}>
                 <Trash2 className="size-4" />
@@ -331,6 +461,67 @@ export function InspectorPanel({ graph, selection, onEditorCommand }: InspectorP
               <Button variant="destructive" className="h-8 justify-start px-2" onClick={() => onEditorCommand({ type: "graph.deleteSelection", source: "menu" })}>
                 <Trash2 className="size-4" />
                 解散组
+              </Button>
+            </>
+          ) : null}
+
+          {multiSubgraph ? (
+            <>
+              <div className="rounded-md border bg-muted/35 p-3 text-sm">
+                已选择 <strong>{selectedSubgraphs.length}</strong> 个组
+              </div>
+              <div className="grid gap-2">
+                <Label>组方向</Label>
+                <Select
+                  value={batchSubgraphDirection.mixed ? MIXED_VALUE : batchSubgraphDirection.value}
+                  onValueChange={(value) => {
+                    if (value === MIXED_VALUE) return;
+                    updateSelectedSubgraphs({ direction: value === INHERIT_VALUE ? undefined : (value as GraphDirection) });
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <MixedSelectItem mixed={batchSubgraphDirection.mixed} />
+                    {batchSubgraphDirection.mixed ? <SelectSeparator /> : null}
+                    <SelectItem value={INHERIT_VALUE}>继承全局方向</SelectItem>
+                    {directionOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-2">
+                <Label>父组</Label>
+                <Select
+                  value={batchSubgraphParent.mixed ? MIXED_VALUE : batchSubgraphParent.value}
+                  onValueChange={(value) => {
+                    if (value === MIXED_VALUE) return;
+                    updateSelectedSubgraphs({ parentId: value === ROOT_VALUE ? undefined : value });
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <MixedSelectItem mixed={batchSubgraphParent.mixed} />
+                    {batchSubgraphParent.mixed ? <SelectSeparator /> : null}
+                    <SelectItem value={ROOT_VALUE}>根层</SelectItem>
+                    {batchSubgraphParentOptions.map((subgraph) => (
+                      <SelectItem key={subgraph.id} value={subgraph.id}>
+                        {subgraph.title || subgraph.id}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <Separator />
+              <Button variant="destructive" className="h-8 justify-start px-2" onClick={() => onEditorCommand({ type: "graph.deleteSelection", source: "menu" })}>
+                <Trash2 className="size-4" />
+                解散选中组
               </Button>
             </>
           ) : null}
@@ -460,16 +651,78 @@ export function InspectorPanel({ graph, selection, onEditorCommand }: InspectorP
               </Button>
             </>
           ) : null}
+
+          {multiEdge ? (
+            <>
+              <div className="rounded-md border bg-muted/35 p-3 text-sm">
+                已选择 <strong>{selectedEdges.length}</strong> 条连线
+              </div>
+              <div className="grid gap-2">
+                <Label>连线样式</Label>
+                <Select
+                  value={batchEdgeStyle.mixed ? MIXED_VALUE : batchEdgeStyle.value}
+                  onValueChange={(value) => {
+                    if (value === MIXED_VALUE) return;
+                    updateSelectedEdges({ style: value as EdgeStyle });
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <MixedSelectItem mixed={batchEdgeStyle.mixed} />
+                    {batchEdgeStyle.mixed ? <SelectSeparator /> : null}
+                    {edgeStyleOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-2">
+                <Label>箭头类型</Label>
+                <Select
+                  value={batchEdgeArrowType.mixed ? MIXED_VALUE : batchEdgeArrowType.value}
+                  onValueChange={(value) => {
+                    if (value === MIXED_VALUE) return;
+                    updateSelectedEdges({ arrowType: value as FlowchartArrowType });
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <MixedSelectItem mixed={batchEdgeArrowType.mixed} />
+                    {batchEdgeArrowType.mixed ? <SelectSeparator /> : null}
+                    {edgeArrowOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <Separator />
+              <Button variant="destructive" className="h-8 justify-start px-2" onClick={() => onEditorCommand({ type: "graph.deleteSelection", source: "menu" })}>
+                <Trash2 className="size-4" />
+                删除选中连线
+              </Button>
+            </>
+          ) : null}
         </div>
       </ScrollArea>
     </section>
   );
 }
 
-function ColorGrid({ activeFill, onPick }: { activeFill: string; onPick: (fill: string) => void }) {
+function ColorGrid({ activeFill, mixed = false, onPick }: { activeFill: string; mixed?: boolean; onPick: (fill: string) => void }) {
   return (
     <div className="grid gap-2">
-      <Label>颜色</Label>
+      <div className="flex items-center justify-between gap-2">
+        <Label>颜色</Label>
+        {mixed ? <span className="text-xs text-muted-foreground">混合</span> : null}
+      </div>
       <div className="grid grid-cols-4 gap-2">
         {palette.map((color) => (
           <button
@@ -492,6 +745,14 @@ function EmptyInspector() {
       <p>选择节点、组或连线后，可以编辑文本、颜色和连接关系。</p>
     </div>
   );
+}
+
+function MixedSelectItem({ mixed }: { mixed: boolean }) {
+  return mixed ? (
+    <SelectItem value={MIXED_VALUE} disabled>
+      混合
+    </SelectItem>
+  ) : null;
 }
 
 function nodeAnchorOptions(node: CanvasNode | undefined) {
@@ -541,6 +802,28 @@ function normalizeSubgraphPatch(patch: Partial<CanvasSubgraph>) {
   };
 }
 
-function allSameFill(nodes: CanvasNode[]) {
-  return nodes.length > 0 && nodes.every((node) => node.fill === nodes[0].fill);
+function sharedSelectionValue<T, V>(items: T[], read: (item: T) => V, fallback: V): { mixed: boolean; value: V } {
+  const first = items[0] ? read(items[0]) : fallback;
+  return {
+    value: first,
+    mixed: items.length > 1 && items.some((item) => !Object.is(read(item), first))
+  };
+}
+
+function updateBatchNodeAssetNumber(updateSelectedNodes: (patch: CanvasNodeBatchPatch) => void, key: "width" | "height", value: string) {
+  if (!value.trim()) return;
+
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return;
+
+  updateSelectedNodes({ asset: key === "width" ? { width: parsed } : { height: parsed } });
+}
+
+function subgraphParentOptionsForBatch(graph: MermaidGraph, selectedSubgraphs: CanvasSubgraph[]) {
+  const blockedIds = new Set(selectedSubgraphs.map((subgraph) => subgraph.id));
+  selectedSubgraphs.forEach((subgraph) => {
+    descendantSubgraphIds(graph, subgraph.id).forEach((id) => blockedIds.add(id));
+  });
+
+  return (graph.subgraphs || []).filter((subgraph) => !blockedIds.has(subgraph.id));
 }

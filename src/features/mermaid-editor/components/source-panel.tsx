@@ -7,20 +7,23 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { DiagnosticPanel } from "@/features/mermaid-editor/components/diagnostic-panel";
 import type { EditorDiagnostic } from "@/features/mermaid-editor/lib/editor-diagnostics";
+import { cn } from "@/lib/utils";
 
 type SourcePanelProps = {
   value: string;
+  title?: string;
+  className?: string;
   diagnostics?: EditorDiagnostic[];
   onChange: (value: string) => void;
   onRun: () => void;
-  onCollapse: () => void;
+  onCollapse?: () => void;
 };
 
-export function SourcePanel({ value, diagnostics = [], onChange, onRun, onCollapse }: SourcePanelProps) {
+export function SourcePanel({ value, title = "Mermaid", className, diagnostics = [], onChange, onRun, onCollapse }: SourcePanelProps) {
   return (
-    <section className="relative z-10 grid h-full min-h-0 grid-rows-[42px_minmax(0,1fr)_auto] border-r bg-card">
+    <section className={cn("relative z-10 grid h-full min-h-0 grid-rows-[42px_minmax(0,1fr)_auto] border-r bg-card", className)}>
       <header className="flex items-center justify-between border-b bg-card/95 px-3">
-        <span className="text-sm font-medium">Mermaid</span>
+        <span className="text-sm font-medium">{title}</span>
         <div className="flex items-center gap-1">
           <Tooltip>
             <TooltipTrigger asChild>
@@ -30,14 +33,16 @@ export function SourcePanel({ value, diagnostics = [], onChange, onRun, onCollap
             </TooltipTrigger>
             <TooltipContent side="right">刷新画布</TooltipContent>
           </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button size="icon" variant="ghost" className="size-8 text-icon hover:text-icon" onClick={onCollapse} aria-label="收起 Mermaid 面板">
-                <PanelLeftClose className="size-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="right">收起 Mermaid 面板</TooltipContent>
-          </Tooltip>
+          {onCollapse ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button size="icon" variant="ghost" className="size-8 text-icon hover:text-icon" onClick={onCollapse} aria-label="收起 Mermaid 面板">
+                  <PanelLeftClose className="size-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="right">收起 Mermaid 面板</TooltipContent>
+            </Tooltip>
+          ) : null}
         </div>
       </header>
       <Textarea
