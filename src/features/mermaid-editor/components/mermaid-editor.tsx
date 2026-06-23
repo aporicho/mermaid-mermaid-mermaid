@@ -129,6 +129,7 @@ import {
   type ViewFilters
 } from "@/features/mermaid-editor/lib/view-filters";
 import { useDismissableFloatingMenu } from "@/features/mermaid-editor/lib/use-dismissable-floating-menu";
+import { useDisableNativeContextMenu } from "@/features/mermaid-editor/lib/native-context-menu";
 import { FLOATING_CHROME_HIDE_DELAY_MS, shouldRevealFloatingGroup } from "@/features/mermaid-editor/lib/floating-chrome";
 import { nextWorkspaceView, workspaceViewForDocument, type WorkspaceView } from "@/features/mermaid-editor/lib/workspace-view";
 import { createImageAsset, DEFAULT_IMAGE_ASSET_HEIGHT, DEFAULT_IMAGE_ASSET_WIDTH, isSupportedImagePath } from "@/features/mermaid-editor/lib/node-assets";
@@ -541,6 +542,8 @@ async function getDesktopWindow() {
 }
 
 export function MermaidEditor() {
+  useDisableNativeContextMenu();
+
   const runtime = useMemo(() => createEditorRuntime(), []);
   const initial = useMemo(loadInitialState, []);
   const [source, setSource] = useState(initial.source);
