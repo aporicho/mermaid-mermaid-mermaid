@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { DEFAULT_EDITOR_MOTION } from "@/features/mermaid-editor/lib/editor-theme";
 import { resolveRuntimeEditorMotion } from "@/features/mermaid-editor/lib/editor-motion";
-import { resolveCanvasMotionChanges, snapshotCanvasNodes } from "@/features/mermaid-editor/lib/canvas-motion";
+import { centerScaleTransform, resolveCanvasMotionChanges, snapshotCanvasNodes } from "@/features/mermaid-editor/lib/canvas-motion";
 import type { MermaidGraph, Selection } from "@/features/mermaid-editor/lib/editor-types";
 
 const emptySelection: Selection = { nodeIds: [], edgeIds: [], subgraphIds: [] };
@@ -44,6 +44,41 @@ describe("canvas motion", () => {
     expect(changes.animateLayout).toBe(true);
   });
 
+  it("does not stack selection highlight on an auto-selected created node", () => {
+    const previous = graph([]);
+    const current = graph([{ id: "A", label: "A", x: 0, y: 0, fill: "#ffffff" }]);
+    const selection: Selection = { nodeIds: ["A"], edgeIds: [], subgraphIds: [] };
+
+    const changes = resolveCanvasMotionChanges({
+      previousNodes: snapshotCanvasNodes(previous),
+      graph: current,
+      previousSelection: emptySelection,
+      selection,
+      motion: resolveRuntimeEditorMotion(DEFAULT_EDITOR_MOTION),
+      interactionKind: "idle"
+    });
+
+    expect(changes.createdNodeIds).toEqual(["A"]);
+    expect(changes.highlightedNodeIds).toEqual([]);
+  });
+
+  it("keeps normal existing node selection highlights", () => {
+    const previous = graph([{ id: "A", label: "A", x: 0, y: 0, fill: "#ffffff" }]);
+    const selection: Selection = { nodeIds: ["A"], edgeIds: [], subgraphIds: [] };
+
+    const changes = resolveCanvasMotionChanges({
+      previousNodes: snapshotCanvasNodes(previous),
+      graph: previous,
+      previousSelection: emptySelection,
+      selection,
+      motion: resolveRuntimeEditorMotion(DEFAULT_EDITOR_MOTION),
+      interactionKind: "idle"
+    });
+
+    expect(changes.createdNodeIds).toEqual([]);
+    expect(changes.highlightedNodeIds).toEqual(["A"]);
+  });
+
   it("skips layout animation while dragging", () => {
     const previous = graph([{ id: "A", label: "A", x: 0, y: 0, fill: "#ffffff" }]);
     const current = graph([{ id: "A", label: "A", x: 80, y: 0, fill: "#ffffff" }]);
@@ -83,5 +118,14 @@ describe("canvas motion", () => {
 
     expect(changes.createdNodeIds).toEqual(["A", "B"]);
     expect(changes.animateLayout).toBe(false);
+  });
+
+  it("derives a centered visual transform for node scaling", () => {
+    expect(centerScaleTransform({ width: 120, height: 48 })).toEqual({
+      x: 60,
+      y: 24,
+      offsetX: 60,
+      offsetY: 24
+    });
   });
 });

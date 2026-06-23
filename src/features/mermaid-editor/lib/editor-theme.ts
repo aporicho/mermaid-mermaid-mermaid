@@ -279,7 +279,7 @@ export const DEFAULT_EDITOR_MOTION: EditorMotionTokens = {
     list: 0.018
   },
   canvas: {
-    createScale: 0.94,
+    createScale: 0.98,
     selectedScale: 1.015,
     highlightDuration: 0.55,
     maxAnimatedItems: 80

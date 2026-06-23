@@ -44,6 +44,7 @@ import { DEFAULT_CANVAS_GRID, firstGridCoordinateAtOrAfter, getCanvasGridRenderP
 import { resolveCanvasRenderScope } from "@/features/mermaid-editor/lib/canvas-render-scope";
 import { createWheelIntentTracker } from "@/features/mermaid-editor/lib/canvas-viewport-navigation";
 import {
+  centerScaleTransform,
   resolveCanvasMotionChanges,
   snapshotCanvasNodes,
   type CanvasMotionNodeSnapshot
@@ -1123,9 +1124,9 @@ export function KonvaCanvas({
         if (!node) continue;
         animateNodeVisual(
           id,
-          { x: node.x, y: node.y, opacity: 0, scale: runtimeMotion.canvas.createScale, highlight: 1 },
+          { x: node.x, y: node.y, opacity: 0.75, scale: runtimeMotion.canvas.createScale, highlight: 0.35 },
           { x: node.x, y: node.y, opacity: 1, scale: 1, highlight: 0 },
-          runtimeMotion.duration.slow
+          runtimeMotion.duration.fast
         );
       }
 
@@ -2262,6 +2263,7 @@ export function KonvaCanvas({
               const nodeAnchorsVisible = anchorVisual.visible || connectionAnchorsVisible;
               const imageAsset = normalizeImageAsset(node.asset);
               const imageDisplaySrc = imageAsset ? imageDisplaySrcBySrc[imageAsset.src] || imageAsset.src : undefined;
+              const nodeVisualTransform = centerScaleTransform(geometry.frame);
 
               return (
                 <Group
@@ -2271,8 +2273,6 @@ export function KonvaCanvas({
                   x={geometry.frame.x}
                   y={geometry.frame.y}
                   opacity={motionVisual?.opacity ?? 1}
-                  scaleX={motionVisual?.scale ?? 1}
-                  scaleY={motionVisual?.scale ?? 1}
                   draggable={dragEnabled && mode === "select" && !panningRequested && interactionState.kind !== "panning"}
                   onDragStart={(event) => {
                     if (event.evt.button !== 0) {
@@ -2295,41 +2295,50 @@ export function KonvaCanvas({
                   onClick={(event) => handleCanvasClick(event, { kind: "node", id: node.id })}
                   onDblClick={(event) => handleCanvasDoubleClick(event, { kind: "node", id: node.id })}
                 >
-                  <CanvasNodeShape
-                    node={node}
-                    width={geometry.frame.width}
-                    height={geometry.frame.height}
-                    stroke={nodeVisual.stroke}
-                    strokeWidth={nodeVisual.strokeWidth + (motionVisual?.highlight ?? 0) * visualTokens.node.emphasizedStrokeWidth}
-                    visualTokens={visualTokens}
-                  />
-                  {imageAsset && imageDisplaySrc && geometry.imageBox ? (
-                    <CanvasNodeImage
-                      src={imageDisplaySrc}
-                      x={geometry.imageBox.x}
-                      y={geometry.imageBox.y}
-                      width={geometry.imageBox.width}
-                      height={geometry.imageBox.height}
+                  <Group
+                    x={nodeVisualTransform.x}
+                    y={nodeVisualTransform.y}
+                    offsetX={nodeVisualTransform.offsetX}
+                    offsetY={nodeVisualTransform.offsetY}
+                    scaleX={motionVisual?.scale ?? 1}
+                    scaleY={motionVisual?.scale ?? 1}
+                  >
+                    <CanvasNodeShape
+                      node={node}
+                      width={geometry.frame.width}
+                      height={geometry.frame.height}
                       stroke={nodeVisual.stroke}
+                      strokeWidth={nodeVisual.strokeWidth + (motionVisual?.highlight ?? 0) * visualTokens.node.emphasizedStrokeWidth}
+                      visualTokens={visualTokens}
                     />
-                  ) : null}
-                  <Text
-                    x={geometry.textBox.x}
-                    y={geometry.textBox.y}
-                    width={geometry.textBox.width}
-                    height={geometry.textBox.height}
-                    align="center"
-                    verticalAlign="middle"
-                    text={node.label}
-                    fontSize={nodeThemeTokens.fontSize}
-                    fontStyle={String(nodeThemeTokens.fontWeight)}
-                    fontFamily={nodeThemeTokens.fontFamily}
-                    lineHeight={nodeThemeTokens.lineHeight / nodeThemeTokens.fontSize}
-                    wrap="word"
-                    fill={nodeVisual.textFill}
-                    ellipsis
-                    visible={viewFilters.nodeLabels && !(inlineEdit?.type === "node" && inlineEdit.id === node.id)}
-                  />
+                    {imageAsset && imageDisplaySrc && geometry.imageBox ? (
+                      <CanvasNodeImage
+                        src={imageDisplaySrc}
+                        x={geometry.imageBox.x}
+                        y={geometry.imageBox.y}
+                        width={geometry.imageBox.width}
+                        height={geometry.imageBox.height}
+                        stroke={nodeVisual.stroke}
+                      />
+                    ) : null}
+                    <Text
+                      x={geometry.textBox.x}
+                      y={geometry.textBox.y}
+                      width={geometry.textBox.width}
+                      height={geometry.textBox.height}
+                      align="center"
+                      verticalAlign="middle"
+                      text={node.label}
+                      fontSize={nodeThemeTokens.fontSize}
+                      fontStyle={String(nodeThemeTokens.fontWeight)}
+                      fontFamily={nodeThemeTokens.fontFamily}
+                      lineHeight={nodeThemeTokens.lineHeight / nodeThemeTokens.fontSize}
+                      wrap="word"
+                      fill={nodeVisual.textFill}
+                      ellipsis
+                      visible={viewFilters.nodeLabels && !(inlineEdit?.type === "node" && inlineEdit.id === node.id)}
+                    />
+                  </Group>
                   {nodeAnchorsVisible
                     ? geometry.anchorsLocal.map((anchor) => (
                         <Group
@@ -2368,6 +2377,7 @@ export function KonvaCanvas({
                   const motionVisual = nodeMotion[node.id] ?? { x: node.x, y: node.y, opacity: 0, scale: runtimeMotion.canvas.createScale, highlight: 0 };
                   const imageAsset = normalizeImageAsset(node.asset);
                   const imageDisplaySrc = imageAsset ? imageDisplaySrcBySrc[imageAsset.src] || imageAsset.src : undefined;
+                  const nodeVisualTransform = centerScaleTransform(geometry.frame);
 
                   return (
                     <Group
@@ -2375,45 +2385,52 @@ export function KonvaCanvas({
                       x={motionVisual.x}
                       y={motionVisual.y}
                       opacity={motionVisual.opacity}
-                      scaleX={motionVisual.scale}
-                      scaleY={motionVisual.scale}
                       listening={false}
                     >
-                      <CanvasNodeShape
-                        node={node}
-                        width={geometry.frame.width}
-                        height={geometry.frame.height}
-                        stroke={visualTokens.colors.accent}
-                        strokeWidth={visualTokens.node.strokeWidth + motionVisual.highlight * visualTokens.node.emphasizedStrokeWidth}
-                        visualTokens={visualTokens}
-                      />
-                      {imageAsset && imageDisplaySrc && geometry.imageBox ? (
-                        <CanvasNodeImage
-                          src={imageDisplaySrc}
-                          x={geometry.imageBox.x}
-                          y={geometry.imageBox.y}
-                          width={geometry.imageBox.width}
-                          height={geometry.imageBox.height}
+                      <Group
+                        x={nodeVisualTransform.x}
+                        y={nodeVisualTransform.y}
+                        offsetX={nodeVisualTransform.offsetX}
+                        offsetY={nodeVisualTransform.offsetY}
+                        scaleX={motionVisual.scale}
+                        scaleY={motionVisual.scale}
+                      >
+                        <CanvasNodeShape
+                          node={node}
+                          width={geometry.frame.width}
+                          height={geometry.frame.height}
                           stroke={visualTokens.colors.accent}
+                          strokeWidth={visualTokens.node.strokeWidth + motionVisual.highlight * visualTokens.node.emphasizedStrokeWidth}
+                          visualTokens={visualTokens}
                         />
-                      ) : null}
-                      <Text
-                        x={geometry.textBox.x}
-                        y={geometry.textBox.y}
-                        width={geometry.textBox.width}
-                        height={geometry.textBox.height}
-                        align="center"
-                        verticalAlign="middle"
-                        text={node.label}
-                        fontSize={nodeThemeTokens.fontSize}
-                        fontStyle={String(nodeThemeTokens.fontWeight)}
-                        fontFamily={nodeThemeTokens.fontFamily}
-                        lineHeight={nodeThemeTokens.lineHeight / nodeThemeTokens.fontSize}
-                        wrap="word"
-                        fill={visualTokens.colors.nodeText}
-                        ellipsis
-                        visible={viewFilters.nodeLabels}
-                      />
+                        {imageAsset && imageDisplaySrc && geometry.imageBox ? (
+                          <CanvasNodeImage
+                            src={imageDisplaySrc}
+                            x={geometry.imageBox.x}
+                            y={geometry.imageBox.y}
+                            width={geometry.imageBox.width}
+                            height={geometry.imageBox.height}
+                            stroke={visualTokens.colors.accent}
+                          />
+                        ) : null}
+                        <Text
+                          x={geometry.textBox.x}
+                          y={geometry.textBox.y}
+                          width={geometry.textBox.width}
+                          height={geometry.textBox.height}
+                          align="center"
+                          verticalAlign="middle"
+                          text={node.label}
+                          fontSize={nodeThemeTokens.fontSize}
+                          fontStyle={String(nodeThemeTokens.fontWeight)}
+                          fontFamily={nodeThemeTokens.fontFamily}
+                          lineHeight={nodeThemeTokens.lineHeight / nodeThemeTokens.fontSize}
+                          wrap="word"
+                          fill={visualTokens.colors.nodeText}
+                          ellipsis
+                          visible={viewFilters.nodeLabels}
+                        />
+                      </Group>
                     </Group>
                   );
                 })

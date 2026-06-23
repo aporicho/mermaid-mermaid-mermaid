@@ -13,6 +13,18 @@ export type CanvasMotionChangeSet = {
   animateLayout: boolean;
 };
 
+export type CanvasMotionFrame = {
+  width: number;
+  height: number;
+};
+
+export type CanvasCenterScaleTransform = {
+  x: number;
+  y: number;
+  offsetX: number;
+  offsetY: number;
+};
+
 export function snapshotCanvasNodes(graph: MermaidGraph): Map<string, CanvasMotionNodeSnapshot> {
   return new Map(graph.nodes.map((node) => [node.id, { id: node.id, x: node.x, y: node.y }]));
 }
@@ -43,7 +55,8 @@ export function resolveCanvasMotionChanges(input: {
     if (!currentNodes.has(previousId)) removedNodeIds.push(previousId);
   }
 
-  const highlightedNodeIds = changedSelectionItems(input.previousSelection?.nodeIds ?? [], input.selection.nodeIds);
+  const createdNodeIdSet = new Set(createdNodeIds);
+  const highlightedNodeIds = changedSelectionItems(input.previousSelection?.nodeIds ?? [], input.selection.nodeIds).filter((id) => !createdNodeIdSet.has(id));
   const highlightedEdgeIds = changedSelectionItems(input.previousSelection?.edgeIds ?? [], input.selection.edgeIds);
   const changedCount = createdNodeIds.length + movedNodeIds.length + removedNodeIds.length;
   const animatableInteraction = input.interactionKind !== "draggingNodes" && input.interactionKind !== "draggingSubgraphs" && input.interactionKind !== "panning";
@@ -55,6 +68,15 @@ export function resolveCanvasMotionChanges(input: {
     highlightedNodeIds,
     highlightedEdgeIds,
     animateLayout: animatableInteraction && shouldAnimateCanvasItemCount(changedCount, input.motion)
+  };
+}
+
+export function centerScaleTransform(frame: CanvasMotionFrame): CanvasCenterScaleTransform {
+  return {
+    x: frame.width / 2,
+    y: frame.height / 2,
+    offsetX: frame.width / 2,
+    offsetY: frame.height / 2
   };
 }
 
