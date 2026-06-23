@@ -3,11 +3,14 @@ import { describe, expect, it } from "vitest";
 import {
   buildProjectFileTree,
   filterProjectFiles,
+  isRuntimePathInsideProjectWorkspace,
   isProjectFileActive,
   normalizeProjectFiles,
   normalizeProjectWorkspace,
+  parentDirectoryFromRuntimePath,
   projectTreeDirectoryIds,
   PROJECT_FILE_LIMIT,
+  workspaceRootForOpenedFile,
   type ProjectFileEntry
 } from "@/features/mermaid-editor/lib/project-workspace";
 
@@ -123,5 +126,28 @@ describe("project workspace", () => {
         { name: "demo.mmd", path: "/repo/docs/demo.mmd" }
       )
     ).toBe(false);
+  });
+
+  it("derives parent directories from runtime file paths", () => {
+    expect(parentDirectoryFromRuntimePath("C:\\repo\\docs\\demo.mmd")).toBe("C:\\repo\\docs");
+    expect(parentDirectoryFromRuntimePath("C:/repo/docs/demo.mermaid")).toBe("C:/repo/docs");
+    expect(parentDirectoryFromRuntimePath("/repo/docs/demo.mmd")).toBe("/repo/docs");
+    expect(parentDirectoryFromRuntimePath("demo.mmd")).toBeUndefined();
+  });
+
+  it("decides when an opened file should switch the workspace root", () => {
+    const workspace = {
+      rootName: "docs",
+      rootPath: "C:\\Repo\\docs",
+      scannedAt: 1,
+      files: []
+    };
+
+    expect(isRuntimePathInsideProjectWorkspace("c:\\repo\\docs\\nested\\demo.mmd", workspace)).toBe(true);
+    expect(workspaceRootForOpenedFile("c:\\repo\\docs\\nested\\demo.mmd", workspace)).toBeUndefined();
+    expect(workspaceRootForOpenedFile("D:\\other\\demo.mmd", workspace)).toBe("D:\\other");
+    expect(workspaceRootForOpenedFile("/repo/docs/demo.mmd", { ...workspace, rootPath: "/repo" })).toBeUndefined();
+    expect(workspaceRootForOpenedFile("C:\\repo\\docs\\demo.mmd", { ...workspace, rootPath: "C:\\" })).toBeUndefined();
+    expect(workspaceRootForOpenedFile("/repo/docs/demo.mmd", { ...workspace, rootPath: "/" })).toBeUndefined();
   });
 });

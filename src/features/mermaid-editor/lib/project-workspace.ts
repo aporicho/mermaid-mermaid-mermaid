@@ -90,6 +90,40 @@ export function isProjectFileActive(file: ProjectFileEntry, currentFileRef: Runt
     : false;
 }
 
+export function parentDirectoryFromRuntimePath(path: string | undefined) {
+  const trimmed = path?.trim().replace(/[\\/]+$/, "");
+  if (!trimmed) return undefined;
+
+  const slashIndex = trimmed.lastIndexOf("/");
+  const backslashIndex = trimmed.lastIndexOf("\\");
+  const separatorIndex = Math.max(slashIndex, backslashIndex);
+  if (separatorIndex < 0) return undefined;
+
+  const separator = trimmed[separatorIndex];
+  const parent = trimmed.slice(0, separatorIndex);
+  if (!parent && separator === "/") return "/";
+  if (/^[A-Za-z]:$/.test(parent)) return `${parent}${separator}`;
+  return parent || undefined;
+}
+
+export function isRuntimePathInsideProjectWorkspace(path: string | undefined, workspace: ProjectWorkspace | null | undefined) {
+  if (!path || !workspace?.rootPath) return false;
+  const filePath = normalizeComparablePath(path);
+  const rootPath = normalizeComparablePath(workspace.rootPath);
+  if (!filePath || !rootPath) return false;
+
+  const shouldIgnoreCase = isWindowsLikePath(path) || isWindowsLikePath(workspace.rootPath);
+  const comparableFilePath = shouldIgnoreCase ? filePath.toLowerCase() : filePath;
+  const comparableRootPath = shouldIgnoreCase ? rootPath.toLowerCase() : rootPath;
+  const comparableRootPrefix = comparableRootPath.endsWith("/") ? comparableRootPath : `${comparableRootPath}/`;
+  return comparableFilePath === comparableRootPath || comparableFilePath.startsWith(comparableRootPrefix);
+}
+
+export function workspaceRootForOpenedFile(path: string | undefined, workspace: ProjectWorkspace | null | undefined) {
+  if (!path || isRuntimePathInsideProjectWorkspace(path, workspace)) return undefined;
+  return parentDirectoryFromRuntimePath(path);
+}
+
 export function buildProjectFileTree(files: ProjectFileEntry[]): ProjectTreeNode[] {
   const directories = new Map<string, ProjectTreeDirectoryNode>();
   const roots: ProjectTreeNode[] = [];
@@ -175,7 +209,9 @@ function normalizeNumber(value: unknown) {
 }
 
 function normalizeComparablePath(path: string) {
-  return path.replaceAll("\\", "/");
+  const normalized = path.replaceAll("\\", "/").replace(/\/+$/, "");
+  if (/^[A-Za-z]:$/.test(normalized)) return `${normalized}/`;
+  return normalized || (path.startsWith("/") ? "/" : normalized);
 }
 
 function isWindowsLikePath(path: string) {

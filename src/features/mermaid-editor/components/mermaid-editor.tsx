@@ -84,6 +84,7 @@ import {
   isProjectFileActive,
   normalizeProjectWorkspace,
   projectTreeDirectoryIds,
+  workspaceRootForOpenedFile,
   type ProjectFileEntry,
   type ProjectTreeNode,
   type ProjectWorkspace
@@ -1475,6 +1476,37 @@ export function MermaidEditor() {
     setFileWorkflowError(null);
     setStatus(loaded.editableKind === "flowchart" ? `已打开 ${name}。` : `已打开 ${name}，当前类型仅渲染。`);
     recordRecentAction(source === "restore" ? "document.restore" : "document.open", { kind: "document" }, `打开 ${name}。`);
+    if (source !== "restore") void syncWorkspaceForOpenedFile(file);
+  }
+
+  async function syncWorkspaceForOpenedFile(file: RuntimeFileRef | null, options: { announce?: boolean } = {}) {
+    if (runtime.kind !== "desktop" || !file?.path) return;
+
+    const rootPath = workspaceRootForOpenedFile(file.path, projectWorkspace);
+    if (!rootPath) {
+      if (projectWorkspace) setLeftCollapsed(false);
+      return;
+    }
+
+    setProjectBusy(true);
+    try {
+      const result = await runtime.readProjectFolder(rootPath);
+      if (result.status !== "opened") return;
+      const workspace = normalizeProjectWorkspace(result.workspace);
+      if (!workspace) {
+        showFileWorkflowError({ code: "read_failed", message: "工作区文件夹扫描结果无效。", path: rootPath }, "同步文件夹失败。");
+        return;
+      }
+
+      setProjectWorkspace(workspace);
+      setProjectFileQuery("");
+      setLeftCollapsed(false);
+      if (options.announce ?? true) setStatus(`已显示 ${workspace.rootName}，发现 ${workspace.files.length} 个 Mermaid 文件。`);
+    } catch (error) {
+      if (!isAbortError(error)) showFileWorkflowError(error, "同步文件夹失败。");
+    } finally {
+      setProjectBusy(false);
+    }
   }
 
   function applyStoredEditorState(stored: StoredEditor) {
@@ -1886,6 +1918,7 @@ export function MermaidEditor() {
       } catch {
         // File save succeeded; draft persistence is best-effort.
       }
+      void syncWorkspaceForOpenedFile(result.file, { announce: false });
       return true;
     } catch (error) {
       if (!isAbortError(error)) showFileWorkflowError(error, "保存文件失败。");
@@ -1915,6 +1948,7 @@ export function MermaidEditor() {
       } catch {
         // File save succeeded; draft persistence is best-effort.
       }
+      void syncWorkspaceForOpenedFile(result.file, { announce: false });
       return result.file;
     } catch (error) {
       if (!isAbortError(error)) showFileWorkflowError(error, "保存文件失败。");
@@ -2835,7 +2869,7 @@ function ExplorerPanel({
   const queryActive = Boolean(projectFileQuery.trim());
   const visibleExpandedIds = queryActive ? new Set(allDirectoryIds) : expandedDirectoryIds;
   const projectAvailable = runtimeKind === "desktop";
-  const recentPreview = recentFiles.slice(0, 5);
+  const recentPreview = recentFiles.slice(0, 3);
 
   useEffect(() => {
     setExpandedDirectoryIds(new Set(topLevelDirectoryKey ? topLevelDirectoryKey.split("\n") : []));
@@ -2851,13 +2885,20 @@ function ExplorerPanel({
   }
 
   return (
-    <aside className="grid h-full min-h-0 grid-rows-[42px_auto_minmax(0,1fr)] border-r bg-card">
+    <aside className="grid h-full min-h-0 grid-rows-[42px_auto_minmax(0,1fr)_auto] border-r bg-card">
       <header className="flex min-w-0 items-center justify-between gap-2 border-b bg-card/95 px-3">
         <div className="min-w-0">
           <div className="truncate text-sm font-medium">资源管理器</div>
-          <div className="truncate text-[11px] text-muted-foreground">当前文档、最近文件和工作区</div>
         </div>
         <div className="flex shrink-0 items-center gap-1">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button size="icon" variant="ghost" className="size-8 text-icon hover:text-icon" onClick={onNewFile} aria-label="新建 Mermaid 文件">
+                <Plus className="size-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="right">新建文件</TooltipContent>
+          </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
               <Button size="icon" variant="ghost" className="size-8 text-icon hover:text-icon" onClick={onOpenFile} aria-label="打开 Mermaid 文件">
@@ -2865,6 +2906,20 @@ function ExplorerPanel({
               </Button>
             </TooltipTrigger>
             <TooltipContent side="right">打开文件</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                size="icon"
+                variant={isDirty ? "default" : "ghost"}
+                className={isDirty ? "size-8 text-background hover:text-background" : "size-8 text-icon hover:text-icon"}
+                onClick={onSaveFile}
+                aria-label="保存 Mermaid 文件"
+              >
+                <FloppyDisk className="size-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="right">保存文件</TooltipContent>
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -2877,69 +2932,30 @@ function ExplorerPanel({
         </div>
       </header>
 
-      <div className="grid gap-3 border-b px-3 py-3">
-        <ExplorerSectionTitle>当前文档</ExplorerSectionTitle>
-        <div className={cn("grid gap-2 rounded-md border bg-muted/25 p-2", isDirty && "border-primary/45 bg-primary/5")}>
+      <div className={cn("flex min-w-0 items-center gap-2 border-b px-3 py-2", isDirty && "bg-primary/5")}>
+        <EmptyPage className="size-4 shrink-0 text-icon" />
+        <div className="min-w-0 flex-1">
           <div className="flex min-w-0 items-center gap-2">
-            <EmptyPage className="size-4 shrink-0 text-icon" />
-            <div className="min-w-0 flex-1">
-              <div className="truncate text-xs font-medium" title={fileName}>
-                {fileName}
-              </div>
-              <div className="truncate text-[11px] text-muted-foreground" title={fileRef?.path}>
-                {fileRef?.path || "未保存草稿"}
-              </div>
+            <div className="truncate text-xs font-medium" title={fileName}>
+              {fileName}
             </div>
-            {isDirty ? <span className="h-2 w-2 shrink-0 rounded-full bg-primary" aria-label="有未保存修改" /> : null}
+            {isDirty ? <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-primary" aria-label="有未保存修改" /> : null}
           </div>
-          <div className="grid grid-cols-3 gap-1">
-            <Button variant="outline" className="h-8 px-2 text-xs" onClick={onNewFile}>
-              <Plus className="size-4" />
-              新建
-            </Button>
-            <Button variant="outline" className="h-8 px-2 text-xs" onClick={onOpenFile}>
-              <Folder className="size-4" />
-              打开
-            </Button>
-            <Button variant={isDirty ? "default" : "outline"} className={cn("h-8 px-2 text-xs", isDirty && "text-background hover:text-background")} onClick={onSaveFile}>
-              <FloppyDisk className="size-4" />
-              保存
-            </Button>
+          <div className="truncate text-[11px] text-muted-foreground" title={fileRef?.path}>
+            {fileRef?.path || "未保存草稿"}
           </div>
-        </div>
-
-        <div className="grid gap-1.5">
-          <ExplorerSectionTitle>最近文件</ExplorerSectionTitle>
-          {recentPreview.length ? (
-            <div className="grid gap-0.5">
-              {recentPreview.map((file) => (
-                <Button
-                  key={file.path}
-                  variant="ghost"
-                  className="h-8 justify-start gap-2 px-2 text-left text-foreground [&_svg]:text-icon"
-                  title={file.path}
-                  onClick={() => onOpenRecent(file)}
-                >
-                  <ClockRotateRight className="size-4 shrink-0" />
-                  <span className="min-w-0 flex-1 truncate text-xs">{file.name}</span>
-                </Button>
-              ))}
-            </div>
-          ) : (
-            <div className="px-2 py-1 text-xs text-muted-foreground">暂无最近文件</div>
-          )}
         </div>
       </div>
 
       <div className="grid min-h-0 grid-rows-[auto_auto_minmax(0,1fr)]">
         <div className="flex min-w-0 items-center justify-between gap-2 border-b px-3 py-2">
           <div className="min-w-0">
-            <ExplorerSectionTitle>工作区文件夹</ExplorerSectionTitle>
+            <ExplorerSectionTitle>文件夹</ExplorerSectionTitle>
             <div className="truncate text-[11px] text-muted-foreground" title={projectWorkspace?.rootPath}>
               {projectWorkspace
                 ? `${projectWorkspace.rootName} · ${projectWorkspace.files.length}${projectWorkspace.truncated ? "+" : ""} 个 Mermaid 文件`
                 : projectAvailable
-                  ? "可选，适合浏览多个 Mermaid 文件"
+                  ? "打开文件后会自动显示同目录图表"
                   : "桌面版支持文件夹浏览"}
             </div>
           </div>
@@ -2980,13 +2996,13 @@ function ExplorerPanel({
             value={projectFileQuery}
             onChange={(event) => onProjectQueryChange(event.target.value)}
             placeholder="筛选 .mmd / .mermaid"
-            className="h-8 px-2 text-xs"
+            className="h-7 px-2 text-xs"
             disabled={!projectWorkspace}
           />
           {projectWorkspace?.truncated ? <div className="text-[11px] text-muted-foreground">文件较多，已显示前 500 个结果。</div> : null}
         </div>
 
-        <div className="min-h-0 overflow-y-auto px-1.5 py-2">
+        <div className="min-h-0 overflow-y-auto px-1 py-1.5">
           {!projectWorkspace ? (
             <WorkspaceFolderEmptyState projectAvailable={projectAvailable} projectBusy={projectBusy} onOpenProject={onOpenProject} />
           ) : tree.length ? (
@@ -3008,6 +3024,31 @@ function ExplorerPanel({
           )}
         </div>
       </div>
+
+      <div className="grid gap-1 border-t px-2 py-2">
+        <div className="flex items-center justify-between px-1">
+          <ExplorerSectionTitle>最近</ExplorerSectionTitle>
+          {recentFiles.length > recentPreview.length ? <span className="text-[11px] text-muted-foreground">{recentFiles.length}</span> : null}
+        </div>
+        {recentPreview.length ? (
+          <div className="grid gap-0.5">
+            {recentPreview.map((file) => (
+              <Button
+                key={file.path}
+                variant="ghost"
+                className="h-7 justify-start gap-2 px-2 text-left text-foreground [&_svg]:text-icon"
+                title={file.path}
+                onClick={() => onOpenRecent(file)}
+              >
+                <ClockRotateRight className="size-3.5 shrink-0" />
+                <span className="min-w-0 flex-1 truncate text-xs">{file.name}</span>
+              </Button>
+            ))}
+          </div>
+        ) : (
+          <div className="px-1 text-[11px] text-muted-foreground">暂无最近文件</div>
+        )}
+      </div>
     </aside>
   );
 }
@@ -3027,10 +3068,10 @@ function WorkspaceFolderEmptyState({
 }) {
   return (
     <div className="grid gap-2 px-2 py-3">
-      <div className="text-xs text-muted-foreground">{projectAvailable ? "未打开工作区文件夹" : "桌面版支持工作区文件夹"}</div>
+      <div className="text-xs text-muted-foreground">{projectAvailable ? "打开 Mermaid 文件后会自动显示同目录图表" : "桌面版支持文件夹浏览"}</div>
       <Button variant="outline" className="h-8 justify-start px-2 text-xs" disabled={!projectAvailable || projectBusy} onClick={onOpenProject}>
         <Folder className="size-4" />
-        打开文件夹
+        选择文件夹
       </Button>
     </div>
   );
@@ -3060,14 +3101,14 @@ function ProjectTreeRow({
         <Button
           type="button"
           variant="ghost"
-          className="h-8 justify-start gap-1 px-2 text-left text-foreground [&_svg]:text-icon"
+          className="h-7 justify-start gap-1 px-2 text-left text-foreground [&_svg]:text-icon"
           style={{ paddingLeft }}
           aria-expanded={expanded}
           onClick={() => onToggleDirectory(node.id)}
           title={node.relativePath}
         >
           {expanded ? <NavArrowDown className="size-3.5 shrink-0" /> : <NavArrowRight className="size-3.5 shrink-0" />}
-          <Folder className="size-4 shrink-0" />
+          <Folder className="size-3.5 shrink-0" />
           <span className="min-w-0 flex-1 truncate text-xs">{node.name}</span>
           <span className="text-[11px] text-muted-foreground">{node.fileCount}</span>
         </Button>
@@ -3093,12 +3134,12 @@ function ProjectTreeRow({
     <Button
       type="button"
       variant={active ? "secondary" : "ghost"}
-      className="h-8 justify-start gap-2 px-2 text-left text-foreground [&_svg]:text-icon"
+      className="h-7 justify-start gap-2 px-2 text-left text-foreground [&_svg]:text-icon"
       style={{ paddingLeft }}
       title={node.file.path}
       onClick={() => onOpenProjectFile(node.file)}
     >
-      <EmptyPage className="size-4 shrink-0" />
+      <EmptyPage className="size-3.5 shrink-0" />
       <span className="min-w-0 flex-1 truncate text-xs">{node.name}</span>
     </Button>
   );
