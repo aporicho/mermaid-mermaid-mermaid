@@ -1,0 +1,63 @@
+%% 输入到命令事务的交互管线
+flowchart LR
+  subgraph Inputs[输入来源]
+    direction TB
+    Pointer["pointer / drag"]
+    Wheel["wheel / 触控板 / gesture"]
+    Keyboard["键盘"]
+    FloatingChrome["浮动圆形控件<br/>菜单 / 视图 / 模式"]
+    SidePanels["左右浮动侧栏"]
+    FileDrop["文件拖入"]
+    ApiCommand["智能体 / CLI apply"]
+  end
+
+  subgraph Normalize[标准化与上下文]
+    direction TB
+    StandardInput["interaction/input.ts<br/>标准输入"]
+    InteractionContext["interaction/context.ts<br/>能力 / 可见范围"]
+    HitTarget["canvas-hit-target.ts<br/>Konva 图形 -> 业务目标"]
+    Intent["interaction/intent.ts<br/>业务意图"]
+    RevealRules["floating-chrome.ts<br/>渐进披露规则"]
+  end
+
+  subgraph Decide[状态机与命令]
+    direction TB
+    CanvasState["canvas-interaction.ts<br/>瞬时状态机"]
+    Commands["interaction/commands.ts<br/>EditorCommand"]
+    Transaction["interaction/transaction.ts<br/>提交边界"]
+  end
+
+  subgraph Effects[结果与反馈]
+    direction TB
+    DraftGraph["draft graph<br/>高频视觉移动"]
+    CommitGraph["graph commit<br/>源码同步 / 历史"]
+    Viewport["viewport scheduler<br/>先命令式更新视觉"]
+    VisualState["canvas-visual-state.ts<br/>悬停 / 选中 / 拖拽"]
+    Feedback["状态 / 诊断 / 智能体结果"]
+  end
+
+  Pointer --> StandardInput
+  Wheel --> StandardInput
+  Keyboard --> StandardInput
+  FloatingChrome --> RevealRules
+  FloatingChrome --> StandardInput
+  SidePanels --> StandardInput
+  FileDrop --> StandardInput
+  ApiCommand --> Commands
+
+  StandardInput --> HitTarget
+  StandardInput --> InteractionContext
+  HitTarget --> Intent
+  InteractionContext --> Intent
+  Intent --> CanvasState
+  RevealRules --> FloatingChrome
+  CanvasState --> Commands
+  Commands --> Transaction
+
+  Transaction --> DraftGraph
+  Transaction --> CommitGraph
+  Transaction --> Viewport
+  CommitGraph --> Feedback
+  DraftGraph --> VisualState
+  CommitGraph --> VisualState
+  Viewport --> VisualState

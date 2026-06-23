@@ -1,51 +1,53 @@
-%% Performance path classification
+%% 性能路径分类
 flowchart LR
   subgraph Events[事件与任务]
     direction TB
-    Trackpad["wheel / trackpad / gesture"]
-    PointerMove["pointer move<br/>drag / marquee / connect"]
-    CommitEvent["pointer up / text submit / menu command"]
-    SourceEdit["source edit"]
-    AiPublish["AI context publish"]
+    Trackpad["wheel / 触控板 / gesture"]
+    PointerMove["pointer move<br/>拖拽 / 框选 / 连线"]
+    ChromeReveal["浮动控件显隐<br/>hover / focus / menu"]
+    CommitEvent["pointer up / 文本提交 / 菜单命令"]
+    SourceEdit["源码编辑"]
+    AiPublish["智能体上下文发布"]
     RenderRequest["Mermaid render request"]
   end
 
   subgraph HotPath[热路径：下一帧反馈]
     direction TB
-    Raf["requestAnimationFrame batching"]
-    ViewportScheduler["useViewportScheduler<br/>visual first"]
-    DraftUpdate["ref / draft graph update"]
-    RenderScope["canvas render scope"]
-    NoHeavyWork["no serialize / render / history / bridge"]
+    Raf["requestAnimationFrame 合并"]
+    ViewportScheduler["useViewportScheduler<br/>先更新视觉"]
+    DraftUpdate["ref / draft graph 更新"]
+    RenderScope["画布 render scope"]
+    NoHeavyWork["禁止 serialize / render / history / bridge"]
   end
 
   subgraph CommitPath[提交路径：明确边界]
     direction TB
     GraphCommit["graph commit"]
-    SourceSync["serialize source once"]
+    SourceSync["源码只序列化一次"]
     History["history snapshot"]
-    DraftPersist["debounced draft persist"]
-    AiContext["stable AI context publish"]
+    DraftPersist["防抖持久化草稿"]
+    AiContext["稳定后发布智能体上下文"]
   end
 
   subgraph HeavyPath[重任务路径：缓存与版本保护]
     direction TB
-    Parse["parse source"]
-    Serialize["serialize Mermaid"]
-    MermaidRender["official Mermaid render"]
-    Cache["source / theme cache"]
-    VersionToken["version token<br/>discard stale async result"]
+    Parse["解析源码"]
+    Serialize["序列化 Mermaid"]
+    MermaidRender["官方 Mermaid render"]
+    Cache["source / theme 缓存"]
+    VersionToken["version token<br/>丢弃过期异步结果"]
   end
 
   subgraph Observability[开发态观测]
     direction TB
     Metrics["window.__MERMAID_EDITOR_PERF__.metrics"]
-    Counters["performance counters"]
-    Acceptance["800 node p95 target<br/>canvas viewport latency <= 20ms"]
+    Counters["性能计数器"]
+    Acceptance["800 节点 p95 目标<br/>canvas viewport latency <= 20ms"]
   end
 
   Trackpad --> HotPath
   PointerMove --> HotPath
+  ChromeReveal --> HotPath
   HotPath --> Raf
   Raf --> ViewportScheduler
   Raf --> DraftUpdate

@@ -1,11 +1,11 @@
-%% Document model and source synchronization
+%% 文档模型与源码同步
 flowchart LR
-  subgraph PersistedFile[持久文件]
+  subgraph PersistedFile[持久化文件]
     direction TB
-    DiskFile[".mmd / .mermaid file"]
-    Source["Mermaid source"]
-    Layout["%% canvas-layout<br/>positions / viewport / routing / theme"]
-    AssetSrc["asset.src<br/>portable relative path"]
+    DiskFile[".mmd / .mermaid 文件"]
+    Source["Mermaid 源码"]
+    Layout["%% canvas-layout<br/>位置 / 视口 / 路由 / 主题"]
+    AssetSrc["asset.src<br/>可迁移相对路径"]
   end
 
   subgraph LoadPipeline[加载与解析]
@@ -13,15 +13,16 @@ flowchart LR
     StripLayout["stripCanvasLayout"]
     ParseMermaid["parseMermaid"]
     ApplyLayout["applyLayout"]
-    DetectKind["detect diagram type<br/>editable vs render-only"]
+    DetectKind["识别图类型<br/>可编辑 / 只渲染"]
   end
 
   subgraph RuntimeModel[运行时模型]
     direction TB
-    Graph["MermaidGraph<br/>nodes / edges / subgraphs / assets"]
-    EditorState["EditorState<br/>selection / history / filters"]
+    Graph["MermaidGraph<br/>节点 / 连线 / 分组 / 资源"]
+    EditorState["EditorState<br/>选择 / 历史 / 过滤"]
+    WorkspaceView["工作区视图<br/>无限画布 / 渲染 / 源码"]
     Viewport["ViewportState"]
-    Draft["Editor draft state"]
+    Draft["编辑器草稿状态"]
   end
 
   subgraph BuildPipeline[写回与渲染]
@@ -29,7 +30,7 @@ flowchart LR
     Serialize["serializeMermaid"]
     LayoutFromGraph["layoutFromGraph"]
     BuildDocument["buildMermaidDocument"]
-    MermaidRender["official Mermaid render"]
+    MermaidRender["官方 Mermaid render"]
   end
 
   DiskFile --> Source
@@ -37,7 +38,7 @@ flowchart LR
   Source --> Layout
   StripLayout --> DetectKind
   DetectKind -->|flowchart| ParseMermaid
-  DetectKind -->|other Mermaid type| MermaidRender
+  DetectKind -->|其他 Mermaid 类型| MermaidRender
   ParseMermaid --> Graph
   Layout --> ApplyLayout
   Graph --> ApplyLayout
@@ -45,6 +46,7 @@ flowchart LR
   Layout --> Viewport
   Graph --> EditorState
   EditorState --> Draft
+  EditorState --> WorkspaceView
 
   Graph --> Serialize
   Graph --> LayoutFromGraph
@@ -53,4 +55,5 @@ flowchart LR
   Serialize --> BuildDocument
   BuildDocument --> DiskFile
   Source --> MermaidRender
+  Source --> WorkspaceView
   AssetSrc --> Graph

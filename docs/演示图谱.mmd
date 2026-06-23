@@ -1,6 +1,6 @@
 %% canvas-layout: {"version":1,"edgeRouting":"mermaid","layoutMode":"auto","viewport":{"x":120,"y":80,"scale":0.86},"nodes":{}}
-%% Mermaid Canvas Editor demo
-%% 目标：同时展示 WebUI 可编辑能力、AI 可读 Mermaid 源码、节点形状、子图、连线语义、自动布局和视觉样式。
+%% Mermaid 画布编辑器演示图
+%% 目标：同时展示应用界面可编辑能力、智能体可读 Mermaid 源码、节点形状、子图、连线语义、自动布局和视觉样式。
 %% 建议在隐藏菜单切换：手动布局 / 自动布局，以及直线 / 曲线 / 圆角折线 / Mermaid 曲线，观察同一张图的差异。
 flowchart LR
   subgraph ProductLoop[产品核心闭环：人编辑，AI 读取，项目落地]
@@ -8,13 +8,16 @@ flowchart LR
     Human@{ shape: stadium, label: "人类用户" }
     Idea@{ shape: sm-circ, label: "想法" }
     SourceFile@{ shape: doc, label: "Mermaid 文件<br/>共同事实源" }
-    WebUI@{ shape: rounded, label: "WebUI<br/>编辑器 / 查看器" }
+    WebUI@{ shape: rounded, label: "应用界面<br/>编辑器 / 查看器" }
+    FloatingUI@{ shape: circle, label: "浮动圆形控件<br/>渐进披露" }
+    ProjectTree@{ shape: docs, label: "项目文件浏览器<br/>递归文件树" }
     Canvas@{ shape: rect, label: "无限画布<br/>拖拽 / 连接 / 对齐" }
     Render@{ shape: curv-trap, label: "渲染视图<br/>官方 Mermaid 预览" }
+    SourceView@{ shape: lin-doc, label: "源码视图<br/>直接编辑 Mermaid" }
     Inspector@{ shape: tag-rect, label: "属性面板<br/>文本 / 形状 / 颜色 / 连线" }
     ThemePanel@{ shape: lin-rect, label: "主题设置<br/>视觉 token" }
     SaveFile@{ shape: datastore, label: "Ctrl+S<br/>覆盖保存" }
-    Agent@{ shape: hex, label: "AI Agent" }
+    Agent@{ shape: hex, label: "智能体" }
     CLI@{ shape: fr-rect, label: "CLI<br/>读取 / diff / 修改" }
     Codebase@{ shape: docs, label: "项目代码" }
   end
@@ -115,8 +118,13 @@ flowchart LR
   Human --> Idea
   Idea -->|生成初版架构图| SourceFile
   SourceFile -->|打开 / 保存| WebUI
+  WebUI --> FloatingUI
+  FloatingUI --> ProjectTree
   WebUI --> Canvas
   WebUI --> Render
+  WebUI --> SourceView
+  ProjectTree -->|切换 Mermaid 文件| SourceFile
+  SourceView -->|解析并同步| Canvas
   Canvas --> Inspector
   Inspector -->|修改节点和连线| Canvas
   ThemePanel -.->|视觉 token| Canvas
@@ -162,6 +170,6 @@ flowchart LR
   class Human,Agent,Diagnostics accent
   class SourceFile,SaveFile,Idea warm
   class Canvas,Render,Geometry,AutoLayout cool
-  class WebUI,Inspector,ThemePanel,Parser,Serializer,Interaction,ManualLayout,CLI,Codebase neutral
+  class WebUI,FloatingUI,ProjectTree,SourceView,Inspector,ThemePanel,Parser,Serializer,Interaction,ManualLayout,CLI,Codebase neutral
   style ShapeGallery fill:#fbf6ef,stroke:#b8ada0,stroke-width:1px
   style EdgeGallery fill:#fbf6ef,stroke:#b8ada0,stroke-width:1px

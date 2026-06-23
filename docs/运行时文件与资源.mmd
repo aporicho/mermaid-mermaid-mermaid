@@ -1,0 +1,63 @@
+%% 运行时、文件流程与图片资源显示路径
+flowchart LR
+  subgraph Editor[编辑器组件]
+    direction TB
+    UiActions["打开 / 保存 / 拖入 / 选择图片 / 项目文件浏览器"]
+    RuntimeAdapter["editor-runtime.ts<br/>唯一平台适配层"]
+    ProjectWorkspace["ProjectWorkspace<br/>根目录 / 文件列表 / 扫描时间"]
+    GraphCommand["graph.addImageNodeAt<br/>可迁移资源元数据"]
+    CanvasImage["Konva 图片节点<br/>加载 displaySrc"]
+  end
+
+  subgraph Browser[浏览器运行时]
+    direction TB
+    BrowserPicker["File System Access API"]
+    BrowserDownload["下载兜底"]
+    BrowserDraft["localStorage 草稿"]
+    BrowserBlob["Blob / data / 远程图片 URL"]
+  end
+
+  subgraph Desktop[Tauri 桌面运行时]
+    direction TB
+    TauriInvoke["Tauri invoke commands"]
+    NativeFiles["打开 / 保存 / 另存为"]
+    ProjectScan["打开或读取项目文件夹<br/>递归扫描 .mmd / .mermaid"]
+    NativeState["read_app_state / write_app_state"]
+    ImportImage["import_image_asset_path"]
+    ResolveImage["resolve_image_asset_path"]
+    ConvertFileSrc["convertFileSrc<br/>asset protocol 显示 URL"]
+  end
+
+  subgraph AssetLifecycle[图片资源生命周期]
+    direction TB
+    SourceImage["拖入或选择的图片"]
+    CopiedAsset["文档资源目录"]
+    RelativeSrc["相对 asset.src<br/>写入 Mermaid"]
+    AbsolutePath["解析后的绝对路径"]
+    DisplaySrc["displaySrc<br/>仅运行时使用"]
+  end
+
+  UiActions --> RuntimeAdapter
+  RuntimeAdapter --> BrowserPicker
+  RuntimeAdapter --> BrowserDownload
+  RuntimeAdapter --> BrowserDraft
+  RuntimeAdapter --> BrowserBlob
+  RuntimeAdapter --> TauriInvoke
+  TauriInvoke --> NativeFiles
+  TauriInvoke --> ProjectScan
+  TauriInvoke --> NativeState
+  TauriInvoke --> ImportImage
+  TauriInvoke --> ResolveImage
+  ProjectScan --> ProjectWorkspace
+  ProjectWorkspace --> UiActions
+
+  SourceImage --> ImportImage
+  ImportImage --> CopiedAsset
+  CopiedAsset --> RelativeSrc
+  RelativeSrc --> GraphCommand
+  RelativeSrc --> ResolveImage
+  ResolveImage --> AbsolutePath
+  AbsolutePath --> ConvertFileSrc
+  ConvertFileSrc --> DisplaySrc
+  BrowserBlob --> DisplaySrc
+  DisplaySrc --> CanvasImage

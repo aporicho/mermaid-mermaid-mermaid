@@ -1,8 +1,8 @@
-%% Offline CLI and live desktop AI bridge
+%% 离线 CLI 与实时桌面智能体桥接
 flowchart LR
-  subgraph AgentSide[AI / shell caller]
+  subgraph AgentSide[智能体或 shell 调用方]
     direction TB
-    Agent["AI Agent"]
+    Agent["智能体"]
     Cli["npm run mmm -- ..."]
   end
 
@@ -29,11 +29,11 @@ flowchart LR
   subgraph DesktopBridge[桌面 bridge 与编辑器会话]
     direction TB
     TauriBridge["Tauri bridge server"]
-    ContextStore["latest AI editor context"]
-    CommandQueue["apply command queue"]
-    EditorSession["open editor session"]
+    ContextStore["最新智能体上下文"]
+    CommandQueue["apply 命令队列"]
+    EditorSession["打开的编辑器会话"]
     Transaction["EditorCommand / transaction"]
-    ResultStore["command result polling"]
+    ResultStore["命令结果轮询"]
   end
 
   subgraph SharedLogic[共享文档逻辑]
@@ -41,7 +41,7 @@ flowchart LR
     LoadDoc["loadMermaidDocument"]
     PatchDoc["applyMermaidPatch"]
     AutoLayout["applyDagreAutoLayout"]
-    ValidateSyntax["official Mermaid parser"]
+    ValidateSyntax["官方 Mermaid parser"]
   end
 
   Agent --> Cli

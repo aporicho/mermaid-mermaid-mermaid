@@ -1,0 +1,111 @@
+%% Mermaid 画布编辑器系统总览
+%% 这是顶层紧凑地图；专题细节放在同目录下的其他中文文档。
+flowchart LR
+  subgraph UserSurfaces[用户工作表面]
+    direction TB
+    Human["人类用户"]
+    FloatingChrome["浮动圆形控件<br/>网格分组 / 渐进披露"]
+    ProjectBrowser["项目文件浏览器<br/>递归文件树"]
+    CanvasView["无限画布"]
+    RenderView["Mermaid 渲染视图"]
+    SourceView["源码视图"]
+    Inspector["属性 / 主题 / 诊断"]
+  end
+
+  subgraph EditorRuntime[React 编辑器运行层]
+    direction TB
+    Orchestrator["编辑器编排器<br/>mermaid-editor.tsx"]
+    WorkspaceView["工作区视图状态<br/>workspace-view.ts"]
+    FloatingRules["浮动控件显隐规则<br/>floating-chrome.ts"]
+    CommandTx["命令与事务<br/>interaction/commands.ts<br/>interaction/transaction.ts"]
+    CanvasEngine["画布引擎<br/>Konva + geometry + visual state"]
+    MermaidEngine["Mermaid 引擎<br/>parse / serialize / render"]
+    ThemeCompiler["主题编译器<br/>CSS / Canvas / Mermaid adapters"]
+  end
+
+  subgraph Truth[共同事实源]
+    direction TB
+    MermaidSource["Mermaid 源码"]
+    LayoutComment["canvas-layout 注释<br/>viewport / positions / routing / theme"]
+    GraphModel["MermaidGraph<br/>nodes / edges / subgraphs / assets"]
+    EditorState["编辑器状态<br/>selection / history / draft / filters"]
+    ProjectWorkspace["ProjectWorkspace<br/>root / file list / scannedAt"]
+  end
+
+  subgraph PlatformBoundary[平台能力边界]
+    direction TB
+    RuntimeAdapter["运行时适配器<br/>editor-runtime.ts"]
+    BrowserRuntime["浏览器运行时<br/>文件选择 / 下载 / localStorage"]
+    TauriNative["Tauri 原生层<br/>文件 / 项目扫描 / 应用状态 / 图片资源 / bridge"]
+    WindowsFlow["Windows 验收流程<br/>WSL 同步 -> desktop:ship -> launch"]
+  end
+
+  subgraph AiCli[智能体与 CLI]
+    direction TB
+    OfflineCli["离线文件 CLI<br/>读取 / 校验 / diff / patch / layout / fixture"]
+    LiveBridge["实时桌面桥接<br/>ping / context / apply"]
+    Agent["智能体"]
+  end
+
+  subgraph QualityRails[质量与性能护栏]
+    direction TB
+    Performance["性能护栏<br/>热路径 / 提交路径 / 重任务路径"]
+    Contracts["契约测试<br/>模型 / 交互 / 运行时边界"]
+    ReleaseChecks["验收命令<br/>ready / build / windows:run"]
+  end
+
+  Human --> FloatingChrome
+  FloatingChrome --> ProjectBrowser
+  FloatingChrome --> CanvasView
+  FloatingChrome --> RenderView
+  FloatingChrome --> SourceView
+  FloatingChrome --> Inspector
+
+  ProjectBrowser -->|打开项目文件| Orchestrator
+  SourceView -->|源码编辑| Orchestrator
+  CanvasView -->|pointer / wheel / gesture| CanvasEngine
+  RenderView -->|查看与导航| Orchestrator
+  Inspector -->|属性命令| Orchestrator
+  FloatingChrome -->|菜单 / 视图 / 模式| Orchestrator
+
+  Orchestrator --> WorkspaceView
+  Orchestrator --> FloatingRules
+  Orchestrator --> CommandTx
+  CommandTx -->|图提交| GraphModel
+  CommandTx -->|历史 / 选择 / 过滤| EditorState
+
+  MermaidSource -->|加载| MermaidEngine
+  MermaidEngine -->|可编辑 flowchart| GraphModel
+  MermaidEngine -->|只渲染图类型| RenderView
+  GraphModel -->|序列化| MermaidSource
+  LayoutComment -->|应用布局| GraphModel
+  GraphModel -->|派生布局| LayoutComment
+
+  GraphModel --> CanvasEngine
+  CanvasEngine --> CanvasView
+  MermaidSource --> MermaidEngine
+  MermaidEngine --> RenderView
+  MermaidSource --> SourceView
+  ThemeCompiler -->|CSS 变量| UserSurfaces
+  ThemeCompiler -->|画布 token| CanvasEngine
+  ThemeCompiler -->|themeVariables| MermaidEngine
+
+  Orchestrator --> RuntimeAdapter
+  Orchestrator --> ProjectWorkspace
+  RuntimeAdapter --> BrowserRuntime
+  RuntimeAdapter --> TauriNative
+  TauriNative --> WindowsFlow
+  RuntimeAdapter -->|打开 / 保存 / 草稿 / 图片显示 URL| Truth
+
+  OfflineCli -->|共享文档逻辑| MermaidEngine
+  OfflineCli -->|文件 patch 输出| MermaidSource
+  Agent --> OfflineCli
+  Agent --> LiveBridge
+  LiveBridge -->|带 token 的 loopback bridge| TauriNative
+  TauriNative -->|context / apply command / result| Orchestrator
+
+  Performance -.-> CanvasEngine
+  Performance -.-> CommandTx
+  Contracts -.-> MermaidEngine
+  Contracts -.-> RuntimeAdapter
+  ReleaseChecks -.-> PlatformBoundary

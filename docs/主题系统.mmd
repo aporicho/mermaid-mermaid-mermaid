@@ -1,39 +1,40 @@
-%% Theme source, resolution, compilation, and adapters
+%% 主题来源、裁决、编译与适配
 flowchart LR
   subgraph Sources[主题来源]
     direction TB
-    Defaults["platform defaults"]
-    AppTheme["app preference"]
+    Defaults["平台默认值"]
+    AppTheme["应用偏好"]
     FileTheme["canvas-layout.theme"]
-    ObjectOverride["object overrides<br/>node / edge / subgraph"]
-    InteractionOverride["interaction state<br/>hover / selected / dragging"]
-    PreviewOverride["preview override"]
+    ObjectOverride["对象级覆盖<br/>节点 / 连线 / 分组"]
+    InteractionOverride["交互状态<br/>悬停 / 选中 / 拖拽"]
+    PreviewOverride["预览覆盖"]
   end
 
   subgraph Resolution[裁决与编译]
     direction TB
-    TokenContract["theme token contract<br/>theme-tokens.md"]
-    Priority["priority resolver"]
-    Fallback["fallback / migration"]
+    TokenContract["主题令牌契约<br/>主题令牌清单.md"]
+    Priority["优先级裁决"]
+    Fallback["兜底 / 迁移"]
     Compiler["compileEditorTheme"]
-    Diagnostics["theme diagnostics"]
+    Diagnostics["主题诊断"]
   end
 
   subgraph Artifacts[编译产物]
     direction TB
-    CssVars["CSS variables<br/>shadcn / app UI"]
-    CanvasTokens["CanvasVisualTokens<br/>Konva nodes / edges / grid"]
-    GeometryTokens["geometry tokens<br/>sizes / radius / stroke"]
+    CssVars["CSS 变量<br/>shadcn / 应用 UI"]
+    CanvasTokens["CanvasVisualTokens<br/>Konva 节点 / 连线 / 网格"]
+    GeometryTokens["几何 token<br/>尺寸 / 圆角 / 描边"]
     MermaidVars["Mermaid themeVariables"]
-    Provenance["theme provenance"]
+    Provenance["主题来源记录"]
   end
 
   subgraph Outputs[视觉输出]
     direction TB
-    WebUi["Web UI"]
-    Canvas["editing canvas"]
-    SourcePanel["source panel"]
-    RenderPreview["official Mermaid preview"]
+    WebUi["Web 界面"]
+    FloatingButtons["圆形浮动按钮"]
+    Canvas["编辑画布"]
+    SourcePanel["源码视图"]
+    RenderPreview["官方 Mermaid 预览"]
   end
 
   Defaults --> Priority
@@ -52,6 +53,7 @@ flowchart LR
   Compiler --> MermaidVars
   Compiler --> Provenance
   CssVars --> WebUi
+  CssVars --> FloatingButtons
   CssVars --> SourcePanel
   CanvasTokens --> Canvas
   GeometryTokens --> Canvas
