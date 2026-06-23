@@ -1472,12 +1472,13 @@ export function MermaidEditor() {
     if (source !== "restore") void syncWorkspaceForOpenedFile(file);
   }
 
-  async function syncWorkspaceForOpenedFile(file: RuntimeFileRef | null, options: { announce?: boolean } = {}) {
+  async function syncWorkspaceForOpenedFile(file: RuntimeFileRef | null, options: { announce?: boolean; revealExplorer?: boolean } = {}) {
     if (runtime.kind !== "desktop" || !file?.path) return;
 
+    const revealExplorer = options.revealExplorer ?? true;
     const rootPath = workspaceRootForOpenedFile(file.path, projectWorkspace);
     if (!rootPath) {
-      if (projectWorkspace) setLeftCollapsed(false);
+      if (projectWorkspace && revealExplorer) setLeftCollapsed(false);
       return;
     }
 
@@ -1492,7 +1493,7 @@ export function MermaidEditor() {
       }
 
       setProjectWorkspace(workspace);
-      setLeftCollapsed(false);
+      if (revealExplorer) setLeftCollapsed(false);
       if (options.announce ?? true) setStatus(`已显示 ${workspace.rootName}，发现 ${workspace.files.length} 个 Mermaid 文件。`);
     } catch (error) {
       if (!isAbortError(error)) showFileWorkflowError(error, "同步文件夹失败。");
@@ -1907,7 +1908,7 @@ export function MermaidEditor() {
       } catch {
         // File save succeeded; draft persistence is best-effort.
       }
-      void syncWorkspaceForOpenedFile(result.file, { announce: false });
+      void syncWorkspaceForOpenedFile(result.file, { announce: false, revealExplorer: false });
       return true;
     } catch (error) {
       if (!isAbortError(error)) showFileWorkflowError(error, "保存文件失败。");
@@ -1937,7 +1938,7 @@ export function MermaidEditor() {
       } catch {
         // File save succeeded; draft persistence is best-effort.
       }
-      void syncWorkspaceForOpenedFile(result.file, { announce: false });
+      void syncWorkspaceForOpenedFile(result.file, { announce: false, revealExplorer: false });
       return result.file;
     } catch (error) {
       if (!isAbortError(error)) showFileWorkflowError(error, "保存文件失败。");
