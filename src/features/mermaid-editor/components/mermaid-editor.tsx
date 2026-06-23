@@ -38,7 +38,6 @@ import {
 import { InspectorPanel } from "@/features/mermaid-editor/components/inspector-panel";
 import { PreviewPanel } from "@/features/mermaid-editor/components/preview-panel";
 import { SourcePanel } from "@/features/mermaid-editor/components/source-panel";
-import { ToolModeBar } from "@/features/mermaid-editor/components/tool-mode-bar";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -130,6 +129,8 @@ import {
   type ViewFilters
 } from "@/features/mermaid-editor/lib/view-filters";
 import { useDismissableFloatingMenu } from "@/features/mermaid-editor/lib/use-dismissable-floating-menu";
+import { FLOATING_CHROME_HIDE_DELAY_MS, shouldRevealFloatingGroup } from "@/features/mermaid-editor/lib/floating-chrome";
+import { nextWorkspaceView, workspaceViewForDocument, type WorkspaceView } from "@/features/mermaid-editor/lib/workspace-view";
 import { createImageAsset, DEFAULT_IMAGE_ASSET_HEIGHT, DEFAULT_IMAGE_ASSET_WIDTH, isSupportedImagePath } from "@/features/mermaid-editor/lib/node-assets";
 import { cn } from "@/lib/utils";
 import {
@@ -166,7 +167,11 @@ const arrowTypeFilterLabels: Record<FlowchartArrowType, string> = {
   circle: "圆点",
   cross: "叉号"
 };
-type WorkspaceView = "canvas" | "render" | "source";
+const workspaceViewLabels: Record<WorkspaceView, string> = {
+  canvas: "无限画布",
+  render: "渲染视图",
+  source: "源码视图"
+};
 const FALLBACK_FILE_NAME = "diagram.mmd";
 const BLANK_FLOWCHART_SOURCE = "flowchart LR";
 type PanelOpenButtonMode = "hover" | "always";
@@ -261,17 +266,6 @@ function normalizeEditorPreferences(value: Partial<EditorPreferences> | undefine
     restoreLastFile: value?.restoreLastFile ?? DEFAULT_EDITOR_PREFERENCES.restoreLastFile,
     appLogo: normalizeAppLogoId(value?.appLogo)
   };
-}
-
-function normalizeWorkspaceView(value: unknown): WorkspaceView | undefined {
-  return value === "canvas" || value === "render" || value === "source" ? value : undefined;
-}
-
-function workspaceViewForDocument(editableKind: EditableKind, value: unknown): WorkspaceView {
-  const view = normalizeWorkspaceView(value);
-  if (view === "source") return "source";
-  if (editableKind !== "flowchart") return "render";
-  return view || "canvas";
 }
 
 function loadInitialState() {
@@ -540,27 +534,6 @@ function isDesktopWindowRuntime() {
   return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 }
 
-function isWindowDragExcluded(target: EventTarget | null) {
-  if (!(target instanceof Element)) return false;
-  return Boolean(
-    target.closest(
-      [
-        "[data-window-drag-exclude]",
-        "button",
-        "a",
-        "input",
-        "textarea",
-        "select",
-        "[role='button']",
-        "[role='combobox']",
-        "[role='listbox']",
-        "[role='option']",
-        "[contenteditable='true']"
-      ].join(",")
-    )
-  );
-}
-
 async function getDesktopWindow() {
   if (!isDesktopWindowRuntime()) return null;
   const { getCurrentWindow } = await import("@tauri-apps/api/window");
@@ -602,7 +575,6 @@ export function MermaidEditor() {
   const [secondaryActionsOpen, setSecondaryActionsOpen] = useState(false);
   const [viewFiltersOpen, setViewFiltersOpen] = useState(false);
   const [themeSettingsOpen, setThemeSettingsOpen] = useState(false);
-  const [desktopTitlebarVisible, setDesktopTitlebarVisible] = useState(false);
   const [themeId, setThemeId] = useState<EditorThemeId>(initial.themeId);
   const [customTheme, setCustomTheme] = useState<EditorTheme | null>(initial.customTheme);
   const [preferences, setPreferences] = useState<EditorPreferences>(initial.preferences);
@@ -619,10 +591,6 @@ export function MermaidEditor() {
   const aiContextPostTimerRef = useRef<number | null>(null);
   const aiCommandBusyRef = useRef(false);
   const actionCounterRef = useRef(0);
-  const desktopTitlebarHideTimerRef = useRef<number | null>(null);
-  const desktopTitlebarFocusRef = useRef(false);
-  const desktopTitlebarHoverRef = useRef(false);
-  const desktopTitlebarPinnedRef = useRef(false);
   const desktopFileWorkflowInitializedRef = useRef(false);
   const isDirtyRef = useRef(false);
   const currentDocumentRef = useRef("");
@@ -657,12 +625,9 @@ export function MermaidEditor() {
   const compiledTheme = useMemo(() => compileEditorTheme(activeTheme), [activeTheme]);
   const activeAppLogo = useMemo(() => appLogoById(preferences.appLogo), [preferences.appLogo]);
   const isDirty = !lastSavedDocument || currentDocument !== lastSavedDocument;
-  const fileLabel = `${fileName || FALLBACK_FILE_NAME}${isDirty ? " *" : ""}`;
   const isCanvasEditable = editableKind === "flowchart";
   const canvasViewTooltip = isCanvasEditable ? "无限画布" : `${diagramTypeLabel(diagramType)} 仅支持渲染`;
   const isDesktopChrome = runtime.kind === "desktop";
-  const desktopTitlebarAutoHide = isDesktopChrome && preferences.desktopTitlebarAutoHide;
-  const desktopTitlebarPinned = fileMenuOpen || secondaryActionsOpen || viewFiltersOpen || themeSettingsOpen || Boolean(unsavedPrompt);
 
   useEffect(() => {
     isDirtyRef.current = isDirty;
@@ -709,9 +674,9 @@ export function MermaidEditor() {
     setCanvasLiveState((current) => (canvasLiveStateKey(current) === canvasLiveStateKey(next) ? current : next));
   }, []);
 
-  const startDesktopWindowDrag = useCallback(
+  const startDesktopWindowDragHandle = useCallback(
     async (event: React.PointerEvent<HTMLElement>) => {
-      if (runtime.kind !== "desktop" || event.button !== 0 || event.detail > 1 || isWindowDragExcluded(event.target)) return;
+      if (runtime.kind !== "desktop" || event.button !== 0 || event.detail > 1) return;
       try {
         await (await getDesktopWindow())?.startDragging();
       } catch {
@@ -721,9 +686,9 @@ export function MermaidEditor() {
     [runtime.kind]
   );
 
-  const toggleDesktopWindowMaximize = useCallback(
-    async (event: React.MouseEvent<HTMLElement>) => {
-      if (runtime.kind !== "desktop" || isWindowDragExcluded(event.target)) return;
+  const toggleDesktopWindowMaximizeHandle = useCallback(
+    async () => {
+      if (runtime.kind !== "desktop") return;
       try {
         await (await getDesktopWindow())?.toggleMaximize();
       } catch {
@@ -732,44 +697,6 @@ export function MermaidEditor() {
     },
     [runtime.kind]
   );
-
-  const showDesktopTitlebar = useCallback(() => {
-    if (runtime.kind !== "desktop") return;
-    if (desktopTitlebarHideTimerRef.current) {
-      window.clearTimeout(desktopTitlebarHideTimerRef.current);
-      desktopTitlebarHideTimerRef.current = null;
-    }
-    setDesktopTitlebarVisible(true);
-  }, [runtime.kind]);
-
-  const scheduleDesktopTitlebarHide = useCallback(() => {
-    if (runtime.kind !== "desktop" || desktopTitlebarPinnedRef.current || desktopTitlebarFocusRef.current || desktopTitlebarHoverRef.current) return;
-    if (desktopTitlebarHideTimerRef.current) window.clearTimeout(desktopTitlebarHideTimerRef.current);
-    desktopTitlebarHideTimerRef.current = window.setTimeout(() => {
-      if (!desktopTitlebarPinnedRef.current && !desktopTitlebarFocusRef.current && !desktopTitlebarHoverRef.current) setDesktopTitlebarVisible(false);
-      desktopTitlebarHideTimerRef.current = null;
-    }, 180);
-  }, [runtime.kind]);
-
-  const enterDesktopTitlebar = useCallback(() => {
-    desktopTitlebarHoverRef.current = true;
-    showDesktopTitlebar();
-  }, [showDesktopTitlebar]);
-
-  const leaveDesktopTitlebar = useCallback(() => {
-    desktopTitlebarHoverRef.current = false;
-    scheduleDesktopTitlebarHide();
-  }, [scheduleDesktopTitlebarHide]);
-
-  const focusDesktopTitlebar = useCallback(() => {
-    desktopTitlebarFocusRef.current = true;
-    showDesktopTitlebar();
-  }, [showDesktopTitlebar]);
-
-  const blurDesktopTitlebar = useCallback(() => {
-    desktopTitlebarFocusRef.current = false;
-    scheduleDesktopTitlebarHide();
-  }, [scheduleDesktopTitlebarHide]);
 
   const buildCurrentAiContext = useCallback(() => {
     const editing: AiEditingContext | null =
@@ -852,10 +779,6 @@ export function MermaidEditor() {
     if (changed) {
       recordRecentAction("selection.change", targetFromSelection(nextSelection), "用户更新了当前选中内容。");
     }
-  }
-
-  function changeMode(nextMode: EditorMode) {
-    applyEditorCommand({ type: "mode.set", mode: nextMode, source: "menu" });
   }
 
   function applyEditorCommand(command: EditorCommand) {
@@ -2225,22 +2148,6 @@ export function MermaidEditor() {
   }, [resolveUnsavedPrompt, unsavedPrompt]);
 
   useEffect(() => {
-    desktopTitlebarPinnedRef.current = desktopTitlebarPinned;
-    if (!desktopTitlebarAutoHide) return;
-    if (desktopTitlebarPinned) {
-      showDesktopTitlebar();
-      return;
-    }
-    if (desktopTitlebarVisible) scheduleDesktopTitlebarHide();
-  }, [desktopTitlebarAutoHide, desktopTitlebarPinned, desktopTitlebarVisible, scheduleDesktopTitlebarHide, showDesktopTitlebar]);
-
-  useEffect(() => {
-    return () => {
-      if (desktopTitlebarHideTimerRef.current) window.clearTimeout(desktopTitlebarHideTimerRef.current);
-    };
-  }, []);
-
-  useEffect(() => {
     applyEditorThemeToDocument(activeTheme);
   }, [activeTheme]);
 
@@ -2325,6 +2232,35 @@ export function MermaidEditor() {
     };
   }, [processAiCommand, runtime]);
 
+  function closeFloatingOverlays() {
+    let closed = false;
+    if (fileMenuOpen) {
+      setFileMenuOpen(false);
+      closed = true;
+    }
+    if (viewFiltersOpen) {
+      setViewFiltersOpen(false);
+      closed = true;
+    }
+    if (secondaryActionsOpen) {
+      setSecondaryActionsOpen(false);
+      closed = true;
+    }
+    if (themeSettingsOpen) {
+      cancelThemeSettings();
+      closed = true;
+    }
+    if (!leftCollapsed) {
+      setLeftCollapsed(true);
+      closed = true;
+    }
+    if (!rightCollapsed) {
+      setRightCollapsed(true);
+      closed = true;
+    }
+    return closed;
+  }
+
   useEffect(() => {
     function isTextInput(target: EventTarget | null) {
       const element = target as HTMLElement | null;
@@ -2333,6 +2269,11 @@ export function MermaidEditor() {
     }
 
     function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape" && closeFloatingOverlays()) {
+        event.preventDefault();
+        return;
+      }
+
       const key = event.key.toLowerCase();
       const command = event.ctrlKey || event.metaKey;
 
@@ -2398,145 +2339,201 @@ export function MermaidEditor() {
     };
   });
 
+  function closeSidePanels() {
+    if (!leftCollapsed) setLeftCollapsed(true);
+    if (!rightCollapsed) setRightCollapsed(true);
+  }
+
+  function cycleWorkspaceView() {
+    setWorkspaceView((current) => nextWorkspaceView(current, editableKind));
+  }
+
+  function toggleSelectConnectMode() {
+    applyEditorCommand({ type: "mode.set", mode: setEditorMode(mode === "connect" ? "select" : "connect"), source: "menu" });
+  }
+
   return (
     <TooltipProvider delayDuration={180}>
       <input ref={fileInputRef} type="file" accept=".mmd,.mermaid,text/plain" className="hidden" onChange={openFallbackFile} />
-      <main className={cn("relative h-screen overflow-hidden bg-background", !desktopTitlebarAutoHide && "grid grid-rows-[42px_minmax(0,1fr)]")}>
-        {desktopTitlebarAutoHide ? (
-          <div className="absolute inset-x-0 top-0 z-30 h-3" aria-hidden onPointerEnter={showDesktopTitlebar} />
-        ) : null}
-        <header
-          className={cn(
-            "z-40 grid h-[42px] grid-cols-[minmax(220px,360px)_minmax(0,1fr)_auto] items-center gap-3 border-b bg-background pl-3 pr-2 backdrop-blur",
-            desktopTitlebarAutoHide
-              ? "absolute inset-x-0 top-0 transition-transform duration-150 ease-out will-change-transform"
-              : "relative",
-            desktopTitlebarAutoHide && (desktopTitlebarVisible ? "translate-y-0 shadow-sm" : "-translate-y-full")
+      <main className="relative h-screen overflow-hidden bg-background">
+        <h1 className="sr-only">Mermaid Canvas Editor</h1>
+        <div ref={workspaceSurfaceRef} className="absolute inset-0 z-0">
+          {workspaceView === "canvas" && isCanvasEditable ? (
+            <Suspense fallback={<div className="grid min-h-0 place-items-center bg-card text-sm text-muted-foreground">正在载入画布</div>}>
+              <KonvaCanvas
+                graph={graph}
+                selection={selection}
+                viewport={viewport}
+                mode={mode}
+                panningRequested={spacePanning}
+                viewFilters={viewFilters}
+                edgeRouting={edgeRouting}
+                mermaidEdgeRoutes={mermaidEdgeRoutes}
+                layoutMode={layoutMode}
+                imageDisplaySrcBySrc={imageDisplaySrcBySrc}
+                visualTokens={compiledTheme.canvasVisualTokens}
+                geometryTokens={compiledTheme.geometry}
+                onEditorCommand={applyEditorCommand}
+                onLiveStateChange={updateCanvasLiveState}
+              />
+            </Suspense>
+          ) : workspaceView === "source" ? (
+            <SourcePanel
+              value={source}
+              title="Mermaid 源码"
+              diagnostics={diagnostics}
+              onChange={applySource}
+              onRun={refreshFromSource}
+              className="border-0"
+            />
+          ) : (
+            <PreviewPanel
+              source={previewSource}
+              graph={isCanvasEditable ? graph : undefined}
+              framed={false}
+              diagnostics={diagnostics}
+              mermaidThemeVariables={compiledTheme.mermaidThemeVariables}
+              onEditorCommand={isCanvasEditable ? applyEditorCommand : undefined}
+            />
           )}
-          onDoubleClick={toggleDesktopWindowMaximize}
-          onPointerEnter={enterDesktopTitlebar}
-          onPointerLeave={leaveDesktopTitlebar}
-          onPointerDown={startDesktopWindowDrag}
-          onFocus={focusDesktopTitlebar}
-          onBlur={(event) => {
-            const nextTarget = event.relatedTarget;
-            if (nextTarget instanceof Node && event.currentTarget.contains(nextTarget)) return;
-            blurDesktopTitlebar();
-          }}
-        >
-          <div className="flex min-w-0 items-center gap-2">
-            <img className="size-5 shrink-0 rounded-[5px] object-cover" src={activeAppLogo.href} alt="" aria-hidden />
-            <div className="min-w-0">
-              <h1 className="sr-only">Mermaid Canvas Editor</h1>
-              <p className="truncate text-sm font-medium">{fileLabel}</p>
+        </div>
+        {fileDropFeedback ? <FileDropFeedbackBadge feedback={fileDropFeedback} /> : null}
+        {!leftCollapsed || !rightCollapsed ? (
+          <div className="absolute inset-0 z-10" aria-hidden onPointerDown={closeSidePanels} />
+        ) : null}
+        {!leftCollapsed ? (
+          <div className="absolute bottom-16 left-4 top-16 z-20 w-[clamp(300px,31vw,420px)] overflow-hidden rounded-md border bg-card/95 shadow-sm backdrop-blur">
+            <ExplorerPanel
+              runtimeKind={runtime.kind}
+              projectWorkspace={projectWorkspace}
+              projectFiles={projectFiles}
+              currentFileRef={fileRef}
+              projectBusy={projectBusy}
+              onOpenProject={() => void openProjectFolder()}
+              onRefreshProject={() => void refreshProjectWorkspace()}
+              onCloseProject={() => void closeProjectWorkspace()}
+              onOpenProjectFile={(file) => void openProjectFile(file)}
+              onCollapse={() => setLeftCollapsed(true)}
+            />
+          </div>
+        ) : null}
+        {!rightCollapsed ? (
+          <aside className="absolute bottom-16 right-4 top-16 z-20 grid w-[clamp(280px,28vw,380px)] min-h-0 overflow-hidden rounded-md border bg-card/95 shadow-sm backdrop-blur">
+            <PanelHeader onCollapse={() => setRightCollapsed(true)} />
+            <div className="grid min-h-0">
+              <InspectorPanel graph={graph} selection={selection} onEditorCommand={applyEditorCommand} />
             </div>
-            <div className="ml-1 flex shrink-0 items-center gap-1" data-window-drag-exclude>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="size-8 text-icon hover:text-icon"
-                    onClick={() => void newMermaidFile()}
-                    aria-label="新建 Mermaid 文件"
-                  >
-                    <Plus className="size-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">新建文件</TooltipContent>
-              </Tooltip>
+          </aside>
+        ) : null}
+
+        <div className="pointer-events-none absolute inset-0 z-30">
+          <FloatingControlGroup className="left-0 top-0" hotZoneClassName="h-28 w-32 items-start justify-start p-4" pinned={fileMenuOpen}>
               <FileMenu
                 open={fileMenuOpen}
                 recentFiles={recentFiles}
                 runtimeKind={runtime.kind}
                 projectBusy={projectBusy}
+                isDirty={isDirty}
                 onOpenChange={updateFileMenuOpen}
+                onNewFile={() => void newMermaidFile()}
                 onOpenFile={() => void openMermaidFile()}
                 onOpenRecent={(file) => void openRecentFile(file)}
                 onOpenProject={() => void openProjectFolder()}
+                onSaveFile={() => void saveMermaidFile()}
+                onSaveAs={() => void saveMermaidFileAs()}
+              />
+          </FloatingControlGroup>
+
+          {isDesktopChrome ? (
+            <FloatingControlGroup className="left-1/2 top-0 -translate-x-1/2" hotZoneClassName="h-24 w-48 items-start justify-center p-4">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="outline"
+                    className="size-9 border bg-card/95 text-icon shadow-sm backdrop-blur hover:text-icon"
+                    onPointerDown={startDesktopWindowDragHandle}
+                    onDoubleClick={() => void toggleDesktopWindowMaximizeHandle()}
+                    aria-label="移动窗口"
+                  >
+                    <Grid3X3 className="size-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">拖拽移动窗口，双击最大化</TooltipContent>
+              </Tooltip>
+            </FloatingControlGroup>
+          ) : null}
+
+          {isDesktopChrome ? (
+            <FloatingControlGroup className="right-0 top-0" hotZoneClassName="h-24 w-44 items-start justify-end p-4">
+              <DesktopWindowControls />
+            </FloatingControlGroup>
+          ) : null}
+
+          <FloatingControlGroup className="right-0 top-16" hotZoneClassName="h-28 w-28 items-start justify-end p-4" pinned={viewFiltersOpen}>
+            <div className="flex flex-col items-end gap-2">
+              <ViewFilterMenu
+                open={viewFiltersOpen}
+                filters={viewFilters}
+                hiddenCount={hiddenViewFilters}
+                editable={isCanvasEditable}
+                onOpenChange={updateViewFiltersOpen}
+                onChange={updateViewFilter}
+                onReset={resetViewFilters}
               />
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
                     size="icon"
-                    variant={isDirty ? "default" : "ghost"}
-                    className={isDirty ? "size-8 text-background hover:text-background" : "size-8 text-icon hover:text-icon"}
-                    onClick={() => void saveMermaidFile()}
-                    aria-label="保存 Mermaid 文件"
+                    variant="outline"
+                    className="size-9 border bg-card/95 text-icon shadow-sm backdrop-blur hover:text-icon"
+                    onClick={cycleWorkspaceView}
+                    aria-label="切换视图"
                   >
-                    <FloppyDisk className="size-4" />
+                    {workspaceView === "canvas" ? <SquareDashedMousePointer className="size-4" /> : workspaceView === "render" ? <Workflow className="size-4" /> : <Code className="size-4" />}
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent side="bottom">保存文件</TooltipContent>
+                <TooltipContent side="left">{`当前：${workspaceView === "canvas" ? canvasViewTooltip : workspaceViewLabels[workspaceView]}，点击切换到 ${workspaceViewLabels[nextWorkspaceView(workspaceView, editableKind)]}`}</TooltipContent>
               </Tooltip>
             </div>
-          </div>
+          </FloatingControlGroup>
 
-          <div className="flex min-w-0 items-center justify-center">
-            {isCanvasEditable ? <ToolModeBar mode={mode} onModeChange={changeMode} /> : null}
-          </div>
+          <FloatingControlGroup className="left-0 top-1/2 -translate-y-1/2" hotZoneClassName="h-32 w-20 items-center justify-start p-4" pinned={!leftCollapsed}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  size="icon"
+                  variant={leftCollapsed ? "outline" : "default"}
+                  className={cn("size-9 shadow-sm backdrop-blur", leftCollapsed ? "border bg-card/95 text-icon hover:text-icon" : "text-background hover:text-background")}
+                  onClick={() => setLeftCollapsed((current) => !current)}
+                  aria-label={leftCollapsed ? "展开左侧文件夹" : "收起左侧文件夹"}
+                >
+                  {leftCollapsed ? <PanelLeftOpen className="size-4" /> : <PanelLeftClose className="size-4" />}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="right">{leftCollapsed ? "展开左侧文件夹" : "收起左侧文件夹"}</TooltipContent>
+            </Tooltip>
+          </FloatingControlGroup>
 
-          <div className="flex items-center justify-end gap-1" data-window-drag-exclude>
-            <div className="flex gap-1" data-window-drag-exclude>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    size="icon"
-                    variant={workspaceView === "canvas" && isCanvasEditable ? "default" : "ghost"}
-                    className={
-                      workspaceView === "canvas" && isCanvasEditable
-                        ? "size-8 text-background hover:text-background"
-                        : "size-8 text-icon hover:text-icon disabled:opacity-40"
-                    }
-                    onClick={() => {
-                      if (isCanvasEditable) setWorkspaceView("canvas");
-                    }}
-                    disabled={!isCanvasEditable}
-                    aria-label="切换到无限画布"
-                  >
-                    <SquareDashedMousePointer className="size-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">{canvasViewTooltip}</TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    size="icon"
-                    variant={workspaceView === "render" ? "default" : "ghost"}
-                    className={workspaceView === "render" ? "size-8 text-background hover:text-background" : "size-8 text-icon hover:text-icon"}
-                    onClick={() => setWorkspaceView("render")}
-                    aria-label="切换到渲染视图"
-                  >
-                    <Workflow className="size-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">渲染视图</TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    size="icon"
-                    variant={workspaceView === "source" ? "default" : "ghost"}
-                    className={workspaceView === "source" ? "size-8 text-background hover:text-background" : "size-8 text-icon hover:text-icon"}
-                    onClick={() => setWorkspaceView("source")}
-                    aria-label="切换到源码视图"
-                  >
-                    <Code className="size-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">源码视图</TooltipContent>
-              </Tooltip>
-            </div>
-            <ViewFilterMenu
-              open={viewFiltersOpen}
-              filters={viewFilters}
-              hiddenCount={hiddenViewFilters}
-              editable={isCanvasEditable}
-              onOpenChange={updateViewFiltersOpen}
-              onChange={updateViewFilter}
-              onReset={resetViewFilters}
-            />
+          <FloatingControlGroup className="right-0 top-1/2 -translate-y-1/2" hotZoneClassName="h-32 w-20 items-center justify-end p-4" pinned={!rightCollapsed}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  size="icon"
+                  variant={rightCollapsed ? "outline" : "default"}
+                  className={cn("size-9 shadow-sm backdrop-blur", rightCollapsed ? "border bg-card/95 text-icon hover:text-icon" : "text-background hover:text-background")}
+                  onClick={() => setRightCollapsed((current) => !current)}
+                  aria-label={rightCollapsed ? "展开右侧检查器" : "收起右侧检查器"}
+                >
+                  {rightCollapsed ? <PanelRightOpen className="size-4" /> : <PanelRightClose className="size-4" />}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="left">{rightCollapsed ? "展开右侧检查器" : "收起右侧检查器"}</TooltipContent>
+            </Tooltip>
+          </FloatingControlGroup>
+
+          <FloatingControlGroup className="left-0 bottom-0" hotZoneClassName="h-32 w-24 items-end justify-start p-4" pinned={secondaryActionsOpen}>
             <SecondaryActionsMenu
               open={secondaryActionsOpen}
               direction={graph.direction}
@@ -2558,82 +2555,26 @@ export function MermaidEditor() {
               onResetView={() => updateViewport({ x: 160, y: 90, scale: 1 }, "menu")}
               onOpenThemeSettings={openThemeSettings}
             />
-            <DesktopWindowControls />
-          </div>
-        </header>
+          </FloatingControlGroup>
 
-        <div className={cn("relative z-0 min-h-0 overflow-hidden", desktopTitlebarAutoHide && "absolute inset-0")}>
-          <div ref={workspaceSurfaceRef} className="absolute inset-0 z-0">
-            {workspaceView === "canvas" && isCanvasEditable ? (
-              <Suspense fallback={<div className="grid min-h-0 place-items-center bg-card text-sm text-muted-foreground">正在载入画布</div>}>
-                <KonvaCanvas
-                  graph={graph}
-                  selection={selection}
-                  viewport={viewport}
-                  mode={mode}
-                  panningRequested={spacePanning}
-                  viewFilters={viewFilters}
-                  edgeRouting={edgeRouting}
-                  mermaidEdgeRoutes={mermaidEdgeRoutes}
-                  layoutMode={layoutMode}
-                  imageDisplaySrcBySrc={imageDisplaySrcBySrc}
-                  visualTokens={compiledTheme.canvasVisualTokens}
-                  geometryTokens={compiledTheme.geometry}
-                  onEditorCommand={applyEditorCommand}
-                  onLiveStateChange={updateCanvasLiveState}
-                />
-              </Suspense>
-            ) : workspaceView === "source" ? (
-              <SourcePanel
-                value={source}
-                title="Mermaid 源码"
-                diagnostics={diagnostics}
-                onChange={applySource}
-                onRun={refreshFromSource}
-                className="border-0"
-              />
-            ) : (
-              <PreviewPanel
-                source={previewSource}
-                graph={isCanvasEditable ? graph : undefined}
-                framed={false}
-                diagnostics={diagnostics}
-                mermaidThemeVariables={compiledTheme.mermaidThemeVariables}
-                onEditorCommand={isCanvasEditable ? applyEditorCommand : undefined}
-              />
-            )}
-          </div>
-          {fileDropFeedback ? <FileDropFeedbackBadge feedback={fileDropFeedback} /> : null}
-          {!leftCollapsed ? (
-            <div className="absolute inset-y-0 left-0 z-20 w-[clamp(300px,31vw,420px)]">
-              <ExplorerPanel
-                runtimeKind={runtime.kind}
-                isDirty={isDirty}
-                projectWorkspace={projectWorkspace}
-                projectFiles={projectFiles}
-                currentFileRef={fileRef}
-                projectBusy={projectBusy}
-                onNewFile={() => void newMermaidFile()}
-                onOpenFile={() => void openMermaidFile()}
-                onSaveFile={() => void saveMermaidFile()}
-                onOpenProject={() => void openProjectFolder()}
-                onRefreshProject={() => void refreshProjectWorkspace()}
-                onCloseProject={() => void closeProjectWorkspace()}
-                onOpenProjectFile={(file) => void openProjectFile(file)}
-                onCollapse={() => setLeftCollapsed(true)}
-              />
-            </div>
+          {isCanvasEditable && workspaceView === "canvas" ? (
+            <FloatingControlGroup className="right-0 bottom-0" hotZoneClassName="h-32 w-28 items-end justify-end p-4">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    size="icon"
+                    variant={mode === "connect" ? "default" : "outline"}
+                    className={cn("size-9 shadow-sm backdrop-blur", mode === "connect" ? "text-background hover:text-background" : "border bg-card/95 text-icon hover:text-icon")}
+                    onClick={toggleSelectConnectMode}
+                    aria-label={mode === "connect" ? "切换到选择模式" : "切换到连接模式"}
+                  >
+                    {mode === "connect" ? <Link className="size-4" /> : <SquareDashedMousePointer className="size-4" />}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="left">{mode === "connect" ? "切换到选择模式" : "切换到连接模式"}</TooltipContent>
+              </Tooltip>
+            </FloatingControlGroup>
           ) : null}
-          {!rightCollapsed ? (
-            <aside className="absolute inset-y-0 right-0 z-20 grid w-[clamp(280px,28vw,380px)] min-h-0 border-l bg-card">
-              <PanelHeader onCollapse={() => setRightCollapsed(true)} />
-              <div className="grid min-h-0">
-                <InspectorPanel graph={graph} selection={selection} onEditorCommand={applyEditorCommand} />
-              </div>
-            </aside>
-          ) : null}
-          {leftCollapsed ? <FloatingPanelOpenButton side="left" label="文件" revealMode={preferences.panelOpenButtonMode} onOpen={() => setLeftCollapsed(false)} /> : null}
-          {rightCollapsed ? <FloatingPanelOpenButton side="right" label="侧栏" revealMode={preferences.panelOpenButtonMode} onOpen={() => setRightCollapsed(false)} /> : null}
         </div>
         {fileWorkflowError ? <FileWorkflowErrorBanner error={fileWorkflowError} onClose={() => setFileWorkflowError(null)} /> : null}
         {unsavedPrompt ? <UnsavedFilePrompt prompt={unsavedPrompt} onResolve={resolveUnsavedPrompt} /> : null}
@@ -2654,6 +2595,69 @@ export function MermaidEditor() {
         ) : null}
       </main>
     </TooltipProvider>
+  );
+}
+
+function FloatingControlGroup({
+  className,
+  hotZoneClassName,
+  pinned = false,
+  children
+}: {
+  className: string;
+  hotZoneClassName: string;
+  pinned?: boolean;
+  children: ReactNode;
+}) {
+  const [hovered, setHovered] = useState(false);
+  const [focusWithin, setFocusWithin] = useState(false);
+  const hideTimerRef = useRef<number | null>(null);
+  const visible = shouldRevealFloatingGroup({ hovered, focusWithin, pinned });
+
+  useEffect(() => {
+    return () => {
+      if (hideTimerRef.current) window.clearTimeout(hideTimerRef.current);
+    };
+  }, []);
+
+  function clearHideTimer() {
+    if (!hideTimerRef.current) return;
+    window.clearTimeout(hideTimerRef.current);
+    hideTimerRef.current = null;
+  }
+
+  function show() {
+    clearHideTimer();
+    setHovered(true);
+  }
+
+  function scheduleHide() {
+    clearHideTimer();
+    hideTimerRef.current = window.setTimeout(() => {
+      setHovered(false);
+      hideTimerRef.current = null;
+    }, FLOATING_CHROME_HIDE_DELAY_MS);
+  }
+
+  function blur(event: React.FocusEvent<HTMLDivElement>) {
+    const nextTarget = event.relatedTarget;
+    if (nextTarget instanceof Node && event.currentTarget.contains(nextTarget)) return;
+    setFocusWithin(false);
+  }
+
+  return (
+    <div className={cn("pointer-events-auto absolute", className)}>
+      <div className={cn("flex", hotZoneClassName)} onPointerEnter={show} onPointerLeave={scheduleHide} onFocus={() => setFocusWithin(true)} onBlur={blur}>
+        <div
+          className={cn(
+            "transition-[opacity,transform] duration-150 ease-out",
+            visible ? "pointer-events-auto translate-y-0 opacity-100" : "pointer-events-none translate-y-1 opacity-0"
+          )}
+        >
+          {children}
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -2679,14 +2683,14 @@ function DesktopWindowControls() {
   if (!available) return null;
 
   return (
-    <div className="ml-1 flex items-center gap-0.5" data-window-drag-exclude>
+    <div className="flex items-center gap-2" data-window-drag-exclude>
       <Tooltip>
         <TooltipTrigger asChild>
           <Button
             type="button"
             size="icon"
-            variant="ghost"
-            className="size-8 text-icon hover:text-icon"
+            variant="outline"
+            className="size-9 border bg-card/95 text-icon shadow-sm backdrop-blur hover:text-icon"
             onClick={() => void runWindowAction("minimize")}
             aria-label="最小化窗口"
           >
@@ -2700,8 +2704,8 @@ function DesktopWindowControls() {
           <Button
             type="button"
             size="icon"
-            variant="ghost"
-            className="size-8 text-icon hover:text-icon"
+            variant="outline"
+            className="size-9 border bg-card/95 text-icon shadow-sm backdrop-blur hover:text-icon"
             onClick={() => void runWindowAction("toggleMaximize")}
             aria-label="最大化或还原窗口"
           >
@@ -2715,8 +2719,8 @@ function DesktopWindowControls() {
           <Button
             type="button"
             size="icon"
-            variant="ghost"
-            className="size-8 text-icon hover:bg-destructive/10 hover:text-destructive"
+            variant="outline"
+            className="size-9 border bg-card/95 text-icon shadow-sm backdrop-blur hover:bg-destructive/10 hover:text-destructive"
             onClick={() => void runWindowAction("close")}
             aria-label="关闭窗口"
           >
@@ -2802,14 +2806,10 @@ function UnsavedFilePrompt({ prompt, onResolve }: { prompt: UnsavedPromptState; 
 
 function ExplorerPanel({
   runtimeKind,
-  isDirty,
   projectWorkspace,
   projectFiles,
   currentFileRef,
   projectBusy,
-  onNewFile,
-  onOpenFile,
-  onSaveFile,
   onOpenProject,
   onRefreshProject,
   onCloseProject,
@@ -2817,14 +2817,10 @@ function ExplorerPanel({
   onCollapse
 }: {
   runtimeKind: "web" | "desktop";
-  isDirty: boolean;
   projectWorkspace: ProjectWorkspace | null;
   projectFiles: ProjectFileEntry[];
   currentFileRef: RuntimeFileRef | null;
   projectBusy: boolean;
-  onNewFile: () => void;
-  onOpenFile: () => void;
-  onSaveFile: () => void;
   onOpenProject: () => void;
   onRefreshProject: () => void;
   onCloseProject: () => void;
@@ -2853,42 +2849,12 @@ function ExplorerPanel({
   }
 
   return (
-    <aside className="grid h-full min-h-0 grid-rows-[42px_minmax(0,1fr)] border-r bg-card">
+    <aside className="grid h-full min-h-0 grid-rows-[42px_minmax(0,1fr)] bg-card/95">
       <header className="flex min-w-0 items-center justify-between gap-2 border-b bg-card/95 px-3">
         <div className="min-w-0">
           <div className="truncate text-sm font-medium">资源管理器</div>
         </div>
         <div className="flex shrink-0 items-center gap-1">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button size="icon" variant="ghost" className="size-8 text-icon hover:text-icon" onClick={onNewFile} aria-label="新建 Mermaid 文件">
-                <Plus className="size-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="right">新建文件</TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button size="icon" variant="ghost" className="size-8 text-icon hover:text-icon" onClick={onOpenFile} aria-label="打开 Mermaid 文件">
-                <Folder className="size-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="right">打开文件</TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                size="icon"
-                variant={isDirty ? "default" : "ghost"}
-                className={isDirty ? "size-8 text-background hover:text-background" : "size-8 text-icon hover:text-icon"}
-                onClick={onSaveFile}
-                aria-label="保存 Mermaid 文件"
-              >
-                <FloppyDisk className="size-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="right">保存文件</TooltipContent>
-          </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
               <Button size="icon" variant="ghost" className="size-8 text-icon hover:text-icon" onClick={onCollapse} aria-label="收起资源管理器">
@@ -3067,19 +3033,27 @@ function FileMenu({
   recentFiles,
   runtimeKind,
   projectBusy,
+  isDirty,
   onOpenChange,
+  onNewFile,
   onOpenFile,
   onOpenRecent,
-  onOpenProject
+  onOpenProject,
+  onSaveFile,
+  onSaveAs
 }: {
   open: boolean;
   recentFiles: RecentFileEntry[];
   runtimeKind: "web" | "desktop";
   projectBusy: boolean;
+  isDirty: boolean;
   onOpenChange: (open: boolean) => void;
+  onNewFile: () => void;
   onOpenFile: () => void;
   onOpenRecent: (file: RecentFileEntry) => void;
   onOpenProject: () => void;
+  onSaveFile: () => void;
+  onSaveAs: () => void;
 }) {
   const menuRef = useDismissableFloatingMenu<HTMLDivElement>({ open, onOpenChange });
   const projectAvailable = runtimeKind === "desktop";
@@ -3095,8 +3069,8 @@ function FileMenu({
         <TooltipTrigger asChild>
           <Button
             size="icon"
-            variant="ghost"
-            className="size-8 text-icon hover:text-icon"
+            variant="outline"
+            className={cn("size-9 border bg-card/95 text-icon shadow-sm backdrop-blur hover:text-icon", isDirty && "border-primary/45 text-primary hover:text-primary")}
             onClick={() => onOpenChange(!open)}
             aria-expanded={open}
             aria-label="文件"
@@ -3108,8 +3082,12 @@ function FileMenu({
       </Tooltip>
 
       {open ? (
-        <div className="absolute left-0 top-10 z-50 w-72 rounded-md border bg-popover p-1.5 text-popover-foreground shadow-sm">
+        <div className="absolute left-0 top-11 z-50 w-72 rounded-md border bg-popover p-1.5 text-popover-foreground shadow-sm">
           <div className="grid gap-0.5">
+            <Button variant="ghost" className="h-8 justify-start px-2 text-foreground [&_svg]:text-icon" onClick={() => runAndClose(onNewFile)}>
+              <Plus className="size-4" />
+              新建文件
+            </Button>
             <Button variant="ghost" className="h-8 justify-start px-2 text-foreground [&_svg]:text-icon" onClick={() => runAndClose(onOpenFile)}>
               <Folder className="size-4" />
               打开文件
@@ -3125,6 +3103,15 @@ function FileMenu({
                 打开文件夹
               </Button>
             ) : null}
+            <Separator className="my-1" />
+            <Button variant="ghost" className="h-8 justify-start px-2 text-foreground [&_svg]:text-icon" onClick={() => runAndClose(onSaveFile)}>
+              <FloppyDisk className="size-4" />
+              保存
+            </Button>
+            <Button variant="ghost" className="h-8 justify-start px-2 text-foreground [&_svg]:text-icon" onClick={() => runAndClose(onSaveAs)}>
+              <FloppyDiskArrowOut className="size-4" />
+              另存为
+            </Button>
             <Separator className="my-1" />
             <div className="px-2 py-1 text-xs text-muted-foreground">最近打开</div>
             {recentFiles.length ? (
@@ -3221,8 +3208,8 @@ function ViewFilterMenu({
         <TooltipTrigger asChild>
           <Button
             size="icon"
-            variant={hiddenCount > 0 ? "default" : "ghost"}
-            className={hiddenCount > 0 ? "size-8 text-background hover:text-background" : "size-8 text-icon hover:text-icon disabled:opacity-40"}
+            variant={hiddenCount > 0 ? "default" : "outline"}
+            className={hiddenCount > 0 ? "size-9 text-background shadow-sm backdrop-blur hover:text-background" : "size-9 border bg-card/95 text-icon shadow-sm backdrop-blur hover:text-icon disabled:opacity-40"}
             onClick={() => onOpenChange(!open)}
             disabled={!editable}
             aria-expanded={open}
@@ -3235,7 +3222,7 @@ function ViewFilterMenu({
       </Tooltip>
 
       {open ? (
-        <div className="absolute right-0 top-10 z-50 w-72 rounded-md border bg-popover p-2 text-popover-foreground shadow-sm">
+        <div className="absolute right-0 top-11 z-50 w-72 rounded-md border bg-popover p-2 text-popover-foreground shadow-sm">
           <div className="flex items-center justify-between px-1 pb-1">
             <span className="text-xs font-medium text-foreground">视图过滤器</span>
             <span className="text-[11px] text-muted-foreground">{hiddenCount > 0 ? `隐藏 ${hiddenCount} 项` : "全部显示"}</span>
@@ -3378,10 +3365,6 @@ function SecondaryActionsMenu({
 }) {
   const menuRef = useDismissableFloatingMenu<HTMLDivElement>({ open, onOpenChange });
 
-  useEffect(() => {
-    if (open && !editable) onOpenChange(false);
-  }, [editable, onOpenChange, open]);
-
   function runAndClose(action: () => void) {
     action();
     onOpenChange(false);
@@ -3397,8 +3380,8 @@ function SecondaryActionsMenu({
         <TooltipTrigger asChild>
           <Button
             size="icon"
-            variant="ghost"
-            className="size-8 text-icon hover:text-icon"
+            variant="outline"
+            className="size-9 border bg-card/95 text-icon shadow-sm backdrop-blur hover:text-icon"
             onClick={() => onOpenChange(!open)}
             aria-expanded={open}
             aria-label="更多操作"
@@ -3410,7 +3393,7 @@ function SecondaryActionsMenu({
       </Tooltip>
 
       {open ? (
-        <div className="absolute right-0 top-10 z-50 w-64 rounded-md border bg-popover p-1.5 text-popover-foreground">
+        <div className="absolute bottom-11 left-0 z-50 w-64 rounded-md border bg-popover p-1.5 text-popover-foreground shadow-sm">
           <div className="grid gap-0.5">
             <Button
               variant="ghost"
@@ -3554,17 +3537,6 @@ function SecondaryActionsMenu({
                 }
               />
               <PreferenceToggle
-                active={preferences.panelOpenButtonMode === "hover"}
-                icon={<PanelRightOpen className="size-4" />}
-                label="侧栏入口悬停显示"
-                onClick={() =>
-                  updatePreference(
-                    { ...preferences, panelOpenButtonMode: preferences.panelOpenButtonMode === "hover" ? "always" : "hover" },
-                    preferences.panelOpenButtonMode === "hover" ? "侧栏入口将始终显示。" : "侧栏入口将仅在悬停时显示。"
-                  )
-                }
-              />
-              <PreferenceToggle
                 active={preferences.statusMessages}
                 icon={<Text className="size-4" />}
                 label="底部操作消息"
@@ -3572,17 +3544,6 @@ function SecondaryActionsMenu({
                   updatePreference(
                     { ...preferences, statusMessages: !preferences.statusMessages },
                     preferences.statusMessages ? "底部操作消息已隐藏。" : "底部操作消息已显示。"
-                  )
-                }
-              />
-              <PreferenceToggle
-                active={preferences.desktopTitlebarAutoHide}
-                icon={<PanelRightClose className="size-4" />}
-                label="桌面标题栏自动隐藏"
-                onClick={() =>
-                  updatePreference(
-                    { ...preferences, desktopTitlebarAutoHide: !preferences.desktopTitlebarAutoHide },
-                    preferences.desktopTitlebarAutoHide ? "桌面标题栏将常驻显示。" : "桌面标题栏将自动隐藏。"
                   )
                 }
               />
@@ -3987,53 +3948,6 @@ function PanelHeader({ onCollapse }: { onCollapse: () => void }) {
           </Button>
         </TooltipTrigger>
         <TooltipContent side="left">收起右侧面板</TooltipContent>
-      </Tooltip>
-    </div>
-  );
-}
-
-function FloatingPanelOpenButton({
-  side,
-  label,
-  revealMode,
-  onOpen
-}: {
-  side: "left" | "right";
-  label: string;
-  revealMode: PanelOpenButtonMode;
-  onOpen: () => void;
-}) {
-  const Icon = side === "left" ? PanelLeftOpen : PanelRightOpen;
-  const [visible, setVisible] = useState(false);
-  const alwaysVisible = revealMode === "always";
-
-  return (
-    <div
-      className={cn(
-        "absolute top-0 z-30 flex h-24 w-14 items-start pt-3",
-        side === "left" ? "left-0 justify-start pl-2" : "right-0 justify-end pr-2"
-      )}
-      onPointerEnter={() => setVisible(true)}
-      onPointerLeave={() => setVisible(false)}
-    >
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            size="icon"
-            variant="outline"
-            className={cn(
-              "size-8 bg-card/95 text-icon opacity-0 backdrop-blur transition-[opacity,transform] duration-150 ease-out hover:text-icon focus-visible:translate-x-0 focus-visible:opacity-100",
-              side === "left" ? "-translate-x-2" : "translate-x-2",
-              (alwaysVisible || visible) && "pointer-events-auto translate-x-0 opacity-100",
-              !alwaysVisible && !visible && "pointer-events-none"
-            )}
-            onClick={onOpen}
-            aria-label={`展开${label}面板`}
-          >
-            <Icon className="size-4" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side={side === "left" ? "right" : "left"}>{`展开${label}面板`}</TooltipContent>
       </Tooltip>
     </div>
   );
