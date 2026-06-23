@@ -16,7 +16,7 @@ type SourcePanelProps = {
   className?: string;
   diagnostics?: EditorDiagnostic[];
   onChange: (value: string) => void;
-  onRun: () => void;
+  onRun?: () => void;
   onCollapse?: () => void;
 };
 
@@ -26,22 +26,24 @@ export function SourcePanel({ value, title = "Mermaid", className, diagnostics =
       <header className="flex items-center justify-between border-b bg-card/95 px-3">
         <span className="text-sm font-medium">{title}</span>
         <div className="flex items-center gap-1">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button size="icon" variant="ghost" className={EDITOR_CHROME_CLASSES.panelIconButton} onClick={onRun} aria-label="刷新画布">
-                <RefreshCw className="size-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="right">刷新画布</TooltipContent>
-          </Tooltip>
+          {onRun ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button size="icon" variant="ghost" className={EDITOR_CHROME_CLASSES.panelIconButton} onClick={onRun} aria-label="刷新画布">
+                  <RefreshCw className="size-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="right">刷新画布</TooltipContent>
+            </Tooltip>
+          ) : null}
           {onCollapse ? (
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button size="icon" variant="ghost" className={EDITOR_CHROME_CLASSES.panelIconButton} onClick={onCollapse} aria-label="收起 Mermaid 面板">
+                <Button size="icon" variant="ghost" className={EDITOR_CHROME_CLASSES.panelIconButton} onClick={onCollapse} aria-label="收起源码面板">
                   <PanelLeftClose className="size-4" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent side="right">收起 Mermaid 面板</TooltipContent>
+              <TooltipContent side="right">收起源码面板</TooltipContent>
             </Tooltip>
           ) : null}
         </div>
@@ -51,7 +53,7 @@ export function SourcePanel({ value, title = "Mermaid", className, diagnostics =
         spellCheck={false}
         onChange={(event) => onChange(event.target.value)}
         onKeyDown={(event) => {
-          if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+          if (onRun && (event.ctrlKey || event.metaKey) && event.key === "Enter") {
             event.preventDefault();
             onRun();
           }

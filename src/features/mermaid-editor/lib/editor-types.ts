@@ -1,4 +1,5 @@
 import type { FlowchartNodeShape } from "@/features/mermaid-editor/lib/flowchart-shapes";
+import type { DocumentKind } from "@/features/mermaid-editor/lib/document-kind";
 
 export type { FlowchartNodeShape } from "@/features/mermaid-editor/lib/flowchart-shapes";
 
@@ -171,6 +172,7 @@ export type ClipboardPayload = {
 };
 
 export type EditorSnapshot = {
+  documentKind: DocumentKind;
   source: string;
   graph: MermaidGraph;
   selection: Selection;

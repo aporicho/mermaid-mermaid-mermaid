@@ -5,10 +5,10 @@ import { EDITOR_CHROME_TOKENS, FLOATING_CHROME_PLACEMENTS } from "@/features/mer
 describe("editor chrome tokens", () => {
   it("defines stable semantic control sizes", () => {
     expect(EDITOR_CHROME_TOKENS.layoutGridPx).toBe(8);
-    expect(EDITOR_CHROME_TOKENS.floatingButtonPx).toBe(40);
+    expect(EDITOR_CHROME_TOKENS.floatingButtonPx).toBe(48);
     expect(EDITOR_CHROME_TOKENS.panelIconButtonPx).toBe(32);
     expect(EDITOR_CHROME_TOKENS.menuRowHeightPx).toBe(32);
-    expect(EDITOR_CHROME_TOKENS.treeRowHeightPx).toBe(28);
+    expect(EDITOR_CHROME_TOKENS.treeRowHeightPx).toBe(32);
   });
 
   it("keeps floating slots on explicit edge placements", () => {

@@ -95,7 +95,7 @@ struct FileCommandError {
 #[tauri::command]
 async fn open_mermaid_file() -> Result<Option<OpenedFile>, FileCommandError> {
     let file = rfd::AsyncFileDialog::new()
-        .add_filter("Mermaid", &["mmd", "mermaid"])
+        .add_filter("项目文档", &["mmd", "mermaid", "md", "markdown"])
         .pick_file()
         .await;
 
@@ -143,7 +143,7 @@ async fn save_mermaid_file(path: String, text: String) -> Result<SavedFile, File
 #[tauri::command]
 async fn save_mermaid_file_as(suggested_name: String, text: String) -> Result<Option<SavedFile>, FileCommandError> {
     let file = rfd::AsyncFileDialog::new()
-        .add_filter("Mermaid", &["mmd", "mermaid"])
+        .add_filter("项目文档", &["mmd", "mermaid", "md", "markdown"])
         .set_file_name(&suggested_name)
         .save_file()
         .await;
@@ -400,10 +400,10 @@ impl PendingOpenState {
 }
 
 async fn open_mermaid_file_path_inner(path: PathBuf) -> Result<OpenedFile, FileCommandError> {
-    if !is_supported_mermaid_path(&path) {
+    if !is_supported_document_path(&path) {
         return Err(file_workflow_error(
             "unsupported_type",
-            "只支持 .mmd 或 .mermaid 文件。",
+            "只支持 .mmd、.mermaid、.md 或 .markdown 文件。",
             Some(&path),
         ));
     }
@@ -525,7 +525,7 @@ fn collect_project_files(
             continue;
         }
 
-        if !file_type.is_file() || !is_supported_mermaid_path(&path) {
+        if !file_type.is_file() || !is_supported_document_path(&path) {
             continue;
         }
 
@@ -707,6 +707,18 @@ fn is_supported_mermaid_path(path: &Path) -> bool {
         .unwrap_or(false)
 }
 
+fn is_supported_document_path(path: &Path) -> bool {
+    path.extension()
+        .and_then(|value| value.to_str())
+        .map(|extension| {
+            matches!(
+                extension.to_ascii_lowercase().as_str(),
+                "mmd" | "mermaid" | "md" | "markdown"
+            )
+        })
+        .unwrap_or(false)
+}
+
 fn is_supported_image_path(path: &Path) -> bool {
     path.extension()
         .and_then(|value| value.to_str())
@@ -780,7 +792,7 @@ fn collect_mermaid_file_args(args: impl IntoIterator<Item = String>) -> Vec<Pend
     args.into_iter()
         .filter_map(|arg| {
             let path = PathBuf::from(arg);
-            if is_supported_mermaid_path(&path) {
+            if is_supported_document_path(&path) {
                 Some(PendingOpenFile {
                     name: file_name(&path),
                     path: path_to_string(&path),

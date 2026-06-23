@@ -13,7 +13,7 @@ import type {
 import { DEFAULT_VIEW_FILTERS, isEdgeVisible, type ViewFilters } from "@/features/mermaid-editor/lib/view-filters";
 import { emptyInteractionModifiers, normalizeModifiers, type InteractionModifiers } from "@/features/mermaid-editor/lib/interaction/input";
 
-export type InteractionWorkspaceView = "canvas" | "render" | "source";
+export type InteractionWorkspaceView = "canvas" | "render" | "source" | "markdown";
 
 export type InteractionEditingContext =
   | { kind: "node"; id: string; draftText: string }
@@ -98,7 +98,7 @@ export function buildInteractionContext(input: BuildInteractionContextInput): In
   const diagramType = input.diagramType || input.graph.diagramType || "flowchart";
   const parseStatus = input.parseStatus || input.graph.parseStatus || (editableKind === "flowchart" ? "parsed" : "render-only");
   const canEditGraph = workspaceView === "canvas" && editableKind === "flowchart";
-  const canEditText = canEditGraph || workspaceView === "source";
+  const canEditText = canEditGraph || workspaceView === "source" || workspaceView === "markdown";
 
   return {
     version: 1,

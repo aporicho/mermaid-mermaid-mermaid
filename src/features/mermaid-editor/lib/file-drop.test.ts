@@ -3,13 +3,19 @@ import { describe, expect, it } from "vitest";
 import { canvasScreenToWorldPoint, classifyFileDrop, windowPointToSurfacePoint } from "@/features/mermaid-editor/lib/file-drop";
 
 describe("file drop helpers", () => {
-  it("prioritizes Mermaid files over image files", () => {
+  it("prioritizes document files over image files", () => {
     const result = classifyFileDrop([
       { path: "C:\\demo\\logo.png" },
       { path: "C:\\demo\\diagram.mmd" }
     ]);
 
-    expect(result).toMatchObject({ kind: "mermaid", file: { path: "C:\\demo\\diagram.mmd" } });
+    expect(result).toMatchObject({ kind: "document", documentKind: "mermaid", file: { path: "C:\\demo\\diagram.mmd" } });
+  });
+
+  it("detects Markdown document files", () => {
+    const result = classifyFileDrop([{ path: "/tmp/notes.md" }]);
+
+    expect(result).toMatchObject({ kind: "document", documentKind: "markdown", file: { path: "/tmp/notes.md" } });
   });
 
   it("detects image files when no Mermaid file is present", () => {

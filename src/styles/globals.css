@@ -59,6 +59,47 @@
     linear-gradient(hsl(var(--card)) calc(var(--theme-source-line-height) - 1px), hsl(var(--source-line) / 0.56) var(--theme-source-line-height)) 0 0 / 100% var(--theme-source-line-height);
 }
 
+.markdown-editor-panel .milkdown {
+  min-height: 100%;
+  --crepe-color-background: hsl(var(--background));
+  --crepe-color-on-background: hsl(var(--foreground));
+  --crepe-color-surface: hsl(var(--card));
+  --crepe-color-surface-low: hsl(var(--muted));
+  --crepe-color-on-surface: hsl(var(--foreground));
+  --crepe-color-on-surface-variant: hsl(var(--muted-foreground));
+  --crepe-color-outline: hsl(var(--border));
+  --crepe-color-primary: hsl(var(--primary));
+  --crepe-color-secondary: hsl(var(--secondary));
+  --crepe-color-on-secondary: hsl(var(--secondary-foreground));
+  --crepe-color-inline-code: hsl(var(--destructive));
+  --crepe-color-error: hsl(var(--destructive));
+  --crepe-color-hover: hsl(var(--muted));
+  --crepe-color-selected: hsl(var(--accent));
+  --crepe-font-title: var(--font-sans);
+  --crepe-font-default: var(--font-sans);
+  --crepe-font-code: var(--font-mono);
+}
+
+.markdown-editor-panel {
+  scrollbar-width: none;
+}
+
+.markdown-editor-panel::-webkit-scrollbar {
+  display: none;
+}
+
+.markdown-editor-panel .milkdown .editor {
+  min-height: 100vh;
+  padding: 80px clamp(24px, 8vw, 120px);
+  background: hsl(var(--background));
+}
+
+.markdown-editor-panel .ProseMirror {
+  max-width: 880px;
+  margin: 0 auto;
+  outline: none;
+}
+
 .mermaid-render svg {
   overflow: visible;
 }

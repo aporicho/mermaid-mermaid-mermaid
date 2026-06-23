@@ -1,6 +1,11 @@
 import type { AiEditorCommand } from "@/features/mermaid-editor/lib/ai-command-types";
 import type { AiApplyResult } from "@/features/mermaid-editor/lib/ai-command-types";
 import type { AiEditorContext } from "@/features/mermaid-editor/lib/ai-context";
+import {
+  DOCUMENT_FILE_EXTENSIONS,
+  ensureDocumentFileName,
+  type DocumentKind
+} from "@/features/mermaid-editor/lib/document-kind";
 import type { EditorDiagnostic } from "@/features/mermaid-editor/lib/editor-diagnostics";
 import { runtimeFileRefFromPath } from "@/features/mermaid-editor/lib/file-workflow";
 import type { ProjectWorkspace } from "@/features/mermaid-editor/lib/project-workspace";
@@ -89,8 +94,13 @@ export type EditorRuntime = {
   saveDraft: (draft: EditorDraftState) => Promise<void>;
   openFile: () => Promise<RuntimeOpenFileResult>;
   openFilePath: (path: string) => Promise<RuntimeOpenFileResult>;
-  saveFile: (file: RuntimeFileRef | null, documentText: string, suggestedName: string) => Promise<RuntimeSaveFileResult>;
-  saveFileAs: (documentText: string, suggestedName: string) => Promise<RuntimeSaveFileResult>;
+  saveFile: (
+    file: RuntimeFileRef | null,
+    documentText: string,
+    suggestedName: string,
+    documentKind: DocumentKind
+  ) => Promise<RuntimeSaveFileResult>;
+  saveFileAs: (documentText: string, suggestedName: string, documentKind: DocumentKind) => Promise<RuntimeSaveFileResult>;
   pickImageAsset: (file: RuntimeFileRef | null) => Promise<RuntimeImageAssetResult>;
   importImageAssetPath: (file: RuntimeFileRef | null, path: string) => Promise<RuntimeImageAssetResult>;
   resolveImageAssetSrc: (file: RuntimeFileRef | null, src: string) => Promise<string>;
@@ -150,9 +160,9 @@ type AiNextCommandResponse = {
 
 const FILE_PICKER_TYPES = [
   {
-    description: "Mermaid 文件",
+    description: "项目文档",
     accept: {
-      "text/plain": [".mmd", ".mermaid", ".txt"]
+      "text/plain": [...DOCUMENT_FILE_EXTENSIONS]
     }
   }
 ];
@@ -164,8 +174,11 @@ export function createEditorRuntime(): EditorRuntime {
 }
 
 export function ensureRuntimeMermaidFileName(value: string | undefined) {
-  const name = value?.trim() || "diagram.mmd";
-  return /\.(mmd|mermaid)$/i.test(name) ? name : `${name.replace(/\.[^.]+$/, "")}.mmd`;
+  return ensureRuntimeDocumentFileName(value, "mermaid");
+}
+
+export function ensureRuntimeDocumentFileName(value: string | undefined, documentKind: DocumentKind) {
+  return ensureDocumentFileName(value, documentKind);
 }
 
 export function isRuntimeAbortError(error: unknown) {
@@ -208,20 +221,20 @@ function createWebRuntime(): EditorRuntime {
     async openFilePath() {
       return { status: "cancelled" };
     },
-    async saveFile(file, documentText, suggestedName) {
-      if (!file?.handle) return this.saveFileAs(documentText, suggestedName);
+    async saveFile(file, documentText, suggestedName, documentKind) {
+      if (!file?.handle) return this.saveFileAs(documentText, suggestedName, documentKind);
       await writeDocumentToHandle(file.handle, documentText);
       return {
         status: "saved",
-        file: { ...file, name: ensureRuntimeMermaidFileName(file.handle.name) }
+        file: { ...file, name: ensureRuntimeDocumentFileName(file.handle.name, documentKind) }
       };
     },
-    async saveFileAs(documentText, suggestedName) {
-      const normalizedName = ensureRuntimeMermaidFileName(suggestedName);
+    async saveFileAs(documentText, suggestedName, documentKind) {
+      const normalizedName = ensureRuntimeDocumentFileName(suggestedName, documentKind);
       const picker = window as BrowserFilePickerWindow;
 
       if (!picker.showSaveFilePicker) {
-        downloadMermaidDocument(documentText, normalizedName);
+        downloadTextDocument(documentText, normalizedName, documentKind);
         return {
           status: "saved",
           downloaded: true,
@@ -231,20 +244,13 @@ function createWebRuntime(): EditorRuntime {
 
       const handle = await picker.showSaveFilePicker({
         suggestedName: normalizedName,
-        types: [
-          {
-            description: "Mermaid 文件",
-            accept: {
-              "text/plain": [".mmd", ".mermaid"]
-            }
-          }
-        ],
+        types: FILE_PICKER_TYPES,
         excludeAcceptAllOption: false
       });
       await writeDocumentToHandle(handle, documentText);
       return {
         status: "saved",
-        file: { name: ensureRuntimeMermaidFileName(handle.name || normalizedName), handle }
+        file: { name: ensureRuntimeDocumentFileName(handle.name || normalizedName, documentKind), handle }
       };
     },
     async pickImageAsset() {
@@ -324,8 +330,8 @@ function createDesktopRuntime(): EditorRuntime {
         text: opened.text
       };
     },
-    async saveFile(file, documentText, suggestedName) {
-      if (!file?.path) return this.saveFileAs(documentText, suggestedName);
+    async saveFile(file, documentText, suggestedName, documentKind) {
+      if (!file?.path) return this.saveFileAs(documentText, suggestedName, documentKind);
       const saved = await tauriInvoke<DesktopSavedFile>("save_mermaid_file", {
         path: file.path,
         text: documentText
@@ -335,9 +341,9 @@ function createDesktopRuntime(): EditorRuntime {
         file: { name: saved.name, path: saved.path }
       };
     },
-    async saveFileAs(documentText, suggestedName) {
+    async saveFileAs(documentText, suggestedName, documentKind) {
       const saved = await tauriInvoke<DesktopSavedFile | null>("save_mermaid_file_as", {
-        suggestedName: ensureRuntimeMermaidFileName(suggestedName),
+        suggestedName: ensureRuntimeDocumentFileName(suggestedName, documentKind),
         text: documentText
       });
       if (!saved) return { status: "cancelled" };
@@ -435,12 +441,12 @@ async function writeDocumentToHandle(handle: BrowserFileHandle, documentText: st
   await writable.close();
 }
 
-function downloadMermaidDocument(documentText: string, name: string) {
+function downloadTextDocument(documentText: string, name: string, documentKind: DocumentKind) {
   const blob = new Blob([documentText], { type: "text/plain;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
-  link.download = ensureRuntimeMermaidFileName(name);
+  link.download = ensureRuntimeDocumentFileName(name, documentKind);
   link.click();
   window.setTimeout(() => URL.revokeObjectURL(url), 0);
 }

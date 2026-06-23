@@ -1,5 +1,5 @@
 import type { ViewportState } from "@/features/mermaid-editor/lib/editor-types";
-import { isSupportedMermaidFilePath } from "@/features/mermaid-editor/lib/file-workflow";
+import { documentKindFromPath, type DocumentKind } from "@/features/mermaid-editor/lib/document-kind";
 import { isSupportedImagePath } from "@/features/mermaid-editor/lib/node-assets";
 
 export type DropPoint = {
@@ -12,7 +12,7 @@ export type FileDropCandidate = {
 };
 
 export type FileDropClassification<T extends FileDropCandidate> =
-  | { kind: "mermaid"; file: T }
+  | { kind: "document"; documentKind: DocumentKind; file: T }
   | { kind: "image"; file: T }
   | { kind: "unsupported"; file?: T };
 
@@ -22,8 +22,8 @@ export type DropSurfaceRect = {
 };
 
 export function classifyFileDrop<T extends FileDropCandidate>(files: T[]): FileDropClassification<T> {
-  const mermaidFile = files.find((file) => isSupportedMermaidFilePath(file.path));
-  if (mermaidFile) return { kind: "mermaid", file: mermaidFile };
+  const documentFile = files.find((file) => documentKindFromPath(file.path));
+  if (documentFile) return { kind: "document", documentKind: documentKindFromPath(documentFile.path)!, file: documentFile };
 
   const imageFile = files.find((file) => isSupportedImagePath(file.path));
   if (imageFile) return { kind: "image", file: imageFile };

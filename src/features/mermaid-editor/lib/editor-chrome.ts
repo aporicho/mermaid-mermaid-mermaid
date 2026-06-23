@@ -2,11 +2,11 @@ export const EDITOR_CHROME_TOKENS = {
   baseGridPx: 4,
   layoutGridPx: 8,
   edgeInsetPx: 16,
-  floatingButtonPx: 40,
+  floatingButtonPx: 48,
   floatingButtonSlotPx: 48,
   panelIconButtonPx: 32,
   menuRowHeightPx: 32,
-  treeRowHeightPx: 28,
+  treeRowHeightPx: 32,
   sidePanelTopBottomPx: 64,
   sidePanelGapPx: 16,
   cornerHotZonePx: 112,
@@ -19,7 +19,7 @@ export const EDITOR_CHROME_TOKENS = {
 
 export const EDITOR_CHROME_CLASSES = {
   floatingIconButton:
-    "relative size-10 rounded-full shadow-sm backdrop-blur [&_svg]:size-4",
+    "relative size-12 rounded-full shadow-sm backdrop-blur [&_svg]:size-4",
   floatingIconInactive:
     "border bg-card/95 text-icon hover:text-icon",
   floatingIconActive:
@@ -29,7 +29,7 @@ export const EDITOR_CHROME_CLASSES = {
   floatingButtonCluster: "flex items-center gap-2",
   panelIconButton: "size-8 text-icon hover:text-icon [&_svg]:size-4",
   menuRow: "h-8 justify-start px-2 text-foreground [&_svg]:text-icon [&_svg]:size-4",
-  treeRow: "h-7 justify-start px-2 text-left text-foreground [&_svg]:text-icon",
+  treeRow: "h-8 justify-start px-2 text-left text-foreground [&_svg]:text-icon",
   sidePanel:
     "absolute bottom-16 top-16 z-20 overflow-hidden rounded-md border bg-card/95 shadow-sm backdrop-blur"
 } as const;

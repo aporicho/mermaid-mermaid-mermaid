@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   fileNameFromPath,
+  isSupportedDocumentFilePath,
   isSupportedMermaidFilePath,
   normalizeFileWorkflowError,
   RECENT_FILE_LIMIT,
@@ -14,6 +15,13 @@ describe("file workflow", () => {
     expect(isSupportedMermaidFilePath("diagram.mmd")).toBe(true);
     expect(isSupportedMermaidFilePath("diagram.mermaid")).toBe(true);
     expect(isSupportedMermaidFilePath("diagram.txt")).toBe(false);
+  });
+
+  it("accepts Markdown as project documents", () => {
+    expect(isSupportedDocumentFilePath("notes.md")).toBe(true);
+    expect(isSupportedDocumentFilePath("notes.markdown")).toBe(true);
+    expect(isSupportedDocumentFilePath("diagram.mmd")).toBe(true);
+    expect(isSupportedDocumentFilePath("image.png")).toBe(false);
   });
 
   it("extracts file names from Windows and POSIX paths", () => {

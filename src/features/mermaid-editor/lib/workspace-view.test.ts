@@ -14,4 +14,11 @@ describe("workspace view", () => {
     expect(nextWorkspaceView("source", "render-only")).toBe("render");
     expect(workspaceViewForDocument("render-only", "canvas")).toBe("render");
   });
+
+  it("uses markdown and source views for Markdown documents", () => {
+    expect(nextWorkspaceView("markdown", "render-only", "markdown")).toBe("source");
+    expect(nextWorkspaceView("source", "render-only", "markdown")).toBe("markdown");
+    expect(workspaceViewForDocument("flowchart", "canvas", "markdown")).toBe("markdown");
+    expect(workspaceViewForDocument("flowchart", "source", "markdown")).toBe("source");
+  });
 });

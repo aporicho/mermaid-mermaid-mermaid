@@ -15,7 +15,7 @@ export function DiagnosticPanel({ diagnostics, compact = false }: DiagnosticPane
       <div className="grid gap-2">
         <div className="flex items-center justify-between gap-3">
           <p className="text-sm font-medium text-destructive">{primary.message}</p>
-          <span className="shrink-0 rounded-sm border border-destructive/30 px-1.5 py-0.5 text-[11px] uppercase tracking-wide text-destructive">
+          <span className="shrink-0 rounded-sm border border-destructive/30 px-2 py-1 text-xs uppercase tracking-wide text-destructive">
             {primary.code}
           </span>
         </div>

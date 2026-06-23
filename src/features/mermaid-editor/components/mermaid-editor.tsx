@@ -37,6 +37,7 @@ import {
 
 import { InspectorPanel } from "@/features/mermaid-editor/components/inspector-panel";
 import { FloatingButtonCluster, FloatingChromeLayer, FloatingChromeSlot, FloatingIconButton } from "@/features/mermaid-editor/components/floating-chrome";
+import { MarkdownPanel } from "@/features/mermaid-editor/components/markdown-panel";
 import { PreviewPanel } from "@/features/mermaid-editor/components/preview-panel";
 import { SourcePanel } from "@/features/mermaid-editor/components/source-panel";
 import { Button } from "@/components/ui/button";
@@ -60,7 +61,7 @@ import { createHistory, pushHistory, redo, undo } from "@/features/mermaid-edito
 import { hasBlockingDiagnostics, normalizeMermaidError, type EditorDiagnostic } from "@/features/mermaid-editor/lib/editor-diagnostics";
 import {
   createEditorRuntime,
-  ensureRuntimeMermaidFileName,
+  ensureRuntimeDocumentFileName,
   isRuntimeAbortError,
   type RuntimeFileDropRequest,
   type RuntimeFileOpenRequest,
@@ -69,7 +70,7 @@ import {
 import {
   fileWorkflowErrorSuggestion,
   fileWorkflowErrorTitle,
-  isSupportedMermaidFilePath,
+  isSupportedDocumentFilePath,
   normalizeFileWorkflowError,
   normalizeRecentFiles,
   upsertRecentFile,
@@ -77,6 +78,7 @@ import {
   type RecentFileEntry
 } from "@/features/mermaid-editor/lib/file-workflow";
 import { shouldCollapseExplorerOnStartup } from "@/features/mermaid-editor/lib/explorer-state";
+import { documentKindFromPath, documentKindLabel, type DocumentKind } from "@/features/mermaid-editor/lib/document-kind";
 import {
   buildProjectFileTree,
   isProjectFileActive,
@@ -172,10 +174,13 @@ const arrowTypeFilterLabels: Record<FlowchartArrowType, string> = {
 const workspaceViewLabels: Record<WorkspaceView, string> = {
   canvas: "无限画布",
   render: "渲染视图",
-  source: "源码视图"
+  source: "源码视图",
+  markdown: "Markdown 视图"
 };
 const FALLBACK_FILE_NAME = "diagram.mmd";
+const FALLBACK_MARKDOWN_FILE_NAME = "document.md";
 const BLANK_FLOWCHART_SOURCE = "flowchart LR";
+const BLANK_MARKDOWN_SOURCE = "# 未命名文档\n\n";
 type PanelOpenButtonMode = "hover" | "always";
 type EditorPreferences = {
   startWithPanelsCollapsed: boolean;
@@ -194,6 +199,7 @@ const DEFAULT_EDITOR_PREFERENCES: EditorPreferences = {
   appLogo: DEFAULT_APP_LOGO_ID
 };
 type StoredEditor = {
+  documentKind?: DocumentKind;
   source: string;
   layout?: CanvasLayout;
   edgeRouting?: EdgeRouting;
@@ -237,12 +243,14 @@ type UnsavedPromptState = {
   resolve: (choice: UnsavedPromptChoice) => void;
 };
 type StoredEditorApplyResult = {
+  documentKind: DocumentKind;
   currentDocument: string;
   fileRef: RuntimeFileRef | null;
   lastSavedDocument: string;
   preferences: EditorPreferences;
 };
 type StoredEditorDraftOverrides = {
+  documentKind?: DocumentKind;
   source?: string;
   graph?: MermaidGraph;
   viewport?: ViewportState;
@@ -270,6 +278,27 @@ function normalizeEditorPreferences(value: Partial<EditorPreferences> | undefine
   };
 }
 
+function createEmptyDocumentGraph(): MermaidGraph {
+  return {
+    direction: "LR",
+    nodes: [],
+    edges: [],
+    subgraphs: [],
+    diagramType: "unknown",
+    editableKind: "render-only",
+    parseStatus: "render-only"
+  };
+}
+
+function fallbackFileNameForKind(documentKind: DocumentKind) {
+  return documentKind === "markdown" ? FALLBACK_MARKDOWN_FILE_NAME : FALLBACK_FILE_NAME;
+}
+
+function normalizeStoredDocumentKind(value: unknown, fileName?: string, filePath?: string): DocumentKind {
+  if (value === "markdown" || value === "mermaid") return value;
+  return documentKindFromPath(filePath || fileName) || "mermaid";
+}
+
 function loadInitialState() {
   const fallbackGraph = parseMermaid(initialMermaidSource);
   const fallbackViewport = { x: 160, y: 90, scale: 1 };
@@ -279,6 +308,7 @@ function loadInitialState() {
 
   if (typeof window === "undefined") {
     return {
+      documentKind: "mermaid" as DocumentKind,
       source: fallbackSource,
       graph: fallbackGraph,
       diagramType: fallbackDocument.diagramType,
@@ -305,6 +335,53 @@ function loadInitialState() {
   try {
     const stored = createEditorRuntime().loadDraft() as StoredEditor | null;
     if (!stored) throw new Error("No saved editor state");
+    const storedDocumentKind = normalizeStoredDocumentKind(stored.documentKind, stored.fileName, stored.fileRef?.path);
+    if (storedDocumentKind === "markdown") {
+      const preferences = normalizeEditorPreferences(stored.preferences);
+      const projectWorkspace = normalizeProjectWorkspace(stored.projectWorkspace);
+      const recentFiles = normalizeRecentFiles(stored.recentFiles);
+      const viewFilters = normalizeViewFilters(stored.viewFilters, { showGrid: stored.showGrid, showEdges: stored.showEdges });
+      const fileName = ensureRuntimeDocumentFileName(stored.fileName || stored.fileRef?.name || FALLBACK_MARKDOWN_FILE_NAME, "markdown");
+      const fileTheme = stored.layout?.theme ?? null;
+      const themeId = normalizeThemeId(fileTheme?.themeId ?? stored.themeId);
+      const customTheme = fileTheme?.customTheme
+        ? normalizeEditorTheme(fileTheme.customTheme)
+        : stored.customTheme
+          ? normalizeEditorTheme(stored.customTheme)
+          : null;
+
+      return {
+        documentKind: "markdown" as DocumentKind,
+        source: stored.source || BLANK_MARKDOWN_SOURCE,
+        graph: createEmptyDocumentGraph(),
+        diagramType: "unknown" as DiagramType,
+        editableKind: "render-only" as EditableKind,
+        viewport: stored.viewport || fallbackViewport,
+        edgeRouting: stored.edgeRouting || DEFAULT_EDGE_ROUTING,
+        layoutMode: stored.layoutMode || DEFAULT_LAYOUT_MODE,
+        leftCollapsed: shouldCollapseExplorerOnStartup({
+          startWithPanelsCollapsed: preferences.startWithPanelsCollapsed,
+          storedCollapsed: stored.leftCollapsed,
+          projectWorkspace,
+          recentFiles,
+          fileRef: stored.fileRef || null,
+          fileName,
+          fallbackFileName: FALLBACK_MARKDOWN_FILE_NAME
+        }),
+        rightCollapsed: preferences.startWithPanelsCollapsed ? true : stored.rightCollapsed || false,
+        workspaceView: workspaceViewForDocument("render-only", stored.workspaceView, "markdown"),
+        viewFilters,
+        fileName,
+        fileRef: stored.fileRef || null,
+        recentFiles,
+        projectWorkspace,
+        lastSavedDocument: stored.lastSavedDocument || "",
+        fileTheme,
+        themeId,
+        customTheme,
+        preferences
+      };
+    }
     const loaded = loadMermaidDocument(stored.source);
     const legacyLayout = parseCanvasLayout(stored.source);
     const source = loaded.source;
@@ -328,6 +405,7 @@ function loadInitialState() {
     const recentFiles = normalizeRecentFiles(stored.recentFiles);
 
     return {
+      documentKind: "mermaid" as DocumentKind,
       source,
       graph: resolvedGraph,
       diagramType: loaded.diagramType,
@@ -345,7 +423,7 @@ function loadInitialState() {
         fallbackFileName: FALLBACK_FILE_NAME
       }),
       rightCollapsed: preferences.startWithPanelsCollapsed ? true : stored.rightCollapsed || false,
-      workspaceView: workspaceViewForDocument(loaded.editableKind, stored.workspaceView),
+      workspaceView: workspaceViewForDocument(loaded.editableKind, stored.workspaceView, "mermaid"),
       viewFilters,
       fileName: stored.fileName || FALLBACK_FILE_NAME,
       fileRef: stored.fileRef || null,
@@ -359,6 +437,7 @@ function loadInitialState() {
     };
   } catch {
     return {
+      documentKind: "mermaid" as DocumentKind,
       source: fallbackSource,
       graph: fallbackGraph,
       diagramType: fallbackDocument.diagramType,
@@ -389,13 +468,13 @@ function buildFallbackCleanDocument() {
   return buildMermaidDocument(source, graph, { x: 160, y: 90, scale: 1 }, DEFAULT_EDGE_ROUTING, DEFAULT_LAYOUT_MODE, null);
 }
 
-function ensureMermaidFileName(value: string | undefined) {
-  return ensureRuntimeMermaidFileName(value || FALLBACK_FILE_NAME);
+function ensureEditorDocumentFileName(value: string | undefined, documentKind: DocumentKind) {
+  return ensureRuntimeDocumentFileName(value || fallbackFileNameForKind(documentKind), documentKind);
 }
 
-function comparableMermaidFileName(value: string | undefined) {
+function comparableDocumentFileName(value: string | undefined, documentKind: DocumentKind) {
   const name = value?.split(/[\\/]/).pop();
-  return ensureMermaidFileName(name).toLowerCase();
+  return ensureEditorDocumentFileName(name, documentKind).toLowerCase();
 }
 
 function serializableRuntimeFileRef(file: RuntimeFileRef | null): RuntimeFileRef | null {
@@ -547,6 +626,7 @@ export function MermaidEditor() {
 
   const runtime = useMemo(() => createEditorRuntime(), []);
   const initial = useMemo(loadInitialState, []);
+  const [documentKind, setDocumentKind] = useState<DocumentKind>(initial.documentKind);
   const [source, setSource] = useState(initial.source);
   const [graph, setGraph] = useState<MermaidGraph>(initial.graph);
   const [diagramType, setDiagramType] = useState<DiagramType>(initial.diagramType);
@@ -605,19 +685,23 @@ export function MermaidEditor() {
   const prepareCloseRequestRef = useRef<() => Promise<boolean>>(async () => true);
   const applyLoadedDocumentRef = useRef<(text: string, name: string, file: RuntimeFileRef | null, source?: FileOpenSource) => void>(() => undefined);
   const applyStoredEditorStateRef = useRef<(stored: StoredEditor) => StoredEditorApplyResult>(() => ({
+    documentKind: "mermaid",
     currentDocument: "",
     fileRef: null,
     lastSavedDocument: "",
     preferences: DEFAULT_EDITOR_PREFERENCES
   }));
 
-  const currentDocument = useMemo(() => buildMermaidDocument(source, graph, viewport, edgeRouting, layoutMode, fileTheme), [source, graph, viewport, edgeRouting, layoutMode, fileTheme]);
+  const currentDocument = useMemo(
+    () => (documentKind === "markdown" ? source : buildMermaidDocument(source, graph, viewport, edgeRouting, layoutMode, fileTheme)),
+    [documentKind, source, graph, viewport, edgeRouting, layoutMode, fileTheme]
+  );
   const previewSource = useMemo(
     () =>
-      editableKind === "flowchart"
+      documentKind === "mermaid" && editableKind === "flowchart"
         ? buildMermaidDocument(serializeMermaid(resolveGraphImageDisplaySources(graph, imageDisplaySrcBySrc)), graph, viewport, edgeRouting, layoutMode, fileTheme)
         : source,
-    [editableKind, edgeRouting, fileTheme, graph, imageDisplaySrcBySrc, layoutMode, source, viewport]
+    [documentKind, editableKind, edgeRouting, fileTheme, graph, imageDisplaySrcBySrc, layoutMode, source, viewport]
   );
   const hiddenViewFilters = useMemo(() => hiddenFilterCount(viewFilters), [viewFilters]);
   const projectFiles = useMemo(() => projectWorkspace?.files || [], [projectWorkspace]);
@@ -629,7 +713,7 @@ export function MermaidEditor() {
   const compiledTheme = useMemo(() => compileEditorTheme(activeTheme), [activeTheme]);
   const activeAppLogo = useMemo(() => appLogoById(preferences.appLogo), [preferences.appLogo]);
   const isDirty = !lastSavedDocument || currentDocument !== lastSavedDocument;
-  const isCanvasEditable = editableKind === "flowchart";
+  const isCanvasEditable = documentKind === "mermaid" && editableKind === "flowchart";
   const canvasViewTooltip = isCanvasEditable ? "无限画布" : `${diagramTypeLabel(diagramType)} 仅支持渲染`;
   const isDesktopChrome = runtime.kind === "desktop";
 
@@ -727,7 +811,7 @@ export function MermaidEditor() {
       graph,
       selection,
       viewport,
-      fileName: fileName || FALLBACK_FILE_NAME,
+      fileName: fileName || fallbackFileNameForKind(documentKind),
       dirty: isDirty,
       diagramType,
       editableKind,
@@ -743,6 +827,7 @@ export function MermaidEditor() {
     });
   }, [
     source,
+    documentKind,
     graph,
     selection,
     viewport,
@@ -862,6 +947,10 @@ export function MermaidEditor() {
     }
 
     if (command.type === "source.refreshGraph") {
+      if (documentKind !== "mermaid") {
+        setStatus("Markdown 不需要刷新画布。");
+        return;
+      }
       flushSourceHistory();
       const loaded = loadMermaidDocument(source, graph);
       setHistory((current) => pushHistory(current, snapshot()));
@@ -944,12 +1033,28 @@ export function MermaidEditor() {
   }
 
   const snapshot = useCallback(
-    (): EditorSnapshot => ({ source, graph, selection, viewport, edgeRouting, layoutMode }),
-    [source, graph, selection, viewport, edgeRouting, layoutMode]
+    (): EditorSnapshot => ({ documentKind, source, graph, selection, viewport, edgeRouting, layoutMode }),
+    [documentKind, source, graph, selection, viewport, edgeRouting, layoutMode]
   );
 
   function restoreSnapshot(next: EditorSnapshot) {
+    if (next.documentKind === "markdown") {
+      setDocumentKind("markdown");
+      setSource(next.source);
+      setGraph(createEmptyDocumentGraph());
+      setDiagramType("unknown");
+      setEditableKind("render-only");
+      setDiagnostics([]);
+      setSelection(next.selection);
+      setViewport(next.viewport);
+      setEdgeRouting(next.edgeRouting);
+      setLayoutMode(next.layoutMode);
+      setWorkspaceView(workspaceViewForDocument("render-only", workspaceView, "markdown"));
+      return;
+    }
+
     const loaded = loadMermaidDocument(next.source, next.graph);
+    setDocumentKind("mermaid");
     setSource(next.source);
     setGraph(next.graph);
     setDiagramType(loaded.diagramType);
@@ -1017,6 +1122,11 @@ export function MermaidEditor() {
   }
 
   function applySource(nextSource: string) {
+    if (documentKind === "markdown") {
+      applyMarkdownSource(nextSource);
+      return;
+    }
+
     const startedSourceEdit = !sourceEditBaseRef.current;
     if (!sourceEditBaseRef.current) sourceEditBaseRef.current = snapshot();
     const sourceLayout = parseCanvasLayout(nextSource);
@@ -1045,6 +1155,23 @@ export function MermaidEditor() {
       setCustomTheme(sourceLayout.theme.customTheme ? normalizeEditorTheme(sourceLayout.theme.customTheme) : null);
     }
     if (loaded.viewport) setViewport(loaded.viewport);
+    if (sourceEditTimerRef.current) window.clearTimeout(sourceEditTimerRef.current);
+    sourceEditTimerRef.current = window.setTimeout(() => {
+      flushSourceHistory();
+    }, 700);
+  }
+
+  function applyMarkdownSource(nextSource: string) {
+    const startedSourceEdit = !sourceEditBaseRef.current;
+    if (!sourceEditBaseRef.current) sourceEditBaseRef.current = snapshot();
+    setSource(nextSource);
+    setGraph(createEmptyDocumentGraph());
+    setDiagramType("unknown");
+    setEditableKind("render-only");
+    setSelection(emptySelection);
+    setDiagnostics([]);
+    setStatus("Markdown 已更新。");
+    if (startedSourceEdit) recordRecentAction("source.edit", { kind: "source" }, "用户开始编辑 Markdown。");
     if (sourceEditTimerRef.current) window.clearTimeout(sourceEditTimerRef.current);
     sourceEditTimerRef.current = window.setTimeout(() => {
       flushSourceHistory();
@@ -1252,6 +1379,7 @@ export function MermaidEditor() {
   }
 
   function buildStoredEditorDraft(overrides: StoredEditorDraftOverrides = {}): StoredEditor {
+    const draftDocumentKind = overrides.documentKind ?? documentKind;
     const draftSource = overrides.source ?? source;
     const draftGraph = overrides.graph ?? graph;
     const draftViewport = overrides.viewport ?? viewport;
@@ -1264,8 +1392,11 @@ export function MermaidEditor() {
     const draftProjectWorkspace = "projectWorkspace" in overrides ? overrides.projectWorkspace : projectWorkspace;
 
     return {
+      documentKind: draftDocumentKind,
       source: draftSource,
-      layout: layoutFromGraph(draftGraph, draftViewport, draftEdgeRouting, draftLayoutMode, draftFileTheme),
+      ...(draftDocumentKind === "mermaid"
+        ? { layout: layoutFromGraph(draftGraph, draftViewport, draftEdgeRouting, draftLayoutMode, draftFileTheme) }
+        : {}),
       viewport: draftViewport,
       edgeRouting: draftEdgeRouting,
       layoutMode: draftLayoutMode,
@@ -1289,6 +1420,20 @@ export function MermaidEditor() {
   }
 
   async function persistDiscardedCloseDraft() {
+    if (documentKind === "markdown") {
+      const keepCurrentFile = Boolean(lastSavedDocument?.trim());
+      await persistStoredEditorDraft({
+        documentKind: "markdown",
+        source: keepCurrentFile ? lastSavedDocument : BLANK_MARKDOWN_SOURCE,
+        graph: createEmptyDocumentGraph(),
+        fileName: keepCurrentFile ? fileName : FALLBACK_MARKDOWN_FILE_NAME,
+        fileRef: keepCurrentFile ? fileRef : null,
+        lastSavedDocument: keepCurrentFile ? lastSavedDocument : BLANK_MARKDOWN_SOURCE,
+        workspaceView: workspaceViewForDocument("render-only", workspaceView, "markdown")
+      });
+      return;
+    }
+
     const cleanDocument = cleanCloseDocument(lastSavedDocument, buildFallbackCleanDocument());
     const loaded = loadMermaidDocument(cleanDocument);
     const nextViewport = loaded.viewport || { x: 160, y: 90, scale: 1 };
@@ -1310,7 +1455,7 @@ export function MermaidEditor() {
       fileName: keepCurrentFile ? fileName : FALLBACK_FILE_NAME,
       fileRef: keepCurrentFile ? fileRef : null,
       lastSavedDocument: normalizedDocument,
-      workspaceView: workspaceViewForDocument(loaded.editableKind, workspaceView),
+      workspaceView: workspaceViewForDocument(loaded.editableKind, workspaceView, "mermaid"),
       themeId: nextThemeId,
       customTheme: nextCustomTheme
     });
@@ -1366,6 +1511,35 @@ export function MermaidEditor() {
 
   function applyLoadedDocument(text: string, name: string, file: RuntimeFileRef | null, source: FileOpenSource = "picker") {
     flushSourceHistory();
+    const nextDocumentKind = documentKindFromPath(file?.path || name) || "mermaid";
+    if (nextDocumentKind === "markdown") {
+      const savedDocument = text;
+
+      setDocumentKind("markdown");
+      setSource(text);
+      setGraph(createEmptyDocumentGraph());
+      setDiagramType("unknown");
+      setEditableKind("render-only");
+      setViewport({ x: 160, y: 90, scale: 1 });
+      setEdgeRouting(DEFAULT_EDGE_ROUTING);
+      setLayoutMode(DEFAULT_LAYOUT_MODE);
+      setWorkspaceView("markdown");
+      setSelection(emptySelection);
+      setDiagnostics([]);
+      setHistory(createHistory());
+      setFileName(ensureEditorDocumentFileName(name, "markdown"));
+      setFileTheme(null);
+      setFileRef(file);
+      setLastSavedDocument(savedDocument);
+      isDirtyRef.current = false;
+      setRecentFiles((current) => upsertRecentFile(current, file));
+      setFileWorkflowError(null);
+      setStatus(`已打开 ${name}。`);
+      recordRecentAction(source === "restore" ? "document.restore" : "document.open", { kind: "document" }, `打开 ${name}。`);
+      if (source !== "restore") void syncWorkspaceForOpenedFile(file);
+      return;
+    }
+
     const loaded = loadMermaidDocument(text);
     const nextViewport = loaded.viewport || { x: 160, y: 90, scale: 1 };
     const nextLayoutMode = loaded.layoutMode;
@@ -1374,6 +1548,7 @@ export function MermaidEditor() {
     const nextCustomTheme = loaded.fileTheme?.customTheme ? normalizeEditorTheme(loaded.fileTheme.customTheme) : customTheme;
     const savedDocument = buildMermaidDocument(loaded.source, loadedGraph, nextViewport, loaded.edgeRouting, nextLayoutMode, loaded.fileTheme ?? null);
 
+    setDocumentKind("mermaid");
     setSource(loaded.source);
     setGraph(loadedGraph);
     setDiagramType(loaded.diagramType);
@@ -1385,7 +1560,7 @@ export function MermaidEditor() {
     setSelection(emptySelection);
     setDiagnostics([]);
     setHistory(createHistory());
-    setFileName(ensureMermaidFileName(name));
+    setFileName(ensureEditorDocumentFileName(name, "mermaid"));
     setFileTheme(loaded.fileTheme ?? null);
     setThemeId(nextThemeId);
     setCustomTheme(nextCustomTheme);
@@ -1421,7 +1596,7 @@ export function MermaidEditor() {
 
       setProjectWorkspace(workspace);
       if (revealExplorer) setLeftCollapsed(false);
-      if (options.announce ?? true) setStatus(`已显示 ${workspace.rootName}，发现 ${workspace.files.length} 个 Mermaid 文件。`);
+      if (options.announce ?? true) setStatus(`已显示 ${workspace.rootName}，发现 ${workspace.files.length} 个项目文档。`);
     } catch (error) {
       if (!isAbortError(error)) showFileWorkflowError(error, "同步文件夹失败。");
     } finally {
@@ -1431,6 +1606,59 @@ export function MermaidEditor() {
 
   function applyStoredEditorState(stored: StoredEditor) {
     flushSourceHistory();
+    const storedDocumentKind = normalizeStoredDocumentKind(stored.documentKind, stored.fileName, stored.fileRef?.path);
+    if (storedDocumentKind === "markdown") {
+      const nextPreferences = normalizeEditorPreferences(stored.preferences);
+      const nextViewFilters = normalizeViewFilters(stored.viewFilters, { showGrid: stored.showGrid, showEdges: stored.showEdges });
+      const nextProjectWorkspace = normalizeProjectWorkspace(stored.projectWorkspace);
+      const nextRecentFiles = normalizeRecentFiles(stored.recentFiles);
+      const nextSource = stored.source || BLANK_MARKDOWN_SOURCE;
+      const nextFileName = ensureEditorDocumentFileName(stored.fileName || stored.fileRef?.name || FALLBACK_MARKDOWN_FILE_NAME, "markdown");
+
+      setDocumentKind("markdown");
+      setSource(nextSource);
+      setGraph(createEmptyDocumentGraph());
+      setDiagramType("unknown");
+      setEditableKind("render-only");
+      setViewport(stored.viewport || { x: 160, y: 90, scale: 1 });
+      setEdgeRouting(stored.edgeRouting || DEFAULT_EDGE_ROUTING);
+      setLayoutMode(stored.layoutMode || DEFAULT_LAYOUT_MODE);
+      setLeftCollapsed(shouldCollapseExplorerOnStartup({
+        startWithPanelsCollapsed: nextPreferences.startWithPanelsCollapsed,
+        storedCollapsed: stored.leftCollapsed,
+        projectWorkspace: nextProjectWorkspace,
+        recentFiles: nextRecentFiles,
+        fileRef: stored.fileRef || null,
+        fileName: nextFileName,
+        fallbackFileName: FALLBACK_MARKDOWN_FILE_NAME
+      }));
+      setRightCollapsed(nextPreferences.startWithPanelsCollapsed ? true : stored.rightCollapsed || false);
+      setWorkspaceView(workspaceViewForDocument("render-only", stored.workspaceView, "markdown"));
+      setViewFilters(nextViewFilters);
+      setSelection(emptySelection);
+      setDiagnostics([]);
+      setHistory(createHistory());
+      setFileName(nextFileName);
+      setFileRef(stored.fileRef || null);
+      setRecentFiles(nextRecentFiles);
+      setProjectWorkspace(nextProjectWorkspace);
+      setLastSavedDocument(stored.lastSavedDocument || "");
+      isDirtyRef.current = !stored.lastSavedDocument || nextSource !== stored.lastSavedDocument;
+      setFileTheme(null);
+      setThemeId(normalizeThemeId(stored.themeId));
+      setCustomTheme(stored.customTheme ? normalizeEditorTheme(stored.customTheme) : null);
+      setPreferences(nextPreferences);
+      setFileWorkflowError(null);
+
+      return {
+        documentKind: "markdown" as DocumentKind,
+        currentDocument: nextSource,
+        fileRef: stored.fileRef || null,
+        lastSavedDocument: stored.lastSavedDocument || "",
+        preferences: nextPreferences
+      };
+    }
+
     const loaded = loadMermaidDocument(stored.source);
     const legacyLayout = parseCanvasLayout(stored.source);
     const layout = stored.layout || legacyLayout;
@@ -1453,6 +1681,7 @@ export function MermaidEditor() {
     const nextRecentFiles = normalizeRecentFiles(stored.recentFiles);
     const currentStoredDocument = buildMermaidDocument(loaded.source, resolvedGraph, nextViewport, nextEdgeRouting, nextLayoutMode, nextFileTheme);
 
+    setDocumentKind("mermaid");
     setSource(loaded.source);
     setGraph(resolvedGraph);
     setDiagramType(loaded.diagramType);
@@ -1470,12 +1699,12 @@ export function MermaidEditor() {
       fallbackFileName: FALLBACK_FILE_NAME
     }));
     setRightCollapsed(nextPreferences.startWithPanelsCollapsed ? true : stored.rightCollapsed || false);
-    setWorkspaceView(workspaceViewForDocument(loaded.editableKind, stored.workspaceView));
+    setWorkspaceView(workspaceViewForDocument(loaded.editableKind, stored.workspaceView, "mermaid"));
     setViewFilters(nextViewFilters);
     setSelection(emptySelection);
     setDiagnostics([]);
     setHistory(createHistory());
-    setFileName(stored.fileName || FALLBACK_FILE_NAME);
+    setFileName(ensureEditorDocumentFileName(stored.fileName || stored.fileRef?.name || FALLBACK_FILE_NAME, "mermaid"));
     setFileRef(stored.fileRef || null);
     setRecentFiles(nextRecentFiles);
     setProjectWorkspace(nextProjectWorkspace);
@@ -1488,6 +1717,7 @@ export function MermaidEditor() {
     setFileWorkflowError(null);
 
     return {
+      documentKind: "mermaid" as DocumentKind,
       currentDocument: currentStoredDocument,
       fileRef: stored.fileRef || null,
       lastSavedDocument: stored.lastSavedDocument || "",
@@ -1518,6 +1748,7 @@ export function MermaidEditor() {
     const nextSource = serializeMermaid(nextGraph);
     const nextViewport = { x: 160, y: 90, scale: 1 };
 
+    setDocumentKind("mermaid");
     setSource(nextSource);
     setGraph(nextGraph);
     setDiagramType("flowchart");
@@ -1541,6 +1772,7 @@ export function MermaidEditor() {
 
     try {
       await persistStoredEditorDraft({
+        documentKind: "mermaid",
         source: nextSource,
         graph: nextGraph,
         viewport: nextViewport,
@@ -1551,6 +1783,53 @@ export function MermaidEditor() {
         fileRef: null,
         lastSavedDocument: "",
         workspaceView: "canvas"
+      });
+    } catch {
+      // New document state is already applied; draft persistence is best-effort.
+    }
+  }
+
+  async function newMarkdownFile() {
+    if (!(await prepareFileSwitch(FALLBACK_MARKDOWN_FILE_NAME))) return;
+
+    flushSourceHistory();
+    const nextGraph = createEmptyDocumentGraph();
+
+    setDocumentKind("markdown");
+    setSource(BLANK_MARKDOWN_SOURCE);
+    setGraph(nextGraph);
+    setDiagramType("unknown");
+    setEditableKind("render-only");
+    setViewport({ x: 160, y: 90, scale: 1 });
+    setEdgeRouting(DEFAULT_EDGE_ROUTING);
+    setLayoutMode(DEFAULT_LAYOUT_MODE);
+    setWorkspaceView("markdown");
+    setViewFilters(DEFAULT_VIEW_FILTERS);
+    setSelection(emptySelection);
+    setDiagnostics([]);
+    setHistory(createHistory());
+    setFileName(FALLBACK_MARKDOWN_FILE_NAME);
+    setFileRef(null);
+    setFileTheme(null);
+    setLastSavedDocument("");
+    isDirtyRef.current = true;
+    setFileWorkflowError(null);
+    setStatus("已新建空白 Markdown 文件。");
+    recordRecentAction("document.new", { kind: "document" }, "新建空白 Markdown 文件。");
+
+    try {
+      await persistStoredEditorDraft({
+        documentKind: "markdown",
+        source: BLANK_MARKDOWN_SOURCE,
+        graph: nextGraph,
+        viewport: { x: 160, y: 90, scale: 1 },
+        edgeRouting: DEFAULT_EDGE_ROUTING,
+        layoutMode: DEFAULT_LAYOUT_MODE,
+        fileTheme: null,
+        fileName: FALLBACK_MARKDOWN_FILE_NAME,
+        fileRef: null,
+        lastSavedDocument: "",
+        workspaceView: "markdown"
       });
     } catch {
       // New document state is already applied; draft persistence is best-effort.
@@ -1571,7 +1850,7 @@ export function MermaidEditor() {
   }
 
   async function openRuntimeFileRequest(file: RuntimeFileOpenRequest, source: FileOpenSource) {
-    if (!isSupportedMermaidFilePath(file.path)) {
+    if (!isSupportedDocumentFilePath(file.path)) {
       showFileWorkflowError({ code: "unsupported_type", path: file.path }, "文件类型不支持。");
       return;
     }
@@ -1604,7 +1883,7 @@ export function MermaidEditor() {
 
       setProjectWorkspace(workspace);
       setLeftCollapsed(false);
-      setStatus(`已打开工作区 ${workspace.rootName}，发现 ${workspace.files.length} 个 Mermaid 文件。`);
+      setStatus(`已打开工作区 ${workspace.rootName}，发现 ${workspace.files.length} 个项目文档。`);
       try {
         await persistStoredEditorDraft({ projectWorkspace: workspace });
       } catch {
@@ -1635,7 +1914,7 @@ export function MermaidEditor() {
       }
 
       setProjectWorkspace(workspace);
-      setStatus(`已刷新工作区 ${workspace.rootName}，发现 ${workspace.files.length} 个 Mermaid 文件。`);
+      setStatus(`已刷新工作区 ${workspace.rootName}，发现 ${workspace.files.length} 个项目文档。`);
       try {
         await persistStoredEditorDraft({ projectWorkspace: workspace });
       } catch {
@@ -1673,8 +1952,8 @@ export function MermaidEditor() {
   function dropFeedbackForFiles(files: RuntimeFileOpenRequest[], position?: DropPoint): FileDropFeedback {
     const localPosition = windowPointToWorkspacePoint(position);
     const classification = classifyFileDrop(files);
-    if (classification.kind === "mermaid") {
-      return { message: "释放以打开 Mermaid 文件", tone: "ready", position: localPosition };
+    if (classification.kind === "document") {
+      return { message: `释放以打开 ${documentKindLabel(classification.documentKind)} 文件`, tone: "ready", position: localPosition };
     }
     if (classification.kind === "image") {
       if (!isCanvasEditable || workspaceView !== "canvas") {
@@ -1785,8 +2064,8 @@ export function MermaidEditor() {
     if (!files.length) return;
 
     const classification = classifyFileDrop(files);
-    if (classification.kind === "mermaid") {
-      if (files.length > 1) setStatus("已使用拖拽的第一个 Mermaid 文件。");
+    if (classification.kind === "document") {
+      if (files.length > 1) setStatus(`已使用拖拽的第一个 ${documentKindLabel(classification.documentKind)} 文件。`);
       void openPathRequestRef.current(classification.file, "drop");
       return;
     }
@@ -1815,12 +2094,12 @@ export function MermaidEditor() {
     if (!fileRef) {
       return saveMermaidFileAs();
     }
-    if (hasBlockingDiagnostics(diagnostics) && !window.confirm("当前 Mermaid 存在错误，仍要保存吗？")) return false;
+    if (documentKind === "mermaid" && hasBlockingDiagnostics(diagnostics) && !window.confirm("当前 Mermaid 存在错误，仍要保存吗？")) return false;
 
     try {
-      const result = await runtime.saveFile(fileRef, currentDocument, fileName);
+      const result = await runtime.saveFile(fileRef, currentDocument, fileName, documentKind);
       if (result.status === "cancelled") return false;
-      const savedName = ensureMermaidFileName(result.file.name);
+      const savedName = ensureEditorDocumentFileName(result.file.name, documentKind);
       const nextRecentFiles = upsertRecentFile(recentFiles, result.file);
       setFileRef(result.file);
       setFileName(savedName);
@@ -1831,7 +2110,7 @@ export function MermaidEditor() {
       setStatus(`已保存 ${result.file.name}。`);
       recordRecentAction("document.save", { kind: "document" }, `保存 ${result.file.name}。`);
       try {
-        await persistStoredEditorDraft({ fileRef: result.file, fileName: savedName, recentFiles: nextRecentFiles, lastSavedDocument: currentDocument });
+        await persistStoredEditorDraft({ documentKind, fileRef: result.file, fileName: savedName, recentFiles: nextRecentFiles, lastSavedDocument: currentDocument });
       } catch {
         // File save succeeded; draft persistence is best-effort.
       }
@@ -1845,12 +2124,12 @@ export function MermaidEditor() {
 
   async function saveMermaidFileAsResult(): Promise<RuntimeFileRef | null> {
     flushSourceHistory();
-    if (hasBlockingDiagnostics(diagnostics) && !window.confirm("当前 Mermaid 存在错误，仍要另存为吗？")) return null;
-    const suggestedName = ensureMermaidFileName(fileName);
+    if (documentKind === "mermaid" && hasBlockingDiagnostics(diagnostics) && !window.confirm("当前 Mermaid 存在错误，仍要另存为吗？")) return null;
+    const suggestedName = ensureEditorDocumentFileName(fileName, documentKind);
     try {
-      const result = await runtime.saveFileAs(currentDocument, suggestedName);
+      const result = await runtime.saveFileAs(currentDocument, suggestedName, documentKind);
       if (result.status === "cancelled") return null;
-      const savedName = ensureMermaidFileName(result.file.name || suggestedName);
+      const savedName = ensureEditorDocumentFileName(result.file.name || suggestedName, documentKind);
       const nextRecentFiles = upsertRecentFile(recentFiles, result.file);
       setFileName(savedName);
       setFileRef(result.file);
@@ -1861,7 +2140,7 @@ export function MermaidEditor() {
       setStatus(result.downloaded ? `已下载 ${result.file.name || suggestedName}。` : `已保存 ${result.file.name || suggestedName}。`);
       recordRecentAction("document.save-as", { kind: "document" }, result.downloaded ? `下载 ${result.file.name || suggestedName}。` : `另存为 ${result.file.name || suggestedName}。`);
       try {
-        await persistStoredEditorDraft({ fileRef: result.file, fileName: savedName, recentFiles: nextRecentFiles, lastSavedDocument: currentDocument });
+        await persistStoredEditorDraft({ documentKind, fileRef: result.file, fileName: savedName, recentFiles: nextRecentFiles, lastSavedDocument: currentDocument });
       } catch {
         // File save succeeded; draft persistence is best-effort.
       }
@@ -1895,7 +2174,25 @@ export function MermaidEditor() {
         return;
       }
 
-      if (command.targetFileName && comparableMermaidFileName(command.targetFileName) !== comparableMermaidFileName(fileName)) {
+      if (documentKind !== "mermaid") {
+        const diagnostic = editorCommandDiagnostic(
+          "UNSUPPORTED_DOCUMENT_KIND",
+          "当前打开的是 Markdown 文件，AI Mermaid patch 只能应用到 Mermaid 文件。",
+          "请切换到 Mermaid 文件后再执行图表修改。"
+        );
+        await postAiApplyResult({
+          commandId: command.id,
+          applied: false,
+          saved: false,
+          changed: false,
+          fileName,
+          diagnostics: [diagnostic]
+        });
+        setStatus("AI 修改被拒绝：当前文件不是 Mermaid。");
+        return;
+      }
+
+      if (command.targetFileName && comparableDocumentFileName(command.targetFileName, documentKind) !== comparableDocumentFileName(fileName, documentKind)) {
         const diagnostic = editorCommandDiagnostic(
           "TARGET_FILE_MISMATCH",
           `当前打开的是 ${fileName || FALLBACK_FILE_NAME}，不是 AI 命令目标 ${command.targetFileName}。`,
@@ -1958,7 +2255,7 @@ export function MermaidEditor() {
           );
         } else {
           try {
-            const saveResult = await runtime.saveFile(fileRef, nextDocument, fileName);
+            const saveResult = await runtime.saveFile(fileRef, nextDocument, fileName, documentKind);
             if (saveResult.status === "saved") {
               setFileRef(saveResult.file);
               setRecentFiles((current) => upsertRecentFile(current, saveResult.file));
@@ -1983,10 +2280,10 @@ export function MermaidEditor() {
         setThemeId(normalizeThemeId(loaded.fileTheme.themeId));
         setCustomTheme(loaded.fileTheme.customTheme ? normalizeEditorTheme(loaded.fileTheme.customTheme) : null);
       }
-      setWorkspaceView(workspaceViewForDocument(loaded.editableKind, workspaceView));
+      setWorkspaceView(workspaceViewForDocument(loaded.editableKind, workspaceView, "mermaid"));
       setSelection(emptySelection);
       setDiagnostics([]);
-      if (fileRef) setFileName(ensureMermaidFileName(fileRef.name));
+      if (fileRef) setFileName(ensureEditorDocumentFileName(fileRef.name, "mermaid"));
       if (saved) {
         setLastSavedDocument(nextDocument);
         isDirtyRef.current = false;
@@ -2005,7 +2302,7 @@ export function MermaidEditor() {
         diagnostics: resultDiagnostics
       });
     },
-    [currentDocument, fileName, fileRef, fileTheme, graph, postAiApplyResult, runtime, snapshot, viewport, workspaceView]
+    [currentDocument, documentKind, fileName, fileRef, fileTheme, graph, postAiApplyResult, runtime, snapshot, viewport, workspaceView]
   );
 
   useEffect(() => {
@@ -2162,8 +2459,9 @@ export function MermaidEditor() {
     storageWriteTimerRef.current = window.setTimeout(() => {
       incrementPerformanceCounter("local-storage-write");
       void runtime.saveDraft({
+          documentKind,
           source,
-          layout: layoutFromGraph(graph, viewport, edgeRouting, layoutMode, fileTheme),
+          ...(documentKind === "mermaid" ? { layout: layoutFromGraph(graph, viewport, edgeRouting, layoutMode, fileTheme) } : {}),
           viewport,
           edgeRouting,
           layoutMode,
@@ -2186,7 +2484,7 @@ export function MermaidEditor() {
     return () => {
       if (storageWriteTimerRef.current) window.clearTimeout(storageWriteTimerRef.current);
     };
-  }, [source, graph, viewport, edgeRouting, layoutMode, leftCollapsed, rightCollapsed, workspaceView, viewFilters, fileName, fileRef, fileTheme, recentFiles, projectWorkspace, lastSavedDocument, themeId, customTheme, preferences, runtime, draftPersistenceReady]);
+  }, [documentKind, source, graph, viewport, edgeRouting, layoutMode, leftCollapsed, rightCollapsed, workspaceView, viewFilters, fileName, fileRef, fileTheme, recentFiles, projectWorkspace, lastSavedDocument, themeId, customTheme, preferences, runtime, draftPersistenceReady]);
 
   useEffect(() => {
     if (aiContextPostTimerRef.current) window.clearTimeout(aiContextPostTimerRef.current);
@@ -2349,7 +2647,7 @@ export function MermaidEditor() {
   }
 
   function changeWorkspaceView(nextView: WorkspaceView) {
-    setWorkspaceView(workspaceViewForDocument(editableKind, nextView));
+    setWorkspaceView(workspaceViewForDocument(editableKind, nextView, documentKind));
   }
 
   function changeToolMode(nextMode: EditorMode) {
@@ -2359,7 +2657,7 @@ export function MermaidEditor() {
 
   return (
     <TooltipProvider delayDuration={180}>
-      <input ref={fileInputRef} type="file" accept=".mmd,.mermaid,text/plain" className="hidden" onChange={openFallbackFile} />
+      <input ref={fileInputRef} type="file" accept=".mmd,.mermaid,.md,.markdown,text/plain" className="hidden" onChange={openFallbackFile} />
       <main className="relative h-screen overflow-hidden bg-background">
         <h1 className="sr-only">Mermaid Canvas Editor</h1>
         <div ref={workspaceSurfaceRef} className="absolute inset-0 z-0">
@@ -2382,13 +2680,19 @@ export function MermaidEditor() {
                 onLiveStateChange={updateCanvasLiveState}
               />
             </Suspense>
+          ) : workspaceView === "markdown" && documentKind === "markdown" ? (
+            <MarkdownPanel
+              key={`${fileRef?.path || fileName}:markdown`}
+              value={source}
+              onChange={applyMarkdownSource}
+            />
           ) : workspaceView === "source" ? (
             <SourcePanel
               value={source}
-              title="Mermaid 源码"
-              diagnostics={diagnostics}
+              title={`${documentKindLabel(documentKind)} 源码`}
+              diagnostics={documentKind === "mermaid" ? diagnostics : []}
               onChange={applySource}
-              onRun={refreshFromSource}
+              onRun={documentKind === "mermaid" ? refreshFromSource : undefined}
               className="border-0"
             />
           ) : (
@@ -2403,11 +2707,11 @@ export function MermaidEditor() {
           )}
         </div>
         {fileDropFeedback ? <FileDropFeedbackBadge feedback={fileDropFeedback} /> : null}
-        {!leftCollapsed || !rightCollapsed ? (
+        {!leftCollapsed || (documentKind === "mermaid" && !rightCollapsed) ? (
           <div className="absolute inset-0 z-10" aria-hidden onPointerDown={closeSidePanels} />
         ) : null}
         {!leftCollapsed ? (
-          <div className={cn(EDITOR_CHROME_CLASSES.sidePanel, "left-4 w-[clamp(320px,31vw,420px)]")}>
+          <div className={cn(EDITOR_CHROME_CLASSES.sidePanel, "left-4 w-[clamp(320px,31vw,416px)]")}>
             <ExplorerPanel
               runtimeKind={runtime.kind}
               projectWorkspace={projectWorkspace}
@@ -2422,7 +2726,7 @@ export function MermaidEditor() {
             />
           </div>
         ) : null}
-        {!rightCollapsed ? (
+        {!rightCollapsed && documentKind === "mermaid" ? (
           <aside className={cn(EDITOR_CHROME_CLASSES.sidePanel, "right-4 grid w-[clamp(320px,28vw,400px)] min-h-0")}>
             <PanelHeader onCollapse={() => setRightCollapsed(true)} />
             <div className="grid min-h-0">
@@ -2440,7 +2744,8 @@ export function MermaidEditor() {
               projectBusy={projectBusy}
               isDirty={isDirty}
               onOpenChange={updateFileMenuOpen}
-              onNewFile={() => void newMermaidFile()}
+              onNewMermaidFile={() => void newMermaidFile()}
+              onNewMarkdownFile={() => void newMarkdownFile()}
               onOpenFile={() => void openMermaidFile()}
               onOpenRecent={(file) => void openRecentFile(file)}
               onOpenProject={() => void openProjectFolder()}
@@ -2473,11 +2778,13 @@ export function MermaidEditor() {
             <WorkspaceViewCluster
               workspaceView={workspaceView}
               editableKind={editableKind}
+              documentKind={documentKind}
               canvasViewTooltip={canvasViewTooltip}
               onChange={changeWorkspaceView}
             />
           </FloatingChromeSlot>
 
+          {documentKind === "mermaid" ? (
           <FloatingChromeSlot placement="rightFilter" pinned={viewFiltersOpen}>
             <ViewFilterMenu
               open={viewFiltersOpen}
@@ -2489,6 +2796,7 @@ export function MermaidEditor() {
               onReset={resetViewFilters}
             />
           </FloatingChromeSlot>
+          ) : null}
 
           <FloatingChromeSlot placement="leftCenter" pinned={!leftCollapsed}>
             <FloatingIconButton
@@ -2501,6 +2809,7 @@ export function MermaidEditor() {
             </FloatingIconButton>
           </FloatingChromeSlot>
 
+          {documentKind === "mermaid" ? (
           <FloatingChromeSlot placement="rightCenter" pinned={!rightCollapsed}>
             <FloatingIconButton
               label={rightCollapsed ? "展开右侧检查器" : "收起右侧检查器"}
@@ -2511,6 +2820,7 @@ export function MermaidEditor() {
               {rightCollapsed ? <PanelRightOpen /> : <PanelRightClose />}
             </FloatingIconButton>
           </FloatingChromeSlot>
+          ) : null}
 
           <FloatingChromeSlot placement="leftBottom" pinned={secondaryActionsOpen}>
             <SecondaryActionsMenu
@@ -2545,7 +2855,7 @@ export function MermaidEditor() {
         {fileWorkflowError ? <FileWorkflowErrorBanner error={fileWorkflowError} onClose={() => setFileWorkflowError(null)} /> : null}
         {unsavedPrompt ? <UnsavedFilePrompt prompt={unsavedPrompt} onResolve={resolveUnsavedPrompt} /> : null}
         {preferences.statusMessages && status ? (
-          <div className="pointer-events-none fixed bottom-3 left-1/2 z-50 -translate-x-1/2 rounded-md border bg-card/95 px-3 py-1.5 text-xs text-muted-foreground backdrop-blur">
+          <div className="pointer-events-none fixed bottom-3 left-1/2 z-50 -translate-x-1/2 rounded-md border bg-card/95 px-3 py-2 text-xs text-muted-foreground backdrop-blur">
             {status}
           </div>
         ) : null}
@@ -2564,28 +2874,26 @@ export function MermaidEditor() {
   );
 }
 
-function workspaceViewOptionsFor(editableKind: EditableKind): WorkspaceView[] {
-  return editableKind === "flowchart" ? ["canvas", "render", "source"] : ["render", "source"];
-}
-
 function WorkspaceViewCluster({
   workspaceView,
   editableKind,
+  documentKind,
   canvasViewTooltip,
   onChange
 }: {
   workspaceView: WorkspaceView;
   editableKind: EditableKind;
+  documentKind: DocumentKind;
   canvasViewTooltip: string;
   onChange: (view: WorkspaceView) => void;
 }) {
-  const views = workspaceViewOptionsFor(editableKind);
+  const views = workspaceViewOptionsFor(editableKind, documentKind);
 
   return (
     <FloatingButtonCluster orientation="vertical">
       {views.map((view) => {
         const label = view === "canvas" ? canvasViewTooltip : workspaceViewLabels[view];
-        const Icon = view === "canvas" ? SquareDashedMousePointer : view === "render" ? Workflow : Code;
+        const Icon = view === "canvas" ? SquareDashedMousePointer : view === "render" ? Workflow : view === "markdown" ? Text : Code;
         return (
           <FloatingIconButton
             key={view}
@@ -2601,6 +2909,11 @@ function WorkspaceViewCluster({
       })}
     </FloatingButtonCluster>
   );
+}
+
+function workspaceViewOptionsFor(editableKind: EditableKind, documentKind: DocumentKind): WorkspaceView[] {
+  if (documentKind === "markdown") return ["markdown", "source"];
+  return editableKind === "flowchart" ? ["canvas", "render", "source"] : ["render", "source"];
 }
 
 function ToolModeCluster({ mode, onChange }: { mode: EditorMode; onChange: (mode: EditorMode) => void }) {
@@ -2678,7 +2991,7 @@ function FileDropFeedbackBadge({ feedback }: { feedback: FileDropFeedback }) {
   return (
     <div
       className={cn(
-        "pointer-events-none absolute z-30 -translate-x-1/2 -translate-y-1/2 rounded-md border bg-card/95 px-3 py-1.5 text-xs shadow-sm backdrop-blur",
+        "pointer-events-none absolute z-30 -translate-x-1/2 -translate-y-1/2 rounded-md border bg-card/95 px-3 py-2 text-xs shadow-sm backdrop-blur",
         feedback.tone === "blocked" ? "border-destructive/30 text-destructive" : "border-border text-foreground"
       )}
       style={style}
@@ -2696,10 +3009,10 @@ function FileWorkflowErrorBanner({ error, onClose }: { error: FileWorkflowError;
         <div className="min-w-0 flex-1">
           <div className="font-medium text-foreground">{fileWorkflowErrorTitle(error.code)}</div>
           <div className="mt-1 break-words text-xs text-muted-foreground">{error.message}</div>
-          {error.path ? <div className="mt-1 truncate font-mono text-[11px] text-muted-foreground">{error.path}</div> : null}
+          {error.path ? <div className="mt-1 truncate font-mono text-xs text-muted-foreground">{error.path}</div> : null}
           <div className="mt-2 text-xs text-muted-foreground">{fileWorkflowErrorSuggestion(error.code)}</div>
         </div>
-        <Button size="icon" variant="ghost" className="size-7 shrink-0 text-icon hover:text-icon" onClick={onClose} aria-label="关闭文件错误提示">
+        <Button size="icon" variant="ghost" className="size-8 shrink-0 text-icon hover:text-icon" onClick={onClose} aria-label="关闭文件错误提示">
           <Xmark className="size-4" />
         </Button>
       </div>
@@ -2710,7 +3023,7 @@ function FileWorkflowErrorBanner({ error, onClose }: { error: FileWorkflowError;
 function UnsavedFilePrompt({ prompt, onResolve }: { prompt: UnsavedPromptState; onResolve: (choice: UnsavedPromptChoice) => void }) {
   return (
     <div className="fixed inset-0 z-[80] grid place-items-center bg-foreground/10 px-4 backdrop-blur-[1px]">
-      <section className="w-[min(420px,100%)] rounded-md border bg-card p-4 shadow-sm">
+      <section className="w-[min(416px,100%)] rounded-md border bg-card p-4 shadow-sm">
         <div className="flex items-start gap-3">
           <WarningTriangle className="mt-0.5 size-4 shrink-0 text-icon" />
           <div className="min-w-0">
@@ -2801,11 +3114,11 @@ function ExplorerPanel({
         <div className="flex min-w-0 items-center justify-between gap-2 border-b px-3 py-2">
           <div className="min-w-0">
             <ExplorerSectionTitle>文件夹</ExplorerSectionTitle>
-            <div className="truncate text-[11px] text-muted-foreground" title={projectWorkspace?.rootPath}>
+            <div className="truncate text-xs text-muted-foreground" title={projectWorkspace?.rootPath}>
               {projectWorkspace
-                ? `${projectWorkspace.rootName} · ${projectWorkspace.files.length}${projectWorkspace.truncated ? "+" : ""} 个 Mermaid 文件`
+                ? `${projectWorkspace.rootName} · ${projectWorkspace.files.length}${projectWorkspace.truncated ? "+" : ""} 个项目文档`
                 : projectAvailable
-                  ? "打开文件后会自动显示同目录图表"
+                  ? "打开文件后会自动显示同目录文档"
                   : "桌面版支持文件夹浏览"}
             </div>
           </div>
@@ -2841,7 +3154,7 @@ function ExplorerPanel({
           </div>
         </div>
 
-        <div className="min-h-0 overflow-y-auto px-1 py-1.5">
+        <div className="min-h-0 overflow-y-auto px-1 py-2">
           {!projectWorkspace ? (
             <WorkspaceFolderEmptyState projectAvailable={projectAvailable} projectBusy={projectBusy} onOpenProject={onOpenProject} />
           ) : tree.length ? (
@@ -2859,7 +3172,7 @@ function ExplorerPanel({
               ))}
             </div>
           ) : (
-            <div className="px-2 py-2 text-xs text-muted-foreground">此文件夹下没有 Mermaid 文件</div>
+            <div className="px-2 py-2 text-xs text-muted-foreground">此文件夹下没有项目文档</div>
           )}
         </div>
       </div>
@@ -2868,7 +3181,7 @@ function ExplorerPanel({
 }
 
 function ExplorerSectionTitle({ children }: { children: ReactNode }) {
-  return <div className="text-[11px] font-medium uppercase tracking-normal text-muted-foreground">{children}</div>;
+  return <div className="text-xs font-medium uppercase tracking-normal text-muted-foreground">{children}</div>;
 }
 
 function WorkspaceFolderEmptyState({
@@ -2882,7 +3195,7 @@ function WorkspaceFolderEmptyState({
 }) {
   return (
     <div className="grid gap-2 px-2 py-3">
-      <div className="text-xs text-muted-foreground">{projectAvailable ? "打开 Mermaid 文件后会自动显示同目录图表" : "桌面版支持文件夹浏览"}</div>
+      <div className="text-xs text-muted-foreground">{projectAvailable ? "打开文件后会自动显示同目录文档" : "桌面版支持文件夹浏览"}</div>
       <Button variant="outline" className={cn(EDITOR_CHROME_CLASSES.menuRow, "text-xs")} disabled={!projectAvailable || projectBusy} onClick={onOpenProject}>
         <Folder className="size-4" />
         选择文件夹
@@ -2906,7 +3219,7 @@ function ProjectTreeRow({
   onToggleDirectory: (id: string) => void;
   onOpenProjectFile: (file: ProjectFileEntry) => void;
 }) {
-  const paddingLeft = 8 + depth * 14;
+  const paddingLeft = 8 + depth * 16;
 
   if (node.kind === "directory") {
     const expanded = expandedIds.has(node.id);
@@ -2921,10 +3234,10 @@ function ProjectTreeRow({
           onClick={() => onToggleDirectory(node.id)}
           title={node.relativePath}
         >
-          {expanded ? <NavArrowDown className="size-3.5 shrink-0" /> : <NavArrowRight className="size-3.5 shrink-0" />}
-          <Folder className="size-3.5 shrink-0" />
+          {expanded ? <NavArrowDown className="size-4 shrink-0" /> : <NavArrowRight className="size-4 shrink-0" />}
+          <Folder className="size-4 shrink-0" />
           <span className="min-w-0 flex-1 truncate text-xs">{node.name}</span>
-          <span className="text-[11px] text-muted-foreground">{node.fileCount}</span>
+          <span className="text-xs text-muted-foreground">{node.fileCount}</span>
         </Button>
         {expanded
           ? node.children.map((child) => (
@@ -2953,7 +3266,7 @@ function ProjectTreeRow({
       title={node.file.path}
       onClick={() => onOpenProjectFile(node.file)}
     >
-      <EmptyPage className="size-3.5 shrink-0" />
+      <EmptyPage className="size-4 shrink-0" />
       <span className="min-w-0 flex-1 truncate text-xs">{node.name}</span>
     </Button>
   );
@@ -2966,7 +3279,8 @@ function FileMenu({
   projectBusy,
   isDirty,
   onOpenChange,
-  onNewFile,
+  onNewMermaidFile,
+  onNewMarkdownFile,
   onOpenFile,
   onOpenRecent,
   onOpenProject,
@@ -2979,7 +3293,8 @@ function FileMenu({
   projectBusy: boolean;
   isDirty: boolean;
   onOpenChange: (open: boolean) => void;
-  onNewFile: () => void;
+  onNewMermaidFile: () => void;
+  onNewMarkdownFile: () => void;
   onOpenFile: () => void;
   onOpenRecent: (file: RecentFileEntry) => void;
   onOpenProject: () => void;
@@ -3001,11 +3316,15 @@ function FileMenu({
       </FloatingIconButton>
 
       {open ? (
-        <div className="absolute left-0 top-12 z-50 w-72 rounded-md border bg-popover p-1.5 text-popover-foreground shadow-sm">
+        <div className="absolute left-0 top-12 z-50 w-72 rounded-md border bg-popover p-2 text-popover-foreground shadow-sm">
           <div className="grid gap-0.5">
-            <Button variant="ghost" className={EDITOR_CHROME_CLASSES.menuRow} onClick={() => runAndClose(onNewFile)}>
+            <Button variant="ghost" className={EDITOR_CHROME_CLASSES.menuRow} onClick={() => runAndClose(onNewMermaidFile)}>
               <Plus className="size-4" />
-              新建文件
+              新建 Mermaid
+            </Button>
+            <Button variant="ghost" className={EDITOR_CHROME_CLASSES.menuRow} onClick={() => runAndClose(onNewMarkdownFile)}>
+              <Text className="size-4" />
+              新建 Markdown
             </Button>
             <Button variant="ghost" className={EDITOR_CHROME_CLASSES.menuRow} onClick={() => runAndClose(onOpenFile)}>
               <Folder className="size-4" />
@@ -3139,7 +3458,7 @@ function ViewFilterMenu({
         <div className="absolute right-0 top-12 z-50 w-72 rounded-md border bg-popover p-2 text-popover-foreground shadow-sm">
           <div className="flex items-center justify-between px-1 pb-1">
             <span className="text-xs font-medium text-foreground">视图过滤器</span>
-            <span className="text-[11px] text-muted-foreground">{hiddenCount > 0 ? `隐藏 ${hiddenCount} 项` : "全部显示"}</span>
+            <span className="text-xs text-muted-foreground">{hiddenCount > 0 ? `隐藏 ${hiddenCount} 项` : "全部显示"}</span>
           </div>
           <div className="grid grid-cols-2 gap-1">
             <Button variant="ghost" className={EDITOR_CHROME_CLASSES.menuRow} onClick={onReset}>
@@ -3199,7 +3518,7 @@ function FilterToggle({ active, label, icon, compact = false, onClick }: { activ
       variant="ghost"
       className={cn(
         EDITOR_CHROME_CLASSES.menuRow,
-        compact ? "gap-1.5 text-xs" : "",
+        compact ? "gap-2 text-xs" : "",
         !active ? "text-muted-foreground" : ""
       )}
       aria-pressed={active}
@@ -3295,7 +3614,7 @@ function SecondaryActionsMenu({
       </FloatingIconButton>
 
       {open ? (
-        <div className="absolute bottom-12 left-0 z-50 w-64 rounded-md border bg-popover p-1.5 text-popover-foreground shadow-sm">
+        <div className="absolute bottom-12 left-0 z-50 w-64 rounded-md border bg-popover p-2 text-popover-foreground shadow-sm">
           <div className="grid gap-0.5">
             <Button
               variant="ghost"
@@ -3329,7 +3648,7 @@ function SecondaryActionsMenu({
               另存为
             </Button>
             <Separator className="my-1" />
-            <div className="grid gap-1.5 px-2 py-1.5">
+            <div className="grid gap-2 px-2 py-2">
               <span className="text-xs text-muted-foreground">方向</span>
               <Select
                 value={direction}
@@ -3351,9 +3670,9 @@ function SecondaryActionsMenu({
               </Select>
             </div>
             <Separator className="my-1" />
-            <div className="grid gap-1.5 px-2 py-1.5">
-              <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <PositionAlign className="size-3.5 text-icon" />
+            <div className="grid gap-2 px-2 py-2">
+              <span className="flex items-center gap-2 text-xs text-muted-foreground">
+                <PositionAlign className="size-4 text-icon" />
                 布局模式
               </span>
               <Select
@@ -3376,9 +3695,9 @@ function SecondaryActionsMenu({
               </Select>
             </div>
             <Separator className="my-1" />
-            <div className="grid gap-1.5 px-2 py-1.5">
-              <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <PathArrow className="size-3.5 text-icon" />
+            <div className="grid gap-2 px-2 py-2">
+              <span className="flex items-center gap-2 text-xs text-muted-foreground">
+                <PathArrow className="size-4 text-icon" />
                 连线形状
               </span>
               <Select
@@ -3402,11 +3721,11 @@ function SecondaryActionsMenu({
             </div>
             <Separator className="my-1" />
             <div className="grid gap-0.5 px-1 py-1">
-              <span className="flex items-center gap-1.5 px-1 py-1 text-xs text-muted-foreground">
-                <Eye className="size-3.5 text-icon" />
+              <span className="flex items-center gap-2 px-1 py-1 text-xs text-muted-foreground">
+                <Eye className="size-4 text-icon" />
                 应用设置
               </span>
-              <div className="grid gap-1.5 px-1 py-1">
+              <div className="grid gap-2 px-1 py-1">
                 <span className="text-xs text-muted-foreground">应用 LOGO</span>
                 <Select
                   value={preferences.appLogo}
@@ -3793,7 +4112,7 @@ function ThemePreview({ theme }: { theme: EditorTheme }) {
         <div className="size-8 rounded-md border" style={{ borderColor: theme.ui.border, backgroundColor: theme.ui.card }}>
           <ColorWheel className="m-2 size-4" style={{ color: theme.ui.icon }} />
         </div>
-        <div className="h-8 rounded-md px-3 py-1.5 text-sm" style={{ backgroundColor: theme.ui.primary, color: theme.ui.background }}>
+        <div className="h-8 rounded-md px-3 py-1 text-sm" style={{ backgroundColor: theme.ui.primary, color: theme.ui.background }}>
           高亮
         </div>
       </div>
