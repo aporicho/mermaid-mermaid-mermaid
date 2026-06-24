@@ -21,4 +21,9 @@ describe("workspace view", () => {
     expect(workspaceViewForDocument("flowchart", "canvas", "markdown")).toBe("markdown");
     expect(workspaceViewForDocument("flowchart", "source", "markdown")).toBe("source");
   });
+
+  it("keeps canvas documents in their dedicated canvas viewer", () => {
+    expect(nextWorkspaceView("source", "render-only", "canvas")).toBe("canvas");
+    expect(workspaceViewForDocument("flowchart", "source", "canvas")).toBe("canvas");
+  });
 });

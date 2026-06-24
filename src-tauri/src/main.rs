@@ -149,7 +149,7 @@ struct FileCommandError {
 #[tauri::command]
 async fn open_mermaid_file() -> Result<Option<OpenedFile>, FileCommandError> {
     let file = rfd::AsyncFileDialog::new()
-        .add_filter("项目文档", &["mmd", "mermaid", "md", "markdown"])
+        .add_filter("项目文档", &["mmd", "mermaid", "md", "markdown", "json"])
         .pick_file()
         .await;
 
@@ -197,7 +197,7 @@ async fn save_mermaid_file(path: String, text: String) -> Result<SavedFile, File
 #[tauri::command]
 async fn save_mermaid_file_as(suggested_name: String, text: String) -> Result<Option<SavedFile>, FileCommandError> {
     let file = rfd::AsyncFileDialog::new()
-        .add_filter("项目文档", &["mmd", "mermaid", "md", "markdown"])
+        .add_filter("项目文档", &["mmd", "mermaid", "md", "markdown", "json"])
         .set_file_name(&suggested_name)
         .save_file()
         .await;
@@ -627,7 +627,7 @@ async fn open_mermaid_file_path_inner(path: PathBuf) -> Result<OpenedFile, FileC
     if !is_supported_document_path(&path) {
         return Err(file_workflow_error(
             "unsupported_type",
-            "只支持 .mmd、.mermaid、.md 或 .markdown 文件。",
+            "只支持 .mmd、.mermaid、.md、.markdown 或 .canvas.json 文件。",
             Some(&path),
         ));
     }
@@ -643,10 +643,10 @@ async fn open_mermaid_file_path_inner(path: PathBuf) -> Result<OpenedFile, FileC
 }
 
 async fn import_image_asset_path_inner(document_path: PathBuf, image_path: PathBuf) -> Result<ImageAssetFile, FileCommandError> {
-    if !is_supported_mermaid_path(&document_path) {
+    if !is_supported_image_document_path(&document_path) {
         return Err(file_workflow_error(
             "unsupported_type",
-            "请先保存为 .mmd 或 .mermaid 文件，再插入本地图片。",
+            "请先保存为 .mmd、.mermaid 或 .canvas.json 文件，再插入本地图片。",
             Some(&document_path),
         ));
     }
@@ -1053,7 +1053,21 @@ fn is_supported_mermaid_path(path: &Path) -> bool {
         .unwrap_or(false)
 }
 
+fn is_supported_canvas_path(path: &Path) -> bool {
+    path.file_name()
+        .and_then(|value| value.to_str())
+        .map(|name| name.to_ascii_lowercase().ends_with(".canvas.json"))
+        .unwrap_or(false)
+}
+
+fn is_supported_image_document_path(path: &Path) -> bool {
+    is_supported_mermaid_path(path) || is_supported_canvas_path(path)
+}
+
 fn is_supported_document_path(path: &Path) -> bool {
+    if is_supported_canvas_path(path) {
+        return true;
+    }
     path.extension()
         .and_then(|value| value.to_str())
         .map(|extension| {

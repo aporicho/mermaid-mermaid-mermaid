@@ -9,12 +9,14 @@ export function normalizeWorkspaceView(value: unknown): WorkspaceView | undefine
 
 export function workspaceViewForDocument(editableKind: EditableKind, value: unknown, documentKind: DocumentKind = "mermaid"): WorkspaceView {
   const view = normalizeWorkspaceView(value);
+  if (documentKind === "canvas") return "canvas";
   if (documentKind === "markdown") return view === "source" ? "source" : "markdown";
   if (editableKind === "flowchart") return view || "canvas";
   return view === "source" ? "source" : "render";
 }
 
 export function nextWorkspaceView(current: WorkspaceView, editableKind: EditableKind, documentKind: DocumentKind = "mermaid"): WorkspaceView {
+  if (documentKind === "canvas") return "canvas";
   if (documentKind === "markdown") return current === "source" ? "markdown" : "source";
   if (editableKind !== "flowchart") return current === "source" ? "render" : "source";
   if (current === "canvas") return "render";

@@ -18,6 +18,12 @@ describe("file drop helpers", () => {
     expect(result).toMatchObject({ kind: "document", documentKind: "markdown", file: { path: "/tmp/notes.md" } });
   });
 
+  it("detects canvas document files", () => {
+    const result = classifyFileDrop([{ path: "/tmp/board.canvas.json" }]);
+
+    expect(result).toMatchObject({ kind: "document", documentKind: "canvas", file: { path: "/tmp/board.canvas.json" } });
+  });
+
   it("detects image files when no Mermaid file is present", () => {
     const result = classifyFileDrop([{ path: "/tmp/logo.svg" }]);
 

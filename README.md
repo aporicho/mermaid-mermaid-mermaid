@@ -1,6 +1,6 @@
 # Mermaid 画布编辑器
 
-这是一个本地项目文档编辑器，把 Mermaid 源码编辑、官方渲染预览、可编辑无限画布、Markdown 阅读/编辑和桌面端集成终端放在同一个工作区里。项目使用 Vite、React、TypeScript、Tailwind CSS、shadcn 风格 UI 原语、Mermaid、Milkdown、xterm.js、React Konva 和 Tauri 构建。
+这是一个本地项目文档编辑器，把 Mermaid 源码编辑、官方渲染预览、Mermaid 可编辑无限画布、Markdown 阅读/编辑、独立无限白板画布和桌面端集成终端放在同一个工作区里。项目使用 Vite、React、TypeScript、Tailwind CSS、shadcn 风格 UI 原语、Mermaid、Milkdown、xterm.js、React Konva、PixiJS 和 Tauri 构建。
 
 ## 核心能力
 
@@ -8,12 +8,13 @@
 - 在 Mermaid 源码、内部图模型和 `%% canvas-layout:` 布局注释之间保持同步。
 - 对非 flowchart 的 Mermaid 图提供只渲染模式。
 - 使用 Milkdown/Crepe 阅读和编辑 Markdown 文件。
+- 使用 `.canvas.json` 保存非 Mermaid 无限白板画布，并用 PixiJS 渲染形状、文本、图片和连线。
 - 在 `canvas-layout` 注释里保存节点位置、节点颜色、连线路由、视口和文件级主题。
 - 支持打开、保存、另存为、下载兜底、撤销、重做、复制、粘贴、节点编辑、连线编辑、创建连接和端点重连。
-- 桌面端支持项目文件夹浏览，递归展示 `.mmd` / `.mermaid` / `.md` / `.markdown` 文件，并可在多个项目文档之间切换。
-- Mermaid 支持无限画布、渲染视图和源码视图；Markdown 支持 Markdown 视图和源码视图。
+- 桌面端支持项目文件夹浏览，递归展示 `.mmd` / `.mermaid` / `.md` / `.markdown` / `.canvas.json` 文件，并可在多个项目文档之间切换。
+- Mermaid 支持无限画布、渲染视图和源码视图；Markdown 支持 Markdown 视图和源码视图；Canvas 支持独立无限白板画布。
 - 桌面端支持底部悬浮终端面板，终端在当前项目目录或当前文件目录中启动，并可在可用的受控 shell 之间切换。
-- 应用主题会同时作用于 CSS 变量、Konva 画布 token、Mermaid `themeVariables` 和终端 ANSI 16 色。
+- 应用主题会同时作用于 CSS 变量、Konva/Pixi 画布 token、Mermaid `themeVariables` 和终端 ANSI 16 色。
 
 ## 快速开始
 
@@ -41,7 +42,7 @@ http://127.0.0.1:5173
 
 ## 桌面端与智能体桥接
 
-浏览器构建是静态 Vite 应用，负责人工编辑、查看、导入和导出 Mermaid/Markdown 项目文档。桌面端在此基础上增加真实文件读写、项目文件夹扫描、图片资源导入、本地 PTY 终端和实时智能体桥接。
+浏览器构建是静态 Vite 应用，负责人工编辑、查看、导入和导出 Mermaid、Markdown 和 Canvas 项目文档。桌面端在此基础上增加真实文件读写、项目文件夹扫描、图片资源导入、本地 PTY 终端和实时智能体桥接。
 
 桌面端相关命令：
 
@@ -92,7 +93,7 @@ npm run windows:run
 - 底部中间是桌面终端入口。
 - 右下角是选择/连接模式切换。
 
-左侧面板是项目文件浏览器。桌面端会围绕当前文件或用户选择的文件夹递归扫描 Mermaid 和 Markdown 项目文档；面板本身保持简洁，不放筛选输入框。右侧面板承载 Mermaid 属性、主题和诊断。两个侧栏都以覆盖层形式浮在工作区上，不改变画布坐标系。
+左侧面板是项目文件浏览器。桌面端会围绕当前文件或用户选择的文件夹递归扫描 Mermaid、Markdown 和 `.canvas.json` 画布项目文档；面板本身保持简洁，不放筛选输入框。右侧面板承载 Mermaid 属性、主题和诊断。两个侧栏都以覆盖层形式浮在工作区上，不改变画布坐标系。
 
 终端是项目级工具面板，不属于文档视图。它从底部悬浮展开，不挤压无限画布、渲染视图、Markdown 视图或源码视图。终端默认使用项目根目录作为 cwd；没有项目文件夹时使用当前文件所在目录。桌面端会从后端提供的受控列表中选择 shell：Windows 下包括默认 shell、PowerShell、PowerShell 7、CMD 和 WSL；不存在的 shell 不会出现在下拉列表里。
 
@@ -101,6 +102,7 @@ npm run windows:run
 - flowchart 文件可在无限画布、渲染视图和源码视图之间循环。
 - 非 flowchart Mermaid 文件跳过无限画布，只在渲染视图和源码视图之间切换。
 - Markdown 文件在 Markdown 视图和源码视图之间切换。
+- Canvas 文件只进入独立无限白板画布。
 - 源码视图是独立工作区视图，不只是侧边栏；Mermaid 源码编辑提交后会刷新图模型、渲染结果和诊断，Markdown 源码编辑直接更新 Markdown 文本。
 
 ## 画布导航
@@ -183,7 +185,7 @@ src/components/ui/
   共享 UI 原语。
 
 src/features/mermaid-editor/components/
-  React UI、源码视图、渲染视图、Markdown 视图、终端面板、属性面板、浮动控件和 Konva 画布桥接。
+  React UI、源码视图、渲染视图、Markdown 视图、终端面板、属性面板、浮动控件、Konva 和 Pixi 画布桥接。
 
 src/features/mermaid-editor/lib/
   纯编辑器逻辑：解析、序列化、布局、交互状态、命中目标、
@@ -222,11 +224,11 @@ docs/
 关键边界：
 
 - `canvas-interaction.ts` 负责画布交互状态机。
-- `canvas-hit-target.ts` 负责把 Konva 图形命中转换为业务命中目标。
+- `canvas-hit-target.ts` 负责把 Mermaid Konva 图形命中转换为业务命中目标；`.canvas.json` 的 Pixi 命中使用 `canvas-document-rendering.ts`。
 - `canvas-visual-state.ts` 负责节点、连线、锚点、草稿、辅助线和选择态的视觉决策。
 - `node-geometry.ts` 负责节点 frame、文本、锚点、路由、对齐和命中测试几何。
 - `edge-geometry.ts` 负责完成连线和草稿连线路由。
-- Konva 组件只翻译事件、渲染图形、执行返回命令；不要在组件里分散业务规则。
+- Konva/Pixi 组件只翻译事件、渲染图形、执行返回命令；不要在组件里分散业务规则。
 - 浏览器和桌面平台行为必须经过 `editor-runtime.ts`；编辑器组件不要直接调用 Tauri API、浏览器文件选择 API、PTY 终端或智能体桥接 endpoint。
 - 新节点 ID 默认使用 `N1`、`N2`、`N3` 序列，除非保留用户已有 ID。
 - 新增图标按钮必须沿用圆形 `size="icon"` 规则。
@@ -235,6 +237,7 @@ docs/
 
 - `src/features/mermaid-editor/components/mermaid-editor.tsx`：顶层编辑器状态、命令、浮动控件和工作区视图。
 - `src/features/mermaid-editor/components/konva-canvas.tsx`：Konva 渲染和事件桥接。
+- `src/features/mermaid-editor/components/canvas-document-editor.tsx`：`.canvas.json` 独立无限白板的 PixiJS 渲染和事件桥接。
 - `src/features/mermaid-editor/components/terminal-panel.tsx`：xterm 终端面板、尺寸适配和终端会话事件桥接。
 - `src/features/mermaid-editor/lib/editor-runtime.ts`：Web/desktop 文件、草稿、终端和智能体桥接运行时适配。
 - `src/features/mermaid-editor/lib/mermaid-graph.ts`：Mermaid flowchart 解析与序列化。

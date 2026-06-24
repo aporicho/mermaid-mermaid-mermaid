@@ -21,6 +21,7 @@ describe("file workflow", () => {
     expect(isSupportedDocumentFilePath("notes.md")).toBe(true);
     expect(isSupportedDocumentFilePath("notes.markdown")).toBe(true);
     expect(isSupportedDocumentFilePath("diagram.mmd")).toBe(true);
+    expect(isSupportedDocumentFilePath("board.canvas.json")).toBe(true);
     expect(isSupportedDocumentFilePath("image.png")).toBe(false);
   });
 

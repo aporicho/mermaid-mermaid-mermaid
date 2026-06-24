@@ -37,6 +37,7 @@ import {
 } from "iconoir-react/regular";
 
 import { InspectorPanel } from "@/features/mermaid-editor/components/inspector-panel";
+import { CanvasDocumentEditor } from "@/features/mermaid-editor/components/canvas-document-editor";
 import { FloatingButtonCluster, FloatingChromeLayer, FloatingChromeSlot, FloatingIconButton, MotionPresence } from "@/features/mermaid-editor/components/floating-chrome";
 import { MarkdownPanel } from "@/features/mermaid-editor/components/markdown-panel";
 import { PreviewPanel } from "@/features/mermaid-editor/components/preview-panel";
@@ -148,6 +149,14 @@ import {
   type UnsavedPromptChoice
 } from "@/features/mermaid-editor/lib/desktop-close-workflow";
 import { canvasScreenToWorldPoint, classifyFileDrop, windowPointToSurfacePoint, type DropPoint } from "@/features/mermaid-editor/lib/file-drop";
+import {
+  createBlankCanvasDocument,
+  createCanvasImageElement,
+  normalizeCanvasDocument,
+  parseCanvasDocument,
+  serializeCanvasDocument,
+  type CanvasDocument
+} from "@/features/mermaid-editor/lib/canvas-document";
 
 const KonvaCanvas = lazy(() => import("@/features/mermaid-editor/components/konva-canvas").then((mod) => ({ default: mod.KonvaCanvas })));
 
@@ -204,6 +213,7 @@ const workspaceViewLabels: Record<WorkspaceView, string> = {
 };
 const FALLBACK_FILE_NAME = "diagram.mmd";
 const FALLBACK_MARKDOWN_FILE_NAME = "document.md";
+const FALLBACK_CANVAS_FILE_NAME = "board.canvas.json";
 const BLANK_FLOWCHART_SOURCE = "flowchart LR";
 const BLANK_MARKDOWN_SOURCE = "# 未命名文档\n\n";
 type PanelOpenButtonMode = "hover" | "always";
@@ -226,6 +236,7 @@ const DEFAULT_EDITOR_PREFERENCES: EditorPreferences = {
 type StoredEditor = {
   documentKind?: DocumentKind;
   source: string;
+  canvasDocument?: CanvasDocument;
   layout?: CanvasLayout;
   edgeRouting?: EdgeRouting;
   layoutMode?: LayoutMode;
@@ -277,6 +288,7 @@ type StoredEditorApplyResult = {
 type StoredEditorDraftOverrides = {
   documentKind?: DocumentKind;
   source?: string;
+  canvasDocument?: CanvasDocument;
   graph?: MermaidGraph;
   viewport?: ViewportState;
   edgeRouting?: EdgeRouting;
@@ -315,12 +327,23 @@ function createEmptyDocumentGraph(): MermaidGraph {
   };
 }
 
+function canvasDocumentFromStored(stored: Pick<StoredEditor, "canvasDocument" | "source">): CanvasDocument {
+  if (stored.canvasDocument) return normalizeCanvasDocument(stored.canvasDocument);
+  try {
+    return parseCanvasDocument(stored.source || "");
+  } catch {
+    return createBlankCanvasDocument();
+  }
+}
+
 function fallbackFileNameForKind(documentKind: DocumentKind) {
-  return documentKind === "markdown" ? FALLBACK_MARKDOWN_FILE_NAME : FALLBACK_FILE_NAME;
+  if (documentKind === "markdown") return FALLBACK_MARKDOWN_FILE_NAME;
+  if (documentKind === "canvas") return FALLBACK_CANVAS_FILE_NAME;
+  return FALLBACK_FILE_NAME;
 }
 
 function normalizeStoredDocumentKind(value: unknown, fileName?: string, filePath?: string): DocumentKind {
-  if (value === "markdown" || value === "mermaid") return value;
+  if (value === "markdown" || value === "mermaid" || value === "canvas") return value;
   return documentKindFromPath(filePath || fileName) || "mermaid";
 }
 
@@ -335,6 +358,7 @@ function loadInitialState() {
     return {
       documentKind: "mermaid" as DocumentKind,
       source: fallbackSource,
+      canvasDocument: createBlankCanvasDocument(),
       graph: fallbackGraph,
       diagramType: fallbackDocument.diagramType,
       editableKind: fallbackDocument.editableKind,
@@ -378,6 +402,7 @@ function loadInitialState() {
       return {
         documentKind: "markdown" as DocumentKind,
         source: stored.source || BLANK_MARKDOWN_SOURCE,
+        canvasDocument: createBlankCanvasDocument(),
         graph: createEmptyDocumentGraph(),
         diagramType: "unknown" as DiagramType,
         editableKind: "render-only" as EditableKind,
@@ -407,6 +432,47 @@ function loadInitialState() {
         preferences
       };
     }
+    if (storedDocumentKind === "canvas") {
+      const preferences = normalizeEditorPreferences(stored.preferences);
+      const projectWorkspace = normalizeProjectWorkspace(stored.projectWorkspace);
+      const recentFiles = normalizeRecentFiles(stored.recentFiles);
+      const viewFilters = normalizeViewFilters(stored.viewFilters, { showGrid: stored.showGrid, showEdges: stored.showEdges });
+      const canvasDocument = canvasDocumentFromStored(stored);
+      const fileName = ensureRuntimeDocumentFileName(stored.fileName || stored.fileRef?.name || FALLBACK_CANVAS_FILE_NAME, "canvas");
+
+      return {
+        documentKind: "canvas" as DocumentKind,
+        source: serializeCanvasDocument(canvasDocument),
+        canvasDocument,
+        graph: createEmptyDocumentGraph(),
+        diagramType: "unknown" as DiagramType,
+        editableKind: "render-only" as EditableKind,
+        viewport: canvasDocument.viewport || fallbackViewport,
+        edgeRouting: DEFAULT_EDGE_ROUTING,
+        layoutMode: DEFAULT_LAYOUT_MODE,
+        leftCollapsed: shouldCollapseExplorerOnStartup({
+          startWithPanelsCollapsed: preferences.startWithPanelsCollapsed,
+          storedCollapsed: stored.leftCollapsed,
+          projectWorkspace,
+          recentFiles,
+          fileRef: stored.fileRef || null,
+          fileName,
+          fallbackFileName: FALLBACK_CANVAS_FILE_NAME
+        }),
+        rightCollapsed: true,
+        workspaceView: "canvas" as WorkspaceView,
+        viewFilters,
+        fileName,
+        fileRef: stored.fileRef || null,
+        recentFiles,
+        projectWorkspace,
+        lastSavedDocument: stored.lastSavedDocument || "",
+        fileTheme: null,
+        themeId: normalizeThemeId(stored.themeId),
+        customTheme: stored.customTheme ? normalizeEditorTheme(stored.customTheme) : null,
+        preferences
+      };
+    }
     const loaded = loadMermaidDocument(stored.source);
     const legacyLayout = parseCanvasLayout(stored.source);
     const source = loaded.source;
@@ -432,6 +498,7 @@ function loadInitialState() {
     return {
       documentKind: "mermaid" as DocumentKind,
       source,
+      canvasDocument: createBlankCanvasDocument(),
       graph: resolvedGraph,
       diagramType: loaded.diagramType,
       editableKind: loaded.editableKind,
@@ -464,6 +531,7 @@ function loadInitialState() {
     return {
       documentKind: "mermaid" as DocumentKind,
       source: fallbackSource,
+      canvasDocument: createBlankCanvasDocument(),
       graph: fallbackGraph,
       diagramType: fallbackDocument.diagramType,
       editableKind: fallbackDocument.editableKind,
@@ -659,6 +727,7 @@ export function MermaidEditor() {
   const initial = useMemo(loadInitialState, []);
   const [documentKind, setDocumentKind] = useState<DocumentKind>(initial.documentKind);
   const [source, setSource] = useState(initial.source);
+  const [canvasDocument, setCanvasDocument] = useState<CanvasDocument>(initial.canvasDocument);
   const [graph, setGraph] = useState<MermaidGraph>(initial.graph);
   const [diagramType, setDiagramType] = useState<DiagramType>(initial.diagramType);
   const [editableKind, setEditableKind] = useState<EditableKind>(initial.editableKind);
@@ -726,8 +795,12 @@ export function MermaidEditor() {
   }));
 
   const currentDocument = useMemo(
-    () => (documentKind === "markdown" ? source : buildMermaidDocument(source, graph, viewport, edgeRouting, layoutMode, fileTheme)),
-    [documentKind, source, graph, viewport, edgeRouting, layoutMode, fileTheme]
+    () => {
+      if (documentKind === "markdown") return source;
+      if (documentKind === "canvas") return serializeCanvasDocument(canvasDocument);
+      return buildMermaidDocument(source, graph, viewport, edgeRouting, layoutMode, fileTheme);
+    },
+    [canvasDocument, documentKind, source, graph, viewport, edgeRouting, layoutMode, fileTheme]
   );
   const previewSource = useMemo(
     () =>
@@ -989,7 +1062,7 @@ export function MermaidEditor() {
 
     if (command.type === "source.refreshGraph") {
       if (documentKind !== "mermaid") {
-        setStatus("Markdown 不需要刷新画布。");
+        setStatus(`${documentKindLabel(documentKind)} 不需要刷新 Mermaid 画布。`);
         return;
       }
       flushSourceHistory();
@@ -1082,6 +1155,7 @@ export function MermaidEditor() {
     if (next.documentKind === "markdown") {
       setDocumentKind("markdown");
       setSource(next.source);
+      setCanvasDocument(createBlankCanvasDocument());
       setGraph(createEmptyDocumentGraph());
       setDiagramType("unknown");
       setEditableKind("render-only");
@@ -1097,6 +1171,7 @@ export function MermaidEditor() {
     const loaded = loadMermaidDocument(next.source, next.graph);
     setDocumentKind("mermaid");
     setSource(next.source);
+    setCanvasDocument(createBlankCanvasDocument());
     setGraph(next.graph);
     setDiagramType(loaded.diagramType);
     setEditableKind(loaded.editableKind);
@@ -1206,6 +1281,7 @@ export function MermaidEditor() {
     const startedSourceEdit = !sourceEditBaseRef.current;
     if (!sourceEditBaseRef.current) sourceEditBaseRef.current = snapshot();
     setSource(nextSource);
+    setCanvasDocument(createBlankCanvasDocument());
     setGraph(createEmptyDocumentGraph());
     setDiagramType("unknown");
     setEditableKind("render-only");
@@ -1217,6 +1293,22 @@ export function MermaidEditor() {
     sourceEditTimerRef.current = window.setTimeout(() => {
       flushSourceHistory();
     }, 700);
+  }
+
+  function applyCanvasDocument(nextDocument: CanvasDocument, message?: string) {
+    const normalized = normalizeCanvasDocument(nextDocument);
+    setCanvasDocument(normalized);
+    setSource(serializeCanvasDocument(normalized));
+    setViewport(normalized.viewport);
+    setGraph(createEmptyDocumentGraph());
+    setDiagramType("unknown");
+    setEditableKind("render-only");
+    setSelection(emptySelection);
+    setDiagnostics([]);
+    if (message) {
+      setStatus(message);
+      recordRecentAction("canvas.edit", { kind: "canvas" }, message);
+    }
   }
 
   function addNode() {
@@ -1443,6 +1535,7 @@ export function MermaidEditor() {
   function buildStoredEditorDraft(overrides: StoredEditorDraftOverrides = {}): StoredEditor {
     const draftDocumentKind = overrides.documentKind ?? documentKind;
     const draftSource = overrides.source ?? source;
+    const draftCanvasDocument = overrides.canvasDocument ?? canvasDocument;
     const draftGraph = overrides.graph ?? graph;
     const draftViewport = overrides.viewport ?? viewport;
     const draftEdgeRouting = overrides.edgeRouting ?? edgeRouting;
@@ -1455,11 +1548,12 @@ export function MermaidEditor() {
 
     return {
       documentKind: draftDocumentKind,
-      source: draftSource,
+      source: draftDocumentKind === "canvas" ? serializeCanvasDocument(draftCanvasDocument) : draftSource,
+      ...(draftDocumentKind === "canvas" ? { canvasDocument: draftCanvasDocument } : {}),
       ...(draftDocumentKind === "mermaid"
         ? { layout: layoutFromGraph(draftGraph, draftViewport, draftEdgeRouting, draftLayoutMode, draftFileTheme) }
         : {}),
-      viewport: draftViewport,
+      viewport: draftDocumentKind === "canvas" ? draftCanvasDocument.viewport : draftViewport,
       edgeRouting: draftEdgeRouting,
       layoutMode: draftLayoutMode,
       leftCollapsed,
@@ -1492,6 +1586,24 @@ export function MermaidEditor() {
         fileRef: keepCurrentFile ? fileRef : null,
         lastSavedDocument: keepCurrentFile ? lastSavedDocument : BLANK_MARKDOWN_SOURCE,
         workspaceView: workspaceViewForDocument("render-only", workspaceView, "markdown")
+      });
+      return;
+    }
+
+    if (documentKind === "canvas") {
+      const keepCurrentFile = Boolean(lastSavedDocument?.trim());
+      const cleanDocument = keepCurrentFile ? parseCanvasDocument(lastSavedDocument) : createBlankCanvasDocument();
+      const cleanSource = serializeCanvasDocument(cleanDocument);
+      await persistStoredEditorDraft({
+        documentKind: "canvas",
+        source: cleanSource,
+        canvasDocument: cleanDocument,
+        graph: createEmptyDocumentGraph(),
+        viewport: cleanDocument.viewport,
+        fileName: keepCurrentFile ? fileName : FALLBACK_CANVAS_FILE_NAME,
+        fileRef: keepCurrentFile ? fileRef : null,
+        lastSavedDocument: cleanSource,
+        workspaceView: "canvas"
       });
       return;
     }
@@ -1574,11 +1686,48 @@ export function MermaidEditor() {
   function applyLoadedDocument(text: string, name: string, file: RuntimeFileRef | null, source: FileOpenSource = "picker") {
     flushSourceHistory();
     const nextDocumentKind = documentKindFromPath(file?.path || name) || "mermaid";
+    if (nextDocumentKind === "canvas") {
+      let nextCanvasDocument = createBlankCanvasDocument();
+      try {
+        nextCanvasDocument = parseCanvasDocument(text);
+      } catch (error) {
+        showFileWorkflowError({ code: "read_failed", message: `画布 JSON 解析失败：${readableError(error)}`, path: file?.path }, "打开画布失败。");
+        return;
+      }
+      const savedDocument = serializeCanvasDocument(nextCanvasDocument);
+
+      setDocumentKind("canvas");
+      setSource(savedDocument);
+      setCanvasDocument(nextCanvasDocument);
+      setGraph(createEmptyDocumentGraph());
+      setDiagramType("unknown");
+      setEditableKind("render-only");
+      setViewport(nextCanvasDocument.viewport);
+      setEdgeRouting(DEFAULT_EDGE_ROUTING);
+      setLayoutMode(DEFAULT_LAYOUT_MODE);
+      setWorkspaceView("canvas");
+      setSelection(emptySelection);
+      setDiagnostics([]);
+      setHistory(createHistory());
+      setFileName(ensureEditorDocumentFileName(name, "canvas"));
+      setFileTheme(null);
+      setFileRef(file);
+      setLastSavedDocument(savedDocument);
+      isDirtyRef.current = false;
+      setRecentFiles((current) => upsertRecentFile(current, file));
+      setFileWorkflowError(null);
+      setStatus(`已打开 ${name}。`);
+      recordRecentAction(source === "restore" ? "document.restore" : "document.open", { kind: "document" }, `打开 ${name}。`);
+      if (source !== "restore") void syncWorkspaceForOpenedFile(file);
+      return;
+    }
+
     if (nextDocumentKind === "markdown") {
       const savedDocument = text;
 
       setDocumentKind("markdown");
       setSource(text);
+      setCanvasDocument(createBlankCanvasDocument());
       setGraph(createEmptyDocumentGraph());
       setDiagramType("unknown");
       setEditableKind("render-only");
@@ -1612,6 +1761,7 @@ export function MermaidEditor() {
 
     setDocumentKind("mermaid");
     setSource(loaded.source);
+    setCanvasDocument(createBlankCanvasDocument());
     setGraph(loadedGraph);
     setDiagramType(loaded.diagramType);
     setEditableKind(loaded.editableKind);
@@ -1669,6 +1819,60 @@ export function MermaidEditor() {
   function applyStoredEditorState(stored: StoredEditor) {
     flushSourceHistory();
     const storedDocumentKind = normalizeStoredDocumentKind(stored.documentKind, stored.fileName, stored.fileRef?.path);
+    if (storedDocumentKind === "canvas") {
+      const nextPreferences = normalizeEditorPreferences(stored.preferences);
+      const nextViewFilters = normalizeViewFilters(stored.viewFilters, { showGrid: stored.showGrid, showEdges: stored.showEdges });
+      const nextProjectWorkspace = normalizeProjectWorkspace(stored.projectWorkspace);
+      const nextRecentFiles = normalizeRecentFiles(stored.recentFiles);
+      const nextCanvasDocument = canvasDocumentFromStored(stored);
+      const nextSource = serializeCanvasDocument(nextCanvasDocument);
+      const nextFileName = ensureEditorDocumentFileName(stored.fileName || stored.fileRef?.name || FALLBACK_CANVAS_FILE_NAME, "canvas");
+
+      setDocumentKind("canvas");
+      setSource(nextSource);
+      setCanvasDocument(nextCanvasDocument);
+      setGraph(createEmptyDocumentGraph());
+      setDiagramType("unknown");
+      setEditableKind("render-only");
+      setViewport(nextCanvasDocument.viewport);
+      setEdgeRouting(DEFAULT_EDGE_ROUTING);
+      setLayoutMode(DEFAULT_LAYOUT_MODE);
+      setLeftCollapsed(shouldCollapseExplorerOnStartup({
+        startWithPanelsCollapsed: nextPreferences.startWithPanelsCollapsed,
+        storedCollapsed: stored.leftCollapsed,
+        projectWorkspace: nextProjectWorkspace,
+        recentFiles: nextRecentFiles,
+        fileRef: stored.fileRef || null,
+        fileName: nextFileName,
+        fallbackFileName: FALLBACK_CANVAS_FILE_NAME
+      }));
+      setRightCollapsed(true);
+      setWorkspaceView("canvas");
+      setViewFilters(nextViewFilters);
+      setSelection(emptySelection);
+      setDiagnostics([]);
+      setHistory(createHistory());
+      setFileName(nextFileName);
+      setFileRef(stored.fileRef || null);
+      setRecentFiles(nextRecentFiles);
+      setProjectWorkspace(nextProjectWorkspace);
+      setLastSavedDocument(stored.lastSavedDocument || "");
+      isDirtyRef.current = !stored.lastSavedDocument || nextSource !== stored.lastSavedDocument;
+      setFileTheme(null);
+      setThemeId(normalizeThemeId(stored.themeId));
+      setCustomTheme(stored.customTheme ? normalizeEditorTheme(stored.customTheme) : null);
+      setPreferences(nextPreferences);
+      setFileWorkflowError(null);
+
+      return {
+        documentKind: "canvas" as DocumentKind,
+        currentDocument: nextSource,
+        fileRef: stored.fileRef || null,
+        lastSavedDocument: stored.lastSavedDocument || "",
+        preferences: nextPreferences
+      };
+    }
+
     if (storedDocumentKind === "markdown") {
       const nextPreferences = normalizeEditorPreferences(stored.preferences);
       const nextViewFilters = normalizeViewFilters(stored.viewFilters, { showGrid: stored.showGrid, showEdges: stored.showEdges });
@@ -1679,6 +1883,7 @@ export function MermaidEditor() {
 
       setDocumentKind("markdown");
       setSource(nextSource);
+      setCanvasDocument(createBlankCanvasDocument());
       setGraph(createEmptyDocumentGraph());
       setDiagramType("unknown");
       setEditableKind("render-only");
@@ -1745,6 +1950,7 @@ export function MermaidEditor() {
 
     setDocumentKind("mermaid");
     setSource(loaded.source);
+    setCanvasDocument(createBlankCanvasDocument());
     setGraph(resolvedGraph);
     setDiagramType(loaded.diagramType);
     setEditableKind(loaded.editableKind);
@@ -1812,6 +2018,7 @@ export function MermaidEditor() {
 
     setDocumentKind("mermaid");
     setSource(nextSource);
+    setCanvasDocument(createBlankCanvasDocument());
     setGraph(nextGraph);
     setDiagramType("flowchart");
     setEditableKind("flowchart");
@@ -1859,6 +2066,7 @@ export function MermaidEditor() {
 
     setDocumentKind("markdown");
     setSource(BLANK_MARKDOWN_SOURCE);
+    setCanvasDocument(createBlankCanvasDocument());
     setGraph(nextGraph);
     setDiagramType("unknown");
     setEditableKind("render-only");
@@ -1892,6 +2100,56 @@ export function MermaidEditor() {
         fileRef: null,
         lastSavedDocument: "",
         workspaceView: "markdown"
+      });
+    } catch {
+      // New document state is already applied; draft persistence is best-effort.
+    }
+  }
+
+  async function newCanvasFile() {
+    if (!(await prepareFileSwitch(FALLBACK_CANVAS_FILE_NAME))) return;
+
+    flushSourceHistory();
+    const nextCanvasDocument = createBlankCanvasDocument();
+    const nextSource = serializeCanvasDocument(nextCanvasDocument);
+
+    setDocumentKind("canvas");
+    setSource(nextSource);
+    setCanvasDocument(nextCanvasDocument);
+    setGraph(createEmptyDocumentGraph());
+    setDiagramType("unknown");
+    setEditableKind("render-only");
+    setViewport(nextCanvasDocument.viewport);
+    setEdgeRouting(DEFAULT_EDGE_ROUTING);
+    setLayoutMode(DEFAULT_LAYOUT_MODE);
+    setWorkspaceView("canvas");
+    setViewFilters(DEFAULT_VIEW_FILTERS);
+    setSelection(emptySelection);
+    setDiagnostics([]);
+    setHistory(createHistory());
+    setFileName(FALLBACK_CANVAS_FILE_NAME);
+    setFileRef(null);
+    setFileTheme(null);
+    setLastSavedDocument("");
+    isDirtyRef.current = true;
+    setFileWorkflowError(null);
+    setStatus("已新建空白无限画布文件。");
+    recordRecentAction("document.new", { kind: "document" }, "新建空白无限画布文件。");
+
+    try {
+      await persistStoredEditorDraft({
+        documentKind: "canvas",
+        source: nextSource,
+        canvasDocument: nextCanvasDocument,
+        graph: createEmptyDocumentGraph(),
+        viewport: nextCanvasDocument.viewport,
+        edgeRouting: DEFAULT_EDGE_ROUTING,
+        layoutMode: DEFAULT_LAYOUT_MODE,
+        fileTheme: null,
+        fileName: FALLBACK_CANVAS_FILE_NAME,
+        fileRef: null,
+        lastSavedDocument: "",
+        workspaceView: "canvas"
       });
     } catch {
       // New document state is already applied; draft persistence is best-effort.
@@ -2018,7 +2276,7 @@ export function MermaidEditor() {
       return { message: `释放以打开 ${documentKindLabel(classification.documentKind)} 文件`, tone: "ready", position: localPosition };
     }
     if (classification.kind === "image") {
-      if (!isCanvasEditable || workspaceView !== "canvas") {
+      if ((!isCanvasEditable && documentKind !== "canvas") || workspaceView !== "canvas") {
         return { message: "请切换到无限画布后拖入图片", tone: "blocked", position: localPosition };
       }
       return {
@@ -2047,7 +2305,7 @@ export function MermaidEditor() {
   }
 
   async function importImageAssetRequest(file: RuntimeFileOpenRequest, dropPosition?: DropPoint) {
-    if (!isCanvasEditable || workspaceView !== "canvas") {
+    if ((!isCanvasEditable && documentKind !== "canvas") || workspaceView !== "canvas") {
       showFileWorkflowError(
         {
           code: "unsupported_type",
@@ -2076,13 +2334,25 @@ export function MermaidEditor() {
           showFileWorkflowError({ code: "unsupported_type", message: result.message, path: file.path }, "文件类型不支持。");
         }
         if (result.status === "needs-document") {
-          showFileWorkflowError({ code: "unsupported_type", message: "请先保存 Mermaid 文件，再拖入本地图片。", path: file.path }, "无法导入图片。");
+          showFileWorkflowError({ code: "unsupported_type", message: "请先保存当前文档，再拖入本地图片。", path: file.path }, "无法导入图片。");
         }
         return;
       }
 
       const dimensions = await loadImageDimensions(result.displaySrc);
       const point = windowPointToCanvasWorldPoint(dropPosition) || viewportCenterPoint(viewport, canvasLiveState.canvasSize);
+      if (documentKind === "canvas") {
+        const element = createCanvasImageElement(
+          canvasDocument.elements,
+          point.x - dimensions.width / 2,
+          point.y - dimensions.height / 2,
+          result.src,
+          dimensions.width,
+          dimensions.height
+        );
+        applyCanvasDocument({ ...canvasDocument, elements: [...canvasDocument.elements, element] }, result.copied ? "已复制并添加拖入的图片。" : "已添加拖入的图片。");
+        return;
+      }
       applyEditorCommand({
         type: "graph.addImageNodeAt",
         point,
@@ -2522,9 +2792,10 @@ export function MermaidEditor() {
       incrementPerformanceCounter("local-storage-write");
       void runtime.saveDraft({
           documentKind,
-          source,
+          source: documentKind === "canvas" ? serializeCanvasDocument(canvasDocument) : source,
+          ...(documentKind === "canvas" ? { canvasDocument } : {}),
           ...(documentKind === "mermaid" ? { layout: layoutFromGraph(graph, viewport, edgeRouting, layoutMode, fileTheme) } : {}),
-          viewport,
+          viewport: documentKind === "canvas" ? canvasDocument.viewport : viewport,
           edgeRouting,
           layoutMode,
           leftCollapsed,
@@ -2546,7 +2817,7 @@ export function MermaidEditor() {
     return () => {
       if (storageWriteTimerRef.current) window.clearTimeout(storageWriteTimerRef.current);
     };
-  }, [documentKind, source, graph, viewport, edgeRouting, layoutMode, leftCollapsed, rightCollapsed, workspaceView, viewFilters, fileName, fileRef, fileTheme, recentFiles, projectWorkspace, lastSavedDocument, themeId, customTheme, preferences, runtime, draftPersistenceReady]);
+  }, [canvasDocument, documentKind, source, graph, viewport, edgeRouting, layoutMode, leftCollapsed, rightCollapsed, workspaceView, viewFilters, fileName, fileRef, fileTheme, recentFiles, projectWorkspace, lastSavedDocument, themeId, customTheme, preferences, runtime, draftPersistenceReady]);
 
   useEffect(() => {
     if (aiContextPostTimerRef.current) window.clearTimeout(aiContextPostTimerRef.current);
@@ -2727,7 +2998,7 @@ export function MermaidEditor() {
   return (
     <EditorMotionProvider value={resolvedMotion}>
     <TooltipProvider delayDuration={180}>
-      <input ref={fileInputRef} type="file" accept=".mmd,.mermaid,.md,.markdown,text/plain" className="hidden" onChange={openFallbackFile} />
+      <input ref={fileInputRef} type="file" accept=".mmd,.mermaid,.md,.markdown,.canvas.json,text/plain,application/json" className="hidden" onChange={openFallbackFile} />
       <main className="relative h-screen overflow-hidden bg-background">
         <h1 className="sr-only">Mermaid Canvas Editor</h1>
         <MotionPresence
@@ -2737,7 +3008,15 @@ export function MermaidEditor() {
           className="absolute inset-0 z-0"
         >
         <div ref={workspaceSurfaceRef} className="h-full min-h-0">
-          {workspaceView === "canvas" && isCanvasEditable ? (
+          {documentKind === "canvas" ? (
+            <CanvasDocumentEditor
+              document={canvasDocument}
+              fileRef={fileRef}
+              runtime={runtime}
+              onChange={applyCanvasDocument}
+              onStatus={setStatus}
+            />
+          ) : workspaceView === "canvas" && isCanvasEditable ? (
             <Suspense fallback={<div className="grid min-h-0 place-items-center bg-card text-sm text-muted-foreground">正在载入画布</div>}>
               <KonvaCanvas
                 graph={graph}
@@ -2832,6 +3111,7 @@ export function MermaidEditor() {
               onOpenChange={updateFileMenuOpen}
               onNewMermaidFile={() => void newMermaidFile()}
               onNewMarkdownFile={() => void newMarkdownFile()}
+              onNewCanvasFile={() => void newCanvasFile()}
               onOpenFile={() => void openMermaidFile()}
               onOpenRecent={(file) => void openRecentFile(file)}
               onOpenProject={() => void openProjectFolder()}
@@ -2860,6 +3140,7 @@ export function MermaidEditor() {
             </FloatingChromeSlot>
           ) : null}
 
+          {documentKind !== "canvas" ? (
           <FloatingChromeSlot placement="rightView">
             <WorkspaceViewCluster
               workspaceView={workspaceView}
@@ -2869,6 +3150,7 @@ export function MermaidEditor() {
               onChange={changeWorkspaceView}
             />
           </FloatingChromeSlot>
+          ) : null}
 
           {documentKind === "mermaid" ? (
           <FloatingChromeSlot placement="rightFilter" pinned={viewFiltersOpen}>
@@ -2916,6 +3198,7 @@ export function MermaidEditor() {
               layoutMode={layoutMode}
               preferences={preferences}
               editable={isCanvasEditable}
+              documentKind={documentKind}
               onOpenChange={updateSecondaryActionsOpen}
               onAddNode={addNode}
               onAddImageNode={() => void addImageNode()}
@@ -2927,7 +3210,10 @@ export function MermaidEditor() {
               onPreferencesChange={updatePreferences}
               onRefreshSource={refreshFromSource}
               onSyncAutoLayout={() => applyEditorCommand({ type: "layout.syncAuto", source: "menu" })}
-              onResetView={() => updateViewport({ x: 160, y: 90, scale: 1 }, "menu")}
+              onResetView={() => {
+                if (documentKind === "canvas") applyCanvasDocument({ ...canvasDocument, viewport: { x: 160, y: 90, scale: 1 } }, "已重置画布视图。");
+                else updateViewport({ x: 160, y: 90, scale: 1 }, "menu");
+              }}
               onOpenThemeSettings={openThemeSettings}
             />
           </FloatingChromeSlot>
@@ -3380,6 +3666,7 @@ function FileMenu({
   onOpenChange,
   onNewMermaidFile,
   onNewMarkdownFile,
+  onNewCanvasFile,
   onOpenFile,
   onOpenRecent,
   onOpenProject,
@@ -3394,6 +3681,7 @@ function FileMenu({
   onOpenChange: (open: boolean) => void;
   onNewMermaidFile: () => void;
   onNewMarkdownFile: () => void;
+  onNewCanvasFile: () => void;
   onOpenFile: () => void;
   onOpenRecent: (file: RecentFileEntry) => void;
   onOpenProject: () => void;
@@ -3424,6 +3712,10 @@ function FileMenu({
             <Button variant="ghost" className={EDITOR_CHROME_CLASSES.menuRow} onClick={() => runAndClose(onNewMarkdownFile)}>
               <Text className="size-4" />
               新建 Markdown
+            </Button>
+            <Button variant="ghost" className={EDITOR_CHROME_CLASSES.menuRow} onClick={() => runAndClose(onNewCanvasFile)}>
+              <FrameSimple className="size-4" />
+              新建无限画布
             </Button>
             <Button variant="ghost" className={EDITOR_CHROME_CLASSES.menuRow} onClick={() => runAndClose(onOpenFile)}>
               <Folder className="size-4" />
@@ -3661,6 +3953,7 @@ function SecondaryActionsMenu({
   layoutMode,
   preferences,
   editable,
+  documentKind,
   onOpenChange,
   onAddNode,
   onAddImageNode,
@@ -3681,6 +3974,7 @@ function SecondaryActionsMenu({
   layoutMode: LayoutMode;
   preferences: EditorPreferences;
   editable: boolean;
+  documentKind: DocumentKind;
   onOpenChange: (open: boolean) => void;
   onAddNode: () => void;
   onAddImageNode: () => void;
@@ -3696,6 +3990,7 @@ function SecondaryActionsMenu({
   onOpenThemeSettings: () => void;
 }) {
   const menuRef = useDismissableFloatingMenu<HTMLDivElement>({ open, onOpenChange });
+  const isCanvasDocument = documentKind === "canvas";
 
   function runAndClose(action: () => void) {
     action();
@@ -3883,7 +4178,7 @@ function SecondaryActionsMenu({
               <ColorWheel className="size-4" />
               主题
             </Button>
-            <Button variant="ghost" className={EDITOR_CHROME_CLASSES.menuRow} onClick={() => runAndClose(onRefreshSource)}>
+            <Button variant="ghost" className={cn(EDITOR_CHROME_CLASSES.menuRow, "disabled:opacity-40")} disabled={documentKind !== "mermaid"} onClick={() => runAndClose(onRefreshSource)}>
               <RefreshCw className="size-4" />
               从源码刷新
             </Button>
@@ -3900,7 +4195,7 @@ function SecondaryActionsMenu({
               variant="ghost"
               className={cn(EDITOR_CHROME_CLASSES.menuRow, "disabled:opacity-40")}
               onClick={() => runAndClose(onResetView)}
-              disabled={!editable}
+              disabled={!editable && !isCanvasDocument}
             >
               <Maximize2 className="size-4" />
               重置画布视图

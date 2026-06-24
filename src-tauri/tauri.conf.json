@@ -48,6 +48,13 @@
         "description": "Mermaid diagram source file",
         "role": "Editor",
         "mimeType": "text/plain"
+      },
+      {
+        "ext": ["canvas.json"],
+        "name": "MMM Canvas",
+        "description": "MMM infinite canvas document",
+        "role": "Editor",
+        "mimeType": "application/json"
       }
     ],
     "shortDescription": "Mermaid editor and AI collaboration canvas",
