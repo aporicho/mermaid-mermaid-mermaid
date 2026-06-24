@@ -1,9 +1,31 @@
 import type { EditorMode, Selection, ViewportState } from "@/features/mermaid-editor/lib/editor-types";
+import {
+  beginStandardCanvasPointer,
+  dispatchStandardCanvasClick,
+  dispatchStandardCanvasDoubleClick,
+  dispatchStandardCanvasPointerDown,
+  dispatchStandardCanvasPointerMove,
+  dispatchStandardCanvasPointerUp,
+  isStandardEditingInteraction,
+  isStandardPanningButton,
+  movedBeyondThreshold as movedBeyondStandardThreshold,
+  resolveStandardBlankClick,
+  standardHasSelection,
+  standardIdleInteraction,
+  standardInteractionCursor,
+  standardSelectionVersionKey,
+  updateStandardCanvasPointer,
+  type StandardBlankClickIntent,
+  type StandardCanvasDispatchResult,
+  type StandardCanvasHitTarget,
+  type StandardCanvasInteractionCommand,
+  type StandardCanvasInteractionState,
+  type StandardCanvasPoint,
+  type StandardCanvasRect,
+  type StandardCanvasSelection
+} from "@/features/mermaid-editor/lib/canvas-interaction-standard";
 
-export type CanvasPoint = {
-  x: number;
-  y: number;
-};
+export type CanvasPoint = StandardCanvasPoint;
 
 export type HitTarget =
   | { kind: "blank" }
@@ -59,15 +81,7 @@ export type InteractionState =
   | { kind: "editingNodeText"; nodeId: string }
   | { kind: "editingEdgeLabel"; edgeId: string };
 
-export type BlankClickIntent = {
-  target: "blank";
-  pointerId: number;
-  screen: CanvasPoint;
-  world: CanvasPoint;
-  time: number;
-  selectionVersion: number;
-  interactionGeneration: number;
-};
+export type BlankClickIntent = StandardBlankClickIntent;
 
 export type PointerDownInput = {
   state: InteractionState;
@@ -99,12 +113,7 @@ export type BlankClickResolution =
   | { action: "record"; intent: BlankClickIntent }
   | { action: "addNode"; intent: null; point: CanvasPoint };
 
-export type CanvasRect = {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-};
+export type CanvasRect = StandardCanvasRect;
 
 export type InlineEditCommandTarget = { type: "node" | "edge"; id: string };
 
@@ -133,235 +142,62 @@ export const CANVAS_DRAG_THRESHOLD_PX = 4;
 export const BLANK_DOUBLE_CLICK_MS = 360;
 export const BLANK_DOUBLE_CLICK_DISTANCE_PX = 8;
 
-export const idleInteraction: InteractionState = { kind: "idle" };
+export const idleInteraction: InteractionState = fromStandardState(standardIdleInteraction);
 
 export function hasSelection(selection: Selection) {
-  return selection.nodeIds.length > 0 || selection.edgeIds.length > 0 || (selection.subgraphIds?.length || 0) > 0;
+  return standardHasSelection(toStandardSelection(selection));
 }
 
 export function selectionVersionKey(selection: Selection) {
-  return [...selection.nodeIds, "|", ...selection.edgeIds, "|", ...(selection.subgraphIds || [])].join(",");
+  return standardSelectionVersionKey(toStandardSelection(selection));
 }
 
 export function isPanningButton(button: number) {
-  return button === 1 || button === 2;
+  return isStandardPanningButton(button);
 }
 
 export function beginCanvasPointer(input: PointerDownInput): InteractionTransition {
-  if (input.state.kind !== "idle") {
-    return { state: input.state, clearBlankClickIntent: true };
-  }
+  const transition = beginStandardCanvasPointer({
+    ...input,
+    state: toStandardState(input.state),
+    hit: toStandardHitTarget(input.hit)
+  });
 
-  if (isPanningButton(input.button) || input.panningRequested) {
-    return {
-      state: {
-        kind: "panning",
-        pointerId: 0,
-        startScreen: input.screen,
-        originViewport: input.viewport
-      },
-      clearBlankClickIntent: true
-    };
-  }
-
-  if (input.button !== 0) {
-    return { state: input.state, clearBlankClickIntent: true };
-  }
-
-  if (input.tool === "select") {
-    if (input.hit.kind === "blank") {
-      return {
-        state: {
-          kind: "pendingBlankPointer",
-          pointerId: 0,
-          startScreen: input.screen,
-          startWorld: input.world,
-          startedAt: input.now,
-          selectionVersion: input.selectionVersion
-        },
-        clearBlankClickIntent: false
-      };
-    }
-
-    if (input.hit.kind === "node") {
-      return {
-        state: {
-          kind: "pendingNodePointer",
-          nodeId: input.hit.id,
-          pointerId: 0,
-          startScreen: input.screen,
-          startWorld: input.world,
-          startedAt: input.now,
-          selectionVersion: input.selectionVersion
-        },
-        clearBlankClickIntent: true
-      };
-    }
-
-    if (input.hit.kind === "nodeAnchor") {
-      return {
-        state: {
-          kind: "connectingEdge",
-          pointerId: 0,
-          fromId: input.hit.nodeId,
-          fromAnchor: input.hit.anchor,
-          startWorld: input.world,
-          currentWorld: input.world
-        },
-        clearBlankClickIntent: true
-      };
-    }
-
-    if (input.hit.kind === "subgraph") {
-      return {
-        state: {
-          kind: "pendingSubgraphPointer",
-          subgraphId: input.hit.id,
-          pointerId: 0,
-          startScreen: input.screen,
-          startWorld: input.world,
-          startedAt: input.now,
-          selectionVersion: input.selectionVersion
-        },
-        clearBlankClickIntent: true
-      };
-    }
-
-    if (input.hit.kind === "subgraphAnchor") {
-      return {
-        state: {
-          kind: "connectingEdge",
-          pointerId: 0,
-          fromId: input.hit.subgraphId,
-          fromAnchor: input.hit.anchor,
-          startWorld: input.world,
-          currentWorld: input.world
-        },
-        clearBlankClickIntent: true
-      };
-    }
-
-    if (input.hit.kind === "edgeEndpoint") {
-      return {
-        state: {
-          kind: "retargetingEdge",
-          pointerId: 0,
-          edgeId: input.hit.edgeId,
-          side: input.hit.side,
-          currentWorld: input.world
-        },
-        clearBlankClickIntent: true
-      };
-    }
-  }
-
-  if (input.tool === "connect" && (input.hit.kind === "node" || input.hit.kind === "nodeAnchor" || input.hit.kind === "subgraph" || input.hit.kind === "subgraphAnchor")) {
-    const fromId =
-      input.hit.kind === "node"
-        ? input.hit.id
-        : input.hit.kind === "nodeAnchor"
-          ? input.hit.nodeId
-          : input.hit.kind === "subgraph"
-            ? input.hit.id
-            : input.hit.subgraphId;
-    const fromAnchor = input.hit.kind === "nodeAnchor" || input.hit.kind === "subgraphAnchor" ? input.hit.anchor : undefined;
-
-    return {
-      state: {
-        kind: "connectingEdge",
-        pointerId: 0,
-        fromId,
-        ...(fromAnchor ? { fromAnchor } : {}),
-        startWorld: input.world,
-        currentWorld: input.world
-      },
-      clearBlankClickIntent: true
-    };
-  }
-
-  return { state: input.state, clearBlankClickIntent: input.hit.kind !== "blank" };
+  return {
+    state: fromStandardState(transition.state),
+    clearBlankClickIntent: transition.clearBlankClickIntent
+  };
 }
 
 export function dispatchCanvasPointerDown(input: PointerDownInput): CanvasDispatchResult {
-  const transition = beginCanvasPointer(input);
-
-  return {
-    state: transition.state,
-    commands: transition.clearBlankClickIntent ? [{ type: "invalidateBlankClick" }] : []
-  };
+  return fromStandardDispatchResult(
+    dispatchStandardCanvasPointerDown({
+      ...input,
+      state: toStandardState(input.state),
+      hit: toStandardHitTarget(input.hit)
+    })
+  );
 }
 
 export function updateCanvasPointer(input: PointerMoveInput): InteractionTransition {
-  const { state, screen, world } = input;
+  const transition = updateStandardCanvasPointer({
+    ...input,
+    state: toStandardState(input.state)
+  });
 
-  if (state.kind === "pendingBlankPointer" && movedBeyondThreshold(state.startScreen, screen)) {
-    return {
-      state: { kind: "marqueeSelecting", pointerId: state.pointerId, startWorld: state.startWorld, currentWorld: world },
-      clearBlankClickIntent: true
-    };
-  }
-
-  if (state.kind === "pendingNodePointer" && movedBeyondThreshold(state.startScreen, screen)) {
-    return {
-      state: {
-        kind: "draggingNodes",
-        pointerId: state.pointerId,
-        nodeId: state.nodeId,
-        startScreen: state.startScreen,
-        startWorld: state.startWorld
-      },
-      clearBlankClickIntent: true
-    };
-  }
-
-  if (state.kind === "pendingSubgraphPointer" && movedBeyondThreshold(state.startScreen, screen)) {
-    return {
-      state: {
-        kind: "draggingSubgraphs",
-        pointerId: state.pointerId,
-        subgraphId: state.subgraphId,
-        startScreen: state.startScreen,
-        startWorld: state.startWorld
-      },
-      clearBlankClickIntent: true
-    };
-  }
-
-  if (state.kind === "marqueeSelecting") {
-    return { state: { ...state, currentWorld: world }, clearBlankClickIntent: false };
-  }
-
-  if (state.kind === "connectingEdge") {
-    return { state: { ...state, currentWorld: world }, clearBlankClickIntent: false };
-  }
-
-  if (state.kind === "retargetingEdge") {
-    return { state: { ...state, currentWorld: world }, clearBlankClickIntent: false };
-  }
-
-  return { state, clearBlankClickIntent: false };
+  return {
+    state: fromStandardState(transition.state),
+    clearBlankClickIntent: transition.clearBlankClickIntent
+  };
 }
 
 export function dispatchCanvasPointerMove(input: PointerMoveInput): CanvasDispatchResult {
-  const transition = updateCanvasPointer(input);
-  const commands: CanvasInteractionCommand[] = [];
-
-  if (transition.clearBlankClickIntent) {
-    commands.push({ type: "invalidateBlankClick" });
-  }
-
-  if (input.state.kind === "pendingNodePointer" && transition.state.kind === "draggingNodes") {
-    commands.push({ type: "startNodeDrag", nodeId: transition.state.nodeId });
-  }
-
-  if (input.state.kind === "pendingSubgraphPointer" && transition.state.kind === "draggingSubgraphs") {
-    commands.push({ type: "startSubgraphDrag", subgraphId: transition.state.subgraphId });
-  }
-
-  return {
-    state: transition.state,
-    commands
-  };
+  return fromStandardDispatchResult(
+    dispatchStandardCanvasPointerMove({
+      ...input,
+      state: toStandardState(input.state)
+    })
+  );
 }
 
 export function dispatchCanvasPointerUp(input: {
@@ -376,110 +212,21 @@ export function dispatchCanvasPointerUp(input: {
   selectionVersion: number;
   interactionGeneration: number;
 }): CanvasDispatchResult {
-  const commands: CanvasInteractionCommand[] = [];
-
-  if (input.state.kind === "pendingBlankPointer" && input.hit.kind === "blank") {
-    const result = resolveBlankClick({
-      previous: input.previousBlankClick,
-      tool: input.tool,
-      state: input.state,
-      hasSelection: input.hasSelection,
-      screen: input.screen,
-      world: input.world,
-      now: input.now,
-      selectionVersion: input.selectionVersion,
-      interactionGeneration: input.interactionGeneration
-    });
-
-    if (result.action === "clearSelection") {
-      commands.push({ type: "clearSelection" });
-    } else if (result.action === "record") {
-      commands.push({ type: "recordBlankClick", intent: result.intent });
-    } else if (result.action === "addNode") {
-      commands.push({ type: "addNodeAt", point: result.point });
-      commands.push({ type: "invalidateBlankClick" });
-    }
-  }
-
-  if (input.state.kind === "marqueeSelecting") {
-    commands.push({ type: "selectMarquee", rect: normalizeWorldRect(input.state.startWorld, input.state.currentWorld) });
-    commands.push({ type: "invalidateBlankClick" });
-  }
-
-  if (input.state.kind === "connectingEdge") {
-    commands.push({ type: "finishConnection", draft: input.state });
-    commands.push({ type: "invalidateBlankClick" });
-  }
-
-  if (input.state.kind === "retargetingEdge") {
-    commands.push({ type: "retargetEdge", edgeId: input.state.edgeId, side: input.state.side, point: input.world });
-    commands.push({ type: "invalidateBlankClick" });
-  }
-
-  commands.push({ type: "resetInteraction" });
-
-  return {
-    state: idleInteraction,
-    commands
-  };
+  return fromStandardDispatchResult(
+    dispatchStandardCanvasPointerUp({
+      ...input,
+      state: toStandardState(input.state),
+      hit: toStandardHitTarget(input.hit)
+    })
+  );
 }
 
 export function dispatchCanvasClick(input: { tool: EditorMode; hit: HitTarget; shiftKey: boolean }): CanvasInteractionCommand[] {
-  if (input.hit.kind === "blank") return [];
-
-  const commands: CanvasInteractionCommand[] = [{ type: "invalidateBlankClick" }];
-  if (input.tool !== "select") return commands;
-
-  if (input.hit.kind === "node") {
-    commands.push({ type: "selectNode", id: input.hit.id, additive: input.shiftKey });
-  }
-
-  if (input.hit.kind === "nodeAnchor") {
-    commands.push({ type: "selectNode", id: input.hit.nodeId, additive: input.shiftKey });
-  }
-
-  if (input.hit.kind === "subgraph") {
-    commands.push({ type: "selectSubgraph", id: input.hit.id, additive: input.shiftKey });
-  }
-
-  if (input.hit.kind === "subgraphAnchor") {
-    commands.push({ type: "selectSubgraph", id: input.hit.subgraphId, additive: input.shiftKey });
-  }
-
-  if (input.hit.kind === "edge" || input.hit.kind === "edgeLabel") {
-    commands.push({ type: "selectEdge", id: input.hit.id, additive: input.shiftKey });
-  }
-
-  if (input.hit.kind === "edgeEndpoint") {
-    commands.push({ type: "selectEdge", id: input.hit.edgeId, additive: input.shiftKey });
-  }
-
-  return commands;
+  return fromStandardCommands(dispatchStandardCanvasClick({ ...input, hit: toStandardHitTarget(input.hit) }));
 }
 
 export function dispatchCanvasDoubleClick(input: { tool: EditorMode; hit: HitTarget }): CanvasInteractionCommand[] {
-  if (input.hit.kind === "blank") return [];
-
-  const commands: CanvasInteractionCommand[] = [{ type: "invalidateBlankClick" }];
-  if (input.tool !== "select") return commands;
-
-  if (input.hit.kind === "node" || input.hit.kind === "nodeAnchor") {
-    const id = input.hit.kind === "node" ? input.hit.id : input.hit.nodeId;
-    commands.push({ type: "selectNode", id, additive: false });
-    commands.push({ type: "startInlineEdit", target: { type: "node", id } });
-  }
-
-  if (input.hit.kind === "subgraph" || input.hit.kind === "subgraphAnchor") {
-    const id = input.hit.kind === "subgraph" ? input.hit.id : input.hit.subgraphId;
-    commands.push({ type: "selectSubgraph", id, additive: false });
-  }
-
-  if (input.hit.kind === "edge" || input.hit.kind === "edgeLabel") {
-    commands.push({ type: "selectEdge", id: input.hit.id, additive: false });
-    commands.push({ type: "startInlineEdit", target: { type: "edge", id: input.hit.id } });
-  }
-
-  return commands;
+  return fromStandardCommands(dispatchStandardCanvasDoubleClick({ ...input, hit: toStandardHitTarget(input.hit) }));
 }
 
 export function resolveBlankClick(input: {
@@ -494,75 +241,211 @@ export function resolveBlankClick(input: {
   selectionVersion: number;
   interactionGeneration: number;
 }): BlankClickResolution {
-  if (input.tool !== "select" || input.state.kind !== "pendingBlankPointer") {
-    return { action: "ignore", intent: null };
-  }
+  const result = resolveStandardBlankClick({
+    ...input,
+    state: toStandardState(input.state)
+  });
 
-  if (input.hasSelection) {
-    return { action: "clearSelection", intent: null };
-  }
-
-  const pointerId = input.pointerId ?? 0;
-  if (isValidSecondBlankClick(input.previous, input.screen, input.now, pointerId, input.selectionVersion, input.interactionGeneration)) {
-    return { action: "addNode", intent: null, point: input.world };
-  }
-
-  return {
-    action: "record",
-    intent: {
-      target: "blank",
-      pointerId,
-      screen: input.screen,
-      world: input.world,
-      time: input.now,
-      selectionVersion: input.selectionVersion,
-      interactionGeneration: input.interactionGeneration
-    }
-  };
+  if (result.action === "addItem") return { action: "addNode", intent: null, point: result.point };
+  return result;
 }
 
 export function interactionCursor(tool: EditorMode, state: InteractionState, panningRequested: boolean, hit?: HitTarget) {
-  if (state.kind === "panning") return "cursor-grabbing";
-  if (panningRequested) return "cursor-grab";
-  if (state.kind === "draggingNodes" || state.kind === "draggingSubgraphs") return "cursor-grabbing";
-  if (isEditingInteraction(state)) return "cursor-text";
-  if (state.kind === "connectingEdge" || state.kind === "retargetingEdge" || tool === "connect") return "cursor-crosshair";
-  if (tool === "select" && (hit?.kind === "nodeAnchor" || hit?.kind === "subgraphAnchor" || hit?.kind === "edgeEndpoint")) return "cursor-crosshair";
-  return "cursor-default";
+  return standardInteractionCursor(tool, toStandardState(state), panningRequested, hit ? toStandardHitTarget(hit) : undefined);
 }
 
 export function isEditingInteraction(state: InteractionState) {
-  return state.kind === "editingNodeText" || state.kind === "editingEdgeLabel";
+  return isStandardEditingInteraction(toStandardState(state));
 }
 
 export function movedBeyondThreshold(start: CanvasPoint, current: CanvasPoint, threshold = CANVAS_DRAG_THRESHOLD_PX) {
-  return distance(start, current) > threshold;
+  return movedBeyondStandardThreshold(start, current, threshold);
 }
 
-function isValidSecondBlankClick(
-  previous: BlankClickIntent | null,
-  screen: CanvasPoint,
-  now: number,
-  pointerId: number,
-  selectionVersion: number,
-  interactionGeneration: number
-) {
-  if (!previous) return false;
-  if (previous.pointerId !== pointerId) return false;
-  if (previous.selectionVersion !== selectionVersion) return false;
-  if (previous.interactionGeneration !== interactionGeneration) return false;
-  if (now - previous.time > BLANK_DOUBLE_CLICK_MS) return false;
-  return distance(previous.screen, screen) <= BLANK_DOUBLE_CLICK_DISTANCE_PX;
+function toStandardSelection(selection: Selection): StandardCanvasSelection {
+  return {
+    itemIds: selection.nodeIds || [],
+    connectionIds: selection.edgeIds || [],
+    groupIds: selection.subgraphIds || [],
+    primaryId: selection.primaryId
+  };
 }
 
-function distance(a: CanvasPoint, b: CanvasPoint) {
-  return Math.hypot(a.x - b.x, a.y - b.y);
+function toStandardHitTarget(hit: HitTarget): StandardCanvasHitTarget {
+  if (hit.kind === "blank") return hit;
+  if (hit.kind === "node") return { kind: "item", id: hit.id };
+  if (hit.kind === "nodeAnchor") return { kind: "itemAnchor", itemId: hit.nodeId, anchor: hit.anchor };
+  if (hit.kind === "subgraph") return { kind: "group", id: hit.id };
+  if (hit.kind === "subgraphAnchor") return { kind: "groupAnchor", groupId: hit.subgraphId, anchor: hit.anchor };
+  if (hit.kind === "edge") return { kind: "connection", id: hit.id };
+  if (hit.kind === "edgeLabel") return { kind: "connectionLabel", id: hit.id };
+  return { kind: "connectionEndpoint", connectionId: hit.edgeId, side: hit.side };
 }
 
-function normalizeWorldRect(start: CanvasPoint, end: CanvasPoint): CanvasRect {
-  const x = Math.min(start.x, end.x);
-  const y = Math.min(start.y, end.y);
-  const width = Math.abs(end.x - start.x);
-  const height = Math.abs(end.y - start.y);
-  return { x, y, width, height };
+function toStandardState(state: InteractionState): StandardCanvasInteractionState {
+  if (state.kind === "idle") return state;
+  if (state.kind === "pendingBlankPointer") return state;
+  if (state.kind === "pendingNodePointer") {
+    return {
+      kind: "pendingItemPointer",
+      itemId: state.nodeId,
+      pointerId: state.pointerId,
+      startScreen: state.startScreen,
+      startWorld: state.startWorld,
+      startedAt: state.startedAt,
+      selectionVersion: state.selectionVersion
+    };
+  }
+  if (state.kind === "pendingSubgraphPointer") {
+    return {
+      kind: "pendingGroupPointer",
+      groupId: state.subgraphId,
+      pointerId: state.pointerId,
+      startScreen: state.startScreen,
+      startWorld: state.startWorld,
+      startedAt: state.startedAt,
+      selectionVersion: state.selectionVersion
+    };
+  }
+  if (state.kind === "marqueeSelecting") return state;
+  if (state.kind === "draggingNodes") {
+    return {
+      kind: "draggingItems",
+      itemId: state.nodeId,
+      pointerId: state.pointerId,
+      startScreen: state.startScreen,
+      startWorld: state.startWorld
+    };
+  }
+  if (state.kind === "draggingSubgraphs") {
+    return {
+      kind: "draggingGroups",
+      groupId: state.subgraphId,
+      pointerId: state.pointerId,
+      startScreen: state.startScreen,
+      startWorld: state.startWorld
+    };
+  }
+  if (state.kind === "panning") return state;
+  if (state.kind === "connectingEdge") {
+    return {
+      kind: "connecting",
+      pointerId: state.pointerId,
+      fromId: state.fromId,
+      ...(state.fromAnchor ? { fromAnchor: state.fromAnchor } : {}),
+      startWorld: state.startWorld,
+      currentWorld: state.currentWorld
+    };
+  }
+  if (state.kind === "retargetingEdge") {
+    return {
+      kind: "retargetingConnection",
+      pointerId: state.pointerId,
+      connectionId: state.edgeId,
+      side: state.side,
+      currentWorld: state.currentWorld
+    };
+  }
+  if (state.kind === "editingNodeText") return { kind: "editingItemText", itemId: state.nodeId };
+  return { kind: "editingConnectionText", connectionId: state.edgeId };
+}
+
+function fromStandardState(state: StandardCanvasInteractionState): InteractionState {
+  if (state.kind === "idle") return state;
+  if (state.kind === "pendingBlankPointer") return state;
+  if (state.kind === "pendingItemPointer") {
+    return {
+      kind: "pendingNodePointer",
+      nodeId: state.itemId,
+      pointerId: state.pointerId,
+      startScreen: state.startScreen,
+      startWorld: state.startWorld,
+      startedAt: state.startedAt,
+      selectionVersion: state.selectionVersion
+    };
+  }
+  if (state.kind === "pendingGroupPointer") {
+    return {
+      kind: "pendingSubgraphPointer",
+      subgraphId: state.groupId,
+      pointerId: state.pointerId,
+      startScreen: state.startScreen,
+      startWorld: state.startWorld,
+      startedAt: state.startedAt,
+      selectionVersion: state.selectionVersion
+    };
+  }
+  if (state.kind === "marqueeSelecting") return state;
+  if (state.kind === "draggingItems") {
+    return {
+      kind: "draggingNodes",
+      nodeId: state.itemId,
+      pointerId: state.pointerId,
+      startScreen: state.startScreen,
+      startWorld: state.startWorld
+    };
+  }
+  if (state.kind === "draggingGroups") {
+    return {
+      kind: "draggingSubgraphs",
+      subgraphId: state.groupId,
+      pointerId: state.pointerId,
+      startScreen: state.startScreen,
+      startWorld: state.startWorld
+    };
+  }
+  if (state.kind === "panning") return state;
+  if (state.kind === "connecting") {
+    return {
+      kind: "connectingEdge",
+      pointerId: state.pointerId,
+      fromId: state.fromId,
+      ...(state.fromAnchor ? { fromAnchor: state.fromAnchor } : {}),
+      startWorld: state.startWorld,
+      currentWorld: state.currentWorld
+    };
+  }
+  if (state.kind === "retargetingConnection") {
+    return {
+      kind: "retargetingEdge",
+      pointerId: state.pointerId,
+      edgeId: state.connectionId,
+      side: state.side,
+      currentWorld: state.currentWorld
+    };
+  }
+  if (state.kind === "editingItemText") return { kind: "editingNodeText", nodeId: state.itemId };
+  if (state.kind === "editingConnectionText") return { kind: "editingEdgeLabel", edgeId: state.connectionId };
+  return idleInteraction;
+}
+
+function fromStandardDispatchResult(result: StandardCanvasDispatchResult): CanvasDispatchResult {
+  return {
+    state: fromStandardState(result.state),
+    commands: fromStandardCommands(result.commands)
+  };
+}
+
+function fromStandardCommands(commands: StandardCanvasInteractionCommand[]): CanvasInteractionCommand[] {
+  return commands.map(fromStandardCommand).filter((command): command is CanvasInteractionCommand => Boolean(command));
+}
+
+function fromStandardCommand(command: StandardCanvasInteractionCommand): CanvasInteractionCommand | null {
+  if (command.type === "blankClick.invalidate") return { type: "invalidateBlankClick" };
+  if (command.type === "selection.clear") return { type: "clearSelection" };
+  if (command.type === "blankClick.record") return { type: "recordBlankClick", intent: command.intent };
+  if (command.type === "item.addAt") return { type: "addNodeAt", point: command.point };
+  if (command.type === "selection.selectItem") return { type: "selectNode", id: command.id, additive: command.additive };
+  if (command.type === "selection.selectGroup") return { type: "selectSubgraph", id: command.id, additive: command.additive };
+  if (command.type === "selection.selectConnection") return { type: "selectEdge", id: command.id, additive: command.additive };
+  if (command.type === "text.editStart") {
+    return { type: "startInlineEdit", target: command.target.type === "item" ? { type: "node", id: command.target.id } : { type: "edge", id: command.target.id } };
+  }
+  if (command.type === "item.dragStart") return { type: "startNodeDrag", nodeId: command.itemId };
+  if (command.type === "group.dragStart") return { type: "startSubgraphDrag", subgraphId: command.groupId };
+  if (command.type === "selection.marquee") return { type: "selectMarquee", rect: command.rect };
+  if (command.type === "connection.finish") return { type: "finishConnection", draft: fromStandardState(command.draft) as Extract<InteractionState, { kind: "connectingEdge" }> };
+  if (command.type === "connection.retarget") return { type: "retargetEdge", edgeId: command.connectionId, side: command.side, point: command.point };
+  if (command.type === "interaction.reset") return { type: "resetInteraction" };
+  return null;
 }

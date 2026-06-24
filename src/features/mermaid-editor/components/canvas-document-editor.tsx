@@ -2,11 +2,24 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type React from "react";
 import { FrameSimple, Link, Maximize, Plus, Text as TextIcon, Xmark } from "iconoir-react/regular";
 import * as PIXI from "pixi.js";
-import { Application, Assets, BitmapText, Container, Graphics, Rectangle, Sprite, Text as PixiText, Texture } from "pixi.js";
+import { Application, Assets, Container, Graphics, Rectangle, Sprite, Text as PixiText, Texture } from "pixi.js";
 import { PixiPlugin } from "gsap/PixiPlugin";
 
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  canvasDocumentHasSelection,
+  canvasDocumentMarqueeSelection,
+  canvasDocumentSelectedIds,
+  canvasDocumentSelectionFromIds,
+  canvasDocumentSelectionVersionKey,
+  emptyCanvasDocumentSelection,
+  isCanvasDocumentItem,
+  selectCanvasDocumentConnection,
+  selectCanvasDocumentItem,
+  standardHitTargetFromCanvasDocumentHit,
+  type CanvasDocumentSelection
+} from "@/features/mermaid-editor/lib/canvas-document-interaction";
 import type { EditorRuntime, RuntimeFileRef } from "@/features/mermaid-editor/lib/editor-runtime";
 import {
   canvasElementFrame,
@@ -25,7 +38,7 @@ import {
   type CanvasTextElement
 } from "@/features/mermaid-editor/lib/canvas-document";
 import {
-  canUseCanvasBitmapText,
+  canvasDocumentClientToScreen,
   canvasDocumentEndpointPoint,
   canvasDocumentScreenToWorld,
   canvasDocumentVisibleElements,
@@ -33,7 +46,25 @@ import {
   hitCanvasDocument,
   type CanvasDocumentDimensions
 } from "@/features/mermaid-editor/lib/canvas-document-rendering";
-import type { ViewportState } from "@/features/mermaid-editor/lib/editor-types";
+import {
+  dispatchStandardCanvasClick,
+  dispatchStandardCanvasDoubleClick,
+  dispatchStandardCanvasPointerDown,
+  dispatchStandardCanvasPointerMove,
+  dispatchStandardCanvasPointerUp,
+  isStandardPanningButton,
+  standardIdleInteraction,
+  type StandardBlankClickIntent,
+  type StandardCanvasHitTarget,
+  type StandardCanvasInteractionCommand,
+  type StandardCanvasInteractionState
+} from "@/features/mermaid-editor/lib/canvas-interaction-standard";
+import { createWheelIntentTracker } from "@/features/mermaid-editor/lib/canvas-viewport-navigation";
+import { commandFromInteractionIntent } from "@/features/mermaid-editor/lib/interaction/commands";
+import { buildInteractionContext } from "@/features/mermaid-editor/lib/interaction/context";
+import { createStandardWheelInput, modifiersFromEvent } from "@/features/mermaid-editor/lib/interaction/input";
+import { resolveInteractionIntent } from "@/features/mermaid-editor/lib/interaction/intent";
+import type { MermaidGraph, ViewportState } from "@/features/mermaid-editor/lib/editor-types";
 import { gsap } from "@/features/mermaid-editor/lib/use-gsap-motion";
 import { cn } from "@/lib/utils";
 
@@ -45,39 +76,24 @@ type CanvasDocumentEditorProps = {
   onStatus?: (status: string) => void;
 };
 
-type DragState =
-  | {
-      kind: "pan";
-      pointerId: number;
-      startScreen: Point;
-      viewport: ViewportState;
-      changed: boolean;
-    }
-  | {
-      kind: "move";
-      pointerId: number;
-      startWorld: Point;
-      baseDocument: CanvasDocument;
-      origins: Record<string, Point>;
-      ids: string[];
-      changed: boolean;
-    }
-  | {
-      kind: "resize";
-      pointerId: number;
-      id: string;
-      startWorld: Point;
-      baseDocument: CanvasDocument;
-      frame: { x: number; y: number; width: number; height: number };
-      changed: boolean;
-    };
-
 type Point = {
   x: number;
   y: number;
 };
 
-type PixiTextDisplay = BitmapText | PixiText;
+type CanvasDocumentMoveDraft = {
+  baseDocument: CanvasDocument;
+  origins: Record<string, Point>;
+  ids: string[];
+  changed: boolean;
+};
+
+type CanvasDocumentResizeDraft = {
+  id: string;
+  baseDocument: CanvasDocument;
+  frame: { x: number; y: number; width: number; height: number };
+  changed: boolean;
+};
 
 type PixiElementView = {
   id: string;
@@ -85,7 +101,7 @@ type PixiElementView = {
   container: Container;
   body: Graphics;
   sprite?: Sprite;
-  text?: PixiTextDisplay;
+  text?: PixiText;
   textKey?: string;
   imageSrc?: string;
   signature?: string;
@@ -120,6 +136,17 @@ const IMAGE_BORDER_COLOR = "#d8cfc3";
 const GRID_COLOR = 0x4b4137;
 const PIXI_TEXT_FONT_FAMILY = "Noto Sans SC, Arial, sans-serif";
 const VIEWPORT_COMMIT_DELAY_MS = 80;
+const MIN_RENDERER_RESOLUTION = 2;
+const MAX_RENDERER_RESOLUTION = 3;
+const MAX_TEXT_TEXTURE_RESOLUTION = 4;
+const CANVAS_DOCUMENT_INTERACTION_GRAPH: MermaidGraph = {
+  direction: "LR",
+  nodes: [],
+  edges: [],
+  subgraphs: [],
+  editableKind: "flowchart",
+  parseStatus: "parsed"
+};
 
 let pixiPluginRegistered = false;
 
@@ -129,32 +156,49 @@ export function CanvasDocumentEditor({ document, fileRef, runtime, onChange, onS
   const pixiRef = useRef<PixiCanvasRuntime | null>(null);
   const documentRef = useRef<CanvasDocument>(normalizedDocument);
   const dimensionsRef = useRef<CanvasDocumentDimensions>(DEFAULT_DIMENSIONS);
+  const selectionRef = useRef<CanvasDocumentSelection>(emptyCanvasDocumentSelection);
   const selectedIdsRef = useRef<string[]>([]);
   const connectorStartIdRef = useRef<string | null>(null);
   const imageDisplaySrcBySrcRef = useRef<Record<string, string>>({});
-  const dragRef = useRef<DragState | null>(null);
+  const interactionStateRef = useRef<StandardCanvasInteractionState>(standardIdleInteraction);
+  const blankClickIntentRef = useRef<StandardBlankClickIntent | null>(null);
+  const selectionVersionRef = useRef(0);
+  const lastSelectionKeyRef = useRef(canvasDocumentSelectionVersionKey(emptyCanvasDocumentSelection));
+  const interactionGenerationRef = useRef(0);
+  const wheelIntentTrackerRef = useRef(createWheelIntentTracker());
+  const moveDraftRef = useRef<CanvasDocumentMoveDraft | null>(null);
+  const resizeDraftRef = useRef<CanvasDocumentResizeDraft | null>(null);
+  const suppressNextClickRef = useRef(false);
+  const lastPointerUpHitRef = useRef<StandardCanvasHitTarget>({ kind: "blank" });
   const renderCurrentSceneRef = useRef(() => {});
   const renderViewportOnlyRef = useRef(() => {});
   const dimensions = useContainerSize(containerRef);
   const [selectedIds, setSelectedIdsState] = useState<string[]>([]);
+  const [interactionState, setInteractionState] = useState<StandardCanvasInteractionState>(standardIdleInteraction);
   const [connectorStartId, setConnectorStartIdState] = useState<string | null>(null);
   const [imageDisplaySrcBySrc, setImageDisplaySrcBySrc] = useState<Record<string, string>>({});
 
   renderCurrentSceneRef.current = () => {
     const pixi = pixiRef.current;
     if (!pixi) return;
-    syncPixiScene(pixi, documentRef.current, dimensionsRef.current, selectedIdsRef.current, connectorStartIdRef.current, imageDisplaySrcBySrcRef.current);
+    syncPixiScene(pixi, documentRef.current, dimensionsRef.current, selectedIdsRef.current, connectorStartIdRef.current, imageDisplaySrcBySrcRef.current, interactionStateRef.current);
   };
   renderViewportOnlyRef.current = () => {
     const pixi = pixiRef.current;
     if (!pixi) return;
     applyPixiViewport(pixi, documentRef.current.viewport, dimensionsRef.current);
-    drawSelectionOverlay(pixi, documentRef.current, selectedIdsRef.current);
+    drawSelectionOverlay(pixi, documentRef.current, selectedIdsRef.current, interactionStateRef.current);
     schedulePixiRender(pixi);
   };
 
   useEffect(() => {
     documentRef.current = normalizedDocument;
+    const existingIds = new Set(normalizedDocument.elements.map((element) => element.id));
+    const selectedIds = canvasDocumentSelectedIds(selectionRef.current).filter((id) => existingIds.has(id));
+    if (selectedIds.length !== selectedIdsRef.current.length) {
+      setCanvasDocumentSelection(canvasDocumentSelectionFromIds(selectedIds, normalizedDocument));
+      return;
+    }
     renderCurrentSceneRef.current();
   }, [normalizedDocument]);
 
@@ -162,7 +206,7 @@ export function CanvasDocumentEditor({ document, fileRef, runtime, onChange, onS
     dimensionsRef.current = dimensions;
     const pixi = pixiRef.current;
     if (pixi) {
-      pixi.app.renderer.resize(dimensions.width, dimensions.height, window.devicePixelRatio || 1);
+      resizePixiRenderer(pixi, dimensions);
       renderCurrentSceneRef.current();
     }
   }, [dimensions]);
@@ -210,11 +254,11 @@ export function CanvasDocumentEditor({ document, fileRef, runtime, onChange, onS
         width: dimensionsRef.current.width,
         height: dimensionsRef.current.height,
         autoDensity: true,
-        resolution: window.devicePixelRatio || 1,
+        resolution: canvasRendererResolution(),
         autoStart: false,
         preference: "webgl",
         powerPreference: "high-performance",
-        antialias: false,
+        antialias: true,
         backgroundAlpha: 0
       })
       .then(() => {
@@ -223,9 +267,7 @@ export function CanvasDocumentEditor({ document, fileRef, runtime, onChange, onS
           return;
         }
 
-        app.canvas.className = "block h-full w-full";
-        app.canvas.style.width = "100%";
-        app.canvas.style.height = "100%";
+        app.canvas.className = "block";
         app.canvas.style.display = "block";
         host.appendChild(app.canvas);
 
@@ -240,7 +282,7 @@ export function CanvasDocumentEditor({ document, fileRef, runtime, onChange, onS
         world.addChild(connectors, objects, selection);
         app.stage.addChild(grid, world);
 
-        pixiRef.current = {
+        const pixi: PixiCanvasRuntime = {
           app,
           grid,
           world,
@@ -252,6 +294,8 @@ export function CanvasDocumentEditor({ document, fileRef, runtime, onChange, onS
           viewportCommitTimer: null,
           disposed: false
         };
+        pixiRef.current = pixi;
+        resizePixiRenderer(pixi, dimensionsRef.current);
         renderCurrentSceneRef.current();
       })
       .catch(() => {
@@ -320,10 +364,33 @@ export function CanvasDocumentEditor({ document, fileRef, runtime, onChange, onS
     }, VIEWPORT_COMMIT_DELAY_MS);
   }
 
+  function setCanvasDocumentSelection(next: CanvasDocumentSelection) {
+    const normalized = {
+      itemIds: next.itemIds,
+      connectionIds: next.connectionIds,
+      groupIds: next.groupIds || [],
+      primaryId: next.primaryId
+    };
+    const key = canvasDocumentSelectionVersionKey(normalized);
+    if (key !== lastSelectionKeyRef.current) {
+      lastSelectionKeyRef.current = key;
+      selectionVersionRef.current += 1;
+    }
+    selectionRef.current = normalized;
+    const ids = canvasDocumentSelectedIds(normalized);
+    selectedIdsRef.current = ids;
+    setSelectedIdsState(ids);
+    renderViewportOnlyRef.current();
+  }
+
   function setSelectedIds(next: string[] | ((current: string[]) => string[])) {
     const resolved = typeof next === "function" ? next(selectedIdsRef.current) : next;
-    selectedIdsRef.current = resolved;
-    setSelectedIdsState(resolved);
+    setCanvasDocumentSelection(canvasDocumentSelectionFromIds(resolved, documentRef.current));
+  }
+
+  function setCanvasInteractionState(next: StandardCanvasInteractionState) {
+    interactionStateRef.current = next;
+    setInteractionState(next);
     renderViewportOnlyRef.current();
   }
 
@@ -353,11 +420,18 @@ export function CanvasDocumentEditor({ document, fileRef, runtime, onChange, onS
   }
 
   function clientScreenPoint(clientX: number, clientY: number): Point {
-    const rect = containerRef.current?.getBoundingClientRect();
-    return {
-      x: clientX - (rect?.left || 0),
-      y: clientY - (rect?.top || 0)
-    };
+    const pixi = pixiRef.current;
+    if (pixi) {
+      const rect = pixi.app.canvas.getBoundingClientRect();
+      const screen = pixi.app.renderer.screen;
+      return canvasDocumentClientToScreen({ clientX, clientY }, rect, {
+        width: screen.width || dimensionsRef.current.width,
+        height: screen.height || dimensionsRef.current.height
+      });
+    }
+
+    const rect = containerRef.current?.getBoundingClientRect() ?? { left: 0, top: 0, width: dimensionsRef.current.width, height: dimensionsRef.current.height };
+    return canvasDocumentClientToScreen({ clientX, clientY }, rect, dimensionsRef.current);
   }
 
   function viewportCenterPoint(): Point {
@@ -461,10 +535,6 @@ export function CanvasDocumentEditor({ document, fileRef, runtime, onChange, onS
     onStatus?.("已重置画布视图。");
   }
 
-  function toggleSelection(id: string) {
-    setSelectedIds((current) => (current.includes(id) ? current.filter((item) => item !== id) : [...current, id]));
-  }
-
   function editElementText(element: CanvasDocumentElement) {
     if (element.type !== "shape" && element.type !== "text" && element.type !== "connector") return;
     const next = window.prompt("文本", element.type === "connector" ? element.label || "" : element.text || "");
@@ -473,169 +543,293 @@ export function CanvasDocumentEditor({ document, fileRef, runtime, onChange, onS
     else updateElement(element.id, { text: next }, "已更新文本。");
   }
 
-  function handlePointerDown(event: React.PointerEvent<HTMLDivElement>) {
-    if (event.button !== 0) return;
-    event.preventDefault();
-    event.currentTarget.setPointerCapture(event.pointerId);
-    const screen = pointerScreenPoint(event);
-    const current = documentRef.current;
-    const hit = hitCanvasDocument(current, screen, dimensionsRef.current, selectedIdsRef.current);
-    const element = hit.kind === "element" || hit.kind === "resize" ? current.elements.find((item) => item.id === hit.id) : null;
+  function standardHitFromScreen(screen: Point) {
+    return standardHitTargetFromCanvasDocumentHit(hitCanvasDocument(documentRef.current, screen, dimensionsRef.current, selectedIdsRef.current), documentRef.current);
+  }
 
-    if (hit.kind === "resize" && element && element.type !== "connector") {
-      dragRef.current = {
-        kind: "resize",
-        pointerId: event.pointerId,
-        id: element.id,
-        startWorld: worldFromScreen(screen),
-        baseDocument: current,
-        frame: canvasElementFrame(element),
-        changed: false
-      };
-      return;
-    }
-
-    if (element) {
-      if (connectorStartIdRef.current && element.type !== "connector") {
-        if (connectorStartIdRef.current === element.id) {
-          setConnectorStartId(null);
-          return;
-        }
-        const connector = createCanvasConnectorElement(current.elements, { elementId: connectorStartIdRef.current }, { elementId: element.id });
-        commitElements([...current.elements, connector], "已连接两个画布对象。");
-        setSelectedIds([connector.id]);
+  function applyStandardCommands(commands: StandardCanvasInteractionCommand[]) {
+    for (const command of commands) {
+      if (command.type === "blankClick.invalidate") {
+        blankClickIntentRef.current = null;
+        continue;
+      }
+      if (command.type === "blankClick.record") {
+        blankClickIntentRef.current = command.intent;
+        continue;
+      }
+      if (command.type === "selection.clear") {
+        setCanvasDocumentSelection(emptyCanvasDocumentSelection);
         setConnectorStartId(null);
-        animateCreatedElement(connector.id);
-        return;
+        continue;
       }
-
-      if (event.shiftKey) {
-        toggleSelection(element.id);
-        return;
+      if (command.type === "item.addAt") {
+        const element = createCanvasShapeElement(documentRef.current.elements, command.point.x - 84, command.point.y - 48);
+        commitElements([...documentRef.current.elements, element], "已添加画布形状。");
+        setSelectedIds([element.id]);
+        animateCreatedElement(element.id);
+        continue;
       }
-
-      const dragIds = selectedIdsRef.current.includes(element.id) ? selectedIdsRef.current : [element.id];
-      setSelectedIds(dragIds);
-      if (element.type === "connector") return;
-
-      const elementById = new Map(current.elements.map((item) => [item.id, item]));
-      const movableIds = dragIds.filter((id) => elementById.get(id)?.type !== "connector");
-      const origins = Object.fromEntries(
-        movableIds.map((id) => {
-          const item = elementById.get(id);
-          if (!item || item.type === "connector") return [id, { x: 0, y: 0 }];
-          return [id, { x: item.x, y: item.y }];
-        })
-      );
-      dragRef.current = {
-        kind: "move",
-        pointerId: event.pointerId,
-        startWorld: worldFromScreen(screen),
-        baseDocument: current,
-        origins,
-        ids: movableIds,
-        changed: false
-      };
-      return;
+      if (command.type === "selection.selectItem") {
+        setCanvasDocumentSelection(selectCanvasDocumentItem(selectionRef.current, command.id, command.additive));
+        continue;
+      }
+      if (command.type === "selection.selectConnection") {
+        setCanvasDocumentSelection(selectCanvasDocumentConnection(selectionRef.current, command.id, command.additive));
+        continue;
+      }
+      if (command.type === "text.editStart") {
+        const element = documentRef.current.elements.find((item) => item.id === command.target.id);
+        if (element) editElementText(element);
+        continue;
+      }
+      if (command.type === "item.dragStart") {
+        startDocumentItemDrag(command.itemId);
+        continue;
+      }
+      if (command.type === "selection.marquee") {
+        setCanvasDocumentSelection(canvasDocumentMarqueeSelection(documentRef.current, command.rect));
+        continue;
+      }
+      if (command.type === "connection.finish") {
+        finishStandardConnection(command.draft);
+        continue;
+      }
+      if (command.type === "interaction.reset") {
+        resetStandardInteraction();
+      }
     }
+  }
 
-    setSelectedIds([]);
-    setConnectorStartId(null);
-    dragRef.current = {
-      kind: "pan",
-      pointerId: event.pointerId,
-      startScreen: screen,
-      viewport: current.viewport,
+  function startDocumentItemDrag(itemId: string) {
+    const item = documentRef.current.elements.find((element) => element.id === itemId);
+    if (!isCanvasDocumentItem(item)) return;
+    const selectedItemIds = selectionRef.current.itemIds.includes(itemId) ? selectionRef.current.itemIds : [itemId];
+    if (!selectionRef.current.itemIds.includes(itemId)) setCanvasDocumentSelection(selectCanvasDocumentItem(selectionRef.current, itemId, false));
+
+    const elementById = new Map(documentRef.current.elements.map((element) => [element.id, element]));
+    const movableIds = selectedItemIds.filter((id) => isCanvasDocumentItem(elementById.get(id)));
+    moveDraftRef.current = {
+      baseDocument: documentRef.current,
+      ids: movableIds,
+      origins: Object.fromEntries(
+        movableIds.map((id) => {
+          const element = elementById.get(id);
+          return [id, isCanvasDocumentItem(element) ? { x: element.x, y: element.y } : { x: 0, y: 0 }];
+        })
+      ),
       changed: false
     };
   }
 
+  function startDocumentResize(itemId: string) {
+    const element = documentRef.current.elements.find((item) => item.id === itemId);
+    if (!isCanvasDocumentItem(element)) return;
+    setCanvasDocumentSelection(selectCanvasDocumentItem(selectionRef.current, itemId, false));
+    resizeDraftRef.current = {
+      id: itemId,
+      baseDocument: documentRef.current,
+      frame: canvasElementFrame(element),
+      changed: false
+    };
+  }
+
+  function updateDocumentItemDrag(state: Extract<StandardCanvasInteractionState, { kind: "draggingItems" }>, currentWorld: Point) {
+    const draft = moveDraftRef.current;
+    if (!draft) return;
+    const dx = currentWorld.x - state.startWorld.x;
+    const dy = currentWorld.y - state.startWorld.y;
+    draft.changed = Math.abs(dx) > 0.2 || Math.abs(dy) > 0.2;
+    updateDocumentVisual({
+      ...draft.baseDocument,
+      viewport: documentRef.current.viewport,
+      elements: draft.baseDocument.elements.map((element) => {
+        if (!draft.ids.includes(element.id) || element.type === "connector") return element;
+        const origin = draft.origins[element.id];
+        return { ...element, x: origin.x + dx, y: origin.y + dy };
+      })
+    });
+  }
+
+  function updateDocumentResize(state: Extract<StandardCanvasInteractionState, { kind: "resizingItem" }>) {
+    const draft = resizeDraftRef.current;
+    if (!draft) return;
+    const dx = state.currentWorld.x - state.startWorld.x;
+    const dy = state.currentWorld.y - state.startWorld.y;
+    draft.changed = Math.abs(dx) > 0.2 || Math.abs(dy) > 0.2;
+    updateDocumentVisual({
+      ...draft.baseDocument,
+      viewport: documentRef.current.viewport,
+      elements: draft.baseDocument.elements.map((element) => {
+        if (element.id !== draft.id || element.type === "connector") return element;
+        return {
+          ...element,
+          width: Math.max(32, draft.frame.width + dx),
+          height: Math.max(32, draft.frame.height + dy)
+        };
+      })
+    });
+  }
+
+  function finishStandardConnection(draft: Extract<StandardCanvasInteractionState, { kind: "connecting" }>) {
+    const hit = lastPointerUpHitRef.current;
+    if (hit.kind !== "item" || hit.id === draft.fromId) return;
+    const connector = createCanvasConnectorElement(documentRef.current.elements, { elementId: draft.fromId }, { elementId: hit.id });
+    commitElements([...documentRef.current.elements, connector], "已连接两个画布对象。");
+    setSelectedIds([connector.id]);
+    animateCreatedElement(connector.id);
+  }
+
+  function resetStandardInteraction() {
+    moveDraftRef.current = null;
+    resizeDraftRef.current = null;
+    setCanvasInteractionState(standardIdleInteraction);
+  }
+
+  function handlePointerDown(event: React.PointerEvent<HTMLDivElement>) {
+    if (isStandardPanningButton(event.button)) event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    const screen = pointerScreenPoint(event);
+    const current = documentRef.current;
+    const hit = standardHitFromScreen(screen);
+    const world = worldFromScreen(screen);
+
+    if (connectorStartIdRef.current && hit.kind === "item") {
+      if (connectorStartIdRef.current === hit.id) {
+        setConnectorStartId(null);
+        return;
+      }
+      const connector = createCanvasConnectorElement(current.elements, { elementId: connectorStartIdRef.current }, { elementId: hit.id });
+      commitElements([...current.elements, connector], "已连接两个画布对象。");
+      setSelectedIds([connector.id]);
+      setConnectorStartId(null);
+      animateCreatedElement(connector.id);
+      return;
+    }
+
+    const result = dispatchStandardCanvasPointerDown({
+      state: interactionStateRef.current,
+      tool: "select",
+      hit,
+      button: event.button,
+      screen,
+      world,
+      now: event.timeStamp,
+      selectionVersion: selectionVersionRef.current,
+      viewport: current.viewport,
+      pointerId: event.pointerId
+    });
+
+    applyStandardCommands(result.commands);
+    setCanvasInteractionState(result.state);
+    if (result.state.kind === "resizingItem") startDocumentResize(result.state.itemId);
+  }
+
   function handlePointerMove(event: React.PointerEvent<HTMLDivElement>) {
-    const drag = dragRef.current;
-    if (!drag || drag.pointerId !== event.pointerId) return;
+    const state = interactionStateRef.current;
+    if (state.kind === "idle" || !("pointerId" in state) || state.pointerId !== event.pointerId) return;
     const screen = pointerScreenPoint(event);
 
-    if (drag.kind === "pan") {
-      drag.changed = true;
+    if (state.kind === "panning") {
       updateViewportVisual({
-        ...drag.viewport,
-        x: drag.viewport.x + screen.x - drag.startScreen.x,
-        y: drag.viewport.y + screen.y - drag.startScreen.y
+        ...state.originViewport,
+        x: state.originViewport.x + screen.x - state.startScreen.x,
+        y: state.originViewport.y + screen.y - state.startScreen.y
       });
       return;
     }
 
-    const currentWorld = worldFromScreen(screen);
-    if (drag.kind === "move") {
-      const dx = currentWorld.x - drag.startWorld.x;
-      const dy = currentWorld.y - drag.startWorld.y;
-      drag.changed = Math.abs(dx) > 0.2 || Math.abs(dy) > 0.2;
-      updateDocumentVisual({
-        ...drag.baseDocument,
-        viewport: documentRef.current.viewport,
-        elements: drag.baseDocument.elements.map((element) => {
-          if (!drag.ids.includes(element.id) || element.type === "connector") return element;
-          const origin = drag.origins[element.id];
-          return { ...element, x: origin.x + dx, y: origin.y + dy };
-        })
-      });
-      return;
-    }
-
-    if (drag.kind === "resize") {
-      const dx = currentWorld.x - drag.startWorld.x;
-      const dy = currentWorld.y - drag.startWorld.y;
-      drag.changed = Math.abs(dx) > 0.2 || Math.abs(dy) > 0.2;
-      updateDocumentVisual({
-        ...drag.baseDocument,
-        viewport: documentRef.current.viewport,
-        elements: drag.baseDocument.elements.map((element) => {
-          if (element.id !== drag.id || element.type === "connector") return element;
-          return {
-            ...element,
-            width: Math.max(32, drag.frame.width + dx),
-            height: Math.max(32, drag.frame.height + dy)
-          };
-        })
-      });
-    }
+    const world = worldFromScreen(screen);
+    const result = dispatchStandardCanvasPointerMove({
+      state,
+      screen,
+      world
+    });
+    applyStandardCommands(result.commands);
+    setCanvasInteractionState(result.state);
+    if (result.state.kind === "draggingItems") updateDocumentItemDrag(result.state, world);
+    if (result.state.kind === "resizingItem") updateDocumentResize(result.state);
   }
 
   function handlePointerUp(event: React.PointerEvent<HTMLDivElement>) {
-    const drag = dragRef.current;
-    if (!drag || drag.pointerId !== event.pointerId) return;
-    dragRef.current = null;
-    if (drag.changed) commit(documentRef.current);
+    const state = interactionStateRef.current;
+    if (state.kind === "idle" || !("pointerId" in state) || state.pointerId !== event.pointerId) return;
+    const screen = pointerScreenPoint(event);
+    const world = worldFromScreen(screen);
+    const hit = standardHitFromScreen(screen);
+    lastPointerUpHitRef.current = hit;
+    suppressNextClickRef.current = state.kind !== "pendingBlankPointer" && state.kind !== "pendingItemPointer" && state.kind !== "pendingGroupPointer";
+
+    if (moveDraftRef.current?.changed || resizeDraftRef.current?.changed) commit(documentRef.current);
+
+    const result = dispatchStandardCanvasPointerUp({
+      state,
+      tool: "select",
+      hit,
+      hasSelection: canvasDocumentHasSelection(selectionRef.current),
+      screen,
+      world,
+      now: performance.now(),
+      previousBlankClick: blankClickIntentRef.current,
+      selectionVersion: selectionVersionRef.current,
+      interactionGeneration: interactionGenerationRef.current,
+      pointerId: event.pointerId
+    });
+    applyStandardCommands(result.commands);
+    setCanvasInteractionState(result.state);
+  }
+
+  function handleClick(event: React.MouseEvent<HTMLDivElement>) {
+    if (suppressNextClickRef.current) {
+      suppressNextClickRef.current = false;
+      return;
+    }
+    const screen = clientScreenPoint(event.clientX, event.clientY);
+    const hit = standardHitFromScreen(screen);
+    applyStandardCommands(dispatchStandardCanvasClick({ tool: "select", hit, shiftKey: event.shiftKey }));
   }
 
   function handleDoubleClick(event: React.MouseEvent<HTMLDivElement>) {
+    suppressNextClickRef.current = true;
     const screen = clientScreenPoint(event.clientX, event.clientY);
-    const hit = hitCanvasDocument(documentRef.current, screen, dimensionsRef.current, selectedIdsRef.current);
-    if (hit.kind !== "element") return;
-    const element = documentRef.current.elements.find((item) => item.id === hit.id);
-    if (element) editElementText(element);
+    const hit = standardHitFromScreen(screen);
+    applyStandardCommands(dispatchStandardCanvasDoubleClick({ tool: "select", hit }));
   }
 
   function handleWheel(event: React.WheelEvent<HTMLDivElement>) {
     event.preventDefault();
     const point = clientScreenPoint(event.clientX, event.clientY);
-    const viewport = documentRef.current.viewport;
-    if (event.ctrlKey || event.metaKey) {
-      const world = canvasDocumentScreenToWorld(point, viewport);
-      const nextScale = Math.min(3, Math.max(0.2, viewport.scale * Math.exp(-event.deltaY * 0.0015)));
-      updateViewportVisual({
-        x: point.x - world.x * nextScale,
-        y: point.y - world.y * nextScale,
-        scale: nextScale
-      });
-      return;
-    }
-
-    updateViewportVisual({
-      ...viewport,
-      x: viewport.x - event.deltaX,
-      y: viewport.y - event.deltaY
+    const wheelInput = createStandardWheelInput({
+      pointer: point,
+      canvasSize: dimensionsRef.current,
+      deltaX: event.deltaX,
+      deltaY: event.deltaY,
+      deltaMode: event.deltaMode,
+      modifiers: modifiersFromEvent(event.nativeEvent),
+      timestamp: event.timeStamp,
+      interactionKind: interactionStateRef.current.kind
     });
+    const intent = resolveInteractionIntent(
+      wheelInput,
+      buildInteractionContext({
+        graph: CANVAS_DOCUMENT_INTERACTION_GRAPH,
+        selection: {
+          nodeIds: selectionRef.current.itemIds,
+          edgeIds: selectionRef.current.connectionIds,
+          subgraphIds: []
+        },
+        viewport: documentRef.current.viewport,
+        canvasSize: dimensionsRef.current,
+        hitTarget: { kind: "blank" },
+        modifiers: wheelInput.modifiers,
+        gestureState: interactionStateRef.current.kind
+      }),
+      { wheelIntentTracker: wheelIntentTrackerRef.current }
+    );
+    const command = commandFromInteractionIntent(intent);
+    if (command?.type === "viewport.set") {
+      blankClickIntentRef.current = null;
+      updateViewportVisual(command.viewport);
+    }
   }
 
   function animateCreatedElement(id: string) {
@@ -693,11 +887,12 @@ export function CanvasDocumentEditor({ document, fileRef, runtime, onChange, onS
         ) : null}
         <div
           ref={containerRef}
-          className="h-full min-h-0 cursor-grab touch-none overflow-hidden active:cursor-grabbing"
+          className={cn("h-full min-h-0 touch-none overflow-hidden", interactionState.kind === "panning" || interactionState.kind === "draggingItems" || interactionState.kind === "resizingItem" ? "cursor-grabbing" : "cursor-default")}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
           onPointerCancel={handlePointerUp}
+          onClick={handleClick}
           onDoubleClick={handleDoubleClick}
           onWheel={handleWheel}
         />
@@ -712,7 +907,8 @@ function syncPixiScene(
   dimensions: CanvasDocumentDimensions,
   selectedIds: string[],
   connectorStartId: string | null,
-  imageDisplaySrcBySrc: Record<string, string>
+  imageDisplaySrcBySrc: Record<string, string>,
+  interactionState: StandardCanvasInteractionState
 ) {
   if (pixi.disposed) return;
   const visibleElements = canvasDocumentVisibleElements(document, dimensions, selectedIds, connectorStartId);
@@ -731,13 +927,13 @@ function syncPixiScene(
 
   for (const element of visibleElements) {
     const view = getPixiElementView(pixi, element);
-    syncElementView(pixi, view, element, elementsById, selected, connectorStartId, imageDisplaySrcBySrc[element.type === "image" ? element.src : ""]);
+    syncElementView(pixi, view, element, elementsById, selected, connectorStartId, imageDisplaySrcBySrc[element.type === "image" ? element.src : ""], document.viewport.scale);
     if (element.type === "connector") pixi.connectors.addChild(view.container);
     else pixi.objects.addChild(view.container);
   }
 
   applyPixiViewport(pixi, document.viewport, dimensions);
-  drawSelectionOverlay(pixi, document, selectedIds);
+  drawSelectionOverlay(pixi, document, selectedIds, interactionState);
   schedulePixiRender(pixi);
 }
 
@@ -745,6 +941,14 @@ function applyPixiViewport(pixi: PixiCanvasRuntime, viewport: ViewportState, dim
   pixi.world.position.set(viewport.x, viewport.y);
   pixi.world.scale.set(viewport.scale);
   drawGrid(pixi.grid, viewport, dimensions);
+}
+
+function resizePixiRenderer(pixi: PixiCanvasRuntime, dimensions: CanvasDocumentDimensions) {
+  const width = Math.max(1, Math.floor(dimensions.width));
+  const height = Math.max(1, Math.floor(dimensions.height));
+  pixi.app.renderer.resize(width, height, canvasRendererResolution());
+  pixi.app.canvas.style.width = `${width}px`;
+  pixi.app.canvas.style.height = `${height}px`;
 }
 
 function getPixiElementView(pixi: PixiCanvasRuntime, element: CanvasDocumentElement) {
@@ -772,10 +976,11 @@ function syncElementView(
   elementsById: Map<string, CanvasDocumentElement>,
   selected: Set<string>,
   connectorStartId: string | null,
-  displaySrc: string | undefined
+  displaySrc: string | undefined,
+  viewportScale: number
 ) {
   const selectedOrConnecting = selected.has(element.id) || connectorStartId === element.id;
-  const signature = elementSignature(element, elementsById, selectedOrConnecting, displaySrc);
+  const signature = elementSignature(element, elementsById, selectedOrConnecting, displaySrc, viewportScale);
   if (view.signature === signature) return;
   view.signature = signature;
   view.body.clear();
@@ -794,7 +999,8 @@ function syncElementView(
       fontSize: 14,
       fill: DEFAULT_TEXT_COLOR,
       anchor: 0.5,
-      align: "center"
+      align: "center",
+      viewportScale
     });
     return;
   }
@@ -810,7 +1016,8 @@ function syncElementView(
       fontSize: element.fontSize,
       fill: element.fill,
       anchor: { x: 0, y: 0.5 },
-      align: "left"
+      align: "left",
+      viewportScale
     });
     return;
   }
@@ -824,16 +1031,23 @@ function syncElementView(
     return;
   }
 
-  drawConnector(view, element, elementsById, selected.has(element.id));
+  drawConnector(view, element, elementsById, selected.has(element.id), viewportScale);
 }
 
-function elementSignature(element: CanvasDocumentElement, elementsById: Map<string, CanvasDocumentElement>, selectedOrConnecting: boolean, displaySrc: string | undefined) {
+function elementSignature(
+  element: CanvasDocumentElement,
+  elementsById: Map<string, CanvasDocumentElement>,
+  selectedOrConnecting: boolean,
+  displaySrc: string | undefined,
+  viewportScale: number
+) {
+  const textResolution = canvasTextResolution(viewportScale);
   if (element.type === "connector") {
     const from = canvasDocumentEndpointPoint(element.from, elementsById);
     const to = canvasDocumentEndpointPoint(element.to, elementsById);
-    return JSON.stringify({ ...element, fromPoint: from, toPoint: to, selectedOrConnecting });
+    return JSON.stringify({ ...element, fromPoint: from, toPoint: to, selectedOrConnecting, textResolution });
   }
-  return JSON.stringify({ ...element, selectedOrConnecting, displaySrc });
+  return JSON.stringify({ ...element, selectedOrConnecting, displaySrc, textResolution });
 }
 
 function drawShape(graphics: Graphics, element: CanvasShapeElement, selectedOrConnecting: boolean) {
@@ -867,7 +1081,7 @@ function drawImageFrame(graphics: Graphics, element: CanvasImageElement, selecte
   graphics.roundRect(0, 0, element.width, element.height, 6).stroke({ color: stroke, width: 1.5 });
 }
 
-function drawConnector(view: PixiElementView, element: CanvasConnectorElement, elementsById: Map<string, CanvasDocumentElement>, selected: boolean) {
+function drawConnector(view: PixiElementView, element: CanvasConnectorElement, elementsById: Map<string, CanvasDocumentElement>, selected: boolean, viewportScale: number) {
   const from = canvasDocumentEndpointPoint(element.from, elementsById);
   const to = canvasDocumentEndpointPoint(element.to, elementsById);
   const color = parsePixiColor(selected ? SELECTED_COLOR : element.stroke, 0x2f2a25);
@@ -886,7 +1100,8 @@ function drawConnector(view: PixiElementView, element: CanvasConnectorElement, e
       fontSize: 12,
       fill: DEFAULT_TEXT_COLOR,
       anchor: 0.5,
-      align: "center"
+      align: "center",
+      viewportScale
     });
   } else {
     removeTextDisplay(view);
@@ -927,6 +1142,7 @@ function syncImageSprite(pixi: PixiCanvasRuntime, view: PixiElementView, element
     .then((texture) => {
       const current = pixi.views.get(view.id);
       if (!current || current !== view || current.imageSrc !== displaySrc || !view.sprite) return;
+      texture.source.style.scaleMode = "linear";
       view.sprite.texture = texture;
       const currentElement = findImageElementById(view.id, pixi, element);
       layoutImageSprite(view.sprite, currentElement || element);
@@ -970,6 +1186,7 @@ function syncTextDisplay(
     fill: string;
     anchor: number | { x: number; y: number };
     align: "left" | "center";
+    viewportScale: number;
   }
 ) {
   if (!text) {
@@ -977,8 +1194,8 @@ function syncTextDisplay(
     return;
   }
 
-  const useBitmap = canUseCanvasBitmapText(text);
-  const key = JSON.stringify({ text, options, useBitmap });
+  const textResolution = canvasTextResolution(options.viewportScale);
+  const key = JSON.stringify({ text, options, textResolution });
   if (view.text && view.textKey === key) return;
   removeTextDisplay(view);
 
@@ -991,7 +1208,16 @@ function syncTextDisplay(
     wordWrapWidth: options.width,
     lineHeight: Math.round(options.fontSize * 1.25)
   };
-  const display: PixiTextDisplay = useBitmap ? new BitmapText({ text, style, anchor: options.anchor }) : new PixiText({ text, style, anchor: options.anchor });
+  const display = new PixiText({
+    text,
+    style,
+    anchor: options.anchor,
+    resolution: textResolution,
+    textureStyle: {
+      scaleMode: "linear"
+    },
+    autoGenerateMipmaps: true
+  });
   display.x = options.x;
   display.y = options.y;
   display.eventMode = "none";
@@ -1008,8 +1234,19 @@ function removeTextDisplay(view: PixiElementView) {
   view.textKey = undefined;
 }
 
-function drawSelectionOverlay(pixi: PixiCanvasRuntime, document: CanvasDocument, selectedIds: string[]) {
+function drawSelectionOverlay(pixi: PixiCanvasRuntime, document: CanvasDocument, selectedIds: string[], interactionState: StandardCanvasInteractionState) {
   pixi.selection.clear();
+  const scale = Math.max(document.viewport.scale, 0.01);
+  if (interactionState.kind === "marqueeSelecting") {
+    const x = Math.min(interactionState.startWorld.x, interactionState.currentWorld.x);
+    const y = Math.min(interactionState.startWorld.y, interactionState.currentWorld.y);
+    const width = Math.abs(interactionState.currentWorld.x - interactionState.startWorld.x);
+    const height = Math.abs(interactionState.currentWorld.y - interactionState.startWorld.y);
+    pixi.selection
+      .rect(x, y, width, height)
+      .fill({ color: parsePixiColor(SELECTED_COLOR, 0xe85d5d), alpha: 0.08 })
+      .stroke({ color: parsePixiColor(SELECTED_COLOR, 0xe85d5d), width: 1 / scale, alpha: 0.7 });
+  }
   if (!selectedIds.length) return;
   const elementsById = new Map(document.elements.map((element) => [element.id, element]));
   const selectedElements = selectedIds.map((id) => elementsById.get(id)).filter((element): element is CanvasDocumentElement => Boolean(element));
@@ -1018,7 +1255,6 @@ function drawSelectionOverlay(pixi: PixiCanvasRuntime, document: CanvasDocument,
   if (element.type === "connector") return;
 
   const frame = canvasElementFrame(element);
-  const scale = Math.max(document.viewport.scale, 0.01);
   const handleSize = 14 / scale;
   pixi.selection
     .rect(frame.x, frame.y, frame.width, frame.height)
@@ -1072,6 +1308,16 @@ function parsePixiColor(value: string | undefined, fallback: number) {
 
 function positiveModulo(value: number, modulus: number) {
   return ((value % modulus) + modulus) % modulus;
+}
+
+function canvasRendererResolution() {
+  const ratio = typeof window === "undefined" ? MIN_RENDERER_RESOLUTION : window.devicePixelRatio || 1;
+  return Math.min(MAX_RENDERER_RESOLUTION, Math.max(MIN_RENDERER_RESOLUTION, ratio));
+}
+
+function canvasTextResolution(viewportScale: number) {
+  const scaled = canvasRendererResolution() * Math.max(1, viewportScale);
+  return Math.min(MAX_TEXT_TEXTURE_RESOLUTION, Math.max(MIN_RENDERER_RESOLUTION, Math.ceil(scaled * 2) / 2));
 }
 
 function ToolbarButton({

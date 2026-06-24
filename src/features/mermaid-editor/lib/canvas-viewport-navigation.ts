@@ -1,5 +1,8 @@
 import type { CanvasPoint, InteractionState } from "@/features/mermaid-editor/lib/canvas-interaction";
+import type { StandardCanvasInteractionState } from "@/features/mermaid-editor/lib/canvas-interaction-standard";
 import type { ViewportState } from "@/features/mermaid-editor/lib/editor-types";
+
+export type CanvasInteractionKind = InteractionState["kind"] | StandardCanvasInteractionState["kind"];
 
 export type CanvasWheelNavigationInput = {
   viewport: ViewportState;
@@ -13,7 +16,7 @@ export type CanvasWheelNavigationInput = {
   shiftKey: boolean;
   timestamp?: number;
   intentTracker?: WheelIntentTracker;
-  interactionKind: InteractionState["kind"];
+  interactionKind: CanvasInteractionKind;
 };
 
 export type WheelNavigationIntent = "pan" | "zoom";

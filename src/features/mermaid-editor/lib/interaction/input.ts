@@ -1,4 +1,5 @@
-import type { CanvasPoint, HitTarget, InteractionState } from "@/features/mermaid-editor/lib/canvas-interaction";
+import type { CanvasPoint, HitTarget } from "@/features/mermaid-editor/lib/canvas-interaction";
+import type { CanvasInteractionKind } from "@/features/mermaid-editor/lib/canvas-viewport-navigation";
 
 export type InteractionEntry = "web-ui" | "cli-api" | "file" | "system";
 
@@ -34,7 +35,7 @@ export type StandardWheelInput = {
   deltaMode: number;
   modifiers: InteractionModifiers;
   timestamp?: number;
-  interactionKind: InteractionState["kind"];
+  interactionKind: CanvasInteractionKind;
 };
 
 export type StandardGesturePhase = "start" | "change" | "end";
@@ -48,7 +49,7 @@ export type StandardGestureInput = {
   scale: number;
   modifiers: InteractionModifiers;
   timestamp?: number;
-  interactionKind: InteractionState["kind"];
+  interactionKind: CanvasInteractionKind;
 };
 
 export type StandardKeyboardInput = {

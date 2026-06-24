@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { createCanvasConnectorElement, createCanvasShapeElement, createCanvasTextElement, type CanvasDocument } from "@/features/mermaid-editor/lib/canvas-document";
 import {
   canUseCanvasBitmapText,
+  canvasDocumentClientToScreen,
   canvasDocumentEndpointPoint,
   canvasDocumentVisibleElements,
   canvasDocumentWorldBounds,
@@ -51,6 +52,21 @@ describe("canvas document rendering helpers", () => {
     const document = testDocument([a, b, connector]);
 
     expect(hitCanvasDocument(document, { x: 200, y: 48 }, { width: 500, height: 240 }, [])).toEqual({ kind: "element", id: connector.id });
+  });
+
+  it("maps client coordinates through the rendered canvas rect", () => {
+    expect(canvasDocumentClientToScreen({ clientX: 300, clientY: 220 }, { left: 100, top: 20, width: 400, height: 200 }, { width: 800, height: 600 })).toEqual({
+      x: 400,
+      y: 600
+    });
+  });
+
+  it("uses mapped canvas coordinates for hit testing", () => {
+    const shape = createCanvasShapeElement([], 360, 570);
+    const document = testDocument([shape]);
+    const screen = canvasDocumentClientToScreen({ clientX: 300, clientY: 220 }, { left: 100, top: 20, width: 400, height: 200 }, { width: 800, height: 600 });
+
+    expect(hitCanvasDocument(document, screen, { width: 800, height: 600 }, [])).toEqual({ kind: "element", id: shape.id });
   });
 
   it("resolves connector endpoint anchors", () => {

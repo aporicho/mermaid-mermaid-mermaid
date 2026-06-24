@@ -1,4 +1,5 @@
-import type { HitTarget, InteractionState } from "@/features/mermaid-editor/lib/canvas-interaction";
+import type { HitTarget } from "@/features/mermaid-editor/lib/canvas-interaction";
+import type { CanvasInteractionKind } from "@/features/mermaid-editor/lib/canvas-viewport-navigation";
 import type {
   DiagramType,
   EditableKind,
@@ -61,7 +62,7 @@ export type InteractionContext = {
   canvasSize?: { width: number; height: number };
   hitTarget: HitTarget;
   modifiers: InteractionModifiers;
-  gestureState: InteractionState["kind"];
+  gestureState: CanvasInteractionKind;
   editing?: InteractionEditingContext;
   visibleScope: InteractionVisibleScope;
   capabilities: InteractionCapabilities;
@@ -84,7 +85,7 @@ export type BuildInteractionContextInput = {
   canvasSize?: { width: number; height: number };
   hitTarget?: HitTarget;
   modifiers?: Partial<InteractionModifiers>;
-  gestureState?: InteractionState["kind"];
+  gestureState?: CanvasInteractionKind;
   editing?: InteractionEditingContext | null;
 };
 

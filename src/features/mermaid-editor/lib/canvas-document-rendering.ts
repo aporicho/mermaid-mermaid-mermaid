@@ -12,6 +12,13 @@ export type CanvasDocumentDimensions = {
   height: number;
 };
 
+export type CanvasDocumentClientRect = {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+};
+
 export type CanvasDocumentHitTarget =
   | {
       kind: "element";
@@ -110,6 +117,20 @@ export function canvasDocumentScreenToWorld(point: { x: number; y: number }, vie
   return {
     x: (point.x - viewport.x) / viewport.scale,
     y: (point.y - viewport.y) / viewport.scale
+  };
+}
+
+export function canvasDocumentClientToScreen(point: { clientX: number; clientY: number }, rect: CanvasDocumentClientRect, dimensions: CanvasDocumentDimensions) {
+  if (rect.width <= 0 || rect.height <= 0 || dimensions.width <= 0 || dimensions.height <= 0) {
+    return {
+      x: point.clientX - rect.left,
+      y: point.clientY - rect.top
+    };
+  }
+
+  return {
+    x: ((point.clientX - rect.left) / rect.width) * dimensions.width,
+    y: ((point.clientY - rect.top) / rect.height) * dimensions.height
   };
 }
 

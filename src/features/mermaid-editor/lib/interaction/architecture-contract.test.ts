@@ -30,4 +30,26 @@ describe("interaction architecture contract", () => {
     expect(preview).not.toContain("resolveWheelNavigation");
     expect(preview).not.toContain("zoomViewportAtPoint");
   });
+
+  it("keeps canvas document interactions on the standard canvas path", () => {
+    const canvasDocumentEditor = readProjectFile("src/features/mermaid-editor/components/canvas-document-editor.tsx");
+
+    expect(canvasDocumentEditor).toContain("dispatchStandardCanvasPointerDown");
+    expect(canvasDocumentEditor).toContain("dispatchStandardCanvasPointerMove");
+    expect(canvasDocumentEditor).toContain("dispatchStandardCanvasPointerUp");
+    expect(canvasDocumentEditor).toContain("createStandardWheelInput");
+    expect(canvasDocumentEditor).toContain("resolveInteractionIntent");
+    expect(canvasDocumentEditor).toContain("commandFromInteractionIntent");
+    expect(canvasDocumentEditor).not.toContain("resolveWheelNavigation");
+    expect(canvasDocumentEditor).not.toContain("zoomViewportAtPoint");
+  });
+
+  it("keeps Mermaid canvas interaction as a standard adapter", () => {
+    const canvasInteraction = readProjectFile("src/features/mermaid-editor/lib/canvas-interaction.ts");
+
+    expect(canvasInteraction).toContain("beginStandardCanvasPointer");
+    expect(canvasInteraction).toContain("dispatchStandardCanvasPointerDown");
+    expect(canvasInteraction).toContain("toStandardHitTarget");
+    expect(canvasInteraction).toContain("fromStandardCommand");
+  });
 });
