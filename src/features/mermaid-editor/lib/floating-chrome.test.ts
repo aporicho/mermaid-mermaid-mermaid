@@ -13,6 +13,7 @@ import {
   floatingPanelStackIndex,
   floatingPanelHiddenOffset,
   floatingPanelZIndex,
+  fitFloatingPanelFrameToViewport,
   maximizedFloatingPanelFrame,
   resizeFloatingPanelFrame,
   restoreFloatingPanelFrame,
@@ -64,7 +65,7 @@ describe("floating chrome", () => {
     expect(floatingPanelZIndex("popover", 99)).toBeGreaterThan(floatingPanelZIndex("workspace", 2));
   });
 
-  it("keeps draggable panels inside the viewport margin", () => {
+  it("allows draggable panel offsets outside the viewport", () => {
     const constrained = constrainFloatingPanelOffset({
       desired: { x: 900, y: -120 },
       startOffset: { x: 0, y: 0 },
@@ -73,12 +74,12 @@ describe("floating chrome", () => {
     });
 
     expect(constrained).toEqual({
-      x: 800 - FLOATING_PANEL_EDGE_MARGIN_PX - 420,
-      y: FLOATING_PANEL_EDGE_MARGIN_PX - 80
+      x: 900,
+      y: -120
     });
   });
 
-  it("keeps resizable panel frames inside the viewport margin", () => {
+  it("allows panel frames outside the viewport while preserving minimum size", () => {
     const constrained = constrainFloatingPanelFrame({
       frame: { x: -40, y: 590, width: 920, height: 80 },
       viewport: { width: 800, height: 600 },
@@ -86,6 +87,21 @@ describe("floating chrome", () => {
     });
 
     expect(constrained).toEqual({
+      x: -40,
+      y: 590,
+      width: 920,
+      height: 220
+    });
+  });
+
+  it("fits newly opened panel frames inside the viewport margin", () => {
+    const fitted = fitFloatingPanelFrameToViewport({
+      frame: { x: -40, y: 590, width: 920, height: 80 },
+      viewport: { width: 800, height: 600 },
+      minSize: { width: 320, height: 220 }
+    });
+
+    expect(fitted).toEqual({
       x: FLOATING_PANEL_EDGE_MARGIN_PX,
       y: 600 - FLOATING_PANEL_EDGE_MARGIN_PX - 220,
       width: 800 - FLOATING_PANEL_EDGE_MARGIN_PX * 2,

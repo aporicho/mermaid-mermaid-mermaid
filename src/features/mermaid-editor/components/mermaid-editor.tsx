@@ -1,4 +1,5 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type DragEvent as ReactDragEvent, type MouseEvent as ReactMouseEvent, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import {
   ClockRotateRight,
   Code,
@@ -3785,7 +3786,7 @@ function MarkdownWindowPanel({
         key={`${title}:markdown-window`}
         value={value}
         onChange={onChange}
-        className="bg-background/95"
+        className="markdown-editor-panel--window bg-background/95"
       />
     </section>
   );
@@ -4139,14 +4140,15 @@ function ProjectFileContextMenu({
   const left = typeof window === "undefined" ? menu.x : Math.max(12, Math.min(menu.x, window.innerWidth - menuWidth - 12));
   const top = typeof window === "undefined" ? menu.y : Math.max(12, Math.min(menu.y, window.innerHeight - menuHeight - 12));
 
-  return (
+  const menuElement = (
     <div
       ref={menuRef}
-      className="fixed z-[90] w-56 rounded-lg border bg-popover/95 p-2 text-popover-foreground shadow-lg backdrop-blur"
+      className="fixed z-[120] w-56 rounded-lg border bg-popover/95 p-2 text-popover-foreground shadow-lg backdrop-blur"
       style={{ left, top }}
+      data-floating-panel-drag-exclude
       data-editor-floating-menu-ignore
     >
-      <div className="mb-1 min-w-0 truncate px-2 py-1 text-xs text-muted-foreground" title={menu.file.path}>
+      <div className="mb-1 max-w-full min-w-0 truncate px-2 py-1 text-xs text-muted-foreground" title={menu.file.path}>
         {menu.file.name}
       </div>
       <Button data-floating-action-item variant="ghost" className={cn(EDITOR_CHROME_CLASSES.menuRow, "w-full min-w-0 gap-2 overflow-hidden text-left")} onClick={() => onOpenProjectFile(menu.file)}>
@@ -4166,6 +4168,9 @@ function ProjectFileContextMenu({
       ) : null}
     </div>
   );
+
+  if (typeof document === "undefined") return menuElement;
+  return createPortal(menuElement, document.body);
 }
 
 function FileMenu({

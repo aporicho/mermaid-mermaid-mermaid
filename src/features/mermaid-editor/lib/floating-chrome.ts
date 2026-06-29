@@ -89,29 +89,32 @@ export function floatingPanelZIndex(kind: FloatingPanelKind, stackIndex = 0) {
 }
 
 export function constrainFloatingPanelOffset({
-  desired,
-  startOffset,
-  startRect,
-  viewport
+  desired
 }: {
   desired: FloatingPanelOffset;
   startOffset: FloatingPanelOffset;
   startRect: FloatingPanelRect;
   viewport: FloatingPanelViewport;
 }): FloatingPanelOffset {
-  const margin = viewport.margin ?? FLOATING_PANEL_EDGE_MARGIN_PX;
-  const minX = startOffset.x + margin - startRect.left;
-  const maxX = startOffset.x + viewport.width - margin - startRect.right;
-  const minY = startOffset.y + margin - startRect.top;
-  const maxY = startOffset.y + viewport.height - margin - startRect.bottom;
-
-  return {
-    x: clamp(desired.x, minX, maxX),
-    y: clamp(desired.y, minY, maxY)
-  };
+  return desired;
 }
 
 export function constrainFloatingPanelFrame({
+  frame,
+  minSize = { width: 320, height: 220 }
+}: {
+  frame: FloatingPanelFrame;
+  viewport: FloatingPanelViewport;
+  minSize?: FloatingPanelSize;
+}): FloatingPanelFrame {
+  return {
+    ...frame,
+    width: Math.max(minSize.width, frame.width),
+    height: Math.max(minSize.height, frame.height)
+  };
+}
+
+export function fitFloatingPanelFrameToViewport({
   frame,
   viewport,
   minSize = { width: 320, height: 220 }

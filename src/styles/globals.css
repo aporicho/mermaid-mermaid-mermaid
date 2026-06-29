@@ -132,10 +132,38 @@
   background: hsl(var(--background));
 }
 
+.markdown-editor-panel.markdown-editor-panel--window .milkdown,
+.markdown-editor-panel.markdown-editor-panel--window .milkdown .editor {
+  min-height: 100%;
+}
+
+.markdown-editor-panel.markdown-editor-panel--window .milkdown .editor {
+  padding: 48px clamp(20px, 8%, 56px);
+}
+
 .markdown-editor-panel .ProseMirror {
   max-width: 880px;
   margin: 0 auto;
   outline: none;
+}
+
+.markdown-editor-panel.markdown-editor-panel--window .ProseMirror {
+  max-width: 760px;
+}
+
+.markdown-editor-panel .milkdown .editor {
+  position: relative;
+}
+
+.markdown-editor-panel .milkdown .milkdown-block-handle {
+  z-index: 60;
+}
+
+.markdown-editor-panel .milkdown .crepe-drop-cursor,
+.markdown-editor-panel .milkdown .milkdown-toolbar,
+.markdown-editor-panel .milkdown .milkdown-link-tooltip,
+.markdown-editor-panel .milkdown .milkdown-slash-menu {
+  z-index: 80;
 }
 
 .mermaid-render svg {

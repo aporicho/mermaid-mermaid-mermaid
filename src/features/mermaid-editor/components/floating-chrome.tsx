@@ -16,6 +16,7 @@ import {
   defaultFloatingPanelDismissMode,
   floatingPanelHiddenOffset,
   floatingPanelZIndex,
+  fitFloatingPanelFrameToViewport,
   maximizedFloatingPanelFrame,
   resizeFloatingPanelFrame,
   restoreFloatingPanelFrame,
@@ -55,7 +56,7 @@ const floatingPanelAnchorClass: Partial<Record<FloatingPanelPlacement, string>> 
 
 const floatingPanelSurfaceClass: Record<FloatingPanelKind, string> = {
   popover: "rounded-lg border bg-popover/95 p-2 text-popover-foreground shadow-sm backdrop-blur",
-  workspace: "rounded-lg border bg-card/95 text-foreground shadow-sm backdrop-blur"
+  workspace: "rounded-lg border bg-card/95 text-foreground shadow-sm"
 };
 
 const DEFAULT_WORKSPACE_PANEL_SIZE: FloatingPanelSize = { width: 360, height: 640 };
@@ -277,7 +278,12 @@ export function MotionPresence({
             scale: 1,
             duration: variant === "workspace" ? motion.duration.base : motion.duration.slow,
             ease: motion.ease.standard,
-            overwrite: "auto"
+            overwrite: "auto",
+            onComplete: () => {
+              if (variant === "workspace") {
+                gsap.set(element, { clearProps: "transform" });
+              }
+            }
           }
         );
         return;
@@ -482,7 +488,12 @@ export function FloatingPanel({
             scale: 1,
             duration: motion.duration.base,
             ease: motion.ease.emphasized,
-            overwrite: "auto"
+            overwrite: "auto",
+            onComplete: () => {
+              if (kind === "workspace") {
+                gsap.set(element, { clearProps: "transform" });
+              }
+            }
           }
         );
         if (items.length) {
@@ -527,6 +538,7 @@ export function FloatingPanel({
         motion.reduced,
         motion.stagger.list,
         open,
+        kind,
         placement
       ],
       scope: surfaceRef
@@ -715,7 +727,8 @@ export function FloatingPanel({
     <div
       ref={rootRef}
       className={cn(
-        "pointer-events-auto absolute will-change-transform",
+        "pointer-events-auto absolute",
+        !framePanel && "will-change-transform",
         !framePanel && floatingPanelPlacementClass[placement],
         !open && "pointer-events-none",
         (dragging || resizing) && "select-none",
@@ -738,7 +751,8 @@ export function FloatingPanel({
         <div
           ref={surfaceRef}
           className={cn(
-            "relative will-change-transform",
+            "relative",
+            kind !== "workspace" && "will-change-transform",
             floatingPanelSurfaceClass[kind],
             framePanel && "h-full w-full",
             kind === "workspace" && "shadow-lg",
@@ -810,7 +824,7 @@ function initialFloatingPanelFrame({
     y = viewport.height - margin - height;
   }
 
-  return constrainFloatingPanelFrame({
+  return fitFloatingPanelFrameToViewport({
     frame: { x, y, width, height },
     viewport,
     minSize
