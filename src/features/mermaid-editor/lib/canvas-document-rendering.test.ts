@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { createCanvasConnectorElement, createCanvasShapeElement, createCanvasTextElement, type CanvasDocument } from "@/features/mermaid-editor/lib/canvas-document";
+import { createCanvasCardElement, createCanvasConnectorElement, createCanvasShapeElement, createCanvasTextElement, type CanvasDocument } from "@/features/mermaid-editor/lib/canvas-document";
 import {
   canUseCanvasBitmapText,
   canvasDocumentClientToScreen,
@@ -43,6 +43,14 @@ describe("canvas document rendering helpers", () => {
     const document = testDocument([shape]);
 
     expect(hitCanvasDocument(document, { x: 188, y: 116 }, { width: 300, height: 200 }, [shape.id])).toEqual({ kind: "resize", id: shape.id });
+  });
+
+  it("hits card bodies and resize handles as regular canvas items", () => {
+    const card = createCanvasCardElement([], 40, 50);
+    const document = testDocument([card]);
+
+    expect(hitCanvasDocument(document, { x: 80, y: 90 }, { width: 400, height: 300 }, [])).toEqual({ kind: "element", id: card.id });
+    expect(hitCanvasDocument(document, { x: 280, y: 206 }, { width: 400, height: 300 }, [card.id])).toEqual({ kind: "resize", id: card.id });
   });
 
   it("hits connectors by distance to segment", () => {

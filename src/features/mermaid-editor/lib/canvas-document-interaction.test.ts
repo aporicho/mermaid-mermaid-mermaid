@@ -8,7 +8,7 @@ import {
   selectCanvasDocumentItem,
   standardHitTargetFromCanvasDocumentHit
 } from "@/features/mermaid-editor/lib/canvas-document-interaction";
-import { createCanvasConnectorElement, createCanvasShapeElement, createCanvasTextElement, type CanvasDocument } from "@/features/mermaid-editor/lib/canvas-document";
+import { createCanvasCardElement, createCanvasConnectorElement, createCanvasShapeElement, createCanvasTextElement, type CanvasDocument } from "@/features/mermaid-editor/lib/canvas-document";
 
 function documentWith(elements: CanvasDocument["elements"]): CanvasDocument {
   return {
@@ -32,17 +32,18 @@ describe("canvas document interaction adapter", () => {
 
   it("splits selected ids into item and connection buckets", () => {
     const shape = createCanvasShapeElement([], 20, 20);
-    const text = createCanvasTextElement([shape], 220, 20);
-    const connector = createCanvasConnectorElement([shape, text], { elementId: shape.id }, { elementId: text.id });
-    const selection = canvasDocumentSelectionFromIds([shape.id, connector.id, text.id], documentWith([shape, text, connector]));
+    const card = createCanvasCardElement([shape], 220, 20);
+    const text = createCanvasTextElement([shape, card], 500, 20);
+    const connector = createCanvasConnectorElement([shape, card, text], { elementId: shape.id }, { elementId: card.id });
+    const selection = canvasDocumentSelectionFromIds([shape.id, connector.id, card.id, text.id], documentWith([shape, card, text, connector]));
 
     expect(selection).toEqual({
-      itemIds: [shape.id, text.id],
+      itemIds: [shape.id, card.id, text.id],
       connectionIds: [connector.id],
       groupIds: [],
       primaryId: shape.id
     });
-    expect(canvasDocumentSelectedIds(selection)).toEqual([shape.id, text.id, connector.id]);
+    expect(canvasDocumentSelectedIds(selection)).toEqual([shape.id, card.id, text.id, connector.id]);
   });
 
   it("uses standard additive item and connection selection semantics", () => {

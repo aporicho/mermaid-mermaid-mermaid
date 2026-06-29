@@ -34,7 +34,10 @@ export function resolveRuntimeEditorMotion(tokens: EditorMotionTokens = DEFAULT_
       ...tokens.canvas,
       createScale: 1,
       selectedScale: 1,
-      highlightDuration: 0
+      highlightDuration: 0,
+      proximityRadiusPx: 0,
+      proximityMaxScale: 1,
+      proximityDuration: 0
     },
     reduced: true
   };

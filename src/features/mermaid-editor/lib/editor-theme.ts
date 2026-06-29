@@ -70,6 +70,9 @@ export type EditorMotionTokens = {
     selectedScale: number;
     highlightDuration: number;
     maxAnimatedItems: number;
+    proximityRadiusPx: number;
+    proximityMaxScale: number;
+    proximityDuration: number;
   };
 };
 
@@ -282,7 +285,10 @@ export const DEFAULT_EDITOR_MOTION: EditorMotionTokens = {
     createScale: 0.98,
     selectedScale: 1.015,
     highlightDuration: 0.55,
-    maxAnimatedItems: 80
+    maxAnimatedItems: 80,
+    proximityRadiusPx: 200,
+    proximityMaxScale: 2.5,
+    proximityDuration: 0.35
   }
 };
 
@@ -1087,7 +1093,10 @@ const numberRanges = {
       createScale: [0.7, 1],
       selectedScale: [1, 1.08],
       highlightDuration: [0, 1.8],
-      maxAnimatedItems: [0, 400]
+      maxAnimatedItems: [0, 400],
+      proximityRadiusPx: [0, 600],
+      proximityMaxScale: [1, 3],
+      proximityDuration: [0, 0.8]
     }
   },
   diagnostics: {
@@ -1171,7 +1180,10 @@ function motionToCssVariables(motion: EditorMotionTokens): Record<string, string
     "--motion-distance-panel": `${motion.distance.panel}px`,
     "--motion-distance-viewport": `${motion.distance.viewport}px`,
     "--motion-stagger-button": `${motion.stagger.button * 1000}ms`,
-    "--motion-stagger-list": `${motion.stagger.list * 1000}ms`
+    "--motion-stagger-list": `${motion.stagger.list * 1000}ms`,
+    "--motion-canvas-proximity-radius": `${motion.canvas.proximityRadiusPx}px`,
+    "--motion-canvas-proximity-scale": `${motion.canvas.proximityMaxScale}`,
+    "--motion-canvas-proximity-duration": `${motion.canvas.proximityDuration * 1000}ms`
   };
 }
 

@@ -13,6 +13,12 @@ describe("editor motion", () => {
     expect(motion.canvas.createScale).toBe(DEFAULT_EDITOR_MOTION.canvas.createScale);
   });
 
+  it("uses the tuned proximity defaults", () => {
+    expect(DEFAULT_EDITOR_MOTION.canvas.proximityRadiusPx).toBe(200);
+    expect(DEFAULT_EDITOR_MOTION.canvas.proximityMaxScale).toBe(2.5);
+    expect(DEFAULT_EDITOR_MOTION.canvas.proximityDuration).toBe(0.35);
+  });
+
   it("disables displacement and duration when reduced motion is requested", () => {
     const motion = resolveRuntimeEditorMotion(DEFAULT_EDITOR_MOTION, true);
 
@@ -22,6 +28,8 @@ describe("editor motion", () => {
     expect(motion.stagger.button).toBe(0);
     expect(motion.canvas.createScale).toBe(1);
     expect(motion.canvas.selectedScale).toBe(1);
+    expect(motion.canvas.proximityRadiusPx).toBe(0);
+    expect(motion.canvas.proximityMaxScale).toBe(1);
   });
 
   it("derives directional offsets for chrome and panels", () => {

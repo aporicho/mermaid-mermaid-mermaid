@@ -6,6 +6,7 @@ import {
   computeEdgePathMap,
   computeEdgeRetargetPath,
   remapEdgePathGeometry,
+  resolveFinalEdgeGeometryMap,
   resolveParallelEdgeLanes,
   type EdgePathGeometry,
   type RoutedNodeRect
@@ -291,6 +292,69 @@ describe("computeEdgePath", () => {
     expect(lastPoint(geometry.points).x).toBeGreaterThan(110);
     expect(geometry.endTangent.x).toBeLessThan(0);
     expectFinitePoints(geometry.points);
+  });
+});
+
+describe("resolveFinalEdgeGeometryMap", () => {
+  it("overlays proximity geometry for non-mermaid edges", () => {
+    const fallback = edgePath("straight");
+    const proximity = edgePath("straight", [
+      { id: "a", x: -25, y: -12.5, width: 150, height: 75 },
+      { id: "b", x: 220, y: 0, width: 100, height: 50 }
+    ]);
+    const map = resolveFinalEdgeGeometryMap({
+      edges: [baseEdge],
+      fallbackGeometryById: new Map([[baseEdge.id, fallback]]),
+      proximityGeometryById: new Map([[baseEdge.id, proximity]]),
+      mermaidRouteByEdgeId: new Map(),
+      layoutMode: "manual"
+    });
+
+    expect(map.get(baseEdge.id)).toBe(proximity);
+  });
+
+  it("remaps mermaid routes to proximity geometry endpoints", () => {
+    const route = edgePath("mermaid");
+    const fallback = edgePath("mermaid", [
+      { id: "a", x: 30, y: 80, width: 100, height: 50 },
+      { id: "b", x: 260, y: 210, width: 100, height: 50 }
+    ]);
+    const proximity = edgePath("mermaid", [
+      { id: "a", x: 5, y: 67.5, width: 150, height: 75 },
+      { id: "b", x: 260, y: 210, width: 100, height: 50 }
+    ]);
+    const map = resolveFinalEdgeGeometryMap({
+      edges: [baseEdge],
+      fallbackGeometryById: new Map([[baseEdge.id, fallback]]),
+      proximityGeometryById: new Map([[baseEdge.id, proximity]]),
+      mermaidRouteByEdgeId: new Map([[baseEdge.id, route]]),
+      layoutMode: "manual"
+    });
+    const resolved = expectGeometry(map, baseEdge.id);
+
+    expect(resolved).not.toBe(route);
+    expect(resolved).not.toBe(fallback);
+    expectPointClose(resolved.start, proximity.start);
+    expectPointClose(resolved.end, proximity.end);
+  });
+
+  it("uses proximity fallback directly for pinned mermaid anchors", () => {
+    const edge: CanvasEdge = { ...baseEdge, fromAnchor: "bottom", toAnchor: "top" };
+    const route = edgePath("mermaid", defaultNodes(), edge);
+    const fallback = edgePath("bezier", defaultNodes(), edge);
+    const proximity = edgePath("bezier", [
+      { id: "a", x: -25, y: -12.5, width: 150, height: 75 },
+      { id: "b", x: 220, y: 0, width: 100, height: 50 }
+    ], edge);
+    const map = resolveFinalEdgeGeometryMap({
+      edges: [edge],
+      fallbackGeometryById: new Map([[edge.id, fallback]]),
+      proximityGeometryById: new Map([[edge.id, proximity]]),
+      mermaidRouteByEdgeId: new Map([[edge.id, route]]),
+      layoutMode: "manual"
+    });
+
+    expect(map.get(edge.id)).toBe(proximity);
   });
 });
 

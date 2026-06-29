@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   CANVAS_DOCUMENT_SCHEMA,
   createBlankCanvasDocument,
+  createCanvasCardElement,
   createCanvasConnectorElement,
   createCanvasShapeElement,
   createCanvasTextElement,
@@ -25,13 +26,14 @@ describe("canvas document", () => {
 
   it("round-trips supported elements through stable JSON", () => {
     const shape = createCanvasShapeElement([], 100, 120, "ellipse", "节点");
-    const text = createCanvasTextElement([shape], 340, 140, "说明");
-    const connector = createCanvasConnectorElement([shape, text], { elementId: shape.id }, { elementId: text.id });
+    const card = createCanvasCardElement([shape], 340, 120, "卡片内容");
+    const text = createCanvasTextElement([shape, card], 620, 140, "说明");
+    const connector = createCanvasConnectorElement([shape, card, text], { elementId: shape.id }, { elementId: card.id });
     const serialized = serializeCanvasDocument({
       schema: CANVAS_DOCUMENT_SCHEMA,
       version: 1,
       viewport: { x: 10, y: 20, scale: 1.2 },
-      elements: [shape, text, connector]
+      elements: [shape, card, text, connector]
     });
 
     expect(parseCanvasDocument(serialized)).toMatchObject({
@@ -40,9 +42,48 @@ describe("canvas document", () => {
       viewport: { x: 10, y: 20, scale: 1.2 },
       elements: [
         { type: "shape", shape: "ellipse", text: "节点" },
+        { type: "card", text: "卡片内容", cornerRadius: 32 },
         { type: "text", text: "说明" },
         { type: "connector", markerEnd: "arrow" }
       ]
+    });
+  });
+
+  it("normalizes card geometry and style fields", () => {
+    const document = parseCanvasDocument(
+      JSON.stringify({
+        schema: CANVAS_DOCUMENT_SCHEMA,
+        version: 1,
+        viewport: { x: 0, y: 0, scale: 1 },
+        elements: [
+          {
+            id: "card-a",
+            type: "card",
+            x: "10",
+            y: "20",
+            width: 4,
+            height: 2,
+            fill: "",
+            stroke: "#123456",
+            strokeWidth: -2,
+            cornerRadius: "bad",
+            text: "A"
+          }
+        ]
+      })
+    );
+
+    expect(document.elements[0]).toMatchObject({
+      id: "card-a",
+      type: "card",
+      x: 10,
+      y: 20,
+      width: 24,
+      height: 24,
+      stroke: "#123456",
+      strokeWidth: 0,
+      cornerRadius: 32,
+      text: "A"
     });
   });
 

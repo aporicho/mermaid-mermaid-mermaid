@@ -188,7 +188,10 @@ describe("editor theme", () => {
         },
         canvas: {
           maxAnimatedItems: 120,
-          selectedScale: 1.04
+          selectedScale: 1.04,
+          proximityRadiusPx: 900,
+          proximityMaxScale: 1.32,
+          proximityDuration: 0.24
         }
       }
     });
@@ -203,7 +206,12 @@ describe("editor theme", () => {
     expect(theme.motion.stagger.button).toBe(0.04);
     expect(theme.motion.canvas.maxAnimatedItems).toBe(120);
     expect(theme.motion.canvas.selectedScale).toBe(1.04);
+    expect(theme.motion.canvas.proximityRadiusPx).toBe(600);
+    expect(theme.motion.canvas.proximityMaxScale).toBe(1.32);
+    expect(theme.motion.canvas.proximityDuration).toBe(0.24);
     expect(compiled.cssVariables["--motion-duration-fast"]).toBe("120ms");
+    expect(compiled.cssVariables["--motion-canvas-proximity-radius"]).toBe("600px");
+    expect(compiled.cssVariables["--motion-canvas-proximity-scale"]).toBe("1.32");
     expect(compiled.motion.duration.base).toBe(DEFAULT_EDITOR_THEME.motion.duration.base);
   });
 

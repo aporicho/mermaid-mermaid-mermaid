@@ -44,6 +44,17 @@ describe("interaction architecture contract", () => {
     expect(canvasDocumentEditor).not.toContain("zoomViewportAtPoint");
   });
 
+  it("keeps canvas document text editing inline instead of prompt-based", () => {
+    const canvasDocumentEditor = readProjectFile("src/features/mermaid-editor/components/canvas-document-editor.tsx");
+
+    expect(canvasDocumentEditor).toContain("Textarea");
+    expect(canvasDocumentEditor).toContain("Input");
+    expect(canvasDocumentEditor).toContain("commitInlineEdit");
+    expect(canvasDocumentEditor).toContain("editingItemText");
+    expect(canvasDocumentEditor).toContain("editingConnectionText");
+    expect(canvasDocumentEditor).not.toContain('window.prompt("文本"');
+  });
+
   it("keeps Mermaid canvas interaction as a standard adapter", () => {
     const canvasInteraction = readProjectFile("src/features/mermaid-editor/lib/canvas-interaction.ts");
 

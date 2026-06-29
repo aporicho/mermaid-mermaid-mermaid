@@ -4380,6 +4380,9 @@ function ThemeSettingsPanel({
               <ThemeNumberField label="选中缩放" value={activeTheme.motion.canvas.selectedScale} min={1} max={1.08} step={0.005} onChange={(value) => updateMotionCanvasNumber("selectedScale", value)} />
               <ThemeNumberField label="高亮时长" value={activeTheme.motion.canvas.highlightDuration} min={0} max={1.8} step={0.01} onChange={(value) => updateMotionCanvasNumber("highlightDuration", value)} />
               <ThemeNumberField label="动画上限" value={activeTheme.motion.canvas.maxAnimatedItems} min={0} max={400} step={10} onChange={(value) => updateMotionCanvasNumber("maxAnimatedItems", value)} />
+              <ThemeNumberField label="靠近半径" value={activeTheme.motion.canvas.proximityRadiusPx} min={0} max={600} step={10} onChange={(value) => updateMotionCanvasNumber("proximityRadiusPx", value)} />
+              <ThemeNumberField label="靠近缩放" value={activeTheme.motion.canvas.proximityMaxScale} min={1} max={3} step={0.01} onChange={(value) => updateMotionCanvasNumber("proximityMaxScale", value)} />
+              <ThemeNumberField label="靠近时长" value={activeTheme.motion.canvas.proximityDuration} min={0} max={0.8} step={0.01} onChange={(value) => updateMotionCanvasNumber("proximityDuration", value)} />
             </div>
 
             <div className="grid gap-3">

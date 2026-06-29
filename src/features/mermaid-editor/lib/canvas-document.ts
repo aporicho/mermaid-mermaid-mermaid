@@ -1,6 +1,6 @@
 import type { ViewportState } from "@/features/mermaid-editor/lib/editor-types";
 
-export type CanvasDocumentElementKind = "shape" | "text" | "image" | "connector";
+export type CanvasDocumentElementKind = "shape" | "card" | "text" | "image" | "connector";
 export type CanvasShapeKind = "rect" | "roundRect" | "ellipse" | "diamond";
 export type CanvasConnectorEndpoint =
   | {
@@ -29,6 +29,19 @@ export type CanvasShapeElement = CanvasDocumentElementBase & {
   fill: string;
   stroke: string;
   strokeWidth: number;
+  text?: string;
+};
+
+export type CanvasCardElement = CanvasDocumentElementBase & {
+  type: "card";
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  fill: string;
+  stroke: string;
+  strokeWidth: number;
+  cornerRadius: number;
   text?: string;
 };
 
@@ -63,7 +76,7 @@ export type CanvasConnectorElement = CanvasDocumentElementBase & {
   label?: string;
 };
 
-export type CanvasDocumentElement = CanvasShapeElement | CanvasTextElement | CanvasImageElement | CanvasConnectorElement;
+export type CanvasDocumentElement = CanvasShapeElement | CanvasCardElement | CanvasTextElement | CanvasImageElement | CanvasConnectorElement;
 
 export type CanvasDocumentAsset = {
   id: string;
@@ -86,8 +99,11 @@ export const CANVAS_DOCUMENT_SCHEMA = "mmm.canvas";
 export const CANVAS_DOCUMENT_VERSION = 1;
 export const DEFAULT_CANVAS_VIEWPORT: ViewportState = { x: 160, y: 90, scale: 1 };
 const DEFAULT_SHAPE_FILL = "#fbf6ef";
+const DEFAULT_CARD_FILL = "#fffdf8";
+const DEFAULT_CARD_STROKE = "#d8d3ca";
 const DEFAULT_STROKE = "#2f2a25";
 const DEFAULT_TEXT_FILL = "#2f2a25";
+const DEFAULT_CARD_CORNER_RADIUS = 32;
 
 export function createBlankCanvasDocument(): CanvasDocument {
   return {
@@ -140,6 +156,22 @@ export function createCanvasShapeElement(existing: Pick<CanvasDocumentElement, "
     fill: DEFAULT_SHAPE_FILL,
     stroke: DEFAULT_STROKE,
     strokeWidth: 1.5,
+    text
+  };
+}
+
+export function createCanvasCardElement(existing: Pick<CanvasDocumentElement, "id">[], x: number, y: number, text = "卡片"): CanvasCardElement {
+  return {
+    id: nextCanvasElementId(existing),
+    type: "card",
+    x,
+    y,
+    width: 240,
+    height: 156,
+    fill: DEFAULT_CARD_FILL,
+    stroke: DEFAULT_CARD_STROKE,
+    strokeWidth: 1.2,
+    cornerRadius: DEFAULT_CARD_CORNER_RADIUS,
     text
   };
 }
@@ -232,6 +264,22 @@ function normalizeElement(value: unknown): CanvasDocumentElement | null {
       fill: normalizeColor(raw.fill, DEFAULT_SHAPE_FILL),
       stroke: normalizeColor(raw.stroke, DEFAULT_STROKE),
       strokeWidth: normalizeNumber(raw.strokeWidth, 1.5, 0),
+      ...(typeof raw.text === "string" ? { text: raw.text } : {})
+    };
+  }
+
+  if (raw.type === "card") {
+    return {
+      id,
+      type: "card",
+      x: normalizeNumber(raw.x, 120),
+      y: normalizeNumber(raw.y, 120),
+      width: normalizeNumber(raw.width, 240, 24),
+      height: normalizeNumber(raw.height, 156, 24),
+      fill: normalizeColor(raw.fill, DEFAULT_CARD_FILL),
+      stroke: normalizeColor(raw.stroke, DEFAULT_CARD_STROKE),
+      strokeWidth: normalizeNumber(raw.strokeWidth, 1.2, 0),
+      cornerRadius: normalizeNumber(raw.cornerRadius, DEFAULT_CARD_CORNER_RADIUS, 0),
       ...(typeof raw.text === "string" ? { text: raw.text } : {})
     };
   }

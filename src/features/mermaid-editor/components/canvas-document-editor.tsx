@@ -1,12 +1,15 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type React from "react";
-import { FrameSimple, Link, Maximize, Plus, Text as TextIcon, Xmark } from "iconoir-react/regular";
+import { CreditCard, FrameSimple, Link, Maximize, Plus, Text as TextIcon, Xmark } from "iconoir-react/regular";
 import * as PIXI from "pixi.js";
 import { Application, Assets, Container, Graphics, Rectangle, Sprite, Text as PixiText, Texture } from "pixi.js";
 import { PixiPlugin } from "gsap/PixiPlugin";
 
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { superellipseRectPathPoints } from "@/features/mermaid-editor/lib/canvas-card-geometry";
 import {
   canvasDocumentHasSelection,
   canvasDocumentMarqueeSelection,
@@ -23,6 +26,7 @@ import {
 import type { EditorRuntime, RuntimeFileRef } from "@/features/mermaid-editor/lib/editor-runtime";
 import {
   canvasElementFrame,
+  createCanvasCardElement,
   createCanvasConnectorElement,
   createCanvasImageElement,
   createCanvasShapeElement,
@@ -30,6 +34,7 @@ import {
   normalizeCanvasDocument,
   type CanvasConnectorElement,
   type CanvasConnectorEndpoint,
+  type CanvasCardElement,
   type CanvasDocument,
   type CanvasDocumentElement,
   type CanvasImageElement,
@@ -93,6 +98,26 @@ type CanvasDocumentResizeDraft = {
   baseDocument: CanvasDocument;
   frame: { x: number; y: number; width: number; height: number };
   changed: boolean;
+};
+
+type CanvasDocumentInlineEdit =
+  | { type: "item"; id: string; value: string }
+  | { type: "connection"; id: string; value: string };
+
+type CanvasDocumentInlineEditStyle = {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+  fontFamily: string;
+  fontSize: number;
+  lineHeight: number;
+  textAlign: "left" | "center";
+  fontWeight: number;
+  color: string;
+  verticalAlign: "top" | "middle";
+  borderRadius?: number;
+  paddingX?: number;
 };
 
 type PixiElementView = {
@@ -161,6 +186,7 @@ export function CanvasDocumentEditor({ document, fileRef, runtime, onChange, onS
   const connectorStartIdRef = useRef<string | null>(null);
   const imageDisplaySrcBySrcRef = useRef<Record<string, string>>({});
   const interactionStateRef = useRef<StandardCanvasInteractionState>(standardIdleInteraction);
+  const inlineEditRef = useRef<CanvasDocumentInlineEdit | null>(null);
   const blankClickIntentRef = useRef<StandardBlankClickIntent | null>(null);
   const selectionVersionRef = useRef(0);
   const lastSelectionKeyRef = useRef(canvasDocumentSelectionVersionKey(emptyCanvasDocumentSelection));
@@ -172,16 +198,22 @@ export function CanvasDocumentEditor({ document, fileRef, runtime, onChange, onS
   const lastPointerUpHitRef = useRef<StandardCanvasHitTarget>({ kind: "blank" });
   const renderCurrentSceneRef = useRef(() => {});
   const renderViewportOnlyRef = useRef(() => {});
+  const itemEditorRef = useRef<HTMLTextAreaElement>(null);
+  const itemEditorMeasureRef = useRef<HTMLDivElement>(null);
+  const connectionEditorRef = useRef<HTMLInputElement>(null);
   const dimensions = useContainerSize(containerRef);
   const [selectedIds, setSelectedIdsState] = useState<string[]>([]);
   const [interactionState, setInteractionState] = useState<StandardCanvasInteractionState>(standardIdleInteraction);
   const [connectorStartId, setConnectorStartIdState] = useState<string | null>(null);
   const [imageDisplaySrcBySrc, setImageDisplaySrcBySrc] = useState<Record<string, string>>({});
+  const [inlineEdit, setInlineEditState] = useState<CanvasDocumentInlineEdit | null>(null);
+  const [inlineEditLayoutRevision, setInlineEditLayoutRevision] = useState(0);
+  const [itemEditorLayout, setItemEditorLayout] = useState({ insetTop: 0, height: 1, scrollable: false });
 
   renderCurrentSceneRef.current = () => {
     const pixi = pixiRef.current;
     if (!pixi) return;
-    syncPixiScene(pixi, documentRef.current, dimensionsRef.current, selectedIdsRef.current, connectorStartIdRef.current, imageDisplaySrcBySrcRef.current, interactionStateRef.current);
+    syncPixiScene(pixi, documentRef.current, dimensionsRef.current, selectedIdsRef.current, connectorStartIdRef.current, imageDisplaySrcBySrcRef.current, interactionStateRef.current, inlineEditRef.current);
   };
   renderViewportOnlyRef.current = () => {
     const pixi = pixiRef.current;
@@ -194,6 +226,15 @@ export function CanvasDocumentEditor({ document, fileRef, runtime, onChange, onS
   useEffect(() => {
     documentRef.current = normalizedDocument;
     const existingIds = new Set(normalizedDocument.elements.map((element) => element.id));
+    const currentInlineEdit = inlineEditRef.current;
+    if (currentInlineEdit && !existingIds.has(currentInlineEdit.id)) {
+      inlineEditRef.current = null;
+      setInlineEditState(null);
+      moveDraftRef.current = null;
+      resizeDraftRef.current = null;
+      interactionStateRef.current = standardIdleInteraction;
+      setInteractionState(standardIdleInteraction);
+    }
     const selectedIds = canvasDocumentSelectedIds(selectionRef.current).filter((id) => existingIds.has(id));
     if (selectedIds.length !== selectedIdsRef.current.length) {
       setCanvasDocumentSelection(canvasDocumentSelectionFromIds(selectedIds, normalizedDocument));
@@ -215,6 +256,23 @@ export function CanvasDocumentEditor({ document, fileRef, runtime, onChange, onS
     imageDisplaySrcBySrcRef.current = imageDisplaySrcBySrc;
     renderCurrentSceneRef.current();
   }, [imageDisplaySrcBySrc]);
+
+  useEffect(() => {
+    if (inlineEdit?.type === "item") {
+      const editor = itemEditorRef.current;
+      if (!editor) return;
+      editor.focus();
+      editor.select();
+      return;
+    }
+
+    if (inlineEdit?.type === "connection") {
+      const editor = connectionEditorRef.current;
+      if (!editor) return;
+      editor.focus();
+      editor.select();
+    }
+  }, [inlineEdit?.id, inlineEdit?.type]);
 
   useEffect(() => {
     const sources = Array.from(new Set(normalizedDocument.elements.flatMap((element) => (element.type === "image" && element.src ? [element.src] : []))));
@@ -319,15 +377,46 @@ export function CanvasDocumentEditor({ document, fileRef, runtime, onChange, onS
     function onKeyDown(event: KeyboardEvent) {
       const target = event.target as HTMLElement | null;
       if (target?.tagName === "INPUT" || target?.tagName === "TEXTAREA" || target?.isContentEditable) return;
+      if (inlineEditRef.current) return;
       if ((event.key === "Delete" || event.key === "Backspace") && selectedIdsRef.current.length) {
         event.preventDefault();
         deleteSelection();
+        return;
       }
+      if (interactionStateRef.current.kind !== "idle" || connectorStartIdRef.current) return;
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
+      if (event.key !== "Enter" && event.key !== "F2") return;
+      if (selectedIdsRef.current.length !== 1) return;
+
+      const element = documentRef.current.elements.find((item) => item.id === selectedIdsRef.current[0]);
+      if (!element || (element.type !== "shape" && element.type !== "card" && element.type !== "text")) return;
+      event.preventDefault();
+      startInlineEdit(element);
     }
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   });
+
+  const editStyle = inlineEditLayoutRevision >= 0 ? inlineEditStyle() : null;
+  const activeScale = documentRef.current.viewport.scale;
+
+  useLayoutEffect(() => {
+    if (inlineEdit?.type !== "item" || !editStyle) return;
+    const measure = itemEditorMeasureRef.current;
+    if (!measure) return;
+
+    const minimumHeight = editStyle.lineHeight;
+    const measuredHeight = Math.max(minimumHeight, Math.ceil(measure.scrollHeight));
+    const scrollable = measuredHeight > editStyle.height + 1;
+    const height = scrollable ? editStyle.height : Math.min(editStyle.height, measuredHeight);
+    const insetTop = editStyle.verticalAlign === "middle" ? Math.max(0, Math.floor((editStyle.height - height) / 2)) : 0;
+
+    setItemEditorLayout((current) => {
+      if (current.height === height && current.insetTop === insetTop && current.scrollable === scrollable) return current;
+      return { height, insetTop, scrollable };
+    });
+  }, [activeScale, editStyle, inlineEdit?.type, inlineEdit?.value]);
 
   function commit(next: CanvasDocument, status?: string) {
     const normalized = normalizeCanvasDocument(next);
@@ -394,6 +483,18 @@ export function CanvasDocumentEditor({ document, fileRef, runtime, onChange, onS
     renderViewportOnlyRef.current();
   }
 
+  function refreshInlineEditLayout() {
+    if (!inlineEditRef.current) return;
+    setInlineEditLayoutRevision((current) => current + 1);
+  }
+
+  function setCanvasInlineEdit(next: CanvasDocumentInlineEdit | null, options: { renderScene?: boolean; refreshLayout?: boolean } = {}) {
+    inlineEditRef.current = next;
+    setInlineEditState(next);
+    if (options.refreshLayout !== false) refreshInlineEditLayout();
+    if (options.renderScene !== false) renderCurrentSceneRef.current();
+  }
+
   function setConnectorStartId(next: string | null) {
     connectorStartIdRef.current = next;
     setConnectorStartIdState(next);
@@ -403,16 +504,26 @@ export function CanvasDocumentEditor({ document, fileRef, runtime, onChange, onS
   function updateDocumentVisual(next: CanvasDocument) {
     documentRef.current = normalizeCanvasDocument(next);
     renderCurrentSceneRef.current();
+    refreshInlineEditLayout();
   }
 
   function updateViewportVisual(nextViewport: ViewportState) {
     documentRef.current = { ...documentRef.current, viewport: nextViewport };
     renderViewportOnlyRef.current();
+    refreshInlineEditLayout();
     scheduleViewportCommit();
   }
 
   function worldFromScreen(point: Point): Point {
     return canvasDocumentScreenToWorld(point, documentRef.current.viewport);
+  }
+
+  function screenFromWorld(point: Point): Point {
+    const viewport = documentRef.current.viewport;
+    return {
+      x: viewport.x + point.x * viewport.scale,
+      y: viewport.y + point.y * viewport.scale
+    };
   }
 
   function pointerScreenPoint(event: React.PointerEvent): Point {
@@ -438,7 +549,7 @@ export function CanvasDocumentEditor({ document, fileRef, runtime, onChange, onS
     return worldFromScreen({ x: dimensionsRef.current.width / 2, y: dimensionsRef.current.height / 2 });
   }
 
-  function updateElement(id: string, patch: Partial<CanvasShapeElement | CanvasTextElement | CanvasImageElement | CanvasConnectorElement>, status?: string) {
+  function updateElement(id: string, patch: Partial<CanvasShapeElement | CanvasCardElement | CanvasTextElement | CanvasImageElement | CanvasConnectorElement>, status?: string) {
     commitElements(
       documentRef.current.elements.map((element) => (element.id === id ? ({ ...element, ...patch } as CanvasDocumentElement) : element)),
       status
@@ -450,6 +561,15 @@ export function CanvasDocumentEditor({ document, fileRef, runtime, onChange, onS
     const center = viewportCenterPoint();
     const element = createCanvasShapeElement(current.elements, center.x - 84, center.y - 48, shape);
     commitElements([...current.elements, element], "已添加画布形状。");
+    setSelectedIds([element.id]);
+    animateCreatedElement(element.id);
+  }
+
+  function addCard() {
+    const current = documentRef.current;
+    const center = viewportCenterPoint();
+    const element = createCanvasCardElement(current.elements, center.x - 120, center.y - 78);
+    commitElements([...current.elements, element], "已添加卡片。");
     setSelectedIds([element.id]);
     animateCreatedElement(element.id);
   }
@@ -535,12 +655,128 @@ export function CanvasDocumentEditor({ document, fileRef, runtime, onChange, onS
     onStatus?.("已重置画布视图。");
   }
 
-  function editElementText(element: CanvasDocumentElement) {
-    if (element.type !== "shape" && element.type !== "text" && element.type !== "connector") return;
-    const next = window.prompt("文本", element.type === "connector" ? element.label || "" : element.text || "");
-    if (next === null) return;
-    if (element.type === "connector") updateElement(element.id, { label: next }, "已更新连线标签。");
-    else updateElement(element.id, { text: next }, "已更新文本。");
+  function startInlineEdit(element: CanvasDocumentElement) {
+    if (element.type === "image") return;
+
+    blankClickIntentRef.current = null;
+    if (element.type === "connector") {
+      setCanvasDocumentSelection(selectCanvasDocumentConnection(selectionRef.current, element.id, false));
+      setCanvasInteractionState({ kind: "editingConnectionText", connectionId: element.id });
+      setCanvasInlineEdit({ type: "connection", id: element.id, value: element.label || "" });
+      return;
+    }
+
+    setCanvasDocumentSelection(selectCanvasDocumentItem(selectionRef.current, element.id, false));
+    setCanvasInteractionState({ kind: "editingItemText", itemId: element.id });
+    setCanvasInlineEdit({ type: "item", id: element.id, value: element.text || "" });
+  }
+
+  function commitInlineEdit(save: boolean) {
+    const current = inlineEditRef.current;
+    if (!current) return;
+
+    setCanvasInlineEdit(null);
+    resetStandardInteraction();
+
+    if (!save) return;
+    const element = documentRef.current.elements.find((item) => item.id === current.id);
+    if (!element) return;
+    if (current.type === "connection" && element.type === "connector") {
+      updateElement(element.id, { label: current.value }, "已更新连线标签。");
+      return;
+    }
+    if (current.type === "item" && (element.type === "shape" || element.type === "text")) {
+      updateElement(element.id, { text: current.value }, "已更新文本。");
+    }
+  }
+
+  function inlineEditStyle(): CanvasDocumentInlineEditStyle | null {
+    if (!inlineEdit) return null;
+    const element = documentRef.current.elements.find((item) => item.id === inlineEdit.id);
+    if (!element) return null;
+    const scale = Math.max(documentRef.current.viewport.scale, 0.01);
+
+    if (inlineEdit.type === "item") {
+      if (element.type === "shape") {
+        const insetX = 12;
+        const insetY = 12;
+        const screen = screenFromWorld({ x: element.x + insetX, y: element.y + insetY });
+        return {
+          left: screen.x,
+          top: screen.y,
+          width: Math.max(1, element.width - insetX * 2) * scale,
+          height: Math.max(1, element.height - insetY * 2) * scale,
+          fontFamily: PIXI_TEXT_FONT_FAMILY,
+          fontSize: 14 * scale,
+          lineHeight: Math.round(14 * 1.25 * scale),
+          textAlign: "center",
+          fontWeight: 400,
+          color: DEFAULT_TEXT_COLOR,
+          verticalAlign: "middle"
+        };
+      }
+
+      if (element.type === "card") {
+        const insetX = 22;
+        const insetY = 22;
+        const screen = screenFromWorld({ x: element.x + insetX, y: element.y + insetY });
+        return {
+          left: screen.x,
+          top: screen.y,
+          width: Math.max(1, element.width - insetX * 2) * scale,
+          height: Math.max(1, element.height - insetY * 2) * scale,
+          fontFamily: PIXI_TEXT_FONT_FAMILY,
+          fontSize: 16 * scale,
+          lineHeight: Math.round(16 * 1.3 * scale),
+          textAlign: "left",
+          fontWeight: 400,
+          color: DEFAULT_TEXT_COLOR,
+          verticalAlign: "top"
+        };
+      }
+
+      if (element.type === "text") {
+        const screen = screenFromWorld({ x: element.x, y: element.y });
+        return {
+          left: screen.x,
+          top: screen.y,
+          width: Math.max(1, element.width) * scale,
+          height: Math.max(1, element.height) * scale,
+          fontFamily: PIXI_TEXT_FONT_FAMILY,
+          fontSize: element.fontSize * scale,
+          lineHeight: Math.round(element.fontSize * 1.25 * scale),
+          textAlign: "left",
+          fontWeight: 400,
+          color: element.fill,
+          verticalAlign: "top"
+        };
+      }
+
+      return null;
+    }
+
+    if (element.type !== "connector") return null;
+    const elementsById = new Map(documentRef.current.elements.map((item) => [item.id, item]));
+    const from = canvasDocumentEndpointPoint(element.from, elementsById);
+    const to = canvasDocumentEndpointPoint(element.to, elementsById);
+    const center = screenFromWorld({ x: (from.x + to.x) / 2, y: (from.y + to.y) / 2 - 8 });
+    const width = 180 * scale;
+    const height = 28 * scale;
+    return {
+      left: center.x - width / 2,
+      top: center.y - height / 2,
+      width,
+      height,
+      fontFamily: PIXI_TEXT_FONT_FAMILY,
+      fontSize: 12 * scale,
+      lineHeight: Math.round(12 * 1.25 * scale),
+      textAlign: "center",
+      fontWeight: 400,
+      color: DEFAULT_TEXT_COLOR,
+      verticalAlign: "middle",
+      borderRadius: 4 * scale,
+      paddingX: 8 * scale
+    };
   }
 
   function standardHitFromScreen(screen: Point) {
@@ -579,7 +815,7 @@ export function CanvasDocumentEditor({ document, fileRef, runtime, onChange, onS
       }
       if (command.type === "text.editStart") {
         const element = documentRef.current.elements.find((item) => item.id === command.target.id);
-        if (element) editElementText(element);
+        if (element) startInlineEdit(element);
         continue;
       }
       if (command.type === "item.dragStart") {
@@ -864,6 +1100,9 @@ export function CanvasDocumentEditor({ document, fileRef, runtime, onChange, onS
               <Plus className="size-4" />
             </ToolbarButton>
           ))}
+          <ToolbarButton label="添加卡片" onClick={addCard}>
+            <CreditCard className="size-4" />
+          </ToolbarButton>
           <ToolbarButton label="添加文本" onClick={addText}>
             <TextIcon className="size-4" />
           </ToolbarButton>
@@ -896,6 +1135,96 @@ export function CanvasDocumentEditor({ document, fileRef, runtime, onChange, onS
           onDoubleClick={handleDoubleClick}
           onWheel={handleWheel}
         />
+        {inlineEdit?.type === "item" && editStyle ? (
+          <>
+            <div
+              ref={itemEditorMeasureRef}
+              aria-hidden="true"
+              className="pointer-events-none absolute -left-[9999px] top-0 whitespace-pre-wrap"
+              style={{
+                width: editStyle.width,
+                fontFamily: editStyle.fontFamily,
+                fontSize: editStyle.fontSize,
+                fontWeight: editStyle.fontWeight,
+                lineHeight: `${editStyle.lineHeight}px`,
+                textAlign: editStyle.textAlign,
+                overflowWrap: "break-word",
+                wordBreak: "break-word",
+                visibility: "hidden"
+              }}
+            >
+              {inlineEdit.value || "\u200b"}
+            </div>
+            <Textarea
+              ref={itemEditorRef}
+              aria-label="编辑画布文字"
+              value={inlineEdit.value}
+              className="absolute z-40 block min-h-0 resize-none overflow-x-hidden rounded-none border-0 bg-transparent p-0 shadow-none outline-none ring-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+              style={{
+                left: editStyle.left,
+                top: editStyle.top + itemEditorLayout.insetTop,
+                width: editStyle.width,
+                height: itemEditorLayout.height,
+                color: editStyle.color,
+                fontFamily: editStyle.fontFamily,
+                fontSize: editStyle.fontSize,
+                fontWeight: editStyle.fontWeight,
+                lineHeight: `${editStyle.lineHeight}px`,
+                textAlign: editStyle.textAlign,
+                overflowWrap: "break-word",
+                wordBreak: "break-word",
+                overflowY: itemEditorLayout.scrollable ? "auto" : "hidden"
+              }}
+              onChange={(event) => setCanvasInlineEdit({ ...inlineEdit, value: event.target.value }, { renderScene: false })}
+              onBlur={() => commitInlineEdit(true)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
+                  event.preventDefault();
+                  commitInlineEdit(true);
+                }
+                if (event.key === "Escape") {
+                  event.preventDefault();
+                  commitInlineEdit(false);
+                }
+              }}
+            />
+          </>
+        ) : null}
+        {inlineEdit?.type === "connection" && editStyle ? (
+          <Input
+            ref={connectionEditorRef}
+            aria-label="编辑连线文字"
+            value={inlineEdit.value}
+            className="absolute z-40 h-auto min-h-0 rounded-none border bg-card p-0 text-center font-normal shadow-none outline-none ring-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+            style={{
+              left: editStyle.left,
+              top: editStyle.top,
+              width: editStyle.width,
+              height: editStyle.height,
+              borderRadius: editStyle.borderRadius,
+              color: editStyle.color,
+              fontFamily: editStyle.fontFamily,
+              fontSize: editStyle.fontSize,
+              fontWeight: editStyle.fontWeight,
+              lineHeight: `${editStyle.lineHeight}px`,
+              paddingLeft: editStyle.paddingX,
+              paddingRight: editStyle.paddingX,
+              textAlign: editStyle.textAlign
+            }}
+            onChange={(event) => setCanvasInlineEdit({ ...inlineEdit, value: event.target.value }, { renderScene: false })}
+            onBlur={() => commitInlineEdit(true)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.preventDefault();
+                commitInlineEdit(true);
+              }
+              if (event.key === "Escape") {
+                event.preventDefault();
+                commitInlineEdit(false);
+              }
+            }}
+          />
+        ) : null}
       </section>
     </TooltipProvider>
   );
@@ -908,7 +1237,8 @@ function syncPixiScene(
   selectedIds: string[],
   connectorStartId: string | null,
   imageDisplaySrcBySrc: Record<string, string>,
-  interactionState: StandardCanvasInteractionState
+  interactionState: StandardCanvasInteractionState,
+  inlineEdit: CanvasDocumentInlineEdit | null
 ) {
   if (pixi.disposed) return;
   const visibleElements = canvasDocumentVisibleElements(document, dimensions, selectedIds, connectorStartId);
@@ -927,7 +1257,7 @@ function syncPixiScene(
 
   for (const element of visibleElements) {
     const view = getPixiElementView(pixi, element);
-    syncElementView(pixi, view, element, elementsById, selected, connectorStartId, imageDisplaySrcBySrc[element.type === "image" ? element.src : ""], document.viewport.scale);
+    syncElementView(pixi, view, element, elementsById, selected, connectorStartId, imageDisplaySrcBySrc[element.type === "image" ? element.src : ""], document.viewport.scale, inlineEdit);
     if (element.type === "connector") pixi.connectors.addChild(view.container);
     else pixi.objects.addChild(view.container);
   }
@@ -977,10 +1307,12 @@ function syncElementView(
   selected: Set<string>,
   connectorStartId: string | null,
   displaySrc: string | undefined,
-  viewportScale: number
+  viewportScale: number,
+  inlineEdit: CanvasDocumentInlineEdit | null
 ) {
   const selectedOrConnecting = selected.has(element.id) || connectorStartId === element.id;
-  const signature = elementSignature(element, elementsById, selectedOrConnecting, displaySrc, viewportScale);
+  const editingText = (inlineEdit?.type === "item" && inlineEdit.id === element.id) || (inlineEdit?.type === "connection" && inlineEdit.id === element.id);
+  const signature = elementSignature(element, elementsById, selectedOrConnecting, displaySrc, viewportScale, editingText);
   if (view.signature === signature) return;
   view.signature = signature;
   view.body.clear();
@@ -992,16 +1324,41 @@ function syncElementView(
     drawShape(view.body, element, selectedOrConnecting);
     view.container.position.set(element.x, element.y);
     view.container.hitArea = new Rectangle(0, 0, element.width, element.height);
-    syncTextDisplay(view, element.text || "", {
-      x: element.width / 2,
-      y: element.height / 2,
-      width: Math.max(1, element.width - 24),
-      fontSize: 14,
-      fill: DEFAULT_TEXT_COLOR,
-      anchor: 0.5,
-      align: "center",
-      viewportScale
-    });
+    if (editingText) {
+      removeTextDisplay(view);
+    } else {
+      syncTextDisplay(view, element.text || "", {
+        x: element.width / 2,
+        y: element.height / 2,
+        width: Math.max(1, element.width - 24),
+        fontSize: 14,
+        fill: DEFAULT_TEXT_COLOR,
+        anchor: 0.5,
+        align: "center",
+        viewportScale
+      });
+    }
+    return;
+  }
+
+  if (element.type === "card") {
+    drawCard(view.body, element, selectedOrConnecting);
+    view.container.position.set(element.x, element.y);
+    view.container.hitArea = new Rectangle(0, 0, element.width, element.height);
+    if (editingText) {
+      removeTextDisplay(view);
+    } else {
+      syncTextDisplay(view, element.text || "", {
+        x: 22,
+        y: 22,
+        width: Math.max(1, element.width - 44),
+        fontSize: 16,
+        fill: DEFAULT_TEXT_COLOR,
+        anchor: { x: 0, y: 0 },
+        align: "left",
+        viewportScale
+      });
+    }
     return;
   }
 
@@ -1009,16 +1366,20 @@ function syncElementView(
     drawTextFrame(view.body, element, selectedOrConnecting);
     view.container.position.set(element.x, element.y);
     view.container.hitArea = new Rectangle(0, 0, element.width, element.height);
-    syncTextDisplay(view, element.text, {
-      x: 0,
-      y: element.height / 2,
-      width: Math.max(1, element.width),
-      fontSize: element.fontSize,
-      fill: element.fill,
-      anchor: { x: 0, y: 0.5 },
-      align: "left",
-      viewportScale
-    });
+    if (editingText) {
+      removeTextDisplay(view);
+    } else {
+      syncTextDisplay(view, element.text, {
+        x: 0,
+        y: element.height / 2,
+        width: Math.max(1, element.width),
+        fontSize: element.fontSize,
+        fill: element.fill,
+        anchor: { x: 0, y: 0.5 },
+        align: "left",
+        viewportScale
+      });
+    }
     return;
   }
 
@@ -1031,7 +1392,7 @@ function syncElementView(
     return;
   }
 
-  drawConnector(view, element, elementsById, selected.has(element.id), viewportScale);
+  drawConnector(view, element, elementsById, selected.has(element.id), viewportScale, editingText);
 }
 
 function elementSignature(
@@ -1039,15 +1400,16 @@ function elementSignature(
   elementsById: Map<string, CanvasDocumentElement>,
   selectedOrConnecting: boolean,
   displaySrc: string | undefined,
-  viewportScale: number
+  viewportScale: number,
+  editingText: boolean
 ) {
   const textResolution = canvasTextResolution(viewportScale);
   if (element.type === "connector") {
     const from = canvasDocumentEndpointPoint(element.from, elementsById);
     const to = canvasDocumentEndpointPoint(element.to, elementsById);
-    return JSON.stringify({ ...element, fromPoint: from, toPoint: to, selectedOrConnecting, textResolution });
+    return JSON.stringify({ ...element, fromPoint: from, toPoint: to, selectedOrConnecting, textResolution, editingText });
   }
-  return JSON.stringify({ ...element, selectedOrConnecting, displaySrc, textResolution });
+  return JSON.stringify({ ...element, selectedOrConnecting, displaySrc, textResolution, editingText });
 }
 
 function drawShape(graphics: Graphics, element: CanvasShapeElement, selectedOrConnecting: boolean) {
@@ -1071,6 +1433,22 @@ function drawShape(graphics: Graphics, element: CanvasShapeElement, selectedOrCo
     .stroke({ color: stroke, width: strokeWidth });
 }
 
+function drawCard(graphics: Graphics, element: CanvasCardElement, selectedOrConnecting: boolean) {
+  const stroke = parsePixiColor(selectedOrConnecting ? SELECTED_COLOR : element.stroke, 0xd8d3ca);
+  const strokeWidth = selectedOrConnecting ? Math.max(2, element.strokeWidth + 0.5) : element.strokeWidth;
+  const fill = parsePixiColor(element.fill, 0xfffdf8);
+  const points = superellipseRectPathPoints({
+    width: element.width,
+    height: element.height,
+    radius: element.cornerRadius
+  });
+  const [first, ...rest] = points;
+  if (!first) return;
+  graphics.moveTo(first.x, first.y);
+  for (const point of rest) graphics.lineTo(point.x, point.y);
+  graphics.closePath().fill({ color: fill }).stroke({ color: stroke, width: strokeWidth });
+}
+
 function drawTextFrame(graphics: Graphics, element: CanvasTextElement, selectedOrConnecting: boolean) {
   if (!selectedOrConnecting) return;
   graphics.roundRect(0, 0, element.width, element.height, 4).stroke({ color: parsePixiColor(SELECTED_COLOR, 0xe85d5d), width: 1.5, alpha: 0.95 });
@@ -1081,7 +1459,7 @@ function drawImageFrame(graphics: Graphics, element: CanvasImageElement, selecte
   graphics.roundRect(0, 0, element.width, element.height, 6).stroke({ color: stroke, width: 1.5 });
 }
 
-function drawConnector(view: PixiElementView, element: CanvasConnectorElement, elementsById: Map<string, CanvasDocumentElement>, selected: boolean, viewportScale: number) {
+function drawConnector(view: PixiElementView, element: CanvasConnectorElement, elementsById: Map<string, CanvasDocumentElement>, selected: boolean, viewportScale: number, editingText: boolean) {
   const from = canvasDocumentEndpointPoint(element.from, elementsById);
   const to = canvasDocumentEndpointPoint(element.to, elementsById);
   const color = parsePixiColor(selected ? SELECTED_COLOR : element.stroke, 0x2f2a25);
@@ -1092,7 +1470,7 @@ function drawConnector(view: PixiElementView, element: CanvasConnectorElement, e
   const minX = Math.min(from.x, to.x);
   const minY = Math.min(from.y, to.y);
   view.container.hitArea = new Rectangle(minX - 8, minY - 8, Math.abs(from.x - to.x) + 16, Math.abs(from.y - to.y) + 16);
-  if (element.label) {
+  if (element.label && !editingText) {
     syncTextDisplay(view, element.label, {
       x: (from.x + to.x) / 2,
       y: (from.y + to.y) / 2 - 8,

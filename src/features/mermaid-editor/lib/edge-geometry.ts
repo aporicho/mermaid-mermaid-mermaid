@@ -1,6 +1,6 @@
 import { curveBasis, line } from "d3-shape";
 
-import type { CanvasEdge, EdgeRouting, FlowchartNodeShape } from "@/features/mermaid-editor/lib/editor-types";
+import type { CanvasEdge, EdgeRouting, FlowchartNodeShape, LayoutMode } from "@/features/mermaid-editor/lib/editor-types";
 import {
   ellipseBoundaryPoint,
   flowchartPolygonPoints,
@@ -47,6 +47,14 @@ export type EdgeRoutingOptions = {
 };
 export type EdgePathMapOptions = {
   laneSpacing?: number;
+};
+
+export type FinalEdgeGeometryMapInput = {
+  edges: Pick<CanvasEdge, "id" | "fromAnchor" | "toAnchor">[];
+  fallbackGeometryById: Map<string, EdgePathGeometry>;
+  proximityGeometryById?: Map<string, EdgePathGeometry>;
+  mermaidRouteByEdgeId?: Map<string, EdgePathGeometry>;
+  layoutMode: LayoutMode;
 };
 
 type Point = {
@@ -134,6 +142,37 @@ export function computeEdgePathMap(edges: CanvasEdge[], nodes: RoutedNodeRect[],
   }
 
   return geometryById;
+}
+
+export function resolveFinalEdgeGeometryMap(input: FinalEdgeGeometryMapInput): Map<string, EdgePathGeometry> {
+  const resolved = new Map(input.fallbackGeometryById);
+  const proximityGeometryById = input.proximityGeometryById ?? new Map<string, EdgePathGeometry>();
+  const mermaidRouteByEdgeId = input.mermaidRouteByEdgeId ?? new Map<string, EdgePathGeometry>();
+
+  for (const [edgeId, geometry] of proximityGeometryById) {
+    resolved.set(edgeId, geometry);
+  }
+
+  for (const edge of input.edges) {
+    const routeGeometry = mermaidRouteByEdgeId.get(edge.id);
+    if (!routeGeometry) continue;
+
+    const proximityFallbackGeometry = proximityGeometryById.get(edge.id);
+    const fallbackGeometry = proximityFallbackGeometry || input.fallbackGeometryById.get(edge.id);
+    if ((edge.fromAnchor || edge.toAnchor) && fallbackGeometry) {
+      resolved.set(edge.id, fallbackGeometry);
+      continue;
+    }
+
+    if ((input.layoutMode === "auto" && !proximityFallbackGeometry) || !fallbackGeometry) {
+      resolved.set(edge.id, routeGeometry);
+      continue;
+    }
+
+    resolved.set(edge.id, remapEdgePathGeometry(routeGeometry, fallbackGeometry));
+  }
+
+  return resolved;
 }
 
 export function resolveParallelEdgeLanes(edges: CanvasEdge[], nodes: RoutedNodeRect[], options: EdgePathMapOptions = {}): Map<string, EdgeLaneAssignment> {
