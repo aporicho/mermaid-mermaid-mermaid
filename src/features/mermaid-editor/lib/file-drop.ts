@@ -8,6 +8,7 @@ export type DropPoint = {
 };
 
 export type FileDropCandidate = {
+  name?: string;
   path?: string;
 };
 
@@ -22,13 +23,17 @@ export type DropSurfaceRect = {
 };
 
 export function classifyFileDrop<T extends FileDropCandidate>(files: T[]): FileDropClassification<T> {
-  const documentFile = files.find((file) => documentKindFromPath(file.path));
-  if (documentFile) return { kind: "document", documentKind: documentKindFromPath(documentFile.path)!, file: documentFile };
+  const documentFile = files.find((file) => documentKindFromPath(fileDropIdentity(file)));
+  if (documentFile) return { kind: "document", documentKind: documentKindFromPath(fileDropIdentity(documentFile))!, file: documentFile };
 
-  const imageFile = files.find((file) => isSupportedImagePath(file.path));
+  const imageFile = files.find((file) => isSupportedImagePath(fileDropIdentity(file)));
   if (imageFile) return { kind: "image", file: imageFile };
 
   return { kind: "unsupported", file: files[0] };
+}
+
+function fileDropIdentity(file: FileDropCandidate) {
+  return file.path || file.name;
 }
 
 export function windowPointToSurfacePoint(point: DropPoint, rect: DropSurfaceRect): DropPoint {

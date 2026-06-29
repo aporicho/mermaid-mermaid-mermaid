@@ -1,4 +1,4 @@
-import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type DragEvent as ReactDragEvent, type MouseEvent as ReactMouseEvent, type ReactNode } from "react";
 import {
   ClockRotateRight,
   Code,
@@ -25,8 +25,6 @@ import {
   PositionAlign,
   Plus,
   Refresh as RefreshCw,
-  SidebarCollapse as PanelLeftClose,
-  SidebarCollapse as PanelRightClose,
   SidebarExpand as PanelLeftOpen,
   SidebarExpand as PanelRightOpen,
   SquareCursor as SquareDashedMousePointer,
@@ -38,7 +36,7 @@ import {
 
 import { InspectorPanel } from "@/features/mermaid-editor/components/inspector-panel";
 import { CanvasDocumentEditor } from "@/features/mermaid-editor/components/canvas-document-editor";
-import { FloatingButtonCluster, FloatingChromeLayer, FloatingChromeSlot, FloatingIconButton, MotionPresence } from "@/features/mermaid-editor/components/floating-chrome";
+import { FloatingButtonCluster, FloatingChromeLayer, FloatingChromeSlot, FloatingIconButton, FloatingPanel, MotionPresence } from "@/features/mermaid-editor/components/floating-chrome";
 import { MarkdownPanel } from "@/features/mermaid-editor/components/markdown-panel";
 import { PreviewPanel } from "@/features/mermaid-editor/components/preview-panel";
 import { SourcePanel } from "@/features/mermaid-editor/components/source-panel";
@@ -68,7 +66,8 @@ import {
   isRuntimeAbortError,
   type RuntimeFileDropRequest,
   type RuntimeFileOpenRequest,
-  type RuntimeFileRef
+  type RuntimeFileRef,
+  type RuntimeImageAssetResult
 } from "@/features/mermaid-editor/lib/editor-runtime";
 import {
   fileWorkflowErrorSuggestion,
@@ -81,7 +80,7 @@ import {
   type RecentFileEntry
 } from "@/features/mermaid-editor/lib/file-workflow";
 import { shouldCollapseExplorerOnStartup } from "@/features/mermaid-editor/lib/explorer-state";
-import { documentKindFromPath, documentKindLabel, type DocumentKind } from "@/features/mermaid-editor/lib/document-kind";
+import { documentKindFromPath, documentKindLabel, isSupportedMarkdownFilePath, type DocumentKind } from "@/features/mermaid-editor/lib/document-kind";
 import {
   buildProjectFileTree,
   isProjectFileActive,
@@ -138,6 +137,7 @@ import {
 import { useDismissableFloatingMenu } from "@/features/mermaid-editor/lib/use-dismissable-floating-menu";
 import { useDisableNativeContextMenu } from "@/features/mermaid-editor/lib/native-context-menu";
 import { EDITOR_CHROME_CLASSES } from "@/features/mermaid-editor/lib/editor-chrome";
+import { bringFloatingPanelToFront, floatingPanelStackIndex, type FloatingPanelWindowState } from "@/features/mermaid-editor/lib/floating-chrome";
 import { workspaceViewForDocument, type WorkspaceView } from "@/features/mermaid-editor/lib/workspace-view";
 import { createImageAsset, DEFAULT_IMAGE_ASSET_HEIGHT, DEFAULT_IMAGE_ASSET_WIDTH, isSupportedImagePath } from "@/features/mermaid-editor/lib/node-assets";
 import { cn } from "@/lib/utils";
@@ -148,7 +148,7 @@ import {
   unsavedPromptDescription,
   type UnsavedPromptChoice
 } from "@/features/mermaid-editor/lib/desktop-close-workflow";
-import { canvasScreenToWorldPoint, classifyFileDrop, windowPointToSurfacePoint, type DropPoint } from "@/features/mermaid-editor/lib/file-drop";
+import { canvasScreenToWorldPoint, classifyFileDrop, windowPointToSurfacePoint, type DropPoint, type FileDropCandidate } from "@/features/mermaid-editor/lib/file-drop";
 import {
   createBlankCanvasDocument,
   createCanvasImageElement,
@@ -216,6 +216,37 @@ const FALLBACK_MARKDOWN_FILE_NAME = "document.md";
 const FALLBACK_CANVAS_FILE_NAME = "board.canvas.json";
 const BLANK_FLOWCHART_SOURCE = "flowchart LR";
 const BLANK_MARKDOWN_SOURCE = "# 未命名文档\n\n";
+type StaticWorkspacePanelId = "explorer" | "inspector" | "terminal";
+type MarkdownWindowPanelId = `markdown:${string}`;
+type WorkspaceFloatingPanelId = StaticWorkspacePanelId | MarkdownWindowPanelId;
+type DetachedMarkdownWindow = {
+  id: MarkdownWindowPanelId;
+  file: RuntimeFileRef;
+  title: string;
+  value: string;
+  savedValue: string;
+};
+const DEFAULT_WORKSPACE_PANEL_STACK: WorkspaceFloatingPanelId[] = ["explorer", "inspector", "terminal"];
+const DEFAULT_WORKSPACE_PANEL_WINDOW_STATES: Record<StaticWorkspacePanelId, FloatingPanelWindowState> = {
+  explorer: "normal",
+  inspector: "normal",
+  terminal: "normal"
+};
+const WORKSPACE_PANEL_DEFAULT_SIZES: Record<StaticWorkspacePanelId | "markdown", { width: number; height: number }> = {
+  explorer: { width: 360, height: 640 },
+  inspector: { width: 360, height: 640 },
+  terminal: { width: 860, height: 320 },
+  markdown: { width: 760, height: 640 }
+};
+const WORKSPACE_PANEL_MIN_SIZES: Record<StaticWorkspacePanelId | "markdown", { width: number; height: number }> = {
+  explorer: { width: 320, height: 220 },
+  inspector: { width: 320, height: 220 },
+  terminal: { width: 560, height: 260 },
+  markdown: { width: 420, height: 300 }
+};
+function markdownWindowPanelId(file: Pick<RuntimeFileRef, "name" | "path">): MarkdownWindowPanelId {
+  return `markdown:${file.path || file.name}` as MarkdownWindowPanelId;
+}
 type PanelOpenButtonMode = "hover" | "always";
 type EditorPreferences = {
   startWithPanelsCollapsed: boolean;
@@ -270,6 +301,10 @@ type FileDropFeedback = {
   message: string;
   tone: "ready" | "blocked";
   position?: DropPoint;
+};
+type BrowserDroppedFile = FileDropCandidate & {
+  file: File;
+  name: string;
 };
 type FileOpenSource = "picker" | "recent" | "project" | "drop" | "external" | "restore";
 type UnsavedPromptState = {
@@ -759,6 +794,11 @@ export function MermaidEditor() {
   const [secondaryActionsOpen, setSecondaryActionsOpen] = useState(false);
   const [viewFiltersOpen, setViewFiltersOpen] = useState(false);
   const [terminalOpen, setTerminalOpen] = useState(false);
+  const [workspacePanelStack, setWorkspacePanelStack] = useState<WorkspaceFloatingPanelId[]>(DEFAULT_WORKSPACE_PANEL_STACK);
+  const [workspacePanelWindowStates, setWorkspacePanelWindowStates] = useState<Record<string, FloatingPanelWindowState>>(() => ({
+    ...DEFAULT_WORKSPACE_PANEL_WINDOW_STATES
+  }));
+  const [detachedMarkdownWindows, setDetachedMarkdownWindows] = useState<DetachedMarkdownWindow[]>([]);
   const [themeSettingsOpen, setThemeSettingsOpen] = useState(false);
   const [themeId, setThemeId] = useState<EditorThemeId>(initial.themeId);
   const [customTheme, setCustomTheme] = useState<EditorTheme | null>(initial.customTheme);
@@ -2269,7 +2309,7 @@ export function MermaidEditor() {
     return canvasScreenToWorldPoint(workspacePoint, viewport);
   }
 
-  function dropFeedbackForFiles(files: RuntimeFileOpenRequest[], position?: DropPoint): FileDropFeedback {
+  function dropFeedbackForFiles(files: FileDropCandidate[], position?: DropPoint): FileDropFeedback {
     const localPosition = windowPointToWorkspacePoint(position);
     const classification = classifyFileDrop(files);
     if (classification.kind === "document") {
@@ -2288,6 +2328,61 @@ export function MermaidEditor() {
     return { message: "不支持的文件类型", tone: "blocked", position: localPosition };
   }
 
+  function browserDroppedFiles(dataTransfer: DataTransfer): BrowserDroppedFile[] {
+    return Array.from(dataTransfer.files).map((file) => ({
+      file,
+      name: file.name,
+      path: exposedDroppedFilePath(file)
+    }));
+  }
+
+  function isExternalFileDrag(dataTransfer: DataTransfer | null) {
+    return Boolean(dataTransfer && Array.from(dataTransfer.types).includes("Files"));
+  }
+
+  function exposedDroppedFilePath(file: File) {
+    const path = (file as File & { path?: unknown }).path;
+    return typeof path === "string" && path ? path : undefined;
+  }
+
+  function dragEventDropPoint(event: ReactDragEvent<HTMLElement>): DropPoint {
+    return { x: event.clientX, y: event.clientY };
+  }
+
+  function updateBrowserFileDragFeedback(event: ReactDragEvent<HTMLElement>) {
+    if (!isExternalFileDrag(event.dataTransfer)) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "copy";
+    const position = dragEventDropPoint(event);
+    const files = browserDroppedFiles(event.dataTransfer);
+    if (files.length) {
+      setFileDropFeedback(dropFeedbackForFiles(files, position));
+      return;
+    }
+    setFileDropFeedback((current) =>
+      current
+        ? { ...current, position: windowPointToWorkspacePoint(position) || current.position }
+        : { message: "释放以导入文件", tone: "ready", position: windowPointToWorkspacePoint(position) }
+    );
+  }
+
+  function handleBrowserFileDragLeave(event: ReactDragEvent<HTMLElement>) {
+    if (!isExternalFileDrag(event.dataTransfer)) return;
+    const nextTarget = event.relatedTarget;
+    if (nextTarget instanceof Node && event.currentTarget.contains(nextTarget)) return;
+    setFileDropFeedback(null);
+  }
+
+  function handleBrowserFileDrop(event: ReactDragEvent<HTMLElement>) {
+    if (!isExternalFileDrag(event.dataTransfer)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const position = dragEventDropPoint(event);
+    const files = browserDroppedFiles(event.dataTransfer);
+    setFileDropFeedback(null);
+    void handleBrowserDroppedFiles(files, position);
+  }
+
   async function ensureDocumentFileForImageImport(): Promise<RuntimeFileRef | null> {
     if (fileRef?.path) return fileRef;
     const savedFile = await saveMermaidFileAsResult();
@@ -2302,6 +2397,119 @@ export function MermaidEditor() {
       );
     }
     return null;
+  }
+
+  async function handleBrowserDroppedFiles(files: BrowserDroppedFile[], dropPosition?: DropPoint) {
+    if (!files.length) return;
+
+    const classification = classifyFileDrop(files);
+    if (classification.kind === "document") {
+      if (files.length > 1) setStatus(`已使用拖拽的第一个 ${documentKindLabel(classification.documentKind)} 文件。`);
+      await openBrowserDroppedDocumentFile(classification.file);
+      return;
+    }
+
+    if (classification.kind === "image") {
+      if (files.length > 1) setStatus("已使用拖拽的第一张图片。");
+      await importBrowserDroppedImageAsset(classification.file, dropPosition);
+      return;
+    }
+
+    showFileWorkflowError({ code: "unsupported_type", path: classification.file?.path || classification.file?.name }, "文件类型不支持。");
+  }
+
+  async function openBrowserDroppedDocumentFile(file: BrowserDroppedFile) {
+    const identity = file.path || file.name;
+    if (!isSupportedDocumentFilePath(identity)) {
+      showFileWorkflowError({ code: "unsupported_type", path: identity }, "文件类型不支持。");
+      return;
+    }
+    if (file.path) {
+      await openRuntimeFileRequest({ name: file.name, path: file.path }, "drop");
+      return;
+    }
+    if (!(await prepareFileSwitch(file.name))) return;
+
+    try {
+      applyLoadedDocument(await file.file.text(), file.name, { name: file.name }, "drop");
+    } catch (error) {
+      showFileWorkflowError(error, "打开文件失败。");
+    }
+  }
+
+  async function importBrowserDroppedImageAsset(file: BrowserDroppedFile, dropPosition?: DropPoint) {
+    const identity = file.path || file.name;
+    if ((!isCanvasEditable && documentKind !== "canvas") || workspaceView !== "canvas") {
+      showFileWorkflowError(
+        {
+          code: "unsupported_type",
+          message: "请切换到无限画布后拖入图片。",
+          path: identity
+        },
+        "无法导入图片。"
+      );
+      return;
+    }
+    if (!isSupportedImagePath(identity)) {
+      showFileWorkflowError({ code: "unsupported_type", path: identity }, "文件类型不支持。");
+      return;
+    }
+
+    const targetFile = await ensureDocumentFileForImageImport();
+    if (!targetFile?.path) {
+      setStatus("已取消图片导入。");
+      return;
+    }
+
+    try {
+      const result = file.path
+        ? await runtime.importImageAssetPath(targetFile, file.path)
+        : await runtime.importImageAssetFile(targetFile, file.file);
+      await applyImportedImageAssetResult(result, identity, dropPosition);
+    } catch (error) {
+      showFileWorkflowError(error, "导入图片失败。");
+    }
+  }
+
+  async function applyImportedImageAssetResult(result: RuntimeImageAssetResult, sourcePath: string, dropPosition?: DropPoint) {
+    if (result.status !== "ready") {
+      if (result.status === "unsupported") {
+        showFileWorkflowError({ code: "unsupported_type", message: result.message, path: sourcePath }, "文件类型不支持。");
+      }
+      if (result.status === "needs-document") {
+        showFileWorkflowError({ code: "unsupported_type", message: "请先保存当前文档，再拖入本地图片。", path: sourcePath }, "无法导入图片。");
+      }
+      return;
+    }
+
+    const dimensions = await loadImageDimensions(result.displaySrc);
+    const point = windowPointToCanvasWorldPoint(dropPosition) || viewportCenterPoint(viewport, canvasLiveState.canvasSize);
+    if (documentKind === "canvas") {
+      const element = createCanvasImageElement(
+        canvasDocument.elements,
+        point.x - dimensions.width / 2,
+        point.y - dimensions.height / 2,
+        result.src,
+        dimensions.width,
+        dimensions.height
+      );
+      applyCanvasDocument({ ...canvasDocument, elements: [...canvasDocument.elements, element] }, result.copied ? "已复制并添加拖入的图片。" : "已添加拖入的图片。");
+      return;
+    }
+    applyEditorCommand({
+      type: "graph.addImageNodeAt",
+      point,
+      asset: createImageAsset({
+        src: result.src,
+        width: dimensions.width,
+        height: dimensions.height,
+        preserveAspectRatio: true,
+        labelPosition: "bottom"
+      }),
+      label: imageLabelFromSrc(result.src),
+      message: result.copied ? "已复制并添加拖入的图片节点。" : "已添加拖入的图片节点。",
+      source: "api"
+    });
   }
 
   async function importImageAssetRequest(file: RuntimeFileOpenRequest, dropPosition?: DropPoint) {
@@ -2329,44 +2537,7 @@ export function MermaidEditor() {
 
     try {
       const result = await runtime.importImageAssetPath(targetFile, file.path);
-      if (result.status !== "ready") {
-        if (result.status === "unsupported") {
-          showFileWorkflowError({ code: "unsupported_type", message: result.message, path: file.path }, "文件类型不支持。");
-        }
-        if (result.status === "needs-document") {
-          showFileWorkflowError({ code: "unsupported_type", message: "请先保存当前文档，再拖入本地图片。", path: file.path }, "无法导入图片。");
-        }
-        return;
-      }
-
-      const dimensions = await loadImageDimensions(result.displaySrc);
-      const point = windowPointToCanvasWorldPoint(dropPosition) || viewportCenterPoint(viewport, canvasLiveState.canvasSize);
-      if (documentKind === "canvas") {
-        const element = createCanvasImageElement(
-          canvasDocument.elements,
-          point.x - dimensions.width / 2,
-          point.y - dimensions.height / 2,
-          result.src,
-          dimensions.width,
-          dimensions.height
-        );
-        applyCanvasDocument({ ...canvasDocument, elements: [...canvasDocument.elements, element] }, result.copied ? "已复制并添加拖入的图片。" : "已添加拖入的图片。");
-        return;
-      }
-      applyEditorCommand({
-        type: "graph.addImageNodeAt",
-        point,
-        asset: createImageAsset({
-          src: result.src,
-          width: dimensions.width,
-          height: dimensions.height,
-          preserveAspectRatio: true,
-          labelPosition: "bottom"
-        }),
-        label: imageLabelFromSrc(result.src),
-        message: result.copied ? "已复制并添加拖入的图片节点。" : "已添加拖入的图片节点。",
-        source: "api"
-      });
+      await applyImportedImageAssetResult(result, file.path, dropPosition);
     } catch (error) {
       showFileWorkflowError(error, "导入图片失败。");
     }
@@ -2419,6 +2590,74 @@ export function MermaidEditor() {
   async function openProjectFile(file: ProjectFileEntry) {
     setFileMenuOpen(false);
     await openRuntimeFileRequest(file, "project");
+  }
+
+  async function openProjectMarkdownWindow(file: ProjectFileEntry) {
+    if (!isSupportedMarkdownFilePath(file.path)) return;
+    const panelId = markdownWindowPanelId(file);
+    const existingWindow = detachedMarkdownWindows.find((window) => window.id === panelId);
+    if (existingWindow) {
+      bringWorkspacePanelToFront(panelId);
+      setStatus(`已切换到 ${existingWindow.title} 窗口。`);
+      return;
+    }
+
+    try {
+      const result = await runtime.openFilePath(file.path);
+      if (result.status !== "opened") return;
+      const title = result.file.name || file.name;
+      const nextWindow: DetachedMarkdownWindow = {
+        id: panelId,
+        file: result.file,
+        title,
+        value: result.text,
+        savedValue: result.text
+      };
+      setDetachedMarkdownWindows((current) => [...current, nextWindow]);
+      bringWorkspacePanelToFront(panelId);
+      setWorkspacePanelWindowState(panelId, "normal");
+      setRecentFiles((current) => upsertRecentFile(current, result.file));
+      setStatus(`已在窗口中打开 ${title}。`);
+    } catch (error) {
+      showFileWorkflowError(error, "打开 Markdown 窗口失败。");
+    }
+  }
+
+  function updateDetachedMarkdownWindow(panelId: MarkdownWindowPanelId, value: string) {
+    setDetachedMarkdownWindows((current) => current.map((window) => (window.id === panelId ? { ...window, value } : window)));
+  }
+
+  function closeDetachedMarkdownWindow(panelId: MarkdownWindowPanelId) {
+    setDetachedMarkdownWindows((current) => current.filter((window) => window.id !== panelId));
+    setWorkspacePanelWindowState(panelId, "normal");
+    setWorkspacePanelStack((current) => current.filter((item) => item !== panelId));
+  }
+
+  async function saveDetachedMarkdownWindow(panelId: MarkdownWindowPanelId) {
+    const targetWindow = detachedMarkdownWindows.find((window) => window.id === panelId);
+    if (!targetWindow) return;
+
+    try {
+      const result = await runtime.saveFile(targetWindow.file, targetWindow.value, targetWindow.title, "markdown");
+      if (result.status === "cancelled") return;
+      const savedTitle = ensureEditorDocumentFileName(result.file.name, "markdown");
+      setDetachedMarkdownWindows((current) =>
+        current.map((window) =>
+          window.id === panelId
+            ? {
+                ...window,
+                file: result.file,
+                title: savedTitle,
+                savedValue: window.value
+              }
+            : window
+        )
+      );
+      setRecentFiles((current) => upsertRecentFile(current, result.file));
+      setStatus(`已保存 ${savedTitle}。`);
+    } catch (error) {
+      showFileWorkflowError(error, "保存 Markdown 窗口失败。");
+    }
   }
 
   async function saveMermaidFile() {
@@ -2867,6 +3106,28 @@ export function MermaidEditor() {
     };
   }, [processAiCommand, runtime]);
 
+  const bringWorkspacePanelToFront = useCallback((panelId: WorkspaceFloatingPanelId) => {
+    setWorkspacePanelStack((current) => bringFloatingPanelToFront(current, panelId));
+  }, []);
+
+  const setWorkspacePanelWindowState = useCallback((panelId: WorkspaceFloatingPanelId, state: FloatingPanelWindowState) => {
+    setWorkspacePanelWindowStates((current) => ({ ...current, [panelId]: state }));
+  }, []);
+
+  function openWorkspacePanel(panelId: StaticWorkspacePanelId) {
+    bringWorkspacePanelToFront(panelId);
+    if (panelId === "explorer") setLeftCollapsed(false);
+    if (panelId === "inspector") setRightCollapsed(false);
+    if (panelId === "terminal") setTerminalOpen(true);
+  }
+
+  function closeWorkspacePanel(panelId: StaticWorkspacePanelId) {
+    setWorkspacePanelWindowState(panelId, "normal");
+    if (panelId === "explorer") setLeftCollapsed(true);
+    if (panelId === "inspector") setRightCollapsed(true);
+    if (panelId === "terminal") setTerminalOpen(false);
+  }
+
   function closeFloatingOverlays() {
     let closed = false;
     if (fileMenuOpen) {
@@ -2883,14 +3144,6 @@ export function MermaidEditor() {
     }
     if (themeSettingsOpen) {
       cancelThemeSettings();
-      closed = true;
-    }
-    if (!leftCollapsed) {
-      setLeftCollapsed(true);
-      closed = true;
-    }
-    if (!rightCollapsed) {
-      setRightCollapsed(true);
       closed = true;
     }
     return closed;
@@ -2981,13 +3234,9 @@ export function MermaidEditor() {
     };
   });
 
-  function closeSidePanels() {
-    if (!leftCollapsed) setLeftCollapsed(true);
-    if (!rightCollapsed) setRightCollapsed(true);
-  }
-
   function changeWorkspaceView(nextView: WorkspaceView) {
-    setWorkspaceView(workspaceViewForDocument(editableKind, nextView, documentKind));
+    const resolvedView = workspaceViewForDocument(editableKind, nextView, documentKind);
+    setWorkspaceView(resolvedView);
   }
 
   function changeToolMode(nextMode: EditorMode) {
@@ -2995,11 +3244,40 @@ export function MermaidEditor() {
     applyEditorCommand({ type: "mode.set", mode: setEditorMode(nextMode), source: "menu" });
   }
 
+  const openWorkspacePanelIds: WorkspaceFloatingPanelId[] = [];
+  if (!leftCollapsed) openWorkspacePanelIds.push("explorer");
+  if (!rightCollapsed && documentKind === "mermaid") openWorkspacePanelIds.push("inspector");
+  if (terminalOpen) openWorkspacePanelIds.push("terminal");
+  openWorkspacePanelIds.push(...detachedMarkdownWindows.map((window) => window.id));
+
+  let activeWorkspacePanel: WorkspaceFloatingPanelId | null = null;
+  for (let index = workspacePanelStack.length - 1; index >= 0; index -= 1) {
+    const panelId = workspacePanelStack[index];
+    if (openWorkspacePanelIds.includes(panelId)) {
+      activeWorkspacePanel = panelId;
+      break;
+    }
+  }
+
+  function workspacePanelStackPosition(panelId: WorkspaceFloatingPanelId) {
+    return floatingPanelStackIndex(workspacePanelStack, panelId);
+  }
+
+  function workspacePanelWindowState(panelId: WorkspaceFloatingPanelId) {
+    return workspacePanelWindowStates[panelId] ?? "normal";
+  }
+
   return (
     <EditorMotionProvider value={resolvedMotion}>
     <TooltipProvider delayDuration={180}>
       <input ref={fileInputRef} type="file" accept=".mmd,.mermaid,.md,.markdown,.canvas.json,text/plain,application/json" className="hidden" onChange={openFallbackFile} />
-      <main className="relative h-screen overflow-hidden bg-background">
+      <main
+        className="relative h-screen overflow-hidden bg-background"
+        onDragEnter={updateBrowserFileDragFeedback}
+        onDragOver={updateBrowserFileDragFeedback}
+        onDragLeave={handleBrowserFileDragLeave}
+        onDrop={handleBrowserFileDrop}
+      >
         <h1 className="sr-only">Mermaid Canvas Editor</h1>
         <MotionPresence
           key={`${workspaceView}:${documentKind}:${editableKind}`}
@@ -3064,41 +3342,129 @@ export function MermaidEditor() {
         </div>
         </MotionPresence>
         {fileDropFeedback ? <FileDropFeedbackBadge feedback={fileDropFeedback} /> : null}
-        {!leftCollapsed || (documentKind === "mermaid" && !rightCollapsed) ? (
-          <div className="absolute inset-0 z-10" aria-hidden onPointerDown={closeSidePanels} />
-        ) : null}
-        <MotionPresence present={!leftCollapsed} variant="left" className={cn(EDITOR_CHROME_CLASSES.sidePanel, "left-4 w-[clamp(320px,31vw,416px)]")}>
-            <ExplorerPanel
-              runtimeKind={runtime.kind}
-              projectWorkspace={projectWorkspace}
-              projectFiles={projectFiles}
-              currentFileRef={fileRef}
-              projectBusy={projectBusy}
-              onOpenProject={() => void openProjectFolder()}
-              onRefreshProject={() => void refreshProjectWorkspace()}
-              onCloseProject={() => void closeProjectWorkspace()}
-              onOpenProjectFile={(file) => void openProjectFile(file)}
-              onCollapse={() => setLeftCollapsed(true)}
-            />
-        </MotionPresence>
-        <MotionPresence present={!rightCollapsed && documentKind === "mermaid"} variant="right" className={cn(EDITOR_CHROME_CLASSES.sidePanel, "right-4 grid w-[clamp(320px,28vw,400px)] min-h-0")}>
-            <PanelHeader onCollapse={() => setRightCollapsed(true)} />
-            <div className="grid min-h-0">
-              <InspectorPanel graph={graph} selection={selection} onEditorCommand={applyEditorCommand} />
-            </div>
-        </MotionPresence>
-        <MotionPresence present={terminalOpen} variant="bottom" className="pointer-events-none absolute inset-0 z-20">
-          <div className="pointer-events-auto">
+        <FloatingPanel
+          open={!leftCollapsed}
+          placement="left-panel"
+          kind="workspace"
+          dismissMode="explicit"
+          panelId="explorer"
+          active={activeWorkspacePanel === "explorer"}
+          stackIndex={workspacePanelStackPosition("explorer")}
+          onFocusPanel={() => bringWorkspacePanelToFront("explorer")}
+          resetDragOnOpen={false}
+          defaultSize={WORKSPACE_PANEL_DEFAULT_SIZES.explorer}
+          minSize={WORKSPACE_PANEL_MIN_SIZES.explorer}
+          windowState={workspacePanelWindowState("explorer")}
+          onWindowStateChange={(state) => setWorkspacePanelWindowState("explorer", state)}
+          className={cn(EDITOR_CHROME_CLASSES.sidePanel, "relative h-full w-full")}
+        >
+          <ExplorerPanel
+            runtimeKind={runtime.kind}
+            projectWorkspace={projectWorkspace}
+            projectFiles={projectFiles}
+            currentFileRef={fileRef}
+            projectBusy={projectBusy}
+            onOpenProject={() => void openProjectFolder()}
+            onRefreshProject={() => void refreshProjectWorkspace()}
+            onCloseProject={() => void closeProjectWorkspace()}
+            onOpenProjectFile={(file) => void openProjectFile(file)}
+            onOpenProjectMarkdownWindow={(file) => void openProjectMarkdownWindow(file)}
+            windowState={workspacePanelWindowState("explorer")}
+            onWindowStateChange={(state) => setWorkspacePanelWindowState("explorer", state)}
+            onCollapse={() => closeWorkspacePanel("explorer")}
+          />
+        </FloatingPanel>
+        <FloatingPanel
+          open={!rightCollapsed && documentKind === "mermaid"}
+          placement="right-panel"
+          kind="workspace"
+          dismissMode="explicit"
+          panelId="inspector"
+          active={activeWorkspacePanel === "inspector"}
+          stackIndex={workspacePanelStackPosition("inspector")}
+          onFocusPanel={() => bringWorkspacePanelToFront("inspector")}
+          resetDragOnOpen={false}
+          defaultSize={WORKSPACE_PANEL_DEFAULT_SIZES.inspector}
+          minSize={WORKSPACE_PANEL_MIN_SIZES.inspector}
+          windowState={workspacePanelWindowState("inspector")}
+          onWindowStateChange={(state) => setWorkspacePanelWindowState("inspector", state)}
+          className={cn(EDITOR_CHROME_CLASSES.sidePanel, "relative grid h-full w-full min-h-0")}
+        >
+          <PanelHeader
+            windowState={workspacePanelWindowState("inspector")}
+            onWindowStateChange={(state) => setWorkspacePanelWindowState("inspector", state)}
+            onCollapse={() => closeWorkspacePanel("inspector")}
+          />
+          <div className="grid min-h-0">
+            <InspectorPanel graph={graph} selection={selection} onEditorCommand={applyEditorCommand} />
+          </div>
+        </FloatingPanel>
+        <FloatingPanel
+          open={terminalOpen}
+          placement="bottom-panel"
+          kind="workspace"
+          dismissMode="explicit"
+          panelId="terminal"
+          active={activeWorkspacePanel === "terminal"}
+          stackIndex={workspacePanelStackPosition("terminal")}
+          onFocusPanel={() => bringWorkspacePanelToFront("terminal")}
+          resetDragOnOpen={false}
+          defaultSize={WORKSPACE_PANEL_DEFAULT_SIZES.terminal}
+          minSize={WORKSPACE_PANEL_MIN_SIZES.terminal}
+          windowState={workspacePanelWindowState("terminal")}
+          onWindowStateChange={(state) => setWorkspacePanelWindowState("terminal", state)}
+          className="grid h-full w-full overflow-hidden"
+        >
           <TerminalPanel
             runtime={runtime}
             cwd={terminalCwd}
             theme={activeTheme}
             terminalTheme={compiledTheme.terminalTheme}
-            onClose={() => setTerminalOpen(false)}
+            onClose={() => closeWorkspacePanel("terminal")}
             onStatus={setStatus}
+            windowControls={
+              <WorkspacePanelControls
+                windowState={workspacePanelWindowState("terminal")}
+                onWindowStateChange={(state) => setWorkspacePanelWindowState("terminal", state)}
+                onClose={() => closeWorkspacePanel("terminal")}
+                closeLabel="关闭终端"
+                closeTooltipSide="top"
+                closeIcon={<Xmark />}
+              />
+            }
           />
-          </div>
-        </MotionPresence>
+        </FloatingPanel>
+        {detachedMarkdownWindows.map((markdownWindow) => (
+          <FloatingPanel
+            key={markdownWindow.id}
+            open
+            placement="center-panel"
+            kind="workspace"
+            dismissMode="explicit"
+            panelId={markdownWindow.id}
+            active={activeWorkspacePanel === markdownWindow.id}
+            stackIndex={workspacePanelStackPosition(markdownWindow.id)}
+            onFocusPanel={() => bringWorkspacePanelToFront(markdownWindow.id)}
+            resetDragOnOpen={false}
+            defaultSize={WORKSPACE_PANEL_DEFAULT_SIZES.markdown}
+            minSize={WORKSPACE_PANEL_MIN_SIZES.markdown}
+            windowState={workspacePanelWindowState(markdownWindow.id)}
+            onWindowStateChange={(state) => setWorkspacePanelWindowState(markdownWindow.id, state)}
+            className={cn(EDITOR_CHROME_CLASSES.sidePanel, "relative grid h-full w-full min-h-0")}
+          >
+            <MarkdownWindowPanel
+              title={markdownWindow.title}
+              path={markdownWindow.file.path}
+              value={markdownWindow.value}
+              dirty={markdownWindow.value !== markdownWindow.savedValue}
+              windowState={workspacePanelWindowState(markdownWindow.id)}
+              onWindowStateChange={(state) => setWorkspacePanelWindowState(markdownWindow.id, state)}
+              onClose={() => closeDetachedMarkdownWindow(markdownWindow.id)}
+              onSave={() => void saveDetachedMarkdownWindow(markdownWindow.id)}
+              onChange={(value) => updateDetachedMarkdownWindow(markdownWindow.id, value)}
+            />
+          </FloatingPanel>
+        ))}
 
         <FloatingChromeLayer>
           <FloatingChromeSlot placement="topLeft" pinned={fileMenuOpen}>
@@ -3166,26 +3532,26 @@ export function MermaidEditor() {
           </FloatingChromeSlot>
           ) : null}
 
-          <FloatingChromeSlot placement="leftCenter" pinned={!leftCollapsed}>
+          {leftCollapsed ? (
+          <FloatingChromeSlot placement="leftCenter">
             <FloatingIconButton
-              label={leftCollapsed ? "展开左侧文件夹" : "收起左侧文件夹"}
+              label="展开左侧文件夹"
               tooltipSide="right"
-              active={!leftCollapsed}
-              onClick={() => setLeftCollapsed((current) => !current)}
+              onClick={() => openWorkspacePanel("explorer")}
             >
-              {leftCollapsed ? <PanelLeftOpen /> : <PanelLeftClose />}
+              <PanelLeftOpen />
             </FloatingIconButton>
           </FloatingChromeSlot>
+          ) : null}
 
-          {documentKind === "mermaid" ? (
-          <FloatingChromeSlot placement="rightCenter" pinned={!rightCollapsed}>
+          {documentKind === "mermaid" && rightCollapsed ? (
+          <FloatingChromeSlot placement="rightCenter">
             <FloatingIconButton
-              label={rightCollapsed ? "展开右侧检查器" : "收起右侧检查器"}
+              label="展开右侧检查器"
               tooltipSide="left"
-              active={!rightCollapsed}
-              onClick={() => setRightCollapsed((current) => !current)}
+              onClick={() => openWorkspacePanel("inspector")}
             >
-              {rightCollapsed ? <PanelRightOpen /> : <PanelRightClose />}
+              <PanelRightOpen />
             </FloatingIconButton>
           </FloatingChromeSlot>
           ) : null}
@@ -3218,17 +3584,17 @@ export function MermaidEditor() {
             />
           </FloatingChromeSlot>
 
-          <FloatingChromeSlot placement="bottomCenter" pinned={terminalOpen}>
+          {!terminalOpen ? (
+          <FloatingChromeSlot placement="bottomCenter">
             <FloatingIconButton
-              label={terminalOpen ? "关闭终端" : "打开终端"}
+              label="打开终端"
               tooltipSide="top"
-              active={terminalOpen}
-              aria-pressed={terminalOpen}
-              onClick={() => setTerminalOpen((current) => !current)}
+              onClick={() => openWorkspacePanel("terminal")}
             >
               <Terminal />
             </FloatingIconButton>
           </FloatingChromeSlot>
+          ) : null}
 
           {isCanvasEditable && workspaceView === "canvas" ? (
             <FloatingChromeSlot placement="rightBottom">
@@ -3362,6 +3728,69 @@ function DesktopWindowControls() {
   );
 }
 
+function MarkdownWindowPanel({
+  title,
+  path,
+  value,
+  dirty,
+  windowState,
+  onWindowStateChange,
+  onClose,
+  onSave,
+  onChange
+}: {
+  title: string;
+  path?: string;
+  value: string;
+  dirty: boolean;
+  windowState: FloatingPanelWindowState;
+  onWindowStateChange: (state: FloatingPanelWindowState) => void;
+  onClose: () => void;
+  onSave: () => void;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <section className="grid h-full min-h-0 grid-rows-[42px_minmax(0,1fr)] bg-card/95">
+      <header data-floating-panel-drag-handle className="flex min-w-0 cursor-grab items-center justify-between gap-2 border-b bg-card/95 px-3 active:cursor-grabbing">
+        <div className="flex min-w-0 items-center gap-2">
+          <Text className="size-4 shrink-0 text-icon" />
+          <div className="min-w-0">
+            <div className="flex min-w-0 items-center gap-1 text-sm font-medium">
+              <span className="truncate">{title}</span>
+              {dirty ? <span className="size-1.5 shrink-0 rounded-full bg-foreground/60" aria-hidden /> : null}
+            </div>
+            <div className="truncate text-[11px] leading-4 text-muted-foreground" title={path || title}>{path || "Markdown 窗口"}</div>
+          </div>
+        </div>
+        <div className="flex shrink-0 items-center gap-1" data-floating-panel-drag-exclude>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button size="icon" variant="ghost" className={cn(EDITOR_CHROME_CLASSES.panelIconButton, "bg-card/85")} onClick={onSave} aria-label="保存 Markdown 窗口">
+                <FloppyDisk className="size-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="top">保存 Markdown 窗口</TooltipContent>
+          </Tooltip>
+          <WorkspacePanelControls
+            windowState={windowState}
+            onWindowStateChange={onWindowStateChange}
+            onClose={onClose}
+            closeLabel="关闭 Markdown 窗口"
+            closeTooltipSide="top"
+            closeIcon={<Xmark />}
+          />
+        </div>
+      </header>
+      <MarkdownPanel
+        key={`${title}:markdown-window`}
+        value={value}
+        onChange={onChange}
+        className="bg-background/95"
+      />
+    </section>
+  );
+}
+
 function FileDropFeedbackBadge({ feedback }: { feedback: FileDropFeedback }) {
   const style = feedback.position
     ? {
@@ -3443,6 +3872,9 @@ function ExplorerPanel({
   onRefreshProject,
   onCloseProject,
   onOpenProjectFile,
+  onOpenProjectMarkdownWindow,
+  windowState,
+  onWindowStateChange,
   onCollapse
 }: {
   runtimeKind: "web" | "desktop";
@@ -3454,9 +3886,13 @@ function ExplorerPanel({
   onRefreshProject: () => void;
   onCloseProject: () => void;
   onOpenProjectFile: (file: ProjectFileEntry) => void;
+  onOpenProjectMarkdownWindow: (file: ProjectFileEntry) => void;
+  windowState: FloatingPanelWindowState;
+  onWindowStateChange: (state: FloatingPanelWindowState) => void;
   onCollapse: () => void;
 }) {
   const tree = useMemo(() => buildProjectFileTree(projectFiles), [projectFiles]);
+  const [fileContextMenu, setFileContextMenu] = useState<{ file: ProjectFileEntry; x: number; y: number } | null>(null);
   const topLevelDirectoryKey = useMemo(
     () => tree.filter((node): node is Extract<ProjectTreeNode, { kind: "directory" }> => node.kind === "directory").map((node) => node.id).join("\n"),
     [tree]
@@ -3477,22 +3913,25 @@ function ExplorerPanel({
     });
   }
 
+  function openFileContextMenu(file: ProjectFileEntry, event: ReactMouseEvent) {
+    event.preventDefault();
+    setFileContextMenu({ file, x: event.clientX, y: event.clientY });
+  }
+
   return (
     <aside className="grid h-full min-h-0 grid-rows-[42px_minmax(0,1fr)] bg-card/95">
-      <header className="flex min-w-0 items-center justify-between gap-2 border-b bg-card/95 px-3">
+      <header data-floating-panel-drag-handle className="flex min-w-0 cursor-grab items-center justify-between gap-2 border-b bg-card/95 px-3 active:cursor-grabbing">
         <div className="min-w-0">
           <div className="truncate text-sm font-medium">资源管理器</div>
         </div>
-        <div className="flex shrink-0 items-center gap-1">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button size="icon" variant="ghost" className={EDITOR_CHROME_CLASSES.panelIconButton} onClick={onCollapse} aria-label="收起资源管理器">
-                <PanelLeftClose className="size-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="right">收起资源管理器</TooltipContent>
-          </Tooltip>
-        </div>
+        <WorkspacePanelControls
+          windowState={windowState}
+          onWindowStateChange={onWindowStateChange}
+          onClose={onCollapse}
+          closeLabel="关闭资源管理器"
+          closeTooltipSide="right"
+          closeIcon={<Xmark />}
+        />
       </header>
 
       <div className="grid min-h-0 grid-rows-[auto_minmax(0,1fr)]">
@@ -3553,6 +3992,8 @@ function ExplorerPanel({
                   currentFileRef={currentFileRef}
                   onToggleDirectory={toggleDirectory}
                   onOpenProjectFile={onOpenProjectFile}
+                  onOpenProjectMarkdownWindow={onOpenProjectMarkdownWindow}
+                  onOpenFileContextMenu={openFileContextMenu}
                 />
               ))}
             </div>
@@ -3560,6 +4001,20 @@ function ExplorerPanel({
             <div className="px-2 py-2 text-xs text-muted-foreground">此文件夹下没有项目文档</div>
           )}
         </div>
+        <ProjectFileContextMenu
+          menu={fileContextMenu}
+          onOpenChange={(open) => {
+            if (!open) setFileContextMenu(null);
+          }}
+          onOpenProjectFile={(file) => {
+            setFileContextMenu(null);
+            onOpenProjectFile(file);
+          }}
+          onOpenProjectMarkdownWindow={(file) => {
+            setFileContextMenu(null);
+            onOpenProjectMarkdownWindow(file);
+          }}
+        />
       </div>
     </aside>
   );
@@ -3595,7 +4050,9 @@ function ProjectTreeRow({
   expandedIds,
   currentFileRef,
   onToggleDirectory,
-  onOpenProjectFile
+  onOpenProjectFile,
+  onOpenProjectMarkdownWindow,
+  onOpenFileContextMenu
 }: {
   node: ProjectTreeNode;
   depth: number;
@@ -3603,6 +4060,8 @@ function ProjectTreeRow({
   currentFileRef: RuntimeFileRef | null;
   onToggleDirectory: (id: string) => void;
   onOpenProjectFile: (file: ProjectFileEntry) => void;
+  onOpenProjectMarkdownWindow: (file: ProjectFileEntry) => void;
+  onOpenFileContextMenu: (file: ProjectFileEntry, event: ReactMouseEvent) => void;
 }) {
   const paddingLeft = 8 + depth * 16;
 
@@ -3634,6 +4093,8 @@ function ProjectTreeRow({
                 currentFileRef={currentFileRef}
                 onToggleDirectory={onToggleDirectory}
                 onOpenProjectFile={onOpenProjectFile}
+                onOpenProjectMarkdownWindow={onOpenProjectMarkdownWindow}
+                onOpenFileContextMenu={onOpenFileContextMenu}
               />
             ))
           : null}
@@ -3650,10 +4111,60 @@ function ProjectTreeRow({
       style={{ paddingLeft }}
       title={node.file.path}
       onClick={() => onOpenProjectFile(node.file)}
+      onContextMenu={(event) => onOpenFileContextMenu(node.file, event)}
     >
       <EmptyPage className="size-4 shrink-0" />
       <span className="min-w-0 flex-1 truncate text-xs">{node.name}</span>
     </Button>
+  );
+}
+
+function ProjectFileContextMenu({
+  menu,
+  onOpenChange,
+  onOpenProjectFile,
+  onOpenProjectMarkdownWindow
+}: {
+  menu: { file: ProjectFileEntry; x: number; y: number } | null;
+  onOpenChange: (open: boolean) => void;
+  onOpenProjectFile: (file: ProjectFileEntry) => void;
+  onOpenProjectMarkdownWindow: (file: ProjectFileEntry) => void;
+}) {
+  const menuRef = useDismissableFloatingMenu<HTMLDivElement>({ open: Boolean(menu), onOpenChange });
+  if (!menu) return null;
+
+  const markdownFile = isSupportedMarkdownFilePath(menu.file.path);
+  const menuWidth = 224;
+  const menuHeight = markdownFile ? 122 : 82;
+  const left = typeof window === "undefined" ? menu.x : Math.max(12, Math.min(menu.x, window.innerWidth - menuWidth - 12));
+  const top = typeof window === "undefined" ? menu.y : Math.max(12, Math.min(menu.y, window.innerHeight - menuHeight - 12));
+
+  return (
+    <div
+      ref={menuRef}
+      className="fixed z-[90] w-56 rounded-lg border bg-popover/95 p-2 text-popover-foreground shadow-lg backdrop-blur"
+      style={{ left, top }}
+      data-editor-floating-menu-ignore
+    >
+      <div className="mb-1 min-w-0 truncate px-2 py-1 text-xs text-muted-foreground" title={menu.file.path}>
+        {menu.file.name}
+      </div>
+      <Button data-floating-action-item variant="ghost" className={cn(EDITOR_CHROME_CLASSES.menuRow, "w-full min-w-0 gap-2 overflow-hidden text-left")} onClick={() => onOpenProjectFile(menu.file)}>
+        <EmptyPage className="size-4 shrink-0" />
+        <span className="block min-w-0 flex-1 truncate">打开为当前文档</span>
+      </Button>
+      {markdownFile ? (
+        <Button
+          data-floating-action-item
+          variant="ghost"
+          className={cn(EDITOR_CHROME_CLASSES.menuRow, "w-full min-w-0 gap-2 overflow-hidden text-left")}
+          onClick={() => onOpenProjectMarkdownWindow(menu.file)}
+        >
+          <Text className="size-4 shrink-0" />
+          <span className="block min-w-0 flex-1 truncate">以窗口形式打开</span>
+        </Button>
+      ) : null}
+    </div>
   );
 }
 
@@ -3702,66 +4213,66 @@ function FileMenu({
         <Folder />
       </FloatingIconButton>
 
-      {open ? (
-        <div className="absolute left-0 top-12 z-50 w-72 rounded-md border bg-popover p-2 text-popover-foreground shadow-sm">
-          <div className="grid gap-0.5">
-            <Button variant="ghost" className={EDITOR_CHROME_CLASSES.menuRow} onClick={() => runAndClose(onNewMermaidFile)}>
-              <Plus className="size-4" />
-              新建 Mermaid
+      <FloatingPanel open={open} placement="top-left" kind="popover" dismissMode="outside" className="w-72">
+        <div className="grid gap-0.5">
+          <Button data-floating-action-item variant="ghost" className={EDITOR_CHROME_CLASSES.menuRow} onClick={() => runAndClose(onNewMermaidFile)}>
+            <Plus className="size-4" />
+            新建 Mermaid
+          </Button>
+          <Button data-floating-action-item variant="ghost" className={EDITOR_CHROME_CLASSES.menuRow} onClick={() => runAndClose(onNewMarkdownFile)}>
+            <Text className="size-4" />
+            新建 Markdown
+          </Button>
+          <Button data-floating-action-item variant="ghost" className={EDITOR_CHROME_CLASSES.menuRow} onClick={() => runAndClose(onNewCanvasFile)}>
+            <FrameSimple className="size-4" />
+            新建无限画布
+          </Button>
+          <Button data-floating-action-item variant="ghost" className={EDITOR_CHROME_CLASSES.menuRow} onClick={() => runAndClose(onOpenFile)}>
+            <Folder className="size-4" />
+            打开文件
+          </Button>
+          {projectAvailable ? (
+            <Button
+              data-floating-action-item
+              variant="ghost"
+              className={EDITOR_CHROME_CLASSES.menuRow}
+              disabled={projectBusy}
+              onClick={() => runAndClose(onOpenProject)}
+            >
+              <Workflow className="size-4" />
+              打开文件夹
             </Button>
-            <Button variant="ghost" className={EDITOR_CHROME_CLASSES.menuRow} onClick={() => runAndClose(onNewMarkdownFile)}>
-              <Text className="size-4" />
-              新建 Markdown
-            </Button>
-            <Button variant="ghost" className={EDITOR_CHROME_CLASSES.menuRow} onClick={() => runAndClose(onNewCanvasFile)}>
-              <FrameSimple className="size-4" />
-              新建无限画布
-            </Button>
-            <Button variant="ghost" className={EDITOR_CHROME_CLASSES.menuRow} onClick={() => runAndClose(onOpenFile)}>
-              <Folder className="size-4" />
-              打开文件
-            </Button>
-            {projectAvailable ? (
+          ) : null}
+          <Separator className="my-1" />
+          <Button data-floating-action-item variant="ghost" className={EDITOR_CHROME_CLASSES.menuRow} onClick={() => runAndClose(onSaveFile)}>
+            <FloppyDisk className="size-4" />
+            保存
+          </Button>
+          <Button data-floating-action-item variant="ghost" className={EDITOR_CHROME_CLASSES.menuRow} onClick={() => runAndClose(onSaveAs)}>
+            <FloppyDiskArrowOut className="size-4" />
+            另存为
+          </Button>
+          <Separator className="my-1" />
+          <div data-floating-action-item className="px-2 py-1 text-xs text-muted-foreground">最近打开</div>
+          {recentFiles.length ? (
+            recentFiles.map((file) => (
               <Button
+                key={file.path}
+                data-floating-action-item
                 variant="ghost"
-                className={EDITOR_CHROME_CLASSES.menuRow}
-                disabled={projectBusy}
-                onClick={() => runAndClose(onOpenProject)}
+                className={cn(EDITOR_CHROME_CLASSES.menuRow, "w-full min-w-0 gap-2 overflow-hidden text-left")}
+                title={file.path}
+                onClick={() => runAndClose(() => onOpenRecent(file))}
               >
-                <Workflow className="size-4" />
-                打开文件夹
+                <ClockRotateRight className="size-4 shrink-0" />
+                <span className="block min-w-0 flex-1 overflow-hidden truncate">{file.name}</span>
               </Button>
-            ) : null}
-            <Separator className="my-1" />
-            <Button variant="ghost" className={EDITOR_CHROME_CLASSES.menuRow} onClick={() => runAndClose(onSaveFile)}>
-              <FloppyDisk className="size-4" />
-              保存
-            </Button>
-            <Button variant="ghost" className={EDITOR_CHROME_CLASSES.menuRow} onClick={() => runAndClose(onSaveAs)}>
-              <FloppyDiskArrowOut className="size-4" />
-              另存为
-            </Button>
-            <Separator className="my-1" />
-            <div className="px-2 py-1 text-xs text-muted-foreground">最近打开</div>
-            {recentFiles.length ? (
-              recentFiles.map((file) => (
-                <Button
-                  key={file.path}
-                  variant="ghost"
-                  className={cn(EDITOR_CHROME_CLASSES.menuRow, "gap-2 text-left")}
-                  title={file.path}
-                  onClick={() => runAndClose(() => onOpenRecent(file))}
-                >
-                  <ClockRotateRight className="size-4 shrink-0" />
-                  <span className="min-w-0 flex-1 truncate">{file.name}</span>
-                </Button>
-              ))
-            ) : (
-              <div className="px-2 py-2 text-xs text-muted-foreground">暂无最近文件</div>
-            )}
-          </div>
+            ))
+          ) : (
+            <div data-floating-action-item className="px-2 py-2 text-xs text-muted-foreground">暂无最近文件</div>
+          )}
         </div>
-      ) : null}
+      </FloatingPanel>
     </div>
   );
 }
@@ -3845,59 +4356,57 @@ function ViewFilterMenu({
         <FilterAlt />
       </FloatingIconButton>
 
-      {open ? (
-        <div className="absolute right-0 top-12 z-50 w-72 rounded-md border bg-popover p-2 text-popover-foreground shadow-sm">
-          <div className="flex items-center justify-between px-1 pb-1">
-            <span className="text-xs font-medium text-foreground">视图过滤器</span>
-            <span className="text-xs text-muted-foreground">{hiddenCount > 0 ? `隐藏 ${hiddenCount} 项` : "全部显示"}</span>
-          </div>
-          <div className="grid grid-cols-2 gap-1">
-            <Button variant="ghost" className={EDITOR_CHROME_CLASSES.menuRow} onClick={onReset}>
-              <Eye className="size-4" />
-              全部显示
-            </Button>
-            <Button variant="ghost" className={EDITOR_CHROME_CLASSES.menuRow} onClick={hideEdges}>
-              <Link className="size-4" />
-              隐藏连线
-            </Button>
-            <Button variant="ghost" className={EDITOR_CHROME_CLASSES.menuRow} onClick={showNodesOnly}>
-              <SquareDashedMousePointer className="size-4" />
-              仅节点
-            </Button>
-            <Button variant="ghost" className={EDITOR_CHROME_CLASSES.menuRow} onClick={hideLabels}>
-              <Text className="size-4" />
-              隐藏标签
-            </Button>
-          </div>
-          <Separator className="my-2" />
-          <div className="grid gap-1">
-            <FilterToggle active={filters.nodes} icon={<SquareDashedMousePointer className="size-4" />} label="节点" onClick={() => toggleTopLevel("nodes", "节点")} />
-            <FilterToggle active={filters.subgraphs} icon={<GroupIcon className="size-4" />} label="分组" onClick={() => toggleTopLevel("subgraphs", "分组")} />
-            <FilterToggle active={filters.edges} icon={<Link className="size-4" />} label="连线" onClick={() => toggleTopLevel("edges", "连线")} />
-            <FilterToggle active={filters.nodeLabels} icon={<Text className="size-4" />} label="节点标签" onClick={() => toggleTopLevel("nodeLabels", "节点标签")} />
-            <FilterToggle active={filters.edgeLabels} icon={<LabelIcon />} label="连线标签" onClick={() => toggleTopLevel("edgeLabels", "连线标签")} />
-            <FilterToggle active={filters.grid} icon={<Grid3X3 className="size-4" />} label="网格" onClick={() => toggleTopLevel("grid", "网格")} />
-          </div>
-          <Separator className="my-2" />
-          <div className="grid gap-1 px-1">
-            <span className="text-xs text-muted-foreground">连线类型</span>
-            <div className="grid grid-cols-3 gap-1">
-              {EDGE_STYLE_FILTERS.map((style) => (
-                <FilterToggle key={style} compact active={filters.edgeStyles[style]} label={edgeStyleFilterLabels[style]} onClick={() => toggleEdgeStyle(style)} />
-              ))}
-            </div>
-          </div>
-          <Separator className="my-2" />
-          <div className="grid gap-1 px-1">
-            <span className="text-xs text-muted-foreground">箭头类型</span>
-            <div className="grid grid-cols-2 gap-1">
-              {ARROW_TYPE_FILTERS.map((arrowType) => (
-                <FilterToggle key={arrowType} compact active={filters.arrowTypes[arrowType]} label={arrowTypeFilterLabels[arrowType]} onClick={() => toggleArrowType(arrowType)} />
-              ))}
-            </div>
+      <FloatingPanel open={open} placement="right" kind="popover" dismissMode="outside" className="w-72">
+        <div data-floating-action-item className="flex items-center justify-between px-1 pb-1">
+          <span className="text-xs font-medium text-foreground">视图过滤器</span>
+          <span className="text-xs text-muted-foreground">{hiddenCount > 0 ? `隐藏 ${hiddenCount} 项` : "全部显示"}</span>
+        </div>
+        <div className="grid grid-cols-2 gap-1">
+          <Button data-floating-action-item variant="ghost" className={EDITOR_CHROME_CLASSES.menuRow} onClick={onReset}>
+            <Eye className="size-4" />
+            全部显示
+          </Button>
+          <Button data-floating-action-item variant="ghost" className={EDITOR_CHROME_CLASSES.menuRow} onClick={hideEdges}>
+            <Link className="size-4" />
+            隐藏连线
+          </Button>
+          <Button data-floating-action-item variant="ghost" className={EDITOR_CHROME_CLASSES.menuRow} onClick={showNodesOnly}>
+            <SquareDashedMousePointer className="size-4" />
+            仅节点
+          </Button>
+          <Button data-floating-action-item variant="ghost" className={EDITOR_CHROME_CLASSES.menuRow} onClick={hideLabels}>
+            <Text className="size-4" />
+            隐藏标签
+          </Button>
+        </div>
+        <Separator className="my-2" />
+        <div className="grid gap-1">
+          <FilterToggle active={filters.nodes} icon={<SquareDashedMousePointer className="size-4" />} label="节点" onClick={() => toggleTopLevel("nodes", "节点")} />
+          <FilterToggle active={filters.subgraphs} icon={<GroupIcon className="size-4" />} label="分组" onClick={() => toggleTopLevel("subgraphs", "分组")} />
+          <FilterToggle active={filters.edges} icon={<Link className="size-4" />} label="连线" onClick={() => toggleTopLevel("edges", "连线")} />
+          <FilterToggle active={filters.nodeLabels} icon={<Text className="size-4" />} label="节点标签" onClick={() => toggleTopLevel("nodeLabels", "节点标签")} />
+          <FilterToggle active={filters.edgeLabels} icon={<LabelIcon />} label="连线标签" onClick={() => toggleTopLevel("edgeLabels", "连线标签")} />
+          <FilterToggle active={filters.grid} icon={<Grid3X3 className="size-4" />} label="网格" onClick={() => toggleTopLevel("grid", "网格")} />
+        </div>
+        <Separator className="my-2" />
+        <div className="grid gap-1 px-1">
+          <span className="text-xs text-muted-foreground">连线类型</span>
+          <div className="grid grid-cols-3 gap-1">
+            {EDGE_STYLE_FILTERS.map((style) => (
+              <FilterToggle key={style} compact active={filters.edgeStyles[style]} label={edgeStyleFilterLabels[style]} onClick={() => toggleEdgeStyle(style)} />
+            ))}
           </div>
         </div>
-      ) : null}
+        <Separator className="my-2" />
+        <div className="grid gap-1 px-1">
+          <span className="text-xs text-muted-foreground">箭头类型</span>
+          <div className="grid grid-cols-2 gap-1">
+            {ARROW_TYPE_FILTERS.map((arrowType) => (
+              <FilterToggle key={arrowType} compact active={filters.arrowTypes[arrowType]} label={arrowTypeFilterLabels[arrowType]} onClick={() => toggleArrowType(arrowType)} />
+            ))}
+          </div>
+        </div>
+      </FloatingPanel>
     </div>
   );
 }
@@ -3905,6 +4414,7 @@ function ViewFilterMenu({
 function FilterToggle({ active, label, icon, compact = false, onClick }: { active: boolean; label: string; icon?: ReactNode; compact?: boolean; onClick: () => void }) {
   return (
     <Button
+      data-floating-action-item
       type="button"
       variant="ghost"
       className={cn(
@@ -3927,6 +4437,7 @@ function FilterToggle({ active, label, icon, compact = false, onClick }: { activ
 function PreferenceToggle({ active, label, icon, onClick }: { active: boolean; label: string; icon: ReactNode; onClick: () => void }) {
   return (
     <Button
+      data-floating-action-item
       type="button"
       variant="ghost"
       className={cn(EDITOR_CHROME_CLASSES.menuRow, "gap-2", !active && "text-muted-foreground")}
@@ -4007,10 +4518,16 @@ function SecondaryActionsMenu({
         <MoreHoriz />
       </FloatingIconButton>
 
-      {open ? (
-        <div className="absolute bottom-12 left-0 z-50 w-64 rounded-md border bg-popover p-2 text-popover-foreground shadow-sm">
-          <div className="grid gap-0.5">
+      <FloatingPanel
+        open={open}
+        placement="bottom-left"
+        kind="popover"
+        dismissMode="outside"
+        className="max-h-[min(720px,calc(100vh-112px))] w-64 overflow-y-auto"
+      >
+        <div className="grid gap-0.5">
             <Button
+              data-floating-action-item
               variant="ghost"
               className={cn(EDITOR_CHROME_CLASSES.menuRow, "disabled:opacity-40")}
               onClick={() => runAndClose(onAddNode)}
@@ -4020,6 +4537,7 @@ function SecondaryActionsMenu({
               新增节点
             </Button>
             <Button
+              data-floating-action-item
               variant="ghost"
               className={cn(EDITOR_CHROME_CLASSES.menuRow, "disabled:opacity-40")}
               onClick={() => runAndClose(onAddImageNode)}
@@ -4029,6 +4547,7 @@ function SecondaryActionsMenu({
               添加图片节点
             </Button>
             <Button
+              data-floating-action-item
               variant="ghost"
               className={cn(EDITOR_CHROME_CLASSES.menuRow, "disabled:opacity-40")}
               onClick={() => runAndClose(onCreateGroup)}
@@ -4037,12 +4556,12 @@ function SecondaryActionsMenu({
               <SquareDashedMousePointer className="size-4" />
               选中内容成组
             </Button>
-            <Button variant="ghost" className={EDITOR_CHROME_CLASSES.menuRow} onClick={() => runAndClose(onSaveAs)}>
+            <Button data-floating-action-item variant="ghost" className={EDITOR_CHROME_CLASSES.menuRow} onClick={() => runAndClose(onSaveAs)}>
               <FloppyDiskArrowOut className="size-4" />
               另存为
             </Button>
             <Separator className="my-1" />
-            <div className="grid gap-2 px-2 py-2">
+            <div data-floating-action-item className="grid gap-2 px-2 py-2">
               <span className="text-xs text-muted-foreground">方向</span>
               <Select
                 value={direction}
@@ -4064,7 +4583,7 @@ function SecondaryActionsMenu({
               </Select>
             </div>
             <Separator className="my-1" />
-            <div className="grid gap-2 px-2 py-2">
+            <div data-floating-action-item className="grid gap-2 px-2 py-2">
               <span className="flex items-center gap-2 text-xs text-muted-foreground">
                 <PositionAlign className="size-4 text-icon" />
                 布局模式
@@ -4089,7 +4608,7 @@ function SecondaryActionsMenu({
               </Select>
             </div>
             <Separator className="my-1" />
-            <div className="grid gap-2 px-2 py-2">
+            <div data-floating-action-item className="grid gap-2 px-2 py-2">
               <span className="flex items-center gap-2 text-xs text-muted-foreground">
                 <PathArrow className="size-4 text-icon" />
                 连线形状
@@ -4114,7 +4633,7 @@ function SecondaryActionsMenu({
               </Select>
             </div>
             <Separator className="my-1" />
-            <div className="grid gap-0.5 px-1 py-1">
+            <div data-floating-action-item className="grid gap-0.5 px-1 py-1">
               <span className="flex items-center gap-2 px-1 py-1 text-xs text-muted-foreground">
                 <Eye className="size-4 text-icon" />
                 应用设置
@@ -4174,15 +4693,16 @@ function SecondaryActionsMenu({
                 }
               />
             </div>
-            <Button variant="ghost" className={EDITOR_CHROME_CLASSES.menuRow} onClick={() => runAndClose(onOpenThemeSettings)}>
+            <Button data-floating-action-item variant="ghost" className={EDITOR_CHROME_CLASSES.menuRow} onClick={() => runAndClose(onOpenThemeSettings)}>
               <ColorWheel className="size-4" />
               主题
             </Button>
-            <Button variant="ghost" className={cn(EDITOR_CHROME_CLASSES.menuRow, "disabled:opacity-40")} disabled={documentKind !== "mermaid"} onClick={() => runAndClose(onRefreshSource)}>
+            <Button data-floating-action-item variant="ghost" className={cn(EDITOR_CHROME_CLASSES.menuRow, "disabled:opacity-40")} disabled={documentKind !== "mermaid"} onClick={() => runAndClose(onRefreshSource)}>
               <RefreshCw className="size-4" />
               从源码刷新
             </Button>
             <Button
+              data-floating-action-item
               variant="ghost"
               className={cn(EDITOR_CHROME_CLASSES.menuRow, "disabled:opacity-40")}
               onClick={() => runAndClose(onSyncAutoLayout)}
@@ -4192,6 +4712,7 @@ function SecondaryActionsMenu({
               立即自动布局
             </Button>
             <Button
+              data-floating-action-item
               variant="ghost"
               className={cn(EDITOR_CHROME_CLASSES.menuRow, "disabled:opacity-40")}
               onClick={() => runAndClose(onResetView)}
@@ -4200,9 +4721,8 @@ function SecondaryActionsMenu({
               <Maximize2 className="size-4" />
               重置画布视图
             </Button>
-          </div>
         </div>
-      ) : null}
+      </FloatingPanel>
     </div>
   );
 }
@@ -4726,16 +5246,69 @@ function toCustomTheme(theme: EditorTheme): EditorTheme {
   };
 }
 
-function PanelHeader({ onCollapse }: { onCollapse: () => void }) {
+function PanelHeader({
+  windowState,
+  onWindowStateChange,
+  onCollapse
+}: {
+  windowState: FloatingPanelWindowState;
+  onWindowStateChange: (state: FloatingPanelWindowState) => void;
+  onCollapse: () => void;
+}) {
   return (
     <div className="absolute right-2 top-2 z-30">
+      <WorkspacePanelControls
+        windowState={windowState}
+        onWindowStateChange={onWindowStateChange}
+        onClose={onCollapse}
+        closeLabel="关闭检查器"
+        closeTooltipSide="left"
+        closeIcon={<Xmark />}
+      />
+    </div>
+  );
+}
+
+function WorkspacePanelControls({
+  windowState,
+  onWindowStateChange,
+  onClose,
+  closeLabel,
+  closeTooltipSide,
+  closeIcon
+}: {
+  windowState: FloatingPanelWindowState;
+  onWindowStateChange: (state: FloatingPanelWindowState) => void;
+  onClose: () => void;
+  closeLabel: string;
+  closeTooltipSide: "top" | "right" | "bottom" | "left";
+  closeIcon: ReactNode;
+}) {
+  const maximized = windowState === "maximized";
+
+  return (
+    <div className="flex shrink-0 items-center gap-1" data-floating-panel-drag-exclude>
       <Tooltip>
         <TooltipTrigger asChild>
-          <Button size="icon" variant="ghost" className={cn(EDITOR_CHROME_CLASSES.panelIconButton, "bg-card/95")} onClick={onCollapse} aria-label="收起右侧面板">
-            <PanelRightClose className="size-4" />
+          <Button
+            size="icon"
+            variant="ghost"
+            className={cn(EDITOR_CHROME_CLASSES.panelIconButton, "bg-card/85")}
+            onClick={() => onWindowStateChange(maximized ? "normal" : "maximized")}
+            aria-label={maximized ? "还原面板" : "最大化面板"}
+          >
+            <Maximize className="size-4" />
           </Button>
         </TooltipTrigger>
-        <TooltipContent side="left">收起右侧面板</TooltipContent>
+        <TooltipContent side={closeTooltipSide}>{maximized ? "还原面板" : "最大化面板"}</TooltipContent>
+      </Tooltip>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button size="icon" variant="ghost" className={cn(EDITOR_CHROME_CLASSES.panelIconButton, "bg-card/85")} onClick={onClose} aria-label={closeLabel}>
+            {closeIcon}
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side={closeTooltipSide}>{closeLabel}</TooltipContent>
       </Tooltip>
     </div>
   );

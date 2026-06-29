@@ -31,7 +31,7 @@ export const EDITOR_CHROME_CLASSES = {
   menuRow: "h-8 justify-start px-2 text-foreground [&_svg]:text-icon [&_svg]:size-4",
   treeRow: "h-8 justify-start px-2 text-left text-foreground [&_svg]:text-icon",
   sidePanel:
-    "absolute bottom-16 top-16 z-20 overflow-hidden rounded-md border bg-card/95 shadow-sm backdrop-blur"
+    "grid min-h-0 overflow-hidden rounded-lg"
 } as const;
 
 export type FloatingChromePlacement =

@@ -18,6 +18,12 @@ describe("file drop helpers", () => {
     expect(result).toMatchObject({ kind: "document", documentKind: "markdown", file: { path: "/tmp/notes.md" } });
   });
 
+  it("detects document files from HTML file names when no path is available", () => {
+    const result = classifyFileDrop([{ name: "notes.md" }]);
+
+    expect(result).toMatchObject({ kind: "document", documentKind: "markdown", file: { name: "notes.md" } });
+  });
+
   it("detects canvas document files", () => {
     const result = classifyFileDrop([{ path: "/tmp/board.canvas.json" }]);
 
@@ -28,6 +34,12 @@ describe("file drop helpers", () => {
     const result = classifyFileDrop([{ path: "/tmp/logo.svg" }]);
 
     expect(result).toMatchObject({ kind: "image", file: { path: "/tmp/logo.svg" } });
+  });
+
+  it("detects image files from HTML file names when no path is available", () => {
+    const result = classifyFileDrop([{ name: "logo.svg" }]);
+
+    expect(result).toMatchObject({ kind: "image", file: { name: "logo.svg" } });
   });
 
   it("converts window drop coordinates to canvas world coordinates", () => {

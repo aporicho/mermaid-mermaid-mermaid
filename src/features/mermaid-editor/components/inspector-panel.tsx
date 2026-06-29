@@ -204,7 +204,7 @@ export function InspectorPanel({ graph, selection, onEditorCommand }: InspectorP
 
   return (
     <section className="grid h-full min-h-0 grid-rows-[42px_minmax(0,1fr)]">
-      <header className="flex items-center gap-2 border-b bg-card/95 px-3 pr-12 text-sm font-medium">
+      <header data-floating-panel-drag-handle className="flex cursor-grab items-center gap-2 border-b bg-card/95 px-3 pr-20 text-sm font-medium active:cursor-grabbing">
         <SlidersHorizontal className="size-4 text-icon" />
         检查器
       </header>

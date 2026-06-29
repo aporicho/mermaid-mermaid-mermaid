@@ -1,4 +1,7 @@
-#![cfg_attr(all(not(debug_assertions), target_os = "windows"), windows_subsystem = "windows")]
+#![cfg_attr(
+    all(not(debug_assertions), target_os = "windows"),
+    windows_subsystem = "windows"
+)]
 
 use std::{
     collections::{HashMap, VecDeque},
@@ -195,7 +198,10 @@ async fn save_mermaid_file(path: String, text: String) -> Result<SavedFile, File
 }
 
 #[tauri::command]
-async fn save_mermaid_file_as(suggested_name: String, text: String) -> Result<Option<SavedFile>, FileCommandError> {
+async fn save_mermaid_file_as(
+    suggested_name: String,
+    text: String,
+) -> Result<Option<SavedFile>, FileCommandError> {
     let file = rfd::AsyncFileDialog::new()
         .add_filter("项目文档", &["mmd", "mermaid", "md", "markdown", "json"])
         .set_file_name(&suggested_name)
@@ -217,7 +223,9 @@ async fn save_mermaid_file_as(suggested_name: String, text: String) -> Result<Op
 }
 
 #[tauri::command]
-async fn pick_image_asset(document_path: String) -> Result<Option<ImageAssetFile>, FileCommandError> {
+async fn pick_image_asset(
+    document_path: String,
+) -> Result<Option<ImageAssetFile>, FileCommandError> {
     let file = rfd::AsyncFileDialog::new()
         .add_filter("Image", &["png", "jpg", "jpeg", "webp", "gif", "svg"])
         .pick_file()
@@ -233,12 +241,27 @@ async fn pick_image_asset(document_path: String) -> Result<Option<ImageAssetFile
 }
 
 #[tauri::command]
-async fn import_image_asset_path(document_path: String, image_path: String) -> Result<ImageAssetFile, FileCommandError> {
+async fn import_image_asset_path(
+    document_path: String,
+    image_path: String,
+) -> Result<ImageAssetFile, FileCommandError> {
     import_image_asset_path_inner(PathBuf::from(document_path), PathBuf::from(image_path)).await
 }
 
 #[tauri::command]
-fn resolve_image_asset_path(document_path: String, src: String) -> Result<Option<String>, FileCommandError> {
+async fn import_image_asset_bytes(
+    document_path: String,
+    file_name: String,
+    bytes: Vec<u8>,
+) -> Result<ImageAssetFile, FileCommandError> {
+    import_image_asset_bytes_inner(PathBuf::from(document_path), file_name, bytes).await
+}
+
+#[tauri::command]
+fn resolve_image_asset_path(
+    document_path: String,
+    src: String,
+) -> Result<Option<String>, FileCommandError> {
     if is_external_asset_src(&src) {
         return Ok(None);
     }
@@ -265,7 +288,11 @@ fn write_app_state(_app: tauri::AppHandle, state: Value) -> Result<(), String> {
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).map_err(readable_error)?;
     }
-    fs::write(path, serde_json::to_vec_pretty(&state).map_err(readable_error)?).map_err(readable_error)
+    fs::write(
+        path,
+        serde_json::to_vec_pretty(&state).map_err(readable_error)?,
+    )
+    .map_err(readable_error)
 }
 
 #[tauri::command]
@@ -275,7 +302,9 @@ fn read_app_state() -> Result<Option<Value>, String> {
         return Ok(None);
     }
     let text = fs::read_to_string(path).map_err(readable_error)?;
-    serde_json::from_str(&text).map(Some).map_err(readable_error)
+    serde_json::from_str(&text)
+        .map(Some)
+        .map_err(readable_error)
 }
 
 #[tauri::command]
@@ -408,12 +437,21 @@ fn terminal_list_shells() -> Vec<TerminalShellOption> {
 }
 
 #[tauri::command]
-fn terminal_write(state: State<'_, TerminalState>, session_id: String, data: String) -> Result<(), String> {
+fn terminal_write(
+    state: State<'_, TerminalState>,
+    session_id: String,
+    data: String,
+) -> Result<(), String> {
     state.write(&session_id, data.as_bytes())
 }
 
 #[tauri::command]
-fn terminal_resize(state: State<'_, TerminalState>, session_id: String, cols: u16, rows: u16) -> Result<(), String> {
+fn terminal_resize(
+    state: State<'_, TerminalState>,
+    session_id: String,
+    cols: u16,
+    rows: u16,
+) -> Result<(), String> {
     state.resize(&session_id, terminal_size(cols, rows))
 }
 
@@ -642,7 +680,10 @@ async fn open_mermaid_file_path_inner(path: PathBuf) -> Result<OpenedFile, FileC
     })
 }
 
-async fn import_image_asset_path_inner(document_path: PathBuf, image_path: PathBuf) -> Result<ImageAssetFile, FileCommandError> {
+async fn import_image_asset_path_inner(
+    document_path: PathBuf,
+    image_path: PathBuf,
+) -> Result<ImageAssetFile, FileCommandError> {
     if !is_supported_image_document_path(&document_path) {
         return Err(file_workflow_error(
             "unsupported_type",
@@ -672,7 +713,8 @@ async fn import_image_asset_path_inner(document_path: PathBuf, image_path: PathB
         let destination_dir = document_dir
             .join("assets")
             .join(document_stem(&document_path));
-        fs::create_dir_all(&destination_dir).map_err(|error| file_io_error("write_failed", &destination_dir, error))?;
+        fs::create_dir_all(&destination_dir)
+            .map_err(|error| file_io_error("write_failed", &destination_dir, error))?;
         let destination = destination_dir.join(copied_image_file_name(&image_absolute));
         tokio::fs::copy(&image_absolute, &destination)
             .await
@@ -685,6 +727,46 @@ async fn import_image_asset_path_inner(document_path: PathBuf, image_path: PathB
         src,
         path: path_to_string(&asset_path),
         copied,
+    })
+}
+
+async fn import_image_asset_bytes_inner(
+    document_path: PathBuf,
+    file_name: String,
+    bytes: Vec<u8>,
+) -> Result<ImageAssetFile, FileCommandError> {
+    if !is_supported_image_document_path(&document_path) {
+        return Err(file_workflow_error(
+            "unsupported_type",
+            "请先保存为 .mmd、.mermaid 或 .canvas.json 文件，再插入本地图片。",
+            Some(&document_path),
+        ));
+    }
+    let image_path = PathBuf::from(&file_name);
+    if !is_supported_image_path(&image_path) {
+        return Err(file_workflow_error(
+            "unsupported_type",
+            "只支持 png、jpg、jpeg、webp、gif 或 svg 图片。",
+            Some(&image_path),
+        ));
+    }
+
+    let document_dir = document_path.parent().unwrap_or_else(|| Path::new("."));
+    let destination_dir = document_dir
+        .join("assets")
+        .join(document_stem(&document_path));
+    fs::create_dir_all(&destination_dir)
+        .map_err(|error| file_io_error("write_failed", &destination_dir, error))?;
+    let destination = unique_asset_destination(&destination_dir, &image_path, &bytes);
+    tokio::fs::write(&destination, bytes)
+        .await
+        .map_err(|error| file_io_error("write_failed", &destination, error))?;
+
+    let src = relative_asset_src(document_dir, &destination);
+    Ok(ImageAssetFile {
+        src,
+        path: path_to_string(&destination),
+        copied: true,
     })
 }
 
@@ -722,7 +804,8 @@ fn collect_project_files(
         return Ok(());
     }
 
-    let entries = fs::read_dir(directory).map_err(|error| file_io_error("read_failed", directory, error))?;
+    let entries =
+        fs::read_dir(directory).map_err(|error| file_io_error("read_failed", directory, error))?;
     let mut entries = entries.filter_map(Result::ok).collect::<Vec<_>>();
     entries.sort_by_key(|entry| entry.path());
 
@@ -809,7 +892,9 @@ fn handle_bridge_request(mut request: Request, state: BridgeState, token: &str, 
             let command_id = path.trim_start_matches("/api/ai/commands/");
             state.result_response(command_id)
         }
-        (Method::Post, path) if path.starts_with("/api/ai/commands/") && path.ends_with("/result") => {
+        (Method::Post, path)
+            if path.starts_with("/api/ai/commands/") && path.ends_with("/result") =>
+        {
             let command_id = path
                 .trim_start_matches("/api/ai/commands/")
                 .trim_end_matches("/result")
@@ -844,8 +929,11 @@ fn is_authorized(request: &Request, token: &str) -> bool {
 }
 
 fn respond_json(request: Request, status: StatusCode, body: Value) {
-    let header = Header::from_bytes(&b"content-type"[..], &b"application/json; charset=utf-8"[..])
-        .expect("valid content-type header");
+    let header = Header::from_bytes(
+        &b"content-type"[..],
+        &b"application/json; charset=utf-8"[..],
+    )
+    .expect("valid content-type header");
     let response = Response::from_string(body.to_string())
         .with_status_code(status)
         .with_header(header);
@@ -866,7 +954,11 @@ fn write_discovery(port: u16, token: &str, app_version: &str) -> Result<(), Stri
         "updatedAt": Utc::now().to_rfc3339()
     });
 
-    fs::write(path, serde_json::to_vec_pretty(&payload).map_err(readable_error)?).map_err(readable_error)
+    fs::write(
+        path,
+        serde_json::to_vec_pretty(&payload).map_err(readable_error)?,
+    )
+    .map_err(readable_error)
 }
 
 fn discovery_path() -> Result<PathBuf, String> {
@@ -940,7 +1032,12 @@ fn terminal_shell_specs() -> Vec<TerminalShellSpec> {
     shells
 }
 
-fn shell_spec(id: &'static str, label: &'static str, program: &str, args: &[&str]) -> TerminalShellSpec {
+fn shell_spec(
+    id: &'static str,
+    label: &'static str,
+    program: &str,
+    args: &[&str],
+) -> TerminalShellSpec {
     TerminalShellSpec {
         id,
         label,
@@ -1036,7 +1133,17 @@ fn should_skip_project_directory(path: &Path) -> bool {
 
     matches!(
         name.as_deref(),
-        Some(".git" | ".hg" | ".svn" | "node_modules" | "dist" | "build" | ".vite" | ".next" | "target")
+        Some(
+            ".git"
+                | ".hg"
+                | ".svn"
+                | "node_modules"
+                | "dist"
+                | "build"
+                | ".vite"
+                | ".next"
+                | "target"
+        )
     )
 }
 
@@ -1049,7 +1156,9 @@ fn unix_time_millis(time: SystemTime) -> u64 {
 fn is_supported_mermaid_path(path: &Path) -> bool {
     path.extension()
         .and_then(|value| value.to_str())
-        .map(|extension| extension.eq_ignore_ascii_case("mmd") || extension.eq_ignore_ascii_case("mermaid"))
+        .map(|extension| {
+            extension.eq_ignore_ascii_case("mmd") || extension.eq_ignore_ascii_case("mermaid")
+        })
         .unwrap_or(false)
 }
 
@@ -1121,8 +1230,34 @@ fn copied_image_file_name(path: &Path) -> String {
         .file_stem()
         .and_then(|value| value.to_str())
         .unwrap_or("image");
-    let extension = path.extension().and_then(|value| value.to_str()).unwrap_or("png");
+    let extension = path
+        .extension()
+        .and_then(|value| value.to_str())
+        .unwrap_or("png");
     format!("{stem}-{}.{}", short_path_hash(path), extension)
+}
+
+fn unique_asset_destination(destination_dir: &Path, source_name: &Path, bytes: &[u8]) -> PathBuf {
+    let stem = source_name
+        .file_stem()
+        .and_then(|value| value.to_str())
+        .unwrap_or("image");
+    let extension = source_name
+        .extension()
+        .and_then(|value| value.to_str())
+        .unwrap_or("png");
+    let mut hasher = DefaultHasher::new();
+    source_name.hash(&mut hasher);
+    bytes.len().hash(&mut hasher);
+    bytes
+        .iter()
+        .take(4096)
+        .for_each(|byte| byte.hash(&mut hasher));
+    let hash = format!("{:x}", hasher.finish())
+        .chars()
+        .take(8)
+        .collect::<String>();
+    destination_dir.join(format!("{stem}-{hash}.{extension}"))
 }
 
 fn short_path_hash(path: &Path) -> String {
@@ -1134,10 +1269,7 @@ fn short_path_hash(path: &Path) -> String {
             modified.hash(&mut hasher);
         }
     }
-    format!("{:x}", hasher.finish())
-        .chars()
-        .take(8)
-        .collect()
+    format!("{:x}", hasher.finish()).chars().take(8).collect()
 }
 
 fn relative_asset_src(base_dir: &Path, asset_path: &Path) -> String {
@@ -1164,7 +1296,10 @@ fn collect_mermaid_file_args(args: impl IntoIterator<Item = String>) -> Vec<Pend
         .collect()
 }
 
-fn emit_pending_file_opens<R: tauri::Runtime>(app: &tauri::AppHandle<R>, files: Vec<PendingOpenFile>) {
+fn emit_pending_file_opens<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+    files: Vec<PendingOpenFile>,
+) {
     if files.is_empty() {
         return;
     }
@@ -1176,7 +1311,11 @@ fn emit_pending_file_opens<R: tauri::Runtime>(app: &tauri::AppHandle<R>, files: 
     }
 }
 
-fn file_workflow_error(code: &'static str, message: impl Into<String>, path: Option<&Path>) -> FileCommandError {
+fn file_workflow_error(
+    code: &'static str,
+    message: impl Into<String>,
+    path: Option<&Path>,
+) -> FileCommandError {
     FileCommandError {
         code,
         message: message.into(),
@@ -1252,6 +1391,7 @@ pub fn run() {
             save_mermaid_file_as,
             pick_image_asset,
             import_image_asset_path,
+            import_image_asset_bytes,
             resolve_image_asset_path,
             write_app_state,
             read_app_state,

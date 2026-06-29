@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ButtonHTMLAttributes } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ButtonHTMLAttributes, type ReactNode } from "react";
 import { Terminal as XtermTerminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import "@xterm/xterm/css/xterm.css";
@@ -19,9 +19,11 @@ type TerminalPanelProps = {
   terminalTheme: XtermThemeTokens;
   onClose: () => void;
   onStatus: (message: string) => void;
+  windowControls?: ReactNode;
+  className?: string;
 };
 
-export function TerminalPanel({ runtime, cwd, theme, terminalTheme, onClose, onStatus }: TerminalPanelProps) {
+export function TerminalPanel({ runtime, cwd, theme, terminalTheme, onClose, onStatus, windowControls, className }: TerminalPanelProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const terminalRef = useRef<XtermTerminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
@@ -217,10 +219,10 @@ export function TerminalPanel({ runtime, cwd, theme, terminalTheme, onClose, onS
 
   return (
     <section
-      className="terminal-panel absolute bottom-16 left-1/2 z-20 grid h-[clamp(240px,32vh,480px)] w-[min(960px,calc(100vw-32px))] -translate-x-1/2 grid-rows-[48px_minmax(0,1fr)] overflow-hidden rounded-md border bg-card/95 shadow-sm backdrop-blur"
+      className={cn("terminal-panel grid h-full min-h-0 w-full grid-rows-[48px_minmax(0,1fr)] overflow-hidden bg-card/95", className)}
       data-editor-floating-menu-ignore
     >
-      <header className="flex min-w-0 items-center justify-between border-b px-3">
+      <header data-floating-panel-drag-handle className="flex min-w-0 cursor-grab items-center justify-between border-b px-3 active:cursor-grabbing">
         <div className="flex min-w-0 items-center gap-2">
           <TerminalIcon className="size-4 shrink-0 text-icon" />
           <div className="min-w-0">
@@ -253,9 +255,11 @@ export function TerminalPanel({ runtime, cwd, theme, terminalTheme, onClose, onS
           <PanelIconButton label="清空终端" onClick={clearTerminal}>
             <Erase />
           </PanelIconButton>
-          <PanelIconButton label="关闭终端" onClick={onClose}>
-            <Xmark />
-          </PanelIconButton>
+          {windowControls ?? (
+            <PanelIconButton label="关闭终端" onClick={onClose}>
+              <Xmark />
+            </PanelIconButton>
+          )}
         </div>
       </header>
       <div className="min-h-0 p-2" style={{ backgroundColor: terminalTheme.background, color: terminalTheme.foreground }}>

@@ -138,6 +138,7 @@ export type EditorRuntime = {
   saveFileAs: (documentText: string, suggestedName: string, documentKind: DocumentKind) => Promise<RuntimeSaveFileResult>;
   pickImageAsset: (file: RuntimeFileRef | null) => Promise<RuntimeImageAssetResult>;
   importImageAssetPath: (file: RuntimeFileRef | null, path: string) => Promise<RuntimeImageAssetResult>;
+  importImageAssetFile: (file: RuntimeFileRef | null, image: File) => Promise<RuntimeImageAssetResult>;
   resolveImageAssetSrc: (file: RuntimeFileRef | null, src: string) => Promise<string>;
   openProjectFolder: () => Promise<RuntimeProjectFolderResult>;
   readProjectFolder: (rootPath: string) => Promise<RuntimeProjectFolderResult>;
@@ -308,6 +309,12 @@ function createWebRuntime(): EditorRuntime {
         message: "网页版暂不支持稳定保存本地图片，请使用图片 URL 或桌面版。"
       };
     },
+    async importImageAssetFile() {
+      return {
+        status: "unsupported",
+        message: "网页版暂不支持稳定保存本地图片，请使用图片 URL 或桌面版。"
+      };
+    },
     async resolveImageAssetSrc(_file, src) {
       return src;
     },
@@ -449,6 +456,25 @@ function createDesktopRuntime(): EditorRuntime {
         displaySrc: await filePathToDisplaySrc(asset.path)
       };
     },
+    async importImageAssetFile(file, image) {
+      if (!file?.path) return { status: "needs-document" };
+      const exposedPath = exposedNativeFilePath(image);
+      if (exposedPath) return this.importImageAssetPath(file, exposedPath);
+
+      const bytes = Array.from(new Uint8Array(await image.arrayBuffer()));
+      const asset = await tauriInvoke<DesktopImageAsset>("import_image_asset_bytes", {
+        documentPath: file.path,
+        fileName: image.name,
+        bytes
+      });
+      return {
+        status: "ready",
+        src: asset.src,
+        path: asset.path,
+        copied: asset.copied,
+        displaySrc: await filePathToDisplaySrc(asset.path)
+      };
+    },
     async resolveImageAssetSrc(file, src) {
       if (isExternalAssetSrc(src) || !file?.path) return src;
       const path = await tauriInvoke<string | null>("resolve_image_asset_path", { documentPath: file.path, src });
@@ -565,6 +591,11 @@ async function tauriInvoke<T>(command: string, args?: Record<string, unknown>) {
 async function filePathToDisplaySrc(path: string) {
   const { convertFileSrc } = await import("@tauri-apps/api/core");
   return convertFileSrc(path);
+}
+
+function exposedNativeFilePath(file: File) {
+  const path = (file as File & { path?: unknown }).path;
+  return typeof path === "string" && path ? path : undefined;
 }
 
 function isExternalAssetSrc(src: string) {

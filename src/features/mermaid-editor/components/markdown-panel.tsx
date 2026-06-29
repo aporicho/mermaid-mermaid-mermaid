@@ -53,7 +53,11 @@ export function MarkdownPanel({ value, className, readOnly = false, onChange }: 
   }, [readOnly]);
 
   return (
-    <section className={cn("markdown-editor-panel relative z-0 h-full min-h-0 overflow-auto bg-background", className)}>
+    <section
+      data-floating-panel-drag-exclude
+      data-window-drag-exclude
+      className={cn("markdown-editor-panel relative z-0 h-full min-h-0 overflow-auto bg-background", className)}
+    >
       <div ref={rootRef} className="min-h-full" />
     </section>
   );
