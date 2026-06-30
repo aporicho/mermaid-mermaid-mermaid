@@ -109,7 +109,7 @@ describe("interaction architecture contract", () => {
 
   it("keeps known oversized files on a no-growth budget", () => {
     const budgets = [
-      { path: "src/features/mermaid-editor/components/mermaid-editor.tsx", maxLines: 6100 },
+      { path: "src/features/mermaid-editor/components/mermaid-editor.tsx", maxLines: 4550 },
       { path: "src/features/mermaid-editor/components/konva-canvas.tsx", maxLines: 3330 },
       { path: "src/features/mermaid-editor/components/canvas-document-editor.tsx", maxLines: 1900 },
       { path: "src-tauri/src/main.rs", maxLines: 1450 }
@@ -118,6 +118,17 @@ describe("interaction architecture contract", () => {
     for (const budget of budgets) {
       expect(lineCount(readProjectFile(budget.path)), budget.path).toBeLessThanOrEqual(budget.maxLines);
     }
+  });
+
+  it("keeps large editor panels outside the MermaidEditor composition file", () => {
+    const editor = readProjectFile("src/features/mermaid-editor/components/mermaid-editor.tsx");
+
+    expect(editor).not.toContain("function ThemeSettingsPanel(");
+    expect(editor).not.toContain("function FileMenu(");
+    expect(editor).not.toContain("function ViewFilterMenu(");
+    expect(editor).not.toContain("function ExplorerPanel(");
+    expect(editor).not.toContain("function SecondaryActionsMenu(");
+    expect(editor).not.toContain("function WorkspacePanelControls(");
   });
 
   it("keeps newly oversized frontend files out of the codebase", () => {
