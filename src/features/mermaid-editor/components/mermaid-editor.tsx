@@ -1,40 +1,28 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type DragEvent as ReactDragEvent } from "react";
 import {
-  Code,
   DotsGrid3x3 as Grid3X3,
-  FloppyDisk,
-  GitBranch as Workflow,
-  Link,
-  Maximize,
-  Minus,
-  OpenNewWindow,
-  Refresh as RefreshCw,
   SidebarExpand as PanelLeftOpen,
   SidebarExpand as PanelRightOpen,
-  SquareCursor as SquareDashedMousePointer,
   Terminal,
-  Text,
-  WarningTriangle,
   Xmark
 } from "iconoir-react/regular";
 
+import { BrowserWindowPanel, MarkdownWindowPanel } from "@/features/mermaid-editor/components/detached-window-panels";
 import { InspectorPanel } from "@/features/mermaid-editor/components/inspector-panel";
 import { CanvasDocumentEditor } from "@/features/mermaid-editor/components/canvas-document-editor";
-import { EmbeddedBrowserSurface } from "@/features/mermaid-editor/components/embedded-browser-surface";
 import { edgeRoutingOptions, FileMenu, SecondaryActionsMenu, ViewFilterMenu } from "@/features/mermaid-editor/components/editor-menus";
 import { ExplorerPanel } from "@/features/mermaid-editor/components/explorer-panel";
-import { WorkspacePanelControls } from "@/features/mermaid-editor/components/workspace-panel-controls";
-import { FloatingButtonCluster, FloatingChromeLayer, FloatingChromeSlot, FloatingIconButton, FloatingPanel, MotionPresence } from "@/features/mermaid-editor/components/floating-chrome";
+import { FileDropFeedbackBadge, FileWorkflowErrorBanner, UnsavedFilePrompt, type FileDropFeedback } from "@/features/mermaid-editor/components/file-workflow-feedback";
+import { FloatingChromeLayer, FloatingChromeSlot, FloatingIconButton, FloatingPanel, MotionPresence } from "@/features/mermaid-editor/components/floating-chrome";
 import { MarkdownPanel } from "@/features/mermaid-editor/components/markdown-panel";
+import { NodeActionEditorDialog } from "@/features/mermaid-editor/components/node-action-editor-dialog";
 import { PreviewPanel } from "@/features/mermaid-editor/components/preview-panel";
 import { SourcePanel } from "@/features/mermaid-editor/components/source-panel";
 import { TerminalPanel } from "@/features/mermaid-editor/components/terminal-panel";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { WorkspacePanelControls, WorkspacePanelHeader } from "@/features/mermaid-editor/components/workspace-panel-controls";
+import { DesktopWindowControls, ToolModeCluster, WorkspaceViewCluster } from "@/features/mermaid-editor/components/workspace-view-controls";
 import { appLogoById } from "@/features/mermaid-editor/lib/app-logo";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { applyLayout, edgeRoutingFromLayout, layoutFromGraph, layoutModeFromLayout, parseCanvasLayout } from "@/features/mermaid-editor/lib/canvas-layout";
 import { applyDagreAutoLayout, deriveDagreAutoLayoutResult } from "@/features/mermaid-editor/lib/canvas-auto-layout";
 import { buildAiEditorContext, type AiCanvasSize, type AiEditingContext, type AiRecentAction } from "@/features/mermaid-editor/lib/ai-context";
@@ -49,18 +37,35 @@ import {
 import { createHistory, pushHistory, redo, undo } from "@/features/mermaid-editor/lib/editor-history";
 import { hasBlockingDiagnostics, normalizeMermaidError, type EditorDiagnostic } from "@/features/mermaid-editor/lib/editor-diagnostics";
 import {
+  BLANK_FLOWCHART_SOURCE,
+  BLANK_MARKDOWN_SOURCE,
+  FALLBACK_CANVAS_FILE_NAME,
+  FALLBACK_FILE_NAME,
+  FALLBACK_MARKDOWN_FILE_NAME,
+  buildFallbackCleanDocument,
+  canvasDocumentFromStored,
+  comparableDocumentFileName,
+  createEmptyDocumentGraph,
+  ensureEditorDocumentFileName,
+  fallbackFileNameForKind,
+  layoutThemeFromState,
+  loadInitialState,
+  normalizeStoredDocumentKind,
+  normalizeThemeId,
+  serializableRuntimeFileRef,
+  type StoredEditor,
+  type StoredEditorApplyResult,
+  type StoredEditorDraftOverrides
+} from "@/features/mermaid-editor/lib/editor-state";
+import {
   createEditorRuntime,
-  ensureRuntimeDocumentFileName,
   isRuntimeAbortError,
-  type EditorRuntime,
   type RuntimeFileDropRequest,
   type RuntimeFileOpenRequest,
   type RuntimeFileRef,
   type RuntimeImageAssetResult
 } from "@/features/mermaid-editor/lib/editor-runtime";
 import {
-  fileWorkflowErrorSuggestion,
-  fileWorkflowErrorTitle,
   isSupportedDocumentFilePath,
   normalizeFileWorkflowError,
   normalizeRecentFiles,
@@ -92,12 +97,11 @@ import type {
   Selection,
   ViewportState
 } from "@/features/mermaid-editor/lib/editor-types";
-import type { CanvasLayout, CanvasLayoutTheme } from "@/features/mermaid-editor/lib/editor-types";
+import type { CanvasLayoutTheme } from "@/features/mermaid-editor/lib/editor-types";
 import { DEFAULT_EDGE_ROUTING, DEFAULT_LAYOUT_MODE } from "@/features/mermaid-editor/lib/editor-types";
 import {
   applyEditorThemeToDocument,
   compileEditorTheme,
-  DEFAULT_EDITOR_THEME,
   type EditorTheme,
   type EditorThemeId,
   normalizeEditorTheme,
@@ -109,21 +113,29 @@ import { incrementPerformanceCounter, measurePerformance } from "@/features/merm
 import { buildInteractionContext } from "@/features/mermaid-editor/lib/interaction/context";
 import type { EditorCommand } from "@/features/mermaid-editor/lib/interaction/commands";
 import { applyEditorCommandTransaction } from "@/features/mermaid-editor/lib/interaction/transaction";
-import { initialMermaidSource, parseMermaid, serializeMermaid } from "@/features/mermaid-editor/lib/mermaid-graph";
+import { parseMermaid, serializeMermaid } from "@/features/mermaid-editor/lib/mermaid-graph";
 import { applyMermaidPatch } from "@/features/mermaid-editor/lib/mermaid-patch";
 import { DEFAULT_VIEW_FILTERS, hiddenFilterCount, normalizeViewFilters, type ViewFilters } from "@/features/mermaid-editor/lib/view-filters";
 import { useDisableNativeContextMenu } from "@/features/mermaid-editor/lib/native-context-menu";
 import { EDITOR_CHROME_CLASSES } from "@/features/mermaid-editor/lib/editor-chrome";
 import { shouldCreateGroupFromShortcut } from "@/features/mermaid-editor/lib/editor-keyboard-shortcuts";
-import { bringFloatingPanelToFront, floatingPanelStackIndex, type FloatingPanelWindowState } from "@/features/mermaid-editor/lib/floating-chrome";
-import { workspaceViewForDocument, workspaceViewsForDocument, type WorkspaceView } from "@/features/mermaid-editor/lib/workspace-view";
+import { workspaceViewForDocument, type WorkspaceView } from "@/features/mermaid-editor/lib/workspace-view";
+import {
+  WORKSPACE_PANEL_DEFAULT_SIZES,
+  WORKSPACE_PANEL_MIN_SIZES,
+  browserWindowPanelId,
+  markdownWindowPanelId,
+  useWorkspacePanels,
+  type BrowserWindowPanelId,
+  type DetachedBrowserWindow,
+  type DetachedMarkdownWindow,
+  type MarkdownWindowPanelId,
+  type StaticWorkspacePanelId
+} from "@/features/mermaid-editor/lib/workspace-panels";
 import {
   extractNodeActionsFromClipboardText,
-  inferNodeActionKindFromTarget,
   isHttpUrl,
-  nodeActionDefaultTooltip,
   nodeActionSuggestedLabel,
-  nodeActionTarget,
   normalizeNodeAction
 } from "@/features/mermaid-editor/lib/node-actions";
 import { createImageAsset, DEFAULT_IMAGE_ASSET_HEIGHT, DEFAULT_IMAGE_ASSET_WIDTH, isSupportedImagePath } from "@/features/mermaid-editor/lib/node-assets";
@@ -149,92 +161,10 @@ import {
 const KonvaCanvas = lazy(() => import("@/features/mermaid-editor/components/konva-canvas").then((mod) => ({ default: mod.KonvaCanvas })));
 const ThemeSettingsPanel = lazy(() => import("@/features/mermaid-editor/components/theme-settings-panel").then((mod) => ({ default: mod.ThemeSettingsPanel })));
 
-const workspaceViewLabels: Record<WorkspaceView, string> = {
-  canvas: "无限画布",
-  render: "渲染视图",
-  source: "源码视图",
-  markdown: "Markdown 视图"
-};
-const FALLBACK_FILE_NAME = "diagram.mmd";
-const FALLBACK_MARKDOWN_FILE_NAME = "document.md";
-const FALLBACK_CANVAS_FILE_NAME = "board.canvas.json";
-const BLANK_FLOWCHART_SOURCE = "flowchart LR";
-const BLANK_MARKDOWN_SOURCE = "# 未命名文档\n\n";
-type StaticWorkspacePanelId = "explorer" | "inspector" | "terminal";
-type MarkdownWindowPanelId = `markdown:${string}`;
-type BrowserWindowPanelId = `browser:${string}`;
-type WorkspaceFloatingPanelId = StaticWorkspacePanelId | MarkdownWindowPanelId | BrowserWindowPanelId;
-type DetachedMarkdownWindow = {
-  id: MarkdownWindowPanelId;
-  file: RuntimeFileRef;
-  title: string;
-  value: string;
-  savedValue: string;
-};
-type DetachedBrowserWindow = {
-  id: BrowserWindowPanelId;
-  title: string;
-  url: string;
-};
-const DEFAULT_WORKSPACE_PANEL_STACK: WorkspaceFloatingPanelId[] = ["explorer", "inspector", "terminal"];
-const DEFAULT_WORKSPACE_PANEL_WINDOW_STATES: Record<StaticWorkspacePanelId, FloatingPanelWindowState> = {
-  explorer: "normal",
-  inspector: "normal",
-  terminal: "normal"
-};
-const WORKSPACE_PANEL_DEFAULT_SIZES: Record<StaticWorkspacePanelId | "markdown" | "browser", { width: number; height: number }> = {
-  explorer: { width: 360, height: 640 },
-  inspector: { width: 360, height: 640 },
-  terminal: { width: 860, height: 320 },
-  markdown: { width: 760, height: 640 },
-  browser: { width: 920, height: 680 }
-};
-const WORKSPACE_PANEL_MIN_SIZES: Record<StaticWorkspacePanelId | "markdown" | "browser", { width: number; height: number }> = {
-  explorer: { width: 320, height: 220 },
-  inspector: { width: 320, height: 220 },
-  terminal: { width: 560, height: 260 },
-  markdown: { width: 420, height: 300 },
-  browser: { width: 520, height: 360 }
-};
-function markdownWindowPanelId(file: Pick<RuntimeFileRef, "name" | "path">): MarkdownWindowPanelId {
-  return `markdown:${file.path || file.name}` as MarkdownWindowPanelId;
-}
-function browserWindowPanelId(url: string): BrowserWindowPanelId {
-  return `browser:${hashText(url)}` as BrowserWindowPanelId;
-}
-type StoredEditor = {
-  documentKind?: DocumentKind;
-  source: string;
-  canvasDocument?: CanvasDocument;
-  layout?: CanvasLayout;
-  edgeRouting?: EdgeRouting;
-  layoutMode?: LayoutMode;
-  viewport: ViewportState;
-  leftCollapsed: boolean;
-  rightCollapsed: boolean;
-  workspaceView?: WorkspaceView;
-  showGrid?: boolean;
-  showEdges?: boolean;
-  viewFilters?: ViewFilters;
-  fileName?: string;
-  fileRef?: RuntimeFileRef | null;
-  recentFiles?: RecentFileEntry[];
-  projectWorkspace?: ProjectWorkspace | null;
-  lastSavedDocument?: string;
-  themeId?: EditorThemeId;
-  customTheme?: EditorTheme | null;
-  preferences?: Partial<EditorPreferences>;
-};
-
 type CanvasLiveState = {
   canvasSize?: AiCanvasSize;
   editing?: Exclude<AiEditingContext, { kind: "source" }> | null;
   interaction?: string;
-};
-type FileDropFeedback = {
-  message: string;
-  tone: "ready" | "blocked";
-  position?: DropPoint;
 };
 type BrowserDroppedFile = FileDropCandidate & {
   file: File;
@@ -247,295 +177,6 @@ type UnsavedPromptState = {
   targetName?: string;
   resolve: (choice: UnsavedPromptChoice) => void;
 };
-type StoredEditorApplyResult = {
-  documentKind: DocumentKind;
-  currentDocument: string;
-  fileRef: RuntimeFileRef | null;
-  lastSavedDocument: string;
-  preferences: EditorPreferences;
-};
-type StoredEditorDraftOverrides = {
-  documentKind?: DocumentKind;
-  source?: string;
-  canvasDocument?: CanvasDocument;
-  graph?: MermaidGraph;
-  viewport?: ViewportState;
-  edgeRouting?: EdgeRouting;
-  layoutMode?: LayoutMode;
-  fileTheme?: CanvasLayoutTheme | null;
-  fileName?: string;
-  fileRef?: RuntimeFileRef | null;
-  recentFiles?: RecentFileEntry[];
-  projectWorkspace?: ProjectWorkspace | null;
-  lastSavedDocument?: string;
-  workspaceView?: WorkspaceView;
-  themeId?: EditorThemeId;
-  customTheme?: EditorTheme | null;
-};
-
-function createEmptyDocumentGraph(): MermaidGraph {
-  return {
-    direction: "LR",
-    nodes: [],
-    edges: [],
-    subgraphs: [],
-    diagramType: "unknown",
-    editableKind: "render-only",
-    parseStatus: "render-only"
-  };
-}
-
-function canvasDocumentFromStored(stored: Pick<StoredEditor, "canvasDocument" | "source">): CanvasDocument {
-  if (stored.canvasDocument) return normalizeCanvasDocument(stored.canvasDocument);
-  try {
-    return parseCanvasDocument(stored.source || "");
-  } catch {
-    return createBlankCanvasDocument();
-  }
-}
-
-function fallbackFileNameForKind(documentKind: DocumentKind) {
-  if (documentKind === "markdown") return FALLBACK_MARKDOWN_FILE_NAME;
-  if (documentKind === "canvas") return FALLBACK_CANVAS_FILE_NAME;
-  return FALLBACK_FILE_NAME;
-}
-
-function normalizeStoredDocumentKind(value: unknown, fileName?: string, filePath?: string): DocumentKind {
-  if (value === "markdown" || value === "mermaid" || value === "canvas") return value;
-  return documentKindFromPath(filePath || fileName) || "mermaid";
-}
-
-function loadInitialState() {
-  const fallbackGraph = parseMermaid(initialMermaidSource);
-  const fallbackViewport = { x: 160, y: 90, scale: 1 };
-  const fallbackSource = serializeMermaid(fallbackGraph);
-  const fallbackDocument = loadMermaidDocument(fallbackSource);
-  const fallbackPreferences = DEFAULT_EDITOR_PREFERENCES;
-
-  if (typeof window === "undefined") {
-    return {
-      documentKind: "mermaid" as DocumentKind,
-      source: fallbackSource,
-      canvasDocument: createBlankCanvasDocument(),
-      graph: fallbackGraph,
-      diagramType: fallbackDocument.diagramType,
-      editableKind: fallbackDocument.editableKind,
-      viewport: fallbackViewport,
-      edgeRouting: DEFAULT_EDGE_ROUTING,
-      layoutMode: DEFAULT_LAYOUT_MODE,
-      leftCollapsed: true,
-      rightCollapsed: true,
-      workspaceView: "canvas" as WorkspaceView,
-      viewFilters: DEFAULT_VIEW_FILTERS,
-      fileName: FALLBACK_FILE_NAME,
-      fileRef: null,
-      recentFiles: [] as RecentFileEntry[],
-      projectWorkspace: null,
-      lastSavedDocument: "",
-      fileTheme: null,
-      themeId: DEFAULT_EDITOR_THEME.id,
-      customTheme: null,
-      preferences: fallbackPreferences
-    };
-  }
-
-  try {
-    const stored = createEditorRuntime().loadDraft() as StoredEditor | null;
-    if (!stored) throw new Error("No saved editor state");
-    const storedDocumentKind = normalizeStoredDocumentKind(stored.documentKind, stored.fileName, stored.fileRef?.path);
-    if (storedDocumentKind === "markdown") {
-      const preferences = normalizeEditorPreferences(stored.preferences);
-      const projectWorkspace = normalizeProjectWorkspace(stored.projectWorkspace);
-      const recentFiles = normalizeRecentFiles(stored.recentFiles);
-      const viewFilters = normalizeViewFilters(stored.viewFilters, { showGrid: stored.showGrid, showEdges: stored.showEdges });
-      const fileName = ensureRuntimeDocumentFileName(stored.fileName || stored.fileRef?.name || FALLBACK_MARKDOWN_FILE_NAME, "markdown");
-      const fileTheme = stored.layout?.theme ?? null;
-      const themeId = normalizeThemeId(fileTheme?.themeId ?? stored.themeId);
-      const customTheme = fileTheme?.customTheme
-        ? normalizeEditorTheme(fileTheme.customTheme)
-        : stored.customTheme
-          ? normalizeEditorTheme(stored.customTheme)
-          : null;
-
-      return {
-        documentKind: "markdown" as DocumentKind,
-        source: stored.source || BLANK_MARKDOWN_SOURCE,
-        canvasDocument: createBlankCanvasDocument(),
-        graph: createEmptyDocumentGraph(),
-        diagramType: "unknown" as DiagramType,
-        editableKind: "render-only" as EditableKind,
-        viewport: stored.viewport || fallbackViewport,
-        edgeRouting: stored.edgeRouting || DEFAULT_EDGE_ROUTING,
-        layoutMode: stored.layoutMode || DEFAULT_LAYOUT_MODE,
-        leftCollapsed: shouldCollapseExplorerOnStartup({
-          startWithPanelsCollapsed: preferences.startWithPanelsCollapsed,
-          storedCollapsed: stored.leftCollapsed,
-          projectWorkspace,
-          recentFiles,
-          fileRef: stored.fileRef || null,
-          fileName,
-          fallbackFileName: FALLBACK_MARKDOWN_FILE_NAME
-        }),
-        rightCollapsed: preferences.startWithPanelsCollapsed ? true : stored.rightCollapsed || false,
-        workspaceView: workspaceViewForDocument("render-only", stored.workspaceView, "markdown"),
-        viewFilters,
-        fileName,
-        fileRef: stored.fileRef || null,
-        recentFiles,
-        projectWorkspace,
-        lastSavedDocument: stored.lastSavedDocument || "",
-        fileTheme,
-        themeId,
-        customTheme,
-        preferences
-      };
-    }
-    if (storedDocumentKind === "canvas") {
-      const preferences = normalizeEditorPreferences(stored.preferences);
-      const projectWorkspace = normalizeProjectWorkspace(stored.projectWorkspace);
-      const recentFiles = normalizeRecentFiles(stored.recentFiles);
-      const viewFilters = normalizeViewFilters(stored.viewFilters, { showGrid: stored.showGrid, showEdges: stored.showEdges });
-      const canvasDocument = canvasDocumentFromStored(stored);
-      const fileName = ensureRuntimeDocumentFileName(stored.fileName || stored.fileRef?.name || FALLBACK_CANVAS_FILE_NAME, "canvas");
-
-      return {
-        documentKind: "canvas" as DocumentKind,
-        source: serializeCanvasDocument(canvasDocument),
-        canvasDocument,
-        graph: createEmptyDocumentGraph(),
-        diagramType: "unknown" as DiagramType,
-        editableKind: "render-only" as EditableKind,
-        viewport: canvasDocument.viewport || fallbackViewport,
-        edgeRouting: DEFAULT_EDGE_ROUTING,
-        layoutMode: DEFAULT_LAYOUT_MODE,
-        leftCollapsed: shouldCollapseExplorerOnStartup({
-          startWithPanelsCollapsed: preferences.startWithPanelsCollapsed,
-          storedCollapsed: stored.leftCollapsed,
-          projectWorkspace,
-          recentFiles,
-          fileRef: stored.fileRef || null,
-          fileName,
-          fallbackFileName: FALLBACK_CANVAS_FILE_NAME
-        }),
-        rightCollapsed: true,
-        workspaceView: "canvas" as WorkspaceView,
-        viewFilters,
-        fileName,
-        fileRef: stored.fileRef || null,
-        recentFiles,
-        projectWorkspace,
-        lastSavedDocument: stored.lastSavedDocument || "",
-        fileTheme: null,
-        themeId: normalizeThemeId(stored.themeId),
-        customTheme: stored.customTheme ? normalizeEditorTheme(stored.customTheme) : null,
-        preferences
-      };
-    }
-    const loaded = loadMermaidDocument(stored.source);
-    const legacyLayout = parseCanvasLayout(stored.source);
-    const source = loaded.source;
-    const layout = stored.layout || legacyLayout;
-    const parsedGraph = loaded.editableKind === "flowchart" ? parseMermaid(source) : loaded.graph;
-    const graph = loaded.editableKind === "flowchart" ? applyLayout(parsedGraph, layout) : parsedGraph;
-    const viewport = stored.viewport || layout?.viewport || fallbackViewport;
-    const edgeRouting = stored.edgeRouting || edgeRoutingFromLayout(layout);
-    const layoutMode = stored.layoutMode || layoutModeFromLayout(layout);
-    const resolvedGraph = loaded.editableKind === "flowchart" && layoutMode === "auto" ? applyDagreAutoLayout(graph) : graph;
-    const fileTheme = layout?.theme ?? loaded.fileTheme ?? null;
-    const themeId = normalizeThemeId(fileTheme?.themeId ?? stored.themeId);
-    const customTheme = fileTheme?.customTheme
-      ? normalizeEditorTheme(fileTheme.customTheme)
-      : stored.customTheme
-        ? normalizeEditorTheme(stored.customTheme)
-        : null;
-    const viewFilters = normalizeViewFilters(stored.viewFilters, { showGrid: stored.showGrid, showEdges: stored.showEdges });
-    const preferences = normalizeEditorPreferences(stored.preferences);
-    const projectWorkspace = normalizeProjectWorkspace(stored.projectWorkspace);
-    const recentFiles = normalizeRecentFiles(stored.recentFiles);
-
-    return {
-      documentKind: "mermaid" as DocumentKind,
-      source,
-      canvasDocument: createBlankCanvasDocument(),
-      graph: resolvedGraph,
-      diagramType: loaded.diagramType,
-      editableKind: loaded.editableKind,
-      viewport,
-      edgeRouting,
-      layoutMode,
-      leftCollapsed: shouldCollapseExplorerOnStartup({
-        startWithPanelsCollapsed: preferences.startWithPanelsCollapsed,
-        storedCollapsed: stored.leftCollapsed,
-        projectWorkspace,
-        recentFiles,
-        fileRef: stored.fileRef || null,
-        fileName: stored.fileName,
-        fallbackFileName: FALLBACK_FILE_NAME
-      }),
-      rightCollapsed: preferences.startWithPanelsCollapsed ? true : stored.rightCollapsed || false,
-      workspaceView: workspaceViewForDocument(loaded.editableKind, stored.workspaceView, "mermaid"),
-      viewFilters,
-      fileName: stored.fileName || FALLBACK_FILE_NAME,
-      fileRef: stored.fileRef || null,
-      recentFiles,
-      projectWorkspace,
-      lastSavedDocument: stored.lastSavedDocument || "",
-      fileTheme,
-      themeId,
-      customTheme,
-      preferences
-    };
-  } catch {
-    return {
-      documentKind: "mermaid" as DocumentKind,
-      source: fallbackSource,
-      canvasDocument: createBlankCanvasDocument(),
-      graph: fallbackGraph,
-      diagramType: fallbackDocument.diagramType,
-      editableKind: fallbackDocument.editableKind,
-      viewport: fallbackViewport,
-      edgeRouting: DEFAULT_EDGE_ROUTING,
-      layoutMode: DEFAULT_LAYOUT_MODE,
-      leftCollapsed: true,
-      rightCollapsed: true,
-      workspaceView: "canvas" as WorkspaceView,
-      viewFilters: DEFAULT_VIEW_FILTERS,
-      fileName: FALLBACK_FILE_NAME,
-      fileRef: null,
-      recentFiles: [] as RecentFileEntry[],
-      projectWorkspace: null,
-      lastSavedDocument: "",
-      fileTheme: null,
-      themeId: DEFAULT_EDITOR_THEME.id,
-      customTheme: null,
-      preferences: fallbackPreferences
-    };
-  }
-}
-
-function buildFallbackCleanDocument() {
-  const graph = parseMermaid(initialMermaidSource);
-  const source = serializeMermaid(graph);
-  return buildMermaidDocument(source, graph, { x: 160, y: 90, scale: 1 }, DEFAULT_EDGE_ROUTING, DEFAULT_LAYOUT_MODE, null);
-}
-
-function ensureEditorDocumentFileName(value: string | undefined, documentKind: DocumentKind) {
-  return ensureRuntimeDocumentFileName(value || fallbackFileNameForKind(documentKind), documentKind);
-}
-
-function comparableDocumentFileName(value: string | undefined, documentKind: DocumentKind) {
-  const name = value?.split(/[\\/]/).pop();
-  return ensureEditorDocumentFileName(name, documentKind).toLowerCase();
-}
-
-function serializableRuntimeFileRef(file: RuntimeFileRef | null): RuntimeFileRef | null {
-  if (!file) return null;
-  return {
-    name: file.name,
-    ...(file.path ? { path: file.path } : {})
-  };
-}
-
 function isAbortError(error: unknown) {
   return isRuntimeAbortError(error);
 }
@@ -566,17 +207,6 @@ function diagramTypeLabel(diagramType: DiagramType) {
   };
 
   return labels[diagramType];
-}
-
-function normalizeThemeId(value: unknown): EditorThemeId {
-  return value === "classic-light" || value === "high-contrast" || value === "custom" ? value : DEFAULT_EDITOR_THEME.id;
-}
-
-function layoutThemeFromState(themeId: EditorThemeId, customTheme: EditorTheme | null): CanvasLayoutTheme {
-  return {
-    themeId,
-    ...(themeId === "custom" && customTheme ? { customTheme } : {})
-  };
 }
 
 function resolveGraphImageDisplaySources(graph: MermaidGraph, displaySrcBySrc: Record<string, string>): MermaidGraph {
@@ -753,12 +383,23 @@ export function MermaidEditor() {
   const [secondaryActionsOpen, setSecondaryActionsOpen] = useState(false);
   const [viewFiltersOpen, setViewFiltersOpen] = useState(false);
   const [terminalOpen, setTerminalOpen] = useState(false);
-  const [workspacePanelStack, setWorkspacePanelStack] = useState<WorkspaceFloatingPanelId[]>(DEFAULT_WORKSPACE_PANEL_STACK);
-  const [workspacePanelWindowStates, setWorkspacePanelWindowStates] = useState<Record<string, FloatingPanelWindowState>>(() => ({
-    ...DEFAULT_WORKSPACE_PANEL_WINDOW_STATES
-  }));
   const [detachedMarkdownWindows, setDetachedMarkdownWindows] = useState<DetachedMarkdownWindow[]>([]);
   const [detachedBrowserWindows, setDetachedBrowserWindows] = useState<DetachedBrowserWindow[]>([]);
+  const {
+    activeWorkspacePanel,
+    bringWorkspacePanelToFront,
+    removeWorkspacePanel,
+    setWorkspacePanelWindowState,
+    workspacePanelStackPosition,
+    workspacePanelWindowState
+  } = useWorkspacePanels({
+    leftCollapsed,
+    rightCollapsed,
+    terminalOpen,
+    documentKind,
+    detachedMarkdownWindows,
+    detachedBrowserWindows
+  });
   const [nodeActionEditor, setNodeActionEditor] = useState<{ nodeId: string } | null>(null);
   const [themeSettingsOpen, setThemeSettingsOpen] = useState(false);
   const [themeId, setThemeId] = useState<EditorThemeId>(initial.themeId);
@@ -2670,8 +2311,7 @@ export function MermaidEditor() {
 
   function closeDetachedBrowserWindow(panelId: BrowserWindowPanelId) {
     setDetachedBrowserWindows((current) => current.filter((window) => window.id !== panelId));
-    setWorkspacePanelWindowState(panelId, "normal");
-    setWorkspacePanelStack((current) => current.filter((item) => item !== panelId));
+    removeWorkspacePanel(panelId);
   }
 
   function executeCanvasNodeAction(node: CanvasNode) {
@@ -2780,8 +2420,7 @@ export function MermaidEditor() {
 
   function closeDetachedMarkdownWindow(panelId: MarkdownWindowPanelId) {
     setDetachedMarkdownWindows((current) => current.filter((window) => window.id !== panelId));
-    setWorkspacePanelWindowState(panelId, "normal");
-    setWorkspacePanelStack((current) => current.filter((item) => item !== panelId));
+    removeWorkspacePanel(panelId);
   }
 
   async function saveDetachedMarkdownWindow(panelId: MarkdownWindowPanelId) {
@@ -3255,14 +2894,6 @@ export function MermaidEditor() {
     };
   }, [processAiCommand, runtime]);
 
-  const bringWorkspacePanelToFront = useCallback((panelId: WorkspaceFloatingPanelId) => {
-    setWorkspacePanelStack((current) => bringFloatingPanelToFront(current, panelId));
-  }, []);
-
-  const setWorkspacePanelWindowState = useCallback((panelId: WorkspaceFloatingPanelId, state: FloatingPanelWindowState) => {
-    setWorkspacePanelWindowStates((current) => ({ ...current, [panelId]: state }));
-  }, []);
-
   function openWorkspacePanel(panelId: StaticWorkspacePanelId) {
     bringWorkspacePanelToFront(panelId);
     if (panelId === "explorer") setLeftCollapsed(false);
@@ -3425,30 +3056,7 @@ export function MermaidEditor() {
     applyEditorCommand({ type: "mode.set", mode: setEditorMode(nextMode), source: "menu" });
   }
 
-  const openWorkspacePanelIds: WorkspaceFloatingPanelId[] = [];
-  if (!leftCollapsed) openWorkspacePanelIds.push("explorer");
-  if (!rightCollapsed && documentKind === "mermaid") openWorkspacePanelIds.push("inspector");
-  if (terminalOpen) openWorkspacePanelIds.push("terminal");
-  openWorkspacePanelIds.push(...detachedMarkdownWindows.map((window) => window.id));
-  openWorkspacePanelIds.push(...detachedBrowserWindows.map((window) => window.id));
-
-  let activeWorkspacePanel: WorkspaceFloatingPanelId | null = null;
-  for (let index = workspacePanelStack.length - 1; index >= 0; index -= 1) {
-    const panelId = workspacePanelStack[index];
-    if (openWorkspacePanelIds.includes(panelId)) {
-      activeWorkspacePanel = panelId;
-      break;
-    }
-  }
   const nodeActionEditorNode = nodeActionEditor ? graph.nodes.find((node) => node.id === nodeActionEditor.nodeId) : undefined;
-
-  function workspacePanelStackPosition(panelId: WorkspaceFloatingPanelId) {
-    return floatingPanelStackIndex(workspacePanelStack, panelId);
-  }
-
-  function workspacePanelWindowState(panelId: WorkspaceFloatingPanelId) {
-    return workspacePanelWindowStates[panelId] ?? "normal";
-  }
 
   return (
     <EditorMotionProvider value={resolvedMotion}>
@@ -3576,7 +3184,7 @@ export function MermaidEditor() {
           onWindowStateChange={(state) => setWorkspacePanelWindowState("inspector", state)}
           className={cn(EDITOR_CHROME_CLASSES.sidePanel, "relative grid h-full w-full min-h-0")}
         >
-          <PanelHeader
+          <WorkspacePanelHeader
             windowState={workspacePanelWindowState("inspector")}
             onWindowStateChange={(state) => setWorkspacePanelWindowState("inspector", state)}
             onCollapse={() => closeWorkspacePanel("inspector")}
@@ -3862,622 +3470,5 @@ export function MermaidEditor() {
       </main>
     </TooltipProvider>
     </EditorMotionProvider>
-  );
-}
-
-type NodeActionEditorDraft = {
-  kind: CanvasNodeAction["kind"];
-  target: string;
-  openMode: "app-browser" | "system" | "app-window";
-  tooltip: string;
-};
-
-function NodeActionEditorDialog({
-  node,
-  projectFiles,
-  onClose,
-  onSave,
-  onTestOpen
-}: {
-  node: CanvasNode;
-  projectFiles: ProjectFileEntry[];
-  onClose: () => void;
-  onSave: (nodeId: string, action: CanvasNodeAction | undefined) => void;
-  onTestOpen: (action: CanvasNodeAction) => void;
-}) {
-  const [draft, setDraft] = useState<NodeActionEditorDraft>(() => nodeActionDraftFromNode(node));
-  const normalizedAction = nodeActionFromDraft(draft);
-  const targetInvalid = draft.target.trim() !== "" && !normalizedAction;
-  const selectedProjectFile = projectFiles.find((file) => file.path === draft.target || file.relativePath === draft.target);
-  const projectFileSelectValue = selectedProjectFile?.path || "__pick_project_file__";
-
-  useEffect(() => {
-    setDraft(nodeActionDraftFromNode(node));
-  }, [node]);
-
-  useEffect(() => {
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key !== "Escape") return;
-      event.preventDefault();
-      onClose();
-    }
-
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [onClose]);
-
-  function updateTarget(target: string) {
-    const inferredKind = inferNodeActionKindFromTarget(target);
-    setDraft((current) => ({
-      ...current,
-      target,
-      ...(inferredKind && inferredKind !== current.kind
-        ? {
-            kind: inferredKind,
-            openMode: inferredKind === "url" ? "app-browser" : "app-window"
-          }
-        : {})
-    }));
-  }
-
-  function updateKind(kind: CanvasNodeAction["kind"]) {
-    setDraft((current) => ({
-      ...current,
-      kind,
-      openMode: kind === "url" ? "app-browser" : "app-window"
-    }));
-  }
-
-  function saveDraft() {
-    if (!normalizedAction) return;
-    onSave(node.id, normalizedAction);
-  }
-
-  function testOpen() {
-    if (!normalizedAction) return;
-    onTestOpen(normalizedAction);
-  }
-
-  return (
-    <div
-      className="fixed inset-0 grid place-items-center bg-foreground/10 px-4 backdrop-blur-[1px]"
-      style={{ zIndex: OVERLAY_Z_INDEX.modal }}
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onClose();
-      }}
-      data-floating-panel-drag-exclude
-      data-editor-floating-menu-ignore
-    >
-      <section className="grid w-[min(520px,100%)] gap-4 rounded-md border bg-card p-4 shadow-sm">
-        <header className="flex min-w-0 items-start justify-between gap-3">
-          <div className="min-w-0">
-            <div className="text-sm font-medium">编辑节点链接</div>
-            <div className="truncate text-xs text-muted-foreground" title={node.label || node.id}>
-              {node.label || node.id}
-            </div>
-          </div>
-          <Button size="icon" variant="ghost" className="size-8 shrink-0" onClick={onClose} aria-label="关闭链接编辑器">
-            <Xmark className="size-4" />
-          </Button>
-        </header>
-
-        <div className="grid gap-2">
-          <Label>类型</Label>
-          <Select value={draft.kind} onValueChange={(value) => updateKind(value as CanvasNodeAction["kind"])}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="url">网页链接</SelectItem>
-              <SelectItem value="file">文件链接</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="grid gap-2">
-          <Label htmlFor="node-action-editor-target">{draft.kind === "url" ? "网页 URL" : "文件路径"}</Label>
-          <Input
-            id="node-action-editor-target"
-            value={draft.target}
-            placeholder={draft.kind === "url" ? "https://example.com" : "./docs/spec.md"}
-            autoFocus
-            onChange={(event) => updateTarget(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) saveDraft();
-            }}
-          />
-          {targetInvalid ? (
-            <div className="text-xs text-destructive">
-              {draft.kind === "url" ? "网页链接需要以 http:// 或 https:// 开头。" : "请输入可解析的文件路径。"}
-            </div>
-          ) : null}
-        </div>
-
-        {draft.kind === "file" && projectFiles.length ? (
-          <div className="grid gap-2">
-            <Label>从项目选择</Label>
-            <Select
-              value={projectFileSelectValue}
-              onValueChange={(path) => {
-                const file = projectFiles.find((item) => item.path === path);
-                if (file) updateTarget(file.relativePath || file.path);
-              }}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className="max-h-[280px]">
-                <SelectItem value="__pick_project_file__" disabled>
-                  选择项目文件
-                </SelectItem>
-                {projectFiles.map((file) => (
-                  <SelectItem key={file.path} value={file.path}>
-                    {file.relativePath || file.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        ) : null}
-
-        {draft.kind === "url" ? (
-          <div className="grid gap-2">
-            <Label>打开方式</Label>
-            <Select value={draft.openMode} onValueChange={(value) => setDraft((current) => ({ ...current, openMode: value as NodeActionEditorDraft["openMode"] }))}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="app-browser">应用内浏览器</SelectItem>
-                <SelectItem value="system">系统浏览器</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        ) : null}
-
-        <div className="grid gap-2">
-          <Label htmlFor="node-action-editor-tooltip">提示文本</Label>
-          <Input
-            id="node-action-editor-tooltip"
-            value={draft.tooltip}
-            placeholder={normalizedAction ? nodeActionDefaultTooltip(normalizedAction) : draft.kind === "url" ? "打开链接" : "打开文件"}
-            onChange={(event) => setDraft((current) => ({ ...current, tooltip: event.target.value }))}
-          />
-        </div>
-
-        <footer className="flex flex-wrap justify-between gap-2">
-          <Button variant="ghost" className="h-8 px-2" onClick={() => onSave(node.id, undefined)}>
-            清除链接
-          </Button>
-          <div className="flex gap-2">
-            <Button variant="outline" className="h-8 px-2" onClick={testOpen} disabled={!normalizedAction}>
-              <OpenNewWindow className="size-4" />
-              测试打开
-            </Button>
-            <Button className="h-8 px-3" onClick={saveDraft} disabled={!normalizedAction}>
-              保存链接
-            </Button>
-          </div>
-        </footer>
-      </section>
-    </div>
-  );
-}
-
-function nodeActionDraftFromNode(node: CanvasNode): NodeActionEditorDraft {
-  const action = normalizeNodeAction(node.action);
-  if (!action) {
-    return {
-      kind: "url",
-      target: "",
-      openMode: "app-browser",
-      tooltip: ""
-    };
-  }
-
-  return {
-    kind: action.kind,
-    target: nodeActionTarget(action),
-    openMode: action.kind === "url" ? action.openMode : "app-window",
-    tooltip: action.tooltip || ""
-  };
-}
-
-function nodeActionFromDraft(draft: NodeActionEditorDraft): CanvasNodeAction | undefined {
-  const target = draft.target.trim();
-  if (!target) return undefined;
-
-  if (draft.kind === "url") {
-    return normalizeNodeAction({
-      kind: "url",
-      url: target,
-      openMode: draft.openMode === "system" ? "system" : "app-browser",
-      ...(draft.tooltip.trim() ? { tooltip: draft.tooltip.trim() } : {})
-    });
-  }
-
-  return normalizeNodeAction({
-    kind: "file",
-    path: target,
-    openMode: "app-window",
-    ...(draft.tooltip.trim() ? { tooltip: draft.tooltip.trim() } : {})
-  });
-}
-
-function WorkspaceViewCluster({
-  workspaceView,
-  editableKind,
-  documentKind,
-  canvasViewTooltip,
-  onChange
-}: {
-  workspaceView: WorkspaceView;
-  editableKind: EditableKind;
-  documentKind: DocumentKind;
-  canvasViewTooltip: string;
-  onChange: (view: WorkspaceView) => void;
-}) {
-  const views = workspaceViewOptionsFor(editableKind, documentKind);
-
-  return (
-    <FloatingButtonCluster orientation="vertical">
-      {views.map((view) => {
-        const label = view === "canvas" ? canvasViewTooltip : workspaceViewLabels[view];
-        const Icon = view === "canvas" ? SquareDashedMousePointer : view === "render" ? Workflow : view === "markdown" ? Text : Code;
-        return (
-          <FloatingIconButton
-            key={view}
-            label={label}
-            tooltipSide="left"
-            active={workspaceView === view}
-            aria-pressed={workspaceView === view}
-            onClick={() => onChange(view)}
-          >
-            <Icon />
-          </FloatingIconButton>
-        );
-      })}
-    </FloatingButtonCluster>
-  );
-}
-
-function workspaceViewOptionsFor(editableKind: EditableKind, documentKind: DocumentKind): WorkspaceView[] {
-  return workspaceViewsForDocument(editableKind, documentKind);
-}
-
-function ToolModeCluster({ mode, onChange }: { mode: EditorMode; onChange: (mode: EditorMode) => void }) {
-  return (
-    <FloatingButtonCluster>
-      <FloatingIconButton
-        label="选择模式"
-        tooltipSide="top"
-        active={mode === "select"}
-        aria-pressed={mode === "select"}
-        onClick={() => onChange("select")}
-      >
-        <SquareDashedMousePointer />
-      </FloatingIconButton>
-      <FloatingIconButton
-        label="连接模式"
-        tooltipSide="top"
-        active={mode === "connect"}
-        aria-pressed={mode === "connect"}
-        onClick={() => onChange("connect")}
-      >
-        <Link />
-      </FloatingIconButton>
-    </FloatingButtonCluster>
-  );
-}
-
-function DesktopWindowControls({ runtime }: { runtime: EditorRuntime }) {
-  const [available, setAvailable] = useState(false);
-
-  useEffect(() => {
-    setAvailable(runtime.isDesktopWindowAvailable());
-  }, [runtime]);
-
-  async function runWindowAction(action: "minimize" | "toggleMaximize" | "close") {
-    try {
-      await runtime.runDesktopWindowAction(action);
-    } catch {
-      // Window controls are desktop-only; ignore capability/runtime failures in web-like shells.
-    }
-  }
-
-  if (!available) return null;
-
-  return (
-    <div className="flex items-center gap-2" data-window-drag-exclude>
-      <FloatingIconButton type="button" label="最小化" tooltipSide="bottom" onClick={() => void runWindowAction("minimize")}>
-        <Minus />
-      </FloatingIconButton>
-      <FloatingIconButton type="button" label="最大化/还原" tooltipSide="bottom" onClick={() => void runWindowAction("toggleMaximize")}>
-        <Maximize />
-      </FloatingIconButton>
-      <FloatingIconButton type="button" label="关闭" tooltipSide="bottom" danger onClick={() => void runWindowAction("close")}>
-        <Xmark />
-      </FloatingIconButton>
-    </div>
-  );
-}
-
-function MarkdownWindowPanel({
-  title,
-  path,
-  value,
-  dirty,
-  windowState,
-  onWindowStateChange,
-  onClose,
-  onSave,
-  onChange
-}: {
-  title: string;
-  path?: string;
-  value: string;
-  dirty: boolean;
-  windowState: FloatingPanelWindowState;
-  onWindowStateChange: (state: FloatingPanelWindowState) => void;
-  onClose: () => void;
-  onSave: () => void;
-  onChange: (value: string) => void;
-}) {
-  return (
-    <section className="grid h-full min-h-0 grid-rows-[42px_minmax(0,1fr)] bg-card/95">
-      <header data-floating-panel-drag-handle className="flex min-w-0 cursor-grab items-center justify-between gap-2 border-b bg-card/95 px-3 active:cursor-grabbing">
-        <div className="flex min-w-0 items-center gap-2">
-          <Text className="size-4 shrink-0 text-icon" />
-          <div className="min-w-0">
-            <div className="flex min-w-0 items-center gap-1 text-sm font-medium">
-              <span className="truncate">{title}</span>
-              {dirty ? <span className="size-1.5 shrink-0 rounded-full bg-foreground/60" aria-hidden /> : null}
-            </div>
-            <div className="truncate text-[11px] leading-4 text-muted-foreground" title={path || title}>{path || "Markdown 窗口"}</div>
-          </div>
-        </div>
-        <div className="flex shrink-0 items-center gap-1" data-floating-panel-drag-exclude>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button size="icon" variant="ghost" className={cn(EDITOR_CHROME_CLASSES.panelIconButton, "bg-card/85")} onClick={onSave} aria-label="保存 Markdown 窗口">
-                <FloppyDisk className="size-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="top">保存 Markdown 窗口</TooltipContent>
-          </Tooltip>
-          <WorkspacePanelControls
-            windowState={windowState}
-            onWindowStateChange={onWindowStateChange}
-            onClose={onClose}
-            closeLabel="关闭 Markdown 窗口"
-            closeTooltipSide="top"
-            closeIcon={<Xmark />}
-          />
-        </div>
-      </header>
-      <MarkdownPanel
-        key={`${title}:markdown-window`}
-        value={value}
-        onChange={onChange}
-        className="markdown-editor-panel--window bg-background/95"
-      />
-    </section>
-  );
-}
-
-function BrowserWindowPanel({
-  panelId,
-  title,
-  url,
-  runtime,
-  active,
-  domOverlayActive,
-  windowState,
-  onWindowStateChange,
-  onNavigate,
-  onClose,
-  onStatus,
-  onBrowserError
-}: {
-  panelId: BrowserWindowPanelId;
-  title: string;
-  url: string;
-  runtime: EditorRuntime;
-  active: boolean;
-  domOverlayActive: boolean;
-  windowState: FloatingPanelWindowState;
-  onWindowStateChange: (state: FloatingPanelWindowState) => void;
-  onNavigate: (url: string) => void;
-  onClose: () => void;
-  onStatus: (message: string) => void;
-  onBrowserError: (url: string, message: string) => void;
-}) {
-  const [address, setAddress] = useState(url);
-  const [reloadRevision, setReloadRevision] = useState(0);
-
-  useEffect(() => {
-    setAddress(url);
-  }, [url]);
-
-  function submitAddress() {
-    onNavigate(address);
-  }
-
-  function copyAddress() {
-    void navigator.clipboard?.writeText(url);
-    onStatus("已复制链接。");
-  }
-
-  function openInSystemBrowser() {
-    runtime.openExternalUrl(url);
-    onStatus("已请求使用系统浏览器打开。");
-  }
-
-  function reloadBrowser() {
-    setReloadRevision((current) => current + 1);
-  }
-
-  return (
-    <section className="grid h-full w-full min-h-0 grid-rows-[42px_42px_minmax(0,1fr)] overflow-hidden bg-card/95">
-      <header data-floating-panel-drag-handle className="flex min-w-0 cursor-grab items-center justify-between gap-2 border-b bg-card/95 px-3 active:cursor-grabbing">
-        <div className="flex min-w-0 items-center gap-2">
-          <OpenNewWindow className="size-4 shrink-0 text-icon" />
-          <div className="min-w-0">
-            <div className="truncate text-sm font-medium">{title}</div>
-            <div className="truncate text-[11px] leading-4 text-muted-foreground" title={url}>{url}</div>
-          </div>
-        </div>
-        <WorkspacePanelControls
-          windowState={windowState}
-          onWindowStateChange={onWindowStateChange}
-          onClose={onClose}
-          closeLabel="关闭浏览器窗口"
-          closeTooltipSide="top"
-          closeIcon={<Xmark />}
-        />
-      </header>
-      <div className="flex min-w-0 items-center gap-2 border-b bg-muted/20 px-2" data-floating-panel-drag-exclude>
-        <Input
-          value={address}
-          className="h-8 min-w-0 flex-1 bg-background/95"
-          onChange={(event) => setAddress(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") submitAddress();
-          }}
-        />
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button size="icon" variant="ghost" className={EDITOR_CHROME_CLASSES.panelIconButton} onClick={reloadBrowser} aria-label="重新载入网页">
-              <RefreshCw className="size-4" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="bottom">重新载入网页</TooltipContent>
-        </Tooltip>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button size="icon" variant="ghost" className={EDITOR_CHROME_CLASSES.panelIconButton} onClick={copyAddress} aria-label="复制链接">
-              <Link className="size-4" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="bottom">复制链接</TooltipContent>
-        </Tooltip>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button size="icon" variant="ghost" className={EDITOR_CHROME_CLASSES.panelIconButton} onClick={openInSystemBrowser} aria-label="系统浏览器打开">
-              <OpenNewWindow className="size-4" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="bottom">系统浏览器打开</TooltipContent>
-        </Tooltip>
-      </div>
-      <EmbeddedBrowserSurface
-        panelId={panelId}
-        url={url}
-        runtime={runtime}
-        active={active}
-        domOverlayActive={domOverlayActive}
-        reloadRevision={reloadRevision}
-        onReload={reloadBrowser}
-        onStatus={onStatus}
-        onBrowserError={onBrowserError}
-      />
-    </section>
-  );
-}
-
-function FileDropFeedbackBadge({ feedback }: { feedback: FileDropFeedback }) {
-  const style = feedback.position
-    ? {
-        left: Math.max(12, feedback.position.x),
-        top: Math.max(12, feedback.position.y)
-      }
-    : {
-        left: "50%",
-        top: "50%"
-      };
-
-  return (
-    <div
-      className={cn(
-        "pointer-events-none absolute z-30 -translate-x-1/2 -translate-y-1/2 rounded-md border bg-card/95 px-3 py-2 text-xs shadow-sm backdrop-blur",
-        feedback.tone === "blocked" ? "border-destructive/30 text-destructive" : "border-border text-foreground"
-      )}
-      style={style}
-    >
-      {feedback.message}
-    </div>
-  );
-}
-
-function FileWorkflowErrorBanner({ error, onClose }: { error: FileWorkflowError; onClose: () => void }) {
-  return (
-    <div
-      className="fixed left-1/2 top-14 w-[min(520px,calc(100vw-24px))] -translate-x-1/2 rounded-md border border-destructive/30 bg-card/95 p-3 text-sm shadow-sm backdrop-blur"
-      style={{ zIndex: OVERLAY_Z_INDEX.banner }}
-    >
-      <div className="flex items-start gap-3">
-        <WarningTriangle className="mt-0.5 size-4 shrink-0 text-destructive" />
-        <div className="min-w-0 flex-1">
-          <div className="font-medium text-foreground">{fileWorkflowErrorTitle(error.code)}</div>
-          <div className="mt-1 break-words text-xs text-muted-foreground">{error.message}</div>
-          {error.path ? <div className="mt-1 truncate font-mono text-xs text-muted-foreground">{error.path}</div> : null}
-          <div className="mt-2 text-xs text-muted-foreground">{fileWorkflowErrorSuggestion(error.code)}</div>
-        </div>
-        <Button size="icon" variant="ghost" className="size-8 shrink-0 text-icon hover:text-icon" onClick={onClose} aria-label="关闭文件错误提示">
-          <Xmark className="size-4" />
-        </Button>
-      </div>
-    </div>
-  );
-}
-
-function UnsavedFilePrompt({ prompt, onResolve }: { prompt: UnsavedPromptState; onResolve: (choice: UnsavedPromptChoice) => void }) {
-  return (
-    <div className="fixed inset-0 grid place-items-center bg-foreground/10 px-4 backdrop-blur-[1px]" style={{ zIndex: OVERLAY_Z_INDEX.modal }}>
-      <section className="w-[min(416px,100%)] rounded-md border bg-card p-4 shadow-sm">
-        <div className="flex items-start gap-3">
-          <WarningTriangle className="mt-0.5 size-4 shrink-0 text-icon" />
-          <div className="min-w-0">
-            <h2 className="text-sm font-medium text-foreground">{prompt.title}</h2>
-            <p className="mt-2 text-sm text-muted-foreground">{prompt.description}</p>
-            {prompt.targetName ? <p className="mt-2 truncate font-mono text-xs text-muted-foreground">{prompt.targetName}</p> : null}
-          </div>
-        </div>
-        <div className="mt-5 flex justify-end gap-2">
-          <Button variant="ghost" className="h-8 px-3" onClick={() => onResolve("cancel")}>
-            取消
-          </Button>
-          <Button variant="outline" className="h-8 px-3" onClick={() => onResolve("discard")}>
-            丢弃
-          </Button>
-          <Button className="h-8 px-3" onClick={() => onResolve("save")}>
-            保存
-          </Button>
-        </div>
-      </section>
-    </div>
-  );
-}
-
-function PanelHeader({
-  windowState,
-  onWindowStateChange,
-  onCollapse
-}: {
-  windowState: FloatingPanelWindowState;
-  onWindowStateChange: (state: FloatingPanelWindowState) => void;
-  onCollapse: () => void;
-}) {
-  return (
-    <div className="absolute right-2 top-2 z-30">
-      <WorkspacePanelControls
-        windowState={windowState}
-        onWindowStateChange={onWindowStateChange}
-        onClose={onCollapse}
-        closeLabel="关闭检查器"
-        closeTooltipSide="left"
-        closeIcon={<Xmark />}
-      />
-    </div>
   );
 }

@@ -109,7 +109,7 @@ describe("interaction architecture contract", () => {
 
   it("keeps known oversized files on a no-growth budget", () => {
     const budgets = [
-      { path: "src/features/mermaid-editor/components/mermaid-editor.tsx", maxLines: 4550 },
+      { path: "src/features/mermaid-editor/components/mermaid-editor.tsx", maxLines: 3500 },
       { path: "src/features/mermaid-editor/components/konva-canvas.tsx", maxLines: 3330 },
       { path: "src/features/mermaid-editor/components/canvas-document-editor.tsx", maxLines: 1900 },
       { path: "src-tauri/src/main.rs", maxLines: 1450 }
@@ -129,6 +129,22 @@ describe("interaction architecture contract", () => {
     expect(editor).not.toContain("function ExplorerPanel(");
     expect(editor).not.toContain("function SecondaryActionsMenu(");
     expect(editor).not.toContain("function WorkspacePanelControls(");
+    expect(editor).not.toContain("function NodeActionEditorDialog(");
+    expect(editor).not.toContain("function WorkspaceViewCluster(");
+    expect(editor).not.toContain("function ToolModeCluster(");
+    expect(editor).not.toContain("function DesktopWindowControls(");
+    expect(editor).not.toContain("function MarkdownWindowPanel(");
+    expect(editor).not.toContain("function BrowserWindowPanel(");
+    expect(editor).not.toContain("function FileDropFeedbackBadge(");
+    expect(editor).not.toContain("function FileWorkflowErrorBanner(");
+    expect(editor).not.toContain("function UnsavedFilePrompt(");
+    expect(editor).not.toContain("function loadInitialState(");
+    expect(editor).not.toContain("function buildFallbackCleanDocument(");
+    expect(editor).not.toContain("function createEmptyDocumentGraph(");
+    expect(editor).not.toContain("function normalizeStoredDocumentKind(");
+    expect(editor).not.toContain("const DEFAULT_WORKSPACE_PANEL_STACK");
+    expect(editor).not.toContain("const openWorkspacePanelIds");
+    expect(editor).not.toContain("function workspacePanelWindowState(");
   });
 
   it("keeps newly oversized frontend files out of the codebase", () => {

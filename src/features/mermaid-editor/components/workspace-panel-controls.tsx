@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Maximize } from "iconoir-react/regular";
+import { Maximize, Xmark } from "iconoir-react/regular";
 
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -48,6 +48,29 @@ export function WorkspacePanelControls({
         </TooltipTrigger>
         <TooltipContent side={closeTooltipSide}>{closeLabel}</TooltipContent>
       </Tooltip>
+    </div>
+  );
+}
+
+export function WorkspacePanelHeader({
+  windowState,
+  onWindowStateChange,
+  onCollapse
+}: {
+  windowState: FloatingPanelWindowState;
+  onWindowStateChange: (state: FloatingPanelWindowState) => void;
+  onCollapse: () => void;
+}) {
+  return (
+    <div className="absolute right-2 top-2 z-30">
+      <WorkspacePanelControls
+        windowState={windowState}
+        onWindowStateChange={onWindowStateChange}
+        onClose={onCollapse}
+        closeLabel="关闭检查器"
+        closeTooltipSide="left"
+        closeIcon={<Xmark />}
+      />
     </div>
   );
 }
