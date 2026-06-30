@@ -255,6 +255,9 @@ describe("canvas motion", () => {
       maxScale: 1.16
     };
 
+    expect(shouldRunCanvasProximity({ ...base, interactionKind: "pendingBlankPointer" })).toBe(true);
+    expect(shouldRunCanvasProximity({ ...base, interactionKind: "pendingNodePointer" })).toBe(true);
+    expect(shouldRunCanvasProximity({ ...base, interactionKind: "pendingSubgraphPointer" })).toBe(true);
     expect(shouldRunCanvasProximity({ ...base, interactionKind: "draggingNodes" })).toBe(false);
     expect(shouldRunCanvasProximity({ ...base, interactionKind: "panning" })).toBe(false);
     expect(shouldRunCanvasProximity({ ...base, interactionKind: "connectingEdge" })).toBe(false);

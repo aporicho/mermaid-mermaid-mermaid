@@ -12,6 +12,7 @@ import type {
   CanvasEdge,
   CanvasEdgeBatchPatch,
   CanvasNode,
+  CanvasNodeAction,
   CanvasNodeBatchPatch,
   CanvasSubgraph,
   CanvasSubgraphBatchPatch,
@@ -28,6 +29,7 @@ import { descendantSubgraphIds, selectOnlyEdge, selectOnlySubgraph } from "@/fea
 import { DEFAULT_FLOWCHART_NODE_SHAPE, FLOWCHART_SHAPE_GROUPS, FLOWCHART_SHAPES, normalizeFlowchartShape } from "@/features/mermaid-editor/lib/flowchart-shapes";
 import type { EditorCommand } from "@/features/mermaid-editor/lib/interaction/commands";
 import { palette } from "@/features/mermaid-editor/lib/mermaid-graph";
+import { NODE_ACTION_NONE_VALUE, nodeActionTarget } from "@/features/mermaid-editor/lib/node-actions";
 import { createImageAsset, DEFAULT_IMAGE_ASSET_HEIGHT, DEFAULT_IMAGE_ASSET_WIDTH } from "@/features/mermaid-editor/lib/node-assets";
 import { flowchartPortPoints, type ShapeGeometryPortKind } from "@/features/mermaid-editor/lib/flowchart-shape-geometry";
 import { cn } from "@/lib/utils";
@@ -86,6 +88,8 @@ const MIXED_VALUE = "__mixed__";
 const INHERIT_VALUE = "__inherit__";
 const ROOT_VALUE = "__root__";
 const DEFAULT_CURVE_VALUE = "__default_curve__";
+const NODE_ACTION_URL_MODE_APP: Extract<CanvasNodeAction, { kind: "url" }>["openMode"] = "app-browser";
+const NODE_ACTION_FILE_MODE_APP: Extract<CanvasNodeAction, { kind: "file" }>["openMode"] = "app-window";
 
 const anchorKindLabels: Record<ShapeGeometryPortKind, string> = {
   "edge-midpoint": "边中点",
@@ -162,6 +166,30 @@ export function InspectorPanel({ graph, selection, onEditorCommand }: InspectorP
           })
         : undefined
     });
+  }
+
+  function updateNodeActionKind(node: CanvasNode, kind: CanvasNodeAction["kind"] | typeof NODE_ACTION_NONE_VALUE) {
+    if (kind === NODE_ACTION_NONE_VALUE) {
+      updateNode(node.id, { action: undefined });
+      return;
+    }
+
+    updateNode(node.id, {
+      action:
+        kind === "url"
+          ? { kind: "url", url: "", openMode: NODE_ACTION_URL_MODE_APP }
+          : { kind: "file", path: "", openMode: NODE_ACTION_FILE_MODE_APP }
+    });
+  }
+
+  function updateUrlNodeAction(node: CanvasNode, patch: Partial<Extract<CanvasNodeAction, { kind: "url" }>>) {
+    const current = node.action?.kind === "url" ? node.action : { kind: "url" as const, url: "", openMode: NODE_ACTION_URL_MODE_APP };
+    updateNode(node.id, { action: { ...current, ...patch } });
+  }
+
+  function updateFileNodeAction(node: CanvasNode, patch: Partial<Extract<CanvasNodeAction, { kind: "file" }>>) {
+    const current = node.action?.kind === "file" ? node.action : { kind: "file" as const, path: "", openMode: NODE_ACTION_FILE_MODE_APP };
+    updateNode(node.id, { action: { ...current, ...patch } });
   }
 
   function updateSelectedEdge(id: string, patch: Partial<CanvasEdge>) {
@@ -305,6 +333,74 @@ export function InspectorPanel({ graph, selection, onEditorCommand }: InspectorP
                     {selectedNode.asset.preserveAspectRatio ? "保持比例" : "不保持比例"}
                   </Button>
                 </>
+              ) : null}
+              <Separator />
+              <div className="grid gap-2">
+                <div className="flex items-center justify-between gap-2">
+                  <Label>节点动作</Label>
+                  {selectedNode.action ? <span className="max-w-[180px] truncate text-xs text-muted-foreground">{nodeActionTarget(selectedNode.action)}</span> : null}
+                </div>
+                <Select value={selectedNode.action?.kind || NODE_ACTION_NONE_VALUE} onValueChange={(value) => updateNodeActionKind(selectedNode, value as CanvasNodeAction["kind"] | typeof NODE_ACTION_NONE_VALUE)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={NODE_ACTION_NONE_VALUE}>无动作</SelectItem>
+                    <SelectItem value="url">网页链接</SelectItem>
+                    <SelectItem value="file">文件链接</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {selectedNode.action?.kind === "url" ? (
+                <>
+                  <div className="grid gap-2">
+                    <Label htmlFor="node-action-url">网页 URL</Label>
+                    <Input
+                      id="node-action-url"
+                      value={selectedNode.action.url}
+                      placeholder="https://example.com"
+                      onChange={(event) => updateUrlNodeAction(selectedNode, { url: event.target.value })}
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>打开方式</Label>
+                    <Select value={selectedNode.action.openMode} onValueChange={(value) => updateUrlNodeAction(selectedNode, { openMode: value as Extract<CanvasNodeAction, { kind: "url" }>["openMode"] })}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="app-browser">应用内浏览器</SelectItem>
+                        <SelectItem value="system">系统浏览器</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </>
+              ) : null}
+              {selectedNode.action?.kind === "file" ? (
+                <div className="grid gap-2">
+                  <Label htmlFor="node-action-file">文件路径</Label>
+                  <Input
+                    id="node-action-file"
+                    value={selectedNode.action.path}
+                    placeholder="./docs/spec.md"
+                    onChange={(event) => updateFileNodeAction(selectedNode, { path: event.target.value })}
+                  />
+                </div>
+              ) : null}
+              {selectedNode.action ? (
+                <div className="grid gap-2">
+                  <Label htmlFor="node-action-tooltip">提示文本</Label>
+                  <Input
+                    id="node-action-tooltip"
+                    value={selectedNode.action.tooltip || ""}
+                    placeholder={selectedNode.action.kind === "url" ? "打开链接" : "打开文件"}
+                    onChange={(event) =>
+                      selectedNode.action?.kind === "url"
+                        ? updateUrlNodeAction(selectedNode, { tooltip: event.target.value })
+                        : updateFileNodeAction(selectedNode, { tooltip: event.target.value })
+                    }
+                  />
+                </div>
               ) : null}
               <Separator />
               <Button variant="outline" className="h-8 justify-start px-2" onClick={() => addEdgeFrom(selectedNode)} disabled={graph.nodes.length < 2}>
@@ -1057,7 +1153,8 @@ function normalizeNodePatch(patch: Partial<CanvasNode>) {
     ...(patch.label !== undefined ? { label: patch.label } : {}),
     ...(patch.fill !== undefined ? { fill: patch.fill } : {}),
     ...(patch.shape !== undefined ? { shape: patch.shape } : {}),
-    ...("asset" in patch ? { asset: patch.asset } : {})
+    ...("asset" in patch ? { asset: patch.asset } : {}),
+    ...("action" in patch ? { action: patch.action } : {})
   };
 }
 

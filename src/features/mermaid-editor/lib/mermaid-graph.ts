@@ -1,6 +1,7 @@
 import type {
   CanvasEdge,
   CanvasNode,
+  CanvasNodeAction,
   CanvasNodeAsset,
   CanvasSubgraph,
   DiagramType,
@@ -22,6 +23,11 @@ import {
   mermaidImagePosition,
   normalizeImageAsset
 } from "@/features/mermaid-editor/lib/node-assets";
+import {
+  inferNodeActionFromMermaidTarget,
+  nodeActionTarget,
+  normalizeNodeAction
+} from "@/features/mermaid-editor/lib/node-actions";
 
 const NODE_COLORS = [
   "#fbf6ef",
@@ -98,6 +104,11 @@ type PendingClassStatement = {
   ids: string[];
   classes: string[];
   raw: string;
+};
+
+type PendingNodeActionStatement = {
+  nodeId: string;
+  action: CanvasNodeAction;
 };
 
 const FLOWCHART_LINE_PATTERN = /^(flowchart|graph)\s+/i;
@@ -206,6 +217,10 @@ function readImageAsset(fields: Map<string, string>) {
 
 function unescapeMermaidString(value: string) {
   return value.replace(/\\"/g, '"').replace(/\\'/g, "'").replace(/\\\\/g, "\\");
+}
+
+function escapeMermaidStringLiteral(value: string) {
+  return value.replace(/\\/g, "\\\\").replace(/\r?\n/g, "<br/>").replace(/"/g, '\\"');
 }
 
 function markerFromStart(value: string | undefined): EdgeMarker {
@@ -357,6 +372,7 @@ export function parseMermaid(source: string, previous?: MermaidGraph): MermaidGr
   const pendingEdgeProperties: PendingEdgeProperty[] = [];
   const pendingLinkStyles: PendingLinkStyle[] = [];
   const pendingClassStatements: PendingClassStatement[] = [];
+  const pendingNodeActions = new Map<string, PendingNodeActionStatement>();
   const subgraphs: CanvasSubgraph[] = [];
   const subgraphStack: CanvasSubgraph[] = [];
   const preservedStatements: string[] = [];
@@ -433,6 +449,12 @@ export function parseMermaid(source: string, previous?: MermaidGraph): MermaidGr
       continue;
     }
 
+    const nodeAction = parseNodeActionStatement(clean);
+    if (nodeAction) {
+      pendingNodeActions.set(nodeAction.nodeId, nodeAction);
+      continue;
+    }
+
     const edgeStatements = parseEdgeStatements(clean);
     if (edgeStatements) {
       pendingEdges.push(...edgeStatements.map((edge) => ({ ...edge, parentId: subgraphStack.at(-1)?.id })));
@@ -491,18 +513,54 @@ export function parseMermaid(source: string, previous?: MermaidGraph): MermaidGr
   });
   const preservedAfterEdgeMetadata = applyEdgeMetadata(edges, pendingEdgeProperties, pendingLinkStyles, pendingClassStatements);
 
+  const graphNodes = [...nodes.values()].map((node) => {
+    const action = pendingNodeActions.get(node.id)?.action;
+    return action ? { ...node, action } : node;
+  });
+
   return {
     diagramType,
     editableKind,
     parseStatus: "parsed",
     direction,
-    nodes: [...nodes.values()],
+    nodes: graphNodes,
     edges,
     subgraphs: subgraphs.filter((subgraph) => subgraph.nodeIds.length > 0 || subgraphs.some((child) => child.parentId === subgraph.id)),
     preservedStatements: [...preservedStatements, ...preservedAfterEdgeMetadata],
     defaultEdgeStyleText: pendingLinkStyles.find((style) => style.targets === "default")?.styleText,
     frontmatter
   };
+}
+
+function parseNodeActionStatement(clean: string): PendingNodeActionStatement | null {
+  const source = clean.trim().replace(/;$/, "");
+  const match = source.match(/^click\s+([A-Za-z][\w-]*)\s+([\s\S]+)$/i);
+  if (!match) return null;
+
+  const nodeId = match[1];
+  const tokens = readMermaidActionTokens(match[2]);
+  if (!tokens.length) return null;
+
+  const first = tokens[0].toLowerCase();
+  if (first === "call" || first === "callback") return null;
+
+  const target = first === "href" ? tokens[1] : tokens[0];
+  const tooltipCandidate = first === "href" ? tokens[2] : tokens[1];
+  const tooltip = tooltipCandidate && !tooltipCandidate.startsWith("_") ? tooltipCandidate : undefined;
+  const action = inferNodeActionFromMermaidTarget(target || "", tooltip);
+  return action ? { nodeId, action } : null;
+}
+
+function readMermaidActionTokens(value: string) {
+  const tokens: string[] = [];
+  const pattern = /"((?:\\.|[^"\\])*)"|'((?:\\.|[^'\\])*)'|(\S+)/g;
+  let match: RegExpExecArray | null;
+
+  while ((match = pattern.exec(value))) {
+    tokens.push(unescapeMermaidString(match[1] ?? match[2] ?? match[3]));
+  }
+
+  return tokens;
 }
 
 function parseEdgeStatements(clean: string): ParsedEdgeStatement[] | null {
@@ -777,11 +835,24 @@ export function serializeMermaid(graph: MermaidGraph) {
     if (edge.styleText) lines.push(`  linkStyle ${index} ${edge.styleText}`);
   });
 
+  for (const node of graph.nodes) {
+    const actionStatement = serializeNodeActionStatement(node);
+    if (actionStatement) lines.push(actionStatement);
+  }
+
   for (const statement of graph.preservedStatements || []) {
     if (statement.trim()) lines.push(statement);
   }
 
   return lines.join("\n");
+}
+
+function serializeNodeActionStatement(node: CanvasNode) {
+  const action = normalizeNodeAction(node.action);
+  if (!action) return "";
+  const target = escapeMermaidStringLiteral(nodeActionTarget(action));
+  const tooltip = escapeMermaidStringLiteral(action.tooltip || (action.kind === "url" ? "打开链接" : "打开文件"));
+  return `  click ${node.id} href "${target}" "${tooltip}" _blank`;
 }
 
 function serializeEdgeProperties(edge: CanvasEdge) {

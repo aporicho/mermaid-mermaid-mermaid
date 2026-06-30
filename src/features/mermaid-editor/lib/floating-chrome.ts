@@ -1,8 +1,10 @@
+import { OVERLAY_Z_INDEX } from "@/lib/overlay-layers";
+
 export const FLOATING_CHROME_HIDE_DELAY_MS = 500;
 export const FLOATING_PANEL_EDGE_MARGIN_PX = 12;
 export const FLOATING_PANEL_MAXIMIZED_TOP_INSET_PX = 64;
-export const FLOATING_WORKSPACE_PANEL_BASE_Z_INDEX = 50;
-export const FLOATING_POPOVER_PANEL_Z_INDEX = 70;
+export const FLOATING_WORKSPACE_PANEL_BASE_Z_INDEX = OVERLAY_Z_INDEX.workspaceBase;
+export const FLOATING_POPOVER_PANEL_Z_INDEX = OVERLAY_Z_INDEX.floatingPopover;
 
 export type FloatingPanelPlacement =
   | "top-left"

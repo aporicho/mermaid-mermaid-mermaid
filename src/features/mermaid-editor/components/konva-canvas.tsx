@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { createPortal } from "react-dom";
 import { Arrow, Circle, Ellipse, Group, Image as KonvaImage, Layer, Line, Path, Rect, Shape, Stage, Text } from "react-konva";
 import type Konva from "konva";
 import type { KonvaEventObject } from "konva/lib/Node";
@@ -78,6 +79,7 @@ import {
 import type { CanvasEdge, CanvasNode, EdgeMarker, EdgeRouting, EditorMode, LayoutMode, MermaidGraph, Selection, ViewportState } from "@/features/mermaid-editor/lib/editor-types";
 import { flattenShapePoints, flowchartPolygonPoints } from "@/features/mermaid-editor/lib/flowchart-shape-geometry";
 import { DEFAULT_FLOWCHART_NODE_SHAPE, normalizeFlowchartShape } from "@/features/mermaid-editor/lib/flowchart-shapes";
+import { nodeActionLabel, nodeActionOpenLabel, normalizeNodeAction } from "@/features/mermaid-editor/lib/node-actions";
 import { normalizeImageAsset } from "@/features/mermaid-editor/lib/node-assets";
 import {
   DEFAULT_NODE_GEOMETRY_TOKENS,
@@ -131,6 +133,7 @@ import { resolveInteractionIntent } from "@/features/mermaid-editor/lib/interact
 import { useViewportScheduler } from "@/features/mermaid-editor/lib/interaction/viewport-scheduler";
 import { isEdgeVisible, type ViewFilters } from "@/features/mermaid-editor/lib/view-filters";
 import { gsap } from "@/features/mermaid-editor/lib/use-gsap-motion";
+import { OVERLAY_Z_INDEX, setGlobalOverlayActivity } from "@/lib/overlay-layers";
 import { cn } from "@/lib/utils";
 
 let textMeasureCanvas: HTMLCanvasElement | null = null;
@@ -150,6 +153,8 @@ type KonvaCanvasProps = {
   geometryTokens?: EditorThemeGeometryTokens;
   motion?: RuntimeEditorMotion;
   onEditorCommand: (command: EditorCommand) => void;
+  onOpenNodeAction?: (node: CanvasNode) => void;
+  onEditNodeAction?: (node: CanvasNode) => void;
   onLiveStateChange?: (state: CanvasLiveState) => void;
 };
 
@@ -744,6 +749,8 @@ export function KonvaCanvas({
   geometryTokens,
   motion: motionProp,
   onEditorCommand,
+  onOpenNodeAction,
+  onEditNodeAction,
   onLiveStateChange
 }: KonvaCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -795,6 +802,7 @@ export function KonvaCanvas({
   const [nodeMotion, setNodeMotion] = useState<Record<string, CanvasNodeMotionVisual>>({});
   const [edgeMotion, setEdgeMotion] = useState<Record<string, CanvasEdgeMotionVisual>>({});
   const [exitingNodes, setExitingNodes] = useState<CanvasNode[]>([]);
+  const [nodeContextMenu, setNodeContextMenu] = useState<{ nodeId: string; x: number; y: number } | null>(null);
   const nodeThemeTokens = geometryTokens?.node ?? DEFAULT_NODE_GEOMETRY_TOKENS;
   const edgeLabelThemeTokens = geometryTokens?.edgeLabel ?? DEFAULT_EDGE_LABEL_GEOMETRY_TOKENS;
   const subgraphThemeTokens: SubgraphGeometryTokens = geometryTokens?.subgraph ?? SUBGRAPH_GEOMETRY_TOKENS;
@@ -1202,8 +1210,8 @@ export function KonvaCanvas({
     nodeProximityFrameRef.current = window.requestAnimationFrame(stepNodeProximityAnimation);
   }
 
-  function clearNodeProximityScales(immediate = false) {
-    lastProximityPointerScreenRef.current = null;
+  function clearNodeProximityScales(immediate = false, options: { preservePointer?: boolean } = {}) {
+    if (!options.preservePointer) lastProximityPointerScreenRef.current = null;
     nodeProximityTargetScaleRef.current = {};
     if (immediate) {
       stopNodeProximityAnimation();
@@ -1216,7 +1224,7 @@ export function KonvaCanvas({
   function updateNodeProximityScales(pointer: CanvasPoint) {
     lastProximityPointerScreenRef.current = pointer;
     if (!nodeProximityInteractive) {
-      clearNodeProximityScales();
+      clearNodeProximityScales(false, { preservePointer: true });
       return;
     }
 
@@ -1284,7 +1292,7 @@ export function KonvaCanvas({
 
   useEffect(() => {
     if (!nodeProximityInteractive) {
-      clearNodeProximityScales(true);
+      clearNodeProximityScales(true, { preservePointer: true });
       return;
     }
 
@@ -1811,7 +1819,7 @@ export function KonvaCanvas({
     const world = worldOverride ?? pointerWorldPoint();
     if (!pointer || !world) return;
 
-    clearNodeProximityScales(true);
+    updateNodeProximityScales(pointer);
     const hit = explicitHit ?? hitTargetFromEvent(event);
     if (isPanningButton(event.evt.button) || panningRequested) event.evt.preventDefault();
 
@@ -1885,13 +1893,27 @@ export function KonvaCanvas({
   }
 
   function handleCanvasPointerTracking(event: ReactPointerEvent<HTMLDivElement>) {
-    if (event.buttons !== 0) {
-      clearNodeProximityScales(true);
+    const pointer = screenPointFromClient(event.clientX, event.clientY);
+    if (!pointer) return;
+
+    if (event.buttons !== 0 && !nodeProximityInteractive) {
+      lastProximityPointerScreenRef.current = pointer;
+      clearNodeProximityScales(true, { preservePointer: true });
       return;
     }
 
-    const pointer = screenPointFromClient(event.clientX, event.clientY);
-    if (pointer) updateNodeProximityScales(pointer);
+    updateNodeProximityScales(pointer);
+  }
+
+  function closeNodeContextMenu() {
+    setNodeContextMenu(null);
+  }
+
+  function openNodeContextMenu(event: KonvaEventObject<PointerEvent | MouseEvent>, node: CanvasNode) {
+    event.evt.preventDefault();
+    event.cancelBubble = true;
+    if (!selectedNodeIds.has(node.id)) onEditorCommand({ type: "selection.set", selection: selectOnlyNode(node.id), source: "pointer" });
+    setNodeContextMenu({ nodeId: node.id, x: event.evt.clientX, y: event.evt.clientY });
   }
 
   function handleCanvasPointerLeave() {
@@ -1909,6 +1931,7 @@ export function KonvaCanvas({
 
   function handleCanvasClick(event: KonvaEventObject<MouseEvent>, hit: HitTarget) {
     event.cancelBubble = true;
+    closeNodeContextMenu();
     const pointer = pointerScreenPoint() || screenPointFromClient(event.evt.clientX, event.evt.clientY);
     if (!pointer) return;
 
@@ -1918,6 +1941,7 @@ export function KonvaCanvas({
 
   function handleCanvasTap(event: KonvaEventObject<Event>, hit: HitTarget) {
     event.cancelBubble = true;
+    closeNodeContextMenu();
     const pointer = pointerScreenPoint();
     if (!pointer) return;
     const pointerInput: StandardPointerInput = {
@@ -1938,6 +1962,7 @@ export function KonvaCanvas({
 
   function handleCanvasDoubleClick(event: KonvaEventObject<MouseEvent>, hit: HitTarget) {
     event.cancelBubble = true;
+    closeNodeContextMenu();
     const pointer = pointerScreenPoint() || screenPointFromClient(event.evt.clientX, event.evt.clientY);
     if (!pointer) return;
 
@@ -1961,7 +1986,7 @@ export function KonvaCanvas({
     stopActiveMotionTweens();
     for (const id of Object.keys(dragRef.current)) clearNodeMotionVisual(id);
     pendingDragDraftCommandRef.current = null;
-    clearNodeProximityScales(true);
+    clearNodeProximityScales(true, { preservePointer: true });
     setDragPreviewPositionsVisual(null);
     dragDraftGraphRef.current = null;
     onEditorCommand({ type: "history.capture", source: "pointer" });
@@ -1985,7 +2010,7 @@ export function KonvaCanvas({
     stopActiveMotionTweens();
     for (const id of Object.keys(dragRef.current)) clearNodeMotionVisual(id);
     pendingDragDraftCommandRef.current = null;
-    clearNodeProximityScales(true);
+    clearNodeProximityScales(true, { preservePointer: true });
     setDragPreviewPositionsVisual(null);
     subgraphDragFrameRef.current = Object.fromEntries(
       ids.map((id) => {
@@ -2220,7 +2245,6 @@ export function KonvaCanvas({
         onAuxClick={(event) => event.preventDefault()}
         onContextMenu={(event) => event.preventDefault()}
         onPointerMove={handleCanvasPointerTracking}
-        onPointerDown={() => clearNodeProximityScales(true)}
         onPointerLeave={handleCanvasPointerLeave}
       >
         <Stage
@@ -2548,6 +2572,7 @@ export function KonvaCanvas({
                   }}
                   onClick={(event) => handleCanvasClick(event, { kind: "node", id: node.id })}
                   onDblClick={(event) => handleCanvasDoubleClick(event, { kind: "node", id: node.id })}
+                  onContextMenu={(event) => openNodeContextMenu(event, node)}
                 >
                   <Group
                     x={nodeVisualTransform.x}
@@ -2592,6 +2617,14 @@ export function KonvaCanvas({
                       ellipsis
                       visible={viewFilters.nodeLabels && !(inlineEdit?.type === "node" && inlineEdit.id === node.id)}
                     />
+                    {normalizeNodeAction(node.action) ? (
+                      <CanvasNodeActionBadge
+                        actionKind={node.action?.kind || "url"}
+                        x={Math.max(8, geometry.frame.width - 24)}
+                        y={6}
+                        visualTokens={visualTokens}
+                      />
+                    ) : null}
                   </Group>
                   {nodeAnchorsVisible
                     ? geometry.anchorsLocal.map((anchor) => {
@@ -2765,6 +2798,15 @@ export function KonvaCanvas({
             {alignmentGuides.length ? <AlignmentGuideOverlay guides={alignmentGuides} visualTokens={visualTokens} /> : null}
           </Layer>
         </Stage>
+        {nodeContextMenu ? (
+          <NodeContextMenu
+            menu={nodeContextMenu}
+            node={graph.nodes.find((item) => item.id === nodeContextMenu.nodeId)}
+            onClose={closeNodeContextMenu}
+            onOpenNodeAction={onOpenNodeAction}
+            onEditNodeAction={onEditNodeAction}
+          />
+        ) : null}
 
         {inlineEdit?.type === "node" && editStyle ? (
           <>
@@ -2841,6 +2883,113 @@ export function KonvaCanvas({
       </div>
     </section>
   );
+}
+
+function CanvasNodeActionBadge({
+  actionKind,
+  x,
+  y,
+  visualTokens
+}: {
+  actionKind: "url" | "file";
+  x: number;
+  y: number;
+  visualTokens: CanvasVisualTokens;
+}) {
+  const size = 18;
+
+  return (
+    <Group x={x} y={y} listening={false}>
+      <Circle
+        x={size / 2}
+        y={size / 2}
+        radius={size / 2}
+        fill={visualTokens.colors.surface}
+        stroke={visualTokens.colors.accent}
+        strokeWidth={1.5}
+        opacity={0.96}
+      />
+      <Text
+        width={size}
+        height={size}
+        text={actionKind === "url" ? "↗" : "F"}
+        align="center"
+        verticalAlign="middle"
+        fontSize={actionKind === "url" ? 13 : 10}
+        fontStyle="700"
+        fontFamily="system-ui, sans-serif"
+        fill={visualTokens.colors.accent}
+      />
+    </Group>
+  );
+}
+
+function NodeContextMenu({
+  menu,
+  node,
+  onClose,
+  onOpenNodeAction,
+  onEditNodeAction
+}: {
+  menu: { nodeId: string; x: number; y: number };
+  node: CanvasNode | undefined;
+  onClose: () => void;
+  onOpenNodeAction?: (node: CanvasNode) => void;
+  onEditNodeAction?: (node: CanvasNode) => void;
+}) {
+  const overlayToken = `node-context-menu:${menu.nodeId}`;
+
+  useEffect(() => {
+    setGlobalOverlayActivity(overlayToken, true);
+    return () => setGlobalOverlayActivity(overlayToken, false);
+  }, [overlayToken]);
+
+  if (!node) return null;
+
+  const action = normalizeNodeAction(node.action);
+  const width = 220;
+  const height = 80;
+  const viewportWidth = typeof window === "undefined" ? menu.x + width + 16 : window.innerWidth;
+  const viewportHeight = typeof window === "undefined" ? menu.y + height + 16 : window.innerHeight;
+  const left = Math.max(8, Math.min(menu.x, viewportWidth - width - 8));
+  const top = Math.max(8, Math.min(menu.y, viewportHeight - height - 8));
+
+  const menuElement = (
+    <div
+      className="fixed w-[220px] rounded-md border bg-card/95 p-1 text-sm text-foreground shadow-xl"
+      style={{ left, top, zIndex: OVERLAY_Z_INDEX.contextMenu }}
+      onPointerDown={(event) => event.stopPropagation()}
+      onClick={(event) => event.stopPropagation()}
+      data-floating-panel-drag-exclude
+      data-editor-floating-menu-ignore
+    >
+      <button
+        type="button"
+        className="flex h-8 w-full min-w-0 items-center justify-between gap-2 rounded px-2 text-left hover:bg-muted disabled:cursor-not-allowed disabled:opacity-45"
+        disabled={!action}
+        onClick={() => {
+          if (node) onOpenNodeAction?.(node);
+          onClose();
+        }}
+      >
+        <span className="truncate">{nodeActionOpenLabel(action)}</span>
+        {action ? <span className="shrink-0 text-xs text-muted-foreground">{nodeActionLabel(action)}</span> : null}
+      </button>
+      <button
+        type="button"
+        className="flex h-8 w-full min-w-0 items-center rounded px-2 text-left hover:bg-muted"
+        onClick={() => {
+          onEditNodeAction?.(node);
+          onClose();
+        }}
+      >
+        编辑动作
+      </button>
+    </div>
+  );
+
+  if (typeof document === "undefined") return menuElement;
+  return createPortal(menuElement, document.body);
 }
 
 function CanvasGrid({

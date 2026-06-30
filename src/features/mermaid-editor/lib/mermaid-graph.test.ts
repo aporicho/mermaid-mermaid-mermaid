@@ -137,12 +137,36 @@ describe("mermaid graph parser", () => {
   });
 
   it("parses inline edge labels and preserves unrelated flowchart statements", () => {
-    const serialized = serializeMermaid(parseMermaid(`flowchart LR
+    const graph = parseMermaid(`flowchart LR
   A -- unsupported label syntax --> B
-  click A href "https://example.com"`));
+  click A href "https://example.com" "Example" _blank
+  click B call callback() "Native callback"`);
+    const serialized = serializeMermaid(graph);
 
+    expect(graph.nodes.find((item) => item.id === "A")?.action).toEqual({
+      kind: "url",
+      url: "https://example.com",
+      openMode: "app-browser",
+      tooltip: "Example"
+    });
     expect(serialized).toContain("A -->|unsupported label syntax| B");
-    expect(serialized).toContain('click A href "https://example.com"');
+    expect(serialized).toContain('click A href "https://example.com" "Example" _blank');
+    expect(serialized).toContain('click B call callback() "Native callback"');
+  });
+
+  it("round-trips local file actions through Mermaid click syntax", () => {
+    const graph = parseMermaid(`flowchart LR
+  A[Markdown]
+  click A href "./docs/spec.md" "打开文档"`);
+    const serialized = serializeMermaid(graph);
+
+    expect(graph.nodes.find((item) => item.id === "A")?.action).toEqual({
+      kind: "file",
+      path: "./docs/spec.md",
+      openMode: "app-window",
+      tooltip: "打开文档"
+    });
+    expect(serialized).toContain('click A href "./docs/spec.md" "打开文档" _blank');
   });
 
   it("round-trips Mermaid flowchart edge markers, length, ids, animation, classes and styles", () => {

@@ -22,6 +22,7 @@ import {
   MoreHoriz,
   NavArrowDown,
   NavArrowRight,
+  OpenNewWindow,
   PathArrow,
   PositionAlign,
   Plus,
@@ -43,6 +44,7 @@ import { PreviewPanel } from "@/features/mermaid-editor/components/preview-panel
 import { SourcePanel } from "@/features/mermaid-editor/components/source-panel";
 import { TerminalPanel } from "@/features/mermaid-editor/components/terminal-panel";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
@@ -92,6 +94,8 @@ import {
   type ProjectWorkspace
 } from "@/features/mermaid-editor/lib/project-workspace";
 import type {
+  CanvasNode,
+  CanvasNodeAction,
   ClipboardPayload,
   DiagramType,
   EdgeStyle,
@@ -140,8 +144,10 @@ import { useDisableNativeContextMenu } from "@/features/mermaid-editor/lib/nativ
 import { EDITOR_CHROME_CLASSES } from "@/features/mermaid-editor/lib/editor-chrome";
 import { bringFloatingPanelToFront, floatingPanelStackIndex, type FloatingPanelWindowState } from "@/features/mermaid-editor/lib/floating-chrome";
 import { workspaceViewForDocument, type WorkspaceView } from "@/features/mermaid-editor/lib/workspace-view";
+import { isHttpUrl, normalizeNodeAction } from "@/features/mermaid-editor/lib/node-actions";
 import { createImageAsset, DEFAULT_IMAGE_ASSET_HEIGHT, DEFAULT_IMAGE_ASSET_WIDTH, isSupportedImagePath } from "@/features/mermaid-editor/lib/node-assets";
 import { cn } from "@/lib/utils";
+import { OVERLAY_Z_INDEX, setGlobalOverlayActivity, useGlobalOverlayActivity } from "@/lib/overlay-layers";
 import {
   WINDOW_CLOSE_TARGET_NAME,
   cleanCloseDocument,
@@ -219,7 +225,8 @@ const BLANK_FLOWCHART_SOURCE = "flowchart LR";
 const BLANK_MARKDOWN_SOURCE = "# 未命名文档\n\n";
 type StaticWorkspacePanelId = "explorer" | "inspector" | "terminal";
 type MarkdownWindowPanelId = `markdown:${string}`;
-type WorkspaceFloatingPanelId = StaticWorkspacePanelId | MarkdownWindowPanelId;
+type BrowserWindowPanelId = `browser:${string}`;
+type WorkspaceFloatingPanelId = StaticWorkspacePanelId | MarkdownWindowPanelId | BrowserWindowPanelId;
 type DetachedMarkdownWindow = {
   id: MarkdownWindowPanelId;
   file: RuntimeFileRef;
@@ -227,26 +234,36 @@ type DetachedMarkdownWindow = {
   value: string;
   savedValue: string;
 };
+type DetachedBrowserWindow = {
+  id: BrowserWindowPanelId;
+  title: string;
+  url: string;
+};
 const DEFAULT_WORKSPACE_PANEL_STACK: WorkspaceFloatingPanelId[] = ["explorer", "inspector", "terminal"];
 const DEFAULT_WORKSPACE_PANEL_WINDOW_STATES: Record<StaticWorkspacePanelId, FloatingPanelWindowState> = {
   explorer: "normal",
   inspector: "normal",
   terminal: "normal"
 };
-const WORKSPACE_PANEL_DEFAULT_SIZES: Record<StaticWorkspacePanelId | "markdown", { width: number; height: number }> = {
+const WORKSPACE_PANEL_DEFAULT_SIZES: Record<StaticWorkspacePanelId | "markdown" | "browser", { width: number; height: number }> = {
   explorer: { width: 360, height: 640 },
   inspector: { width: 360, height: 640 },
   terminal: { width: 860, height: 320 },
-  markdown: { width: 760, height: 640 }
+  markdown: { width: 760, height: 640 },
+  browser: { width: 920, height: 680 }
 };
-const WORKSPACE_PANEL_MIN_SIZES: Record<StaticWorkspacePanelId | "markdown", { width: number; height: number }> = {
+const WORKSPACE_PANEL_MIN_SIZES: Record<StaticWorkspacePanelId | "markdown" | "browser", { width: number; height: number }> = {
   explorer: { width: 320, height: 220 },
   inspector: { width: 320, height: 220 },
   terminal: { width: 560, height: 260 },
-  markdown: { width: 420, height: 300 }
+  markdown: { width: 420, height: 300 },
+  browser: { width: 520, height: 360 }
 };
 function markdownWindowPanelId(file: Pick<RuntimeFileRef, "name" | "path">): MarkdownWindowPanelId {
   return `markdown:${file.path || file.name}` as MarkdownWindowPanelId;
+}
+function browserWindowPanelId(url: string): BrowserWindowPanelId {
+  return `browser:${hashText(url)}` as BrowserWindowPanelId;
 }
 type PanelOpenButtonMode = "hover" | "always";
 type EditorPreferences = {
@@ -750,6 +767,46 @@ function parentDirectoryPath(path: string | undefined) {
   return index > 0 ? path.slice(0, index) : undefined;
 }
 
+function runtimeFileNameFromPath(path: string) {
+  return path.split(/[\\/]/).filter(Boolean).at(-1) || path || "document";
+}
+
+function isAbsoluteRuntimePath(path: string) {
+  return path.startsWith("/") || /^[A-Za-z]:[\\/]/.test(path) || path.startsWith("\\\\");
+}
+
+function joinRuntimePath(base: string | undefined, relativePath: string) {
+  if (!base) return relativePath;
+  if (isAbsoluteRuntimePath(relativePath)) return relativePath;
+  const separator = base.includes("\\") && !base.includes("/") ? "\\" : "/";
+  return `${base.replace(/[\\/]+$/, "")}${separator}${relativePath.replace(/^[\\/]+/, "")}`;
+}
+
+function normalizeProjectRelativePath(path: string) {
+  return path.trim().replace(/\\/g, "/").replace(/^\.\//, "").replace(/\/+/g, "/").toLowerCase();
+}
+
+function normalizeBrowserUrl(url: string) {
+  const trimmed = url.trim();
+  if (!trimmed) return "";
+  if (isHttpUrl(trimmed)) return trimmed;
+  if (/^www\./i.test(trimmed)) return `https://${trimmed}`;
+  return "";
+}
+
+function browserWindowTitle(url: string) {
+  try {
+    return new URL(url).hostname || url;
+  } catch {
+    return url;
+  }
+}
+
+function openExternalUrl(url: string) {
+  if (typeof window === "undefined") return;
+  window.open(url, "_blank", "noopener,noreferrer");
+}
+
 async function getDesktopWindow() {
   if (!isDesktopWindowRuntime()) return null;
   const { getCurrentWindow } = await import("@tauri-apps/api/window");
@@ -758,6 +815,7 @@ async function getDesktopWindow() {
 
 export function MermaidEditor() {
   useDisableNativeContextMenu();
+  const globalDomOverlayActive = useGlobalOverlayActivity();
 
   const runtime = useMemo(() => createEditorRuntime(), []);
   const initial = useMemo(loadInitialState, []);
@@ -800,6 +858,7 @@ export function MermaidEditor() {
     ...DEFAULT_WORKSPACE_PANEL_WINDOW_STATES
   }));
   const [detachedMarkdownWindows, setDetachedMarkdownWindows] = useState<DetachedMarkdownWindow[]>([]);
+  const [detachedBrowserWindows, setDetachedBrowserWindows] = useState<DetachedBrowserWindow[]>([]);
   const [themeSettingsOpen, setThemeSettingsOpen] = useState(false);
   const [themeId, setThemeId] = useState<EditorThemeId>(initial.themeId);
   const [customTheme, setCustomTheme] = useState<EditorTheme | null>(initial.customTheme);
@@ -808,6 +867,14 @@ export function MermaidEditor() {
   const [recentActions, setRecentActions] = useState<AiRecentAction[]>([]);
   const [imageDisplaySrcBySrc, setImageDisplaySrcBySrc] = useState<Record<string, string>>({});
   const [fileDropFeedback, setFileDropFeedback] = useState<FileDropFeedback | null>(null);
+  const browserDomOverlayActive =
+    globalDomOverlayActive ||
+    fileMenuOpen ||
+    viewFiltersOpen ||
+    secondaryActionsOpen ||
+    themeSettingsOpen ||
+    Boolean(fileWorkflowError) ||
+    Boolean(unsavedPrompt);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const workspaceSurfaceRef = useRef<HTMLDivElement>(null);
   const sourceEditBaseRef = useRef<EditorSnapshot | null>(null);
@@ -2624,6 +2691,113 @@ export function MermaidEditor() {
     }
   }
 
+  function openBrowserWindow(url: string) {
+    const targetUrl = normalizeBrowserUrl(url);
+    if (!targetUrl) {
+      setStatus("节点链接只支持 http/https URL。");
+      return;
+    }
+
+    const panelId = browserWindowPanelId(targetUrl);
+    const title = browserWindowTitle(targetUrl);
+    setDetachedBrowserWindows((current) => {
+      const existing = current.find((window) => window.id === panelId);
+      if (existing) return current.map((window) => (window.id === panelId ? { ...window, title, url: targetUrl } : window));
+      return [...current, { id: panelId, title, url: targetUrl }];
+    });
+    bringWorkspacePanelToFront(panelId);
+    setWorkspacePanelWindowState(panelId, "normal");
+    setStatus(`已打开网页 ${title}。`);
+  }
+
+  function updateDetachedBrowserWindow(panelId: BrowserWindowPanelId, url: string) {
+    const targetUrl = normalizeBrowserUrl(url);
+    if (!targetUrl) {
+      setStatus("浏览器地址只支持 http/https URL。");
+      return;
+    }
+    setDetachedBrowserWindows((current) => current.map((window) => (window.id === panelId ? { ...window, url: targetUrl, title: browserWindowTitle(targetUrl) } : window)));
+  }
+
+  function closeDetachedBrowserWindow(panelId: BrowserWindowPanelId) {
+    setDetachedBrowserWindows((current) => current.filter((window) => window.id !== panelId));
+    setWorkspacePanelWindowState(panelId, "normal");
+    setWorkspacePanelStack((current) => current.filter((item) => item !== panelId));
+  }
+
+  function executeCanvasNodeAction(node: CanvasNode) {
+    const action = normalizeNodeAction(node.action);
+    if (!action) {
+      setStatus("此节点没有可打开的动作。");
+      return;
+    }
+
+    if (action.kind === "url") {
+      openUrlNodeAction(action);
+      return;
+    }
+
+    void openFileNodeAction(action);
+  }
+
+  function openUrlNodeAction(action: Extract<CanvasNodeAction, { kind: "url" }>) {
+    if (action.openMode === "system") {
+      openExternalUrl(action.url);
+      return;
+    }
+    openBrowserWindow(action.url);
+  }
+
+  async function openFileNodeAction(action: Extract<CanvasNodeAction, { kind: "file" }>) {
+    const path = resolveNodeActionFilePath(action.path);
+    if (!path) {
+      showFileWorkflowError({ code: "file_not_found", path: action.path }, "无法打开节点文件。");
+      return;
+    }
+
+    const file = projectFileEntryFromPath(path);
+    if (isSupportedMarkdownFilePath(path)) {
+      await openProjectMarkdownWindow(file);
+      return;
+    }
+
+    if (isSupportedDocumentFilePath(path)) {
+      await openRuntimeFileRequest(file, "project");
+      return;
+    }
+
+    showFileWorkflowError({ code: "unsupported_type", path }, "节点文件类型不支持。");
+  }
+
+  function resolveNodeActionFilePath(path: string) {
+    const trimmed = path.trim();
+    if (!trimmed) return "";
+    if (isAbsoluteRuntimePath(trimmed)) return trimmed;
+
+    const comparable = normalizeProjectRelativePath(trimmed);
+    const projectFile = projectWorkspace?.files.find((file) => {
+      return normalizeProjectRelativePath(file.relativePath) === comparable || normalizeProjectRelativePath(file.name) === comparable;
+    });
+    if (projectFile) return projectFile.path;
+
+    return joinRuntimePath(parentDirectoryPath(fileRef?.path) || projectWorkspace?.rootPath, trimmed);
+  }
+
+  function projectFileEntryFromPath(path: string): ProjectFileEntry {
+    const projectFile = projectWorkspace?.files.find((file) => file.path === path);
+    if (projectFile) return projectFile;
+    return {
+      name: runtimeFileNameFromPath(path),
+      path,
+      relativePath: runtimeFileNameFromPath(path)
+    };
+  }
+
+  function editCanvasNodeAction(node: CanvasNode) {
+    applyEditorCommand({ type: "selection.set", selection: { nodeIds: [node.id], edgeIds: [], subgraphIds: [], primaryId: node.id }, source: "menu" });
+    openWorkspacePanel("inspector");
+  }
+
   function updateDetachedMarkdownWindow(panelId: MarkdownWindowPanelId, value: string) {
     setDetachedMarkdownWindows((current) => current.map((window) => (window.id === panelId ? { ...window, value } : window)));
   }
@@ -3183,6 +3357,14 @@ export function MermaidEditor() {
       if (isTextInput(event.target)) return;
       if (!isCanvasEditable) return;
 
+      if (command && event.key === "Enter") {
+        const selectedNode = graph.nodes.find((node) => node.id === selection.primaryId) || graph.nodes.find((node) => node.id === selection.nodeIds[0]);
+        if (selectedNode?.action) {
+          event.preventDefault();
+          executeCanvasNodeAction(selectedNode);
+        }
+        return;
+      }
       if (event.code === "Space") {
         event.preventDefault();
         setSpacePanning(true);
@@ -3250,6 +3432,7 @@ export function MermaidEditor() {
   if (!rightCollapsed && documentKind === "mermaid") openWorkspacePanelIds.push("inspector");
   if (terminalOpen) openWorkspacePanelIds.push("terminal");
   openWorkspacePanelIds.push(...detachedMarkdownWindows.map((window) => window.id));
+  openWorkspacePanelIds.push(...detachedBrowserWindows.map((window) => window.id));
 
   let activeWorkspacePanel: WorkspaceFloatingPanelId | null = null;
   for (let index = workspacePanelStack.length - 1; index >= 0; index -= 1) {
@@ -3312,6 +3495,8 @@ export function MermaidEditor() {
                 geometryTokens={compiledTheme.geometry}
                 motion={resolvedMotion}
                 onEditorCommand={applyEditorCommand}
+                onOpenNodeAction={executeCanvasNodeAction}
+                onEditNodeAction={editCanvasNodeAction}
                 onLiveStateChange={updateCanvasLiveState}
               />
             </Suspense>
@@ -3466,6 +3651,39 @@ export function MermaidEditor() {
             />
           </FloatingPanel>
         ))}
+        {detachedBrowserWindows.map((browserWindow) => (
+          <FloatingPanel
+            key={browserWindow.id}
+            open
+            placement="center-panel"
+            kind="workspace"
+            dismissMode="explicit"
+            panelId={browserWindow.id}
+            active={activeWorkspacePanel === browserWindow.id}
+            stackIndex={workspacePanelStackPosition(browserWindow.id)}
+            onFocusPanel={() => bringWorkspacePanelToFront(browserWindow.id)}
+            resetDragOnOpen={false}
+            defaultSize={WORKSPACE_PANEL_DEFAULT_SIZES.browser}
+            minSize={WORKSPACE_PANEL_MIN_SIZES.browser}
+            windowState={workspacePanelWindowState(browserWindow.id)}
+            onWindowStateChange={(state) => setWorkspacePanelWindowState(browserWindow.id, state)}
+            className={cn(EDITOR_CHROME_CLASSES.sidePanel, "relative grid h-full w-full min-h-0")}
+          >
+            <BrowserWindowPanel
+              panelId={browserWindow.id}
+              title={browserWindow.title}
+              url={browserWindow.url}
+              runtimeKind={runtime.kind}
+              active={activeWorkspacePanel === browserWindow.id}
+              domOverlayActive={browserDomOverlayActive}
+              windowState={workspacePanelWindowState(browserWindow.id)}
+              onWindowStateChange={(state) => setWorkspacePanelWindowState(browserWindow.id, state)}
+              onNavigate={(url) => updateDetachedBrowserWindow(browserWindow.id, url)}
+              onClose={() => closeDetachedBrowserWindow(browserWindow.id)}
+              onStatus={setStatus}
+            />
+          </FloatingPanel>
+        ))}
 
         <FloatingChromeLayer>
           <FloatingChromeSlot placement="topLeft" pinned={fileMenuOpen}>
@@ -3606,7 +3824,10 @@ export function MermaidEditor() {
         {fileWorkflowError ? <FileWorkflowErrorBanner error={fileWorkflowError} onClose={() => setFileWorkflowError(null)} /> : null}
         {unsavedPrompt ? <UnsavedFilePrompt prompt={unsavedPrompt} onResolve={resolveUnsavedPrompt} /> : null}
         {preferences.statusMessages && status ? (
-          <div className="pointer-events-none fixed bottom-3 left-1/2 z-50 -translate-x-1/2 rounded-md border bg-card/95 px-3 py-2 text-xs text-muted-foreground backdrop-blur">
+          <div
+            className="pointer-events-none fixed bottom-3 left-1/2 -translate-x-1/2 rounded-md border bg-card/95 px-3 py-2 text-xs text-muted-foreground backdrop-blur"
+            style={{ zIndex: OVERLAY_Z_INDEX.statusToast }}
+          >
             {status}
           </div>
         ) : null}
@@ -3792,6 +4013,282 @@ function MarkdownWindowPanel({
   );
 }
 
+function BrowserWindowPanel({
+  panelId,
+  title,
+  url,
+  runtimeKind,
+  active,
+  domOverlayActive,
+  windowState,
+  onWindowStateChange,
+  onNavigate,
+  onClose,
+  onStatus
+}: {
+  panelId: BrowserWindowPanelId;
+  title: string;
+  url: string;
+  runtimeKind: "web" | "desktop";
+  active: boolean;
+  domOverlayActive: boolean;
+  windowState: FloatingPanelWindowState;
+  onWindowStateChange: (state: FloatingPanelWindowState) => void;
+  onNavigate: (url: string) => void;
+  onClose: () => void;
+  onStatus: (message: string) => void;
+}) {
+  const [address, setAddress] = useState(url);
+  const [reloadRevision, setReloadRevision] = useState(0);
+
+  useEffect(() => {
+    setAddress(url);
+  }, [url]);
+
+  function submitAddress() {
+    onNavigate(address);
+  }
+
+  function copyAddress() {
+    void navigator.clipboard?.writeText(url);
+    onStatus("已复制链接。");
+  }
+
+  function openInSystemBrowser() {
+    openExternalUrl(url);
+    onStatus("已请求使用系统浏览器打开。");
+  }
+
+  return (
+    <section className="grid h-full min-h-0 grid-rows-[42px_42px_minmax(0,1fr)] bg-card/95">
+      <header data-floating-panel-drag-handle className="flex min-w-0 cursor-grab items-center justify-between gap-2 border-b bg-card/95 px-3 active:cursor-grabbing">
+        <div className="flex min-w-0 items-center gap-2">
+          <OpenNewWindow className="size-4 shrink-0 text-icon" />
+          <div className="min-w-0">
+            <div className="truncate text-sm font-medium">{title}</div>
+            <div className="truncate text-[11px] leading-4 text-muted-foreground" title={url}>{url}</div>
+          </div>
+        </div>
+        <WorkspacePanelControls
+          windowState={windowState}
+          onWindowStateChange={onWindowStateChange}
+          onClose={onClose}
+          closeLabel="关闭浏览器窗口"
+          closeTooltipSide="top"
+          closeIcon={<Xmark />}
+        />
+      </header>
+      <div className="flex min-w-0 items-center gap-2 border-b bg-muted/20 px-2" data-floating-panel-drag-exclude>
+        <Input
+          value={address}
+          className="h-8 min-w-0 flex-1 bg-background/95"
+          onChange={(event) => setAddress(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") submitAddress();
+          }}
+        />
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button size="icon" variant="ghost" className={EDITOR_CHROME_CLASSES.panelIconButton} onClick={() => setReloadRevision((current) => current + 1)} aria-label="重新载入网页">
+              <RefreshCw className="size-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">重新载入网页</TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button size="icon" variant="ghost" className={EDITOR_CHROME_CLASSES.panelIconButton} onClick={copyAddress} aria-label="复制链接">
+              <Link className="size-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">复制链接</TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button size="icon" variant="ghost" className={EDITOR_CHROME_CLASSES.panelIconButton} onClick={openInSystemBrowser} aria-label="系统浏览器打开">
+              <OpenNewWindow className="size-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">系统浏览器打开</TooltipContent>
+        </Tooltip>
+      </div>
+      <EmbeddedBrowserSurface
+        panelId={panelId}
+        url={url}
+        runtimeKind={runtimeKind}
+        active={active}
+        domOverlayActive={domOverlayActive}
+        reloadRevision={reloadRevision}
+        onStatus={onStatus}
+      />
+    </section>
+  );
+}
+
+type NativeEmbeddedWebview = {
+  close: () => Promise<void>;
+  setPosition: (position: unknown) => Promise<void>;
+  setSize: (size: unknown) => Promise<void>;
+  hide: () => Promise<void>;
+  show: () => Promise<void>;
+  setFocus: () => Promise<void>;
+};
+
+type NativeDpiConstructors = {
+  LogicalPosition: new (x: number, y: number) => unknown;
+  LogicalSize: new (width: number, height: number) => unknown;
+};
+
+function EmbeddedBrowserSurface({
+  panelId,
+  url,
+  runtimeKind,
+  active,
+  domOverlayActive,
+  reloadRevision,
+  onStatus
+}: {
+  panelId: BrowserWindowPanelId;
+  url: string;
+  runtimeKind: "web" | "desktop";
+  active: boolean;
+  domOverlayActive: boolean;
+  reloadRevision: number;
+  onStatus: (message: string) => void;
+}) {
+  const surfaceRef = useRef<HTMLDivElement | null>(null);
+  const webviewRef = useRef<NativeEmbeddedWebview | null>(null);
+  const dpiRef = useRef<NativeDpiConstructors | null>(null);
+  const activeRef = useRef(active);
+  const domOverlayActiveRef = useRef(domOverlayActive);
+  const [nativeState, setNativeState] = useState<"loading" | "ready" | "fallback">("loading");
+  const webviewLabel = useMemo(() => `browser_${hashText(`${panelId}:${url}:${reloadRevision}`)}`, [panelId, reloadRevision, url]);
+
+  useEffect(() => {
+    activeRef.current = active;
+    domOverlayActiveRef.current = domOverlayActive;
+    const webview = webviewRef.current;
+    if (!webview) return;
+    const shouldShow = active && !domOverlayActive;
+    void (shouldShow ? webview.show().then(() => webview.setFocus()).catch(() => undefined) : webview.hide().catch(() => undefined));
+  }, [active, domOverlayActive]);
+
+  useEffect(() => {
+    let disposed = false;
+    let frameId = 0;
+    let lastRectKey = "";
+
+    async function createNativeWebview() {
+      const surface = surfaceRef.current;
+      if (!surface || runtimeKind !== "desktop" || !isDesktopWindowRuntime()) {
+        setNativeState("fallback");
+        return;
+      }
+
+      setNativeState("loading");
+      try {
+        const [{ Webview }, { getCurrentWindow }, dpi] = await Promise.all([
+          import("@tauri-apps/api/webview"),
+          import("@tauri-apps/api/window"),
+          import("@tauri-apps/api/dpi")
+        ]);
+        if (disposed || !surfaceRef.current) return;
+
+        dpiRef.current = { LogicalPosition: dpi.LogicalPosition, LogicalSize: dpi.LogicalSize };
+        const rect = boundedBrowserRect(surfaceRef.current.getBoundingClientRect());
+        const webview = new Webview(getCurrentWindow(), webviewLabel, {
+          url,
+          x: rect.x,
+          y: rect.y,
+          width: rect.width,
+          height: rect.height,
+          focus: false,
+          dragDropEnabled: false
+        }) as NativeEmbeddedWebview;
+        webviewRef.current = webview;
+
+        void (webview as unknown as { once?: (event: string, handler: (event?: unknown) => void) => Promise<() => void> }).once?.("tauri://created", () => {
+          if (disposed) return;
+          setNativeState("ready");
+          if (!activeRef.current || domOverlayActiveRef.current) void webview.hide().catch(() => undefined);
+        });
+        void (webview as unknown as { once?: (event: string, handler: (event?: unknown) => void) => Promise<() => void> }).once?.("tauri://error", () => {
+          if (disposed) return;
+          if (webviewRef.current === webview) webviewRef.current = null;
+          void webview.close().catch(() => undefined);
+          setNativeState("fallback");
+          onStatus("内置浏览器创建失败，已切换为网页预览。");
+        });
+
+        const sync = () => {
+          if (disposed) return;
+          syncNativeWebviewRect(surfaceRef.current, webviewRef.current, dpiRef.current, lastRectKey, (nextKey) => {
+            lastRectKey = nextKey;
+          });
+          frameId = window.requestAnimationFrame(sync);
+        };
+        sync();
+      } catch {
+        if (!disposed) {
+          setNativeState("fallback");
+          onStatus("内置浏览器不可用，已切换为网页预览。");
+        }
+      }
+    }
+
+    void createNativeWebview();
+
+    return () => {
+      disposed = true;
+      if (frameId) window.cancelAnimationFrame(frameId);
+      const webview = webviewRef.current;
+      webviewRef.current = null;
+      void webview?.close().catch(() => undefined);
+    };
+  }, [onStatus, reloadRevision, runtimeKind, url, webviewLabel]);
+
+  return (
+    <div ref={surfaceRef} className="relative min-h-0 overflow-hidden bg-background">
+      {nativeState === "fallback" ? (
+        isHttpUrl(url) ? (
+          <iframe key={`${url}:${reloadRevision}`} title={url} src={url} className="h-full w-full border-0 bg-background" />
+        ) : (
+          <div className="grid h-full place-items-center p-4 text-sm text-muted-foreground">无法预览此地址</div>
+        )
+      ) : (
+        <div className="grid h-full place-items-center p-4 text-sm text-muted-foreground">
+          {nativeState === "loading" ? "正在打开网页" : ""}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function boundedBrowserRect(rect: DOMRect) {
+  return {
+    x: Math.max(0, Math.round(rect.left)),
+    y: Math.max(0, Math.round(rect.top)),
+    width: Math.max(1, Math.round(rect.width)),
+    height: Math.max(1, Math.round(rect.height))
+  };
+}
+
+function syncNativeWebviewRect(
+  surface: HTMLDivElement | null,
+  webview: NativeEmbeddedWebview | null,
+  dpi: NativeDpiConstructors | null,
+  lastRectKey: string,
+  updateLastRectKey: (key: string) => void
+) {
+  if (!surface || !webview || !dpi) return;
+  const rect = boundedBrowserRect(surface.getBoundingClientRect());
+  const rectKey = `${rect.x}:${rect.y}:${rect.width}:${rect.height}`;
+  if (rectKey === lastRectKey) return;
+  updateLastRectKey(rectKey);
+  void webview.setPosition(new dpi.LogicalPosition(rect.x, rect.y)).catch(() => undefined);
+  void webview.setSize(new dpi.LogicalSize(rect.width, rect.height)).catch(() => undefined);
+}
+
 function FileDropFeedbackBadge({ feedback }: { feedback: FileDropFeedback }) {
   const style = feedback.position
     ? {
@@ -3818,7 +4315,10 @@ function FileDropFeedbackBadge({ feedback }: { feedback: FileDropFeedback }) {
 
 function FileWorkflowErrorBanner({ error, onClose }: { error: FileWorkflowError; onClose: () => void }) {
   return (
-    <div className="fixed left-1/2 top-14 z-[65] w-[min(520px,calc(100vw-24px))] -translate-x-1/2 rounded-md border border-destructive/30 bg-card/95 p-3 text-sm shadow-sm backdrop-blur">
+    <div
+      className="fixed left-1/2 top-14 w-[min(520px,calc(100vw-24px))] -translate-x-1/2 rounded-md border border-destructive/30 bg-card/95 p-3 text-sm shadow-sm backdrop-blur"
+      style={{ zIndex: OVERLAY_Z_INDEX.banner }}
+    >
       <div className="flex items-start gap-3">
         <WarningTriangle className="mt-0.5 size-4 shrink-0 text-destructive" />
         <div className="min-w-0 flex-1">
@@ -3837,7 +4337,7 @@ function FileWorkflowErrorBanner({ error, onClose }: { error: FileWorkflowError;
 
 function UnsavedFilePrompt({ prompt, onResolve }: { prompt: UnsavedPromptState; onResolve: (choice: UnsavedPromptChoice) => void }) {
   return (
-    <div className="fixed inset-0 z-[80] grid place-items-center bg-foreground/10 px-4 backdrop-blur-[1px]">
+    <div className="fixed inset-0 grid place-items-center bg-foreground/10 px-4 backdrop-blur-[1px]" style={{ zIndex: OVERLAY_Z_INDEX.modal }}>
       <section className="w-[min(416px,100%)] rounded-md border bg-card p-4 shadow-sm">
         <div className="flex items-start gap-3">
           <WarningTriangle className="mt-0.5 size-4 shrink-0 text-icon" />
@@ -4132,6 +4632,14 @@ function ProjectFileContextMenu({
   onOpenProjectMarkdownWindow: (file: ProjectFileEntry) => void;
 }) {
   const menuRef = useDismissableFloatingMenu<HTMLDivElement>({ open: Boolean(menu), onOpenChange });
+  const menuOpen = Boolean(menu);
+  const overlayToken = menu ? `project-file-context-menu:${menu.file.path}` : "project-file-context-menu";
+
+  useEffect(() => {
+    setGlobalOverlayActivity(overlayToken, menuOpen);
+    return () => setGlobalOverlayActivity(overlayToken, false);
+  }, [menuOpen, overlayToken]);
+
   if (!menu) return null;
 
   const markdownFile = isSupportedMarkdownFilePath(menu.file.path);
@@ -4143,8 +4651,8 @@ function ProjectFileContextMenu({
   const menuElement = (
     <div
       ref={menuRef}
-      className="fixed z-[120] w-56 rounded-lg border bg-popover/95 p-2 text-popover-foreground shadow-lg backdrop-blur"
-      style={{ left, top }}
+      className="fixed w-56 rounded-lg border bg-popover/95 p-2 text-popover-foreground shadow-lg backdrop-blur"
+      style={{ left, top, zIndex: OVERLAY_Z_INDEX.contextMenu }}
       data-floating-panel-drag-exclude
       data-editor-floating-menu-ignore
     >
@@ -4843,7 +5351,7 @@ function ThemeSettingsPanel({
   const themeDiagnostics = useMemo(() => compileEditorTheme(activeTheme).diagnostics, [activeTheme]);
 
   return (
-    <div className="fixed inset-0 z-[70] bg-foreground/10">
+    <div className="fixed inset-0 bg-foreground/10" style={{ zIndex: OVERLAY_Z_INDEX.modal }}>
       <section className="absolute inset-y-0 right-0 grid w-[min(460px,100vw)] grid-rows-[52px_minmax(0,1fr)_56px] border-l bg-card">
         <header className="flex items-center justify-between border-b px-4">
           <div className="flex items-center gap-2">

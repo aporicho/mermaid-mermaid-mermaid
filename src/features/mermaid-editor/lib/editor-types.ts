@@ -29,9 +29,24 @@ export type CanvasNode = {
   fill: string;
   shape?: FlowchartNodeShape;
   asset?: CanvasNodeAsset;
+  action?: CanvasNodeAction;
 };
 
 export type ImageLabelPosition = "top" | "bottom";
+
+export type CanvasNodeAction =
+  | {
+      kind: "url";
+      url: string;
+      openMode: "app-browser" | "system";
+      tooltip?: string;
+    }
+  | {
+      kind: "file";
+      path: string;
+      openMode: "app-window";
+      tooltip?: string;
+    };
 
 export type CanvasNodeAsset = {
   kind: "image";
