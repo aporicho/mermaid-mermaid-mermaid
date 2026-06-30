@@ -346,6 +346,7 @@ describe("canvas interaction state", () => {
     expect(interactionCursor("select", idleInteraction, false, { kind: "nodeAnchor", nodeId: "a", anchor: "right" })).toBe("cursor-crosshair");
     expect(interactionCursor("select", idleInteraction, false, { kind: "edgeEndpoint", edgeId: "a-->b", side: "to" })).toBe("cursor-crosshair");
     expect(interactionCursor("select", { kind: "editingNodeText", nodeId: "a" }, false)).toBe("cursor-text");
+    expect(interactionCursor("select", { kind: "editingSubgraphTitle", subgraphId: "g" }, false)).toBe("cursor-text");
     expect(interactionCursor("select", { kind: "panning", pointerId: 0, startScreen: { x: 0, y: 0 }, originViewport: viewport }, false)).toBe(
       "cursor-grabbing"
     );
@@ -372,6 +373,15 @@ describe("canvas interaction state", () => {
       { type: "invalidateBlankClick" },
       { type: "selectEdge", id: "a-->b", additive: false },
       { type: "startInlineEdit", target: { type: "edge", id: "a-->b" } }
+    ]);
+    expect(dispatchCanvasDoubleClick({ tool: "select", hit: { kind: "subgraphTitle", id: "Group" } })).toEqual([
+      { type: "invalidateBlankClick" },
+      { type: "selectSubgraph", id: "Group", additive: false },
+      { type: "startInlineEdit", target: { type: "subgraph", id: "Group" } }
+    ]);
+    expect(dispatchCanvasDoubleClick({ tool: "select", hit: { kind: "subgraph", id: "Group" } })).toEqual([
+      { type: "invalidateBlankClick" },
+      { type: "selectSubgraph", id: "Group", additive: false }
     ]);
   });
 });

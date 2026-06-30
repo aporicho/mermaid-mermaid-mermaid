@@ -39,7 +39,8 @@ import {
   nodeHitId,
   resolveKonvaHitTarget,
   subgraphAnchorHitId,
-  subgraphHitId
+  subgraphHitId,
+  subgraphTitleHitId
 } from "@/features/mermaid-editor/lib/canvas-hit-target";
 import { DEFAULT_CANVAS_GRID, firstGridCoordinateAtOrAfter, getCanvasGridRenderPlan, isGridCoordinate, type CanvasGridSpec } from "@/features/mermaid-editor/lib/canvas-grid";
 import { resolveCanvasRenderScope } from "@/features/mermaid-editor/lib/canvas-render-scope";
@@ -133,6 +134,7 @@ import {
 import { resolveInteractionIntent } from "@/features/mermaid-editor/lib/interaction/intent";
 import { useViewportScheduler } from "@/features/mermaid-editor/lib/interaction/viewport-scheduler";
 import { isEdgeVisible, type ViewFilters } from "@/features/mermaid-editor/lib/view-filters";
+import { useDismissableFloatingMenu } from "@/features/mermaid-editor/lib/use-dismissable-floating-menu";
 import { gsap } from "@/features/mermaid-editor/lib/use-gsap-motion";
 import { OVERLAY_Z_INDEX, setGlobalOverlayActivity } from "@/lib/overlay-layers";
 import { cn } from "@/lib/utils";
@@ -176,11 +178,12 @@ type SelectionBox = {
 
 type InlineEdit =
   | { type: "node"; id: string; value: string }
+  | { type: "subgraph"; id: string; value: string }
   | { type: "edge"; id: string; value: string };
 
 type CanvasLiveState = {
   canvasSize?: { width: number; height: number };
-  editing?: { kind: "node" | "edge"; id: string; draftText: string } | null;
+  editing?: { kind: "node" | "subgraph" | "edge"; id: string; draftText: string } | null;
   interaction?: string;
 };
 
@@ -1632,7 +1635,7 @@ export function KonvaCanvas({
       return;
     }
 
-    if (hit.kind === "subgraph") {
+    if (hit.kind === "subgraph" || hit.kind === "subgraphTitle") {
       setHoveredNodeId(null);
       setHoveredSubgraphId(hit.id);
       setHoveredEdgeId(null);
@@ -1708,6 +1711,14 @@ export function KonvaCanvas({
         if (!node) return;
         setInteractionState({ kind: "editingNodeText", nodeId: node.id });
         setInlineEdit({ type: "node", id: node.id, value: node.label });
+        return;
+      }
+
+      if (effect.target.type === "subgraph") {
+        const subgraph = graph.subgraphs?.find((item) => item.id === effect.target.id);
+        if (!subgraph) return;
+        setInteractionState({ kind: "editingSubgraphTitle", subgraphId: subgraph.id });
+        setInlineEdit({ type: "subgraph", id: subgraph.id, value: subgraph.title || subgraph.id });
         return;
       }
 
@@ -2203,6 +2214,15 @@ export function KonvaCanvas({
     if (save && inlineEdit.type === "node") {
       onEditorCommand({ type: "graph.updateNodeLabel", nodeId: inlineEdit.id, label: inlineEdit.value, message: "已更新节点文本。", source: "pointer" });
     }
+    if (save && inlineEdit.type === "subgraph") {
+      onEditorCommand({
+        type: "graph.updateSubgraph",
+        subgraphId: inlineEdit.id,
+        patch: { title: inlineEdit.value },
+        message: "已更新组标题。",
+        source: "pointer"
+      });
+    }
     if (save && inlineEdit.type === "edge") {
       onEditorCommand({ type: "graph.updateEdgeLabel", edgeId: inlineEdit.id, label: inlineEdit.value, message: "已更新连线文本。", source: "pointer" });
     }
@@ -2229,6 +2249,24 @@ export function KonvaCanvas({
         width: textBox.width * viewportScale,
         height: textBox.height * viewportScale,
         textScale: viewportScale * proximityScale
+      };
+    }
+
+    if (inlineEdit.type === "subgraph") {
+      if (!viewFilters.subgraphs) return null;
+      const geometry = subgraphGeometryById.get(inlineEdit.id);
+      if (!geometry) return null;
+      const viewportScale = currentViewport().scale;
+      const screen = worldToScreen({
+        x: geometry.titleBox.x,
+        y: geometry.titleBox.y
+      });
+      return {
+        left: screen.x,
+        top: screen.y,
+        width: geometry.titleBox.width * viewportScale,
+        height: geometry.titleBox.height * viewportScale,
+        textScale: viewportScale
       };
     }
 
@@ -2310,6 +2348,7 @@ export function KonvaCanvas({
                 if (!subgraph) return null;
                 const selected = selectedSubgraphIds.has(geometry.id);
                 const hovered = hoveredSubgraphId === geometry.id;
+                const isEditingSubgraphTitle = inlineEdit?.type === "subgraph" && inlineEdit.id === geometry.id;
                 const connectionTarget = connectionTargetSubgraphId === geometry.id;
                 const connectionInvalid = connectionInvalidSubgraphId === geometry.id;
                 const connectionAnchorTarget =
@@ -2382,6 +2421,8 @@ export function KonvaCanvas({
                       fillEnabled={false}
                     />
                     <Rect
+                      id={subgraphTitleHitId(geometry.id)}
+                      name={CANVAS_HIT_NAMES.subgraphTitle}
                       x={geometry.titleBox.x - geometry.frame.x}
                       y={geometry.titleBox.y - geometry.frame.y}
                       width={geometry.titleBox.width}
@@ -2390,6 +2431,8 @@ export function KonvaCanvas({
                       fill={visualTokens.colors.surface}
                       stroke={stroke}
                       strokeWidth={visualTokens.subgraph.titleStrokeWidth}
+                      onClick={(event) => handleCanvasClick(event, { kind: "subgraphTitle", id: geometry.id })}
+                      onDblClick={(event) => handleCanvasDoubleClick(event, { kind: "subgraphTitle", id: geometry.id })}
                     />
                     <Text
                       x={geometry.titleBox.x - geometry.frame.x + visualTokens.subgraph.titleInsetX}
@@ -2405,6 +2448,7 @@ export function KonvaCanvas({
                       fill={visualTokens.colors.nodeText}
                       ellipsis
                       listening={false}
+                      visible={!isEditingSubgraphTitle}
                     />
                     {anchorVisible
                       ? geometry.anchorsLocal.map((anchor) => (
@@ -2901,6 +2945,33 @@ export function KonvaCanvas({
           </>
         ) : null}
 
+        {viewFilters.subgraphs && inlineEdit?.type === "subgraph" && editStyle ? (
+          <Input
+            autoFocus
+            value={inlineEdit.value}
+            className="absolute z-40 h-auto min-h-0 border bg-card py-0 text-left font-bold text-foreground shadow-sm outline-none ring-0 focus-visible:ring-1 focus-visible:ring-accent focus-visible:ring-offset-0"
+            style={{
+              left: editStyle.left,
+              top: editStyle.top,
+              width: editStyle.width,
+              height: editStyle.height,
+              borderRadius: visualTokens.subgraph.titleCornerRadius * activeScale,
+              fontFamily: nodeThemeTokens.fontFamily,
+              fontSize: visualTokens.subgraph.titleFontSize * activeScale,
+              fontWeight: visualTokens.subgraph.titleFontWeight,
+              lineHeight: `${editStyle.height}px`,
+              paddingLeft: visualTokens.subgraph.titleInsetX * activeScale,
+              paddingRight: visualTokens.subgraph.titleInsetX * activeScale
+            }}
+            onChange={(event) => setInlineEdit({ ...inlineEdit, value: event.target.value })}
+            onBlur={() => commitInlineEdit(true)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") commitInlineEdit(true);
+              if (event.key === "Escape") commitInlineEdit(false);
+            }}
+          />
+        ) : null}
+
         {viewFilters.edges && viewFilters.edgeLabels && inlineEdit?.type === "edge" && editStyle ? (
           <Input
             autoFocus
@@ -3022,7 +3093,7 @@ function NodeActionTooltip({
   );
 }
 
-function NodeContextMenu({
+export function NodeContextMenu({
   menu,
   node,
   onClose,
@@ -3036,6 +3107,13 @@ function NodeContextMenu({
   onEditNodeAction?: (node: CanvasNode) => void;
 }) {
   const overlayToken = `node-context-menu:${menu.nodeId}`;
+  const handleOpenChange = useCallback((open: boolean) => {
+    if (!open) onClose();
+  }, [onClose]);
+  const menuRef = useDismissableFloatingMenu<HTMLDivElement>({
+    open: Boolean(node),
+    onOpenChange: handleOpenChange
+  });
 
   useEffect(() => {
     setGlobalOverlayActivity(overlayToken, true);
@@ -3054,6 +3132,7 @@ function NodeContextMenu({
 
   const menuElement = (
     <div
+      ref={menuRef}
       className="fixed w-[220px] rounded-md border bg-card/95 p-1 text-sm text-foreground shadow-xl"
       style={{ left, top, zIndex: OVERLAY_Z_INDEX.contextMenu }}
       onPointerDown={(event) => event.stopPropagation()}

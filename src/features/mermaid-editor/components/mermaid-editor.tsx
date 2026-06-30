@@ -38,6 +38,7 @@ import {
 
 import { InspectorPanel } from "@/features/mermaid-editor/components/inspector-panel";
 import { CanvasDocumentEditor } from "@/features/mermaid-editor/components/canvas-document-editor";
+import { EmbeddedBrowserSurface } from "@/features/mermaid-editor/components/embedded-browser-surface";
 import { FloatingButtonCluster, FloatingChromeLayer, FloatingChromeSlot, FloatingIconButton, FloatingPanel, MotionPresence } from "@/features/mermaid-editor/components/floating-chrome";
 import { MarkdownPanel } from "@/features/mermaid-editor/components/markdown-panel";
 import { PreviewPanel } from "@/features/mermaid-editor/components/preview-panel";
@@ -67,6 +68,7 @@ import {
   createEditorRuntime,
   ensureRuntimeDocumentFileName,
   isRuntimeAbortError,
+  type EditorRuntime,
   type RuntimeFileDropRequest,
   type RuntimeFileOpenRequest,
   type RuntimeFileRef,
@@ -129,7 +131,6 @@ import { incrementPerformanceCounter, measurePerformance } from "@/features/merm
 import { buildInteractionContext } from "@/features/mermaid-editor/lib/interaction/context";
 import type { EditorCommand } from "@/features/mermaid-editor/lib/interaction/commands";
 import { applyEditorCommandTransaction } from "@/features/mermaid-editor/lib/interaction/transaction";
-import { embeddedBrowserLogicalRect, embeddedBrowserRectKey } from "@/features/mermaid-editor/lib/embedded-browser-rect";
 import { initialMermaidSource, parseMermaid, serializeMermaid } from "@/features/mermaid-editor/lib/mermaid-graph";
 import { applyMermaidPatch } from "@/features/mermaid-editor/lib/mermaid-patch";
 import {
@@ -143,8 +144,9 @@ import {
 import { useDismissableFloatingMenu } from "@/features/mermaid-editor/lib/use-dismissable-floating-menu";
 import { useDisableNativeContextMenu } from "@/features/mermaid-editor/lib/native-context-menu";
 import { EDITOR_CHROME_CLASSES } from "@/features/mermaid-editor/lib/editor-chrome";
+import { shouldCreateGroupFromShortcut } from "@/features/mermaid-editor/lib/editor-keyboard-shortcuts";
 import { bringFloatingPanelToFront, floatingPanelStackIndex, type FloatingPanelWindowState } from "@/features/mermaid-editor/lib/floating-chrome";
-import { workspaceViewForDocument, type WorkspaceView } from "@/features/mermaid-editor/lib/workspace-view";
+import { workspaceViewForDocument, workspaceViewsForDocument, type WorkspaceView } from "@/features/mermaid-editor/lib/workspace-view";
 import {
   extractNodeActionsFromClipboardText,
   inferNodeActionKindFromTarget,
@@ -776,10 +778,6 @@ async function readSystemClipboardText() {
   }
 }
 
-function isDesktopWindowRuntime() {
-  return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
-}
-
 function parentDirectoryPath(path: string | undefined) {
   if (!path) return undefined;
   const index = Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\"));
@@ -819,17 +817,6 @@ function browserWindowTitle(url: string) {
   } catch {
     return url;
   }
-}
-
-function openExternalUrl(url: string) {
-  if (typeof window === "undefined") return;
-  window.open(url, "_blank", "noopener,noreferrer");
-}
-
-async function getDesktopWindow() {
-  if (!isDesktopWindowRuntime()) return null;
-  const { getCurrentWindow } = await import("@tauri-apps/api/window");
-  return getCurrentWindow();
 }
 
 export function MermaidEditor() {
@@ -1025,24 +1012,24 @@ export function MermaidEditor() {
     async (event: React.PointerEvent<HTMLElement>) => {
       if (runtime.kind !== "desktop" || event.button !== 0 || event.detail > 1) return;
       try {
-        await (await getDesktopWindow())?.startDragging();
+        await runtime.startDesktopWindowDrag();
       } catch {
         // Window dragging is desktop-only; ignore capability/runtime failures in web-like shells.
       }
     },
-    [runtime.kind]
+    [runtime]
   );
 
   const toggleDesktopWindowMaximizeHandle = useCallback(
     async () => {
       if (runtime.kind !== "desktop") return;
       try {
-        await (await getDesktopWindow())?.toggleMaximize();
+        await runtime.toggleDesktopWindowMaximize();
       } catch {
         // Window controls are optional outside the Tauri desktop shell.
       }
     },
-    [runtime.kind]
+    [runtime]
   );
 
   const buildCurrentAiContext = useCallback(() => {
@@ -1505,9 +1492,9 @@ export function MermaidEditor() {
     }
   }
 
-  function createGroupFromSelection() {
+  function createGroupFromSelection(source: "keyboard" | "menu" = "menu") {
     if (!isCanvasEditable || !hasSelection(selection)) return;
-    applyEditorCommand({ type: "graph.createSubgraphFromSelection", source: "menu" });
+    applyEditorCommand({ type: "graph.createSubgraphFromSelection", source });
   }
 
   function updateDirection(direction: GraphDirection) {
@@ -2825,7 +2812,7 @@ export function MermaidEditor() {
 
   function openUrlNodeAction(action: Extract<CanvasNodeAction, { kind: "url" }>) {
     if (action.openMode === "system") {
-      openExternalUrl(action.url);
+      runtime.openExternalUrl(action.url);
       return;
     }
     openBrowserWindow(action.url);
@@ -3244,14 +3231,12 @@ export function MermaidEditor() {
 
       unlistenDrop = await runtime.listenForFileDrops((request) => fileDropRequestRef.current(request));
 
-      const windowRef = await getDesktopWindow();
-      unlistenClose = await windowRef?.onCloseRequested(async (event) => {
-        if (canCloseWindowRef.current || !isDirtyRef.current) return;
-        event.preventDefault();
+      unlistenClose = await runtime.listenForDesktopWindowCloseRequest(async () => {
+        if (canCloseWindowRef.current || !isDirtyRef.current) return true;
         const canClose = await prepareCloseRequestRef.current();
-        if (!canClose) return;
+        if (!canClose) return false;
         canCloseWindowRef.current = true;
-        await windowRef.destroy();
+        return true;
       });
     }
 
@@ -3451,6 +3436,21 @@ export function MermaidEditor() {
 
       if (isTextInput(event.target)) return;
       if (!isCanvasEditable) return;
+
+      if (shouldCreateGroupFromShortcut({
+        key: event.key,
+        ctrlKey: event.ctrlKey,
+        metaKey: event.metaKey,
+        shiftKey: event.shiftKey,
+        altKey: event.altKey,
+        repeat: event.repeat,
+        editable: isCanvasEditable,
+        hasSelection: hasSelection(selection)
+      })) {
+        event.preventDefault();
+        createGroupFromSelection("keyboard");
+        return;
+      }
 
       if (command && key === "k") {
         const selectedNode = graph.nodes.find((node) => node.id === selection.primaryId) || graph.nodes.find((node) => node.id === selection.nodeIds[0]);
@@ -3785,7 +3785,7 @@ export function MermaidEditor() {
               panelId={browserWindow.id}
               title={browserWindow.title}
               url={browserWindow.url}
-              runtimeKind={runtime.kind}
+              runtime={runtime}
               active={activeWorkspacePanel === browserWindow.id}
               domOverlayActive={browserDomOverlayActive}
               windowState={workspacePanelWindowState(browserWindow.id)}
@@ -3834,7 +3834,7 @@ export function MermaidEditor() {
 
           {isDesktopChrome ? (
             <FloatingChromeSlot placement="topRight">
-              <DesktopWindowControls />
+              <DesktopWindowControls runtime={runtime} />
             </FloatingChromeSlot>
           ) : null}
 
@@ -4246,8 +4246,7 @@ function WorkspaceViewCluster({
 }
 
 function workspaceViewOptionsFor(editableKind: EditableKind, documentKind: DocumentKind): WorkspaceView[] {
-  if (documentKind === "markdown") return ["markdown", "source"];
-  return editableKind === "flowchart" ? ["canvas", "render", "source"] : ["render", "source"];
+  return workspaceViewsForDocument(editableKind, documentKind);
 }
 
 function ToolModeCluster({ mode, onChange }: { mode: EditorMode; onChange: (mode: EditorMode) => void }) {
@@ -4275,20 +4274,16 @@ function ToolModeCluster({ mode, onChange }: { mode: EditorMode; onChange: (mode
   );
 }
 
-function DesktopWindowControls() {
+function DesktopWindowControls({ runtime }: { runtime: EditorRuntime }) {
   const [available, setAvailable] = useState(false);
 
   useEffect(() => {
-    setAvailable(isDesktopWindowRuntime());
-  }, []);
+    setAvailable(runtime.isDesktopWindowAvailable());
+  }, [runtime]);
 
   async function runWindowAction(action: "minimize" | "toggleMaximize" | "close") {
     try {
-      const windowRef = await getDesktopWindow();
-      if (!windowRef) return;
-      if (action === "minimize") await windowRef.minimize();
-      if (action === "toggleMaximize") await windowRef.toggleMaximize();
-      if (action === "close") await windowRef.close();
+      await runtime.runDesktopWindowAction(action);
     } catch {
       // Window controls are desktop-only; ignore capability/runtime failures in web-like shells.
     }
@@ -4378,7 +4373,7 @@ function BrowserWindowPanel({
   panelId,
   title,
   url,
-  runtimeKind,
+  runtime,
   active,
   domOverlayActive,
   windowState,
@@ -4391,7 +4386,7 @@ function BrowserWindowPanel({
   panelId: BrowserWindowPanelId;
   title: string;
   url: string;
-  runtimeKind: "web" | "desktop";
+  runtime: EditorRuntime;
   active: boolean;
   domOverlayActive: boolean;
   windowState: FloatingPanelWindowState;
@@ -4418,7 +4413,7 @@ function BrowserWindowPanel({
   }
 
   function openInSystemBrowser() {
-    openExternalUrl(url);
+    runtime.openExternalUrl(url);
     onStatus("已请求使用系统浏览器打开。");
   }
 
@@ -4482,7 +4477,7 @@ function BrowserWindowPanel({
       <EmbeddedBrowserSurface
         panelId={panelId}
         url={url}
-        runtimeKind={runtimeKind}
+        runtime={runtime}
         active={active}
         domOverlayActive={domOverlayActive}
         reloadRevision={reloadRevision}
@@ -4492,266 +4487,6 @@ function BrowserWindowPanel({
       />
     </section>
   );
-}
-
-type NativeEmbeddedWebview = {
-  close: () => Promise<void>;
-  setPosition: (position: unknown) => Promise<void>;
-  setSize: (size: unknown) => Promise<void>;
-  hide: () => Promise<void>;
-  show: () => Promise<void>;
-  setFocus: () => Promise<void>;
-};
-
-type NativeDpiConstructors = {
-  LogicalPosition: new (x: number, y: number) => unknown;
-  LogicalSize: new (width: number, height: number) => unknown;
-};
-
-function EmbeddedBrowserSurface({
-  panelId,
-  url,
-  runtimeKind,
-  active,
-  domOverlayActive,
-  reloadRevision,
-  onReload,
-  onStatus,
-  onBrowserError
-}: {
-  panelId: BrowserWindowPanelId;
-  url: string;
-  runtimeKind: "web" | "desktop";
-  active: boolean;
-  domOverlayActive: boolean;
-  reloadRevision: number;
-  onReload: () => void;
-  onStatus: (message: string) => void;
-  onBrowserError: (url: string, message: string) => void;
-}) {
-  const surfaceRef = useRef<HTMLDivElement | null>(null);
-  const webviewRef = useRef<NativeEmbeddedWebview | null>(null);
-  const dpiRef = useRef<NativeDpiConstructors | null>(null);
-  const activeRef = useRef(active);
-  const domOverlayActiveRef = useRef(domOverlayActive);
-  const syncErrorReportedRef = useRef(false);
-  const [nativeState, setNativeState] = useState<"loading" | "ready" | "unavailable" | "error">("loading");
-  const [nativeError, setNativeError] = useState("");
-  const webviewLabel = useMemo(() => `browser_${hashText(`${panelId}:${url}:${reloadRevision}`)}`, [panelId, reloadRevision, url]);
-
-  useEffect(() => {
-    activeRef.current = active;
-    domOverlayActiveRef.current = domOverlayActive;
-    const webview = webviewRef.current;
-    if (!webview) return;
-    const shouldShow = active && !domOverlayActive;
-    void (shouldShow ? webview.show().then(() => webview.setFocus()).catch(() => undefined) : webview.hide().catch(() => undefined));
-  }, [active, domOverlayActive]);
-
-  useEffect(() => {
-    let disposed = false;
-    let frameId = 0;
-    let lastRectKey = "";
-    let nativeCreated = false;
-    syncErrorReportedRef.current = false;
-
-    async function createNativeWebview() {
-      const surface = surfaceRef.current;
-      if (!surface || runtimeKind !== "desktop" || !isDesktopWindowRuntime()) {
-        setNativeError("");
-        setNativeState("unavailable");
-        return;
-      }
-
-      setNativeError("");
-      setNativeState("loading");
-      try {
-        const [{ Webview }, { getCurrentWindow }, dpi] = await Promise.all([
-          import("@tauri-apps/api/webview"),
-          import("@tauri-apps/api/window"),
-          import("@tauri-apps/api/dpi")
-        ]);
-        if (disposed || !surfaceRef.current) return;
-
-        const currentWindow = getCurrentWindow();
-        dpiRef.current = {
-          LogicalPosition: dpi.LogicalPosition,
-          LogicalSize: dpi.LogicalSize
-        };
-        const reportSyncError = (operation: string, error: unknown) => {
-          if (disposed || syncErrorReportedRef.current) return;
-          syncErrorReportedRef.current = true;
-          const message = formatEmbeddedBrowserError(error) || operation;
-          onStatus(`WebView2 内置浏览器同步失败：${message}`);
-          onBrowserError(url, `sync ${operation}: ${message}`);
-        };
-        const syncWebviewRect = (force = false) => {
-          if (!nativeCreated) return;
-          syncNativeWebviewRect(surfaceRef.current, webviewRef.current, dpiRef.current, lastRectKey, (nextKey) => {
-            lastRectKey = nextKey;
-          }, { force, onError: reportSyncError });
-        };
-        const rect = embeddedBrowserLogicalRect(surfaceRef.current.getBoundingClientRect());
-        const webview = new Webview(currentWindow, webviewLabel, {
-          url,
-          x: rect.x,
-          y: rect.y,
-          width: rect.width,
-          height: rect.height,
-          focus: false,
-          dragDropEnabled: false
-        }) as NativeEmbeddedWebview;
-        webviewRef.current = webview;
-
-        const sync = () => {
-          if (disposed) return;
-          syncWebviewRect();
-          frameId = window.requestAnimationFrame(sync);
-        };
-
-        void (webview as unknown as { once?: (event: string, handler: (event?: unknown) => void) => Promise<() => void> }).once?.("tauri://created", () => {
-          if (disposed) return;
-          nativeCreated = true;
-          setNativeState("ready");
-          syncWebviewRect(true);
-          window.requestAnimationFrame(() => {
-            if (!disposed) syncWebviewRect(true);
-          });
-          if (!frameId) sync();
-          if (!activeRef.current || domOverlayActiveRef.current) void webview.hide().catch(() => undefined);
-        });
-        void (webview as unknown as { once?: (event: string, handler: (event?: unknown) => void) => Promise<() => void> }).once?.("tauri://error", (event) => {
-          if (disposed) return;
-          if (webviewRef.current === webview) webviewRef.current = null;
-          void webview.close().catch(() => undefined);
-          const message = formatEmbeddedBrowserError(event);
-          setNativeError(message);
-          setNativeState("error");
-          onStatus(`WebView2 内置浏览器创建失败${message ? `：${message}` : "。"}`);
-          onBrowserError(url, message || "tauri://error");
-        });
-      } catch (error) {
-        if (!disposed) {
-          const message = formatEmbeddedBrowserError(error);
-          setNativeError(message);
-          setNativeState("error");
-          onStatus(`WebView2 内置浏览器不可用${message ? `：${message}` : "。"}`);
-          onBrowserError(url, message || "import/create failed");
-        }
-      }
-    }
-
-    void createNativeWebview();
-
-    return () => {
-      disposed = true;
-      if (frameId) window.cancelAnimationFrame(frameId);
-      const webview = webviewRef.current;
-      webviewRef.current = null;
-      void webview?.close().catch(() => undefined);
-    };
-  }, [onBrowserError, onStatus, reloadRevision, runtimeKind, url, webviewLabel]);
-
-  return (
-    <div ref={surfaceRef} className="relative h-full w-full min-h-0 min-w-0 overflow-hidden bg-background">
-      {nativeState === "unavailable" || nativeState === "error" ? (
-        <EmbeddedBrowserUnavailable
-          url={url}
-          reason={nativeState === "unavailable" ? "应用内浏览器需要桌面版 WebView2。" : "WebView2 内置浏览器创建失败。"}
-          detail={nativeError}
-          onRetry={onReload}
-          onOpenExternal={() => {
-            openExternalUrl(url);
-            onStatus("已请求使用系统浏览器打开。");
-          }}
-        />
-      ) : (
-        <div className="grid h-full w-full place-items-center p-4 text-sm text-muted-foreground">
-          {nativeState === "loading" ? "正在打开网页" : ""}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function EmbeddedBrowserUnavailable({
-  url,
-  reason,
-  detail,
-  onRetry,
-  onOpenExternal
-}: {
-  url: string;
-  reason: string;
-  detail: string;
-  onRetry: () => void;
-  onOpenExternal: () => void;
-}) {
-  return (
-    <div className="flex h-full min-h-0 items-center justify-center bg-background p-4">
-      <div className="w-full max-w-md rounded-md border bg-card/95 p-4 text-sm shadow-sm">
-        <div className="flex items-start gap-3">
-          <WarningTriangle className="mt-0.5 size-5 shrink-0 text-destructive" />
-          <div className="min-w-0 space-y-3">
-            <div>
-              <div className="font-medium text-foreground">WebView2 内置浏览器不可用</div>
-              <div className="mt-1 text-muted-foreground">{reason}</div>
-            </div>
-            {detail ? (
-              <div className="max-h-24 overflow-auto rounded-md border border-destructive/20 bg-destructive/5 px-2 py-1 font-mono text-xs text-destructive">
-                {detail}
-              </div>
-            ) : null}
-            <div className="truncate rounded-md border bg-muted/30 px-2 py-1 font-mono text-xs text-muted-foreground" title={url}>
-              {url}
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <Button size="sm" variant="outline" onClick={onRetry}>
-                <RefreshCw className="mr-2 size-4" />
-                重试
-              </Button>
-              <Button size="sm" variant="secondary" onClick={onOpenExternal}>
-                <OpenNewWindow className="mr-2 size-4" />
-                系统浏览器打开
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function formatEmbeddedBrowserError(error: unknown) {
-  if (!error) return "";
-  if (typeof error === "string") return error;
-  if (error instanceof Error) return error.message;
-  if (typeof error === "object" && "payload" in error) {
-    return formatEmbeddedBrowserError((error as { payload?: unknown }).payload);
-  }
-
-  try {
-    return JSON.stringify(error);
-  } catch {
-    return String(error);
-  }
-}
-
-function syncNativeWebviewRect(
-  surface: HTMLDivElement | null,
-  webview: NativeEmbeddedWebview | null,
-  dpi: NativeDpiConstructors | null,
-  lastRectKey: string,
-  updateLastRectKey: (key: string) => void,
-  options: { force?: boolean; onError?: (operation: string, error: unknown) => void } = {}
-) {
-  if (!surface || !webview || !dpi) return;
-  const rect = embeddedBrowserLogicalRect(surface.getBoundingClientRect());
-  const rectKey = embeddedBrowserRectKey(rect);
-  if (!options.force && rectKey === lastRectKey) return;
-  updateLastRectKey(rectKey);
-  void webview.setPosition(new dpi.LogicalPosition(rect.x, rect.y)).catch((error: unknown) => options.onError?.("position", error));
-  void webview.setSize(new dpi.LogicalSize(rect.width, rect.height)).catch((error: unknown) => options.onError?.("size", error));
 }
 
 function FileDropFeedbackBadge({ feedback }: { feedback: FileDropFeedback }) {

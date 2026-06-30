@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { nextWorkspaceView, workspaceViewForDocument } from "@/features/mermaid-editor/lib/workspace-view";
+import { nextWorkspaceView, workspaceViewForDocument, workspaceViewsForDocument } from "@/features/mermaid-editor/lib/workspace-view";
 
 describe("workspace view", () => {
   it("cycles all three views for editable flowcharts", () => {
@@ -25,5 +25,12 @@ describe("workspace view", () => {
   it("keeps canvas documents in their dedicated canvas viewer", () => {
     expect(nextWorkspaceView("source", "render-only", "canvas")).toBe("canvas");
     expect(workspaceViewForDocument("flowchart", "source", "canvas")).toBe("canvas");
+  });
+
+  it("returns view button options from document kind registry", () => {
+    expect(workspaceViewsForDocument("flowchart", "mermaid")).toEqual(["canvas", "render", "source"]);
+    expect(workspaceViewsForDocument("render-only", "mermaid")).toEqual(["render", "source"]);
+    expect(workspaceViewsForDocument("render-only", "markdown")).toEqual(["markdown", "source"]);
+    expect(workspaceViewsForDocument("flowchart", "canvas")).toEqual(["canvas"]);
   });
 });

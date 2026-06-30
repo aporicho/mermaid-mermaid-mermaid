@@ -1,7 +1,15 @@
 import type { EditableKind } from "@/features/mermaid-editor/lib/editor-types";
-import type { DocumentKind } from "@/features/mermaid-editor/lib/document-kind";
+import {
+  documentKindDefaultWorkspaceView,
+  documentKindSupportsWorkspaceView,
+  documentKindWorkspaceViews,
+  nextDocumentKindWorkspaceView,
+  type DocumentKind,
+  type DocumentWorkspaceProfile,
+  type DocumentWorkspaceView
+} from "@/features/mermaid-editor/lib/document-kind";
 
-export type WorkspaceView = "canvas" | "render" | "source" | "markdown";
+export type WorkspaceView = DocumentWorkspaceView;
 
 export function normalizeWorkspaceView(value: unknown): WorkspaceView | undefined {
   return value === "canvas" || value === "render" || value === "source" || value === "markdown" ? value : undefined;
@@ -9,17 +17,19 @@ export function normalizeWorkspaceView(value: unknown): WorkspaceView | undefine
 
 export function workspaceViewForDocument(editableKind: EditableKind, value: unknown, documentKind: DocumentKind = "mermaid"): WorkspaceView {
   const view = normalizeWorkspaceView(value);
-  if (documentKind === "canvas") return "canvas";
-  if (documentKind === "markdown") return view === "source" ? "source" : "markdown";
-  if (editableKind === "flowchart") return view || "canvas";
-  return view === "source" ? "source" : "render";
+  const profile = workspaceProfileForDocument(editableKind, documentKind);
+  if (view && documentKindSupportsWorkspaceView(documentKind, view, profile)) return view;
+  return documentKindDefaultWorkspaceView(documentKind, profile);
 }
 
 export function nextWorkspaceView(current: WorkspaceView, editableKind: EditableKind, documentKind: DocumentKind = "mermaid"): WorkspaceView {
-  if (documentKind === "canvas") return "canvas";
-  if (documentKind === "markdown") return current === "source" ? "markdown" : "source";
-  if (editableKind !== "flowchart") return current === "source" ? "render" : "source";
-  if (current === "canvas") return "render";
-  if (current === "render") return "source";
-  return "canvas";
+  return nextDocumentKindWorkspaceView(documentKind, current, workspaceProfileForDocument(editableKind, documentKind));
+}
+
+export function workspaceViewsForDocument(editableKind: EditableKind, documentKind: DocumentKind = "mermaid"): WorkspaceView[] {
+  return [...documentKindWorkspaceViews(documentKind, workspaceProfileForDocument(editableKind, documentKind))];
+}
+
+function workspaceProfileForDocument(editableKind: EditableKind, documentKind: DocumentKind): DocumentWorkspaceProfile {
+  return documentKind === "mermaid" && editableKind === "flowchart" ? "flowchart" : "default";
 }

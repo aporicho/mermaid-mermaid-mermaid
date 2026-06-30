@@ -47,6 +47,11 @@ export type AiEditingContext =
       draftText: string;
     }
   | {
+      kind: "subgraph";
+      id: string;
+      draftText: string;
+    }
+  | {
       kind: "source";
       draftText: string;
     };
@@ -362,6 +367,7 @@ function rankFocus(input: {
 
   if (input.editing?.kind === "node") add("node", input.editing.id, 120, "editing");
   if (input.editing?.kind === "edge") add("edge", input.editing.id, 120, "editing");
+  if (input.editing?.kind === "subgraph") add("subgraph", input.editing.id, 120, "editing");
   addKindList("node", input.selection.nodeIds, 90, "selected");
   addKindList("edge", input.selection.edgeIds, 90, "selected");
   addKindList("subgraph", input.selection.subgraphIds, 90, "selected");

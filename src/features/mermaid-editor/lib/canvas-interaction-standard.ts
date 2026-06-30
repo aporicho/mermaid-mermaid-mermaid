@@ -24,6 +24,7 @@ export type StandardCanvasHitTarget =
   | { kind: "item"; id: string }
   | { kind: "itemAnchor"; itemId: string; anchor: string }
   | { kind: "group"; id: string }
+  | { kind: "groupTitle"; id: string }
   | { kind: "groupAnchor"; groupId: string; anchor: string }
   | { kind: "connection"; id: string }
   | { kind: "connectionLabel"; id: string }
@@ -73,6 +74,7 @@ export type StandardCanvasInteractionState =
     }
   | { kind: "retargetingConnection"; pointerId: number; connectionId: string; side: "from" | "to"; currentWorld: StandardCanvasPoint }
   | { kind: "editingItemText"; itemId: string }
+  | { kind: "editingGroupText"; groupId: string }
   | { kind: "editingConnectionText"; connectionId: string };
 
 export type StandardBlankClickIntent = {
@@ -116,7 +118,7 @@ export type StandardBlankClickResolution =
   | { action: "record"; intent: StandardBlankClickIntent }
   | { action: "addItem"; intent: null; point: StandardCanvasPoint };
 
-export type StandardInlineEditCommandTarget = { type: "item" | "connection"; id: string };
+export type StandardInlineEditCommandTarget = { type: "item" | "group" | "connection"; id: string };
 
 export type StandardCanvasInteractionCommand =
   | { type: "blankClick.invalidate" }
@@ -237,7 +239,7 @@ export function beginStandardCanvasPointer(input: StandardPointerDownInput): Sta
       };
     }
 
-    if (input.hit.kind === "group") {
+    if (input.hit.kind === "group" || input.hit.kind === "groupTitle") {
       return {
         state: {
           kind: "pendingGroupPointer",
@@ -280,13 +282,16 @@ export function beginStandardCanvasPointer(input: StandardPointerDownInput): Sta
     }
   }
 
-  if (input.tool === "connect" && (input.hit.kind === "item" || input.hit.kind === "itemAnchor" || input.hit.kind === "group" || input.hit.kind === "groupAnchor")) {
+  if (
+    input.tool === "connect" &&
+    (input.hit.kind === "item" || input.hit.kind === "itemAnchor" || input.hit.kind === "group" || input.hit.kind === "groupTitle" || input.hit.kind === "groupAnchor")
+  ) {
     const fromId =
       input.hit.kind === "item"
         ? input.hit.id
         : input.hit.kind === "itemAnchor"
           ? input.hit.itemId
-          : input.hit.kind === "group"
+          : input.hit.kind === "group" || input.hit.kind === "groupTitle"
             ? input.hit.id
             : input.hit.groupId;
     const fromAnchor = input.hit.kind === "itemAnchor" || input.hit.kind === "groupAnchor" ? input.hit.anchor : undefined;
@@ -469,7 +474,7 @@ export function dispatchStandardCanvasClick(input: { tool: EditorMode; hit: Stan
     commands.push({ type: "selection.selectItem", id: input.hit.kind === "itemAnchor" ? input.hit.itemId : input.hit.itemId, additive: input.shiftKey });
   }
 
-  if (input.hit.kind === "group") {
+  if (input.hit.kind === "group" || input.hit.kind === "groupTitle") {
     commands.push({ type: "selection.selectGroup", id: input.hit.id, additive: input.shiftKey });
   }
 
@@ -500,9 +505,10 @@ export function dispatchStandardCanvasDoubleClick(input: { tool: EditorMode; hit
     commands.push({ type: "text.editStart", target: { type: "item", id } });
   }
 
-  if (input.hit.kind === "group" || input.hit.kind === "groupAnchor") {
-    const id = input.hit.kind === "group" ? input.hit.id : input.hit.groupId;
+  if (input.hit.kind === "group" || input.hit.kind === "groupTitle" || input.hit.kind === "groupAnchor") {
+    const id = input.hit.kind === "group" || input.hit.kind === "groupTitle" ? input.hit.id : input.hit.groupId;
     commands.push({ type: "selection.selectGroup", id, additive: false });
+    if (input.hit.kind === "groupTitle") commands.push({ type: "text.editStart", target: { type: "group", id } });
   }
 
   if (input.hit.kind === "connection" || input.hit.kind === "connectionLabel") {
@@ -567,7 +573,7 @@ export function standardInteractionCursor(tool: EditorMode, state: StandardCanva
 }
 
 export function isStandardEditingInteraction(state: StandardCanvasInteractionState) {
-  return state.kind === "editingItemText" || state.kind === "editingConnectionText";
+  return state.kind === "editingItemText" || state.kind === "editingGroupText" || state.kind === "editingConnectionText";
 }
 
 export function movedBeyondThreshold(start: StandardCanvasPoint, current: StandardCanvasPoint, threshold = STANDARD_CANVAS_DRAG_THRESHOLD_PX) {

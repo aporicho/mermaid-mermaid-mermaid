@@ -4,6 +4,7 @@ export const CANVAS_HIT_NAMES = {
   node: "canvas-node",
   nodeAnchor: "canvas-node-anchor",
   subgraph: "canvas-subgraph",
+  subgraphTitle: "canvas-subgraph-title",
   subgraphAnchor: "canvas-subgraph-anchor",
   edge: "canvas-edge",
   edgeLabel: "canvas-edge-label",
@@ -26,6 +27,10 @@ export function nodeAnchorHitId(nodeId: string, anchor: string) {
 
 export function subgraphHitId(subgraphId: string) {
   return `subgraph:${encodePart(subgraphId)}`;
+}
+
+export function subgraphTitleHitId(subgraphId: string) {
+  return `subgraph-title:${encodePart(subgraphId)}`;
 }
 
 export function subgraphAnchorHitId(subgraphId: string, anchor: string) {
@@ -70,6 +75,10 @@ export function parseHitTargetId(value: string): HitTarget | null {
 
   if (kind === "subgraph" && first) {
     return { kind: "subgraph", id: decodePart(first) };
+  }
+
+  if (kind === "subgraph-title" && first) {
+    return { kind: "subgraphTitle", id: decodePart(first) };
   }
 
   if (kind === "subgraph-anchor" && first && second) {

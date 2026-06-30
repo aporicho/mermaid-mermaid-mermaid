@@ -1,10 +1,35 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
 function readProjectFile(path: string) {
   return readFileSync(join(process.cwd(), path), "utf8");
+}
+
+function projectFilesUnder(path: string, extensionPattern: RegExp) {
+  const root = join(process.cwd(), path);
+  const files: string[] = [];
+
+  function visit(absolutePath: string, relativePath: string) {
+    for (const entry of readdirSync(absolutePath)) {
+      const absoluteEntryPath = join(absolutePath, entry);
+      const relativeEntryPath = `${relativePath}/${entry}`;
+      const stats = statSync(absoluteEntryPath);
+      if (stats.isDirectory()) {
+        visit(absoluteEntryPath, relativeEntryPath);
+        continue;
+      }
+      if (extensionPattern.test(entry)) files.push(relativeEntryPath);
+    }
+  }
+
+  visit(root, path);
+  return files;
+}
+
+function lineCount(value: string) {
+  return value.split(/\r?\n/).length;
 }
 
 describe("interaction architecture contract", () => {
@@ -52,7 +77,7 @@ describe("interaction architecture contract", () => {
     expect(canvasDocumentEditor).toContain("commitInlineEdit");
     expect(canvasDocumentEditor).toContain("editingItemText");
     expect(canvasDocumentEditor).toContain("editingConnectionText");
-    expect(canvasDocumentEditor).not.toContain('window.prompt("文本"');
+    expect(canvasDocumentEditor).not.toContain("window.prompt(");
   });
 
   it("keeps Mermaid canvas interaction as a standard adapter", () => {
@@ -62,5 +87,51 @@ describe("interaction architecture contract", () => {
     expect(canvasInteraction).toContain("dispatchStandardCanvasPointerDown");
     expect(canvasInteraction).toContain("toStandardHitTarget");
     expect(canvasInteraction).toContain("fromStandardCommand");
+  });
+
+  it("keeps frontend components behind the editor runtime platform adapter", () => {
+    const componentFiles = projectFilesUnder("src/features/mermaid-editor/components", /\.[tj]sx?$/);
+
+    for (const file of componentFiles) {
+      const source = readProjectFile(file);
+      expect(source, file).not.toContain("@tauri-apps/api");
+    }
+  });
+
+  it("prevents new component prompt flows from bypassing app chrome", () => {
+    const componentFiles = projectFilesUnder("src/features/mermaid-editor/components", /\.[tj]sx?$/);
+
+    for (const file of componentFiles) {
+      const source = readProjectFile(file);
+      expect(source, file).not.toContain("window.prompt(");
+    }
+  });
+
+  it("keeps known oversized files on a no-growth budget", () => {
+    const budgets = [
+      { path: "src/features/mermaid-editor/components/mermaid-editor.tsx", maxLines: 6100 },
+      { path: "src/features/mermaid-editor/components/konva-canvas.tsx", maxLines: 3330 },
+      { path: "src/features/mermaid-editor/components/canvas-document-editor.tsx", maxLines: 1900 },
+      { path: "src-tauri/src/main.rs", maxLines: 1450 }
+    ];
+
+    for (const budget of budgets) {
+      expect(lineCount(readProjectFile(budget.path)), budget.path).toBeLessThanOrEqual(budget.maxLines);
+    }
+  });
+
+  it("keeps newly oversized frontend files out of the codebase", () => {
+    const knownLargeFiles = new Set([
+      "src/features/mermaid-editor/components/mermaid-editor.tsx",
+      "src/features/mermaid-editor/components/konva-canvas.tsx",
+      "src/features/mermaid-editor/components/canvas-document-editor.tsx"
+    ]);
+    const frontendFiles = projectFilesUnder("src/features/mermaid-editor", /\.[tj]sx?$/);
+
+    for (const file of frontendFiles) {
+      const lines = lineCount(readProjectFile(file));
+      if (lines <= 1500) continue;
+      expect(knownLargeFiles.has(file), `${file} has ${lines} lines`).toBe(true);
+    }
   });
 });

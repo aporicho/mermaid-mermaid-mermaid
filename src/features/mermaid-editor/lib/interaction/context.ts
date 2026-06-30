@@ -18,6 +18,7 @@ export type InteractionWorkspaceView = "canvas" | "render" | "source" | "markdow
 
 export type InteractionEditingContext =
   | { kind: "node"; id: string; draftText: string }
+  | { kind: "subgraph"; id: string; draftText: string }
   | { kind: "edge"; id: string; draftText: string }
   | { kind: "source"; draftText: string };
 

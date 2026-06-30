@@ -209,6 +209,8 @@ export function CanvasDocumentEditor({ document, fileRef, runtime, onChange, onS
   const [inlineEdit, setInlineEditState] = useState<CanvasDocumentInlineEdit | null>(null);
   const [inlineEditLayoutRevision, setInlineEditLayoutRevision] = useState(0);
   const [itemEditorLayout, setItemEditorLayout] = useState({ insetTop: 0, height: 1, scrollable: false });
+  const [imageUrlDialogOpen, setImageUrlDialogOpen] = useState(false);
+  const [imageUrlDraft, setImageUrlDraft] = useState("");
 
   renderCurrentSceneRef.current = () => {
     const pixi = pixiRef.current;
@@ -604,10 +606,21 @@ export function CanvasDocumentEditor({ document, fileRef, runtime, onChange, onS
       }
     }
 
-    const src = window.prompt("图片 URL");
-    if (!src?.trim()) return;
+    requestImageUrl();
+  }
+
+  function requestImageUrl() {
+    setImageUrlDraft("");
+    setImageUrlDialogOpen(true);
+  }
+
+  async function addImageFromUrl(src: string) {
+    const trimmed = src.trim();
+    if (!trimmed) return;
+    setImageUrlDialogOpen(false);
+    const size = await loadImageDimensions(trimmed);
     const center = viewportCenterPoint();
-    const element = createCanvasImageElement(documentRef.current.elements, center.x - DEFAULT_IMAGE_WIDTH / 2, center.y - DEFAULT_IMAGE_HEIGHT / 2, src.trim());
+    const element = createCanvasImageElement(documentRef.current.elements, center.x - size.width / 2, center.y - size.height / 2, trimmed, size.width, size.height);
     commitElements([...documentRef.current.elements, element], "已添加图片。");
     setSelectedIds([element.id]);
     animateCreatedElement(element.id);
@@ -1122,6 +1135,52 @@ export function CanvasDocumentEditor({ document, fileRef, runtime, onChange, onS
         {connectorStartId ? (
           <div className="pointer-events-none absolute left-1/2 top-4 z-20 -translate-x-1/2 rounded-md border bg-card/95 px-3 py-2 text-xs text-muted-foreground shadow-sm">
             选择第二个对象完成连线
+          </div>
+        ) : null}
+        {imageUrlDialogOpen ? (
+          <div
+            className="absolute inset-0 z-50 grid place-items-center bg-foreground/10 px-4 backdrop-blur-[1px]"
+            onMouseDown={(event) => {
+              if (event.target === event.currentTarget) setImageUrlDialogOpen(false);
+            }}
+          >
+            <form
+              className="grid w-[min(420px,100%)] gap-3 rounded-md border bg-card p-4 shadow-sm"
+              onSubmit={(event) => {
+                event.preventDefault();
+                void addImageFromUrl(imageUrlDraft);
+              }}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="text-sm font-medium">添加图片 URL</div>
+                  <div className="mt-1 text-xs text-muted-foreground">输入 http、https、data 或本地可访问的图片地址。</div>
+                </div>
+                <Button type="button" size="icon" variant="ghost" className="size-8 shrink-0" onClick={() => setImageUrlDialogOpen(false)} aria-label="关闭图片 URL 输入">
+                  <Xmark className="size-4" />
+                </Button>
+              </div>
+              <Input
+                value={imageUrlDraft}
+                autoFocus
+                placeholder="https://example.com/image.png"
+                onChange={(event) => setImageUrlDraft(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Escape") {
+                    event.preventDefault();
+                    setImageUrlDialogOpen(false);
+                  }
+                }}
+              />
+              <div className="flex justify-end gap-2">
+                <Button type="button" variant="ghost" onClick={() => setImageUrlDialogOpen(false)}>
+                  取消
+                </Button>
+                <Button type="submit" disabled={!imageUrlDraft.trim()}>
+                  添加图片
+                </Button>
+              </div>
+            </form>
           </div>
         ) : null}
         <div

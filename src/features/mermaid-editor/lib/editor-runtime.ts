@@ -6,6 +6,7 @@ import {
   ensureDocumentFileName,
   type DocumentKind
 } from "@/features/mermaid-editor/lib/document-kind";
+import type { EmbeddedBrowserLogicalRect } from "@/features/mermaid-editor/lib/embedded-browser-rect";
 import type { EditorDiagnostic } from "@/features/mermaid-editor/lib/editor-diagnostics";
 import { runtimeFileRefFromPath } from "@/features/mermaid-editor/lib/file-workflow";
 import type { ProjectWorkspace } from "@/features/mermaid-editor/lib/project-workspace";
@@ -122,8 +123,45 @@ export type RuntimeProjectFolderResult =
       message: string;
     };
 
+export type RuntimeDesktopWindowAction = "minimize" | "toggleMaximize" | "close";
+
+export type RuntimeEmbeddedBrowserHandle = {
+  close: () => Promise<void>;
+  hide: () => Promise<void>;
+  show: () => Promise<void>;
+  focus: () => Promise<void>;
+  setRect: (rect: EmbeddedBrowserLogicalRect) => Promise<void>;
+  onCreated: (handler: () => void) => Promise<void>;
+  onError: (handler: (error: unknown) => void) => Promise<void>;
+};
+
+export type RuntimeEmbeddedBrowserResult =
+  | {
+      status: "created";
+      browser: RuntimeEmbeddedBrowserHandle;
+    }
+  | {
+      status: "unsupported";
+      message: string;
+    }
+  | {
+      status: "error";
+      message: string;
+    };
+
 export type EditorRuntime = {
   kind: "web" | "desktop";
+  openExternalUrl: (url: string) => void;
+  isDesktopWindowAvailable: () => boolean;
+  startDesktopWindowDrag: () => Promise<void>;
+  toggleDesktopWindowMaximize: () => Promise<void>;
+  runDesktopWindowAction: (action: RuntimeDesktopWindowAction) => Promise<void>;
+  listenForDesktopWindowCloseRequest: (handler: () => boolean | Promise<boolean>) => Promise<() => void>;
+  createEmbeddedBrowser: (request: {
+    label: string;
+    url: string;
+    rect: EmbeddedBrowserLogicalRect;
+  }) => Promise<RuntimeEmbeddedBrowserResult>;
   loadDraft: () => EditorDraftState | null;
   loadSavedState: () => Promise<EditorDraftState | null>;
   saveDraft: (draft: EditorDraftState) => Promise<void>;
@@ -232,6 +270,30 @@ export function isRuntimeAbortError(error: unknown) {
 function createWebRuntime(): EditorRuntime {
   return {
     kind: "web",
+    openExternalUrl(url) {
+      openExternalUrl(url);
+    },
+    isDesktopWindowAvailable() {
+      return false;
+    },
+    async startDesktopWindowDrag() {
+      // Static web builds do not expose desktop window controls.
+    },
+    async toggleDesktopWindowMaximize() {
+      // Static web builds do not expose desktop window controls.
+    },
+    async runDesktopWindowAction() {
+      // Static web builds do not expose desktop window controls.
+    },
+    async listenForDesktopWindowCloseRequest() {
+      return () => undefined;
+    },
+    async createEmbeddedBrowser() {
+      return {
+        status: "unsupported",
+        message: "应用内浏览器需要桌面版 WebView2。"
+      };
+    },
     loadDraft() {
       if (typeof window === "undefined") return null;
       const raw = window.localStorage.getItem(EDITOR_DRAFT_STORAGE_KEY);
@@ -385,6 +447,37 @@ function createWebRuntime(): EditorRuntime {
 function createDesktopRuntime(): EditorRuntime {
   return {
     kind: "desktop",
+    openExternalUrl(url) {
+      openExternalUrl(url);
+    },
+    isDesktopWindowAvailable() {
+      return isTauriRuntime();
+    },
+    async startDesktopWindowDrag() {
+      await (await getTauriCurrentWindow())?.startDragging();
+    },
+    async toggleDesktopWindowMaximize() {
+      await (await getTauriCurrentWindow())?.toggleMaximize();
+    },
+    async runDesktopWindowAction(action) {
+      const windowRef = await getTauriCurrentWindow();
+      if (!windowRef) return;
+      if (action === "minimize") await windowRef.minimize();
+      if (action === "toggleMaximize") await windowRef.toggleMaximize();
+      if (action === "close") await windowRef.close();
+    },
+    async listenForDesktopWindowCloseRequest(handler) {
+      const windowRef = await getTauriCurrentWindow();
+      if (!windowRef) return () => undefined;
+      return windowRef.onCloseRequested(async (event: { preventDefault: () => void }) => {
+        event.preventDefault();
+        const canClose = await handler();
+        if (canClose) await windowRef.destroy();
+      });
+    },
+    async createEmbeddedBrowser(request) {
+      return createDesktopEmbeddedBrowser(request);
+    },
     loadDraft() {
       return null;
     },
@@ -581,6 +674,121 @@ function downloadTextDocument(documentText: string, name: string, documentKind: 
 
 function isTauriRuntime() {
   return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+}
+
+function openExternalUrl(url: string) {
+  if (typeof window === "undefined") return;
+  window.open(url, "_blank", "noopener,noreferrer");
+}
+
+type TauriCurrentWindow = {
+  startDragging: () => Promise<void>;
+  toggleMaximize: () => Promise<void>;
+  minimize: () => Promise<void>;
+  close: () => Promise<void>;
+  destroy: () => Promise<void>;
+  onCloseRequested: (handler: (event: { preventDefault: () => void }) => void | Promise<void>) => Promise<() => void>;
+};
+
+type NativeEmbeddedWebview = {
+  close: () => Promise<void>;
+  setPosition: (position: unknown) => Promise<void>;
+  setSize: (size: unknown) => Promise<void>;
+  hide: () => Promise<void>;
+  show: () => Promise<void>;
+  setFocus: () => Promise<void>;
+  once?: (event: string, handler: (event?: unknown) => void) => Promise<() => void>;
+};
+
+type NativeDpiConstructors = {
+  LogicalPosition: new (x: number, y: number) => unknown;
+  LogicalSize: new (width: number, height: number) => unknown;
+};
+
+async function getTauriCurrentWindow() {
+  if (!isTauriRuntime()) return null;
+  const { getCurrentWindow } = await import("@tauri-apps/api/window");
+  return getCurrentWindow() as TauriCurrentWindow;
+}
+
+async function createDesktopEmbeddedBrowser(request: {
+  label: string;
+  url: string;
+  rect: EmbeddedBrowserLogicalRect;
+}): Promise<RuntimeEmbeddedBrowserResult> {
+  if (!isTauriRuntime()) {
+    return {
+      status: "unsupported",
+      message: "应用内浏览器需要桌面版 WebView2。"
+    };
+  }
+
+  try {
+    const [{ Webview }, { getCurrentWindow }, dpi] = await Promise.all([
+      import("@tauri-apps/api/webview"),
+      import("@tauri-apps/api/window"),
+      import("@tauri-apps/api/dpi")
+    ]);
+    const currentWindow = getCurrentWindow();
+
+    const constructors: NativeDpiConstructors = {
+      LogicalPosition: dpi.LogicalPosition,
+      LogicalSize: dpi.LogicalSize
+    };
+    const webview = new Webview(currentWindow, request.label, {
+      url: request.url,
+      x: request.rect.x,
+      y: request.rect.y,
+      width: request.rect.width,
+      height: request.rect.height,
+      focus: false,
+      dragDropEnabled: false
+    }) as NativeEmbeddedWebview;
+
+    return {
+      status: "created",
+      browser: {
+        close: () => webview.close(),
+        hide: () => webview.hide(),
+        show: () => webview.show(),
+        focus: () => webview.setFocus(),
+        async setRect(rect) {
+          await webview.setPosition(new constructors.LogicalPosition(rect.x, rect.y));
+          await webview.setSize(new constructors.LogicalSize(rect.width, rect.height));
+        },
+        async onCreated(handler) {
+          if (webview.once) {
+            await webview.once("tauri://created", () => handler());
+            return;
+          }
+          window.requestAnimationFrame(handler);
+        },
+        async onError(handler) {
+          await webview.once?.("tauri://error", (event) => handler(event));
+        }
+      }
+    };
+  } catch (error) {
+    return {
+      status: "error",
+      message: formatRuntimeError(error)
+    };
+  }
+}
+
+function formatRuntimeError(error: unknown) {
+  if (!error) return "";
+  if (typeof error === "string") return error;
+  if (error instanceof Error) return error.message;
+  if (typeof error === "object" && "payload" in error) {
+    return formatRuntimeError((error as { payload?: unknown }).payload);
+  }
+
+  try {
+    return JSON.stringify(error);
+  } catch {
+    return String(error);
+  }
 }
 
 async function tauriInvoke<T>(command: string, args?: Record<string, unknown>) {

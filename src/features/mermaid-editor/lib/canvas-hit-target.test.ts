@@ -7,7 +7,8 @@ import {
   nodeAnchorHitId,
   nodeHitId,
   parseHitTargetId,
-  resolveKonvaHitTarget
+  resolveKonvaHitTarget,
+  subgraphTitleHitId
 } from "@/features/mermaid-editor/lib/canvas-hit-target";
 
 type MockNode = {
@@ -34,6 +35,7 @@ describe("canvas hit target", () => {
   it("parses encoded hit target identifiers", () => {
     expect(parseHitTargetId(nodeHitId("Web:UI"))).toEqual({ kind: "node", id: "Web:UI" });
     expect(parseHitTargetId(nodeAnchorHitId("Web:UI", "right"))).toEqual({ kind: "nodeAnchor", nodeId: "Web:UI", anchor: "right" });
+    expect(parseHitTargetId(subgraphTitleHitId("Group:UI"))).toEqual({ kind: "subgraphTitle", id: "Group:UI" });
     expect(parseHitTargetId(edgeHitId("a-->b"))).toEqual({ kind: "edge", id: "a-->b" });
     expect(parseHitTargetId(edgeLabelHitId("a-->b"))).toEqual({ kind: "edgeLabel", id: "a-->b" });
     expect(parseHitTargetId(edgeEndpointHitId("a-->b", "from"))).toEqual({ kind: "edgeEndpoint", edgeId: "a-->b", side: "from" });

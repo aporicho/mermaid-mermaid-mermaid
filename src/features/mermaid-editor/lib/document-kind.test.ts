@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  DOCUMENT_KIND_REGISTRY,
+  documentKindDefaultWorkspaceView,
   documentKindFromPath,
+  documentKindSupportsWorkspaceView,
+  documentKindWorkspaceViews,
   ensureDocumentFileName,
   isSupportedDocumentFilePath,
   isSupportedMarkdownFilePath,
@@ -31,5 +35,15 @@ describe("document kind", () => {
     expect(ensureDocumentFileName("board.txt", "canvas")).toBe("board.canvas.json");
     expect(ensureDocumentFileName("board.canvas.json", "canvas")).toBe("board.canvas.json");
     expect(ensureDocumentFileName(undefined, "markdown")).toBe("document.md");
+  });
+
+  it("keeps file type and workspace view rules in the registry", () => {
+    expect(DOCUMENT_KIND_REGISTRY.map((descriptor) => descriptor.kind)).toEqual(["mermaid", "markdown", "canvas"]);
+    expect(documentKindWorkspaceViews("mermaid")).toEqual(["render", "source"]);
+    expect(documentKindWorkspaceViews("mermaid", "flowchart")).toEqual(["canvas", "render", "source"]);
+    expect(documentKindWorkspaceViews("markdown")).toEqual(["markdown", "source"]);
+    expect(documentKindWorkspaceViews("canvas")).toEqual(["canvas"]);
+    expect(documentKindDefaultWorkspaceView("mermaid", "flowchart")).toBe("canvas");
+    expect(documentKindSupportsWorkspaceView("markdown", "canvas")).toBe(false);
   });
 });

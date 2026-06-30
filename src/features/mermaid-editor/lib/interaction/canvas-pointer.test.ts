@@ -135,6 +135,18 @@ describe("canvas pointer interaction adapter", () => {
     ]);
   });
 
+  it("turns double-click on a subgraph title into selection plus local inline edit", () => {
+    const result = resolveCanvasPointerDoubleClick(pointer({ phase: "double-click", hit: { kind: "subgraphTitle", id: "Group" } }), context());
+
+    expect(result.editorCommands).toEqual([
+      { type: "selection.set", selection: { nodeIds: [], edgeIds: [], subgraphIds: ["Group"], primaryId: "Group" }, source: "pointer" }
+    ]);
+    expect(result.localEffects).toEqual([
+      { type: "blankClick.invalidate" },
+      { type: "inlineEdit.start", target: { type: "subgraph", id: "Group" } }
+    ]);
+  });
+
   it("turns drag threshold crossing into a local drag-start effect", () => {
     const state: InteractionState = {
       kind: "pendingNodePointer",

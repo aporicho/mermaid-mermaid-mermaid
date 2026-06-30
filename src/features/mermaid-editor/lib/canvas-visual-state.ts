@@ -2,7 +2,7 @@ import type { AlignmentGuide } from "@/features/mermaid-editor/lib/alignment-gui
 import type { InteractionState } from "@/features/mermaid-editor/lib/canvas-interaction";
 import type { CanvasEdge, EditorMode, Selection } from "@/features/mermaid-editor/lib/editor-types";
 
-export type InlineEditTarget = { type: "node" | "edge"; id: string } | null | undefined;
+export type InlineEditTarget = { type: "node" | "subgraph" | "edge"; id: string } | null | undefined;
 
 export type NodeVisualKind = "normal" | "hovered" | "selected" | "dragging" | "editing" | "connectionTarget" | "connectionInvalid";
 export type EdgeVisualKind = "normal" | "hovered" | "selected" | "editing";

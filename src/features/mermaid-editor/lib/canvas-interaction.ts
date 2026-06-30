@@ -32,6 +32,7 @@ export type HitTarget =
   | { kind: "node"; id: string }
   | { kind: "nodeAnchor"; nodeId: string; anchor: string }
   | { kind: "subgraph"; id: string }
+  | { kind: "subgraphTitle"; id: string }
   | { kind: "subgraphAnchor"; subgraphId: string; anchor: string }
   | { kind: "edge"; id: string }
   | { kind: "edgeLabel"; id: string }
@@ -79,6 +80,7 @@ export type InteractionState =
     }
   | { kind: "retargetingEdge"; pointerId: number; edgeId: string; side: "from" | "to"; currentWorld: CanvasPoint }
   | { kind: "editingNodeText"; nodeId: string }
+  | { kind: "editingSubgraphTitle"; subgraphId: string }
   | { kind: "editingEdgeLabel"; edgeId: string };
 
 export type BlankClickIntent = StandardBlankClickIntent;
@@ -115,7 +117,7 @@ export type BlankClickResolution =
 
 export type CanvasRect = StandardCanvasRect;
 
-export type InlineEditCommandTarget = { type: "node" | "edge"; id: string };
+export type InlineEditCommandTarget = { type: "node" | "subgraph" | "edge"; id: string };
 
 export type CanvasInteractionCommand =
   | { type: "invalidateBlankClick" }
@@ -276,6 +278,7 @@ function toStandardHitTarget(hit: HitTarget): StandardCanvasHitTarget {
   if (hit.kind === "node") return { kind: "item", id: hit.id };
   if (hit.kind === "nodeAnchor") return { kind: "itemAnchor", itemId: hit.nodeId, anchor: hit.anchor };
   if (hit.kind === "subgraph") return { kind: "group", id: hit.id };
+  if (hit.kind === "subgraphTitle") return { kind: "groupTitle", id: hit.id };
   if (hit.kind === "subgraphAnchor") return { kind: "groupAnchor", groupId: hit.subgraphId, anchor: hit.anchor };
   if (hit.kind === "edge") return { kind: "connection", id: hit.id };
   if (hit.kind === "edgeLabel") return { kind: "connectionLabel", id: hit.id };
@@ -347,6 +350,7 @@ function toStandardState(state: InteractionState): StandardCanvasInteractionStat
     };
   }
   if (state.kind === "editingNodeText") return { kind: "editingItemText", itemId: state.nodeId };
+  if (state.kind === "editingSubgraphTitle") return { kind: "editingGroupText", groupId: state.subgraphId };
   return { kind: "editingConnectionText", connectionId: state.edgeId };
 }
 
@@ -415,6 +419,7 @@ function fromStandardState(state: StandardCanvasInteractionState): InteractionSt
     };
   }
   if (state.kind === "editingItemText") return { kind: "editingNodeText", nodeId: state.itemId };
+  if (state.kind === "editingGroupText") return { kind: "editingSubgraphTitle", subgraphId: state.groupId };
   if (state.kind === "editingConnectionText") return { kind: "editingEdgeLabel", edgeId: state.connectionId };
   return idleInteraction;
 }
@@ -439,7 +444,9 @@ function fromStandardCommand(command: StandardCanvasInteractionCommand): CanvasI
   if (command.type === "selection.selectGroup") return { type: "selectSubgraph", id: command.id, additive: command.additive };
   if (command.type === "selection.selectConnection") return { type: "selectEdge", id: command.id, additive: command.additive };
   if (command.type === "text.editStart") {
-    return { type: "startInlineEdit", target: command.target.type === "item" ? { type: "node", id: command.target.id } : { type: "edge", id: command.target.id } };
+    if (command.target.type === "item") return { type: "startInlineEdit", target: { type: "node", id: command.target.id } };
+    if (command.target.type === "group") return { type: "startInlineEdit", target: { type: "subgraph", id: command.target.id } };
+    return { type: "startInlineEdit", target: { type: "edge", id: command.target.id } };
   }
   if (command.type === "item.dragStart") return { type: "startNodeDrag", nodeId: command.itemId };
   if (command.type === "group.dragStart") return { type: "startSubgraphDrag", subgraphId: command.groupId };
