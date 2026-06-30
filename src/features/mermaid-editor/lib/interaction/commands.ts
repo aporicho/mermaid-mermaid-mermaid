@@ -2,6 +2,7 @@ import type {
   CanvasEdge,
   CanvasEdgeBatchPatch,
   CanvasNode,
+  CanvasNodeAction,
   CanvasNodeAsset,
   CanvasNodeBatchPatch,
   CanvasSubgraph,
@@ -36,7 +37,13 @@ export type EditorCommand =
   | { type: "history.redo"; source: UiCommandSource }
   | { type: "clipboard.copy"; source: UiCommandSource }
   | { type: "graph.addNodeAtViewportCenter"; message?: string; source: GraphCommandSource }
-  | { type: "graph.addNodeAt"; point: { x: number; y: number; parentId?: string }; message?: string; source: GraphCommandSource }
+  | { type: "graph.addNodeAt"; point: { x: number; y: number; parentId?: string }; label?: string; action?: CanvasNodeAction; message?: string; source: GraphCommandSource }
+  | {
+      type: "graph.addNodesAt";
+      nodes: { point: { x: number; y: number; parentId?: string }; label?: string; action?: CanvasNodeAction }[];
+      message?: string;
+      source: GraphCommandSource;
+    }
   | { type: "graph.addImageNodeAt"; point: { x: number; y: number; parentId?: string }; asset: CanvasNodeAsset; label?: string; message?: string; source: GraphCommandSource }
   | { type: "graph.createSubgraphFromSelection"; source: GraphCommandSource }
   | { type: "graph.deleteSelection"; source: GraphCommandSource }

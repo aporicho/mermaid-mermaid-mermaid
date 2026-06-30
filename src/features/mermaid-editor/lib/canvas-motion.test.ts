@@ -258,10 +258,13 @@ describe("canvas motion", () => {
     expect(shouldRunCanvasProximity({ ...base, interactionKind: "pendingBlankPointer" })).toBe(true);
     expect(shouldRunCanvasProximity({ ...base, interactionKind: "pendingNodePointer" })).toBe(true);
     expect(shouldRunCanvasProximity({ ...base, interactionKind: "pendingSubgraphPointer" })).toBe(true);
+    expect(shouldRunCanvasProximity({ ...base, interactionKind: "editingNodeText" })).toBe(true);
+    expect(shouldRunCanvasProximity({ ...base, interactionKind: "editingEdgeLabel" })).toBe(true);
+    expect(shouldRunCanvasProximity({ ...base, inlineEditing: true })).toBe(true);
     expect(shouldRunCanvasProximity({ ...base, interactionKind: "draggingNodes" })).toBe(false);
     expect(shouldRunCanvasProximity({ ...base, interactionKind: "panning" })).toBe(false);
     expect(shouldRunCanvasProximity({ ...base, interactionKind: "connectingEdge" })).toBe(false);
-    expect(shouldRunCanvasProximity({ ...base, inlineEditing: true })).toBe(false);
+    expect(shouldRunCanvasProximity({ ...base, interactionKind: "retargetingEdge" })).toBe(false);
     expect(shouldRunCanvasProximity({ ...base, maxScale: 1 })).toBe(false);
   });
 });

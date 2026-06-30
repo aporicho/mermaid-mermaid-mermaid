@@ -121,6 +121,58 @@ describe("editor command transaction", () => {
     expect(result.effect.status).toBe("已粘贴节点。");
   });
 
+  it("adds multiple link nodes as a single graph commit", () => {
+    const result = applyEditorCommandTransaction(state, {
+      type: "graph.addNodesAt",
+      nodes: [
+        {
+          point: { x: 500, y: 300 },
+          label: "example.com",
+          action: { kind: "url", url: "https://example.com", openMode: "app-browser" }
+        },
+        {
+          point: { x: 500, y: 404 },
+          label: "spec.md",
+          action: { kind: "file", path: "./docs/spec.md", openMode: "app-window" }
+        }
+      ],
+      source: "keyboard"
+    });
+
+    expect(result.state.graph.nodes).toHaveLength(4);
+    expect(result.state.selection.nodeIds).toEqual(["N1", "N2"]);
+    expect(result.state.graph.nodes.at(-1)).toMatchObject({ label: "spec.md", action: { kind: "file", path: "./docs/spec.md" } });
+    expect(result.effect).toMatchObject({ history: "push", sourceSync: "commit", status: "已添加链接节点。" });
+  });
+
+  it("infers node actions from committed node text without replacing existing actions", () => {
+    const linked = applyEditorCommandTransaction(state, {
+      type: "graph.updateNodeLabel",
+      nodeId: "A",
+      label: "https://example.com/docs",
+      source: "pointer"
+    });
+    const existingAction = {
+      ...state,
+      graph: {
+        ...state.graph,
+        nodes: [
+          { ...state.graph.nodes[0], action: { kind: "url" as const, url: "https://old.example.com", openMode: "app-browser" as const } },
+          state.graph.nodes[1]
+        ]
+      }
+    };
+    const preserved = applyEditorCommandTransaction(existingAction, {
+      type: "graph.updateNode",
+      nodeId: "A",
+      patch: { label: "https://new.example.com" },
+      source: "menu"
+    });
+
+    expect(linked.state.graph.nodes.find((node) => node.id === "A")?.action).toMatchObject({ kind: "url", url: "https://example.com/docs" });
+    expect(preserved.state.graph.nodes.find((node) => node.id === "A")?.action).toMatchObject({ kind: "url", url: "https://old.example.com" });
+  });
+
   it("updates graph direction", () => {
     const result = applyEditorCommandTransaction(state, {
       type: "graph.setDirection",

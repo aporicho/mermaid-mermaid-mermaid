@@ -13,6 +13,8 @@
     "desktop:build": "tauri build",
     "desktop:ship": "node scripts/desktop-ship.mjs",
     "windows:run": "node scripts/run-on-windows.mjs",
+    "windows:install": "node scripts/run-on-windows.mjs --install-only",
+    "windows:launch": "node scripts/run-on-windows.mjs --launch-only",
     "lint": "eslint .",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"

@@ -4,6 +4,8 @@ import {
   addNode,
   addImageNodeAt,
   addNodeAt,
+  addNodesAt,
+  applyNodeLabelPatch,
   createEdge,
   createSubgraphFromSelection,
   deleteSelection,
@@ -125,10 +127,27 @@ export function applyEditorCommandTransaction(state: EditorTransactionState, com
   }
 
   if (command.type === "graph.addNodeAt") {
-    const result = addNodeAt(state.graph, command.point.x, command.point.y);
+    const result = addNodeAt(state.graph, command.point.x, command.point.y, { label: command.label, action: command.action });
     const graph = command.point.parentId ? setNodeParent(result.graph, result.selection.nodeIds[0], command.point.parentId) : result.graph;
     const message = command.message || "已在画布中新增节点。";
     return commitGraphState({ ...state, graph, selection: result.selection }, message);
+  }
+
+  if (command.type === "graph.addNodesAt") {
+    const result = addNodesAt(
+      state.graph,
+      command.nodes.map((node) => ({
+        x: node.point.x,
+        y: node.point.y,
+        label: node.label,
+        action: node.action
+      }))
+    );
+    const graph = command.nodes.reduce((currentGraph, node, index) => {
+      const nodeId = result.selection.nodeIds[index];
+      return node.point.parentId && nodeId ? setNodeParent(currentGraph, nodeId, node.point.parentId) : currentGraph;
+    }, result.graph);
+    return commitGraphState({ ...state, graph, selection: result.selection }, command.message || "已添加链接节点。");
   }
 
   if (command.type === "graph.addImageNodeAt") {
@@ -203,7 +222,11 @@ export function applyEditorCommandTransaction(state: EditorTransactionState, com
   if (command.type === "graph.updateNode") {
     const graph = {
       ...state.graph,
-      nodes: state.graph.nodes.map((node) => (node.id === command.nodeId ? { ...node, ...command.patch } : node))
+      nodes: state.graph.nodes.map((node) => {
+        if (node.id !== command.nodeId) return node;
+        const nextNode = { ...node, ...command.patch };
+        return "label" in command.patch && !("action" in command.patch) ? applyNodeLabelPatch(nextNode, command.patch.label ?? node.label) : nextNode;
+      })
     };
     return commitGraphState({ ...state, graph }, command.message || "已更新节点。");
   }

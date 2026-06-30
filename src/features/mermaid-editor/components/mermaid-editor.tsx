@@ -129,6 +129,7 @@ import { incrementPerformanceCounter, measurePerformance } from "@/features/merm
 import { buildInteractionContext } from "@/features/mermaid-editor/lib/interaction/context";
 import type { EditorCommand } from "@/features/mermaid-editor/lib/interaction/commands";
 import { applyEditorCommandTransaction } from "@/features/mermaid-editor/lib/interaction/transaction";
+import { embeddedBrowserLogicalRect, embeddedBrowserRectKey } from "@/features/mermaid-editor/lib/embedded-browser-rect";
 import { initialMermaidSource, parseMermaid, serializeMermaid } from "@/features/mermaid-editor/lib/mermaid-graph";
 import { applyMermaidPatch } from "@/features/mermaid-editor/lib/mermaid-patch";
 import {
@@ -144,7 +145,15 @@ import { useDisableNativeContextMenu } from "@/features/mermaid-editor/lib/nativ
 import { EDITOR_CHROME_CLASSES } from "@/features/mermaid-editor/lib/editor-chrome";
 import { bringFloatingPanelToFront, floatingPanelStackIndex, type FloatingPanelWindowState } from "@/features/mermaid-editor/lib/floating-chrome";
 import { workspaceViewForDocument, type WorkspaceView } from "@/features/mermaid-editor/lib/workspace-view";
-import { isHttpUrl, normalizeNodeAction } from "@/features/mermaid-editor/lib/node-actions";
+import {
+  extractNodeActionsFromClipboardText,
+  inferNodeActionKindFromTarget,
+  isHttpUrl,
+  nodeActionDefaultTooltip,
+  nodeActionSuggestedLabel,
+  nodeActionTarget,
+  normalizeNodeAction
+} from "@/features/mermaid-editor/lib/node-actions";
 import { createImageAsset, DEFAULT_IMAGE_ASSET_HEIGHT, DEFAULT_IMAGE_ASSET_WIDTH, isSupportedImagePath } from "@/features/mermaid-editor/lib/node-assets";
 import { cn } from "@/lib/utils";
 import { OVERLAY_Z_INDEX, setGlobalOverlayActivity, useGlobalOverlayActivity } from "@/lib/overlay-layers";
@@ -757,6 +766,16 @@ function hashText(value: string) {
   return hash.toString(36);
 }
 
+async function readSystemClipboardText() {
+  if (typeof navigator === "undefined" || !navigator.clipboard?.readText) return "";
+
+  try {
+    return await navigator.clipboard.readText();
+  } catch {
+    return "";
+  }
+}
+
 function isDesktopWindowRuntime() {
   return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 }
@@ -859,6 +878,7 @@ export function MermaidEditor() {
   }));
   const [detachedMarkdownWindows, setDetachedMarkdownWindows] = useState<DetachedMarkdownWindow[]>([]);
   const [detachedBrowserWindows, setDetachedBrowserWindows] = useState<DetachedBrowserWindow[]>([]);
+  const [nodeActionEditor, setNodeActionEditor] = useState<{ nodeId: string } | null>(null);
   const [themeSettingsOpen, setThemeSettingsOpen] = useState(false);
   const [themeId, setThemeId] = useState<EditorThemeId>(initial.themeId);
   const [customTheme, setCustomTheme] = useState<EditorTheme | null>(initial.customTheme);
@@ -873,6 +893,7 @@ export function MermaidEditor() {
     viewFiltersOpen ||
     secondaryActionsOpen ||
     themeSettingsOpen ||
+    Boolean(nodeActionEditor) ||
     Boolean(fileWorkflowError) ||
     Boolean(unsavedPrompt);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -883,6 +904,9 @@ export function MermaidEditor() {
   const storageWriteTimerRef = useRef<number | null>(null);
   const aiContextPostTimerRef = useRef<number | null>(null);
   const viewportMotionTweenRef = useRef<gsap.core.Tween | null>(null);
+  const lastCanvasPointerWorldRef = useRef<{ x: number; y: number } | null>(null);
+  const lastInternalCopyAtRef = useRef(0);
+  const lastWindowFocusAtRef = useRef(Date.now());
   const aiCommandBusyRef = useRef(false);
   const actionCounterRef = useRef(0);
   const desktopFileWorkflowInitializedRef = useRef(false);
@@ -984,6 +1008,19 @@ export function MermaidEditor() {
     setCanvasLiveState((current) => (canvasLiveStateKey(current) === canvasLiveStateKey(next) ? current : next));
   }, []);
 
+  const recordCanvasPointerWorld = useCallback((point: { x: number; y: number }) => {
+    lastCanvasPointerWorldRef.current = point;
+  }, []);
+
+  useEffect(() => {
+    function markWindowFocus() {
+      lastWindowFocusAtRef.current = Date.now();
+    }
+
+    window.addEventListener("focus", markWindowFocus);
+    return () => window.removeEventListener("focus", markWindowFocus);
+  }, []);
+
   const startDesktopWindowDragHandle = useCallback(
     async (event: React.PointerEvent<HTMLElement>) => {
       if (runtime.kind !== "desktop" || event.button !== 0 || event.detail > 1) return;
@@ -1073,7 +1110,7 @@ export function MermaidEditor() {
     });
   }, [runtime]);
 
-  function recordRecentAction(type: string, target?: AiRecentAction["target"], summary?: string) {
+  const recordRecentAction = useCallback((type: string, target?: AiRecentAction["target"], summary?: string) => {
     const action: AiRecentAction = {
       id: `${Date.now().toString(36)}-${actionCounterRef.current++}`,
       at: new Date().toISOString(),
@@ -1082,7 +1119,11 @@ export function MermaidEditor() {
       summary
     };
     setRecentActions((current) => [action, ...current].slice(0, 20));
-  }
+  }, []);
+
+  const recordBrowserWebviewError = useCallback((url: string, message: string) => {
+    recordRecentAction("browser.webview.error", { kind: "canvas" }, `${browserWindowTitle(url)} ${message}`.trim());
+  }, [recordRecentAction]);
 
   function updateSelection(nextSelection: Selection) {
     const changed = selectionKey(selection) !== selectionKey(nextSelection);
@@ -1543,10 +1584,37 @@ export function MermaidEditor() {
   }
 
   function performCopy() {
+    if (!selection.nodeIds.length) return;
+    lastInternalCopyAtRef.current = Date.now();
     applyEditorCommand({ type: "clipboard.copy", source: "keyboard" });
   }
 
-  function performPaste() {
+  async function performPaste() {
+    const canUseSystemClipboard = !clipboard || lastInternalCopyAtRef.current < lastWindowFocusAtRef.current;
+    const systemClipboardText = canUseSystemClipboard ? await readSystemClipboardText() : "";
+    const actions = extractNodeActionsFromClipboardText(systemClipboardText);
+
+    if (actions.length) {
+      const basePoint = lastCanvasPointerWorldRef.current || {
+        x: (420 - viewport.x) / viewport.scale,
+        y: (260 - viewport.y) / viewport.scale
+      };
+      applyEditorCommand({
+        type: "graph.addNodesAt",
+        nodes: actions.map((action, index) => ({
+          point: {
+            x: basePoint.x,
+            y: basePoint.y + index * 104
+          },
+          label: nodeActionSuggestedLabel(action),
+          action
+        })),
+        message: actions.length > 1 ? `已从剪贴板添加 ${actions.length} 个链接节点。` : "已从剪贴板添加链接节点。",
+        source: "keyboard"
+      });
+      return;
+    }
+
     if (!clipboard) return;
     applyEditorCommand({ type: "graph.pasteClipboard", payload: clipboard, source: "keyboard" });
   }
@@ -2740,6 +2808,21 @@ export function MermaidEditor() {
     void openFileNodeAction(action);
   }
 
+  function executeNodeActionDraft(action: CanvasNodeAction) {
+    const normalized = normalizeNodeAction(action);
+    if (!normalized) {
+      setStatus("链接目标无效。");
+      return;
+    }
+
+    if (normalized.kind === "url") {
+      openUrlNodeAction(normalized);
+      return;
+    }
+
+    void openFileNodeAction(normalized);
+  }
+
   function openUrlNodeAction(action: Extract<CanvasNodeAction, { kind: "url" }>) {
     if (action.openMode === "system") {
       openExternalUrl(action.url);
@@ -2795,7 +2878,19 @@ export function MermaidEditor() {
 
   function editCanvasNodeAction(node: CanvasNode) {
     applyEditorCommand({ type: "selection.set", selection: { nodeIds: [node.id], edgeIds: [], subgraphIds: [], primaryId: node.id }, source: "menu" });
+    setNodeActionEditor({ nodeId: node.id });
     openWorkspacePanel("inspector");
+  }
+
+  function saveCanvasNodeAction(nodeId: string, action: CanvasNodeAction | undefined) {
+    applyEditorCommand({
+      type: "graph.updateNode",
+      nodeId,
+      patch: { action },
+      message: action ? "已更新节点链接。" : "已清除节点链接。",
+      source: "menu"
+    });
+    setNodeActionEditor(null);
   }
 
   function updateDetachedMarkdownWindow(panelId: MarkdownWindowPanelId, value: string) {
@@ -3048,7 +3143,7 @@ export function MermaidEditor() {
         diagnostics: resultDiagnostics
       });
     },
-    [currentDocument, documentKind, fileName, fileRef, fileTheme, graph, postAiApplyResult, runtime, snapshot, viewport, workspaceView]
+    [currentDocument, documentKind, fileName, fileRef, fileTheme, graph, postAiApplyResult, recordRecentAction, runtime, snapshot, viewport, workspaceView]
   );
 
   useEffect(() => {
@@ -3357,6 +3452,15 @@ export function MermaidEditor() {
       if (isTextInput(event.target)) return;
       if (!isCanvasEditable) return;
 
+      if (command && key === "k") {
+        const selectedNode = graph.nodes.find((node) => node.id === selection.primaryId) || graph.nodes.find((node) => node.id === selection.nodeIds[0]);
+        if (selectedNode) {
+          event.preventDefault();
+          editCanvasNodeAction(selectedNode);
+        }
+        return;
+      }
+
       if (command && event.key === "Enter") {
         const selectedNode = graph.nodes.find((node) => node.id === selection.primaryId) || graph.nodes.find((node) => node.id === selection.nodeIds[0]);
         if (selectedNode?.action) {
@@ -3393,7 +3497,7 @@ export function MermaidEditor() {
       }
       if (command && key === "v") {
         event.preventDefault();
-        performPaste();
+        void performPaste();
         return;
       }
       if (event.key === "Delete" || event.key === "Backspace") {
@@ -3442,6 +3546,7 @@ export function MermaidEditor() {
       break;
     }
   }
+  const nodeActionEditorNode = nodeActionEditor ? graph.nodes.find((node) => node.id === nodeActionEditor.nodeId) : undefined;
 
   function workspacePanelStackPosition(panelId: WorkspaceFloatingPanelId) {
     return floatingPanelStackIndex(workspacePanelStack, panelId);
@@ -3497,6 +3602,7 @@ export function MermaidEditor() {
                 onEditorCommand={applyEditorCommand}
                 onOpenNodeAction={executeCanvasNodeAction}
                 onEditNodeAction={editCanvasNodeAction}
+                onPointerWorldChange={recordCanvasPointerWorld}
                 onLiveStateChange={updateCanvasLiveState}
               />
             </Suspense>
@@ -3582,7 +3688,13 @@ export function MermaidEditor() {
             onCollapse={() => closeWorkspacePanel("inspector")}
           />
           <div className="grid min-h-0">
-            <InspectorPanel graph={graph} selection={selection} onEditorCommand={applyEditorCommand} />
+            <InspectorPanel
+              graph={graph}
+              selection={selection}
+              onEditorCommand={applyEditorCommand}
+              onOpenNodeAction={executeCanvasNodeAction}
+              onEditNodeAction={editCanvasNodeAction}
+            />
           </div>
         </FloatingPanel>
         <FloatingPanel
@@ -3636,7 +3748,7 @@ export function MermaidEditor() {
             minSize={WORKSPACE_PANEL_MIN_SIZES.markdown}
             windowState={workspacePanelWindowState(markdownWindow.id)}
             onWindowStateChange={(state) => setWorkspacePanelWindowState(markdownWindow.id, state)}
-            className={cn(EDITOR_CHROME_CLASSES.sidePanel, "relative grid h-full w-full min-h-0")}
+            className="relative h-full w-full min-h-0 overflow-hidden rounded-lg"
           >
             <MarkdownWindowPanel
               title={markdownWindow.title}
@@ -3667,7 +3779,7 @@ export function MermaidEditor() {
             minSize={WORKSPACE_PANEL_MIN_SIZES.browser}
             windowState={workspacePanelWindowState(browserWindow.id)}
             onWindowStateChange={(state) => setWorkspacePanelWindowState(browserWindow.id, state)}
-            className={cn(EDITOR_CHROME_CLASSES.sidePanel, "relative grid h-full w-full min-h-0")}
+            className="relative h-full w-full min-h-0 overflow-hidden rounded-lg"
           >
             <BrowserWindowPanel
               panelId={browserWindow.id}
@@ -3681,6 +3793,7 @@ export function MermaidEditor() {
               onNavigate={(url) => updateDetachedBrowserWindow(browserWindow.id, url)}
               onClose={() => closeDetachedBrowserWindow(browserWindow.id)}
               onStatus={setStatus}
+              onBrowserError={recordBrowserWebviewError}
             />
           </FloatingPanel>
         ))}
@@ -3823,6 +3936,15 @@ export function MermaidEditor() {
         </FloatingChromeLayer>
         {fileWorkflowError ? <FileWorkflowErrorBanner error={fileWorkflowError} onClose={() => setFileWorkflowError(null)} /> : null}
         {unsavedPrompt ? <UnsavedFilePrompt prompt={unsavedPrompt} onResolve={resolveUnsavedPrompt} /> : null}
+        {nodeActionEditorNode ? (
+          <NodeActionEditorDialog
+            node={nodeActionEditorNode}
+            projectFiles={projectFiles}
+            onClose={() => setNodeActionEditor(null)}
+            onSave={saveCanvasNodeAction}
+            onTestOpen={executeNodeActionDraft}
+          />
+        ) : null}
         {preferences.statusMessages && status ? (
           <div
             className="pointer-events-none fixed bottom-3 left-1/2 -translate-x-1/2 rounded-md border bg-card/95 px-3 py-2 text-xs text-muted-foreground backdrop-blur"
@@ -3845,6 +3967,245 @@ export function MermaidEditor() {
     </TooltipProvider>
     </EditorMotionProvider>
   );
+}
+
+type NodeActionEditorDraft = {
+  kind: CanvasNodeAction["kind"];
+  target: string;
+  openMode: "app-browser" | "system" | "app-window";
+  tooltip: string;
+};
+
+function NodeActionEditorDialog({
+  node,
+  projectFiles,
+  onClose,
+  onSave,
+  onTestOpen
+}: {
+  node: CanvasNode;
+  projectFiles: ProjectFileEntry[];
+  onClose: () => void;
+  onSave: (nodeId: string, action: CanvasNodeAction | undefined) => void;
+  onTestOpen: (action: CanvasNodeAction) => void;
+}) {
+  const [draft, setDraft] = useState<NodeActionEditorDraft>(() => nodeActionDraftFromNode(node));
+  const normalizedAction = nodeActionFromDraft(draft);
+  const targetInvalid = draft.target.trim() !== "" && !normalizedAction;
+  const selectedProjectFile = projectFiles.find((file) => file.path === draft.target || file.relativePath === draft.target);
+  const projectFileSelectValue = selectedProjectFile?.path || "__pick_project_file__";
+
+  useEffect(() => {
+    setDraft(nodeActionDraftFromNode(node));
+  }, [node]);
+
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      onClose();
+    }
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [onClose]);
+
+  function updateTarget(target: string) {
+    const inferredKind = inferNodeActionKindFromTarget(target);
+    setDraft((current) => ({
+      ...current,
+      target,
+      ...(inferredKind && inferredKind !== current.kind
+        ? {
+            kind: inferredKind,
+            openMode: inferredKind === "url" ? "app-browser" : "app-window"
+          }
+        : {})
+    }));
+  }
+
+  function updateKind(kind: CanvasNodeAction["kind"]) {
+    setDraft((current) => ({
+      ...current,
+      kind,
+      openMode: kind === "url" ? "app-browser" : "app-window"
+    }));
+  }
+
+  function saveDraft() {
+    if (!normalizedAction) return;
+    onSave(node.id, normalizedAction);
+  }
+
+  function testOpen() {
+    if (!normalizedAction) return;
+    onTestOpen(normalizedAction);
+  }
+
+  return (
+    <div
+      className="fixed inset-0 grid place-items-center bg-foreground/10 px-4 backdrop-blur-[1px]"
+      style={{ zIndex: OVERLAY_Z_INDEX.modal }}
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+      data-floating-panel-drag-exclude
+      data-editor-floating-menu-ignore
+    >
+      <section className="grid w-[min(520px,100%)] gap-4 rounded-md border bg-card p-4 shadow-sm">
+        <header className="flex min-w-0 items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="text-sm font-medium">编辑节点链接</div>
+            <div className="truncate text-xs text-muted-foreground" title={node.label || node.id}>
+              {node.label || node.id}
+            </div>
+          </div>
+          <Button size="icon" variant="ghost" className="size-8 shrink-0" onClick={onClose} aria-label="关闭链接编辑器">
+            <Xmark className="size-4" />
+          </Button>
+        </header>
+
+        <div className="grid gap-2">
+          <Label>类型</Label>
+          <Select value={draft.kind} onValueChange={(value) => updateKind(value as CanvasNodeAction["kind"])}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="url">网页链接</SelectItem>
+              <SelectItem value="file">文件链接</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="grid gap-2">
+          <Label htmlFor="node-action-editor-target">{draft.kind === "url" ? "网页 URL" : "文件路径"}</Label>
+          <Input
+            id="node-action-editor-target"
+            value={draft.target}
+            placeholder={draft.kind === "url" ? "https://example.com" : "./docs/spec.md"}
+            autoFocus
+            onChange={(event) => updateTarget(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) saveDraft();
+            }}
+          />
+          {targetInvalid ? (
+            <div className="text-xs text-destructive">
+              {draft.kind === "url" ? "网页链接需要以 http:// 或 https:// 开头。" : "请输入可解析的文件路径。"}
+            </div>
+          ) : null}
+        </div>
+
+        {draft.kind === "file" && projectFiles.length ? (
+          <div className="grid gap-2">
+            <Label>从项目选择</Label>
+            <Select
+              value={projectFileSelectValue}
+              onValueChange={(path) => {
+                const file = projectFiles.find((item) => item.path === path);
+                if (file) updateTarget(file.relativePath || file.path);
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="max-h-[280px]">
+                <SelectItem value="__pick_project_file__" disabled>
+                  选择项目文件
+                </SelectItem>
+                {projectFiles.map((file) => (
+                  <SelectItem key={file.path} value={file.path}>
+                    {file.relativePath || file.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        ) : null}
+
+        {draft.kind === "url" ? (
+          <div className="grid gap-2">
+            <Label>打开方式</Label>
+            <Select value={draft.openMode} onValueChange={(value) => setDraft((current) => ({ ...current, openMode: value as NodeActionEditorDraft["openMode"] }))}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="app-browser">应用内浏览器</SelectItem>
+                <SelectItem value="system">系统浏览器</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        ) : null}
+
+        <div className="grid gap-2">
+          <Label htmlFor="node-action-editor-tooltip">提示文本</Label>
+          <Input
+            id="node-action-editor-tooltip"
+            value={draft.tooltip}
+            placeholder={normalizedAction ? nodeActionDefaultTooltip(normalizedAction) : draft.kind === "url" ? "打开链接" : "打开文件"}
+            onChange={(event) => setDraft((current) => ({ ...current, tooltip: event.target.value }))}
+          />
+        </div>
+
+        <footer className="flex flex-wrap justify-between gap-2">
+          <Button variant="ghost" className="h-8 px-2" onClick={() => onSave(node.id, undefined)}>
+            清除链接
+          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" className="h-8 px-2" onClick={testOpen} disabled={!normalizedAction}>
+              <OpenNewWindow className="size-4" />
+              测试打开
+            </Button>
+            <Button className="h-8 px-3" onClick={saveDraft} disabled={!normalizedAction}>
+              保存链接
+            </Button>
+          </div>
+        </footer>
+      </section>
+    </div>
+  );
+}
+
+function nodeActionDraftFromNode(node: CanvasNode): NodeActionEditorDraft {
+  const action = normalizeNodeAction(node.action);
+  if (!action) {
+    return {
+      kind: "url",
+      target: "",
+      openMode: "app-browser",
+      tooltip: ""
+    };
+  }
+
+  return {
+    kind: action.kind,
+    target: nodeActionTarget(action),
+    openMode: action.kind === "url" ? action.openMode : "app-window",
+    tooltip: action.tooltip || ""
+  };
+}
+
+function nodeActionFromDraft(draft: NodeActionEditorDraft): CanvasNodeAction | undefined {
+  const target = draft.target.trim();
+  if (!target) return undefined;
+
+  if (draft.kind === "url") {
+    return normalizeNodeAction({
+      kind: "url",
+      url: target,
+      openMode: draft.openMode === "system" ? "system" : "app-browser",
+      ...(draft.tooltip.trim() ? { tooltip: draft.tooltip.trim() } : {})
+    });
+  }
+
+  return normalizeNodeAction({
+    kind: "file",
+    path: target,
+    openMode: "app-window",
+    ...(draft.tooltip.trim() ? { tooltip: draft.tooltip.trim() } : {})
+  });
 }
 
 function WorkspaceViewCluster({
@@ -4024,7 +4385,8 @@ function BrowserWindowPanel({
   onWindowStateChange,
   onNavigate,
   onClose,
-  onStatus
+  onStatus,
+  onBrowserError
 }: {
   panelId: BrowserWindowPanelId;
   title: string;
@@ -4037,6 +4399,7 @@ function BrowserWindowPanel({
   onNavigate: (url: string) => void;
   onClose: () => void;
   onStatus: (message: string) => void;
+  onBrowserError: (url: string, message: string) => void;
 }) {
   const [address, setAddress] = useState(url);
   const [reloadRevision, setReloadRevision] = useState(0);
@@ -4059,8 +4422,12 @@ function BrowserWindowPanel({
     onStatus("已请求使用系统浏览器打开。");
   }
 
+  function reloadBrowser() {
+    setReloadRevision((current) => current + 1);
+  }
+
   return (
-    <section className="grid h-full min-h-0 grid-rows-[42px_42px_minmax(0,1fr)] bg-card/95">
+    <section className="grid h-full w-full min-h-0 grid-rows-[42px_42px_minmax(0,1fr)] overflow-hidden bg-card/95">
       <header data-floating-panel-drag-handle className="flex min-w-0 cursor-grab items-center justify-between gap-2 border-b bg-card/95 px-3 active:cursor-grabbing">
         <div className="flex min-w-0 items-center gap-2">
           <OpenNewWindow className="size-4 shrink-0 text-icon" />
@@ -4089,7 +4456,7 @@ function BrowserWindowPanel({
         />
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button size="icon" variant="ghost" className={EDITOR_CHROME_CLASSES.panelIconButton} onClick={() => setReloadRevision((current) => current + 1)} aria-label="重新载入网页">
+            <Button size="icon" variant="ghost" className={EDITOR_CHROME_CLASSES.panelIconButton} onClick={reloadBrowser} aria-label="重新载入网页">
               <RefreshCw className="size-4" />
             </Button>
           </TooltipTrigger>
@@ -4119,7 +4486,9 @@ function BrowserWindowPanel({
         active={active}
         domOverlayActive={domOverlayActive}
         reloadRevision={reloadRevision}
+        onReload={reloadBrowser}
         onStatus={onStatus}
+        onBrowserError={onBrowserError}
       />
     </section>
   );
@@ -4146,7 +4515,9 @@ function EmbeddedBrowserSurface({
   active,
   domOverlayActive,
   reloadRevision,
-  onStatus
+  onReload,
+  onStatus,
+  onBrowserError
 }: {
   panelId: BrowserWindowPanelId;
   url: string;
@@ -4154,14 +4525,18 @@ function EmbeddedBrowserSurface({
   active: boolean;
   domOverlayActive: boolean;
   reloadRevision: number;
+  onReload: () => void;
   onStatus: (message: string) => void;
+  onBrowserError: (url: string, message: string) => void;
 }) {
   const surfaceRef = useRef<HTMLDivElement | null>(null);
   const webviewRef = useRef<NativeEmbeddedWebview | null>(null);
   const dpiRef = useRef<NativeDpiConstructors | null>(null);
   const activeRef = useRef(active);
   const domOverlayActiveRef = useRef(domOverlayActive);
-  const [nativeState, setNativeState] = useState<"loading" | "ready" | "fallback">("loading");
+  const syncErrorReportedRef = useRef(false);
+  const [nativeState, setNativeState] = useState<"loading" | "ready" | "unavailable" | "error">("loading");
+  const [nativeError, setNativeError] = useState("");
   const webviewLabel = useMemo(() => `browser_${hashText(`${panelId}:${url}:${reloadRevision}`)}`, [panelId, reloadRevision, url]);
 
   useEffect(() => {
@@ -4177,14 +4552,18 @@ function EmbeddedBrowserSurface({
     let disposed = false;
     let frameId = 0;
     let lastRectKey = "";
+    let nativeCreated = false;
+    syncErrorReportedRef.current = false;
 
     async function createNativeWebview() {
       const surface = surfaceRef.current;
       if (!surface || runtimeKind !== "desktop" || !isDesktopWindowRuntime()) {
-        setNativeState("fallback");
+        setNativeError("");
+        setNativeState("unavailable");
         return;
       }
 
+      setNativeError("");
       setNativeState("loading");
       try {
         const [{ Webview }, { getCurrentWindow }, dpi] = await Promise.all([
@@ -4194,9 +4573,26 @@ function EmbeddedBrowserSurface({
         ]);
         if (disposed || !surfaceRef.current) return;
 
-        dpiRef.current = { LogicalPosition: dpi.LogicalPosition, LogicalSize: dpi.LogicalSize };
-        const rect = boundedBrowserRect(surfaceRef.current.getBoundingClientRect());
-        const webview = new Webview(getCurrentWindow(), webviewLabel, {
+        const currentWindow = getCurrentWindow();
+        dpiRef.current = {
+          LogicalPosition: dpi.LogicalPosition,
+          LogicalSize: dpi.LogicalSize
+        };
+        const reportSyncError = (operation: string, error: unknown) => {
+          if (disposed || syncErrorReportedRef.current) return;
+          syncErrorReportedRef.current = true;
+          const message = formatEmbeddedBrowserError(error) || operation;
+          onStatus(`WebView2 内置浏览器同步失败：${message}`);
+          onBrowserError(url, `sync ${operation}: ${message}`);
+        };
+        const syncWebviewRect = (force = false) => {
+          if (!nativeCreated) return;
+          syncNativeWebviewRect(surfaceRef.current, webviewRef.current, dpiRef.current, lastRectKey, (nextKey) => {
+            lastRectKey = nextKey;
+          }, { force, onError: reportSyncError });
+        };
+        const rect = embeddedBrowserLogicalRect(surfaceRef.current.getBoundingClientRect());
+        const webview = new Webview(currentWindow, webviewLabel, {
           url,
           x: rect.x,
           y: rect.y,
@@ -4207,31 +4603,40 @@ function EmbeddedBrowserSurface({
         }) as NativeEmbeddedWebview;
         webviewRef.current = webview;
 
+        const sync = () => {
+          if (disposed) return;
+          syncWebviewRect();
+          frameId = window.requestAnimationFrame(sync);
+        };
+
         void (webview as unknown as { once?: (event: string, handler: (event?: unknown) => void) => Promise<() => void> }).once?.("tauri://created", () => {
           if (disposed) return;
+          nativeCreated = true;
           setNativeState("ready");
+          syncWebviewRect(true);
+          window.requestAnimationFrame(() => {
+            if (!disposed) syncWebviewRect(true);
+          });
+          if (!frameId) sync();
           if (!activeRef.current || domOverlayActiveRef.current) void webview.hide().catch(() => undefined);
         });
-        void (webview as unknown as { once?: (event: string, handler: (event?: unknown) => void) => Promise<() => void> }).once?.("tauri://error", () => {
+        void (webview as unknown as { once?: (event: string, handler: (event?: unknown) => void) => Promise<() => void> }).once?.("tauri://error", (event) => {
           if (disposed) return;
           if (webviewRef.current === webview) webviewRef.current = null;
           void webview.close().catch(() => undefined);
-          setNativeState("fallback");
-          onStatus("内置浏览器创建失败，已切换为网页预览。");
+          const message = formatEmbeddedBrowserError(event);
+          setNativeError(message);
+          setNativeState("error");
+          onStatus(`WebView2 内置浏览器创建失败${message ? `：${message}` : "。"}`);
+          onBrowserError(url, message || "tauri://error");
         });
-
-        const sync = () => {
-          if (disposed) return;
-          syncNativeWebviewRect(surfaceRef.current, webviewRef.current, dpiRef.current, lastRectKey, (nextKey) => {
-            lastRectKey = nextKey;
-          });
-          frameId = window.requestAnimationFrame(sync);
-        };
-        sync();
-      } catch {
+      } catch (error) {
         if (!disposed) {
-          setNativeState("fallback");
-          onStatus("内置浏览器不可用，已切换为网页预览。");
+          const message = formatEmbeddedBrowserError(error);
+          setNativeError(message);
+          setNativeState("error");
+          onStatus(`WebView2 内置浏览器不可用${message ? `：${message}` : "。"}`);
+          onBrowserError(url, message || "import/create failed");
         }
       }
     }
@@ -4245,18 +4650,23 @@ function EmbeddedBrowserSurface({
       webviewRef.current = null;
       void webview?.close().catch(() => undefined);
     };
-  }, [onStatus, reloadRevision, runtimeKind, url, webviewLabel]);
+  }, [onBrowserError, onStatus, reloadRevision, runtimeKind, url, webviewLabel]);
 
   return (
-    <div ref={surfaceRef} className="relative min-h-0 overflow-hidden bg-background">
-      {nativeState === "fallback" ? (
-        isHttpUrl(url) ? (
-          <iframe key={`${url}:${reloadRevision}`} title={url} src={url} className="h-full w-full border-0 bg-background" />
-        ) : (
-          <div className="grid h-full place-items-center p-4 text-sm text-muted-foreground">无法预览此地址</div>
-        )
+    <div ref={surfaceRef} className="relative h-full w-full min-h-0 min-w-0 overflow-hidden bg-background">
+      {nativeState === "unavailable" || nativeState === "error" ? (
+        <EmbeddedBrowserUnavailable
+          url={url}
+          reason={nativeState === "unavailable" ? "应用内浏览器需要桌面版 WebView2。" : "WebView2 内置浏览器创建失败。"}
+          detail={nativeError}
+          onRetry={onReload}
+          onOpenExternal={() => {
+            openExternalUrl(url);
+            onStatus("已请求使用系统浏览器打开。");
+          }}
+        />
       ) : (
-        <div className="grid h-full place-items-center p-4 text-sm text-muted-foreground">
+        <div className="grid h-full w-full place-items-center p-4 text-sm text-muted-foreground">
           {nativeState === "loading" ? "正在打开网页" : ""}
         </div>
       )}
@@ -4264,13 +4674,67 @@ function EmbeddedBrowserSurface({
   );
 }
 
-function boundedBrowserRect(rect: DOMRect) {
-  return {
-    x: Math.max(0, Math.round(rect.left)),
-    y: Math.max(0, Math.round(rect.top)),
-    width: Math.max(1, Math.round(rect.width)),
-    height: Math.max(1, Math.round(rect.height))
-  };
+function EmbeddedBrowserUnavailable({
+  url,
+  reason,
+  detail,
+  onRetry,
+  onOpenExternal
+}: {
+  url: string;
+  reason: string;
+  detail: string;
+  onRetry: () => void;
+  onOpenExternal: () => void;
+}) {
+  return (
+    <div className="flex h-full min-h-0 items-center justify-center bg-background p-4">
+      <div className="w-full max-w-md rounded-md border bg-card/95 p-4 text-sm shadow-sm">
+        <div className="flex items-start gap-3">
+          <WarningTriangle className="mt-0.5 size-5 shrink-0 text-destructive" />
+          <div className="min-w-0 space-y-3">
+            <div>
+              <div className="font-medium text-foreground">WebView2 内置浏览器不可用</div>
+              <div className="mt-1 text-muted-foreground">{reason}</div>
+            </div>
+            {detail ? (
+              <div className="max-h-24 overflow-auto rounded-md border border-destructive/20 bg-destructive/5 px-2 py-1 font-mono text-xs text-destructive">
+                {detail}
+              </div>
+            ) : null}
+            <div className="truncate rounded-md border bg-muted/30 px-2 py-1 font-mono text-xs text-muted-foreground" title={url}>
+              {url}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button size="sm" variant="outline" onClick={onRetry}>
+                <RefreshCw className="mr-2 size-4" />
+                重试
+              </Button>
+              <Button size="sm" variant="secondary" onClick={onOpenExternal}>
+                <OpenNewWindow className="mr-2 size-4" />
+                系统浏览器打开
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function formatEmbeddedBrowserError(error: unknown) {
+  if (!error) return "";
+  if (typeof error === "string") return error;
+  if (error instanceof Error) return error.message;
+  if (typeof error === "object" && "payload" in error) {
+    return formatEmbeddedBrowserError((error as { payload?: unknown }).payload);
+  }
+
+  try {
+    return JSON.stringify(error);
+  } catch {
+    return String(error);
+  }
 }
 
 function syncNativeWebviewRect(
@@ -4278,15 +4742,16 @@ function syncNativeWebviewRect(
   webview: NativeEmbeddedWebview | null,
   dpi: NativeDpiConstructors | null,
   lastRectKey: string,
-  updateLastRectKey: (key: string) => void
+  updateLastRectKey: (key: string) => void,
+  options: { force?: boolean; onError?: (operation: string, error: unknown) => void } = {}
 ) {
   if (!surface || !webview || !dpi) return;
-  const rect = boundedBrowserRect(surface.getBoundingClientRect());
-  const rectKey = `${rect.x}:${rect.y}:${rect.width}:${rect.height}`;
-  if (rectKey === lastRectKey) return;
+  const rect = embeddedBrowserLogicalRect(surface.getBoundingClientRect());
+  const rectKey = embeddedBrowserRectKey(rect);
+  if (!options.force && rectKey === lastRectKey) return;
   updateLastRectKey(rectKey);
-  void webview.setPosition(new dpi.LogicalPosition(rect.x, rect.y)).catch(() => undefined);
-  void webview.setSize(new dpi.LogicalSize(rect.width, rect.height)).catch(() => undefined);
+  void webview.setPosition(new dpi.LogicalPosition(rect.x, rect.y)).catch((error: unknown) => options.onError?.("position", error));
+  void webview.setSize(new dpi.LogicalSize(rect.width, rect.height)).catch((error: unknown) => options.onError?.("size", error));
 }
 
 function FileDropFeedbackBadge({ feedback }: { feedback: FileDropFeedback }) {

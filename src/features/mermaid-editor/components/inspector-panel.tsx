@@ -1,6 +1,6 @@
 "use client";
 
-import { ControlSlider as SlidersHorizontal, PathArrow, Trash as Trash2 } from "iconoir-react/regular";
+import { ControlSlider as SlidersHorizontal, Link, OpenNewWindow, PathArrow, Trash as Trash2 } from "iconoir-react/regular";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,7 +29,7 @@ import { descendantSubgraphIds, selectOnlyEdge, selectOnlySubgraph } from "@/fea
 import { DEFAULT_FLOWCHART_NODE_SHAPE, FLOWCHART_SHAPE_GROUPS, FLOWCHART_SHAPES, normalizeFlowchartShape } from "@/features/mermaid-editor/lib/flowchart-shapes";
 import type { EditorCommand } from "@/features/mermaid-editor/lib/interaction/commands";
 import { palette } from "@/features/mermaid-editor/lib/mermaid-graph";
-import { NODE_ACTION_NONE_VALUE, nodeActionTarget } from "@/features/mermaid-editor/lib/node-actions";
+import { NODE_ACTION_NONE_VALUE, nodeActionLabel, nodeActionTarget } from "@/features/mermaid-editor/lib/node-actions";
 import { createImageAsset, DEFAULT_IMAGE_ASSET_HEIGHT, DEFAULT_IMAGE_ASSET_WIDTH } from "@/features/mermaid-editor/lib/node-assets";
 import { flowchartPortPoints, type ShapeGeometryPortKind } from "@/features/mermaid-editor/lib/flowchart-shape-geometry";
 import { cn } from "@/lib/utils";
@@ -38,6 +38,8 @@ type InspectorPanelProps = {
   graph: MermaidGraph;
   selection: Selection;
   onEditorCommand: (command: EditorCommand) => void;
+  onOpenNodeAction?: (node: CanvasNode) => void;
+  onEditNodeAction?: (node: CanvasNode) => void;
 };
 
 const edgeStyleOptions: { value: EdgeStyle; label: string }[] = [
@@ -111,7 +113,7 @@ const anchorKeyLabels: Record<string, string> = {
   "top-left": "左上"
 };
 
-export function InspectorPanel({ graph, selection, onEditorCommand }: InspectorPanelProps) {
+export function InspectorPanel({ graph, selection, onEditorCommand, onOpenNodeAction, onEditNodeAction }: InspectorPanelProps) {
   const selectedNodes = graph.nodes.filter((node) => selection.nodeIds.includes(node.id));
   const selectedEdges = graph.edges.filter((edge) => selection.edgeIds.includes(edge.id));
   const selectedSubgraphs = (graph.subgraphs || []).filter((subgraph) => (selection.subgraphIds || []).includes(subgraph.id));
@@ -230,6 +232,10 @@ export function InspectorPanel({ graph, selection, onEditorCommand }: InspectorP
     updateSelectedNodes({ fill });
   }
 
+  function copyNodeActionTarget(action: CanvasNodeAction) {
+    void navigator.clipboard?.writeText(nodeActionTarget(action));
+  }
+
   return (
     <section className="grid h-full min-h-0 grid-rows-[42px_minmax(0,1fr)]">
       <header data-floating-panel-drag-handle className="flex cursor-grab items-center gap-2 border-b bg-card/95 px-3 pr-20 text-sm font-medium active:cursor-grabbing">
@@ -338,7 +344,16 @@ export function InspectorPanel({ graph, selection, onEditorCommand }: InspectorP
               <div className="grid gap-2">
                 <div className="flex items-center justify-between gap-2">
                   <Label>节点动作</Label>
-                  {selectedNode.action ? <span className="max-w-[180px] truncate text-xs text-muted-foreground">{nodeActionTarget(selectedNode.action)}</span> : null}
+                  {selectedNode.action ? (
+                    <button
+                      type="button"
+                      className="min-w-0 max-w-[180px] truncate rounded px-1 text-right text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
+                      title={`复制${nodeActionLabel(selectedNode.action)}目标：${nodeActionTarget(selectedNode.action)}`}
+                      onClick={() => copyNodeActionTarget(selectedNode.action!)}
+                    >
+                      {nodeActionTarget(selectedNode.action)}
+                    </button>
+                  ) : null}
                 </div>
                 <Select value={selectedNode.action?.kind || NODE_ACTION_NONE_VALUE} onValueChange={(value) => updateNodeActionKind(selectedNode, value as CanvasNodeAction["kind"] | typeof NODE_ACTION_NONE_VALUE)}>
                   <SelectTrigger>
@@ -388,19 +403,31 @@ export function InspectorPanel({ graph, selection, onEditorCommand }: InspectorP
                 </div>
               ) : null}
               {selectedNode.action ? (
-                <div className="grid gap-2">
-                  <Label htmlFor="node-action-tooltip">提示文本</Label>
-                  <Input
-                    id="node-action-tooltip"
-                    value={selectedNode.action.tooltip || ""}
-                    placeholder={selectedNode.action.kind === "url" ? "打开链接" : "打开文件"}
-                    onChange={(event) =>
-                      selectedNode.action?.kind === "url"
-                        ? updateUrlNodeAction(selectedNode, { tooltip: event.target.value })
-                        : updateFileNodeAction(selectedNode, { tooltip: event.target.value })
-                    }
-                  />
-                </div>
+                <>
+                  <div className="grid gap-2">
+                    <Label htmlFor="node-action-tooltip">提示文本</Label>
+                    <Input
+                      id="node-action-tooltip"
+                      value={selectedNode.action.tooltip || ""}
+                      placeholder={selectedNode.action.kind === "url" ? "打开链接" : "打开文件"}
+                      onChange={(event) =>
+                        selectedNode.action?.kind === "url"
+                          ? updateUrlNodeAction(selectedNode, { tooltip: event.target.value })
+                          : updateFileNodeAction(selectedNode, { tooltip: event.target.value })
+                      }
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button variant="outline" className="h-8 justify-start px-2" onClick={() => onOpenNodeAction?.(selectedNode)}>
+                      <OpenNewWindow className="size-4" />
+                      测试打开
+                    </Button>
+                    <Button variant="outline" className="h-8 justify-start px-2" onClick={() => onEditNodeAction?.(selectedNode)}>
+                      <Link className="size-4" />
+                      链接编辑器
+                    </Button>
+                  </div>
+                </>
               ) : null}
               <Separator />
               <Button variant="outline" className="h-8 justify-start px-2" onClick={() => addEdgeFrom(selectedNode)} disabled={graph.nodes.length < 2}>

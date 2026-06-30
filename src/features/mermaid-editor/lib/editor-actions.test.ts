@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { CanvasEdge, CanvasNode, CanvasSubgraph, MermaidGraph } from "@/features/mermaid-editor/lib/editor-types";
 import {
   addNodeAt,
+  addNodesAt,
   createSubgraphFromSelection,
   deleteSelection,
   pasteClipboard,
@@ -33,6 +34,39 @@ describe("editor actions", () => {
 
     expect(result.graph.nodes.at(-1)).toMatchObject({ id: "N4", label: "新节点", x: 40, y: 80 });
     expect(result.selection).toEqual({ nodeIds: ["N4"], edgeIds: [], subgraphIds: [], primaryId: "N4" });
+  });
+
+  it("adds link nodes with provided labels and actions", () => {
+    const result = addNodeAt(graph([node("A")]), 40, 80, {
+      label: "example.com/docs",
+      action: { kind: "url", url: "https://example.com/docs", openMode: "app-browser" }
+    });
+
+    expect(result.graph.nodes.at(-1)).toMatchObject({
+      id: "N1",
+      label: "example.com/docs",
+      action: { kind: "url", url: "https://example.com/docs", openMode: "app-browser" }
+    });
+  });
+
+  it("infers link actions from new node labels", () => {
+    const result = addNodeAt(graph([]), 40, 80, { label: "https://example.com/docs" });
+
+    expect(result.graph.nodes.at(-1)).toMatchObject({
+      label: "https://example.com/docs",
+      action: { kind: "url", url: "https://example.com/docs", openMode: "app-browser" }
+    });
+  });
+
+  it("adds multiple link nodes in one selection", () => {
+    const result = addNodesAt(graph([]), [
+      { x: 10, y: 20, label: "example.com", action: { kind: "url", url: "https://example.com", openMode: "app-browser" } },
+      { x: 10, y: 124, label: "spec.md", action: { kind: "file", path: "./docs/spec.md", openMode: "app-window" } }
+    ]);
+
+    expect(result.graph.nodes.map((item) => item.id)).toEqual(["N1", "N2"]);
+    expect(result.graph.nodes[1]).toMatchObject({ x: 10, y: 124, label: "spec.md", action: { kind: "file", path: "./docs/spec.md" } });
+    expect(result.selection).toEqual({ nodeIds: ["N1", "N2"], edgeIds: [], subgraphIds: [], primaryId: "N1" });
   });
 
   it("keeps paste IDs based on the original node instead of generated N IDs", () => {

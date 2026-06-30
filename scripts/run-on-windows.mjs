@@ -12,7 +12,9 @@ const STAGING_NAME = "mermaid-canvas-editor-win-ship";
 const APP_NAME = "Mermaid Canvas Editor";
 const BIN_NAME = "mermaid-canvas-editor";
 
-const launchOnly = isEnabled("MMM_WINDOWS_RUN_LAUNCH_ONLY");
+const args = new Set(process.argv.slice(2));
+const launchOnly = isEnabled("MMM_WINDOWS_RUN_LAUNCH_ONLY") || args.has("--launch-only");
+const installOnly = isEnabled("MMM_WINDOWS_RUN_INSTALL_ONLY") || args.has("--install-only");
 const fullChecks = isEnabled("MMM_WINDOWS_RUN_FULL_CHECKS");
 
 main();
@@ -23,13 +25,14 @@ function main() {
   const powershell = findPowerShell();
 
   if (launchOnly) {
-    log("Launch-only mode enabled by MMM_WINDOWS_RUN_LAUNCH_ONLY=1.");
+    log("Launch-only mode enabled.");
     launchInstalledWindowsApp(powershell);
     return;
   }
 
   if (process.platform === "win32") {
     runWindowsDesktopFlow(powershell, PROJECT_DIR);
+    launchAfterInstall(powershell);
     return;
   }
 
@@ -44,6 +47,7 @@ function main() {
   log(`Syncing workspace to Windows staging: ${stagingWindowsPath}`);
   syncProject(PROJECT_DIR, stagingWslPath);
   runWindowsDesktopFlow(powershell, stagingWindowsPath);
+  launchAfterInstall(powershell);
 }
 
 function isEnabled(name) {
@@ -256,9 +260,19 @@ function runWindowsDesktopFlow(powershell, projectWindowsPath) {
       "if (!(Get-Command npm -ErrorAction SilentlyContinue)) { throw 'npm was not found in the Windows PATH.' }",
       "npm install",
       checksLine,
+      "$env:MMM_SHIP_NO_LAUNCH = '1'",
       "npm run desktop:ship"
     ].join("; ")
   ]);
+}
+
+function launchAfterInstall(powershell) {
+  if (installOnly) {
+    log("Install-only mode enabled. Launch skipped.");
+    return;
+  }
+
+  launchInstalledWindowsApp(powershell);
 }
 
 function launchInstalledWindowsApp(powershell) {
@@ -270,13 +284,12 @@ function launchInstalledWindowsApp(powershell) {
     [
       "$ErrorActionPreference = 'Stop'",
       "[Console]::OutputEncoding = [Text.UTF8Encoding]::UTF8",
-      "$candidates = @(",
-      `  (Join-Path $env:LOCALAPPDATA ${psQuote(`${APP_NAME}\\${BIN_NAME}.exe`)}),`,
-      `  (Join-Path $env:LOCALAPPDATA ${psQuote(`Programs\\${APP_NAME}\\${BIN_NAME}.exe`)}),`,
-      `  (Join-Path $env:LOCALAPPDATA ${psQuote(`Programs\\${APP_NAME}\\${APP_NAME}.exe`)}),`,
-      `  (Join-Path $env:TEMP ${psQuote(`${STAGING_NAME}\\src-tauri\\target\\release\\${BIN_NAME}.exe`)}),`,
-      `  (Join-Path $env:ProgramFiles ${psQuote(`${APP_NAME}\\${BIN_NAME}.exe`)})`,
-      ")",
+      "$candidates = @()",
+      `$candidates += (Join-Path $env:LOCALAPPDATA ${psQuote(`${APP_NAME}\\${BIN_NAME}.exe`)})`,
+      `$candidates += (Join-Path $env:LOCALAPPDATA ${psQuote(`Programs\\${APP_NAME}\\${BIN_NAME}.exe`)})`,
+      `$candidates += (Join-Path $env:LOCALAPPDATA ${psQuote(`Programs\\${APP_NAME}\\${APP_NAME}.exe`)})`,
+      `$candidates += (Join-Path $env:TEMP ${psQuote(`${STAGING_NAME}\\src-tauri\\target\\release\\${BIN_NAME}.exe`)})`,
+      `$candidates += (Join-Path $env:ProgramFiles ${psQuote(`${APP_NAME}\\${BIN_NAME}.exe`)})`,
       "$target = $candidates | Where-Object { $_ -and (Test-Path -LiteralPath $_) } | Select-Object -First 1",
       "if (!$target) { throw 'Installed Mermaid Canvas Editor was not found. Run npm run windows:run without MMM_WINDOWS_RUN_LAUNCH_ONLY first.' }",
       "Write-Host \"Launching $target\"",

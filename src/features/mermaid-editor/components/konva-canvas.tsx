@@ -76,16 +76,17 @@ import {
   resolveParallelEdgeLanes,
   type EdgePathGeometry
 } from "@/features/mermaid-editor/lib/edge-geometry";
-import type { CanvasEdge, CanvasNode, EdgeMarker, EdgeRouting, EditorMode, LayoutMode, MermaidGraph, Selection, ViewportState } from "@/features/mermaid-editor/lib/editor-types";
+import type { CanvasEdge, CanvasNode, CanvasNodeAction, EdgeMarker, EdgeRouting, EditorMode, LayoutMode, MermaidGraph, Selection, ViewportState } from "@/features/mermaid-editor/lib/editor-types";
 import { flattenShapePoints, flowchartPolygonPoints } from "@/features/mermaid-editor/lib/flowchart-shape-geometry";
 import { DEFAULT_FLOWCHART_NODE_SHAPE, normalizeFlowchartShape } from "@/features/mermaid-editor/lib/flowchart-shapes";
-import { nodeActionLabel, nodeActionOpenLabel, normalizeNodeAction } from "@/features/mermaid-editor/lib/node-actions";
+import { nodeActionDisplayTooltip, nodeActionLabel, nodeActionOpenLabel, nodeActionTarget, normalizeNodeAction } from "@/features/mermaid-editor/lib/node-actions";
 import { normalizeImageAsset } from "@/features/mermaid-editor/lib/node-assets";
 import {
   DEFAULT_NODE_GEOMETRY_TOKENS,
   buildNodeGeometry,
   defaultNodeGeometrySpec,
   nodeIntersectsRect,
+  type NodeGeometry,
   type NodeGeometryTokens
 } from "@/features/mermaid-editor/lib/node-geometry";
 import {
@@ -155,6 +156,7 @@ type KonvaCanvasProps = {
   onEditorCommand: (command: EditorCommand) => void;
   onOpenNodeAction?: (node: CanvasNode) => void;
   onEditNodeAction?: (node: CanvasNode) => void;
+  onPointerWorldChange?: (point: CanvasPoint) => void;
   onLiveStateChange?: (state: CanvasLiveState) => void;
 };
 
@@ -270,6 +272,19 @@ function scaleLocalPointFromCenter(point: CanvasPoint, frame: CanvasMotionFrame,
   return {
     x: center.x + (point.x - center.x) * scale,
     y: center.y + (point.y - center.y) * scale
+  };
+}
+
+function scaleLocalRectFromCenter<T extends { x: number; y: number; width: number; height: number }>(rect: T, frame: CanvasMotionFrame, scale: number): T {
+  if (!Number.isFinite(scale) || scale <= 1) return rect;
+
+  const origin = scaleLocalPointFromCenter({ x: rect.x, y: rect.y }, frame, scale);
+  return {
+    ...rect,
+    x: origin.x,
+    y: origin.y,
+    width: rect.width * scale,
+    height: rect.height * scale
   };
 }
 
@@ -751,6 +766,7 @@ export function KonvaCanvas({
   onEditorCommand,
   onOpenNodeAction,
   onEditNodeAction,
+  onPointerWorldChange,
   onLiveStateChange
 }: KonvaCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -1550,6 +1566,19 @@ export function KonvaCanvas({
     };
   }
 
+  function trackPointerWorldPoint(point = pointerWorldPoint()) {
+    if (point) onPointerWorldChange?.(point);
+    return point;
+  }
+
+  function screenToWorld(point: CanvasPoint) {
+    const activeViewport = currentViewport();
+    return {
+      x: (point.x - activeViewport.x) / activeViewport.scale,
+      y: (point.y - activeViewport.y) / activeViewport.scale
+    };
+  }
+
   function worldToScreen(point: { x: number; y: number }) {
     const activeViewport = currentViewport();
     return {
@@ -1818,6 +1847,7 @@ export function KonvaCanvas({
     const pointer = pointerScreenPoint();
     const world = worldOverride ?? pointerWorldPoint();
     if (!pointer || !world) return;
+    trackPointerWorldPoint(world);
 
     updateNodeProximityScales(pointer);
     const hit = explicitHit ?? hitTargetFromEvent(event);
@@ -1845,6 +1875,7 @@ export function KonvaCanvas({
     const pointer = pointerScreenPoint();
     const world = pointerWorldPoint();
     if (!pointer || !world) return;
+    trackPointerWorldPoint(world);
 
     if (interactionState.kind === "panning") {
       scheduleViewportChange(
@@ -1874,6 +1905,7 @@ export function KonvaCanvas({
       resetInteraction();
       return;
     }
+    trackPointerWorldPoint(world);
 
     const hit = hitTargetFromEvent(event);
     const pointerInput = standardPointerInput("up", event, hit, pointer, world);
@@ -1895,6 +1927,7 @@ export function KonvaCanvas({
   function handleCanvasPointerTracking(event: ReactPointerEvent<HTMLDivElement>) {
     const pointer = screenPointFromClient(event.clientX, event.clientY);
     if (!pointer) return;
+    trackPointerWorldPoint(screenToWorld(pointer));
 
     if (event.buttons !== 0 && !nodeProximityInteractive) {
       lastProximityPointerScreenRef.current = pointer;
@@ -2183,15 +2216,19 @@ export function KonvaCanvas({
       if (!viewFilters.nodes || !viewFilters.nodeLabels) return null;
       const geometry = nodeGeometryById.get(inlineEdit.id);
       if (!geometry) return null;
+      const viewportScale = currentViewport().scale;
+      const proximityScale = nodeProximityScale[inlineEdit.id] ?? 1;
+      const textBox = scaleLocalRectFromCenter(geometry.textBox, geometry.frame, proximityScale);
       const screen = worldToScreen({
-        x: geometry.frame.x + geometry.textBox.x,
-        y: geometry.frame.y + geometry.textBox.y
+        x: geometry.frame.x + textBox.x,
+        y: geometry.frame.y + textBox.y
       });
       return {
         left: screen.x,
         top: screen.y,
-        width: geometry.textBox.width * currentViewport().scale,
-        height: geometry.textBox.height * currentViewport().scale
+        width: textBox.width * viewportScale,
+        height: textBox.height * viewportScale,
+        textScale: viewportScale * proximityScale
       };
     }
 
@@ -2199,13 +2236,15 @@ export function KonvaCanvas({
     if (!edge || !viewFilters.edgeLabels || !isEdgeVisible(edge, graph, viewFilters)) return null;
     const geometry = resolvedEdgeGeometry(edge);
     if (!geometry) return null;
+    const viewportScale = currentViewport().scale;
     const labelGeometry = buildEdgeLabelGeometry(inlineEdit.value, geometry.labelPoint, edgeLabelSpec);
     const screen = worldToScreen({ x: labelGeometry.frame.x, y: labelGeometry.frame.y });
     return {
       left: screen.x,
       top: screen.y,
-      width: labelGeometry.frame.width * currentViewport().scale,
-      height: labelGeometry.frame.height * currentViewport().scale
+      width: labelGeometry.frame.width * viewportScale,
+      height: labelGeometry.frame.height * viewportScale,
+      textScale: viewportScale
     };
   }
 
@@ -2217,7 +2256,7 @@ export function KonvaCanvas({
     const measure = nodeEditorMeasureRef.current;
     if (!measure) return;
 
-    const minimumHeight = nodeThemeTokens.lineHeight * activeScale;
+    const minimumHeight = nodeThemeTokens.lineHeight * editStyle.textScale;
     const measuredHeight = Math.max(minimumHeight, Math.ceil(measure.scrollHeight));
     const scrollable = measuredHeight > editStyle.height + 1;
     const height = scrollable ? editStyle.height : Math.min(editStyle.height, measuredHeight);
@@ -2227,12 +2266,15 @@ export function KonvaCanvas({
       if (current.height === height && current.insetTop === insetTop && current.scrollable === scrollable) return current;
       return { height, insetTop, scrollable };
     });
-  }, [activeScale, editStyle, inlineEdit?.type, inlineEdit?.value, nodeThemeTokens.lineHeight]);
+  }, [editStyle, inlineEdit?.type, inlineEdit?.value, nodeThemeTokens.lineHeight]);
 
   const cursorClassName = interactionCursor(mode, interactionState, panningRequested, hoveredHitTarget);
   const isEndpointHovered = (edgeId: string, side: "from" | "to") =>
     hoveredHitTarget.kind === "edgeEndpoint" && hoveredHitTarget.edgeId === edgeId && hoveredHitTarget.side === side;
   const isEndpointActive = (edgeId: string, side: "from" | "to") => retargetDraft?.edgeId === edgeId && retargetDraft.side === side;
+  const hoveredActionNode = hoveredNodeId ? graph.nodes.find((node) => node.id === hoveredNodeId) : undefined;
+  const hoveredAction = normalizeNodeAction(hoveredActionNode?.action);
+  const hoveredActionGeometry = hoveredActionNode ? nodeGeometryById.get(hoveredActionNode.id) : undefined;
 
   return (
     <section className="relative h-full min-h-0 bg-card">
@@ -2623,6 +2665,7 @@ export function KonvaCanvas({
                         x={Math.max(8, geometry.frame.width - 24)}
                         y={6}
                         visualTokens={visualTokens}
+                        onOpen={() => onOpenNodeAction?.(node)}
                       />
                     ) : null}
                   </Group>
@@ -2807,6 +2850,9 @@ export function KonvaCanvas({
             onEditNodeAction={onEditNodeAction}
           />
         ) : null}
+        {hoveredActionNode && hoveredAction && hoveredActionGeometry ? (
+          <NodeActionTooltip node={hoveredActionNode} action={hoveredAction} geometry={hoveredActionGeometry} viewport={viewport} dimensions={dimensions} />
+        ) : null}
 
         {inlineEdit?.type === "node" && editStyle ? (
           <>
@@ -2817,8 +2863,8 @@ export function KonvaCanvas({
               style={{
                 width: editStyle.width,
                 fontFamily: nodeThemeTokens.fontFamily,
-                fontSize: nodeThemeTokens.fontSize * activeScale,
-                lineHeight: `${nodeThemeTokens.lineHeight * activeScale}px`,
+                fontSize: nodeThemeTokens.fontSize * editStyle.textScale,
+                lineHeight: `${nodeThemeTokens.lineHeight * editStyle.textScale}px`,
                 overflowWrap: "break-word",
                 wordBreak: "break-word",
                 visibility: "hidden"
@@ -2836,8 +2882,8 @@ export function KonvaCanvas({
                 width: editStyle.width,
                 height: nodeEditorLayout.height,
                 fontFamily: nodeThemeTokens.fontFamily,
-                fontSize: nodeThemeTokens.fontSize * activeScale,
-                lineHeight: `${nodeThemeTokens.lineHeight * activeScale}px`,
+                fontSize: nodeThemeTokens.fontSize * editStyle.textScale,
+                lineHeight: `${nodeThemeTokens.lineHeight * editStyle.textScale}px`,
                 overflowWrap: "break-word",
                 wordBreak: "break-word",
                 overflowY: nodeEditorLayout.scrollable ? "auto" : "hidden"
@@ -2889,17 +2935,33 @@ function CanvasNodeActionBadge({
   actionKind,
   x,
   y,
-  visualTokens
+  visualTokens,
+  onOpen
 }: {
   actionKind: "url" | "file";
   x: number;
   y: number;
   visualTokens: CanvasVisualTokens;
+  onOpen?: () => void;
 }) {
   const size = 18;
 
   return (
-    <Group x={x} y={y} listening={false}>
+    <Group
+      x={x}
+      y={y}
+      onMouseDown={(event) => {
+        event.cancelBubble = true;
+      }}
+      onClick={(event) => {
+        event.cancelBubble = true;
+        onOpen?.();
+      }}
+      onTap={(event) => {
+        event.cancelBubble = true;
+        onOpen?.();
+      }}
+    >
       <Circle
         x={size / 2}
         y={size / 2}
@@ -2921,6 +2983,42 @@ function CanvasNodeActionBadge({
         fill={visualTokens.colors.accent}
       />
     </Group>
+  );
+}
+
+function NodeActionTooltip({
+  node,
+  action,
+  geometry,
+  viewport,
+  dimensions
+}: {
+  node: CanvasNode;
+  action: CanvasNodeAction;
+  geometry: NodeGeometry;
+  viewport: ViewportState;
+  dimensions: { width: number; height: number };
+}) {
+  const width = 280;
+  const left = Math.max(8, Math.min(viewport.x + (geometry.frame.x + geometry.frame.width) * viewport.scale + 10, dimensions.width - width - 8));
+  const top = Math.max(8, Math.min(viewport.y + geometry.frame.y * viewport.scale - 4, dimensions.height - 74));
+  const target = nodeActionTarget(action);
+
+  return (
+    <div
+      className="pointer-events-none absolute grid w-[280px] gap-1 rounded-md border bg-popover/95 px-3 py-2 text-xs text-popover-foreground shadow-lg backdrop-blur"
+      style={{ left, top, zIndex: OVERLAY_Z_INDEX.tooltip }}
+      data-editor-floating-menu-ignore
+    >
+      <div className="flex min-w-0 items-center justify-between gap-2">
+        <span className="font-medium">{nodeActionLabel(action)}</span>
+        <span className="truncate text-muted-foreground">{nodeActionDisplayTooltip(action)}</span>
+      </div>
+      <div className="truncate text-muted-foreground" title={target}>
+        {target}
+      </div>
+      <div className="sr-only">{node.label || node.id}</div>
+    </div>
   );
 }
 
@@ -2983,7 +3081,7 @@ function NodeContextMenu({
           onClose();
         }}
       >
-        编辑动作
+        {action ? "编辑链接" : "添加链接"}
       </button>
     </div>
   );

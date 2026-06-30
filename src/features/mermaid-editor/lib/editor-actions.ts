@@ -12,7 +12,9 @@ import type {
   Selection,
   ViewportState
 } from "@/features/mermaid-editor/lib/editor-types";
+import type { CanvasNodeAction } from "@/features/mermaid-editor/lib/editor-types";
 import { createImageAsset } from "@/features/mermaid-editor/lib/node-assets";
+import { inferNodeActionFromPlainText } from "@/features/mermaid-editor/lib/node-actions";
 import { createNode, nextCanvasNodeId, toSafeNodeId } from "@/features/mermaid-editor/lib/mermaid-graph";
 
 export const emptySelection: Selection = { nodeIds: [], edgeIds: [], subgraphIds: [] };
@@ -59,8 +61,18 @@ export function addNode(graph: MermaidGraph, viewport: ViewportState): { graph: 
   return addNodeAt(graph, centerX, centerY);
 }
 
-export function addNodeAt(graph: MermaidGraph, x: number, y: number): { graph: MermaidGraph; selection: Selection } {
-  const node = createNode(graph.nodes, x, y);
+export type AddCanvasNodeOptions = {
+  label?: string;
+  action?: CanvasNodeAction;
+};
+
+export type AddCanvasNodeItem = AddCanvasNodeOptions & {
+  x: number;
+  y: number;
+};
+
+export function addNodeAt(graph: MermaidGraph, x: number, y: number, options: AddCanvasNodeOptions = {}): { graph: MermaidGraph; selection: Selection } {
+  const node = createNodeWithOptions(graph.nodes, x, y, options);
 
   return {
     graph: { ...graph, nodes: [...graph.nodes, node] },
@@ -68,10 +80,31 @@ export function addNodeAt(graph: MermaidGraph, x: number, y: number): { graph: M
   };
 }
 
+export function addNodesAt(graph: MermaidGraph, items: AddCanvasNodeItem[]): { graph: MermaidGraph; selection: Selection } {
+  const nextNodes = [...graph.nodes];
+  const addedIds: string[] = [];
+
+  for (const item of items) {
+    const node = createNodeWithOptions(nextNodes, item.x, item.y, item);
+    nextNodes.push(node);
+    addedIds.push(node.id);
+  }
+
+  return {
+    graph: { ...graph, nodes: nextNodes },
+    selection: {
+      nodeIds: addedIds,
+      edgeIds: [],
+      subgraphIds: [],
+      primaryId: addedIds[0]
+    }
+  };
+}
+
 export function updateNodeLabel(graph: MermaidGraph, id: string, label: string): MermaidGraph {
   return {
     ...graph,
-    nodes: graph.nodes.map((node) => (node.id === id ? { ...node, label } : node))
+    nodes: graph.nodes.map((node) => (node.id === id ? applyNodeLabelPatch(node, label) : node))
   };
 }
 
@@ -142,6 +175,25 @@ export function addImageNodeAt(graph: MermaidGraph, x: number, y: number, asset:
 
 function imageLabelFromSrc(src: string) {
   return src.split(/[\\/]/).filter(Boolean).at(-1)?.replace(/\.[^.]+$/, "") || "图片";
+}
+
+function createNodeWithOptions(existingNodes: CanvasNode[], x: number, y: number, options: AddCanvasNodeOptions): CanvasNode {
+  const node = createNode(existingNodes, x, y);
+  const label = options.label ?? node.label;
+  const action = options.action || inferNodeActionFromPlainText(label);
+  return {
+    ...node,
+    label,
+    ...(action ? { action } : {})
+  };
+}
+
+export function applyNodeLabelPatch(node: CanvasNode, label: string): CanvasNode {
+  const nextNode = { ...node, label };
+  if (node.action) return nextNode;
+
+  const action = inferNodeActionFromPlainText(label);
+  return action ? { ...nextNode, action } : nextNode;
 }
 
 export function renameSubgraph(graph: MermaidGraph, oldId: string, value: string): { graph: MermaidGraph; selection: Selection } {

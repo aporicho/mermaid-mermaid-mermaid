@@ -195,7 +195,6 @@ export function shouldRunCanvasProximity(input: CanvasProximityRuntimeInput) {
     input.radiusPx > 0 &&
     input.maxScale > 1 &&
     !input.panningRequested &&
-    !input.inlineEditing &&
     !isCanvasProximityPausedInteraction(input.interactionKind)
   );
 }
@@ -207,9 +206,7 @@ export function isCanvasProximityPausedInteraction(kind: string) {
     kind === "panning" ||
     kind === "marqueeSelecting" ||
     kind === "connectingEdge" ||
-    kind === "retargetingEdge" ||
-    kind === "editingNodeText" ||
-    kind === "editingEdgeLabel"
+    kind === "retargetingEdge"
   );
 }
 
