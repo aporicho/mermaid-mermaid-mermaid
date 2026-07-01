@@ -116,6 +116,11 @@ describe("interaction architecture contract", () => {
     const budgets = [
       { path: "src/features/mermaid-editor/components/mermaid-editor.tsx", maxLines: 1500 },
       { path: "src/features/mermaid-editor/components/mermaid-editor/use-editor-file-workflow.ts", maxLines: 900 },
+      { path: "src/features/mermaid-editor/components/inspector-panel.tsx", maxLines: 500 },
+      { path: "src/features/mermaid-editor/components/inspector-panel/node-sections.tsx", maxLines: 500 },
+      { path: "src/features/mermaid-editor/components/inspector-panel/edge-sections.tsx", maxLines: 500 },
+      { path: "src/features/mermaid-editor/components/inspector-panel/subgraph-sections.tsx", maxLines: 500 },
+      { path: "src/features/mermaid-editor/components/inspector-panel/model.ts", maxLines: 500 },
       { path: "src/features/mermaid-editor/components/konva-canvas.tsx", maxLines: 1200 },
       { path: "src/features/mermaid-editor/components/canvas-document-editor.tsx", maxLines: 1300 },
       { path: "src-tauri/src/main.rs", maxLines: 1450 }
@@ -166,6 +171,25 @@ describe("interaction architecture contract", () => {
     expect(editor).not.toContain("function openFileNodeAction(");
     expect(editor).not.toContain("function resolveNodeActionFilePath(");
     expect(editor).not.toContain("function saveDetachedMarkdownWindow(");
+  });
+
+  it("keeps inspector sections and selection helpers outside the InspectorPanel shell file", () => {
+    const inspector = readProjectFile("src/features/mermaid-editor/components/inspector-panel.tsx");
+
+    expect(inspector).toContain("NodeInspectorSection");
+    expect(inspector).toContain("MultiNodeInspectorSection");
+    expect(inspector).toContain("SubgraphInspectorSection");
+    expect(inspector).toContain("MultiSubgraphInspectorSection");
+    expect(inspector).toContain("EdgeInspectorSection");
+    expect(inspector).toContain("MultiEdgeInspectorSection");
+    expect(inspector).toContain("createInspectorSelectionModel");
+    expect(inspector).not.toContain("function ColorGrid(");
+    expect(inspector).not.toContain("function EmptyInspector(");
+    expect(inspector).not.toContain("function nodeAnchorOptions(");
+    expect(inspector).not.toContain("function normalizeNodePatch(");
+    expect(inspector).not.toContain("function normalizeEdgePatch(");
+    expect(inspector).not.toContain("function normalizeSubgraphPatch(");
+    expect(inspector).not.toContain("FLOWCHART_SHAPES.filter");
   });
 
   it("keeps Konva render helpers outside the KonvaCanvas shell file", () => {
