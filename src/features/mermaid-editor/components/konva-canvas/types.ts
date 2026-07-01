@@ -1,6 +1,11 @@
 import type { CanvasPoint } from "@/features/mermaid-editor/lib/canvas-interaction";
+import type { DagreEdgeRoute } from "@/features/mermaid-editor/lib/canvas-auto-layout";
+import type { CanvasVisualTokens } from "@/features/mermaid-editor/lib/canvas-visual-state";
+import type { EditorThemeGeometryTokens } from "@/features/mermaid-editor/lib/editor-theme";
+import type { RuntimeEditorMotion } from "@/features/mermaid-editor/lib/editor-motion";
+import type { CanvasNode, EdgeRouting, EditorMode, LayoutMode, MermaidGraph, Selection, ViewportState } from "@/features/mermaid-editor/lib/editor-types";
 import type { EditorCommand } from "@/features/mermaid-editor/lib/interaction/commands";
-import type { ViewportState } from "@/features/mermaid-editor/lib/editor-types";
+import type { ViewFilters } from "@/features/mermaid-editor/lib/view-filters";
 
 export type ViewportCommandSource = Extract<EditorCommand, { type: "viewport.set" }>["source"];
 
@@ -42,3 +47,24 @@ export type SafariGestureEvent = Event & {
 };
 
 export type ScreenPointResolver = (clientX: number | undefined, clientY: number | undefined) => CanvasPoint | null;
+
+export type KonvaCanvasProps = {
+  graph: MermaidGraph;
+  selection: Selection;
+  viewport: ViewportState;
+  mode: EditorMode;
+  panningRequested: boolean;
+  viewFilters: ViewFilters;
+  edgeRouting: EdgeRouting;
+  mermaidEdgeRoutes?: DagreEdgeRoute[];
+  layoutMode: LayoutMode;
+  imageDisplaySrcBySrc?: Record<string, string>;
+  visualTokens?: CanvasVisualTokens;
+  geometryTokens?: EditorThemeGeometryTokens;
+  motion?: RuntimeEditorMotion;
+  onEditorCommand: (command: EditorCommand) => void;
+  onOpenNodeAction?: (node: CanvasNode) => void;
+  onEditNodeAction?: (node: CanvasNode) => void;
+  onPointerWorldChange?: (point: CanvasPoint) => void;
+  onLiveStateChange?: (state: CanvasLiveState) => void;
+};

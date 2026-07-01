@@ -132,7 +132,10 @@ describe("interaction architecture contract", () => {
       { path: "src/features/mermaid-editor/components/inspector-panel/edge-sections.tsx", maxLines: 500 },
       { path: "src/features/mermaid-editor/components/inspector-panel/subgraph-sections.tsx", maxLines: 500 },
       { path: "src/features/mermaid-editor/components/inspector-panel/model.ts", maxLines: 500 },
-      { path: "src/features/mermaid-editor/components/konva-canvas.tsx", maxLines: 1200 },
+      { path: "src/features/mermaid-editor/components/konva-canvas.tsx", maxLines: 760 },
+      { path: "src/features/mermaid-editor/components/konva-canvas/konva-canvas-stage.tsx", maxLines: 380 },
+      { path: "src/features/mermaid-editor/components/konva-canvas/types.ts", maxLines: 100 },
+      { path: "src/features/mermaid-editor/components/konva-canvas/use-konva-drag-membership.ts", maxLines: 280 },
       { path: "src/features/mermaid-editor/components/canvas-document-editor.tsx", maxLines: 850 },
       { path: "src/features/mermaid-editor/components/canvas-document-editor/canvas-document-animation.ts", maxLines: 80 },
       { path: "src/features/mermaid-editor/components/canvas-document-editor/image-url-dialog.tsx", maxLines: 100 },
@@ -240,6 +243,7 @@ describe("interaction architecture contract", () => {
 
   it("keeps Konva render helpers outside the KonvaCanvas shell file", () => {
     const canvas = readProjectFile("src/features/mermaid-editor/components/konva-canvas.tsx");
+    const stage = readProjectFile("src/features/mermaid-editor/components/konva-canvas/konva-canvas-stage.tsx");
 
     expect(canvas).not.toContain("function CanvasNodeShape(");
     expect(canvas).not.toContain("function CanvasNodeImage(");
@@ -251,10 +255,18 @@ describe("interaction architecture contract", () => {
     expect(canvas).not.toContain("function NodeContextMenu(");
     expect(canvas).not.toContain("function useContainerSize(");
     expect(canvas).not.toContain("function measureTextWidth(");
-    expect(canvas).toContain("KonvaSubgraphLayer");
-    expect(canvas).toContain("KonvaEdgeLayer");
-    expect(canvas).toContain("KonvaEdgeOverlayLayer");
-    expect(canvas).toContain("KonvaNodeLayer");
+    expect(canvas).toContain("KonvaCanvasStage");
+    expect(canvas).not.toContain("<Stage");
+    expect(canvas).not.toContain("<Layer");
+    expect(canvas).not.toContain("<KonvaSubgraphLayer");
+    expect(canvas).not.toContain("<KonvaEdgeLayer");
+    expect(canvas).not.toContain("<KonvaEdgeOverlayLayer");
+    expect(canvas).not.toContain("<KonvaNodeLayer");
+    expect(stage).toContain("<Stage");
+    expect(stage).toContain("KonvaSubgraphLayer");
+    expect(stage).toContain("KonvaEdgeLayer");
+    expect(stage).toContain("KonvaEdgeOverlayLayer");
+    expect(stage).toContain("KonvaNodeLayer");
     expect(canvas).toContain("useKonvaRenderModel");
     expect(canvas).toContain("useKonvaMotion");
     expect(canvas).toContain("useKonvaViewport");
@@ -267,11 +279,20 @@ describe("interaction architecture contract", () => {
 
   it("keeps Konva runtime controllers outside the KonvaCanvas shell file", () => {
     const canvas = readProjectFile("src/features/mermaid-editor/components/konva-canvas.tsx");
+    const dragMembership = readProjectFile("src/features/mermaid-editor/components/konva-canvas/use-konva-drag-membership.ts");
 
     expect(canvas).toContain("useKonvaDragDraft");
+    expect(canvas).toContain("useKonvaDragMembership");
     expect(canvas).toContain("useKonvaNodeProximity");
     expect(canvas).toContain("useKonvaInlineEditSession");
     expect(canvas).toContain("useKonvaNodeEditorLayout");
+    expect(dragMembership).toContain("moveSelectedNodes");
+    expect(dragMembership).toContain("finishDragWithMembership");
+    expect(canvas).not.toContain("function startNodeDrag(");
+    expect(canvas).not.toContain("function startSubgraphDrag(");
+    expect(canvas).not.toContain("function moveSelectedNodes(");
+    expect(canvas).not.toContain("function moveSelectedSubgraphs(");
+    expect(canvas).not.toContain("function finishDragWithMembership(");
     expect(canvas).not.toContain("function scheduleDragDraftCommand(");
     expect(canvas).not.toContain("function flushDragDraftCommand(");
     expect(canvas).not.toContain("function clearDragRuntimeState(");

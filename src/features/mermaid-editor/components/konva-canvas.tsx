@@ -1,19 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
-import { Layer, Stage } from "react-konva";
 import type Konva from "konva";
 import type { KonvaEventObject } from "konva/lib/Node";
 
-import { AlignmentGuideOverlay, CanvasGrid } from "@/features/mermaid-editor/components/konva-canvas/canvas-overlays";
-import { KonvaEdgeLayer, KonvaEdgeOverlayLayer } from "@/features/mermaid-editor/components/konva-canvas/edge-layer";
-import { InlineEditOverlays } from "@/features/mermaid-editor/components/konva-canvas/inline-edit-overlays";
-import { KonvaNodeLayer } from "@/features/mermaid-editor/components/konva-canvas/node-layer";
-import { NodeActionTooltip, NodeContextMenu } from "@/features/mermaid-editor/components/konva-canvas/node-action-ui";
-import { unique } from "@/features/mermaid-editor/components/konva-canvas/render-utils";
-import { KonvaSubgraphLayer } from "@/features/mermaid-editor/components/konva-canvas/subgraph-layer";
-import type { CanvasLiveState } from "@/features/mermaid-editor/components/konva-canvas/types";
+import { KonvaCanvasStage } from "@/features/mermaid-editor/components/konva-canvas/konva-canvas-stage";
+import type { KonvaCanvasProps } from "@/features/mermaid-editor/components/konva-canvas/types";
 import { useKonvaDragDraft } from "@/features/mermaid-editor/components/konva-canvas/use-konva-drag-draft";
+import { useKonvaDragMembership } from "@/features/mermaid-editor/components/konva-canvas/use-konva-drag-membership";
 import {
   resolveKonvaInlineEditStyle,
   useKonvaInlineEditSession,
@@ -25,17 +19,7 @@ import { useKonvaRenderModel } from "@/features/mermaid-editor/components/konva-
 import { useKonvaViewport } from "@/features/mermaid-editor/components/konva-canvas/use-konva-viewport";
 import { useKonvaHoverState } from "@/features/mermaid-editor/components/konva-canvas/use-konva-hover-state";
 import { useContainerSize } from "@/features/mermaid-editor/components/konva-canvas/use-container-size";
-import {
-  descendantNodeIds,
-  descendantSubgraphIds,
-  selectOnlyNode,
-  selectOnlySubgraph,
-  setNodePositions,
-  setNodeParent,
-  setSubgraphParent
-} from "@/features/mermaid-editor/lib/editor-actions";
-import { computeAlignmentSnap, selectionBounds, type AlignmentGuide } from "@/features/mermaid-editor/lib/alignment-guides";
-import type { DagreEdgeRoute } from "@/features/mermaid-editor/lib/canvas-auto-layout";
+import { selectOnlyNode } from "@/features/mermaid-editor/lib/editor-actions";
 import {
   idleInteraction,
   interactionCursor,
@@ -51,8 +35,7 @@ import { DEFAULT_CANVAS_GRID, type CanvasGridSpec } from "@/features/mermaid-edi
 import { shouldRunCanvasProximity } from "@/features/mermaid-editor/lib/canvas-motion";
 import { resolveConnectionPreview, resolveRetargetPreview } from "@/features/mermaid-editor/lib/connection-preview";
 import { DEFAULT_EDGE_LABEL_GEOMETRY_TOKENS } from "@/features/mermaid-editor/lib/edge-label-geometry";
-import type { CanvasNode, EdgeRouting, EditorMode, LayoutMode, MermaidGraph, Selection, ViewportState } from "@/features/mermaid-editor/lib/editor-types";
-import { normalizeNodeAction } from "@/features/mermaid-editor/lib/node-actions";
+import type { CanvasNode } from "@/features/mermaid-editor/lib/editor-types";
 import {
   DEFAULT_NODE_GEOMETRY_TOKENS,
   buildNodeGeometry,
@@ -60,15 +43,12 @@ import {
 } from "@/features/mermaid-editor/lib/node-geometry";
 import {
   SUBGRAPH_GEOMETRY_TOKENS,
-  buildSubgraphGeometries,
   subgraphAtPoint,
   subgraphIntersectsRect,
-  type SubgraphGeometryTokens,
-  type SubgraphGeometry
+  type SubgraphGeometryTokens
 } from "@/features/mermaid-editor/lib/subgraph-geometry";
-import type { EditorThemeGeometryTokens } from "@/features/mermaid-editor/lib/editor-theme";
-import { resolveRuntimeEditorMotion, type RuntimeEditorMotion } from "@/features/mermaid-editor/lib/editor-motion";
-import { CANVAS_VISUAL_TOKENS, type CanvasVisualTokens } from "@/features/mermaid-editor/lib/canvas-visual-state";
+import { resolveRuntimeEditorMotion } from "@/features/mermaid-editor/lib/editor-motion";
+import { CANVAS_VISUAL_TOKENS } from "@/features/mermaid-editor/lib/canvas-visual-state";
 import {
   resolveCanvasPointerClick,
   resolveCanvasPointerDoubleClick,
@@ -78,7 +58,6 @@ import {
   type CanvasPointerLocalEffect,
   type CanvasPointerResolution
 } from "@/features/mermaid-editor/lib/interaction/canvas-pointer";
-import type { EditorCommand } from "@/features/mermaid-editor/lib/interaction/commands";
 import { buildInteractionContext } from "@/features/mermaid-editor/lib/interaction/context";
 import {
   modifiersFromEvent,
@@ -86,31 +65,8 @@ import {
   type InteractionModifiers,
   type StandardPointerInput
 } from "@/features/mermaid-editor/lib/interaction/input";
-import type { ViewFilters } from "@/features/mermaid-editor/lib/view-filters";
-import { cn } from "@/lib/utils";
 
 export { NodeContextMenu } from "@/features/mermaid-editor/components/konva-canvas/node-action-ui";
-
-type KonvaCanvasProps = {
-  graph: MermaidGraph;
-  selection: Selection;
-  viewport: ViewportState;
-  mode: EditorMode;
-  panningRequested: boolean;
-  viewFilters: ViewFilters;
-  edgeRouting: EdgeRouting;
-  mermaidEdgeRoutes?: DagreEdgeRoute[];
-  layoutMode: LayoutMode;
-  imageDisplaySrcBySrc?: Record<string, string>;
-  visualTokens?: CanvasVisualTokens;
-  geometryTokens?: EditorThemeGeometryTokens;
-  motion?: RuntimeEditorMotion;
-  onEditorCommand: (command: EditorCommand) => void;
-  onOpenNodeAction?: (node: CanvasNode) => void;
-  onEditNodeAction?: (node: CanvasNode) => void;
-  onPointerWorldChange?: (point: CanvasPoint) => void;
-  onLiveStateChange?: (state: CanvasLiveState) => void;
-};
 
 export function KonvaCanvas({
   graph,
@@ -141,19 +97,8 @@ export function KonvaCanvas({
   const lastSelectionKeyRef = useRef(selectionVersionKey(selection));
   const dimensions = useContainerSize(containerRef);
   const [interactionState, setInteractionState] = useState<InteractionState>(idleInteraction);
-  const [alignmentGuides, setAlignmentGuides] = useState<AlignmentGuide[]>([]);
   const [nodeContextMenu, setNodeContextMenu] = useState<{ nodeId: string; x: number; y: number } | null>(null);
-  const {
-    dragRef,
-    subgraphDragFrameRef,
-    dragDraftGraphRef,
-    dragPreviewPositions,
-    setDragPreviewPositionsVisual,
-    scheduleDragDraftCommand,
-    flushDragDraftCommand,
-    clearPendingDragDraftCommand,
-    clearDragRuntimeState
-  } = useKonvaDragDraft({ onEditorCommand });
+  const dragRuntime = useKonvaDragDraft({ onEditorCommand });
   const {
     hoveredNodeId,
     hoveredSubgraphId,
@@ -268,13 +213,44 @@ export function KonvaCanvas({
     hoveredNodeId,
     hoveredSubgraphId,
     hoveredEdgeId,
-    dragPreviewPositions,
+    dragPreviewPositions: dragRuntime.dragPreviewPositions,
     nodeMotion,
     nodeProximityScale,
     nodeThemeTokens,
     edgeLabelThemeTokens,
     subgraphThemeTokens,
     visualTokens
+  });
+  const {
+    alignmentGuides,
+    clearAlignmentGuides,
+    startNodeDrag,
+    startSubgraphDrag,
+    moveSelectedNodes,
+    moveSelectedSubgraphs,
+    finishKonvaDrag
+  } = useKonvaDragMembership({
+    dragRuntime,
+    graph,
+    selection,
+    interactionState,
+    selectedNodeIds,
+    selectedSubgraphIds,
+    dragEnabled,
+    geometrySpec,
+    subgraphGeometryById,
+    renderedSubgraphGeometries,
+    subgraphThemeTokens,
+    pointerScreenPoint,
+    pointerWorldPoint,
+    currentViewport,
+    setInteractionState,
+    invalidateBlankClickIntent,
+    resetInteraction,
+    stopActiveMotionTweens,
+    clearNodeMotionVisual,
+    clearNodeProximityScales,
+    onEditorCommand
   });
   const nodeProximityInteractive = shouldRunCanvasProximity({
     reduced: runtimeMotion.reduced,
@@ -577,7 +553,7 @@ export function KonvaCanvas({
     clearNodeProximityScales(draggingCanvasItems);
     if (!draggingCanvasItems) {
       resetInteraction();
-      setAlignmentGuides([]);
+      clearAlignmentGuides();
     }
     clearHover();
   }
@@ -621,159 +597,6 @@ export function KonvaCanvas({
 
     const pointerInput = standardPointerInput("double-click", event, hit, pointer, pointerWorldPoint() || undefined);
     applyPointerResolution(resolveCanvasPointerDoubleClick(pointerInput, interactionContextForPointer(hit, pointerInput.modifiers)));
-  }
-
-  function startNodeDrag(node: CanvasNode) {
-    if (!dragEnabled) return;
-    if (dragRef.current) return;
-    const ids = selectedNodeIds.has(node.id) ? selection.nodeIds : [node.id];
-    const screen = pointerScreenPoint() || { x: 0, y: 0 };
-    const world = pointerWorldPoint() || { x: node.x, y: node.y };
-    if (!selectedNodeIds.has(node.id)) onEditorCommand({ type: "selection.set", selection: selectOnlyNode(node.id), source: "pointer" });
-    invalidateBlankClickIntent();
-    setAlignmentGuides([]);
-    setInteractionState({ kind: "draggingNodes", pointerId: 0, nodeId: node.id, startScreen: screen, startWorld: world });
-    dragRef.current = Object.fromEntries(
-      graph.nodes.filter((item) => ids.includes(item.id)).map((item) => [item.id, { x: item.x, y: item.y }])
-    );
-    stopActiveMotionTweens();
-    for (const id of Object.keys(dragRef.current)) clearNodeMotionVisual(id);
-    clearPendingDragDraftCommand();
-    clearNodeProximityScales(true, { preservePointer: true });
-    setDragPreviewPositionsVisual(null);
-    dragDraftGraphRef.current = null;
-    onEditorCommand({ type: "history.capture", source: "pointer" });
-  }
-
-  function startSubgraphDrag(subgraphId: string, geometry: SubgraphGeometry) {
-    if (!dragEnabled) return;
-    if (dragRef.current) return;
-    const ids = selectedSubgraphIds.has(subgraphId) ? selection.subgraphIds || [] : [subgraphId];
-    const nodeIds = unique(ids.flatMap((id) => descendantNodeIds(graph, id)));
-    if (!nodeIds.length) return;
-    const screen = pointerScreenPoint() || { x: 0, y: 0 };
-    const world = pointerWorldPoint() || { x: geometry.frame.x, y: geometry.frame.y };
-    if (!selectedSubgraphIds.has(subgraphId)) onEditorCommand({ type: "selection.set", selection: selectOnlySubgraph(subgraphId), source: "pointer" });
-    invalidateBlankClickIntent();
-    setAlignmentGuides([]);
-    setInteractionState({ kind: "draggingSubgraphs", pointerId: 0, subgraphId, startScreen: screen, startWorld: world });
-    dragRef.current = Object.fromEntries(
-      graph.nodes.filter((item) => nodeIds.includes(item.id)).map((item) => [item.id, { x: item.x, y: item.y }])
-    );
-    stopActiveMotionTweens();
-    for (const id of Object.keys(dragRef.current)) clearNodeMotionVisual(id);
-    clearPendingDragDraftCommand();
-    clearNodeProximityScales(true, { preservePointer: true });
-    setDragPreviewPositionsVisual(null);
-    subgraphDragFrameRef.current = Object.fromEntries(
-      ids.map((id) => {
-        const item = subgraphGeometryById.get(id);
-        return [id, item ? { x: item.frame.x, y: item.frame.y } : { x: geometry.frame.x, y: geometry.frame.y }];
-      })
-    );
-    dragDraftGraphRef.current = null;
-    onEditorCommand({ type: "history.capture", source: "pointer" });
-  }
-
-  function moveSelectedNodes(node: CanvasNode, target: Konva.Node) {
-    if (!dragRef.current) return;
-    const origin = dragRef.current[node.id];
-    if (!origin) return;
-    const x = target.x();
-    const y = target.y();
-    const deltaX = x - origin.x;
-    const deltaY = y - origin.y;
-    const movingRects = graph.nodes
-      .filter((item) => dragRef.current?.[item.id])
-      .map((item) => {
-        const start = dragRef.current![item.id];
-        const movedNode = {
-          ...item,
-          x: start.x + deltaX,
-          y: start.y + deltaY
-        };
-        return buildNodeGeometry(movedNode, geometrySpec).alignmentRect;
-      });
-    const movingBounds = selectionBounds(movingRects);
-    const staticRects = graph.nodes.filter((item) => !dragRef.current?.[item.id]).map((item) => buildNodeGeometry(item, geometrySpec).alignmentRect);
-    const snap = movingBounds ? computeAlignmentSnap(movingBounds, staticRects, currentViewport().scale) : { dx: 0, dy: 0, guides: [] };
-    const snappedDeltaX = deltaX + snap.dx;
-    const snappedDeltaY = deltaY + snap.dy;
-    const positions = Object.fromEntries(
-      Object.entries(dragRef.current).map(([id, position]) => [id, { x: position.x + snappedDeltaX, y: position.y + snappedDeltaY }])
-    );
-    const draggedPosition = positions[node.id];
-    if (draggedPosition) target.position(draggedPosition);
-    setAlignmentGuides(snap.guides);
-    const nextGraph = setNodePositions(graph, positions);
-    dragDraftGraphRef.current = nextGraph;
-    setDragPreviewPositionsVisual(positions);
-    scheduleDragDraftCommand(positions, "正在移动节点。");
-  }
-
-  function moveSelectedSubgraphs(subgraphId: string, target: Konva.Node) {
-    if (!dragRef.current || !subgraphDragFrameRef.current) return;
-    const origin = subgraphDragFrameRef.current[subgraphId];
-    if (!origin) return;
-    const deltaX = target.x() - origin.x;
-    const deltaY = target.y() - origin.y;
-    const positions = Object.fromEntries(
-      Object.entries(dragRef.current).map(([id, position]) => [id, { x: position.x + deltaX, y: position.y + deltaY }])
-    );
-    const draggedFrame = subgraphDragFrameRef.current[subgraphId];
-    if (draggedFrame) target.position({ x: draggedFrame.x + deltaX, y: draggedFrame.y + deltaY });
-    const nextGraph = setNodePositions(graph, positions);
-    dragDraftGraphRef.current = nextGraph;
-    setDragPreviewPositionsVisual(positions);
-    scheduleDragDraftCommand(positions, "正在移动组。");
-  }
-
-  function finishDragWithMembership() {
-    if (!dragDraftGraphRef.current) return;
-    const movingNodeIds = Object.keys(dragRef.current || {});
-    let nextGraph = dragDraftGraphRef.current;
-    const ignoredSubgraphIds =
-      interactionState.kind === "draggingSubgraphs" ? [interactionState.subgraphId, ...descendantSubgraphIds(graph, interactionState.subgraphId)] : [];
-
-    for (const nodeId of movingNodeIds) {
-      const node = nextGraph.nodes.find((item) => item.id === nodeId);
-      if (!node) continue;
-      const geometry = buildNodeGeometry(node, geometrySpec);
-      const center = {
-        x: geometry.frame.x + geometry.frame.width / 2,
-        y: geometry.frame.y + geometry.frame.height / 2
-      };
-      const targetSubgraph = subgraphAtPoint(renderedSubgraphGeometries, center, ignoredSubgraphIds);
-      nextGraph = setNodeParent(nextGraph, nodeId, targetSubgraph?.id);
-    }
-
-    if (interactionState.kind === "draggingSubgraphs") {
-      const movingSubgraphIds = selectedSubgraphIds.has(interactionState.subgraphId) ? selection.subgraphIds || [] : [interactionState.subgraphId];
-      const nextNodeGeometries = nextGraph.nodes.map((node) => buildNodeGeometry(node, geometrySpec));
-      const nextSubgraphGeometries = buildSubgraphGeometries(nextGraph, nextNodeGeometries, subgraphThemeTokens);
-
-      for (const subgraphId of movingSubgraphIds) {
-        const geometry = nextSubgraphGeometries.find((item) => item.id === subgraphId);
-        if (!geometry) continue;
-        const center = {
-          x: geometry.frame.x + geometry.frame.width / 2,
-          y: geometry.frame.y + geometry.frame.height / 2
-        };
-        const ignored = [subgraphId, ...descendantSubgraphIds(nextGraph, subgraphId)];
-        const targetSubgraph = subgraphAtPoint(renderedSubgraphGeometries, center, ignored);
-        nextGraph = setSubgraphParent(nextGraph, subgraphId, targetSubgraph?.id);
-      }
-    }
-
-    onEditorCommand({ type: "graph.commitDragMembership", graph: nextGraph, message: "已移动并更新组成员。", source: "pointer" });
-  }
-
-  function finishKonvaDrag() {
-    flushDragDraftCommand();
-    if (dragDraftGraphRef.current) finishDragWithMembership();
-    clearDragRuntimeState();
-    setAlignmentGuides([]);
-    resetInteraction();
   }
 
   function finishConnection(draft: Extract<InteractionState, { kind: "connectingEdge" }>) {
@@ -846,160 +669,84 @@ export function KonvaCanvas({
   const activeScale = currentViewport().scale;
 
   const cursorClassName = interactionCursor(mode, interactionState, panningRequested, hoveredHitTarget);
-  const hoveredActionNode = hoveredNodeId ? graph.nodes.find((node) => node.id === hoveredNodeId) : undefined;
-  const hoveredAction = normalizeNodeAction(hoveredActionNode?.action);
-  const hoveredActionGeometry = hoveredActionNode ? nodeGeometryById.get(hoveredActionNode.id) : undefined;
 
   return (
-    <section className="relative h-full min-h-0 bg-card">
-      <div
-        ref={containerRef}
-        className={cn(
-          "relative h-full min-h-0 touch-none overflow-hidden overscroll-none bg-background",
-          cursorClassName
-        )}
-        onAuxClick={(event) => event.preventDefault()}
-        onContextMenu={(event) => event.preventDefault()}
-        onPointerMove={handleCanvasPointerTracking}
-        onPointerLeave={handleCanvasPointerLeave}
-      >
-        <Stage
-          ref={stageRef}
-          width={dimensions.width}
-          height={dimensions.height}
-          onWheel={onWheel}
-          onMouseDown={handleCanvasPointerDown}
-          onMouseMove={handleCanvasPointerMove}
-          onMouseUp={handleCanvasPointerUp}
-          onMouseLeave={handleCanvasPointerLeave}
-        >
-          {viewFilters.grid ? <CanvasGrid dimensions={dimensions} viewport={viewport} visualTokens={visualTokens} gridSpec={gridThemeTokens} /> : null}
-
-          <Layer>
-            {viewFilters.subgraphs ? (
-              <KonvaSubgraphLayer
-                graph={graph}
-                mode={mode}
-                panningRequested={panningRequested}
-                dragEnabled={dragEnabled}
-                inlineEdit={inlineEdit}
-                interactionState={interactionState}
-                scopedSubgraphGeometries={scopedSubgraphGeometries}
-                selectedSubgraphIds={selectedSubgraphIds}
-                hoveredSubgraphId={hoveredSubgraphId}
-                connectionTargetSubgraphId={connectionTargetSubgraphId}
-                connectionInvalidSubgraphId={connectionInvalidSubgraphId}
-                connectionPreview={connectionPreview}
-                retargetPreview={retargetPreview}
-                visualTokens={visualTokens}
-                nodeThemeTokens={nodeThemeTokens}
-                onStartSubgraphDrag={(subgraphId) => applyCanvasPointerLocalEffect({ type: "drag.startSubgraph", subgraphId })}
-                onMoveSubgraph={moveSelectedSubgraphs}
-                onEndDrag={finishKonvaDrag}
-                onCanvasClick={handleCanvasClick}
-                onCanvasDoubleClick={handleCanvasDoubleClick}
-                onSubgraphAnchorPointerDown={(event, hit, world) => handleCanvasPointerDown(event, hit, world)}
-              />
-            ) : null}
-
-            <KonvaEdgeLayer
-              viewFilters={viewFilters}
-              selection={selection}
-              hoveredEdgeId={hoveredEdgeId}
-              interactionState={interactionState}
-              inlineEdit={inlineEdit}
-              visualTokens={visualTokens}
-              edgeLabelThemeTokens={edgeLabelThemeTokens}
-              edgeLabelSpec={edgeLabelSpec}
-              edgeMotion={edgeMotion}
-              scopedVisibleEdges={scopedVisibleEdges}
-              resolvedEdgeGeometry={resolvedEdgeGeometry}
-              retargetDraft={retargetDraft}
-              retargetDraftGeometry={retargetDraftGeometry}
-              retargetPreview={retargetPreview}
-              onCanvasClick={handleCanvasClick}
-              onCanvasDoubleClick={handleCanvasDoubleClick}
-              onCanvasTap={handleCanvasTap}
-            />
-
-            <KonvaNodeLayer
-              viewFilters={viewFilters}
-              mode={mode}
-              panningRequested={panningRequested}
-              dragEnabled={dragEnabled}
-              selection={selection}
-              inlineEdit={inlineEdit}
-              interactionState={interactionState}
-              hoveredNodeId={hoveredNodeId}
-              connectionTargetNodeId={connectionTargetNodeId}
-              connectionInvalidNodeId={connectionInvalidNodeId}
-              connectionPreview={connectionPreview}
-              retargetPreview={retargetPreview}
-              scopedRenderedNodes={scopedRenderedNodes}
-              exitingNodes={exitingNodes}
-              nodeGeometryById={nodeGeometryById}
-              geometrySpec={geometrySpec}
-              nodeMotion={nodeMotion}
-              nodeProximityScale={nodeProximityScale}
-              imageDisplaySrcBySrc={imageDisplaySrcBySrc}
-              runtimeCreateScale={runtimeMotion.canvas.createScale}
-              visualTokens={visualTokens}
-              nodeThemeTokens={nodeThemeTokens}
-              onStartNodeDrag={(nodeId) => applyCanvasPointerLocalEffect({ type: "drag.startNode", nodeId })}
-              onMoveNode={moveSelectedNodes}
-              onEndDrag={finishKonvaDrag}
-              onCanvasClick={handleCanvasClick}
-              onCanvasDoubleClick={handleCanvasDoubleClick}
-              onNodeContextMenu={openNodeContextMenu}
-              onNodeAnchorPointerDown={(event, hit, world) => handleCanvasPointerDown(event, hit, world)}
-              onOpenNodeAction={onOpenNodeAction}
-            />
-
-            <KonvaEdgeOverlayLayer
-              viewFilters={viewFilters}
-              mode={mode}
-              hoveredHitTarget={hoveredHitTarget}
-              visualTokens={visualTokens}
-              retargetDraft={retargetDraft}
-              connectionDraftGeometry={connectionDraftGeometry}
-              connectionDraftVisual={connectionDraftVisual}
-              selectionBox={selectionBox}
-              selectedSingleEdge={selectedSingleEdge}
-              selectedSingleEdgeGeometry={selectedSingleEdgeGeometry}
-              onEdgeEndpointPointerDown={(event, hit) => handleCanvasPointerDown(event, hit)}
-            />
-
-            {alignmentGuides.length ? <AlignmentGuideOverlay guides={alignmentGuides} visualTokens={visualTokens} /> : null}
-          </Layer>
-        </Stage>
-        {nodeContextMenu ? (
-          <NodeContextMenu
-            menu={nodeContextMenu}
-            node={graph.nodes.find((item) => item.id === nodeContextMenu.nodeId)}
-            onClose={closeNodeContextMenu}
-            onOpenNodeAction={onOpenNodeAction}
-            onEditNodeAction={onEditNodeAction}
-          />
-        ) : null}
-        {hoveredActionNode && hoveredAction && hoveredActionGeometry ? (
-          <NodeActionTooltip node={hoveredActionNode} action={hoveredAction} geometry={hoveredActionGeometry} viewport={viewport} dimensions={dimensions} />
-        ) : null}
-
-        <InlineEditOverlays
-          inlineEdit={inlineEdit}
-          editStyle={editStyle}
-          activeScale={activeScale}
-          nodeEditorLayout={nodeEditorLayout}
-          nodeEditorRef={nodeEditorRef}
-          nodeEditorMeasureRef={nodeEditorMeasureRef}
-          nodeThemeTokens={nodeThemeTokens}
-          edgeLabelThemeTokens={edgeLabelThemeTokens}
-          visualTokens={visualTokens}
-          viewFilters={viewFilters}
-          onChange={setInlineEdit}
-          onCommit={commitInlineEdit}
-        />
-      </div>
-    </section>
+    <KonvaCanvasStage
+      containerRef={containerRef}
+      stageRef={stageRef}
+      dimensions={dimensions}
+      viewport={viewport}
+      cursorClassName={cursorClassName}
+      graph={graph}
+      selection={selection}
+      mode={mode}
+      panningRequested={panningRequested}
+      dragEnabled={dragEnabled}
+      viewFilters={viewFilters}
+      inlineEdit={inlineEdit}
+      interactionState={interactionState}
+      visualTokens={visualTokens}
+      gridSpec={gridThemeTokens}
+      nodeThemeTokens={nodeThemeTokens}
+      edgeLabelThemeTokens={edgeLabelThemeTokens}
+      runtimeCreateScale={runtimeMotion.canvas.createScale}
+      imageDisplaySrcBySrc={imageDisplaySrcBySrc}
+      alignmentGuides={alignmentGuides}
+      hoveredNodeId={hoveredNodeId}
+      hoveredSubgraphId={hoveredSubgraphId}
+      hoveredEdgeId={hoveredEdgeId}
+      hoveredHitTarget={hoveredHitTarget}
+      selectedSubgraphIds={selectedSubgraphIds}
+      scopedSubgraphGeometries={scopedSubgraphGeometries}
+      scopedVisibleEdges={scopedVisibleEdges}
+      scopedRenderedNodes={scopedRenderedNodes}
+      exitingNodes={exitingNodes}
+      nodeGeometryById={nodeGeometryById}
+      geometrySpec={geometrySpec}
+      edgeLabelSpec={edgeLabelSpec}
+      edgeMotion={edgeMotion}
+      nodeMotion={nodeMotion}
+      nodeProximityScale={nodeProximityScale}
+      resolvedEdgeGeometry={resolvedEdgeGeometry}
+      selectedSingleEdge={selectedSingleEdge}
+      selectedSingleEdgeGeometry={selectedSingleEdgeGeometry}
+      selectionBox={selectionBox}
+      retargetDraft={retargetDraft}
+      connectionPreview={connectionPreview}
+      connectionDraftGeometry={connectionDraftGeometry}
+      connectionDraftVisual={connectionDraftVisual}
+      retargetPreview={retargetPreview}
+      retargetDraftGeometry={retargetDraftGeometry}
+      connectionTargetNodeId={connectionTargetNodeId}
+      connectionInvalidNodeId={connectionInvalidNodeId}
+      connectionTargetSubgraphId={connectionTargetSubgraphId}
+      connectionInvalidSubgraphId={connectionInvalidSubgraphId}
+      nodeContextMenu={nodeContextMenu}
+      editStyle={editStyle}
+      activeScale={activeScale}
+      nodeEditorLayout={nodeEditorLayout}
+      nodeEditorRef={nodeEditorRef}
+      nodeEditorMeasureRef={nodeEditorMeasureRef}
+      onWheel={onWheel}
+      onCanvasPointerDown={handleCanvasPointerDown}
+      onCanvasPointerMove={handleCanvasPointerMove}
+      onCanvasPointerUp={handleCanvasPointerUp}
+      onCanvasPointerLeave={handleCanvasPointerLeave}
+      onCanvasPointerTracking={handleCanvasPointerTracking}
+      onCanvasClick={handleCanvasClick}
+      onCanvasTap={handleCanvasTap}
+      onCanvasDoubleClick={handleCanvasDoubleClick}
+      onStartNodeDrag={(nodeId) => applyCanvasPointerLocalEffect({ type: "drag.startNode", nodeId })}
+      onStartSubgraphDrag={(subgraphId) => applyCanvasPointerLocalEffect({ type: "drag.startSubgraph", subgraphId })}
+      onMoveNode={moveSelectedNodes}
+      onMoveSubgraph={moveSelectedSubgraphs}
+      onEndDrag={finishKonvaDrag}
+      onNodeContextMenu={openNodeContextMenu}
+      onCloseNodeContextMenu={closeNodeContextMenu}
+      onOpenNodeAction={onOpenNodeAction}
+      onEditNodeAction={onEditNodeAction}
+      onInlineEditChange={setInlineEdit}
+      onInlineEditCommit={commitInlineEdit}
+    />
   );
 }
