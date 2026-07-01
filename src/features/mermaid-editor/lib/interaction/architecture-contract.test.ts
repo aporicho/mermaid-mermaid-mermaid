@@ -127,6 +127,16 @@ describe("interaction architecture contract", () => {
       { path: "src/features/mermaid-editor/components/mermaid-editor/use-editor-draft-persistence.ts", maxLines: 250 },
       { path: "src/features/mermaid-editor/components/mermaid-editor/use-editor-keyboard-shortcuts.ts", maxLines: 260 },
       { path: "src/features/mermaid-editor/components/mermaid-editor/use-editor-file-workflow.ts", maxLines: 900 },
+      { path: "src/features/mermaid-editor/components/floating-chrome.tsx", maxLines: 20 },
+      { path: "src/features/mermaid-editor/components/floating-chrome/chrome-slot.tsx", maxLines: 180 },
+      { path: "src/features/mermaid-editor/components/floating-chrome/floating-buttons.tsx", maxLines: 100 },
+      { path: "src/features/mermaid-editor/components/floating-chrome/floating-panel.tsx", maxLines: 160 },
+      { path: "src/features/mermaid-editor/components/floating-chrome/floating-panel-frame.ts", maxLines: 90 },
+      { path: "src/features/mermaid-editor/components/floating-chrome/motion-presence.tsx", maxLines: 120 },
+      { path: "src/features/mermaid-editor/components/floating-chrome/shared.ts", maxLines: 70 },
+      { path: "src/features/mermaid-editor/components/floating-chrome/use-floating-panel-controller.ts", maxLines: 350 },
+      { path: "src/features/mermaid-editor/components/floating-chrome/use-floating-panel-frame-state.ts", maxLines: 130 },
+      { path: "src/features/mermaid-editor/components/floating-chrome/use-floating-panel-motion.ts", maxLines: 130 },
       { path: "src/features/mermaid-editor/components/inspector-panel.tsx", maxLines: 500 },
       { path: "src/features/mermaid-editor/components/inspector-panel/node-sections.tsx", maxLines: 500 },
       { path: "src/features/mermaid-editor/components/inspector-panel/edge-sections.tsx", maxLines: 500 },
@@ -348,6 +358,33 @@ describe("interaction architecture contract", () => {
     expect(canvasDocumentEditor).not.toContain("useLayoutEffect");
     expect(canvasDocumentEditor).not.toContain("const CANVAS_DOCUMENT_INTERACTION_GRAPH");
     expect(canvasDocumentEditor).not.toContain("gsap.to(view.container");
+  });
+
+  it("keeps floating chrome components behind focused modules", () => {
+    const barrel = readProjectFile("src/features/mermaid-editor/components/floating-chrome.tsx");
+    const slot = readProjectFile("src/features/mermaid-editor/components/floating-chrome/chrome-slot.tsx");
+    const panel = readProjectFile("src/features/mermaid-editor/components/floating-chrome/floating-panel.tsx");
+    const controller = readProjectFile("src/features/mermaid-editor/components/floating-chrome/use-floating-panel-controller.ts");
+    const frame = readProjectFile("src/features/mermaid-editor/components/floating-chrome/use-floating-panel-frame-state.ts");
+    const motion = readProjectFile("src/features/mermaid-editor/components/floating-chrome/use-floating-panel-motion.ts");
+    const buttons = readProjectFile("src/features/mermaid-editor/components/floating-chrome/floating-buttons.tsx");
+
+    expect(barrel).toContain("export * from \"./floating-chrome/chrome-slot\"");
+    expect(barrel).toContain("export * from \"./floating-chrome/floating-buttons\"");
+    expect(barrel).toContain("export * from \"./floating-chrome/floating-panel\"");
+    expect(barrel).toContain("export * from \"./floating-chrome/motion-presence\"");
+    expect(slot).toContain("export function FloatingChromeSlot");
+    expect(panel).toContain("useFloatingPanelController");
+    expect(controller).toContain("export function useFloatingPanelController");
+    expect(controller).toContain("useFloatingPanelFrameState");
+    expect(controller).toContain("useFloatingPanelMotion");
+    expect(frame).toContain("export function useFloatingPanelFrameState");
+    expect(motion).toContain("export function useFloatingPanelMotion");
+    expect(buttons).toContain("export function FloatingIconButton");
+    expect(barrel).not.toContain("function FloatingPanel");
+    expect(barrel).not.toContain("function FloatingChromeSlot");
+    expect(barrel).not.toContain("function MotionPresence");
+    expect(barrel).not.toContain("function FloatingIconButton");
   });
 
   it("keeps Mermaid graph parsing behind focused graph modules", () => {
