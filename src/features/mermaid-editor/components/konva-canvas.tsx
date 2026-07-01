@@ -1,13 +1,28 @@
 "use client";
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
-import { createPortal } from "react-dom";
-import { Arrow, Circle, Ellipse, Group, Image as KonvaImage, Layer, Line, Path, Rect, Shape, Stage, Text } from "react-konva";
+import { Arrow, Circle, Group, Layer, Path, Rect, Stage, Text } from "react-konva";
 import type Konva from "konva";
 import type { KonvaEventObject } from "konva/lib/Node";
 
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { AlignmentGuideOverlay, CanvasGrid } from "@/features/mermaid-editor/components/konva-canvas/canvas-overlays";
+import { EdgeMarkers, PathArrowHead } from "@/features/mermaid-editor/components/konva-canvas/edge-markers";
+import { InlineEditOverlays, type InlineEdit } from "@/features/mermaid-editor/components/konva-canvas/inline-edit-overlays";
+import { CanvasNodeActionBadge, NodeActionTooltip, NodeContextMenu } from "@/features/mermaid-editor/components/konva-canvas/node-action-ui";
+import { CanvasNodeImage } from "@/features/mermaid-editor/components/konva-canvas/node-image";
+import { CanvasNodeShape } from "@/features/mermaid-editor/components/konva-canvas/node-shapes";
+import {
+  edgeLabelGeometrySpec,
+  isEdgeHitTarget,
+  nodeGeometrySpec,
+  normalizeBox,
+  normalizeProximityScales,
+  proximityScaleMapsEqual,
+  scaleLocalPointFromCenter,
+  scaleLocalRectFromCenter,
+  unique
+} from "@/features/mermaid-editor/components/konva-canvas/render-utils";
+import { useContainerSize } from "@/features/mermaid-editor/components/konva-canvas/use-container-size";
 import {
   descendantNodeIds,
   descendantSubgraphIds,
@@ -42,7 +57,7 @@ import {
   subgraphHitId,
   subgraphTitleHitId
 } from "@/features/mermaid-editor/lib/canvas-hit-target";
-import { DEFAULT_CANVAS_GRID, firstGridCoordinateAtOrAfter, getCanvasGridRenderPlan, isGridCoordinate, type CanvasGridSpec } from "@/features/mermaid-editor/lib/canvas-grid";
+import { DEFAULT_CANVAS_GRID, type CanvasGridSpec } from "@/features/mermaid-editor/lib/canvas-grid";
 import { resolveCanvasRenderScope } from "@/features/mermaid-editor/lib/canvas-render-scope";
 import { createWheelIntentTracker } from "@/features/mermaid-editor/lib/canvas-viewport-navigation";
 import {
@@ -56,7 +71,6 @@ import {
   shouldRunCanvasProximity,
   snapshotCanvasNodes,
   type CanvasProximityScales,
-  type CanvasMotionFrame,
   type CanvasNodePreviewPositions,
   type CanvasMotionNodeSnapshot
 } from "@/features/mermaid-editor/lib/canvas-motion";
@@ -64,9 +78,7 @@ import { resolveConnectionPreview, resolveRetargetPreview } from "@/features/mer
 import {
   buildEdgeLabelGeometry,
   DEFAULT_EDGE_LABEL_GEOMETRY_TOKENS,
-  edgeLabelSingleLineText,
-  type EdgeLabelGeometrySpec,
-  type EdgeLabelGeometryTokens
+  edgeLabelSingleLineText
 } from "@/features/mermaid-editor/lib/edge-label-geometry";
 import {
   computeEdgePath,
@@ -77,18 +89,13 @@ import {
   resolveParallelEdgeLanes,
   type EdgePathGeometry
 } from "@/features/mermaid-editor/lib/edge-geometry";
-import type { CanvasEdge, CanvasNode, CanvasNodeAction, EdgeMarker, EdgeRouting, EditorMode, LayoutMode, MermaidGraph, Selection, ViewportState } from "@/features/mermaid-editor/lib/editor-types";
-import { flattenShapePoints, flowchartPolygonPoints } from "@/features/mermaid-editor/lib/flowchart-shape-geometry";
-import { DEFAULT_FLOWCHART_NODE_SHAPE, normalizeFlowchartShape } from "@/features/mermaid-editor/lib/flowchart-shapes";
-import { nodeActionDisplayTooltip, nodeActionLabel, nodeActionOpenLabel, nodeActionTarget, normalizeNodeAction } from "@/features/mermaid-editor/lib/node-actions";
+import type { CanvasEdge, CanvasNode, EdgeRouting, EditorMode, LayoutMode, MermaidGraph, Selection, ViewportState } from "@/features/mermaid-editor/lib/editor-types";
+import { normalizeNodeAction } from "@/features/mermaid-editor/lib/node-actions";
 import { normalizeImageAsset } from "@/features/mermaid-editor/lib/node-assets";
 import {
   DEFAULT_NODE_GEOMETRY_TOKENS,
   buildNodeGeometry,
-  defaultNodeGeometrySpec,
   nodeIntersectsRect,
-  type NodeGeometry,
-  type NodeGeometryTokens
 } from "@/features/mermaid-editor/lib/node-geometry";
 import {
   SUBGRAPH_GEOMETRY_TOKENS,
@@ -103,7 +110,6 @@ import { resolveRuntimeEditorMotion, type RuntimeEditorMotion } from "@/features
 import {
   CANVAS_VISUAL_TOKENS,
   type CanvasVisualTokens,
-  getAlignmentGuideVisualState,
   getAnchorVisualState,
   getConnectionDraftVisualState,
   getEdgeEndpointVisualState,
@@ -134,12 +140,10 @@ import {
 import { resolveInteractionIntent } from "@/features/mermaid-editor/lib/interaction/intent";
 import { useViewportScheduler } from "@/features/mermaid-editor/lib/interaction/viewport-scheduler";
 import { isEdgeVisible, type ViewFilters } from "@/features/mermaid-editor/lib/view-filters";
-import { useDismissableFloatingMenu } from "@/features/mermaid-editor/lib/use-dismissable-floating-menu";
 import { gsap } from "@/features/mermaid-editor/lib/use-gsap-motion";
-import { OVERLAY_Z_INDEX, setGlobalOverlayActivity } from "@/lib/overlay-layers";
 import { cn } from "@/lib/utils";
 
-let textMeasureCanvas: HTMLCanvasElement | null = null;
+export { NodeContextMenu } from "@/features/mermaid-editor/components/konva-canvas/node-action-ui";
 
 type KonvaCanvasProps = {
   graph: MermaidGraph;
@@ -168,18 +172,6 @@ type ScheduledViewport = {
   viewport: ViewportState;
   source: ViewportCommandSource;
 };
-
-type SelectionBox = {
-  startX: number;
-  startY: number;
-  endX: number;
-  endY: number;
-};
-
-type InlineEdit =
-  | { type: "node"; id: string; value: string }
-  | { type: "subgraph"; id: string; value: string }
-  | { type: "edge"; id: string; value: string };
 
 type CanvasLiveState = {
   canvasSize?: { width: number; height: number };
@@ -214,544 +206,6 @@ type SafariGestureEvent = Event & {
 };
 
 const CONNECTION_ANCHOR_SNAP_RADIUS_PX = 14;
-const PROXIMITY_SCALE_EPSILON = 0.001;
-
-function measureTextWidth(value: string, tokens: { fontSize: number; fontFamily: string; fontWeight: number }) {
-  if (typeof document === "undefined") return value.length * tokens.fontSize * 0.58;
-
-  textMeasureCanvas ??= document.createElement("canvas");
-  const context = textMeasureCanvas.getContext("2d");
-  if (!context) return value.length * tokens.fontSize * 0.58;
-
-  context.font = `${tokens.fontWeight} ${tokens.fontSize}px ${tokens.fontFamily}`;
-  return context.measureText(value).width;
-}
-
-function measureNodeTextWidth(value: string, tokens: NodeGeometryTokens) {
-  return measureTextWidth(value, tokens);
-}
-
-function measureEdgeLabelTextWidth(value: string, tokens: EdgeLabelGeometryTokens) {
-  return measureTextWidth(value, tokens);
-}
-
-function nodeGeometrySpec(tokens: NodeGeometryTokens) {
-  return defaultNodeGeometrySpec((value) => measureNodeTextWidth(value, tokens), tokens);
-}
-
-function edgeLabelGeometrySpec(tokens: EdgeLabelGeometryTokens): EdgeLabelGeometrySpec {
-  return {
-    minChars: tokens.minChars,
-    maxChars: tokens.maxChars,
-    paddingX: tokens.paddingX,
-    height: tokens.height,
-    measureText: (value) => measureEdgeLabelTextWidth(value, tokens)
-  };
-}
-
-function normalizeBox(box: SelectionBox) {
-  const x = Math.min(box.startX, box.endX);
-  const y = Math.min(box.startY, box.endY);
-  const width = Math.abs(box.endX - box.startX);
-  const height = Math.abs(box.endY - box.startY);
-  return { x, y, width, height };
-}
-
-function normalizeProximityScales(scales: CanvasProximityScales): CanvasProximityScales {
-  return Object.fromEntries(Object.entries(scales).filter(([, scale]) => Math.abs(scale - 1) > PROXIMITY_SCALE_EPSILON));
-}
-
-function proximityScaleMapsEqual(left: CanvasProximityScales, right: CanvasProximityScales) {
-  const leftKeys = Object.keys(left);
-  const rightKeys = Object.keys(right);
-  if (leftKeys.length !== rightKeys.length) return false;
-  return leftKeys.every((key) => Math.abs((left[key] ?? 1) - (right[key] ?? 1)) <= PROXIMITY_SCALE_EPSILON);
-}
-
-function scaleLocalPointFromCenter(point: CanvasPoint, frame: CanvasMotionFrame, scale: number) {
-  if (!Number.isFinite(scale) || scale <= 1) return point;
-
-  const center = { x: frame.width / 2, y: frame.height / 2 };
-  return {
-    x: center.x + (point.x - center.x) * scale,
-    y: center.y + (point.y - center.y) * scale
-  };
-}
-
-function scaleLocalRectFromCenter<T extends { x: number; y: number; width: number; height: number }>(rect: T, frame: CanvasMotionFrame, scale: number): T {
-  if (!Number.isFinite(scale) || scale <= 1) return rect;
-
-  const origin = scaleLocalPointFromCenter({ x: rect.x, y: rect.y }, frame, scale);
-  return {
-    ...rect,
-    x: origin.x,
-    y: origin.y,
-    width: rect.width * scale,
-    height: rect.height * scale
-  };
-}
-
-function isEdgeHitTarget(hit: HitTarget) {
-  return hit.kind === "edge" || hit.kind === "edgeLabel" || hit.kind === "edgeEndpoint";
-}
-
-function edgeMarker(edge: CanvasEdge, side: "start" | "end"): EdgeMarker {
-  if (edge.style === "invisible") return "none";
-  if (side === "start") return edge.markerStart || "none";
-  return edge.markerEnd || edge.arrowType || "arrow";
-}
-
-function CanvasNodeShape({
-  node,
-  width,
-  height,
-  stroke,
-  strokeWidth,
-  visualTokens
-}: {
-  node: CanvasNode;
-  width: number;
-  height: number;
-  stroke: string;
-  strokeWidth: number;
-  visualTokens: CanvasVisualTokens;
-}) {
-  const fill = node.fill;
-  const shape = normalizeFlowchartShape(node.shape) || DEFAULT_FLOWCHART_NODE_SHAPE;
-  const common = { fill, stroke, strokeWidth };
-  const polygonPoints = flowchartPolygonPoints(shape, { x: 0, y: 0, width, height });
-
-  if (shape === "text") return null;
-  if (shape === "circle" || shape === "sm-circ" || shape === "f-circ") return <Ellipse x={width / 2} y={height / 2} radiusX={width / 2} radiusY={height / 2} {...common} />;
-  if (shape === "dbl-circ" || shape === "fr-circ" || shape === "cross-circ") return <CircleVariant width={width} height={height} stroke={stroke} strokeWidth={strokeWidth} fill={fill} crossed={shape === "cross-circ"} />;
-  if (shape === "fork") return <Rect width={width} height={height} cornerRadius={visualTokens.shape.forkCornerRadius} {...common} />;
-  if (polygonPoints.length) return <PolygonShape points={flattenShapePoints(polygonPoints)} radius={visualTokens.shape.polygonCornerRadius} {...common} />;
-  if (shape === "cloud") return <Path data={cloudPath(width, height)} {...common} />;
-  if (shape === "cyl") return <CylinderShape width={width} height={height} stroke={stroke} strokeWidth={strokeWidth} fill={fill} lined={false} horizontal={false} />;
-  if (shape === "lin-cyl") return <CylinderShape width={width} height={height} stroke={stroke} strokeWidth={strokeWidth} fill={fill} lined horizontal={false} />;
-  if (shape === "h-cyl") return <CylinderShape width={width} height={height} stroke={stroke} strokeWidth={strokeWidth} fill={fill} lined={false} horizontal />;
-  if (shape === "datastore") return <DataStoreShape width={width} height={height} stroke={stroke} strokeWidth={strokeWidth} fill={fill} />;
-  if (shape === "doc" || shape === "lin-doc" || shape === "tag-doc" || shape === "flag") return <DocumentShape width={width} height={height} stroke={stroke} strokeWidth={strokeWidth} fill={fill} lined={shape === "lin-doc"} tagged={shape === "tag-doc"} flag={shape === "flag"} />;
-  if (shape === "docs") return <StackedShape width={width} height={height} stroke={stroke} strokeWidth={strokeWidth} fill={fill} kind="document" />;
-  if (shape === "st-rect") return <StackedShape width={width} height={height} stroke={stroke} strokeWidth={strokeWidth} fill={fill} kind="rect" />;
-  if (shape === "lin-rect" || shape === "div-rect" || shape === "win-pane") return <LinedRectShape width={width} height={height} stroke={stroke} strokeWidth={strokeWidth} fill={fill} mode={shape} />;
-  if (shape === "tag-rect") return <TaggedRectShape width={width} height={height} stroke={stroke} strokeWidth={strokeWidth} fill={fill} />;
-  if (shape === "curv-trap") return <Path data={curvedTrapezoidPath(width, height)} {...common} />;
-  if (shape === "delay") return <Path data={delayPath(width, height)} {...common} />;
-  if (shape === "brace" || shape === "brace-r" || shape === "braces") return <BraceShape width={width} height={height} stroke={stroke} strokeWidth={strokeWidth} fill={fill} mode={shape} />;
-  if (shape === "fr-rect") return <SubroutineShape width={width} height={height} stroke={stroke} strokeWidth={strokeWidth} fill={fill} />;
-  if (shape === "rounded") return <Rect width={width} height={height} cornerRadius={visualTokens.node.cornerRadius} {...common} />;
-  if (shape === "stadium") return <Rect width={width} height={height} cornerRadius={height / 2} {...common} />;
-
-  return <Rect width={width} height={height} cornerRadius={visualTokens.shape.fallbackCornerRadius} {...common} />;
-}
-
-function CanvasNodeImage({
-  src,
-  x,
-  y,
-  width,
-  height,
-  stroke
-}: {
-  src: string;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  stroke: string;
-}) {
-  const image = useCanvasImage(src);
-
-  if (!image) {
-    return (
-      <Group x={x} y={y} listening={false}>
-        <Rect width={width} height={height} fill="rgba(255,255,255,0.35)" stroke={stroke} strokeWidth={1} dash={[5, 5]} />
-        <Line points={[0, 0, width, height]} stroke={stroke} strokeWidth={1} opacity={0.45} />
-        <Line points={[width, 0, 0, height]} stroke={stroke} strokeWidth={1} opacity={0.45} />
-      </Group>
-    );
-  }
-
-  return <KonvaImage image={image} x={x} y={y} width={width} height={height} listening={false} />;
-}
-
-function useCanvasImage(src: string) {
-  const [image, setImage] = useState<HTMLImageElement | null>(null);
-
-  useEffect(() => {
-    if (typeof window === "undefined" || !src) {
-      setImage(null);
-      return;
-    }
-
-    let disposed = false;
-    setImage(null);
-    const nextImage = new window.Image();
-    if (shouldUseAnonymousImageCrossOrigin(src)) {
-      nextImage.crossOrigin = "anonymous";
-    }
-    nextImage.onload = () => {
-      if (!disposed) setImage(nextImage);
-    };
-    nextImage.onerror = () => {
-      if (!disposed) setImage(null);
-    };
-    nextImage.src = src;
-
-    return () => {
-      disposed = true;
-    };
-  }, [src]);
-
-  return image;
-}
-
-function shouldUseAnonymousImageCrossOrigin(src: string) {
-  if (!/^https?:\/\//i.test(src)) return false;
-  try {
-    const url = new URL(src);
-    return url.hostname !== "asset.localhost" && url.hostname !== "localhost" && url.hostname !== "127.0.0.1";
-  } catch {
-    return false;
-  }
-}
-
-function PolygonShape({ points, radius = CANVAS_VISUAL_TOKENS.shape.polygonCornerRadius, fill, stroke, strokeWidth }: { points: number[]; radius?: number; fill: string; stroke: string; strokeWidth: number }) {
-  return <Path data={roundedPolygonPath(points, radius)} fill={fill} stroke={stroke} strokeWidth={strokeWidth} />;
-}
-
-function roundedPolygonPath(points: number[], radius: number) {
-  const vertices = pointPairs(points);
-  if (vertices.length < 3) return "";
-
-  const corners = vertices.map((current, index) => {
-    const previous = vertices[(index - 1 + vertices.length) % vertices.length];
-    const next = vertices[(index + 1) % vertices.length];
-    const previousLength = distanceBetween(current, previous);
-    const nextLength = distanceBetween(current, next);
-    const cornerRadius = Math.min(radius, previousLength / 2, nextLength / 2);
-
-    return {
-      current,
-      before: moveToward(current, previous, cornerRadius),
-      after: moveToward(current, next, cornerRadius)
-    };
-  });
-
-  const [first, ...rest] = corners;
-  const segments = [`M${formatPathPoint(first.before)}`, `Q${formatPathPoint(first.current)} ${formatPathPoint(first.after)}`];
-
-  for (const corner of rest) {
-    segments.push(`L${formatPathPoint(corner.before)}`, `Q${formatPathPoint(corner.current)} ${formatPathPoint(corner.after)}`);
-  }
-
-  segments.push("Z");
-  return segments.join(" ");
-}
-
-function pointPairs(points: number[]) {
-  const result: { x: number; y: number }[] = [];
-  for (let index = 0; index < points.length - 1; index += 2) {
-    result.push({ x: points[index], y: points[index + 1] });
-  }
-  return result;
-}
-
-function moveToward(from: { x: number; y: number }, to: { x: number; y: number }, distance: number) {
-  const length = distanceBetween(from, to);
-  if (length === 0) return from;
-
-  return {
-    x: from.x + ((to.x - from.x) / length) * distance,
-    y: from.y + ((to.y - from.y) / length) * distance
-  };
-}
-
-function distanceBetween(a: { x: number; y: number }, b: { x: number; y: number }) {
-  return Math.hypot(b.x - a.x, b.y - a.y);
-}
-
-function formatPathPoint(point: { x: number; y: number }) {
-  return `${roundPathNumber(point.x)},${roundPathNumber(point.y)}`;
-}
-
-function roundPathNumber(value: number) {
-  return Number(value.toFixed(3));
-}
-
-function CircleVariant({
-  width,
-  height,
-  stroke,
-  strokeWidth,
-  fill,
-  crossed
-}: {
-  width: number;
-  height: number;
-  stroke: string;
-  strokeWidth: number;
-  fill: string;
-  crossed?: boolean;
-}) {
-  const inset = Math.min(width, height) * 0.12;
-  return (
-    <>
-      <Ellipse x={width / 2} y={height / 2} radiusX={width / 2} radiusY={height / 2} fill={fill} stroke={stroke} strokeWidth={strokeWidth} />
-      <Ellipse x={width / 2} y={height / 2} radiusX={Math.max(1, width / 2 - inset)} radiusY={Math.max(1, height / 2 - inset)} stroke={stroke} strokeWidth={strokeWidth} listening={false} />
-      {crossed ? (
-        <>
-          <Line points={[width * 0.25, height * 0.25, width * 0.75, height * 0.75]} stroke={stroke} strokeWidth={strokeWidth} listening={false} />
-          <Line points={[width * 0.75, height * 0.25, width * 0.25, height * 0.75]} stroke={stroke} strokeWidth={strokeWidth} listening={false} />
-        </>
-      ) : null}
-    </>
-  );
-}
-
-function SubroutineShape({ width, height, stroke, strokeWidth, fill }: { width: number; height: number; stroke: string; strokeWidth: number; fill: string }) {
-  const inset = Math.min(18, Math.max(10, width * 0.12));
-  return (
-    <>
-      <Rect width={width} height={height} cornerRadius={4} fill={fill} stroke={stroke} strokeWidth={strokeWidth} />
-      <Line points={[inset, 0, inset, height]} stroke={stroke} strokeWidth={strokeWidth} listening={false} />
-      <Line points={[width - inset, 0, width - inset, height]} stroke={stroke} strokeWidth={strokeWidth} listening={false} />
-    </>
-  );
-}
-
-function CylinderShape({
-  width,
-  height,
-  stroke,
-  strokeWidth,
-  fill,
-  lined,
-  horizontal
-}: {
-  width: number;
-  height: number;
-  stroke: string;
-  strokeWidth: number;
-  fill: string;
-  lined: boolean;
-  horizontal: boolean;
-}) {
-  const cap = Math.min(horizontal ? width * 0.22 : height * 0.22, 22);
-  if (horizontal) {
-    return (
-      <>
-        <Path data={`M${cap},0 L${width - cap},0 C${width},0 ${width},${height} ${width - cap},${height} L${cap},${height} C0,${height} 0,0 ${cap},0 Z`} fill={fill} stroke={stroke} strokeWidth={strokeWidth} />
-        <Path data={`M${cap},0 C${cap * 2},0 ${cap * 2},${height} ${cap},${height}`} stroke={stroke} strokeWidth={strokeWidth} listening={false} />
-        <Path data={`M${width - cap},0 C${width - cap * 2},0 ${width - cap * 2},${height} ${width - cap},${height}`} stroke={stroke} strokeWidth={strokeWidth} listening={false} />
-      </>
-    );
-  }
-
-  return (
-    <>
-      <Path data={`M0,${cap} C0,0 ${width},0 ${width},${cap} L${width},${height - cap} C${width},${height} 0,${height} 0,${height - cap} Z`} fill={fill} stroke={stroke} strokeWidth={strokeWidth} />
-      <Path data={`M0,${cap} C0,${cap * 2} ${width},${cap * 2} ${width},${cap}`} stroke={stroke} strokeWidth={strokeWidth} listening={false} />
-      {lined ? <Path data={`M0,${height - cap} C0,${height - cap * 2} ${width},${height - cap * 2} ${width},${height - cap}`} stroke={stroke} strokeWidth={strokeWidth} listening={false} /> : null}
-    </>
-  );
-}
-
-function DataStoreShape({ width, height, stroke, strokeWidth, fill }: { width: number; height: number; stroke: string; strokeWidth: number; fill: string }) {
-  return (
-    <>
-      <Rect width={width} height={height} cornerRadius={4} fill={fill} stroke={stroke} strokeWidth={strokeWidth} />
-      <Line points={[0, height * 0.22, width, height * 0.22]} stroke={stroke} strokeWidth={strokeWidth} listening={false} />
-      <Line points={[0, height * 0.78, width, height * 0.78]} stroke={stroke} strokeWidth={strokeWidth} listening={false} />
-    </>
-  );
-}
-
-function DocumentShape({
-  width,
-  height,
-  stroke,
-  strokeWidth,
-  fill,
-  lined,
-  tagged,
-  flag
-}: {
-  width: number;
-  height: number;
-  stroke: string;
-  strokeWidth: number;
-  fill: string;
-  lined?: boolean;
-  tagged?: boolean;
-  flag?: boolean;
-}) {
-  const wave = Math.min(14, height * 0.18);
-  const tag = Math.min(18, width * 0.18);
-  const path = flag
-    ? `M0,0 L${width},0 L${width * 0.82},${height * 0.5} L${width},${height} L0,${height} Q${width * 0.18},${height - wave} ${width * 0.36},${height} Q${width * 0.54},${height + wave * 0.35} ${width * 0.72},${height} Q${width * 0.86},${height - wave * 0.25} ${width},${height} L${width},0 Z`
-    : `M0,0 L${width},0 L${width},${height - wave} Q${width * 0.75},${height + wave} ${width * 0.5},${height - wave * 0.2} Q${width * 0.25},${height - wave * 1.4} 0,${height - wave * 0.2} Z`;
-  return (
-    <>
-      <Path data={path} fill={fill} stroke={stroke} strokeWidth={strokeWidth} />
-      {lined ? (
-        <>
-          <Line points={[width * 0.18, height * 0.28, width * 0.82, height * 0.28]} stroke={stroke} strokeWidth={strokeWidth} listening={false} />
-          <Line points={[width * 0.18, height * 0.44, width * 0.72, height * 0.44]} stroke={stroke} strokeWidth={strokeWidth} listening={false} />
-        </>
-      ) : null}
-      {tagged ? <PolygonShape points={[width - tag, 0, width, 0, width, tag]} fill={fill} stroke={stroke} strokeWidth={strokeWidth} /> : null}
-    </>
-  );
-}
-
-function StackedShape({ width, height, stroke, strokeWidth, fill, kind }: { width: number; height: number; stroke: string; strokeWidth: number; fill: string; kind: "rect" | "document" }) {
-  const offset = 7;
-  return (
-    <>
-      <Rect x={offset * 2} y={0} width={width - offset * 2} height={height - offset * 2} cornerRadius={4} fill={fill} stroke={stroke} strokeWidth={strokeWidth} opacity={0.7} />
-      <Rect x={offset} y={offset} width={width - offset * 2} height={height - offset * 2} cornerRadius={4} fill={fill} stroke={stroke} strokeWidth={strokeWidth} opacity={0.85} />
-      {kind === "document" ? (
-        <DocumentShape width={width - offset * 2} height={height - offset * 2} stroke={stroke} strokeWidth={strokeWidth} fill={fill} />
-      ) : (
-        <Rect y={offset * 2} width={width - offset * 2} height={height - offset * 2} cornerRadius={4} fill={fill} stroke={stroke} strokeWidth={strokeWidth} />
-      )}
-    </>
-  );
-}
-
-function LinedRectShape({ width, height, stroke, strokeWidth, fill, mode }: { width: number; height: number; stroke: string; strokeWidth: number; fill: string; mode: "lin-rect" | "div-rect" | "win-pane" }) {
-  return (
-    <>
-      <Rect width={width} height={height} cornerRadius={4} fill={fill} stroke={stroke} strokeWidth={strokeWidth} />
-      {mode === "lin-rect" ? <Line points={[0, height * 0.28, width, height * 0.28]} stroke={stroke} strokeWidth={strokeWidth} listening={false} /> : null}
-      {mode === "div-rect" ? <Line points={[0, height * 0.5, width, height * 0.5]} stroke={stroke} strokeWidth={strokeWidth} listening={false} /> : null}
-      {mode === "win-pane" ? (
-        <>
-          <Line points={[width * 0.32, 0, width * 0.32, height]} stroke={stroke} strokeWidth={strokeWidth} listening={false} />
-          <Line points={[0, height * 0.34, width, height * 0.34]} stroke={stroke} strokeWidth={strokeWidth} listening={false} />
-        </>
-      ) : null}
-    </>
-  );
-}
-
-function TaggedRectShape({ width, height, stroke, strokeWidth, fill }: { width: number; height: number; stroke: string; strokeWidth: number; fill: string }) {
-  const tag = Math.min(18, width * 0.18);
-  return (
-    <>
-      <Rect width={width} height={height} cornerRadius={4} fill={fill} stroke={stroke} strokeWidth={strokeWidth} />
-      <Line points={[width - tag, 0, width - tag, tag, width, tag]} stroke={stroke} strokeWidth={strokeWidth} listening={false} />
-    </>
-  );
-}
-
-function BraceShape({ width, height, stroke, strokeWidth, fill, mode }: { width: number; height: number; stroke: string; strokeWidth: number; fill: string; mode: "brace" | "brace-r" | "braces" }) {
-  const left = `M${width * 0.32},0 C${width * 0.08},0 ${width * 0.18},${height * 0.35} ${width * 0.02},${height * 0.5} C${width * 0.18},${height * 0.65} ${width * 0.08},${height} ${width * 0.32},${height}`;
-  const right = `M${width * 0.68},0 C${width * 0.92},0 ${width * 0.82},${height * 0.35} ${width * 0.98},${height * 0.5} C${width * 0.82},${height * 0.65} ${width * 0.92},${height} ${width * 0.68},${height}`;
-  return (
-    <>
-      <Rect width={width} height={height} cornerRadius={4} fill={fill} opacity={0.28} listening={false} />
-      {mode !== "brace-r" ? <Path data={left} stroke={stroke} strokeWidth={strokeWidth} /> : null}
-      {mode !== "brace" ? <Path data={right} stroke={stroke} strokeWidth={strokeWidth} /> : null}
-    </>
-  );
-}
-
-function cloudPath(width: number, height: number) {
-  return `M${width * 0.26},${height * 0.78} C${width * 0.1},${height * 0.78} 0,${height * 0.62} ${width * 0.08},${height * 0.46} C${width * 0.02},${height * 0.26} ${width * 0.24},${height * 0.14} ${width * 0.38},${height * 0.24} C${width * 0.48},${height * 0.02} ${width * 0.78},${height * 0.08} ${width * 0.8},${height * 0.34} C${width},${height * 0.36} ${width * 0.98},${height * 0.72} ${width * 0.78},${height * 0.78} Z`;
-}
-
-function curvedTrapezoidPath(width: number, height: number) {
-  return `M${width * 0.12},0 C${width * 0.3},${height * 0.08} ${width * 0.7},${height * 0.08} ${width * 0.88},0 L${width},${height} C${width * 0.7},${height * 0.9} ${width * 0.3},${height * 0.9} 0,${height} Z`;
-}
-
-function delayPath(width: number, height: number) {
-  return `M0,0 L${width - height / 2},0 C${width},0 ${width},${height} ${width - height / 2},${height} L0,${height} Z`;
-}
-
-function EdgeMarkers({
-  edge,
-  geometry,
-  stroke,
-  strokeWidth,
-  surfaceFill,
-  visualTokens
-}: {
-  edge: CanvasEdge;
-  geometry: EdgePathGeometry;
-  stroke: string;
-  strokeWidth: number;
-  surfaceFill: string;
-  visualTokens: CanvasVisualTokens;
-}) {
-  return (
-    <>
-      <EdgeMarkerShape side="start" marker={edgeMarker(edge, "start")} geometry={geometry} stroke={stroke} strokeWidth={strokeWidth} surfaceFill={surfaceFill} visualTokens={visualTokens} />
-      <EdgeMarkerShape side="end" marker={edgeMarker(edge, "end")} geometry={geometry} stroke={stroke} strokeWidth={strokeWidth} surfaceFill={surfaceFill} visualTokens={visualTokens} />
-    </>
-  );
-}
-
-function EdgeMarkerShape({
-  side,
-  marker,
-  geometry,
-  stroke,
-  strokeWidth,
-  surfaceFill,
-  visualTokens
-}: {
-  side: "start" | "end";
-  marker: EdgeMarker;
-  geometry: EdgePathGeometry;
-  stroke: string;
-  strokeWidth: number;
-  surfaceFill: string;
-  visualTokens: CanvasVisualTokens;
-}) {
-  if (marker === "none") return null;
-
-  if (marker === "arrow") {
-    const tangent = side === "start" ? { x: -geometry.startTangent.x, y: -geometry.startTangent.y } : geometry.endTangent;
-    const point = side === "start" ? geometry.start : geometry.end;
-    return <PathArrowHead point={point} tangent={tangent} fill={stroke} length={visualTokens.edge.pointerLength} width={visualTokens.edge.pointerWidth} />;
-  }
-
-  const point = side === "start" ? geometry.start : geometry.end;
-  if (marker === "circle") {
-    return <Circle x={point.x} y={point.y} radius={visualTokens.edge.endpointMarkerRadius} fill={surfaceFill} stroke={stroke} strokeWidth={strokeWidth} listening={false} />;
-  }
-
-  const size = visualTokens.edge.endpointMarkerRadius + 1;
-  return (
-    <Group x={point.x} y={point.y} listening={false}>
-      <Line points={[-size, -size, size, size]} stroke={stroke} strokeWidth={strokeWidth} lineCap="round" />
-      <Line points={[-size, size, size, -size]} stroke={stroke} strokeWidth={strokeWidth} lineCap="round" />
-    </Group>
-  );
-}
-
-function PathArrowHead({ point, tangent, fill, length, width }: { point: { x: number; y: number }; tangent: { x: number; y: number }; fill: string; length: number; width: number }) {
-  if (length <= 0 || width <= 0) return null;
-
-  const rotation = (Math.atan2(tangent.y, tangent.x) * 180) / Math.PI;
-
-  return (
-    <Line
-      x={point.x}
-      y={point.y}
-      rotation={rotation}
-      points={[0, 0, -length, -width / 2, -length, width / 2]}
-      closed
-      fill={fill}
-      stroke={fill}
-      listening={false}
-    />
-  );
-}
-
 export function KonvaCanvas({
   graph,
   selection,
@@ -2898,380 +2352,21 @@ export function KonvaCanvas({
           <NodeActionTooltip node={hoveredActionNode} action={hoveredAction} geometry={hoveredActionGeometry} viewport={viewport} dimensions={dimensions} />
         ) : null}
 
-        {inlineEdit?.type === "node" && editStyle ? (
-          <>
-            <div
-              ref={nodeEditorMeasureRef}
-              aria-hidden="true"
-              className="pointer-events-none absolute -left-[9999px] top-0 whitespace-pre-wrap text-center font-bold"
-              style={{
-                width: editStyle.width,
-                fontFamily: nodeThemeTokens.fontFamily,
-                fontSize: nodeThemeTokens.fontSize * editStyle.textScale,
-                lineHeight: `${nodeThemeTokens.lineHeight * editStyle.textScale}px`,
-                overflowWrap: "break-word",
-                wordBreak: "break-word",
-                visibility: "hidden"
-              }}
-            >
-              {inlineEdit.value || "\u200b"}
-            </div>
-            <Textarea
-              ref={nodeEditorRef}
-              value={inlineEdit.value}
-              className="node-inline-editor absolute z-40 block min-h-0 resize-none overflow-x-hidden rounded-none border-0 bg-transparent p-0 text-center font-bold text-foreground shadow-none outline-none ring-0 focus-visible:ring-0 focus-visible:ring-offset-0"
-              style={{
-                left: editStyle.left,
-                top: editStyle.top + nodeEditorLayout.insetTop,
-                width: editStyle.width,
-                height: nodeEditorLayout.height,
-                fontFamily: nodeThemeTokens.fontFamily,
-                fontSize: nodeThemeTokens.fontSize * editStyle.textScale,
-                lineHeight: `${nodeThemeTokens.lineHeight * editStyle.textScale}px`,
-                overflowWrap: "break-word",
-                wordBreak: "break-word",
-                overflowY: nodeEditorLayout.scrollable ? "auto" : "hidden"
-              }}
-              onChange={(event) => setInlineEdit({ ...inlineEdit, value: event.target.value })}
-              onBlur={() => commitInlineEdit(true)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
-                  event.preventDefault();
-                  commitInlineEdit(true);
-                }
-                if (event.key === "Escape") commitInlineEdit(false);
-              }}
-            />
-          </>
-        ) : null}
-
-        {viewFilters.subgraphs && inlineEdit?.type === "subgraph" && editStyle ? (
-          <Input
-            autoFocus
-            value={inlineEdit.value}
-            className="absolute z-40 h-auto min-h-0 border bg-card py-0 text-left font-bold text-foreground shadow-sm outline-none ring-0 focus-visible:ring-1 focus-visible:ring-accent focus-visible:ring-offset-0"
-            style={{
-              left: editStyle.left,
-              top: editStyle.top,
-              width: editStyle.width,
-              height: editStyle.height,
-              borderRadius: visualTokens.subgraph.titleCornerRadius * activeScale,
-              fontFamily: nodeThemeTokens.fontFamily,
-              fontSize: visualTokens.subgraph.titleFontSize * activeScale,
-              fontWeight: visualTokens.subgraph.titleFontWeight,
-              lineHeight: `${editStyle.height}px`,
-              paddingLeft: visualTokens.subgraph.titleInsetX * activeScale,
-              paddingRight: visualTokens.subgraph.titleInsetX * activeScale
-            }}
-            onChange={(event) => setInlineEdit({ ...inlineEdit, value: event.target.value })}
-            onBlur={() => commitInlineEdit(true)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") commitInlineEdit(true);
-              if (event.key === "Escape") commitInlineEdit(false);
-            }}
-          />
-        ) : null}
-
-        {viewFilters.edges && viewFilters.edgeLabels && inlineEdit?.type === "edge" && editStyle ? (
-          <Input
-            autoFocus
-            value={inlineEdit.value}
-            className="absolute z-40 h-auto min-h-0 rounded-none border bg-card p-0 text-center font-normal text-foreground shadow-none outline-none ring-0 focus-visible:ring-0 focus-visible:ring-offset-0"
-            style={{
-              left: editStyle.left,
-              top: editStyle.top,
-              width: editStyle.width,
-              height: editStyle.height,
-              borderRadius: visualTokens.edge.labelCornerRadius * activeScale,
-              fontFamily: edgeLabelThemeTokens.fontFamily,
-              fontSize: edgeLabelThemeTokens.fontSize * activeScale,
-              lineHeight: `${edgeLabelThemeTokens.lineHeight * activeScale}px`,
-              paddingLeft: edgeLabelThemeTokens.paddingX * activeScale,
-              paddingRight: edgeLabelThemeTokens.paddingX * activeScale
-            }}
-            onChange={(event) => setInlineEdit({ ...inlineEdit, value: event.target.value })}
-            onBlur={() => commitInlineEdit(true)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") commitInlineEdit(true);
-              if (event.key === "Escape") commitInlineEdit(false);
-            }}
-          />
-        ) : null}
+        <InlineEditOverlays
+          inlineEdit={inlineEdit}
+          editStyle={editStyle}
+          activeScale={activeScale}
+          nodeEditorLayout={nodeEditorLayout}
+          nodeEditorRef={nodeEditorRef}
+          nodeEditorMeasureRef={nodeEditorMeasureRef}
+          nodeThemeTokens={nodeThemeTokens}
+          edgeLabelThemeTokens={edgeLabelThemeTokens}
+          visualTokens={visualTokens}
+          viewFilters={viewFilters}
+          onChange={setInlineEdit}
+          onCommit={commitInlineEdit}
+        />
       </div>
     </section>
   );
-}
-
-function CanvasNodeActionBadge({
-  actionKind,
-  x,
-  y,
-  visualTokens,
-  onOpen
-}: {
-  actionKind: "url" | "file";
-  x: number;
-  y: number;
-  visualTokens: CanvasVisualTokens;
-  onOpen?: () => void;
-}) {
-  const size = 18;
-
-  return (
-    <Group
-      x={x}
-      y={y}
-      onMouseDown={(event) => {
-        event.cancelBubble = true;
-      }}
-      onClick={(event) => {
-        event.cancelBubble = true;
-        onOpen?.();
-      }}
-      onTap={(event) => {
-        event.cancelBubble = true;
-        onOpen?.();
-      }}
-    >
-      <Circle
-        x={size / 2}
-        y={size / 2}
-        radius={size / 2}
-        fill={visualTokens.colors.surface}
-        stroke={visualTokens.colors.accent}
-        strokeWidth={1.5}
-        opacity={0.96}
-      />
-      <Text
-        width={size}
-        height={size}
-        text={actionKind === "url" ? "↗" : "F"}
-        align="center"
-        verticalAlign="middle"
-        fontSize={actionKind === "url" ? 13 : 10}
-        fontStyle="700"
-        fontFamily="system-ui, sans-serif"
-        fill={visualTokens.colors.accent}
-      />
-    </Group>
-  );
-}
-
-function NodeActionTooltip({
-  node,
-  action,
-  geometry,
-  viewport,
-  dimensions
-}: {
-  node: CanvasNode;
-  action: CanvasNodeAction;
-  geometry: NodeGeometry;
-  viewport: ViewportState;
-  dimensions: { width: number; height: number };
-}) {
-  const width = 280;
-  const left = Math.max(8, Math.min(viewport.x + (geometry.frame.x + geometry.frame.width) * viewport.scale + 10, dimensions.width - width - 8));
-  const top = Math.max(8, Math.min(viewport.y + geometry.frame.y * viewport.scale - 4, dimensions.height - 74));
-  const target = nodeActionTarget(action);
-
-  return (
-    <div
-      className="pointer-events-none absolute grid w-[280px] gap-1 rounded-md border bg-popover/95 px-3 py-2 text-xs text-popover-foreground shadow-lg backdrop-blur"
-      style={{ left, top, zIndex: OVERLAY_Z_INDEX.tooltip }}
-      data-editor-floating-menu-ignore
-    >
-      <div className="flex min-w-0 items-center justify-between gap-2">
-        <span className="font-medium">{nodeActionLabel(action)}</span>
-        <span className="truncate text-muted-foreground">{nodeActionDisplayTooltip(action)}</span>
-      </div>
-      <div className="truncate text-muted-foreground" title={target}>
-        {target}
-      </div>
-      <div className="sr-only">{node.label || node.id}</div>
-    </div>
-  );
-}
-
-export function NodeContextMenu({
-  menu,
-  node,
-  onClose,
-  onOpenNodeAction,
-  onEditNodeAction
-}: {
-  menu: { nodeId: string; x: number; y: number };
-  node: CanvasNode | undefined;
-  onClose: () => void;
-  onOpenNodeAction?: (node: CanvasNode) => void;
-  onEditNodeAction?: (node: CanvasNode) => void;
-}) {
-  const overlayToken = `node-context-menu:${menu.nodeId}`;
-  const handleOpenChange = useCallback((open: boolean) => {
-    if (!open) onClose();
-  }, [onClose]);
-  const menuRef = useDismissableFloatingMenu<HTMLDivElement>({
-    open: Boolean(node),
-    onOpenChange: handleOpenChange
-  });
-
-  useEffect(() => {
-    setGlobalOverlayActivity(overlayToken, true);
-    return () => setGlobalOverlayActivity(overlayToken, false);
-  }, [overlayToken]);
-
-  if (!node) return null;
-
-  const action = normalizeNodeAction(node.action);
-  const width = 220;
-  const height = 80;
-  const viewportWidth = typeof window === "undefined" ? menu.x + width + 16 : window.innerWidth;
-  const viewportHeight = typeof window === "undefined" ? menu.y + height + 16 : window.innerHeight;
-  const left = Math.max(8, Math.min(menu.x, viewportWidth - width - 8));
-  const top = Math.max(8, Math.min(menu.y, viewportHeight - height - 8));
-
-  const menuElement = (
-    <div
-      ref={menuRef}
-      className="fixed w-[220px] rounded-md border bg-card/95 p-1 text-sm text-foreground shadow-xl"
-      style={{ left, top, zIndex: OVERLAY_Z_INDEX.contextMenu }}
-      onPointerDown={(event) => event.stopPropagation()}
-      onClick={(event) => event.stopPropagation()}
-      data-floating-panel-drag-exclude
-      data-editor-floating-menu-ignore
-    >
-      <button
-        type="button"
-        className="flex h-8 w-full min-w-0 items-center justify-between gap-2 rounded px-2 text-left hover:bg-muted disabled:cursor-not-allowed disabled:opacity-45"
-        disabled={!action}
-        onClick={() => {
-          if (node) onOpenNodeAction?.(node);
-          onClose();
-        }}
-      >
-        <span className="truncate">{nodeActionOpenLabel(action)}</span>
-        {action ? <span className="shrink-0 text-xs text-muted-foreground">{nodeActionLabel(action)}</span> : null}
-      </button>
-      <button
-        type="button"
-        className="flex h-8 w-full min-w-0 items-center rounded px-2 text-left hover:bg-muted"
-        onClick={() => {
-          onEditNodeAction?.(node);
-          onClose();
-        }}
-      >
-        {action ? "编辑链接" : "添加链接"}
-      </button>
-    </div>
-  );
-
-  if (typeof document === "undefined") return menuElement;
-  return createPortal(menuElement, document.body);
-}
-
-function CanvasGrid({
-  dimensions,
-  viewport,
-  visualTokens,
-  gridSpec
-}: {
-  dimensions: { width: number; height: number };
-  viewport: ViewportState;
-  visualTokens: CanvasVisualTokens;
-  gridSpec: CanvasGridSpec;
-}) {
-  const plan = useMemo(
-    () =>
-      getCanvasGridRenderPlan(
-        { width: dimensions.width, height: dimensions.height },
-        { x: viewport.x, y: viewport.y, scale: viewport.scale },
-        gridSpec
-      ),
-    [dimensions.height, dimensions.width, gridSpec, viewport.scale, viewport.x, viewport.y]
-  );
-  const { bounds, levels } = plan;
-
-  return (
-    <Layer listening={false}>
-      <Shape
-        x={bounds.left}
-        y={bounds.top}
-        width={bounds.width}
-        height={bounds.height}
-        perfectDrawEnabled={false}
-        sceneFunc={(context: Konva.Context) => {
-          context.save();
-          for (const level of levels) {
-            const radius = level.radiusPx / viewport.scale;
-            const startX = firstGridCoordinateAtOrAfter(bounds.left, level.step, gridSpec.origin.x);
-            const startY = firstGridCoordinateAtOrAfter(bounds.top, level.step, gridSpec.origin.y);
-
-            context.beginPath();
-            context.fillStyle = `rgba(${visualTokens.colors.gridDotRgb}, ${level.alpha})`;
-            for (let x = startX; x <= bounds.right; x += level.step) {
-              for (let y = startY; y <= bounds.bottom; y += level.step) {
-                if (
-                  level.skipStep &&
-                  isGridCoordinate(x, level.skipStep, gridSpec.origin.x) &&
-                  isGridCoordinate(y, level.skipStep, gridSpec.origin.y)
-                ) {
-                  continue;
-                }
-                context.moveTo(x - bounds.left + radius, y - bounds.top);
-                context.arc(x - bounds.left, y - bounds.top, radius, 0, Math.PI * 2, false);
-              }
-            }
-            context.fill();
-          }
-          context.restore();
-        }}
-      />
-    </Layer>
-  );
-}
-
-function AlignmentGuideOverlay({ guides, visualTokens }: { guides: AlignmentGuide[]; visualTokens: CanvasVisualTokens }) {
-  return (
-    <>
-      {guides.map((guide, index) => {
-        const visual = getAlignmentGuideVisualState(guide.kind, visualTokens);
-
-        return (
-          <Line
-            key={`${guide.axis}-${guide.value}-${index}`}
-            points={guide.axis === "x" ? [guide.value, guide.from, guide.value, guide.to] : [guide.from, guide.value, guide.to, guide.value]}
-            stroke={visual.stroke}
-            strokeWidth={visual.strokeWidth}
-            dash={visual.dash}
-            lineCap="round"
-            listening={false}
-          />
-        );
-      })}
-    </>
-  );
-}
-
-function useContainerSize(ref: React.RefObject<HTMLDivElement | null>) {
-  const [size, setSize] = useState({ width: 800, height: 600 });
-
-  useEffect(() => {
-    if (!ref.current) return;
-
-    const observer = new ResizeObserver(([entry]) => {
-      setSize({
-        width: Math.max(1, Math.floor(entry.contentRect.width)),
-        height: Math.max(1, Math.floor(entry.contentRect.height))
-      });
-    });
-
-    observer.observe(ref.current);
-    return () => observer.disconnect();
-  }, [ref]);
-
-  return size;
-}
-
-function unique(values: string[]) {
-  return Array.from(new Set(values));
 }

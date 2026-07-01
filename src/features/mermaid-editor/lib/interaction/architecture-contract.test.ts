@@ -110,7 +110,7 @@ describe("interaction architecture contract", () => {
   it("keeps known oversized files on a no-growth budget", () => {
     const budgets = [
       { path: "src/features/mermaid-editor/components/mermaid-editor.tsx", maxLines: 3500 },
-      { path: "src/features/mermaid-editor/components/konva-canvas.tsx", maxLines: 3330 },
+      { path: "src/features/mermaid-editor/components/konva-canvas.tsx", maxLines: 2400 },
       { path: "src/features/mermaid-editor/components/canvas-document-editor.tsx", maxLines: 1900 },
       { path: "src-tauri/src/main.rs", maxLines: 1450 }
     ];
@@ -145,6 +145,21 @@ describe("interaction architecture contract", () => {
     expect(editor).not.toContain("const DEFAULT_WORKSPACE_PANEL_STACK");
     expect(editor).not.toContain("const openWorkspacePanelIds");
     expect(editor).not.toContain("function workspacePanelWindowState(");
+  });
+
+  it("keeps Konva render helpers outside the KonvaCanvas shell file", () => {
+    const canvas = readProjectFile("src/features/mermaid-editor/components/konva-canvas.tsx");
+
+    expect(canvas).not.toContain("function CanvasNodeShape(");
+    expect(canvas).not.toContain("function CanvasNodeImage(");
+    expect(canvas).not.toContain("function EdgeMarkers(");
+    expect(canvas).not.toContain("function CanvasGrid(");
+    expect(canvas).not.toContain("function AlignmentGuideOverlay(");
+    expect(canvas).not.toContain("function CanvasNodeActionBadge(");
+    expect(canvas).not.toContain("function NodeActionTooltip(");
+    expect(canvas).not.toContain("function NodeContextMenu(");
+    expect(canvas).not.toContain("function useContainerSize(");
+    expect(canvas).not.toContain("function measureTextWidth(");
   });
 
   it("keeps newly oversized frontend files out of the codebase", () => {
