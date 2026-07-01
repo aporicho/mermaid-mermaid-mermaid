@@ -116,7 +116,7 @@ describe("interaction architecture contract", () => {
     const budgets = [
       { path: "src/features/mermaid-editor/components/mermaid-editor.tsx", maxLines: 1500 },
       { path: "src/features/mermaid-editor/components/mermaid-editor/use-editor-file-workflow.ts", maxLines: 900 },
-      { path: "src/features/mermaid-editor/components/konva-canvas.tsx", maxLines: 1500 },
+      { path: "src/features/mermaid-editor/components/konva-canvas.tsx", maxLines: 1200 },
       { path: "src/features/mermaid-editor/components/canvas-document-editor.tsx", maxLines: 1300 },
       { path: "src-tauri/src/main.rs", maxLines: 1450 }
     ];
@@ -181,10 +181,18 @@ describe("interaction architecture contract", () => {
     expect(canvas).not.toContain("function NodeContextMenu(");
     expect(canvas).not.toContain("function useContainerSize(");
     expect(canvas).not.toContain("function measureTextWidth(");
+    expect(canvas).toContain("KonvaSubgraphLayer");
+    expect(canvas).toContain("KonvaEdgeLayer");
+    expect(canvas).toContain("KonvaEdgeOverlayLayer");
+    expect(canvas).toContain("KonvaNodeLayer");
     expect(canvas).toContain("useKonvaRenderModel");
     expect(canvas).toContain("useKonvaMotion");
     expect(canvas).toContain("useKonvaViewport");
     expect(canvas).toContain("useKonvaHoverState");
+    expect(canvas).not.toContain("[...scopedSubgraphGeometries]");
+    expect(canvas).not.toContain("scopedVisibleEdges.map");
+    expect(canvas).not.toContain("scopedRenderedNodes.map");
+    expect(canvas).not.toContain("exitingNodes.map");
   });
 
   it("keeps Konva runtime controllers outside the KonvaCanvas shell file", () => {
@@ -284,7 +292,6 @@ describe("interaction architecture contract", () => {
   it("keeps newly oversized frontend files out of the codebase", () => {
     const knownLargeFiles = new Set([
       "src/features/mermaid-editor/components/mermaid-editor.tsx",
-      "src/features/mermaid-editor/components/konva-canvas.tsx",
       "src/features/mermaid-editor/components/canvas-document-editor.tsx"
     ]);
     const frontendFiles = projectFilesUnder("src/features/mermaid-editor", /\.[tj]sx?$/);

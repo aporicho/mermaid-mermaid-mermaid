@@ -1,21 +1,17 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
-import { Arrow, Circle, Group, Layer, Path, Rect, Stage, Text } from "react-konva";
+import { Layer, Stage } from "react-konva";
 import type Konva from "konva";
 import type { KonvaEventObject } from "konva/lib/Node";
 
 import { AlignmentGuideOverlay, CanvasGrid } from "@/features/mermaid-editor/components/konva-canvas/canvas-overlays";
-import { EdgeMarkers, PathArrowHead } from "@/features/mermaid-editor/components/konva-canvas/edge-markers";
+import { KonvaEdgeLayer, KonvaEdgeOverlayLayer } from "@/features/mermaid-editor/components/konva-canvas/edge-layer";
 import { InlineEditOverlays } from "@/features/mermaid-editor/components/konva-canvas/inline-edit-overlays";
-import { CanvasNodeActionBadge, NodeActionTooltip, NodeContextMenu } from "@/features/mermaid-editor/components/konva-canvas/node-action-ui";
-import { CanvasNodeImage } from "@/features/mermaid-editor/components/konva-canvas/node-image";
-import { CanvasNodeShape } from "@/features/mermaid-editor/components/konva-canvas/node-shapes";
-import {
-  normalizeBox,
-  scaleLocalPointFromCenter,
-  unique
-} from "@/features/mermaid-editor/components/konva-canvas/render-utils";
+import { KonvaNodeLayer } from "@/features/mermaid-editor/components/konva-canvas/node-layer";
+import { NodeActionTooltip, NodeContextMenu } from "@/features/mermaid-editor/components/konva-canvas/node-action-ui";
+import { unique } from "@/features/mermaid-editor/components/konva-canvas/render-utils";
+import { KonvaSubgraphLayer } from "@/features/mermaid-editor/components/konva-canvas/subgraph-layer";
 import type { CanvasLiveState } from "@/features/mermaid-editor/components/konva-canvas/types";
 import { useKonvaDragDraft } from "@/features/mermaid-editor/components/konva-canvas/use-konva-drag-draft";
 import {
@@ -50,36 +46,17 @@ import {
   type HitTarget,
   type InteractionState
 } from "@/features/mermaid-editor/lib/canvas-interaction";
-import {
-  CANVAS_HIT_NAMES,
-  edgeEndpointHitId,
-  edgeHitId,
-  edgeLabelHitId,
-  nodeAnchorHitId,
-  nodeHitId,
-  resolveKonvaHitTarget,
-  subgraphAnchorHitId,
-  subgraphHitId,
-  subgraphTitleHitId
-} from "@/features/mermaid-editor/lib/canvas-hit-target";
+import { resolveKonvaHitTarget } from "@/features/mermaid-editor/lib/canvas-hit-target";
 import { DEFAULT_CANVAS_GRID, type CanvasGridSpec } from "@/features/mermaid-editor/lib/canvas-grid";
-import {
-  centerScaleTransform,
-  shouldRunCanvasProximity
-} from "@/features/mermaid-editor/lib/canvas-motion";
+import { shouldRunCanvasProximity } from "@/features/mermaid-editor/lib/canvas-motion";
 import { resolveConnectionPreview, resolveRetargetPreview } from "@/features/mermaid-editor/lib/connection-preview";
-import {
-  buildEdgeLabelGeometry,
-  DEFAULT_EDGE_LABEL_GEOMETRY_TOKENS,
-  edgeLabelSingleLineText
-} from "@/features/mermaid-editor/lib/edge-label-geometry";
+import { DEFAULT_EDGE_LABEL_GEOMETRY_TOKENS } from "@/features/mermaid-editor/lib/edge-label-geometry";
 import type { CanvasNode, EdgeRouting, EditorMode, LayoutMode, MermaidGraph, Selection, ViewportState } from "@/features/mermaid-editor/lib/editor-types";
 import { normalizeNodeAction } from "@/features/mermaid-editor/lib/node-actions";
-import { normalizeImageAsset } from "@/features/mermaid-editor/lib/node-assets";
 import {
   DEFAULT_NODE_GEOMETRY_TOKENS,
   buildNodeGeometry,
-  nodeIntersectsRect,
+  nodeIntersectsRect
 } from "@/features/mermaid-editor/lib/node-geometry";
 import {
   SUBGRAPH_GEOMETRY_TOKENS,
@@ -91,16 +68,7 @@ import {
 } from "@/features/mermaid-editor/lib/subgraph-geometry";
 import type { EditorThemeGeometryTokens } from "@/features/mermaid-editor/lib/editor-theme";
 import { resolveRuntimeEditorMotion, type RuntimeEditorMotion } from "@/features/mermaid-editor/lib/editor-motion";
-import {
-  CANVAS_VISUAL_TOKENS,
-  type CanvasVisualTokens,
-  getAnchorVisualState,
-  getConnectionDraftVisualState,
-  getEdgeEndpointVisualState,
-  getEdgeVisualState,
-  getNodeVisualState,
-  getSelectionBoxVisualState
-} from "@/features/mermaid-editor/lib/canvas-visual-state";
+import { CANVAS_VISUAL_TOKENS, type CanvasVisualTokens } from "@/features/mermaid-editor/lib/canvas-visual-state";
 import {
   resolveCanvasPointerClick,
   resolveCanvasPointerDoubleClick,
@@ -800,6 +768,14 @@ export function KonvaCanvas({
     onEditorCommand({ type: "graph.commitDragMembership", graph: nextGraph, message: "已移动并更新组成员。", source: "pointer" });
   }
 
+  function finishKonvaDrag() {
+    flushDragDraftCommand();
+    if (dragDraftGraphRef.current) finishDragWithMembership();
+    clearDragRuntimeState();
+    setAlignmentGuides([]);
+    resetInteraction();
+  }
+
   function finishConnection(draft: Extract<InteractionState, { kind: "connectingEdge" }>) {
     const point = pointerWorldPoint();
     if (!point) return;
@@ -870,9 +846,6 @@ export function KonvaCanvas({
   const activeScale = currentViewport().scale;
 
   const cursorClassName = interactionCursor(mode, interactionState, panningRequested, hoveredHitTarget);
-  const isEndpointHovered = (edgeId: string, side: "from" | "to") =>
-    hoveredHitTarget.kind === "edgeEndpoint" && hoveredHitTarget.edgeId === edgeId && hoveredHitTarget.side === side;
-  const isEndpointActive = (edgeId: string, side: "from" | "to") => retargetDraft?.edgeId === edgeId && retargetDraft.side === side;
   const hoveredActionNode = hoveredNodeId ? graph.nodes.find((node) => node.id === hoveredNodeId) : undefined;
   const hoveredAction = normalizeNodeAction(hoveredActionNode?.action);
   const hoveredActionGeometry = hoveredActionNode ? nodeGeometryById.get(hoveredActionNode.id) : undefined;
@@ -903,547 +876,98 @@ export function KonvaCanvas({
           {viewFilters.grid ? <CanvasGrid dimensions={dimensions} viewport={viewport} visualTokens={visualTokens} gridSpec={gridThemeTokens} /> : null}
 
           <Layer>
-            {viewFilters.subgraphs
-              ? [...scopedSubgraphGeometries]
-              .sort((a, b) => a.depth - b.depth)
-              .map((geometry) => {
-                const subgraph = graph.subgraphs?.find((item) => item.id === geometry.id);
-                if (!subgraph) return null;
-                const selected = selectedSubgraphIds.has(geometry.id);
-                const hovered = hoveredSubgraphId === geometry.id;
-                const isEditingSubgraphTitle = inlineEdit?.type === "subgraph" && inlineEdit.id === geometry.id;
-                const connectionTarget = connectionTargetSubgraphId === geometry.id;
-                const connectionInvalid = connectionInvalidSubgraphId === geometry.id;
-                const connectionAnchorTarget =
-                  connectionPreview?.targetSubgraphId === geometry.id || connectionPreview?.invalidSubgraphId === geometry.id
-                    ? connectionPreview.targetAnchor
-                    : retargetPreview?.targetSubgraphId === geometry.id || retargetPreview?.invalidSubgraphId === geometry.id
-                      ? retargetPreview.targetAnchor
-                      : null;
-                const connectionAnchorsVisible =
-                  connectionPreview?.targetSubgraphId === geometry.id ||
-                  connectionPreview?.invalidSubgraphId === geometry.id ||
-                  retargetPreview?.targetSubgraphId === geometry.id ||
-                  retargetPreview?.invalidSubgraphId === geometry.id;
-                const stroke = connectionInvalid
-                  ? visualTokens.colors.connectionInvalid
-                  : connectionTarget || selected
-                    ? visualTokens.colors.accent
-                    : hovered
-                      ? visualTokens.colors.accentHover
-                      : visualTokens.colors.labelStroke;
-                const anchorVisible =
-                  mode === "select" &&
-                  !inlineEdit &&
-                  (selected || hovered || connectionAnchorsVisible) &&
-                  interactionState.kind !== "panning" &&
-                  interactionState.kind !== "draggingNodes" &&
-                  interactionState.kind !== "draggingSubgraphs";
-
-                return (
-                  <Group
-                    id={subgraphHitId(geometry.id)}
-                    name={CANVAS_HIT_NAMES.subgraph}
-                    key={geometry.id}
-                    x={geometry.frame.x}
-                    y={geometry.frame.y}
-                    draggable={dragEnabled && mode === "select" && !panningRequested && interactionState.kind !== "panning"}
-                    onDragStart={(event) => {
-                      if (event.evt.button !== 0) {
-                        event.target.stopDrag();
-                        return;
-                      }
-                      applyCanvasPointerLocalEffect({ type: "drag.startSubgraph", subgraphId: geometry.id });
-                    }}
-                    onDragMove={(event) => moveSelectedSubgraphs(geometry.id, event.target)}
-                    onDragEnd={() => {
-                      flushDragDraftCommand();
-                      if (dragDraftGraphRef.current) finishDragWithMembership();
-                      clearDragRuntimeState();
-                      setAlignmentGuides([]);
-                      resetInteraction();
-                    }}
-                    onClick={(event) => handleCanvasClick(event, { kind: "subgraph", id: geometry.id })}
-                    onDblClick={(event) => handleCanvasDoubleClick(event, { kind: "subgraph", id: geometry.id })}
-                  >
-                    <Rect
-                      width={geometry.frame.width}
-                      height={geometry.frame.height}
-                      cornerRadius={visualTokens.node.cornerRadius}
-                      fill={visualTokens.colors.surface}
-                      opacity={visualTokens.subgraph.fillOpacity}
-                      listening={false}
-                    />
-                    <Rect
-                      width={geometry.frame.width}
-                      height={geometry.frame.height}
-                      cornerRadius={visualTokens.node.cornerRadius}
-                      stroke={stroke}
-                      strokeWidth={selected || connectionTarget || connectionInvalid ? visualTokens.node.emphasizedStrokeWidth : visualTokens.node.strokeWidth}
-                      dash={[...visualTokens.overlay.subgraphDash]}
-                      fillEnabled={false}
-                    />
-                    <Rect
-                      id={subgraphTitleHitId(geometry.id)}
-                      name={CANVAS_HIT_NAMES.subgraphTitle}
-                      x={geometry.titleBox.x - geometry.frame.x}
-                      y={geometry.titleBox.y - geometry.frame.y}
-                      width={geometry.titleBox.width}
-                      height={geometry.titleBox.height}
-                      cornerRadius={visualTokens.subgraph.titleCornerRadius}
-                      fill={visualTokens.colors.surface}
-                      stroke={stroke}
-                      strokeWidth={visualTokens.subgraph.titleStrokeWidth}
-                      onClick={(event) => handleCanvasClick(event, { kind: "subgraphTitle", id: geometry.id })}
-                      onDblClick={(event) => handleCanvasDoubleClick(event, { kind: "subgraphTitle", id: geometry.id })}
-                    />
-                    <Text
-                      x={geometry.titleBox.x - geometry.frame.x + visualTokens.subgraph.titleInsetX}
-                      y={geometry.titleBox.y - geometry.frame.y}
-                      width={Math.max(1, geometry.titleBox.width - visualTokens.subgraph.titleInsetX * 2)}
-                      height={geometry.titleBox.height}
-                      align="left"
-                      verticalAlign="middle"
-                      text={subgraph.title || subgraph.id}
-                      fontSize={visualTokens.subgraph.titleFontSize}
-                      fontStyle={visualTokens.subgraph.titleFontWeight}
-                      fontFamily={nodeThemeTokens.fontFamily}
-                      fill={visualTokens.colors.nodeText}
-                      ellipsis
-                      listening={false}
-                      visible={!isEditingSubgraphTitle}
-                    />
-                    {anchorVisible
-                      ? geometry.anchorsLocal.map((anchor) => (
-                          <Group
-                            id={subgraphAnchorHitId(geometry.id, anchor.key)}
-                            name={CANVAS_HIT_NAMES.subgraphAnchor}
-                            key={`${geometry.id}-${anchor.key}`}
-                            x={anchor.x}
-                            y={anchor.y}
-                            onMouseDown={(event) => {
-                              event.cancelBubble = true;
-                              handleCanvasPointerDown(event, { kind: "subgraphAnchor", subgraphId: geometry.id, anchor: anchor.key }, {
-                                x: geometry.frame.x + anchor.x,
-                                y: geometry.frame.y + anchor.y
-                              });
-                            }}
-                          >
-                            <Circle radius={visualTokens.anchor.radius} fill="rgba(0,0,0,0.001)" strokeEnabled={false} />
-                            <Circle
-                              radius={anchor.kind === "corner" ? visualTokens.anchor.radius * visualTokens.subgraph.anchorCornerScale : visualTokens.anchor.radius}
-                              fill={anchor.key === connectionAnchorTarget ? visualTokens.colors.connection : visualTokens.colors.accent}
-                              stroke={visualTokens.colors.anchorStroke}
-                              strokeWidth={visualTokens.anchor.strokeWidth}
-                              opacity={anchor.kind === "corner" ? visualTokens.subgraph.anchorCornerOpacity : 1}
-                              listening={false}
-                            />
-                          </Group>
-                        ))
-                      : null}
-                  </Group>
-                );
-              })
-              : null}
-
-            {scopedVisibleEdges.length
-              ? scopedVisibleEdges.map((edge) => {
-                  const baseGeometry = resolvedEdgeGeometry(edge);
-                  if (!baseGeometry) return null;
-                  const isRetargetPreviewEdge = retargetDraft?.edgeId === edge.id && !!retargetDraftGeometry && !!retargetPreview;
-                  const geometry = isRetargetPreviewEdge ? retargetDraftGeometry : baseGeometry;
-                  const edgeVisual = getEdgeVisualState({ edge, selection, hoveredEdgeId, interactionState, inlineEdit, visualTokens });
-                  const edgePreviewVisual = isRetargetPreviewEdge ? getConnectionDraftVisualState({ valid: retargetPreview.valid, edge, visualTokens }) : null;
-                  const edgeMotionVisual = edgeMotion[edge.id];
-                  const edgeStrokeWidth = (edgePreviewVisual?.strokeWidth ?? edgeVisual.strokeWidth) + (edgeMotionVisual?.highlight ?? 0) * visualTokens.node.emphasizedStrokeWidth;
-                  const shouldRenderPath = !!geometry.pathData;
-                  const isEditingEdgeLabel = inlineEdit?.type === "edge" && inlineEdit.id === edge.id;
-                  const edgeLabel = isEditingEdgeLabel ? inlineEdit.value : edge.label;
-                  const edgeLabelGeometry = edgeLabel || isEditingEdgeLabel ? buildEdgeLabelGeometry(edgeLabel, geometry.labelPoint, edgeLabelSpec) : null;
-
-                  return (
-                    <Group key={edge.id}>
-                      {shouldRenderPath ? (
-                        <>
-                          <Path
-                            id={edgeHitId(edge.id)}
-                            name={CANVAS_HIT_NAMES.edge}
-                            data={geometry.pathData}
-                            stroke="transparent"
-                            strokeWidth={visualTokens.edge.hitStrokeWidth}
-                            fillEnabled={false}
-                            onClick={(event) => handleCanvasClick(event, { kind: "edge", id: edge.id })}
-                            onDblClick={(event) => handleCanvasDoubleClick(event, { kind: "edge", id: edge.id })}
-                            onTap={(event) => handleCanvasTap(event, { kind: "edge", id: edge.id })}
-                          />
-                          <Path
-                            data={geometry.pathData}
-                            stroke={edgePreviewVisual?.stroke ?? edgeVisual.stroke}
-                            strokeWidth={edgeStrokeWidth}
-                            dash={edgePreviewVisual?.dash ?? edgeVisual.dash}
-                            opacity={edgePreviewVisual?.opacity ?? edgeVisual.opacity ?? 1}
-                            lineCap="round"
-                            lineJoin="round"
-                            fillEnabled={false}
-                            listening={false}
-                          />
-                        </>
-                      ) : (
-                        <>
-                          <Arrow
-                            id={edgeHitId(edge.id)}
-                            name={CANVAS_HIT_NAMES.edge}
-                            points={geometry.points}
-                            stroke="transparent"
-                            fill="transparent"
-                            strokeWidth={visualTokens.edge.hitStrokeWidth}
-                            pointerLength={0}
-                            pointerWidth={0}
-                            onClick={(event) => handleCanvasClick(event, { kind: "edge", id: edge.id })}
-                            onDblClick={(event) => handleCanvasDoubleClick(event, { kind: "edge", id: edge.id })}
-                            onTap={(event) => handleCanvasTap(event, { kind: "edge", id: edge.id })}
-                          />
-                          <Arrow
-                            points={geometry.points}
-                            stroke={edgePreviewVisual?.stroke ?? edgeVisual.stroke}
-                            fill={edgePreviewVisual?.fill ?? edgeVisual.fill}
-                            strokeWidth={edgeStrokeWidth}
-                            dash={edgePreviewVisual?.dash ?? edgeVisual.dash}
-                            opacity={edgePreviewVisual?.opacity ?? edgeVisual.opacity ?? 1}
-                            lineCap="round"
-                            lineJoin="round"
-                            pointerLength={0}
-                            pointerWidth={0}
-                            listening={false}
-                          />
-                        </>
-                      )}
-                      {!edgePreviewVisual ? (
-                        <EdgeMarkers edge={edge} geometry={geometry} stroke={edgeVisual.stroke} strokeWidth={edgeStrokeWidth} surfaceFill={visualTokens.colors.surface} visualTokens={visualTokens} />
-                      ) : null}
-                      {viewFilters.edgeLabels && edgeLabelGeometry && !isEditingEdgeLabel ? (
-                        <Group
-                          id={edgeLabelHitId(edge.id)}
-                          name={CANVAS_HIT_NAMES.edgeLabel}
-                          x={edgeLabelGeometry.frame.x}
-                          y={edgeLabelGeometry.frame.y}
-                          onClick={(event) => handleCanvasClick(event, { kind: "edgeLabel", id: edge.id })}
-                          onDblClick={(event) => handleCanvasDoubleClick(event, { kind: "edgeLabel", id: edge.id })}
-                        >
-                          <Rect
-                            width={edgeLabelGeometry.frame.width}
-                            height={edgeLabelGeometry.frame.height}
-                            cornerRadius={visualTokens.edge.labelCornerRadius}
-                            fill={edgeVisual.labelFill}
-                            stroke={edgeVisual.labelStroke}
-                            strokeWidth={1}
-                          />
-                          <Text
-                            x={edgeLabelGeometry.textBox.x}
-                            y={edgeLabelGeometry.textBox.y}
-                            width={edgeLabelGeometry.textBox.width}
-                            height={edgeLabelGeometry.textBox.height}
-                            align="center"
-                            verticalAlign="middle"
-                            text={edgeLabelSingleLineText(edgeLabel)}
-                            fontSize={edgeLabelThemeTokens.fontSize}
-                            fontFamily={edgeLabelThemeTokens.fontFamily}
-                            lineHeight={edgeLabelThemeTokens.lineHeight / edgeLabelThemeTokens.fontSize}
-                            wrap="none"
-                            fill={edgeVisual.labelTextFill}
-                            ellipsis
-                          />
-                        </Group>
-                      ) : null}
-                    </Group>
-                  );
-                })
-              : null}
-
-            {viewFilters.nodes ? scopedRenderedNodes.map((node) => {
-              const geometry = nodeGeometryById.get(node.id);
-              if (!geometry) return null;
-              const motionVisual = nodeMotion[node.id];
-              const nodeVisual = getNodeVisualState({
-                nodeId: node.id,
-                selection,
-                hoveredNodeId,
-                interactionState,
-                connectionTargetNodeId,
-                connectionInvalidNodeId,
-                inlineEdit,
-                visualTokens
-              });
-              const anchorVisual = getAnchorVisualState({ nodeId: node.id, mode, selection, hoveredNodeId, interactionState, inlineEdit, visualTokens });
-              const connectionAnchorTarget =
-                connectionPreview?.targetNodeId === node.id || connectionPreview?.invalidNodeId === node.id
-                  ? connectionPreview.targetAnchor
-                  : retargetPreview?.targetNodeId === node.id || retargetPreview?.invalidNodeId === node.id
-                    ? retargetPreview.targetAnchor
-                    : null;
-              const connectionAnchorsVisible =
-                connectionPreview?.targetNodeId === node.id ||
-                connectionPreview?.invalidNodeId === node.id ||
-                retargetPreview?.targetNodeId === node.id ||
-                retargetPreview?.invalidNodeId === node.id;
-              const nodeAnchorsVisible = anchorVisual.visible || connectionAnchorsVisible;
-              const imageAsset = normalizeImageAsset(node.asset);
-              const imageDisplaySrc = imageAsset ? imageDisplaySrcBySrc[imageAsset.src] || imageAsset.src : undefined;
-              const nodeVisualTransform = centerScaleTransform(geometry.frame);
-              const proximityScale = nodeProximityScale[node.id] ?? 1;
-              const visualScale = (motionVisual?.scale ?? 1) * proximityScale;
-
-              return (
-                <Group
-                  id={nodeHitId(node.id)}
-                  name={CANVAS_HIT_NAMES.node}
-                  key={node.id}
-                  x={geometry.frame.x}
-                  y={geometry.frame.y}
-                  opacity={motionVisual?.opacity ?? 1}
-                  draggable={dragEnabled && mode === "select" && !panningRequested && interactionState.kind !== "panning"}
-                  onDragStart={(event) => {
-                    if (event.evt.button !== 0) {
-                      event.target.stopDrag();
-                      return;
-                    }
-                    applyCanvasPointerLocalEffect({ type: "drag.startNode", nodeId: node.id });
-                  }}
-                  onDragMove={(event) => moveSelectedNodes(node, event.target)}
-                  onDragEnd={() => {
-                    flushDragDraftCommand();
-                    if (dragDraftGraphRef.current) {
-                      finishDragWithMembership();
-                    }
-                    clearDragRuntimeState();
-                    setAlignmentGuides([]);
-                    resetInteraction();
-                  }}
-                  onClick={(event) => handleCanvasClick(event, { kind: "node", id: node.id })}
-                  onDblClick={(event) => handleCanvasDoubleClick(event, { kind: "node", id: node.id })}
-                  onContextMenu={(event) => openNodeContextMenu(event, node)}
-                >
-                  <Group
-                    x={nodeVisualTransform.x}
-                    y={nodeVisualTransform.y}
-                    offsetX={nodeVisualTransform.offsetX}
-                    offsetY={nodeVisualTransform.offsetY}
-                    scaleX={visualScale}
-                    scaleY={visualScale}
-                  >
-                    <CanvasNodeShape
-                      node={node}
-                      width={geometry.frame.width}
-                      height={geometry.frame.height}
-                      stroke={nodeVisual.stroke}
-                      strokeWidth={nodeVisual.strokeWidth + (motionVisual?.highlight ?? 0) * visualTokens.node.emphasizedStrokeWidth}
-                      visualTokens={visualTokens}
-                    />
-                    {imageAsset && imageDisplaySrc && geometry.imageBox ? (
-                      <CanvasNodeImage
-                        src={imageDisplaySrc}
-                        x={geometry.imageBox.x}
-                        y={geometry.imageBox.y}
-                        width={geometry.imageBox.width}
-                        height={geometry.imageBox.height}
-                        stroke={nodeVisual.stroke}
-                      />
-                    ) : null}
-                    <Text
-                      x={geometry.textBox.x}
-                      y={geometry.textBox.y}
-                      width={geometry.textBox.width}
-                      height={geometry.textBox.height}
-                      align="center"
-                      verticalAlign="middle"
-                      text={node.label}
-                      fontSize={nodeThemeTokens.fontSize}
-                      fontStyle={String(nodeThemeTokens.fontWeight)}
-                      fontFamily={nodeThemeTokens.fontFamily}
-                      lineHeight={nodeThemeTokens.lineHeight / nodeThemeTokens.fontSize}
-                      wrap="word"
-                      fill={nodeVisual.textFill}
-                      ellipsis
-                      visible={viewFilters.nodeLabels && !(inlineEdit?.type === "node" && inlineEdit.id === node.id)}
-                    />
-                    {normalizeNodeAction(node.action) ? (
-                      <CanvasNodeActionBadge
-                        actionKind={node.action?.kind || "url"}
-                        x={Math.max(8, geometry.frame.width - 24)}
-                        y={6}
-                        visualTokens={visualTokens}
-                        onOpen={() => onOpenNodeAction?.(node)}
-                      />
-                    ) : null}
-                  </Group>
-                  {nodeAnchorsVisible
-                    ? geometry.anchorsLocal.map((anchor) => {
-                        const anchorPoint = scaleLocalPointFromCenter(anchor, geometry.frame, proximityScale);
-                        return (
-                        <Group
-                          id={nodeAnchorHitId(node.id, anchor.key)}
-                          name={CANVAS_HIT_NAMES.nodeAnchor}
-                          key={`${node.id}-${anchor.key}`}
-                          x={anchorPoint.x}
-                          y={anchorPoint.y}
-                          onMouseDown={(event) => {
-                            event.cancelBubble = true;
-                            handleCanvasPointerDown(event, { kind: "nodeAnchor", nodeId: node.id, anchor: anchor.key }, {
-                              x: geometry.frame.x + anchorPoint.x,
-                              y: geometry.frame.y + anchorPoint.y
-                            });
-                          }}
-                        >
-                          <Circle radius={anchorVisual.radius} fill="rgba(0,0,0,0.001)" strokeEnabled={false} />
-                          <Circle
-                            radius={anchor.kind === "corner" ? anchorVisual.radius * visualTokens.subgraph.anchorCornerScale : anchorVisual.radius}
-                            fill={anchor.key === connectionAnchorTarget ? visualTokens.colors.connection : anchorVisual.fill}
-                            stroke={anchorVisual.stroke}
-                            strokeWidth={anchorVisual.strokeWidth}
-                            opacity={anchor.kind === "corner" ? visualTokens.subgraph.anchorCornerOpacity : 1}
-                            listening={false}
-                          />
-                        </Group>
-                        );
-                      })
-                    : null}
-                </Group>
-              );
-            }) : null}
-
-            {viewFilters.nodes
-              ? exitingNodes.map((node) => {
-                  const geometry = buildNodeGeometry(node, geometrySpec);
-                  const motionVisual = nodeMotion[node.id] ?? { x: node.x, y: node.y, opacity: 0, scale: runtimeMotion.canvas.createScale, highlight: 0 };
-                  const imageAsset = normalizeImageAsset(node.asset);
-                  const imageDisplaySrc = imageAsset ? imageDisplaySrcBySrc[imageAsset.src] || imageAsset.src : undefined;
-                  const nodeVisualTransform = centerScaleTransform(geometry.frame);
-
-                  return (
-                    <Group
-                      key={`exiting-${node.id}`}
-                      x={motionVisual.x}
-                      y={motionVisual.y}
-                      opacity={motionVisual.opacity}
-                      listening={false}
-                    >
-                      <Group
-                        x={nodeVisualTransform.x}
-                        y={nodeVisualTransform.y}
-                        offsetX={nodeVisualTransform.offsetX}
-                        offsetY={nodeVisualTransform.offsetY}
-                        scaleX={motionVisual.scale}
-                        scaleY={motionVisual.scale}
-                      >
-                        <CanvasNodeShape
-                          node={node}
-                          width={geometry.frame.width}
-                          height={geometry.frame.height}
-                          stroke={visualTokens.colors.accent}
-                          strokeWidth={visualTokens.node.strokeWidth + motionVisual.highlight * visualTokens.node.emphasizedStrokeWidth}
-                          visualTokens={visualTokens}
-                        />
-                        {imageAsset && imageDisplaySrc && geometry.imageBox ? (
-                          <CanvasNodeImage
-                            src={imageDisplaySrc}
-                            x={geometry.imageBox.x}
-                            y={geometry.imageBox.y}
-                            width={geometry.imageBox.width}
-                            height={geometry.imageBox.height}
-                            stroke={visualTokens.colors.accent}
-                          />
-                        ) : null}
-                        <Text
-                          x={geometry.textBox.x}
-                          y={geometry.textBox.y}
-                          width={geometry.textBox.width}
-                          height={geometry.textBox.height}
-                          align="center"
-                          verticalAlign="middle"
-                          text={node.label}
-                          fontSize={nodeThemeTokens.fontSize}
-                          fontStyle={String(nodeThemeTokens.fontWeight)}
-                          fontFamily={nodeThemeTokens.fontFamily}
-                          lineHeight={nodeThemeTokens.lineHeight / nodeThemeTokens.fontSize}
-                          wrap="word"
-                          fill={visualTokens.colors.nodeText}
-                          ellipsis
-                          visible={viewFilters.nodeLabels}
-                        />
-                      </Group>
-                    </Group>
-                  );
-                })
-              : null}
-
-            {connectionDraftGeometry ? (
-              connectionDraftGeometry.pathData ? (
-                <Group listening={false}>
-                  <Path
-                    data={connectionDraftGeometry.pathData}
-                    stroke={connectionDraftVisual.stroke}
-                    strokeWidth={connectionDraftVisual.strokeWidth}
-                    dash={connectionDraftVisual.dash}
-                    opacity={connectionDraftVisual.opacity}
-                    lineCap="round"
-                    lineJoin="round"
-                    fillEnabled={false}
-                  />
-                  <PathArrowHead
-                    point={connectionDraftGeometry.end}
-                    tangent={connectionDraftGeometry.endTangent}
-                    fill={connectionDraftVisual.fill}
-                    length={connectionDraftVisual.pointerLength}
-                    width={connectionDraftVisual.pointerWidth}
-                  />
-                </Group>
-              ) : (
-                <Arrow points={connectionDraftGeometry.points} {...connectionDraftVisual} listening={false} />
-              )
-            ) : null}
-
-            {selectionBox ? (
-              <Rect
-                {...normalizeBox(selectionBox)}
-                {...getSelectionBoxVisualState(visualTokens)}
-                listening={false}
+            {viewFilters.subgraphs ? (
+              <KonvaSubgraphLayer
+                graph={graph}
+                mode={mode}
+                panningRequested={panningRequested}
+                dragEnabled={dragEnabled}
+                inlineEdit={inlineEdit}
+                interactionState={interactionState}
+                scopedSubgraphGeometries={scopedSubgraphGeometries}
+                selectedSubgraphIds={selectedSubgraphIds}
+                hoveredSubgraphId={hoveredSubgraphId}
+                connectionTargetSubgraphId={connectionTargetSubgraphId}
+                connectionInvalidSubgraphId={connectionInvalidSubgraphId}
+                connectionPreview={connectionPreview}
+                retargetPreview={retargetPreview}
+                visualTokens={visualTokens}
+                nodeThemeTokens={nodeThemeTokens}
+                onStartSubgraphDrag={(subgraphId) => applyCanvasPointerLocalEffect({ type: "drag.startSubgraph", subgraphId })}
+                onMoveSubgraph={moveSelectedSubgraphs}
+                onEndDrag={finishKonvaDrag}
+                onCanvasClick={handleCanvasClick}
+                onCanvasDoubleClick={handleCanvasDoubleClick}
+                onSubgraphAnchorPointerDown={(event, hit, world) => handleCanvasPointerDown(event, hit, world)}
               />
             ) : null}
 
-            {viewFilters.edges && mode === "select" && selectedSingleEdge && selectedSingleEdgeGeometry ? (
-              <>
-                <Circle
-                  id={edgeEndpointHitId(selectedSingleEdge.id, "from")}
-                  name={CANVAS_HIT_NAMES.edgeEndpoint}
-                  x={selectedSingleEdgeGeometry.start.x}
-                  y={selectedSingleEdgeGeometry.start.y}
-                  {...getEdgeEndpointVisualState({
-                    hovered: isEndpointHovered(selectedSingleEdge.id, "from"),
-                    active: isEndpointActive(selectedSingleEdge.id, "from"),
-                    visualTokens
-                  })}
-                  onMouseDown={(event) => {
-                    event.cancelBubble = true;
-                    handleCanvasPointerDown(event, { kind: "edgeEndpoint", edgeId: selectedSingleEdge.id, side: "from" });
-                  }}
-                />
-                <Circle
-                  id={edgeEndpointHitId(selectedSingleEdge.id, "to")}
-                  name={CANVAS_HIT_NAMES.edgeEndpoint}
-                  x={selectedSingleEdgeGeometry.end.x}
-                  y={selectedSingleEdgeGeometry.end.y}
-                  {...getEdgeEndpointVisualState({
-                    hovered: isEndpointHovered(selectedSingleEdge.id, "to"),
-                    active: isEndpointActive(selectedSingleEdge.id, "to"),
-                    visualTokens
-                  })}
-                  onMouseDown={(event) => {
-                    event.cancelBubble = true;
-                    handleCanvasPointerDown(event, { kind: "edgeEndpoint", edgeId: selectedSingleEdge.id, side: "to" });
-                  }}
-                />
-              </>
-            ) : null}
+            <KonvaEdgeLayer
+              viewFilters={viewFilters}
+              selection={selection}
+              hoveredEdgeId={hoveredEdgeId}
+              interactionState={interactionState}
+              inlineEdit={inlineEdit}
+              visualTokens={visualTokens}
+              edgeLabelThemeTokens={edgeLabelThemeTokens}
+              edgeLabelSpec={edgeLabelSpec}
+              edgeMotion={edgeMotion}
+              scopedVisibleEdges={scopedVisibleEdges}
+              resolvedEdgeGeometry={resolvedEdgeGeometry}
+              retargetDraft={retargetDraft}
+              retargetDraftGeometry={retargetDraftGeometry}
+              retargetPreview={retargetPreview}
+              onCanvasClick={handleCanvasClick}
+              onCanvasDoubleClick={handleCanvasDoubleClick}
+              onCanvasTap={handleCanvasTap}
+            />
+
+            <KonvaNodeLayer
+              viewFilters={viewFilters}
+              mode={mode}
+              panningRequested={panningRequested}
+              dragEnabled={dragEnabled}
+              selection={selection}
+              inlineEdit={inlineEdit}
+              interactionState={interactionState}
+              hoveredNodeId={hoveredNodeId}
+              connectionTargetNodeId={connectionTargetNodeId}
+              connectionInvalidNodeId={connectionInvalidNodeId}
+              connectionPreview={connectionPreview}
+              retargetPreview={retargetPreview}
+              scopedRenderedNodes={scopedRenderedNodes}
+              exitingNodes={exitingNodes}
+              nodeGeometryById={nodeGeometryById}
+              geometrySpec={geometrySpec}
+              nodeMotion={nodeMotion}
+              nodeProximityScale={nodeProximityScale}
+              imageDisplaySrcBySrc={imageDisplaySrcBySrc}
+              runtimeCreateScale={runtimeMotion.canvas.createScale}
+              visualTokens={visualTokens}
+              nodeThemeTokens={nodeThemeTokens}
+              onStartNodeDrag={(nodeId) => applyCanvasPointerLocalEffect({ type: "drag.startNode", nodeId })}
+              onMoveNode={moveSelectedNodes}
+              onEndDrag={finishKonvaDrag}
+              onCanvasClick={handleCanvasClick}
+              onCanvasDoubleClick={handleCanvasDoubleClick}
+              onNodeContextMenu={openNodeContextMenu}
+              onNodeAnchorPointerDown={(event, hit, world) => handleCanvasPointerDown(event, hit, world)}
+              onOpenNodeAction={onOpenNodeAction}
+            />
+
+            <KonvaEdgeOverlayLayer
+              viewFilters={viewFilters}
+              mode={mode}
+              hoveredHitTarget={hoveredHitTarget}
+              visualTokens={visualTokens}
+              retargetDraft={retargetDraft}
+              connectionDraftGeometry={connectionDraftGeometry}
+              connectionDraftVisual={connectionDraftVisual}
+              selectionBox={selectionBox}
+              selectedSingleEdge={selectedSingleEdge}
+              selectedSingleEdgeGeometry={selectedSingleEdgeGeometry}
+              onEdgeEndpointPointerDown={(event, hit) => handleCanvasPointerDown(event, hit)}
+            />
 
             {alignmentGuides.length ? <AlignmentGuideOverlay guides={alignmentGuides} visualTokens={visualTokens} /> : null}
           </Layer>
