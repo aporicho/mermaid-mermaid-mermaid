@@ -114,7 +114,7 @@ describe("interaction architecture contract", () => {
 
   it("keeps known oversized files on a no-growth budget", () => {
     const budgets = [
-      { path: "src/features/mermaid-editor/components/mermaid-editor.tsx", maxLines: 1650 },
+      { path: "src/features/mermaid-editor/components/mermaid-editor.tsx", maxLines: 1500 },
       { path: "src/features/mermaid-editor/components/konva-canvas.tsx", maxLines: 1500 },
       { path: "src/features/mermaid-editor/components/canvas-document-editor.tsx", maxLines: 1300 },
       { path: "src-tauri/src/main.rs", maxLines: 1450 }
@@ -150,6 +150,21 @@ describe("interaction architecture contract", () => {
     expect(editor).not.toContain("const DEFAULT_WORKSPACE_PANEL_STACK");
     expect(editor).not.toContain("const openWorkspacePanelIds");
     expect(editor).not.toContain("function workspacePanelWindowState(");
+  });
+
+  it("keeps window and node action logic outside the MermaidEditor composition file", () => {
+    const editor = readProjectFile("src/features/mermaid-editor/components/mermaid-editor.tsx");
+
+    expect(editor).toContain("useEditorWindowActions");
+    expect(editor).not.toContain("function openProjectMarkdownWindow(");
+    expect(editor).not.toContain("function openBrowserWindow(");
+    expect(editor).not.toContain("function updateDetachedBrowserWindow(");
+    expect(editor).not.toContain("function closeDetachedBrowserWindow(");
+    expect(editor).not.toContain("function executeCanvasNodeAction(");
+    expect(editor).not.toContain("function executeNodeActionDraft(");
+    expect(editor).not.toContain("function openFileNodeAction(");
+    expect(editor).not.toContain("function resolveNodeActionFilePath(");
+    expect(editor).not.toContain("function saveDetachedMarkdownWindow(");
   });
 
   it("keeps Konva render helpers outside the KonvaCanvas shell file", () => {
