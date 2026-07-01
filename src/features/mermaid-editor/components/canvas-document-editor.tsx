@@ -1,15 +1,25 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type React from "react";
-import { CreditCard, FrameSimple, Link, Maximize, Plus, Text as TextIcon, Xmark } from "iconoir-react/regular";
-import * as PIXI from "pixi.js";
-import { Application, Assets, Container, Graphics, Rectangle, Sprite, Text as PixiText, Texture } from "pixi.js";
-import { PixiPlugin } from "gsap/PixiPlugin";
+import { Xmark } from "iconoir-react/regular";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { superellipseRectPathPoints } from "@/features/mermaid-editor/lib/canvas-card-geometry";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { CanvasDocumentToolbar } from "@/features/mermaid-editor/components/canvas-document-editor/canvas-document-toolbar";
+import { DEFAULT_DIMENSIONS, DEFAULT_TEXT_COLOR, PIXI_TEXT_FONT_FAMILY, VIEWPORT_COMMIT_DELAY_MS } from "@/features/mermaid-editor/components/canvas-document-editor/constants";
+import { loadImageDimensions } from "@/features/mermaid-editor/components/canvas-document-editor/image-utils";
+import { applyPixiViewport, createPixiCanvasRuntime, destroyPixiCanvasRuntime, resizePixiRenderer, schedulePixiRender } from "@/features/mermaid-editor/components/canvas-document-editor/pixi-runtime";
+import { drawSelectionOverlay, syncPixiScene } from "@/features/mermaid-editor/components/canvas-document-editor/pixi-scene";
+import type {
+  CanvasDocumentInlineEdit,
+  CanvasDocumentInlineEditStyle,
+  CanvasDocumentMoveDraft,
+  CanvasDocumentResizeDraft,
+  PixiCanvasRuntime,
+  Point
+} from "@/features/mermaid-editor/components/canvas-document-editor/types";
+import { useContainerSize } from "@/features/mermaid-editor/components/canvas-document-editor/use-container-size";
 import {
   canvasDocumentHasSelection,
   canvasDocumentMarqueeSelection,
@@ -46,7 +56,6 @@ import {
   canvasDocumentClientToScreen,
   canvasDocumentEndpointPoint,
   canvasDocumentScreenToWorld,
-  canvasDocumentVisibleElements,
   endpointReferencesSelection,
   hitCanvasDocument,
   type CanvasDocumentDimensions
@@ -81,89 +90,6 @@ type CanvasDocumentEditorProps = {
   onStatus?: (status: string) => void;
 };
 
-type Point = {
-  x: number;
-  y: number;
-};
-
-type CanvasDocumentMoveDraft = {
-  baseDocument: CanvasDocument;
-  origins: Record<string, Point>;
-  ids: string[];
-  changed: boolean;
-};
-
-type CanvasDocumentResizeDraft = {
-  id: string;
-  baseDocument: CanvasDocument;
-  frame: { x: number; y: number; width: number; height: number };
-  changed: boolean;
-};
-
-type CanvasDocumentInlineEdit =
-  | { type: "item"; id: string; value: string }
-  | { type: "connection"; id: string; value: string };
-
-type CanvasDocumentInlineEditStyle = {
-  left: number;
-  top: number;
-  width: number;
-  height: number;
-  fontFamily: string;
-  fontSize: number;
-  lineHeight: number;
-  textAlign: "left" | "center";
-  fontWeight: number;
-  color: string;
-  verticalAlign: "top" | "middle";
-  borderRadius?: number;
-  paddingX?: number;
-};
-
-type PixiElementView = {
-  id: string;
-  type: CanvasDocumentElement["type"];
-  container: Container;
-  body: Graphics;
-  sprite?: Sprite;
-  text?: PixiText;
-  textKey?: string;
-  imageSrc?: string;
-  signature?: string;
-};
-
-type PixiCanvasRuntime = {
-  app: Application;
-  grid: Graphics;
-  world: Container;
-  connectors: Container;
-  objects: Container;
-  selection: Graphics;
-  views: Map<string, PixiElementView>;
-  renderFrame: number | null;
-  viewportCommitTimer: number | null;
-  disposed: boolean;
-};
-
-const SHAPE_OPTIONS: { shape: CanvasShapeKind; label: string }[] = [
-  { shape: "rect", label: "矩形" },
-  { shape: "roundRect", label: "圆角" },
-  { shape: "ellipse", label: "椭圆" },
-  { shape: "diamond", label: "菱形" }
-];
-const DEFAULT_IMAGE_WIDTH = 240;
-const DEFAULT_IMAGE_HEIGHT = 160;
-const DEFAULT_DIMENSIONS = { width: 800, height: 600 };
-const DEFAULT_TEXT_COLOR = "#2f2a25";
-const SELECTED_COLOR = "#e85d5d";
-const SURFACE_COLOR = "#fbf6ef";
-const IMAGE_BORDER_COLOR = "#d8cfc3";
-const GRID_COLOR = 0x4b4137;
-const PIXI_TEXT_FONT_FAMILY = "Noto Sans SC, Arial, sans-serif";
-const VIEWPORT_COMMIT_DELAY_MS = 80;
-const MIN_RENDERER_RESOLUTION = 2;
-const MAX_RENDERER_RESOLUTION = 3;
-const MAX_TEXT_TEXTURE_RESOLUTION = 4;
 const CANVAS_DOCUMENT_INTERACTION_GRAPH: MermaidGraph = {
   direction: "LR",
   nodes: [],
@@ -172,8 +98,6 @@ const CANVAS_DOCUMENT_INTERACTION_GRAPH: MermaidGraph = {
   editableKind: "flowchart",
   parseStatus: "parsed"
 };
-
-let pixiPluginRegistered = false;
 
 export function CanvasDocumentEditor({ document, fileRef, runtime, onChange, onStatus }: CanvasDocumentEditorProps) {
   const normalizedDocument = useMemo(() => normalizeCanvasDocument(document), [document]);
@@ -306,56 +230,15 @@ export function CanvasDocumentEditor({ document, fileRef, runtime, onChange, onS
     const host = containerRef.current;
     if (!host) return;
 
-    registerPixiPlugin();
-    const app = new Application();
-
-    void app
-      .init({
-        width: dimensionsRef.current.width,
-        height: dimensionsRef.current.height,
-        autoDensity: true,
-        resolution: canvasRendererResolution(),
-        autoStart: false,
-        preference: "webgl",
-        powerPreference: "high-performance",
-        antialias: true,
-        backgroundAlpha: 0
-      })
-      .then(() => {
+    void createPixiCanvasRuntime(dimensionsRef.current)
+      .then((pixi) => {
         if (disposed) {
-          app.destroy({ removeView: true }, { children: true });
+          destroyPixiCanvasRuntime(pixi);
           return;
         }
 
-        app.canvas.className = "block";
-        app.canvas.style.display = "block";
-        host.appendChild(app.canvas);
-
-        const grid = new Graphics();
-        const world = new Container();
-        const connectors = new Container();
-        const objects = new Container();
-        const selection = new Graphics();
-        connectors.interactiveChildren = false;
-        objects.interactiveChildren = false;
-        selection.eventMode = "none";
-        world.addChild(connectors, objects, selection);
-        app.stage.addChild(grid, world);
-
-        const pixi: PixiCanvasRuntime = {
-          app,
-          grid,
-          world,
-          connectors,
-          objects,
-          selection,
-          views: new Map(),
-          renderFrame: null,
-          viewportCommitTimer: null,
-          disposed: false
-        };
+        host.appendChild(pixi.app.canvas);
         pixiRef.current = pixi;
-        resizePixiRenderer(pixi, dimensionsRef.current);
         renderCurrentSceneRef.current();
       })
       .catch(() => {
@@ -367,11 +250,7 @@ export function CanvasDocumentEditor({ document, fileRef, runtime, onChange, onS
       const pixi = pixiRef.current;
       pixiRef.current = null;
       if (!pixi) return;
-      pixi.disposed = true;
-      if (pixi.renderFrame !== null) window.cancelAnimationFrame(pixi.renderFrame);
-      if (pixi.viewportCommitTimer !== null) window.clearTimeout(pixi.viewportCommitTimer);
-      for (const tween of gsap.getTweensOf([...pixi.views.values()].map((view) => view.container))) tween.kill();
-      pixi.app.destroy({ removeView: true }, { children: true });
+      destroyPixiCanvasRuntime(pixi);
     };
   }, [onStatus]);
 
@@ -1107,31 +986,17 @@ export function CanvasDocumentEditor({ document, fileRef, runtime, onChange, onS
   return (
     <TooltipProvider delayDuration={160}>
       <section className="relative h-full min-h-0 overflow-hidden bg-background">
-        <div className="absolute left-[76px] top-4 z-20 flex items-center gap-1 rounded-md border bg-card/95 p-1 shadow-sm backdrop-blur">
-          {SHAPE_OPTIONS.map((option) => (
-            <ToolbarButton key={option.shape} label={`添加${option.label}`} onClick={() => addShape(option.shape)}>
-              <Plus className="size-4" />
-            </ToolbarButton>
-          ))}
-          <ToolbarButton label="添加卡片" onClick={addCard}>
-            <CreditCard className="size-4" />
-          </ToolbarButton>
-          <ToolbarButton label="添加文本" onClick={addText}>
-            <TextIcon className="size-4" />
-          </ToolbarButton>
-          <ToolbarButton label={connectorStartId ? "点击第二个对象完成连线" : "添加连线"} active={Boolean(connectorStartId)} onClick={addConnectorFromSelection}>
-            <Link className="size-4" />
-          </ToolbarButton>
-          <ToolbarButton label="添加图片" onClick={() => void addImage()}>
-            <FrameSimple className="size-4" />
-          </ToolbarButton>
-          <ToolbarButton label="删除选中内容" disabled={!selectedIds.length} onClick={deleteSelection}>
-            <Xmark className="size-4" />
-          </ToolbarButton>
-          <ToolbarButton label="重置视图" onClick={resetViewport}>
-            <Maximize className="size-4" />
-          </ToolbarButton>
-        </div>
+        <CanvasDocumentToolbar
+          connectorActive={Boolean(connectorStartId)}
+          selectedCount={selectedIds.length}
+          onAddShape={addShape}
+          onAddCard={addCard}
+          onAddText={addText}
+          onAddConnector={addConnectorFromSelection}
+          onAddImage={() => void addImage()}
+          onDeleteSelection={deleteSelection}
+          onResetViewport={resetViewport}
+        />
         {connectorStartId ? (
           <div className="pointer-events-none absolute left-1/2 top-4 z-20 -translate-x-1/2 rounded-md border bg-card/95 px-3 py-2 text-xs text-muted-foreground shadow-sm">
             选择第二个对象完成连线
@@ -1287,545 +1152,4 @@ export function CanvasDocumentEditor({ document, fileRef, runtime, onChange, onS
       </section>
     </TooltipProvider>
   );
-}
-
-function syncPixiScene(
-  pixi: PixiCanvasRuntime,
-  document: CanvasDocument,
-  dimensions: CanvasDocumentDimensions,
-  selectedIds: string[],
-  connectorStartId: string | null,
-  imageDisplaySrcBySrc: Record<string, string>,
-  interactionState: StandardCanvasInteractionState,
-  inlineEdit: CanvasDocumentInlineEdit | null
-) {
-  if (pixi.disposed) return;
-  const visibleElements = canvasDocumentVisibleElements(document, dimensions, selectedIds, connectorStartId);
-  const visibleIds = new Set(visibleElements.map((element) => element.id));
-  for (const [id, view] of pixi.views) {
-    if (visibleIds.has(id)) continue;
-    view.container.removeFromParent();
-    view.container.destroy({ children: true });
-    pixi.views.delete(id);
-  }
-
-  pixi.connectors.removeChildren();
-  pixi.objects.removeChildren();
-  const elementsById = new Map(document.elements.map((element) => [element.id, element]));
-  const selected = new Set(selectedIds);
-
-  for (const element of visibleElements) {
-    const view = getPixiElementView(pixi, element);
-    syncElementView(pixi, view, element, elementsById, selected, connectorStartId, imageDisplaySrcBySrc[element.type === "image" ? element.src : ""], document.viewport.scale, inlineEdit);
-    if (element.type === "connector") pixi.connectors.addChild(view.container);
-    else pixi.objects.addChild(view.container);
-  }
-
-  applyPixiViewport(pixi, document.viewport, dimensions);
-  drawSelectionOverlay(pixi, document, selectedIds, interactionState);
-  schedulePixiRender(pixi);
-}
-
-function applyPixiViewport(pixi: PixiCanvasRuntime, viewport: ViewportState, dimensions: CanvasDocumentDimensions) {
-  pixi.world.position.set(viewport.x, viewport.y);
-  pixi.world.scale.set(viewport.scale);
-  drawGrid(pixi.grid, viewport, dimensions);
-}
-
-function resizePixiRenderer(pixi: PixiCanvasRuntime, dimensions: CanvasDocumentDimensions) {
-  const width = Math.max(1, Math.floor(dimensions.width));
-  const height = Math.max(1, Math.floor(dimensions.height));
-  pixi.app.renderer.resize(width, height, canvasRendererResolution());
-  pixi.app.canvas.style.width = `${width}px`;
-  pixi.app.canvas.style.height = `${height}px`;
-}
-
-function getPixiElementView(pixi: PixiCanvasRuntime, element: CanvasDocumentElement) {
-  const existing = pixi.views.get(element.id);
-  if (existing?.type === element.type) return existing;
-  if (existing) {
-    existing.container.removeFromParent();
-    existing.container.destroy({ children: true });
-  }
-
-  const container = new Container();
-  const body = new Graphics();
-  container.addChild(body);
-  container.eventMode = "static";
-  container.cursor = "pointer";
-  const view: PixiElementView = { id: element.id, type: element.type, container, body };
-  pixi.views.set(element.id, view);
-  return view;
-}
-
-function syncElementView(
-  pixi: PixiCanvasRuntime,
-  view: PixiElementView,
-  element: CanvasDocumentElement,
-  elementsById: Map<string, CanvasDocumentElement>,
-  selected: Set<string>,
-  connectorStartId: string | null,
-  displaySrc: string | undefined,
-  viewportScale: number,
-  inlineEdit: CanvasDocumentInlineEdit | null
-) {
-  const selectedOrConnecting = selected.has(element.id) || connectorStartId === element.id;
-  const editingText = (inlineEdit?.type === "item" && inlineEdit.id === element.id) || (inlineEdit?.type === "connection" && inlineEdit.id === element.id);
-  const signature = elementSignature(element, elementsById, selectedOrConnecting, displaySrc, viewportScale, editingText);
-  if (view.signature === signature) return;
-  view.signature = signature;
-  view.body.clear();
-  view.container.position.set(0, 0);
-  view.container.scale.set(1);
-  view.container.alpha = 1;
-
-  if (element.type === "shape") {
-    drawShape(view.body, element, selectedOrConnecting);
-    view.container.position.set(element.x, element.y);
-    view.container.hitArea = new Rectangle(0, 0, element.width, element.height);
-    if (editingText) {
-      removeTextDisplay(view);
-    } else {
-      syncTextDisplay(view, element.text || "", {
-        x: element.width / 2,
-        y: element.height / 2,
-        width: Math.max(1, element.width - 24),
-        fontSize: 14,
-        fill: DEFAULT_TEXT_COLOR,
-        anchor: 0.5,
-        align: "center",
-        viewportScale
-      });
-    }
-    return;
-  }
-
-  if (element.type === "card") {
-    drawCard(view.body, element, selectedOrConnecting);
-    view.container.position.set(element.x, element.y);
-    view.container.hitArea = new Rectangle(0, 0, element.width, element.height);
-    if (editingText) {
-      removeTextDisplay(view);
-    } else {
-      syncTextDisplay(view, element.text || "", {
-        x: 22,
-        y: 22,
-        width: Math.max(1, element.width - 44),
-        fontSize: 16,
-        fill: DEFAULT_TEXT_COLOR,
-        anchor: { x: 0, y: 0 },
-        align: "left",
-        viewportScale
-      });
-    }
-    return;
-  }
-
-  if (element.type === "text") {
-    drawTextFrame(view.body, element, selectedOrConnecting);
-    view.container.position.set(element.x, element.y);
-    view.container.hitArea = new Rectangle(0, 0, element.width, element.height);
-    if (editingText) {
-      removeTextDisplay(view);
-    } else {
-      syncTextDisplay(view, element.text, {
-        x: 0,
-        y: element.height / 2,
-        width: Math.max(1, element.width),
-        fontSize: element.fontSize,
-        fill: element.fill,
-        anchor: { x: 0, y: 0.5 },
-        align: "left",
-        viewportScale
-      });
-    }
-    return;
-  }
-
-  if (element.type === "image") {
-    drawImageFrame(view.body, element, selectedOrConnecting);
-    view.container.position.set(element.x, element.y);
-    view.container.hitArea = new Rectangle(0, 0, element.width, element.height);
-    syncImageSprite(pixi, view, element, displaySrc);
-    removeTextDisplay(view);
-    return;
-  }
-
-  drawConnector(view, element, elementsById, selected.has(element.id), viewportScale, editingText);
-}
-
-function elementSignature(
-  element: CanvasDocumentElement,
-  elementsById: Map<string, CanvasDocumentElement>,
-  selectedOrConnecting: boolean,
-  displaySrc: string | undefined,
-  viewportScale: number,
-  editingText: boolean
-) {
-  const textResolution = canvasTextResolution(viewportScale);
-  if (element.type === "connector") {
-    const from = canvasDocumentEndpointPoint(element.from, elementsById);
-    const to = canvasDocumentEndpointPoint(element.to, elementsById);
-    return JSON.stringify({ ...element, fromPoint: from, toPoint: to, selectedOrConnecting, textResolution, editingText });
-  }
-  return JSON.stringify({ ...element, selectedOrConnecting, displaySrc, textResolution, editingText });
-}
-
-function drawShape(graphics: Graphics, element: CanvasShapeElement, selectedOrConnecting: boolean) {
-  const stroke = parsePixiColor(selectedOrConnecting ? SELECTED_COLOR : element.stroke, 0x2f2a25);
-  const strokeWidth = selectedOrConnecting ? Math.max(2, element.strokeWidth + 0.5) : element.strokeWidth;
-  const fill = parsePixiColor(element.fill, 0xfbf6ef);
-  if (element.shape === "ellipse") {
-    graphics.ellipse(element.width / 2, element.height / 2, element.width / 2, element.height / 2).fill({ color: fill }).stroke({ color: stroke, width: strokeWidth });
-    return;
-  }
-  if (element.shape === "diamond") {
-    graphics
-      .poly([element.width / 2, 0, element.width, element.height / 2, element.width / 2, element.height, 0, element.height / 2], true)
-      .fill({ color: fill })
-      .stroke({ color: stroke, width: strokeWidth });
-    return;
-  }
-  graphics
-    .roundRect(0, 0, element.width, element.height, element.shape === "roundRect" ? 16 : 4)
-    .fill({ color: fill })
-    .stroke({ color: stroke, width: strokeWidth });
-}
-
-function drawCard(graphics: Graphics, element: CanvasCardElement, selectedOrConnecting: boolean) {
-  const stroke = parsePixiColor(selectedOrConnecting ? SELECTED_COLOR : element.stroke, 0xd8d3ca);
-  const strokeWidth = selectedOrConnecting ? Math.max(2, element.strokeWidth + 0.5) : element.strokeWidth;
-  const fill = parsePixiColor(element.fill, 0xfffdf8);
-  const points = superellipseRectPathPoints({
-    width: element.width,
-    height: element.height,
-    radius: element.cornerRadius
-  });
-  const [first, ...rest] = points;
-  if (!first) return;
-  graphics.moveTo(first.x, first.y);
-  for (const point of rest) graphics.lineTo(point.x, point.y);
-  graphics.closePath().fill({ color: fill }).stroke({ color: stroke, width: strokeWidth });
-}
-
-function drawTextFrame(graphics: Graphics, element: CanvasTextElement, selectedOrConnecting: boolean) {
-  if (!selectedOrConnecting) return;
-  graphics.roundRect(0, 0, element.width, element.height, 4).stroke({ color: parsePixiColor(SELECTED_COLOR, 0xe85d5d), width: 1.5, alpha: 0.95 });
-}
-
-function drawImageFrame(graphics: Graphics, element: CanvasImageElement, selectedOrConnecting: boolean) {
-  const stroke = parsePixiColor(selectedOrConnecting ? SELECTED_COLOR : IMAGE_BORDER_COLOR, 0xd8cfc3);
-  graphics.roundRect(0, 0, element.width, element.height, 6).stroke({ color: stroke, width: 1.5 });
-}
-
-function drawConnector(view: PixiElementView, element: CanvasConnectorElement, elementsById: Map<string, CanvasDocumentElement>, selected: boolean, viewportScale: number, editingText: boolean) {
-  const from = canvasDocumentEndpointPoint(element.from, elementsById);
-  const to = canvasDocumentEndpointPoint(element.to, elementsById);
-  const color = parsePixiColor(selected ? SELECTED_COLOR : element.stroke, 0x2f2a25);
-  const width = selected ? element.strokeWidth + 0.75 : element.strokeWidth;
-  view.body.moveTo(from.x, from.y).lineTo(to.x, to.y).stroke({ color, width });
-  if (element.markerEnd !== "none") drawArrowHead(view.body, from, to, color, width);
-
-  const minX = Math.min(from.x, to.x);
-  const minY = Math.min(from.y, to.y);
-  view.container.hitArea = new Rectangle(minX - 8, minY - 8, Math.abs(from.x - to.x) + 16, Math.abs(from.y - to.y) + 16);
-  if (element.label && !editingText) {
-    syncTextDisplay(view, element.label, {
-      x: (from.x + to.x) / 2,
-      y: (from.y + to.y) / 2 - 8,
-      width: 180,
-      fontSize: 12,
-      fill: DEFAULT_TEXT_COLOR,
-      anchor: 0.5,
-      align: "center",
-      viewportScale
-    });
-  } else {
-    removeTextDisplay(view);
-  }
-}
-
-function drawArrowHead(graphics: Graphics, from: Point, to: Point, color: number, width: number) {
-  const angle = Math.atan2(to.y - from.y, to.x - from.x);
-  const length = 10 + width;
-  const half = 4 + width * 0.4;
-  const back = {
-    x: to.x - Math.cos(angle) * length,
-    y: to.y - Math.sin(angle) * length
-  };
-  const normal = { x: -Math.sin(angle), y: Math.cos(angle) };
-  graphics
-    .poly([to.x, to.y, back.x + normal.x * half, back.y + normal.y * half, back.x - normal.x * half, back.y - normal.y * half], true)
-    .fill({ color })
-    .stroke({ color, width: Math.max(1, width * 0.75) });
-}
-
-function syncImageSprite(pixi: PixiCanvasRuntime, view: PixiElementView, element: CanvasImageElement, displaySrc: string | undefined) {
-  if (!view.sprite) {
-    view.sprite = new Sprite(Texture.EMPTY);
-    view.container.addChildAt(view.sprite, 0);
-  }
-  layoutImageSprite(view.sprite, element);
-  if (!displaySrc) {
-    view.imageSrc = undefined;
-    view.sprite.texture = Texture.EMPTY;
-    return;
-  }
-  if (view.imageSrc === displaySrc) return;
-
-  view.imageSrc = displaySrc;
-  view.sprite.texture = Texture.EMPTY;
-  void Assets.load(displaySrc)
-    .then((texture) => {
-      const current = pixi.views.get(view.id);
-      if (!current || current !== view || current.imageSrc !== displaySrc || !view.sprite) return;
-      texture.source.style.scaleMode = "linear";
-      view.sprite.texture = texture;
-      const currentElement = findImageElementById(view.id, pixi, element);
-      layoutImageSprite(view.sprite, currentElement || element);
-      schedulePixiRender(pixi);
-    })
-    .catch(() => {
-      schedulePixiRender(pixi);
-    });
-}
-
-function findImageElementById(id: string, pixi: PixiCanvasRuntime, fallback: CanvasImageElement) {
-  const view = pixi.views.get(id);
-  return view?.type === "image" ? fallback : null;
-}
-
-function layoutImageSprite(sprite: Sprite, element: CanvasImageElement) {
-  const textureWidth = sprite.texture.width || element.width;
-  const textureHeight = sprite.texture.height || element.height;
-  if (!element.preserveAspectRatio || !textureWidth || !textureHeight) {
-    sprite.x = 0;
-    sprite.y = 0;
-    sprite.width = element.width;
-    sprite.height = element.height;
-    return;
-  }
-  const scale = Math.min(element.width / textureWidth, element.height / textureHeight);
-  sprite.width = textureWidth * scale;
-  sprite.height = textureHeight * scale;
-  sprite.x = (element.width - sprite.width) / 2;
-  sprite.y = (element.height - sprite.height) / 2;
-}
-
-function syncTextDisplay(
-  view: PixiElementView,
-  text: string,
-  options: {
-    x: number;
-    y: number;
-    width: number;
-    fontSize: number;
-    fill: string;
-    anchor: number | { x: number; y: number };
-    align: "left" | "center";
-    viewportScale: number;
-  }
-) {
-  if (!text) {
-    removeTextDisplay(view);
-    return;
-  }
-
-  const textResolution = canvasTextResolution(options.viewportScale);
-  const key = JSON.stringify({ text, options, textResolution });
-  if (view.text && view.textKey === key) return;
-  removeTextDisplay(view);
-
-  const style = {
-    fontFamily: PIXI_TEXT_FONT_FAMILY,
-    fontSize: options.fontSize,
-    fill: parsePixiColor(options.fill, 0x2f2a25),
-    align: options.align,
-    wordWrap: true,
-    wordWrapWidth: options.width,
-    lineHeight: Math.round(options.fontSize * 1.25)
-  };
-  const display = new PixiText({
-    text,
-    style,
-    anchor: options.anchor,
-    resolution: textResolution,
-    textureStyle: {
-      scaleMode: "linear"
-    },
-    autoGenerateMipmaps: true
-  });
-  display.x = options.x;
-  display.y = options.y;
-  display.eventMode = "none";
-  view.text = display;
-  view.textKey = key;
-  view.container.addChild(display);
-}
-
-function removeTextDisplay(view: PixiElementView) {
-  if (!view.text) return;
-  view.text.removeFromParent();
-  view.text.destroy();
-  view.text = undefined;
-  view.textKey = undefined;
-}
-
-function drawSelectionOverlay(pixi: PixiCanvasRuntime, document: CanvasDocument, selectedIds: string[], interactionState: StandardCanvasInteractionState) {
-  pixi.selection.clear();
-  const scale = Math.max(document.viewport.scale, 0.01);
-  if (interactionState.kind === "marqueeSelecting") {
-    const x = Math.min(interactionState.startWorld.x, interactionState.currentWorld.x);
-    const y = Math.min(interactionState.startWorld.y, interactionState.currentWorld.y);
-    const width = Math.abs(interactionState.currentWorld.x - interactionState.startWorld.x);
-    const height = Math.abs(interactionState.currentWorld.y - interactionState.startWorld.y);
-    pixi.selection
-      .rect(x, y, width, height)
-      .fill({ color: parsePixiColor(SELECTED_COLOR, 0xe85d5d), alpha: 0.08 })
-      .stroke({ color: parsePixiColor(SELECTED_COLOR, 0xe85d5d), width: 1 / scale, alpha: 0.7 });
-  }
-  if (!selectedIds.length) return;
-  const elementsById = new Map(document.elements.map((element) => [element.id, element]));
-  const selectedElements = selectedIds.map((id) => elementsById.get(id)).filter((element): element is CanvasDocumentElement => Boolean(element));
-  if (selectedElements.length !== 1) return;
-  const element = selectedElements[0];
-  if (element.type === "connector") return;
-
-  const frame = canvasElementFrame(element);
-  const handleSize = 14 / scale;
-  pixi.selection
-    .rect(frame.x, frame.y, frame.width, frame.height)
-    .stroke({ color: parsePixiColor(SELECTED_COLOR, 0xe85d5d), width: 1 / scale, alpha: 0.95 })
-    .roundRect(frame.x + frame.width - handleSize / 2, frame.y + frame.height - handleSize / 2, handleSize, handleSize, 3 / scale)
-    .fill({ color: parsePixiColor(SELECTED_COLOR, 0xe85d5d) })
-    .stroke({ color: parsePixiColor(SURFACE_COLOR, 0xfbf6ef), width: 1.5 / scale });
-}
-
-function drawGrid(graphics: Graphics, viewport: ViewportState, dimensions: CanvasDocumentDimensions) {
-  graphics.clear();
-  const rawStep = 32 * viewport.scale;
-  const step = rawStep < 8 ? rawStep * Math.ceil(8 / Math.max(rawStep, 0.01)) : rawStep;
-  const offsetX = positiveModulo(viewport.x, step);
-  const offsetY = positiveModulo(viewport.y, step);
-
-  for (let x = offsetX; x < dimensions.width; x += step) {
-    graphics.moveTo(x, 0).lineTo(x, dimensions.height);
-  }
-  for (let y = offsetY; y < dimensions.height; y += step) {
-    graphics.moveTo(0, y).lineTo(dimensions.width, y);
-  }
-  graphics.stroke({ color: GRID_COLOR, width: 1, alpha: 0.08 });
-}
-
-function schedulePixiRender(pixi: PixiCanvasRuntime) {
-  if (pixi.disposed || pixi.renderFrame !== null) return;
-  pixi.renderFrame = window.requestAnimationFrame(() => {
-    pixi.renderFrame = null;
-    if (!pixi.disposed) pixi.app.render();
-  });
-}
-
-function registerPixiPlugin() {
-  if (pixiPluginRegistered) return;
-  gsap.registerPlugin(PixiPlugin);
-  PixiPlugin.registerPIXI(PIXI);
-  pixiPluginRegistered = true;
-}
-
-function parsePixiColor(value: string | undefined, fallback: number) {
-  if (!value) return fallback;
-  const trimmed = value.trim();
-  if (/^#[0-9a-f]{6}$/i.test(trimmed)) return Number.parseInt(trimmed.slice(1), 16);
-  if (/^#[0-9a-f]{3}$/i.test(trimmed)) {
-    const [, r, g, b] = trimmed;
-    return Number.parseInt(`${r}${r}${g}${g}${b}${b}`, 16);
-  }
-  return fallback;
-}
-
-function positiveModulo(value: number, modulus: number) {
-  return ((value % modulus) + modulus) % modulus;
-}
-
-function canvasRendererResolution() {
-  const ratio = typeof window === "undefined" ? MIN_RENDERER_RESOLUTION : window.devicePixelRatio || 1;
-  return Math.min(MAX_RENDERER_RESOLUTION, Math.max(MIN_RENDERER_RESOLUTION, ratio));
-}
-
-function canvasTextResolution(viewportScale: number) {
-  const scaled = canvasRendererResolution() * Math.max(1, viewportScale);
-  return Math.min(MAX_TEXT_TEXTURE_RESOLUTION, Math.max(MIN_RENDERER_RESOLUTION, Math.ceil(scaled * 2) / 2));
-}
-
-function ToolbarButton({
-  label,
-  active,
-  disabled,
-  onClick,
-  children
-}: {
-  label: string;
-  active?: boolean;
-  disabled?: boolean;
-  onClick: () => void;
-  children: ReactNode;
-}) {
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Button
-          type="button"
-          size="icon"
-          variant={active ? "default" : "ghost"}
-          className={cn("size-8", active ? "text-background hover:text-background" : "text-icon hover:text-icon")}
-          disabled={disabled}
-          aria-label={label}
-          onClick={onClick}
-        >
-          {children}
-        </Button>
-      </TooltipTrigger>
-      <TooltipContent side="bottom">{label}</TooltipContent>
-    </Tooltip>
-  );
-}
-
-function useContainerSize(ref: React.RefObject<HTMLDivElement | null>) {
-  const [size, setSize] = useState(DEFAULT_DIMENSIONS);
-
-  useEffect(() => {
-    if (!ref.current) return;
-
-    const observer = new ResizeObserver(([entry]) => {
-      setSize({
-        width: Math.max(1, Math.floor(entry.contentRect.width)),
-        height: Math.max(1, Math.floor(entry.contentRect.height))
-      });
-    });
-
-    observer.observe(ref.current);
-    return () => observer.disconnect();
-  }, [ref]);
-
-  return size;
-}
-
-async function loadImageDimensions(src: string) {
-  if (typeof window === "undefined" || !src) return { width: DEFAULT_IMAGE_WIDTH, height: DEFAULT_IMAGE_HEIGHT };
-
-  return new Promise<{ width: number; height: number }>((resolve) => {
-    const image = new window.Image();
-    image.onload = () => {
-      const width = image.naturalWidth || DEFAULT_IMAGE_WIDTH;
-      const height = image.naturalHeight || DEFAULT_IMAGE_HEIGHT;
-      const maxSide = Math.max(width, height, 1);
-      const scale = maxSide > 420 ? 420 / maxSide : 1;
-      resolve({
-        width: Math.max(48, Math.round(width * scale)),
-        height: Math.max(48, Math.round(height * scale))
-      });
-    };
-    image.onerror = () => resolve({ width: DEFAULT_IMAGE_WIDTH, height: DEFAULT_IMAGE_HEIGHT });
-    image.src = src;
-  });
 }
