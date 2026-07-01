@@ -1,26 +1,30 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { Arrow, Circle, Group, Layer, Path, Rect, Stage, Text } from "react-konva";
 import type Konva from "konva";
 import type { KonvaEventObject } from "konva/lib/Node";
 
 import { AlignmentGuideOverlay, CanvasGrid } from "@/features/mermaid-editor/components/konva-canvas/canvas-overlays";
 import { EdgeMarkers, PathArrowHead } from "@/features/mermaid-editor/components/konva-canvas/edge-markers";
-import { InlineEditOverlays, type InlineEdit } from "@/features/mermaid-editor/components/konva-canvas/inline-edit-overlays";
+import { InlineEditOverlays } from "@/features/mermaid-editor/components/konva-canvas/inline-edit-overlays";
 import { CanvasNodeActionBadge, NodeActionTooltip, NodeContextMenu } from "@/features/mermaid-editor/components/konva-canvas/node-action-ui";
 import { CanvasNodeImage } from "@/features/mermaid-editor/components/konva-canvas/node-image";
 import { CanvasNodeShape } from "@/features/mermaid-editor/components/konva-canvas/node-shapes";
 import {
   normalizeBox,
-  normalizeProximityScales,
-  proximityScaleMapsEqual,
   scaleLocalPointFromCenter,
-  scaleLocalRectFromCenter,
   unique
 } from "@/features/mermaid-editor/components/konva-canvas/render-utils";
-import type { CanvasLiveState, NodeProximityRuntime } from "@/features/mermaid-editor/components/konva-canvas/types";
+import type { CanvasLiveState } from "@/features/mermaid-editor/components/konva-canvas/types";
+import { useKonvaDragDraft } from "@/features/mermaid-editor/components/konva-canvas/use-konva-drag-draft";
+import {
+  resolveKonvaInlineEditStyle,
+  useKonvaInlineEditSession,
+  useKonvaNodeEditorLayout
+} from "@/features/mermaid-editor/components/konva-canvas/use-konva-inline-edit-session";
 import { useKonvaMotion } from "@/features/mermaid-editor/components/konva-canvas/use-konva-motion";
+import { useKonvaNodeProximity } from "@/features/mermaid-editor/components/konva-canvas/use-konva-node-proximity";
 import { useKonvaRenderModel } from "@/features/mermaid-editor/components/konva-canvas/use-konva-render-model";
 import { useKonvaViewport } from "@/features/mermaid-editor/components/konva-canvas/use-konva-viewport";
 import { useKonvaHoverState } from "@/features/mermaid-editor/components/konva-canvas/use-konva-hover-state";
@@ -39,7 +43,6 @@ import type { DagreEdgeRoute } from "@/features/mermaid-editor/lib/canvas-auto-l
 import {
   idleInteraction,
   interactionCursor,
-  isEditingInteraction,
   isPanningButton,
   selectionVersionKey,
   type BlankClickIntent,
@@ -62,11 +65,7 @@ import {
 import { DEFAULT_CANVAS_GRID, type CanvasGridSpec } from "@/features/mermaid-editor/lib/canvas-grid";
 import {
   centerScaleTransform,
-  resolveCanvasProximityScales,
-  resolveNextCanvasProximityScales,
-  shouldRunCanvasProximity,
-  type CanvasProximityScales,
-  type CanvasNodePreviewPositions
+  shouldRunCanvasProximity
 } from "@/features/mermaid-editor/lib/canvas-motion";
 import { resolveConnectionPreview, resolveRetargetPreview } from "@/features/mermaid-editor/lib/connection-preview";
 import {
@@ -119,7 +118,7 @@ import {
   type InteractionModifiers,
   type StandardPointerInput
 } from "@/features/mermaid-editor/lib/interaction/input";
-import { isEdgeVisible, type ViewFilters } from "@/features/mermaid-editor/lib/view-filters";
+import type { ViewFilters } from "@/features/mermaid-editor/lib/view-filters";
 import { cn } from "@/lib/utils";
 
 export { NodeContextMenu } from "@/features/mermaid-editor/components/konva-canvas/node-action-ui";
@@ -168,35 +167,25 @@ export function KonvaCanvas({
   const containerRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage>(null);
   const runtimeMotion = useMemo(() => motionProp ?? resolveRuntimeEditorMotion(), [motionProp]);
-  const dragRef = useRef<Record<string, { x: number; y: number }> | null>(null);
-  const subgraphDragFrameRef = useRef<Record<string, { x: number; y: number }> | null>(null);
-  const dragDraftGraphRef = useRef<MermaidGraph | null>(null);
-  const dragPreviewPositionsRef = useRef<CanvasNodePreviewPositions | null>(null);
-  const dragDraftCommandFrameRef = useRef<number | null>(null);
-  const pendingDragDraftCommandRef = useRef<{ positions: CanvasNodePreviewPositions; message: string } | null>(null);
   const blankClickIntentRef = useRef<BlankClickIntent | null>(null);
-  const nodeProximityScaleRef = useRef<CanvasProximityScales>({});
-  const nodeProximityTargetScaleRef = useRef<CanvasProximityScales>({});
-  const nodeProximityFrameRef = useRef<number | null>(null);
-  const nodeProximityLastTickAtRef = useRef<number | null>(null);
-  const lastProximityPointerScreenRef = useRef<CanvasPoint | null>(null);
-  const nodeProximityRuntimeRef = useRef<NodeProximityRuntime>({
-    interactive: false,
-    frames: [],
-    radiusPx: 0,
-    maxScale: 1,
-    durationMs: 0
-  });
   const interactionGenerationRef = useRef(0);
   const selectionVersionRef = useRef(0);
   const lastSelectionKeyRef = useRef(selectionVersionKey(selection));
   const dimensions = useContainerSize(containerRef);
   const [interactionState, setInteractionState] = useState<InteractionState>(idleInteraction);
   const [alignmentGuides, setAlignmentGuides] = useState<AlignmentGuide[]>([]);
-  const [inlineEdit, setInlineEdit] = useState<InlineEdit | null>(null);
-  const [dragPreviewPositions, setDragPreviewPositions] = useState<CanvasNodePreviewPositions | null>(null);
-  const [nodeProximityScale, setNodeProximityScale] = useState<CanvasProximityScales>({});
   const [nodeContextMenu, setNodeContextMenu] = useState<{ nodeId: string; x: number; y: number } | null>(null);
+  const {
+    dragRef,
+    subgraphDragFrameRef,
+    dragDraftGraphRef,
+    dragPreviewPositions,
+    setDragPreviewPositionsVisual,
+    scheduleDragDraftCommand,
+    flushDragDraftCommand,
+    clearPendingDragDraftCommand,
+    clearDragRuntimeState
+  } = useKonvaDragDraft({ onEditorCommand });
   const {
     hoveredNodeId,
     hoveredSubgraphId,
@@ -216,11 +205,60 @@ export function KonvaCanvas({
   const edgeLabelThemeTokens = geometryTokens?.edgeLabel ?? DEFAULT_EDGE_LABEL_GEOMETRY_TOKENS;
   const subgraphThemeTokens: SubgraphGeometryTokens = geometryTokens?.subgraph ?? SUBGRAPH_GEOMETRY_TOKENS;
   const gridThemeTokens: CanvasGridSpec = geometryTokens?.grid ?? DEFAULT_CANVAS_GRID;
-  const [nodeEditorLayout, setNodeEditorLayout] = useState({ insetTop: 0, height: nodeThemeTokens.lineHeight, scrollable: false });
-  const nodeEditorRef = useRef<HTMLTextAreaElement>(null);
-  const nodeEditorMeasureRef = useRef<HTMLDivElement>(null);
+  const {
+    inlineEdit,
+    setInlineEdit,
+    startInlineEdit,
+    commitInlineEdit,
+    nodeEditorRef,
+    nodeEditorMeasureRef
+  } = useKonvaInlineEditSession({
+    graph,
+    selection,
+    interactionState,
+    mode,
+    setInteractionState,
+    invalidateBlankClickIntent,
+    resetInteraction,
+    onEditorCommand
+  });
 
   const dragEnabled = layoutMode === "manual";
+  const {
+    currentViewport,
+    scheduleViewportChange,
+    pointerWorldPoint,
+    trackPointerWorldPoint,
+    screenToWorld,
+    worldToScreen,
+    pointerScreenPoint,
+    screenPointFromClient,
+    onWheel
+  } = useKonvaViewport({
+    containerRef,
+    stageRef,
+    dimensions,
+    viewport,
+    graph,
+    selection,
+    viewFilters,
+    mode,
+    edgeRouting,
+    layoutMode,
+    hoveredHitTarget,
+    interactionState,
+    onEditorCommand,
+    onPointerWorldChange,
+    invalidateBlankClickIntent
+  });
+  const {
+    nodeProximityScale,
+    syncNodeProximityRuntime,
+    clearNodeProximityScales,
+    updateNodeProximityScales,
+    refreshNodeProximityScales,
+    setLastProximityPointerScreen
+  } = useKonvaNodeProximity({ currentViewport });
   const {
     selectedNodeIds,
     selectedSubgraphIds,
@@ -280,161 +318,13 @@ export function KonvaCanvas({
     maxScale: runtimeMotion.canvas.proximityMaxScale,
     mode
   });
-  nodeProximityRuntimeRef.current = {
+  syncNodeProximityRuntime({
     interactive: nodeProximityInteractive,
     frames: renderedNodeGeometries.map((geometry) => ({ id: geometry.id, ...geometry.frame })),
     radiusPx: runtimeMotion.canvas.proximityRadiusPx,
     maxScale: runtimeMotion.canvas.proximityMaxScale,
     durationMs: runtimeMotion.canvas.proximityDuration * 1000
-  };
-
-  const {
-    currentViewport,
-    scheduleViewportChange,
-    pointerWorldPoint,
-    trackPointerWorldPoint,
-    screenToWorld,
-    worldToScreen,
-    pointerScreenPoint,
-    screenPointFromClient,
-    onWheel
-  } = useKonvaViewport({
-    containerRef,
-    stageRef,
-    dimensions,
-    viewport,
-    graph,
-    selection,
-    viewFilters,
-    mode,
-    edgeRouting,
-    layoutMode,
-    hoveredHitTarget,
-    interactionState,
-    onEditorCommand,
-    onPointerWorldChange,
-    invalidateBlankClickIntent
   });
-
-  function setDragPreviewPositionsVisual(positions: CanvasNodePreviewPositions | null) {
-    dragPreviewPositionsRef.current = positions;
-    setDragPreviewPositions(positions);
-  }
-
-  function scheduleDragDraftCommand(positions: CanvasNodePreviewPositions, message: string) {
-    pendingDragDraftCommandRef.current = { positions, message };
-    if (dragDraftCommandFrameRef.current !== null) return;
-    dragDraftCommandFrameRef.current = window.requestAnimationFrame(() => {
-      dragDraftCommandFrameRef.current = null;
-      const pending = pendingDragDraftCommandRef.current;
-      pendingDragDraftCommandRef.current = null;
-      if (!pending) return;
-      onEditorCommand({ type: "graph.draftNodePositions", positions: pending.positions, message: pending.message, syncSource: false, source: "pointer" });
-    });
-  }
-
-  function flushDragDraftCommand() {
-    if (dragDraftCommandFrameRef.current !== null) {
-      window.cancelAnimationFrame(dragDraftCommandFrameRef.current);
-      dragDraftCommandFrameRef.current = null;
-    }
-    const pending = pendingDragDraftCommandRef.current;
-    pendingDragDraftCommandRef.current = null;
-    if (!pending) return;
-    onEditorCommand({ type: "graph.draftNodePositions", positions: pending.positions, message: pending.message, syncSource: false, source: "pointer" });
-  }
-
-  function clearDragRuntimeState() {
-    flushDragDraftCommand();
-    dragRef.current = null;
-    subgraphDragFrameRef.current = null;
-    dragDraftGraphRef.current = null;
-    setDragPreviewPositionsVisual(null);
-  }
-
-  function stopNodeProximityAnimation() {
-    if (nodeProximityFrameRef.current === null) return;
-    window.cancelAnimationFrame(nodeProximityFrameRef.current);
-    nodeProximityFrameRef.current = null;
-    nodeProximityLastTickAtRef.current = null;
-  }
-
-  function setNodeProximityScalesVisual(scales: CanvasProximityScales) {
-    const normalized = normalizeProximityScales(scales);
-    if (proximityScaleMapsEqual(nodeProximityScaleRef.current, normalized)) return;
-    nodeProximityScaleRef.current = normalized;
-    setNodeProximityScale(normalized);
-  }
-
-  function resolveNodeProximityTargetScales() {
-    const runtime = nodeProximityRuntimeRef.current;
-    const pointer = lastProximityPointerScreenRef.current;
-    if (!runtime.interactive || !pointer) return {};
-
-    return resolveCanvasProximityScales({
-      frames: runtime.frames,
-      pointerScreen: pointer,
-      viewport: currentViewport(),
-      radiusPx: runtime.radiusPx,
-      maxScale: runtime.maxScale
-    });
-  }
-
-  function scheduleNodeProximityAnimation() {
-    if (nodeProximityFrameRef.current !== null) return;
-    nodeProximityFrameRef.current = window.requestAnimationFrame(stepNodeProximityAnimation);
-  }
-
-  function stepNodeProximityAnimation(now: number) {
-    const previousTickAt = nodeProximityLastTickAtRef.current ?? now - 16;
-    nodeProximityLastTickAtRef.current = now;
-    const target = normalizeProximityScales(resolveNodeProximityTargetScales());
-    nodeProximityTargetScaleRef.current = target;
-    const next = resolveNextCanvasProximityScales({
-      current: nodeProximityScaleRef.current,
-      target,
-      deltaMs: Math.max(0, now - previousTickAt),
-      durationMs: nodeProximityRuntimeRef.current.durationMs
-    });
-
-    setNodeProximityScalesVisual(next);
-
-    if (Object.keys(next).length === 0 && Object.keys(target).length === 0) {
-      nodeProximityFrameRef.current = null;
-      nodeProximityLastTickAtRef.current = null;
-      return;
-    }
-
-    nodeProximityFrameRef.current = window.requestAnimationFrame(stepNodeProximityAnimation);
-  }
-
-  function clearNodeProximityScales(immediate = false, options: { preservePointer?: boolean } = {}) {
-    if (!options.preservePointer) lastProximityPointerScreenRef.current = null;
-    nodeProximityTargetScaleRef.current = {};
-    if (immediate) {
-      stopNodeProximityAnimation();
-      setNodeProximityScalesVisual({});
-      return;
-    }
-    scheduleNodeProximityAnimation();
-  }
-
-  function updateNodeProximityScales(pointer: CanvasPoint) {
-    lastProximityPointerScreenRef.current = pointer;
-    if (!nodeProximityInteractive) {
-      clearNodeProximityScales(false, { preservePointer: true });
-      return;
-    }
-
-    scheduleNodeProximityAnimation();
-  }
-
-  useEffect(() => {
-    return () => {
-      if (dragDraftCommandFrameRef.current !== null) window.cancelAnimationFrame(dragDraftCommandFrameRef.current);
-      if (nodeProximityFrameRef.current !== null) window.cancelAnimationFrame(nodeProximityFrameRef.current);
-    };
-  }, []);
 
   useEffect(() => {
     if (!nodeProximityInteractive) {
@@ -442,8 +332,7 @@ export function KonvaCanvas({
       return;
     }
 
-    const pointer = lastProximityPointerScreenRef.current;
-    if (pointer) updateNodeProximityScales(pointer);
+    refreshNodeProximityScales();
     // Proximity helpers intentionally stay outside the dependency list; the listed
     // values define when the pointer-to-node distances must be recalculated.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -479,40 +368,6 @@ export function KonvaCanvas({
       interaction: interactionState.kind
     });
   }, [dimensions, inlineEdit, interactionState.kind, onLiveStateChange]);
-
-  useEffect(() => {
-    if (inlineEdit?.type !== "node") return;
-    const editor = nodeEditorRef.current;
-    if (!editor) return;
-
-    editor.focus();
-    editor.select();
-  }, [inlineEdit?.id, inlineEdit?.type]);
-
-  useEffect(() => {
-    function isTextInput(target: EventTarget | null) {
-      const element = target as HTMLElement | null;
-      if (!element) return false;
-      return element.tagName === "INPUT" || element.tagName === "TEXTAREA" || element.isContentEditable;
-    }
-
-    function onKeyDown(event: KeyboardEvent) {
-      if (inlineEdit || isEditingInteraction(interactionState) || interactionState.kind !== "idle" || mode !== "select" || isTextInput(event.target)) return;
-      if (selection.nodeIds.length !== 1 || selection.edgeIds.length > 0) return;
-      if (event.metaKey || event.ctrlKey || event.altKey) return;
-      if (event.key !== "Enter" && event.key !== "F2") return;
-
-      const node = graph.nodes.find((item) => item.id === selection.nodeIds[0]);
-      if (!node) return;
-      event.preventDefault();
-      invalidateBlankClickIntent();
-      setInteractionState({ kind: "editingNodeText", nodeId: node.id });
-      setInlineEdit({ type: "node", id: node.id, value: node.label });
-    }
-
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [graph.nodes, inlineEdit, interactionState, mode, selection.edgeIds.length, selection.nodeIds]);
 
   function invalidateBlankClickIntent() {
     blankClickIntentRef.current = null;
@@ -565,26 +420,7 @@ export function KonvaCanvas({
     }
 
     if (effect.type === "inlineEdit.start") {
-      if (effect.target.type === "node") {
-        const node = graph.nodes.find((item) => item.id === effect.target.id);
-        if (!node) return;
-        setInteractionState({ kind: "editingNodeText", nodeId: node.id });
-        setInlineEdit({ type: "node", id: node.id, value: node.label });
-        return;
-      }
-
-      if (effect.target.type === "subgraph") {
-        const subgraph = graph.subgraphs?.find((item) => item.id === effect.target.id);
-        if (!subgraph) return;
-        setInteractionState({ kind: "editingSubgraphTitle", subgraphId: subgraph.id });
-        setInlineEdit({ type: "subgraph", id: subgraph.id, value: subgraph.title || subgraph.id });
-        return;
-      }
-
-      const edge = graph.edges.find((item) => item.id === effect.target.id);
-      if (!edge) return;
-      setInteractionState({ kind: "editingEdgeLabel", edgeId: edge.id });
-      setInlineEdit({ type: "edge", id: edge.id, value: edge.label });
+      startInlineEdit(effect.target);
       return;
     }
 
@@ -749,7 +585,7 @@ export function KonvaCanvas({
     trackPointerWorldPoint(screenToWorld(pointer));
 
     if (event.buttons !== 0 && !nodeProximityInteractive) {
-      lastProximityPointerScreenRef.current = pointer;
+      setLastProximityPointerScreen(pointer);
       clearNodeProximityScales(true, { preservePointer: true });
       return;
     }
@@ -834,7 +670,7 @@ export function KonvaCanvas({
     );
     stopActiveMotionTweens();
     for (const id of Object.keys(dragRef.current)) clearNodeMotionVisual(id);
-    pendingDragDraftCommandRef.current = null;
+    clearPendingDragDraftCommand();
     clearNodeProximityScales(true, { preservePointer: true });
     setDragPreviewPositionsVisual(null);
     dragDraftGraphRef.current = null;
@@ -858,7 +694,7 @@ export function KonvaCanvas({
     );
     stopActiveMotionTweens();
     for (const id of Object.keys(dragRef.current)) clearNodeMotionVisual(id);
-    pendingDragDraftCommandRef.current = null;
+    clearPendingDragDraftCommand();
     clearNodeProximityScales(true, { preservePointer: true });
     setDragPreviewPositionsVisual(null);
     subgraphDragFrameRef.current = Object.fromEntries(
@@ -1013,103 +849,25 @@ export function KonvaCanvas({
     });
   }
 
-  function commitInlineEdit(save: boolean) {
-    if (!inlineEdit) return;
-
-    if (save && inlineEdit.type === "node") {
-      onEditorCommand({ type: "graph.updateNodeLabel", nodeId: inlineEdit.id, label: inlineEdit.value, message: "已更新节点文本。", source: "pointer" });
-    }
-    if (save && inlineEdit.type === "subgraph") {
-      onEditorCommand({
-        type: "graph.updateSubgraph",
-        subgraphId: inlineEdit.id,
-        patch: { title: inlineEdit.value },
-        message: "已更新组标题。",
-        source: "pointer"
-      });
-    }
-    if (save && inlineEdit.type === "edge") {
-      onEditorCommand({ type: "graph.updateEdgeLabel", edgeId: inlineEdit.id, label: inlineEdit.value, message: "已更新连线文本。", source: "pointer" });
-    }
-    setInlineEdit(null);
-    resetInteraction();
-  }
-
-  function inlineEditStyle() {
-    if (!inlineEdit) return null;
-    if (inlineEdit.type === "node") {
-      if (!viewFilters.nodes || !viewFilters.nodeLabels) return null;
-      const geometry = nodeGeometryById.get(inlineEdit.id);
-      if (!geometry) return null;
-      const viewportScale = currentViewport().scale;
-      const proximityScale = nodeProximityScale[inlineEdit.id] ?? 1;
-      const textBox = scaleLocalRectFromCenter(geometry.textBox, geometry.frame, proximityScale);
-      const screen = worldToScreen({
-        x: geometry.frame.x + textBox.x,
-        y: geometry.frame.y + textBox.y
-      });
-      return {
-        left: screen.x,
-        top: screen.y,
-        width: textBox.width * viewportScale,
-        height: textBox.height * viewportScale,
-        textScale: viewportScale * proximityScale
-      };
-    }
-
-    if (inlineEdit.type === "subgraph") {
-      if (!viewFilters.subgraphs) return null;
-      const geometry = subgraphGeometryById.get(inlineEdit.id);
-      if (!geometry) return null;
-      const viewportScale = currentViewport().scale;
-      const screen = worldToScreen({
-        x: geometry.titleBox.x,
-        y: geometry.titleBox.y
-      });
-      return {
-        left: screen.x,
-        top: screen.y,
-        width: geometry.titleBox.width * viewportScale,
-        height: geometry.titleBox.height * viewportScale,
-        textScale: viewportScale
-      };
-    }
-
-    const edge = graph.edges.find((item) => item.id === inlineEdit.id);
-    if (!edge || !viewFilters.edgeLabels || !isEdgeVisible(edge, graph, viewFilters)) return null;
-    const geometry = resolvedEdgeGeometry(edge);
-    if (!geometry) return null;
-    const viewportScale = currentViewport().scale;
-    const labelGeometry = buildEdgeLabelGeometry(inlineEdit.value, geometry.labelPoint, edgeLabelSpec);
-    const screen = worldToScreen({ x: labelGeometry.frame.x, y: labelGeometry.frame.y });
-    return {
-      left: screen.x,
-      top: screen.y,
-      width: labelGeometry.frame.width * viewportScale,
-      height: labelGeometry.frame.height * viewportScale,
-      textScale: viewportScale
-    };
-  }
-
-  const editStyle = inlineEditStyle();
+  const editStyle = resolveKonvaInlineEditStyle({
+    inlineEdit,
+    graph,
+    viewFilters,
+    nodeGeometryById,
+    subgraphGeometryById,
+    currentViewport,
+    nodeProximityScale,
+    worldToScreen,
+    resolvedEdgeGeometry,
+    edgeLabelSpec
+  });
+  const nodeEditorLayout = useKonvaNodeEditorLayout({
+    inlineEdit,
+    editStyle,
+    nodeEditorMeasureRef,
+    lineHeight: nodeThemeTokens.lineHeight
+  });
   const activeScale = currentViewport().scale;
-
-  useLayoutEffect(() => {
-    if (inlineEdit?.type !== "node" || !editStyle) return;
-    const measure = nodeEditorMeasureRef.current;
-    if (!measure) return;
-
-    const minimumHeight = nodeThemeTokens.lineHeight * editStyle.textScale;
-    const measuredHeight = Math.max(minimumHeight, Math.ceil(measure.scrollHeight));
-    const scrollable = measuredHeight > editStyle.height + 1;
-    const height = scrollable ? editStyle.height : Math.min(editStyle.height, measuredHeight);
-    const insetTop = Math.max(0, Math.floor((editStyle.height - height) / 2));
-
-    setNodeEditorLayout((current) => {
-      if (current.height === height && current.insetTop === insetTop && current.scrollable === scrollable) return current;
-      return { height, insetTop, scrollable };
-    });
-  }, [editStyle, inlineEdit?.type, inlineEdit?.value, nodeThemeTokens.lineHeight]);
 
   const cursorClassName = interactionCursor(mode, interactionState, panningRequested, hoveredHitTarget);
   const isEndpointHovered = (edgeId: string, side: "from" | "to") =>
