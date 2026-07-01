@@ -115,6 +115,7 @@ describe("interaction architecture contract", () => {
   it("keeps known oversized files on a no-growth budget", () => {
     const budgets = [
       { path: "src/features/mermaid-editor/components/mermaid-editor.tsx", maxLines: 1500 },
+      { path: "src/features/mermaid-editor/components/mermaid-editor/use-editor-file-workflow.ts", maxLines: 900 },
       { path: "src/features/mermaid-editor/components/konva-canvas.tsx", maxLines: 1500 },
       { path: "src/features/mermaid-editor/components/canvas-document-editor.tsx", maxLines: 1300 },
       { path: "src-tauri/src/main.rs", maxLines: 1450 }
@@ -232,6 +233,19 @@ describe("interaction architecture contract", () => {
     expect(editor).not.toContain("function handleRuntimeFileDropRequest(");
     expect(editor).not.toContain("function saveMermaidFile(");
     expect(editor).not.toContain("function saveMermaidFileAsResult(");
+  });
+
+  it("keeps document lifecycle and draft persistence outside the file workflow shell", () => {
+    const workflow = readProjectFile("src/features/mermaid-editor/components/mermaid-editor/use-editor-file-workflow.ts");
+
+    expect(workflow).toContain("useEditorDocumentLifecycle");
+    expect(workflow).toContain("useEditorDraftPersistence");
+    expect(workflow).not.toContain("function buildStoredEditorDraft(");
+    expect(workflow).not.toContain("function applyLoadedDocument(");
+    expect(workflow).not.toContain("function applyStoredEditorState(");
+    expect(workflow).not.toContain("async function newMermaidFile(");
+    expect(workflow).not.toContain("async function newMarkdownFile(");
+    expect(workflow).not.toContain("async function newCanvasFile(");
   });
 
   it("keeps document command logic outside the MermaidEditor composition file", () => {
