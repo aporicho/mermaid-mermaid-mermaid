@@ -35,14 +35,19 @@ function lineCount(value: string) {
 describe("interaction architecture contract", () => {
   it("keeps canvas viewport navigation behind standard input and intent resolution", () => {
     const canvas = readProjectFile("src/features/mermaid-editor/components/konva-canvas.tsx");
+    const viewport = readProjectFile("src/features/mermaid-editor/components/konva-canvas/use-konva-viewport.ts");
 
-    expect(canvas).toContain("createStandardWheelInput");
-    expect(canvas).toContain("createStandardGestureInput");
-    expect(canvas).toContain("resolveInteractionIntent");
-    expect(canvas).toContain("commandFromInteractionIntent");
+    expect(canvas).toContain("useKonvaViewport");
+    expect(viewport).toContain("createStandardWheelInput");
+    expect(viewport).toContain("createStandardGestureInput");
+    expect(viewport).toContain("resolveInteractionIntent");
+    expect(viewport).toContain("commandFromInteractionIntent");
     expect(canvas).not.toContain("resolveWheelNavigation");
     expect(canvas).not.toContain("zoomViewportAtPoint");
     expect(canvas).not.toContain("onViewportChange");
+    expect(viewport).not.toContain("resolveWheelNavigation");
+    expect(viewport).not.toContain("zoomViewportAtPoint");
+    expect(viewport).not.toContain("onViewportChange");
   });
 
   it("keeps render-view navigation on the same standard intent path", () => {
@@ -110,7 +115,7 @@ describe("interaction architecture contract", () => {
   it("keeps known oversized files on a no-growth budget", () => {
     const budgets = [
       { path: "src/features/mermaid-editor/components/mermaid-editor.tsx", maxLines: 2800 },
-      { path: "src/features/mermaid-editor/components/konva-canvas.tsx", maxLines: 2400 },
+      { path: "src/features/mermaid-editor/components/konva-canvas.tsx", maxLines: 1800 },
       { path: "src/features/mermaid-editor/components/canvas-document-editor.tsx", maxLines: 1300 },
       { path: "src-tauri/src/main.rs", maxLines: 1450 }
     ];
@@ -160,6 +165,10 @@ describe("interaction architecture contract", () => {
     expect(canvas).not.toContain("function NodeContextMenu(");
     expect(canvas).not.toContain("function useContainerSize(");
     expect(canvas).not.toContain("function measureTextWidth(");
+    expect(canvas).toContain("useKonvaRenderModel");
+    expect(canvas).toContain("useKonvaMotion");
+    expect(canvas).toContain("useKonvaViewport");
+    expect(canvas).toContain("useKonvaHoverState");
   });
 
   it("keeps Pixi canvas document rendering outside the CanvasDocumentEditor shell file", () => {

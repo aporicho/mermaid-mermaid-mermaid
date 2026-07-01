@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { Arrow, Circle, Group, Layer, Path, Rect, Stage, Text } from "react-konva";
 import type Konva from "konva";
 import type { KonvaEventObject } from "konva/lib/Node";
@@ -12,9 +12,6 @@ import { CanvasNodeActionBadge, NodeActionTooltip, NodeContextMenu } from "@/fea
 import { CanvasNodeImage } from "@/features/mermaid-editor/components/konva-canvas/node-image";
 import { CanvasNodeShape } from "@/features/mermaid-editor/components/konva-canvas/node-shapes";
 import {
-  edgeLabelGeometrySpec,
-  isEdgeHitTarget,
-  nodeGeometrySpec,
   normalizeBox,
   normalizeProximityScales,
   proximityScaleMapsEqual,
@@ -22,6 +19,11 @@ import {
   scaleLocalRectFromCenter,
   unique
 } from "@/features/mermaid-editor/components/konva-canvas/render-utils";
+import type { CanvasLiveState, NodeProximityRuntime } from "@/features/mermaid-editor/components/konva-canvas/types";
+import { useKonvaMotion } from "@/features/mermaid-editor/components/konva-canvas/use-konva-motion";
+import { useKonvaRenderModel } from "@/features/mermaid-editor/components/konva-canvas/use-konva-render-model";
+import { useKonvaViewport } from "@/features/mermaid-editor/components/konva-canvas/use-konva-viewport";
+import { useKonvaHoverState } from "@/features/mermaid-editor/components/konva-canvas/use-konva-hover-state";
 import { useContainerSize } from "@/features/mermaid-editor/components/konva-canvas/use-container-size";
 import {
   descendantNodeIds,
@@ -58,21 +60,13 @@ import {
   subgraphTitleHitId
 } from "@/features/mermaid-editor/lib/canvas-hit-target";
 import { DEFAULT_CANVAS_GRID, type CanvasGridSpec } from "@/features/mermaid-editor/lib/canvas-grid";
-import { resolveCanvasRenderScope } from "@/features/mermaid-editor/lib/canvas-render-scope";
-import { createWheelIntentTracker } from "@/features/mermaid-editor/lib/canvas-viewport-navigation";
 import {
   centerScaleTransform,
-  mergeCanvasNodePreviewPositions,
-  resolveCanvasProximityEdgeIds,
   resolveCanvasProximityScales,
-  resolveCanvasMotionChanges,
   resolveNextCanvasProximityScales,
-  scaleRectFromCenter,
   shouldRunCanvasProximity,
-  snapshotCanvasNodes,
   type CanvasProximityScales,
-  type CanvasNodePreviewPositions,
-  type CanvasMotionNodeSnapshot
+  type CanvasNodePreviewPositions
 } from "@/features/mermaid-editor/lib/canvas-motion";
 import { resolveConnectionPreview, resolveRetargetPreview } from "@/features/mermaid-editor/lib/connection-preview";
 import {
@@ -80,16 +74,7 @@ import {
   DEFAULT_EDGE_LABEL_GEOMETRY_TOKENS,
   edgeLabelSingleLineText
 } from "@/features/mermaid-editor/lib/edge-label-geometry";
-import {
-  computeEdgePath,
-  computeEdgeDraftPath,
-  computeEdgePathMap,
-  computeEdgeRetargetPath,
-  resolveFinalEdgeGeometryMap,
-  resolveParallelEdgeLanes,
-  type EdgePathGeometry
-} from "@/features/mermaid-editor/lib/edge-geometry";
-import type { CanvasEdge, CanvasNode, EdgeRouting, EditorMode, LayoutMode, MermaidGraph, Selection, ViewportState } from "@/features/mermaid-editor/lib/editor-types";
+import type { CanvasNode, EdgeRouting, EditorMode, LayoutMode, MermaidGraph, Selection, ViewportState } from "@/features/mermaid-editor/lib/editor-types";
 import { normalizeNodeAction } from "@/features/mermaid-editor/lib/node-actions";
 import { normalizeImageAsset } from "@/features/mermaid-editor/lib/node-assets";
 import {
@@ -127,20 +112,14 @@ import {
   type CanvasPointerResolution
 } from "@/features/mermaid-editor/lib/interaction/canvas-pointer";
 import type { EditorCommand } from "@/features/mermaid-editor/lib/interaction/commands";
-import { commandFromInteractionIntent } from "@/features/mermaid-editor/lib/interaction/commands";
 import { buildInteractionContext } from "@/features/mermaid-editor/lib/interaction/context";
 import {
-  createStandardGestureInput,
-  createStandardWheelInput,
   modifiersFromEvent,
   normalizeModifiers,
   type InteractionModifiers,
   type StandardPointerInput
 } from "@/features/mermaid-editor/lib/interaction/input";
-import { resolveInteractionIntent } from "@/features/mermaid-editor/lib/interaction/intent";
-import { useViewportScheduler } from "@/features/mermaid-editor/lib/interaction/viewport-scheduler";
 import { isEdgeVisible, type ViewFilters } from "@/features/mermaid-editor/lib/view-filters";
-import { gsap } from "@/features/mermaid-editor/lib/use-gsap-motion";
 import { cn } from "@/lib/utils";
 
 export { NodeContextMenu } from "@/features/mermaid-editor/components/konva-canvas/node-action-ui";
@@ -166,46 +145,6 @@ type KonvaCanvasProps = {
   onLiveStateChange?: (state: CanvasLiveState) => void;
 };
 
-type ViewportCommandSource = Extract<EditorCommand, { type: "viewport.set" }>["source"];
-
-type ScheduledViewport = {
-  viewport: ViewportState;
-  source: ViewportCommandSource;
-};
-
-type CanvasLiveState = {
-  canvasSize?: { width: number; height: number };
-  editing?: { kind: "node" | "subgraph" | "edge"; id: string; draftText: string } | null;
-  interaction?: string;
-};
-
-type CanvasNodeMotionVisual = {
-  x: number;
-  y: number;
-  opacity: number;
-  scale: number;
-  highlight: number;
-};
-
-type CanvasEdgeMotionVisual = {
-  highlight: number;
-};
-
-type NodeProximityRuntime = {
-  interactive: boolean;
-  frames: { id: string; x: number; y: number; width: number; height: number }[];
-  radiusPx: number;
-  maxScale: number;
-  durationMs: number;
-};
-
-type SafariGestureEvent = Event & {
-  scale?: number;
-  clientX?: number;
-  clientY?: number;
-};
-
-const CONNECTION_ANCHOR_SNAP_RADIUS_PX = 14;
 export function KonvaCanvas({
   graph,
   selection,
@@ -236,7 +175,6 @@ export function KonvaCanvas({
   const dragDraftCommandFrameRef = useRef<number | null>(null);
   const pendingDragDraftCommandRef = useRef<{ positions: CanvasNodePreviewPositions; message: string } | null>(null);
   const blankClickIntentRef = useRef<BlankClickIntent | null>(null);
-  const gestureNavigationRef = useRef<{ viewport: ViewportState; pointer: CanvasPoint } | null>(null);
   const nodeProximityScaleRef = useRef<CanvasProximityScales>({});
   const nodeProximityTargetScaleRef = useRef<CanvasProximityScales>({});
   const nodeProximityFrameRef = useRef<number | null>(null);
@@ -249,33 +187,31 @@ export function KonvaCanvas({
     maxScale: 1,
     durationMs: 0
   });
-  const viewportRef = useRef(viewport);
-  const wheelIntentTrackerRef = useRef(createWheelIntentTracker());
-  const suppressWheelZoomUntilRef = useRef(0);
   const interactionGenerationRef = useRef(0);
   const selectionVersionRef = useRef(0);
   const lastSelectionKeyRef = useRef(selectionVersionKey(selection));
-  const previousNodeSnapshotRef = useRef<Map<string, CanvasMotionNodeSnapshot>>(snapshotCanvasNodes(graph));
-  const previousFullNodeByIdRef = useRef<Map<string, CanvasNode>>(new Map(graph.nodes.map((node) => [node.id, node])));
-  const previousSelectionRef = useRef(selection);
-  const nodeMotionRef = useRef<Record<string, CanvasNodeMotionVisual>>({});
-  const edgeMotionRef = useRef<Record<string, CanvasEdgeMotionVisual>>({});
-  const activeMotionTweensRef = useRef<gsap.core.Tween[]>([]);
-  const motionCommitFrameRef = useRef<number | null>(null);
   const dimensions = useContainerSize(containerRef);
-  const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
-  const [hoveredSubgraphId, setHoveredSubgraphId] = useState<string | null>(null);
-  const [hoveredEdgeId, setHoveredEdgeId] = useState<string | null>(null);
   const [interactionState, setInteractionState] = useState<InteractionState>(idleInteraction);
   const [alignmentGuides, setAlignmentGuides] = useState<AlignmentGuide[]>([]);
   const [inlineEdit, setInlineEdit] = useState<InlineEdit | null>(null);
-  const [hoveredHitTarget, setHoveredHitTarget] = useState<HitTarget>({ kind: "blank" });
   const [dragPreviewPositions, setDragPreviewPositions] = useState<CanvasNodePreviewPositions | null>(null);
   const [nodeProximityScale, setNodeProximityScale] = useState<CanvasProximityScales>({});
-  const [nodeMotion, setNodeMotion] = useState<Record<string, CanvasNodeMotionVisual>>({});
-  const [edgeMotion, setEdgeMotion] = useState<Record<string, CanvasEdgeMotionVisual>>({});
-  const [exitingNodes, setExitingNodes] = useState<CanvasNode[]>([]);
   const [nodeContextMenu, setNodeContextMenu] = useState<{ nodeId: string; x: number; y: number } | null>(null);
+  const {
+    hoveredNodeId,
+    hoveredSubgraphId,
+    hoveredEdgeId,
+    hoveredHitTarget,
+    updateHoverFromHit,
+    clearHover
+  } = useKonvaHoverState({ viewEdges: viewFilters.edges });
+  const {
+    nodeMotion,
+    edgeMotion,
+    exitingNodes,
+    stopActiveMotionTweens,
+    clearNodeMotionVisual
+  } = useKonvaMotion({ graph, selection, interactionState, runtimeMotion });
   const nodeThemeTokens = geometryTokens?.node ?? DEFAULT_NODE_GEOMETRY_TOKENS;
   const edgeLabelThemeTokens = geometryTokens?.edgeLabel ?? DEFAULT_EDGE_LABEL_GEOMETRY_TOKENS;
   const subgraphThemeTokens: SubgraphGeometryTokens = geometryTokens?.subgraph ?? SUBGRAPH_GEOMETRY_TOKENS;
@@ -284,27 +220,56 @@ export function KonvaCanvas({
   const nodeEditorRef = useRef<HTMLTextAreaElement>(null);
   const nodeEditorMeasureRef = useRef<HTMLDivElement>(null);
 
-  const selectedNodeIds = useMemo(() => new Set(selection.nodeIds), [selection.nodeIds]);
-  const selectedSubgraphIds = useMemo(() => new Set(selection.subgraphIds || []), [selection.subgraphIds]);
-  const geometrySpec = useMemo(() => nodeGeometrySpec(nodeThemeTokens), [nodeThemeTokens]);
-  const edgeLabelSpec = useMemo(() => edgeLabelGeometrySpec(edgeLabelThemeTokens), [edgeLabelThemeTokens]);
-  const renderedNodes = useMemo(
-    () =>
-      mergeCanvasNodePreviewPositions(graph.nodes, dragPreviewPositions).map((node) => {
-        const animated = dragPreviewPositions?.[node.id] ? undefined : nodeMotion[node.id];
-        const labeled = inlineEdit?.type === "node" && node.id === inlineEdit.id ? { ...node, label: inlineEdit.value } : node;
-        return animated ? { ...labeled, x: animated.x, y: animated.y } : labeled;
-      }),
-    [dragPreviewPositions, graph.nodes, inlineEdit, nodeMotion]
-  );
-  const renderedNodeGeometries = useMemo(() => renderedNodes.map((node) => buildNodeGeometry(node, geometrySpec)), [geometrySpec, renderedNodes]);
-  const renderedGraph = useMemo(() => ({ ...graph, nodes: renderedNodes }), [graph, renderedNodes]);
-  const renderedSubgraphGeometries = useMemo(
-    () => buildSubgraphGeometries(renderedGraph, renderedNodeGeometries, subgraphThemeTokens),
-    [renderedGraph, renderedNodeGeometries, subgraphThemeTokens]
-  );
-  const nodeGeometryById = useMemo(() => new Map(renderedNodeGeometries.map((geometry) => [geometry.id, geometry])), [renderedNodeGeometries]);
-  const subgraphGeometryById = useMemo(() => new Map(renderedSubgraphGeometries.map((geometry) => [geometry.id, geometry])), [renderedSubgraphGeometries]);
+  const dragEnabled = layoutMode === "manual";
+  const {
+    selectedNodeIds,
+    selectedSubgraphIds,
+    geometrySpec,
+    edgeLabelSpec,
+    renderedNodeGeometries,
+    renderedSubgraphGeometries,
+    nodeGeometryById,
+    subgraphGeometryById,
+    resolvedEdgeGeometry,
+    selectedSingleEdge,
+    selectedSingleEdgeGeometry,
+    selectionBox,
+    retargetDraft,
+    connectionPreview,
+    connectionDraftGeometry,
+    connectionDraftVisual,
+    retargetPreview,
+    retargetDraftGeometry,
+    connectionTargetNodeId,
+    connectionInvalidNodeId,
+    connectionTargetSubgraphId,
+    connectionInvalidSubgraphId,
+    scopedRenderedNodes,
+    scopedSubgraphGeometries,
+    scopedVisibleEdges,
+    connectionAnchorSnapRadiusWorld
+  } = useKonvaRenderModel({
+    graph,
+    selection,
+    viewport,
+    dimensions,
+    viewFilters,
+    edgeRouting,
+    mermaidEdgeRoutes,
+    layoutMode,
+    inlineEdit,
+    interactionState,
+    hoveredNodeId,
+    hoveredSubgraphId,
+    hoveredEdgeId,
+    dragPreviewPositions,
+    nodeMotion,
+    nodeProximityScale,
+    nodeThemeTokens,
+    edgeLabelThemeTokens,
+    subgraphThemeTokens,
+    visualTokens
+  });
   const nodeProximityInteractive = shouldRunCanvasProximity({
     reduced: runtimeMotion.reduced,
     viewNodes: viewFilters.nodes,
@@ -322,274 +287,34 @@ export function KonvaCanvas({
     maxScale: runtimeMotion.canvas.proximityMaxScale,
     durationMs: runtimeMotion.canvas.proximityDuration * 1000
   };
-  const routedNodeRects = useMemo(() => renderedNodeGeometries.map((geometry) => geometry.routedRect), [renderedNodeGeometries]);
-  const routedEntityRects = useMemo(
-    () => [...routedNodeRects, ...renderedSubgraphGeometries.map((geometry) => geometry.routedRect)],
-    [renderedSubgraphGeometries, routedNodeRects]
-  );
-  const dragEnabled = layoutMode === "manual";
-  const visibleEdges = useMemo(() => graph.edges.filter((edge) => isEdgeVisible(edge, graph, viewFilters)), [graph, viewFilters]);
-  const mermaidRouteByEdgeId = useMemo(() => new Map(mermaidEdgeRoutes.map((route) => [route.edgeId, route])), [mermaidEdgeRoutes]);
-  const draftEdgeRouting = edgeRouting;
-  const parallelEdgeLaneSpacing = visualTokens.edge.parallelSpacing;
-  const connectionAnchorSnapRadiusWorld = CONNECTION_ANCHOR_SNAP_RADIUS_PX / Math.max(viewport.scale, 0.01);
-  const proximityEdgeIds = useMemo(() => resolveCanvasProximityEdgeIds(visibleEdges, nodeProximityScale), [nodeProximityScale, visibleEdges]);
-  const parallelEdgeLaneById = useMemo(
-    () => resolveParallelEdgeLanes(visibleEdges, routedEntityRects, { laneSpacing: parallelEdgeLaneSpacing }),
-    [parallelEdgeLaneSpacing, routedEntityRects, visibleEdges]
-  );
-  const fallbackEdgeGeometryById = useMemo(
-    () => computeEdgePathMap(visibleEdges, routedEntityRects, draftEdgeRouting, { laneSpacing: parallelEdgeLaneSpacing }),
-    [draftEdgeRouting, parallelEdgeLaneSpacing, routedEntityRects, visibleEdges]
-  );
-  const proximityEdgeGeometryById = useMemo(() => {
-    if (proximityEdgeIds.size === 0) return new Map<string, EdgePathGeometry>();
-
-    const scaledNodeRectById = new Map(renderedNodeGeometries.map((geometry) => [geometry.id, scaleRectFromCenter(geometry.routedRect, nodeProximityScale[geometry.id] ?? 1)]));
-    const proximityEntityRects = routedEntityRects.map((rect) => scaledNodeRectById.get(rect.id) ?? rect);
-    const geometryById = new Map<string, EdgePathGeometry>();
-
-    for (const edge of visibleEdges) {
-      if (!proximityEdgeIds.has(edge.id)) continue;
-      const geometry = computeEdgePath(edge, proximityEntityRects, draftEdgeRouting, { lane: parallelEdgeLaneById.get(edge.id) });
-      if (geometry) geometryById.set(edge.id, geometry);
-    }
-
-    return geometryById;
-  }, [draftEdgeRouting, nodeProximityScale, parallelEdgeLaneById, proximityEdgeIds, renderedNodeGeometries, routedEntityRects, visibleEdges]);
-  const edgeGeometryById = useMemo(
-    () =>
-      resolveFinalEdgeGeometryMap({
-        edges: visibleEdges,
-        fallbackGeometryById: fallbackEdgeGeometryById,
-        proximityGeometryById: proximityEdgeGeometryById,
-        mermaidRouteByEdgeId,
-        layoutMode
-      }),
-    [fallbackEdgeGeometryById, layoutMode, mermaidRouteByEdgeId, proximityEdgeGeometryById, visibleEdges]
-  );
-
-  function resolvedEdgeGeometry(edge: CanvasEdge) {
-    return edgeGeometryById.get(edge.id) || null;
-  }
-
-  const selectedSingleEdge =
-    selection.edgeIds.length === 1 ? visibleEdges.find((edge) => edge.id === selection.edgeIds[0]) : undefined;
-  const selectedSingleEdgeBaseGeometry = selectedSingleEdge ? resolvedEdgeGeometry(selectedSingleEdge) : null;
-  const selectionBox =
-    interactionState.kind === "marqueeSelecting"
-      ? {
-          startX: interactionState.startWorld.x,
-          startY: interactionState.startWorld.y,
-          endX: interactionState.currentWorld.x,
-          endY: interactionState.currentWorld.y
-        }
-      : null;
-  const connectionDraft = interactionState.kind === "connectingEdge" ? interactionState : null;
-  const retargetDraft = interactionState.kind === "retargetingEdge" ? interactionState : null;
-  const connectionPreview = useMemo(
-    () =>
-      connectionDraft
-        ? resolveConnectionPreview({
-            fromId: connectionDraft.fromId,
-            currentWorld: connectionDraft.currentWorld,
-            nodes: renderedNodeGeometries,
-            subgraphs: renderedSubgraphGeometries,
-            anchorSnapRadiusWorld: connectionAnchorSnapRadiusWorld
-          })
-        : null,
-    [connectionAnchorSnapRadiusWorld, connectionDraft, renderedNodeGeometries, renderedSubgraphGeometries]
-  );
-  const connectionDraftGeometry = useMemo(() => {
-    if (!connectionDraft || !connectionPreview) return null;
-
-    const sourceRect = routedEntityRects.find((rect) => rect.id === connectionDraft.fromId);
-    if (!sourceRect) return null;
-
-    if (connectionPreview.valid && connectionPreview.targetId) {
-      const draftEdge: CanvasEdge = {
-        id: "__connection_draft__",
-        from: connectionDraft.fromId,
-        to: connectionPreview.targetId,
-        label: "",
-        style: "solid",
-        markerStart: "none",
-        markerEnd: "arrow",
-        minLength: 1,
-        arrowType: "arrow",
-        ...(connectionDraft.fromAnchor ? { fromAnchor: connectionDraft.fromAnchor } : {}),
-        ...(connectionPreview.targetAnchor ? { toAnchor: connectionPreview.targetAnchor } : {})
-      };
-      const draftGeometryById = computeEdgePathMap([...visibleEdges, draftEdge], routedEntityRects, draftEdgeRouting, { laneSpacing: parallelEdgeLaneSpacing });
-      return draftGeometryById.get(draftEdge.id) || computeEdgeDraftPath(sourceRect, connectionPreview.geometryTarget, draftEdgeRouting);
-    }
-
-    return computeEdgeDraftPath(sourceRect, connectionPreview.geometryTarget, draftEdgeRouting);
-  }, [connectionDraft, connectionPreview, draftEdgeRouting, parallelEdgeLaneSpacing, routedEntityRects, visibleEdges]);
-  const connectionDraftVisual = useMemo(
-    () => getConnectionDraftVisualState({ valid: connectionPreview?.valid ?? false, visualTokens }),
-    [connectionPreview?.valid, visualTokens]
-  );
-  const retargetPreview = useMemo(() => {
-    if (!retargetDraft) return null;
-
-    const edge = graph.edges.find((item) => item.id === retargetDraft.edgeId);
-    if (!edge) return null;
-
-    return resolveRetargetPreview({
-      edge,
-      side: retargetDraft.side,
-      currentWorld: retargetDraft.currentWorld,
-      nodes: renderedNodeGeometries,
-      subgraphs: renderedSubgraphGeometries,
-      anchorSnapRadiusWorld: connectionAnchorSnapRadiusWorld
-    });
-  }, [connectionAnchorSnapRadiusWorld, graph.edges, renderedNodeGeometries, renderedSubgraphGeometries, retargetDraft]);
-  const retargetDraftGeometry = useMemo(() => {
-    if (!retargetDraft || !retargetPreview) return null;
-
-    const edge = graph.edges.find((item) => item.id === retargetDraft.edgeId);
-    if (!edge) return null;
-
-    if (retargetPreview.valid && retargetPreview.targetId) {
-      const anchorKey = retargetDraft.side === "from" ? "fromAnchor" : "toAnchor";
-      const retargetedEdge = { ...edge, [retargetDraft.side]: retargetPreview.targetId, [anchorKey]: retargetPreview.targetAnchor || undefined };
-      const previewEdges = visibleEdges.some((item) => item.id === edge.id)
-        ? visibleEdges.map((item) => (item.id === edge.id ? retargetedEdge : item))
-        : [...visibleEdges, retargetedEdge];
-      const previewGeometryById = computeEdgePathMap(previewEdges, routedEntityRects, draftEdgeRouting, { laneSpacing: parallelEdgeLaneSpacing });
-      return previewGeometryById.get(edge.id) || computeEdgeRetargetPath(edge, routedEntityRects, retargetDraft.side, retargetPreview.geometryTarget, draftEdgeRouting);
-    }
-
-    return computeEdgeRetargetPath(edge, routedEntityRects, retargetDraft.side, retargetPreview.geometryTarget, draftEdgeRouting);
-  }, [draftEdgeRouting, graph.edges, parallelEdgeLaneSpacing, retargetDraft, retargetPreview, routedEntityRects, visibleEdges]);
-  const selectedSingleEdgeGeometry =
-    retargetDraft?.edgeId === selectedSingleEdge?.id && retargetDraftGeometry ? retargetDraftGeometry : selectedSingleEdgeBaseGeometry;
-  const connectionTargetNodeId = connectionPreview?.targetNodeId ?? retargetPreview?.targetNodeId ?? null;
-  const connectionInvalidNodeId = connectionPreview?.invalidNodeId ?? retargetPreview?.invalidNodeId ?? null;
-  const connectionTargetSubgraphId = connectionPreview?.targetSubgraphId ?? retargetPreview?.targetSubgraphId ?? null;
-  const connectionInvalidSubgraphId = connectionPreview?.invalidSubgraphId ?? retargetPreview?.invalidSubgraphId ?? null;
-  const renderScope = useMemo(
-    () =>
-      resolveCanvasRenderScope({
-        graph,
-        viewport,
-        canvasSize: dimensions,
-        viewFilters,
-        nodeBounds: renderedNodeGeometries,
-        subgraphBounds: renderedSubgraphGeometries,
-        edges: visibleEdges,
-        selection,
-        hoveredNodeId,
-        hoveredSubgraphId,
-        hoveredEdgeId,
-        inlineEdit,
-        interactionState,
-        connectionTargetNodeId,
-        connectionInvalidNodeId,
-        connectionTargetSubgraphId,
-        connectionInvalidSubgraphId
-      }),
-    [
-      connectionInvalidNodeId,
-      connectionInvalidSubgraphId,
-      connectionTargetNodeId,
-      connectionTargetSubgraphId,
-      dimensions,
-      graph,
-      hoveredEdgeId,
-      hoveredNodeId,
-      hoveredSubgraphId,
-      inlineEdit,
-      interactionState,
-      renderedNodeGeometries,
-      renderedSubgraphGeometries,
-      selection,
-      viewFilters,
-      viewport,
-      visibleEdges
-    ]
-  );
-  const scopedRenderedNodes = useMemo(() => renderedNodes.filter((node) => renderScope.nodeIds.has(node.id)), [renderScope, renderedNodes]);
-  const scopedSubgraphGeometries = useMemo(
-    () => renderedSubgraphGeometries.filter((geometry) => renderScope.subgraphIds.has(geometry.id)),
-    [renderScope, renderedSubgraphGeometries]
-  );
-  const scopedVisibleEdges = useMemo(() => visibleEdges.filter((edge) => renderScope.edgeIds.has(edge.id)), [renderScope, visibleEdges]);
-
-  const applyViewportToStage = useCallback((update: ScheduledViewport) => {
-    const nextViewport = update.viewport;
-    const stage = stageRef.current;
-    viewportRef.current = nextViewport;
-
-    if (!stage) return;
-    stage.position({ x: nextViewport.x, y: nextViewport.y });
-    stage.scale({ x: nextViewport.scale, y: nextViewport.scale });
-    stage.batchDraw();
-  }, []);
 
   const {
-    current: currentScheduledViewport,
-    schedule: scheduleScheduledViewport,
-    sync: syncScheduledViewport
-  } = useViewportScheduler<ScheduledViewport>({
-    initialValue: { viewport, source: "api" },
-    metricName: "canvas-viewport-visual-latency",
-    applyVisual: applyViewportToStage,
-    commit: (update) => {
-      onEditorCommand({ type: "viewport.set", viewport: update.viewport, source: update.source });
-    }
+    currentViewport,
+    scheduleViewportChange,
+    pointerWorldPoint,
+    trackPointerWorldPoint,
+    screenToWorld,
+    worldToScreen,
+    pointerScreenPoint,
+    screenPointFromClient,
+    onWheel
+  } = useKonvaViewport({
+    containerRef,
+    stageRef,
+    dimensions,
+    viewport,
+    graph,
+    selection,
+    viewFilters,
+    mode,
+    edgeRouting,
+    layoutMode,
+    hoveredHitTarget,
+    interactionState,
+    onEditorCommand,
+    onPointerWorldChange,
+    invalidateBlankClickIntent
   });
-
-  const currentViewport = useCallback(() => currentScheduledViewport().viewport, [currentScheduledViewport]);
-
-  const scheduleViewportChange = useCallback(
-    (nextViewport: ViewportState, source: ViewportCommandSource = "wheel") => {
-      viewportRef.current = nextViewport;
-      scheduleScheduledViewport({ viewport: nextViewport, source });
-    },
-    [scheduleScheduledViewport]
-  );
-
-  function scheduleMotionCommit() {
-    if (motionCommitFrameRef.current) return;
-    motionCommitFrameRef.current = window.requestAnimationFrame(() => {
-      motionCommitFrameRef.current = null;
-      setNodeMotion({ ...nodeMotionRef.current });
-      setEdgeMotion({ ...edgeMotionRef.current });
-    });
-  }
-
-  function setNodeMotionVisual(id: string, visual: CanvasNodeMotionVisual) {
-    nodeMotionRef.current = { ...nodeMotionRef.current, [id]: visual };
-    scheduleMotionCommit();
-  }
-
-  function clearNodeMotionVisual(id: string) {
-    if (!nodeMotionRef.current[id]) return;
-    const next = { ...nodeMotionRef.current };
-    delete next[id];
-    nodeMotionRef.current = next;
-    scheduleMotionCommit();
-  }
-
-  function setEdgeMotionVisual(id: string, visual: CanvasEdgeMotionVisual) {
-    edgeMotionRef.current = { ...edgeMotionRef.current, [id]: visual };
-    scheduleMotionCommit();
-  }
-
-  function clearEdgeMotionVisual(id: string) {
-    if (!edgeMotionRef.current[id]) return;
-    const next = { ...edgeMotionRef.current };
-    delete next[id];
-    edgeMotionRef.current = next;
-    scheduleMotionCommit();
-  }
-
-  function stopActiveMotionTweens() {
-    for (const tween of activeMotionTweensRef.current) tween.kill();
-    activeMotionTweensRef.current = [];
-  }
 
   function setDragPreviewPositionsVisual(positions: CanvasNodePreviewPositions | null) {
     dragPreviewPositionsRef.current = positions;
@@ -649,7 +374,7 @@ export function KonvaCanvas({
     return resolveCanvasProximityScales({
       frames: runtime.frames,
       pointerScreen: pointer,
-      viewport: viewportRef.current,
+      viewport: currentViewport(),
       radiusPx: runtime.radiusPx,
       maxScale: runtime.maxScale
     });
@@ -704,60 +429,8 @@ export function KonvaCanvas({
     scheduleNodeProximityAnimation();
   }
 
-  function trackMotionTween(tween: gsap.core.Tween) {
-    activeMotionTweensRef.current.push(tween);
-  }
-
-  function animateNodeVisual(id: string, from: CanvasNodeMotionVisual, to: CanvasNodeMotionVisual, duration: number) {
-    const proxy = { ...from };
-    setNodeMotionVisual(id, proxy);
-    const tween = gsap.to(proxy, {
-      ...to,
-      duration,
-      ease: runtimeMotion.ease.emphasized,
-      overwrite: "auto",
-      onUpdate: () => setNodeMotionVisual(id, { ...proxy }),
-      onComplete: () => {
-        if (to.opacity >= 1 && to.scale === 1 && to.highlight === 0) clearNodeMotionVisual(id);
-      }
-    });
-    trackMotionTween(tween);
-  }
-
-  function animateNodeHighlight(id: string, node: CanvasNode) {
-    const current = nodeMotionRef.current[id] ?? { x: node.x, y: node.y, opacity: 1, scale: runtimeMotion.canvas.selectedScale, highlight: 1 };
-    const proxy = { ...current, scale: runtimeMotion.canvas.selectedScale, highlight: 1 };
-    setNodeMotionVisual(id, proxy);
-    const tween = gsap.to(proxy, {
-      scale: 1,
-      highlight: 0,
-      duration: runtimeMotion.canvas.highlightDuration,
-      ease: runtimeMotion.ease.standard,
-      overwrite: "auto",
-      onUpdate: () => setNodeMotionVisual(id, { ...proxy }),
-      onComplete: () => clearNodeMotionVisual(id)
-    });
-    trackMotionTween(tween);
-  }
-
-  function animateEdgeHighlight(id: string) {
-    const proxy = { highlight: 1 };
-    setEdgeMotionVisual(id, proxy);
-    const tween = gsap.to(proxy, {
-      highlight: 0,
-      duration: runtimeMotion.canvas.highlightDuration,
-      ease: runtimeMotion.ease.standard,
-      overwrite: "auto",
-      onUpdate: () => setEdgeMotionVisual(id, { ...proxy }),
-      onComplete: () => clearEdgeMotionVisual(id)
-    });
-    trackMotionTween(tween);
-  }
-
   useEffect(() => {
     return () => {
-      stopActiveMotionTweens();
-      if (motionCommitFrameRef.current) window.cancelAnimationFrame(motionCommitFrameRef.current);
       if (dragDraftCommandFrameRef.current !== null) window.cancelAnimationFrame(dragDraftCommandFrameRef.current);
       if (nodeProximityFrameRef.current !== null) window.cancelAnimationFrame(nodeProximityFrameRef.current);
     };
@@ -786,87 +459,6 @@ export function KonvaCanvas({
   ]);
 
   useEffect(() => {
-    const changes = resolveCanvasMotionChanges({
-      previousNodes: previousNodeSnapshotRef.current,
-      graph,
-      previousSelection: previousSelectionRef.current,
-      selection,
-      motion: runtimeMotion,
-      interactionKind: interactionState.kind
-    });
-    const currentNodeById = new Map(graph.nodes.map((node) => [node.id, node]));
-    const previousFullNodeById = previousFullNodeByIdRef.current;
-
-    previousNodeSnapshotRef.current = snapshotCanvasNodes(graph);
-    previousFullNodeByIdRef.current = new Map(graph.nodes.map((node) => [node.id, node]));
-    previousSelectionRef.current = selection;
-
-    if (!changes.animateLayout && !changes.highlightedNodeIds.length && !changes.highlightedEdgeIds.length) return;
-
-    stopActiveMotionTweens();
-
-    if (changes.animateLayout) {
-      const exiting = changes.removedNodeIds.map((id) => previousFullNodeById.get(id)).filter((node): node is CanvasNode => Boolean(node));
-      if (exiting.length) setExitingNodes((current) => [...current.filter((node) => !changes.removedNodeIds.includes(node.id)), ...exiting]);
-
-      for (const id of changes.movedNodeIds) {
-        const previous = previousFullNodeById.get(id);
-        const node = currentNodeById.get(id);
-        if (!previous || !node) continue;
-        animateNodeVisual(
-          id,
-          { x: previous.x, y: previous.y, opacity: 1, scale: 1, highlight: 0 },
-          { x: node.x, y: node.y, opacity: 1, scale: 1, highlight: 0 },
-          runtimeMotion.duration.layout
-        );
-      }
-
-      for (const id of changes.createdNodeIds) {
-        const node = currentNodeById.get(id);
-        if (!node) continue;
-        animateNodeVisual(
-          id,
-          { x: node.x, y: node.y, opacity: 0.75, scale: runtimeMotion.canvas.createScale, highlight: 0.35 },
-          { x: node.x, y: node.y, opacity: 1, scale: 1, highlight: 0 },
-          runtimeMotion.duration.fast
-        );
-      }
-
-      for (const id of changes.removedNodeIds) {
-        const previous = previousFullNodeById.get(id);
-        if (!previous) continue;
-        const proxy = { x: previous.x, y: previous.y, opacity: 1, scale: 1, highlight: 0 };
-        setNodeMotionVisual(id, proxy);
-        const tween = gsap.to(proxy, {
-          opacity: 0,
-          scale: runtimeMotion.canvas.createScale,
-          duration: runtimeMotion.duration.base,
-          ease: runtimeMotion.ease.exit,
-          overwrite: "auto",
-          onUpdate: () => setNodeMotionVisual(id, { ...proxy }),
-          onComplete: () => {
-            clearNodeMotionVisual(id);
-            setExitingNodes((current) => current.filter((node) => node.id !== id));
-          }
-        });
-        trackMotionTween(tween);
-      }
-    }
-
-    const canAnimateSelectionHighlights = runtimeMotion.canvas.highlightDuration > 0 && interactionState.kind !== "draggingNodes" && interactionState.kind !== "draggingSubgraphs" && interactionState.kind !== "panning";
-    if (canAnimateSelectionHighlights) {
-      for (const id of changes.highlightedNodeIds) {
-        const node = currentNodeById.get(id);
-        if (node) animateNodeHighlight(id, node);
-      }
-      for (const id of changes.highlightedEdgeIds) animateEdgeHighlight(id);
-    }
-    // Animation helpers intentionally stay outside the dependency list; runtimeMotion,
-    // graph, selection and interaction kind are the semantic invalidation boundary.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [graph, interactionState.kind, runtimeMotion, selection]);
-
-  useEffect(() => {
     const nextSelectionKey = selectionVersionKey(selection);
     if (nextSelectionKey === lastSelectionKeyRef.current) return;
 
@@ -880,10 +472,6 @@ export function KonvaCanvas({
     invalidateBlankClickIntent();
   }, [mode, panningRequested]);
 
-  useLayoutEffect(() => {
-    syncScheduledViewport({ viewport, source: "api" }, { applyVisual: true });
-  }, [dimensions.height, dimensions.width, syncScheduledViewport, viewport]);
-
   useEffect(() => {
     onLiveStateChange?.({
       canvasSize: dimensions,
@@ -891,12 +479,6 @@ export function KonvaCanvas({
       interaction: interactionState.kind
     });
   }, [dimensions, inlineEdit, interactionState.kind, onLiveStateChange]);
-
-  useEffect(() => {
-    if (viewFilters.edges) return;
-    setHoveredEdgeId(null);
-    setHoveredHitTarget((current) => (isEdgeHitTarget(current) ? { kind: "blank" } : current));
-  }, [viewFilters.edges]);
 
   useEffect(() => {
     if (inlineEdit?.type !== "node") return;
@@ -932,133 +514,6 @@ export function KonvaCanvas({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [graph.nodes, inlineEdit, interactionState, mode, selection.edgeIds.length, selection.nodeIds]);
 
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-
-    function gesturePoint(event: SafariGestureEvent) {
-      return screenPointFromClient(event.clientX, event.clientY) || { x: dimensions.width / 2, y: dimensions.height / 2 };
-    }
-
-    function onGestureStart(event: SafariGestureEvent) {
-      event.preventDefault();
-      suppressWheelZoomUntilRef.current = Date.now() + 350;
-
-      if (interactionState.kind !== "idle") {
-        gestureNavigationRef.current = null;
-        return;
-      }
-
-      invalidateBlankClickIntent();
-      gestureNavigationRef.current = {
-        viewport: currentViewport(),
-        pointer: gesturePoint(event)
-      };
-    }
-
-    function onGestureChange(event: SafariGestureEvent) {
-      event.preventDefault();
-      suppressWheelZoomUntilRef.current = Date.now() + 250;
-
-      const start = gestureNavigationRef.current;
-      const scale = typeof event.scale === "number" && Number.isFinite(event.scale) ? event.scale : 1;
-      if (!start || scale <= 0) return;
-
-      const gestureInput = createStandardGestureInput({
-        phase: "change",
-        pointer: start.pointer,
-        canvasSize: dimensions,
-        scale,
-        timestamp: event.timeStamp,
-        interactionKind: interactionState.kind
-      });
-      const intent = resolveInteractionIntent(
-        gestureInput,
-        buildInteractionContext({
-          graph,
-          selection,
-          viewport: start.viewport,
-          viewFilters,
-          mode,
-          workspaceView: "canvas",
-          editableKind: "flowchart",
-          edgeRouting,
-          layoutMode,
-          canvasSize: dimensions,
-          hitTarget: hoveredHitTarget,
-          modifiers: gestureInput.modifiers,
-          gestureState: interactionState.kind
-        })
-      );
-      const command = commandFromInteractionIntent(intent);
-      if (command?.type === "viewport.set") scheduleViewportChange(command.viewport, command.source);
-    }
-
-    function onGestureEnd(event: SafariGestureEvent) {
-      event.preventDefault();
-      gestureNavigationRef.current = null;
-      suppressWheelZoomUntilRef.current = Date.now() + 350;
-    }
-
-    container.addEventListener("gesturestart", onGestureStart as EventListener, { passive: false });
-    container.addEventListener("gesturechange", onGestureChange as EventListener, { passive: false });
-    container.addEventListener("gestureend", onGestureEnd as EventListener, { passive: false });
-
-    return () => {
-      container.removeEventListener("gesturestart", onGestureStart as EventListener);
-      container.removeEventListener("gesturechange", onGestureChange as EventListener);
-      container.removeEventListener("gestureend", onGestureEnd as EventListener);
-    };
-  }, [currentViewport, dimensions, edgeRouting, graph, hoveredHitTarget, interactionState.kind, layoutMode, mode, scheduleViewportChange, selection, viewFilters]);
-
-  function pointerWorldPoint() {
-    const stage = stageRef.current;
-    const pointer = stage?.getPointerPosition();
-    if (!stage || !pointer) return null;
-    const activeViewport = currentViewport();
-
-    return {
-      x: (pointer.x - activeViewport.x) / activeViewport.scale,
-      y: (pointer.y - activeViewport.y) / activeViewport.scale
-    };
-  }
-
-  function trackPointerWorldPoint(point = pointerWorldPoint()) {
-    if (point) onPointerWorldChange?.(point);
-    return point;
-  }
-
-  function screenToWorld(point: CanvasPoint) {
-    const activeViewport = currentViewport();
-    return {
-      x: (point.x - activeViewport.x) / activeViewport.scale,
-      y: (point.y - activeViewport.y) / activeViewport.scale
-    };
-  }
-
-  function worldToScreen(point: { x: number; y: number }) {
-    const activeViewport = currentViewport();
-    return {
-      x: activeViewport.x + point.x * activeViewport.scale,
-      y: activeViewport.y + point.y * activeViewport.scale
-    };
-  }
-
-  function pointerScreenPoint(): CanvasPoint | null {
-    return stageRef.current?.getPointerPosition() || null;
-  }
-
-  function screenPointFromClient(clientX: number | undefined, clientY: number | undefined): CanvasPoint | null {
-    const container = containerRef.current;
-    if (!container || typeof clientX !== "number" || typeof clientY !== "number") return null;
-
-    const rect = container.getBoundingClientRect();
-    return {
-      x: clientX - rect.left,
-      y: clientY - rect.top
-    };
-  }
-
   function invalidateBlankClickIntent() {
     blankClickIntentRef.current = null;
     interactionGenerationRef.current += 1;
@@ -1070,56 +525,6 @@ export function KonvaCanvas({
 
   function hitTargetFromEvent(event: KonvaEventObject<MouseEvent>): HitTarget {
     return resolveKonvaHitTarget(event.target, event.target.getStage());
-  }
-
-  function updateHoverFromHit(hit: HitTarget) {
-    setHoveredHitTarget(hit);
-
-    if (hit.kind === "node") {
-      setHoveredNodeId(hit.id);
-      setHoveredSubgraphId(null);
-      setHoveredEdgeId(null);
-      return;
-    }
-
-    if (hit.kind === "nodeAnchor") {
-      setHoveredNodeId(hit.nodeId);
-      setHoveredSubgraphId(null);
-      setHoveredEdgeId(null);
-      return;
-    }
-
-    if (hit.kind === "subgraph" || hit.kind === "subgraphTitle") {
-      setHoveredNodeId(null);
-      setHoveredSubgraphId(hit.id);
-      setHoveredEdgeId(null);
-      return;
-    }
-
-    if (hit.kind === "subgraphAnchor") {
-      setHoveredNodeId(null);
-      setHoveredSubgraphId(hit.subgraphId);
-      setHoveredEdgeId(null);
-      return;
-    }
-
-    if (hit.kind === "edge" || hit.kind === "edgeLabel") {
-      setHoveredNodeId(null);
-      setHoveredSubgraphId(null);
-      setHoveredEdgeId(hit.id);
-      return;
-    }
-
-    if (hit.kind === "edgeEndpoint") {
-      setHoveredNodeId(null);
-      setHoveredSubgraphId(null);
-      setHoveredEdgeId(hit.edgeId);
-      return;
-    }
-
-    setHoveredNodeId(null);
-    setHoveredSubgraphId(null);
-    setHoveredEdgeId(null);
   }
 
   function applyPointerResolution(resolution: CanvasPointerResolution, options?: { commitState?: boolean }) {
@@ -1257,57 +662,6 @@ export function KonvaCanvas({
     };
   }
 
-  function onWheel(event: KonvaEventObject<WheelEvent>) {
-    event.evt.preventDefault();
-    const stage = stageRef.current;
-    const pointer = stage?.getPointerPosition() || screenPointFromClient(event.evt.clientX, event.evt.clientY);
-    if (!pointer) return;
-
-    const isZoomWheel = !event.evt.shiftKey && Math.abs(event.evt.deltaY) > 0;
-    if (isZoomWheel && Date.now() < suppressWheelZoomUntilRef.current) return;
-
-    const wheelInput = createStandardWheelInput({
-      pointer,
-      canvasSize: dimensions,
-      deltaX: event.evt.deltaX,
-      deltaY: event.evt.deltaY,
-      deltaMode: event.evt.deltaMode,
-      modifiers: {
-        ctrlKey: event.evt.ctrlKey,
-        metaKey: event.evt.metaKey,
-        shiftKey: event.evt.shiftKey,
-        altKey: event.evt.altKey
-      },
-      timestamp: event.evt.timeStamp,
-      interactionKind: interactionState.kind
-    });
-    const intent = resolveInteractionIntent(
-      wheelInput,
-      buildInteractionContext({
-        graph,
-        selection,
-        viewport: currentViewport(),
-        viewFilters,
-        mode,
-        workspaceView: "canvas",
-        editableKind: "flowchart",
-        edgeRouting,
-        layoutMode,
-        canvasSize: dimensions,
-        hitTarget: hoveredHitTarget,
-        modifiers: wheelInput.modifiers,
-        gestureState: interactionState.kind
-      }),
-      { wheelIntentTracker: wheelIntentTrackerRef.current }
-    );
-    const command = commandFromInteractionIntent(intent);
-
-    if (command?.type !== "viewport.set") return;
-
-    invalidateBlankClickIntent();
-    scheduleViewportChange(command.viewport, command.source);
-  }
-
   function handleCanvasPointerDown(event: KonvaEventObject<MouseEvent>, explicitHit?: HitTarget, worldOverride?: CanvasPoint) {
     const pointer = pointerScreenPoint();
     const world = worldOverride ?? pointerWorldPoint();
@@ -1421,10 +775,7 @@ export function KonvaCanvas({
       resetInteraction();
       setAlignmentGuides([]);
     }
-    setHoveredNodeId(null);
-    setHoveredSubgraphId(null);
-    setHoveredEdgeId(null);
-    setHoveredHitTarget({ kind: "blank" });
+    clearHover();
   }
 
   function handleCanvasClick(event: KonvaEventObject<MouseEvent>, hit: HitTarget) {
