@@ -116,16 +116,21 @@ describe("interaction architecture contract", () => {
 
   it("keeps known oversized files on a no-growth budget", () => {
     const budgets = [
-      { path: "src/features/mermaid-editor/components/mermaid-editor.tsx", maxLines: 1000 },
+      { path: "src/features/mermaid-editor/components/mermaid-editor.tsx", maxLines: 700 },
       { path: "src/features/mermaid-editor/components/mermaid-editor/detached-workspace-windows.tsx", maxLines: 180 },
       { path: "src/features/mermaid-editor/components/mermaid-editor/editor-floating-chrome.tsx", maxLines: 320 },
       { path: "src/features/mermaid-editor/components/mermaid-editor/editor-overlays.tsx", maxLines: 120 },
       { path: "src/features/mermaid-editor/components/mermaid-editor/editor-shell-utils.ts", maxLines: 140 },
       { path: "src/features/mermaid-editor/components/mermaid-editor/editor-workspace-surface.tsx", maxLines: 240 },
       { path: "src/features/mermaid-editor/components/mermaid-editor/editor-workspace-panels.tsx", maxLines: 280 },
+      { path: "src/features/mermaid-editor/components/mermaid-editor/use-editor-command-actions.ts", maxLines: 400 },
+      { path: "src/features/mermaid-editor/components/mermaid-editor/use-editor-document-model.ts", maxLines: 220 },
       { path: "src/features/mermaid-editor/components/mermaid-editor/use-editor-draft-autosave.ts", maxLines: 80 },
       { path: "src/features/mermaid-editor/components/mermaid-editor/use-editor-draft-persistence.ts", maxLines: 250 },
       { path: "src/features/mermaid-editor/components/mermaid-editor/use-editor-keyboard-shortcuts.ts", maxLines: 260 },
+      { path: "src/features/mermaid-editor/components/mermaid-editor/use-editor-overlay-state.ts", maxLines: 160 },
+      { path: "src/features/mermaid-editor/components/mermaid-editor/use-editor-theme-model.ts", maxLines: 120 },
+      { path: "src/features/mermaid-editor/components/mermaid-editor/use-editor-workspace-panel-actions.ts", maxLines: 60 },
       { path: "src/features/mermaid-editor/components/mermaid-editor/use-editor-file-workflow.ts", maxLines: 160 },
       { path: "src/features/mermaid-editor/components/mermaid-editor/file-workflow/types.ts", maxLines: 160 },
       { path: "src/features/mermaid-editor/components/mermaid-editor/file-workflow/use-file-drop-workflow.ts", maxLines: 240 },
@@ -501,6 +506,31 @@ describe("interaction architecture contract", () => {
     expect(editor).not.toContain("function diagramTypeLabel(");
   });
 
+  it("keeps MermaidEditor state models and command actions in focused hooks", () => {
+    const editor = readProjectFile("src/features/mermaid-editor/components/mermaid-editor.tsx");
+    const actions = readProjectFile("src/features/mermaid-editor/components/mermaid-editor/use-editor-command-actions.ts");
+    const documentModel = readProjectFile("src/features/mermaid-editor/components/mermaid-editor/use-editor-document-model.ts");
+    const themeModel = readProjectFile("src/features/mermaid-editor/components/mermaid-editor/use-editor-theme-model.ts");
+    const overlayState = readProjectFile("src/features/mermaid-editor/components/mermaid-editor/use-editor-overlay-state.ts");
+    const panelActions = readProjectFile("src/features/mermaid-editor/components/mermaid-editor/use-editor-workspace-panel-actions.ts");
+
+    expect(editor).toContain("useEditorDocumentModel");
+    expect(editor).toContain("useEditorCommandActions");
+    expect(editor).toContain("useEditorThemeModel");
+    expect(editor).toContain("useEditorOverlayState");
+    expect(editor).toContain("useEditorWorkspacePanelActions");
+    expect(actions).toContain("useEditorDocumentCommands");
+    expect(actions).toContain("useEditorClipboardActions");
+    expect(documentModel).toContain("currentDocument");
+    expect(themeModel).toContain("useResolvedEditorMotion");
+    expect(overlayState).toContain("browserDomOverlayActive");
+    expect(panelActions).toContain("openWorkspacePanel");
+    expect(editor).not.toContain("function addImageNode(");
+    expect(editor).not.toContain("function updateViewport(");
+    expect(editor).not.toContain("function updateFileMenuOpen(");
+    expect(editor).not.toContain("const [documentKind, setDocumentKind]");
+  });
+
   it("keeps document lifecycle and draft persistence outside the file workflow shell", () => {
     const workflow = readProjectFile("src/features/mermaid-editor/components/mermaid-editor/use-editor-file-workflow.ts");
 
@@ -516,8 +546,10 @@ describe("interaction architecture contract", () => {
 
   it("keeps document command logic outside the MermaidEditor composition file", () => {
     const editor = readProjectFile("src/features/mermaid-editor/components/mermaid-editor.tsx");
+    const actions = readProjectFile("src/features/mermaid-editor/components/mermaid-editor/use-editor-command-actions.ts");
 
-    expect(editor).toContain("useEditorDocumentCommands");
+    expect(editor).toContain("useEditorCommandActions");
+    expect(actions).toContain("useEditorDocumentCommands");
     expect(editor).not.toContain("function updateSelection(");
     expect(editor).not.toContain("function applyEditorCommand(");
     expect(editor).not.toContain("function restoreSnapshot(");
@@ -533,10 +565,11 @@ describe("interaction architecture contract", () => {
 
   it("keeps AI, desktop, and clipboard controllers outside the MermaidEditor composition file", () => {
     const editor = readProjectFile("src/features/mermaid-editor/components/mermaid-editor.tsx");
+    const actions = readProjectFile("src/features/mermaid-editor/components/mermaid-editor/use-editor-command-actions.ts");
 
     expect(editor).toContain("useEditorAiCommands");
     expect(editor).toContain("useEditorDesktopEvents");
-    expect(editor).toContain("useEditorClipboardActions");
+    expect(actions).toContain("useEditorClipboardActions");
     expect(editor).not.toContain("function editorCommandDiagnostic(");
     expect(editor).not.toContain("pollAiCommand");
     expect(editor).not.toContain("finishAiCommand");
