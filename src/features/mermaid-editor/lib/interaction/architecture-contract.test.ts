@@ -114,7 +114,13 @@ describe("interaction architecture contract", () => {
 
   it("keeps known oversized files on a no-growth budget", () => {
     const budgets = [
-      { path: "src/features/mermaid-editor/components/mermaid-editor.tsx", maxLines: 1500 },
+      { path: "src/features/mermaid-editor/components/mermaid-editor.tsx", maxLines: 1200 },
+      { path: "src/features/mermaid-editor/components/mermaid-editor/detached-workspace-windows.tsx", maxLines: 180 },
+      { path: "src/features/mermaid-editor/components/mermaid-editor/editor-shell-utils.ts", maxLines: 140 },
+      { path: "src/features/mermaid-editor/components/mermaid-editor/editor-workspace-surface.tsx", maxLines: 240 },
+      { path: "src/features/mermaid-editor/components/mermaid-editor/use-editor-draft-autosave.ts", maxLines: 80 },
+      { path: "src/features/mermaid-editor/components/mermaid-editor/use-editor-draft-persistence.ts", maxLines: 250 },
+      { path: "src/features/mermaid-editor/components/mermaid-editor/use-editor-keyboard-shortcuts.ts", maxLines: 260 },
       { path: "src/features/mermaid-editor/components/mermaid-editor/use-editor-file-workflow.ts", maxLines: 900 },
       { path: "src/features/mermaid-editor/components/inspector-panel.tsx", maxLines: 500 },
       { path: "src/features/mermaid-editor/components/inspector-panel/node-sections.tsx", maxLines: 500 },
@@ -149,6 +155,15 @@ describe("interaction architecture contract", () => {
     expect(editor).not.toContain("function FileDropFeedbackBadge(");
     expect(editor).not.toContain("function FileWorkflowErrorBanner(");
     expect(editor).not.toContain("function UnsavedFilePrompt(");
+    expect(editor).toContain("EditorWorkspaceSurface");
+    expect(editor).toContain("DetachedWorkspaceWindows");
+    expect(editor).not.toContain("<CanvasDocumentEditor");
+    expect(editor).not.toContain("<KonvaCanvas");
+    expect(editor).not.toContain("<MarkdownPanel");
+    expect(editor).not.toContain("<SourcePanel");
+    expect(editor).not.toContain("<PreviewPanel");
+    expect(editor).not.toContain("detachedMarkdownWindows.map");
+    expect(editor).not.toContain("detachedBrowserWindows.map");
     expect(editor).not.toContain("function loadInitialState(");
     expect(editor).not.toContain("function buildFallbackCleanDocument(");
     expect(editor).not.toContain("function createEmptyDocumentGraph(");
@@ -265,6 +280,24 @@ describe("interaction architecture contract", () => {
     expect(editor).not.toContain("function handleRuntimeFileDropRequest(");
     expect(editor).not.toContain("function saveMermaidFile(");
     expect(editor).not.toContain("function saveMermaidFileAsResult(");
+  });
+
+  it("keeps MermaidEditor shell helpers and side effects in focused modules", () => {
+    const editor = readProjectFile("src/features/mermaid-editor/components/mermaid-editor.tsx");
+    const keyboard = readProjectFile("src/features/mermaid-editor/components/mermaid-editor/use-editor-keyboard-shortcuts.ts");
+    const autosave = readProjectFile("src/features/mermaid-editor/components/mermaid-editor/use-editor-draft-autosave.ts");
+
+    expect(editor).toContain("useEditorKeyboardShortcuts");
+    expect(editor).toContain("useEditorDraftAutosave");
+    expect(keyboard).toContain("window.addEventListener(\"keydown\"");
+    expect(keyboard).toContain("shouldCreateGroupFromShortcut");
+    expect(autosave).toContain("persistStoredEditorDraft");
+    expect(autosave).toContain("incrementPerformanceCounter(\"local-storage-write\")");
+    expect(editor).not.toContain("shouldCreateGroupFromShortcut");
+    expect(editor).not.toContain("storageWriteTimerRef");
+    expect(editor).not.toContain("runtime.saveDraft({");
+    expect(editor).not.toContain("function loadImageDimensions(");
+    expect(editor).not.toContain("function diagramTypeLabel(");
   });
 
   it("keeps document lifecycle and draft persistence outside the file workflow shell", () => {

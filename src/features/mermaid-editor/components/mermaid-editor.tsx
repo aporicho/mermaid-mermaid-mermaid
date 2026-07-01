@@ -7,32 +7,38 @@ import {
   Xmark
 } from "iconoir-react/regular";
 
-import { BrowserWindowPanel, MarkdownWindowPanel } from "@/features/mermaid-editor/components/detached-window-panels";
 import { InspectorPanel } from "@/features/mermaid-editor/components/inspector-panel";
-import { CanvasDocumentEditor } from "@/features/mermaid-editor/components/canvas-document-editor";
 import { FileMenu, SecondaryActionsMenu, ViewFilterMenu } from "@/features/mermaid-editor/components/editor-menus";
 import { ExplorerPanel } from "@/features/mermaid-editor/components/explorer-panel";
 import { FileDropFeedbackBadge, FileWorkflowErrorBanner, UnsavedFilePrompt, type FileDropFeedback } from "@/features/mermaid-editor/components/file-workflow-feedback";
 import { FloatingChromeLayer, FloatingChromeSlot, FloatingIconButton, FloatingPanel, MotionPresence } from "@/features/mermaid-editor/components/floating-chrome";
-import { MarkdownPanel } from "@/features/mermaid-editor/components/markdown-panel";
 import { useEditorAiCommands } from "@/features/mermaid-editor/components/mermaid-editor/use-editor-ai-commands";
 import { useEditorClipboardActions } from "@/features/mermaid-editor/components/mermaid-editor/use-editor-clipboard-actions";
 import { useEditorDesktopEvents } from "@/features/mermaid-editor/components/mermaid-editor/use-editor-desktop-events";
+import { useEditorDraftAutosave } from "@/features/mermaid-editor/components/mermaid-editor/use-editor-draft-autosave";
 import { useEditorDocumentCommands } from "@/features/mermaid-editor/components/mermaid-editor/use-editor-document-commands";
+import { DetachedWorkspaceWindows } from "@/features/mermaid-editor/components/mermaid-editor/detached-workspace-windows";
+import { EditorWorkspaceSurface } from "@/features/mermaid-editor/components/mermaid-editor/editor-workspace-surface";
+import {
+  canvasLiveStateKey,
+  diagramTypeLabel,
+  imageLabelFromSrc,
+  loadImageDimensions,
+  resolveGraphImageDisplaySources,
+  viewportCenterPoint,
+  type CanvasLiveState
+} from "@/features/mermaid-editor/components/mermaid-editor/editor-shell-utils";
 import { useEditorFileWorkflow, type UnsavedPromptState } from "@/features/mermaid-editor/components/mermaid-editor/use-editor-file-workflow";
+import { useEditorKeyboardShortcuts } from "@/features/mermaid-editor/components/mermaid-editor/use-editor-keyboard-shortcuts";
 import { useEditorRecentActions } from "@/features/mermaid-editor/components/mermaid-editor/use-editor-recent-actions";
 import { useEditorWindowActions } from "@/features/mermaid-editor/components/mermaid-editor/use-editor-window-actions";
 import { NodeActionEditorDialog } from "@/features/mermaid-editor/components/node-action-editor-dialog";
-import { PreviewPanel } from "@/features/mermaid-editor/components/preview-panel";
-import { SourcePanel } from "@/features/mermaid-editor/components/source-panel";
 import { TerminalPanel } from "@/features/mermaid-editor/components/terminal-panel";
 import { WorkspacePanelControls, WorkspacePanelHeader } from "@/features/mermaid-editor/components/workspace-panel-controls";
 import { DesktopWindowControls, ToolModeCluster, WorkspaceViewCluster } from "@/features/mermaid-editor/components/workspace-view-controls";
 import { appLogoById } from "@/features/mermaid-editor/lib/app-logo";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { layoutFromGraph } from "@/features/mermaid-editor/lib/canvas-layout";
 import { deriveDagreAutoLayoutResult } from "@/features/mermaid-editor/lib/canvas-auto-layout";
-import type { AiCanvasSize, AiEditingContext } from "@/features/mermaid-editor/lib/ai-context";
 import { buildMermaidDocument } from "@/features/mermaid-editor/lib/mermaid-document";
 import {
   emptySelection,
@@ -43,9 +49,7 @@ import { createHistory } from "@/features/mermaid-editor/lib/editor-history";
 import type { EditorDiagnostic } from "@/features/mermaid-editor/lib/editor-diagnostics";
 import {
   layoutThemeFromState,
-  loadInitialState,
-  serializableRuntimeFileRef,
-  type StoredEditor
+  loadInitialState
 } from "@/features/mermaid-editor/lib/editor-state";
 import {
   createEditorRuntime,
@@ -55,7 +59,7 @@ import {
   type FileWorkflowError,
   type RecentFileEntry
 } from "@/features/mermaid-editor/lib/file-workflow";
-import { documentKindLabel, type DocumentKind } from "@/features/mermaid-editor/lib/document-kind";
+import { type DocumentKind } from "@/features/mermaid-editor/lib/document-kind";
 import { type ProjectWorkspace } from "@/features/mermaid-editor/lib/project-workspace";
 import type {
   ClipboardPayload,
@@ -81,12 +85,10 @@ import {
 } from "@/features/mermaid-editor/lib/editor-theme";
 import type { EditorPreferences } from "@/features/mermaid-editor/lib/editor-preferences";
 import { EditorMotionProvider, gsap, useResolvedEditorMotion } from "@/features/mermaid-editor/lib/use-gsap-motion";
-import { incrementPerformanceCounter } from "@/features/mermaid-editor/lib/editor-performance";
 import { serializeMermaid } from "@/features/mermaid-editor/lib/mermaid-graph";
 import { DEFAULT_VIEW_FILTERS, hiddenFilterCount, type ViewFilters } from "@/features/mermaid-editor/lib/view-filters";
 import { useDisableNativeContextMenu } from "@/features/mermaid-editor/lib/native-context-menu";
 import { EDITOR_CHROME_CLASSES } from "@/features/mermaid-editor/lib/editor-chrome";
-import { shouldCreateGroupFromShortcut } from "@/features/mermaid-editor/lib/editor-keyboard-shortcuts";
 import { workspaceViewForDocument, type WorkspaceView } from "@/features/mermaid-editor/lib/workspace-view";
 import {
   WORKSPACE_PANEL_DEFAULT_SIZES,
@@ -96,7 +98,7 @@ import {
   type DetachedMarkdownWindow,
   type StaticWorkspacePanelId
 } from "@/features/mermaid-editor/lib/workspace-panels";
-import { createImageAsset, DEFAULT_IMAGE_ASSET_HEIGHT, DEFAULT_IMAGE_ASSET_WIDTH } from "@/features/mermaid-editor/lib/node-assets";
+import { createImageAsset } from "@/features/mermaid-editor/lib/node-assets";
 import { cn } from "@/lib/utils";
 import { OVERLAY_Z_INDEX, useGlobalOverlayActivity } from "@/lib/overlay-layers";
 import {
@@ -105,84 +107,7 @@ import {
 } from "@/features/mermaid-editor/lib/canvas-document";
 import { parentDirectoryPath } from "@/features/mermaid-editor/lib/runtime-paths";
 
-const KonvaCanvas = lazy(() => import("@/features/mermaid-editor/components/konva-canvas").then((mod) => ({ default: mod.KonvaCanvas })));
 const ThemeSettingsPanel = lazy(() => import("@/features/mermaid-editor/components/theme-settings-panel").then((mod) => ({ default: mod.ThemeSettingsPanel })));
-
-type CanvasLiveState = {
-  canvasSize?: AiCanvasSize;
-  editing?: Exclude<AiEditingContext, { kind: "source" }> | null;
-  interaction?: string;
-};
-function diagramTypeLabel(diagramType: DiagramType) {
-  const labels: Record<DiagramType, string> = {
-    flowchart: "Flowchart",
-    sequence: "Sequence",
-    class: "Class",
-    state: "State",
-    er: "ER",
-    gantt: "Gantt",
-    pie: "Pie",
-    mindmap: "Mindmap",
-    timeline: "Timeline",
-    architecture: "Architecture",
-    unknown: "Mermaid"
-  };
-
-  return labels[diagramType];
-}
-
-function resolveGraphImageDisplaySources(graph: MermaidGraph, displaySrcBySrc: Record<string, string>): MermaidGraph {
-  return {
-    ...graph,
-    nodes: graph.nodes.map((node) => {
-      if (node.asset?.kind !== "image") return node;
-      const displaySrc = displaySrcBySrc[node.asset.src];
-      return displaySrc && displaySrc !== node.asset.src ? { ...node, asset: { ...node.asset, src: displaySrc } } : node;
-    })
-  };
-}
-
-function viewportCenterPoint(viewport: ViewportState, canvasSize?: AiCanvasSize) {
-  const width = canvasSize?.width || 840;
-  const height = canvasSize?.height || 520;
-  return {
-    x: (width / 2 - viewport.x) / viewport.scale,
-    y: (height / 2 - viewport.y) / viewport.scale
-  };
-}
-
-function imageLabelFromSrc(src: string) {
-  return src.split(/[\\/]/).filter(Boolean).at(-1)?.replace(/\.[^.]+$/, "") || "图片";
-}
-
-async function loadImageDimensions(src: string) {
-  if (typeof window === "undefined" || !src) return { width: DEFAULT_IMAGE_ASSET_WIDTH, height: DEFAULT_IMAGE_ASSET_HEIGHT };
-
-  return new Promise<{ width: number; height: number }>((resolve) => {
-    const image = new window.Image();
-    image.onload = () => {
-      const width = image.naturalWidth || DEFAULT_IMAGE_ASSET_WIDTH;
-      const height = image.naturalHeight || DEFAULT_IMAGE_ASSET_HEIGHT;
-      const maxSide = Math.max(width, height, 1);
-      const scale = maxSide > 360 ? 360 / maxSide : 1;
-      resolve({
-        width: Math.max(48, Math.round(width * scale)),
-        height: Math.max(48, Math.round(height * scale))
-      });
-    };
-    image.onerror = () => resolve({ width: DEFAULT_IMAGE_ASSET_WIDTH, height: DEFAULT_IMAGE_ASSET_HEIGHT });
-    image.src = src;
-  });
-}
-
-function canvasLiveStateKey(state: CanvasLiveState) {
-  return JSON.stringify({
-    width: state.canvasSize?.width || 0,
-    height: state.canvasSize?.height || 0,
-    editing: state.editing || null,
-    interaction: state.interaction || ""
-  });
-}
 
 export function MermaidEditor() {
   useDisableNativeContextMenu();
@@ -264,7 +189,6 @@ export function MermaidEditor() {
   const sourceEditBaseRef = useRef<EditorSnapshot | null>(null);
   const sourceEditTimerRef = useRef<number | null>(null);
   const themeEditBaseRef = useRef<{ themeId: EditorThemeId; customTheme: EditorTheme | null } | null>(null);
-  const storageWriteTimerRef = useRef<number | null>(null);
   const viewportMotionTweenRef = useRef<gsap.core.Tween | null>(null);
   const lastCanvasPointerWorldRef = useRef<{ x: number; y: number } | null>(null);
   const lastWindowFocusAtRef = useRef(Date.now());
@@ -806,40 +730,30 @@ export function MermaidEditor() {
     applyEditorThemeToDocument(activeTheme);
   }, [activeTheme]);
 
-  useEffect(() => {
-    if (!draftPersistenceReady) return;
-    if (storageWriteTimerRef.current) window.clearTimeout(storageWriteTimerRef.current);
-
-    storageWriteTimerRef.current = window.setTimeout(() => {
-      incrementPerformanceCounter("local-storage-write");
-      void runtime.saveDraft({
-          documentKind,
-          source: documentKind === "canvas" ? serializeCanvasDocument(canvasDocument) : source,
-          ...(documentKind === "canvas" ? { canvasDocument } : {}),
-          ...(documentKind === "mermaid" ? { layout: layoutFromGraph(graph, viewport, edgeRouting, layoutMode, fileTheme) } : {}),
-          viewport: documentKind === "canvas" ? canvasDocument.viewport : viewport,
-          edgeRouting,
-          layoutMode,
-          leftCollapsed,
-          rightCollapsed,
-          workspaceView,
-          viewFilters,
-          fileName,
-          fileRef: serializableRuntimeFileRef(fileRef),
-          recentFiles,
-          projectWorkspace,
-          lastSavedDocument,
-          themeId,
-          customTheme,
-          preferences
-        } satisfies StoredEditor);
-      storageWriteTimerRef.current = null;
-    }, 160);
-
-    return () => {
-      if (storageWriteTimerRef.current) window.clearTimeout(storageWriteTimerRef.current);
-    };
-  }, [canvasDocument, documentKind, source, graph, viewport, edgeRouting, layoutMode, leftCollapsed, rightCollapsed, workspaceView, viewFilters, fileName, fileRef, fileTheme, recentFiles, projectWorkspace, lastSavedDocument, themeId, customTheme, preferences, runtime, draftPersistenceReady]);
+  useEditorDraftAutosave({
+    ready: draftPersistenceReady,
+    runtime,
+    documentKind,
+    source,
+    canvasDocument,
+    graph,
+    viewport,
+    edgeRouting,
+    layoutMode,
+    leftCollapsed,
+    rightCollapsed,
+    workspaceView,
+    viewFilters,
+    fileName,
+    fileTheme,
+    fileRef,
+    recentFiles,
+    projectWorkspace,
+    lastSavedDocument,
+    themeId,
+    customTheme,
+    preferences
+  });
 
   function openWorkspacePanel(panelId: StaticWorkspacePanelId) {
     bringWorkspacePanelToFront(panelId);
@@ -876,121 +790,23 @@ export function MermaidEditor() {
     return closed;
   }
 
-  useEffect(() => {
-    function isTextInput(target: EventTarget | null) {
-      const element = target as HTMLElement | null;
-      if (!element) return false;
-      return element.tagName === "INPUT" || element.tagName === "TEXTAREA" || element.isContentEditable;
-    }
-
-    function isTerminalInput(target: EventTarget | null) {
-      const element = target as HTMLElement | null;
-      return Boolean(element?.closest(".terminal-panel"));
-    }
-
-    function onKeyDown(event: KeyboardEvent) {
-      if (isTerminalInput(event.target)) return;
-
-      if (event.key === "Escape" && closeFloatingOverlays()) {
-        event.preventDefault();
-        return;
-      }
-
-      const key = event.key.toLowerCase();
-      const command = event.ctrlKey || event.metaKey;
-
-      if (command && key === "s") {
-        event.preventDefault();
-        if (event.shiftKey) void saveMermaidFileAs();
-        else void saveMermaidFile();
-        return;
-      }
-
-      if (isTextInput(event.target)) return;
-      if (!isCanvasEditable) return;
-
-      if (shouldCreateGroupFromShortcut({
-        key: event.key,
-        ctrlKey: event.ctrlKey,
-        metaKey: event.metaKey,
-        shiftKey: event.shiftKey,
-        altKey: event.altKey,
-        repeat: event.repeat,
-        editable: isCanvasEditable,
-        hasSelection: hasSelection(selection)
-      })) {
-        event.preventDefault();
-        createGroupFromSelection("keyboard");
-        return;
-      }
-
-      if (command && key === "k") {
-        const selectedNode = graph.nodes.find((node) => node.id === selection.primaryId) || graph.nodes.find((node) => node.id === selection.nodeIds[0]);
-        if (selectedNode) {
-          event.preventDefault();
-          editCanvasNodeAction(selectedNode);
-        }
-        return;
-      }
-
-      if (command && event.key === "Enter") {
-        const selectedNode = graph.nodes.find((node) => node.id === selection.primaryId) || graph.nodes.find((node) => node.id === selection.nodeIds[0]);
-        if (selectedNode?.action) {
-          event.preventDefault();
-          executeCanvasNodeAction(selectedNode);
-        }
-        return;
-      }
-      if (event.code === "Space") {
-        event.preventDefault();
-        setSpacePanning(true);
-        return;
-      }
-
-      if (command && key === "z" && event.shiftKey) {
-        event.preventDefault();
-        performRedo();
-        return;
-      }
-      if (command && key === "z") {
-        event.preventDefault();
-        performUndo();
-        return;
-      }
-      if (command && key === "y") {
-        event.preventDefault();
-        performRedo();
-        return;
-      }
-      if (command && key === "c") {
-        event.preventDefault();
-        performCopy();
-        return;
-      }
-      if (command && key === "v") {
-        event.preventDefault();
-        void performPaste();
-        return;
-      }
-      if (event.key === "Delete" || event.key === "Backspace") {
-        event.preventDefault();
-        performDelete();
-        return;
-      }
-      if (key === "v") applyEditorCommand({ type: "mode.set", mode: setEditorMode("select"), source: "keyboard" });
-      if (key === "l") applyEditorCommand({ type: "mode.set", mode: setEditorMode("connect"), source: "keyboard" });
-    }
-
-    function onKeyUp(event: KeyboardEvent) {
-      if (event.code === "Space") setSpacePanning(false);
-    }
-
-    window.addEventListener("keydown", onKeyDown);
-    window.addEventListener("keyup", onKeyUp);
-    return () => {
-      window.removeEventListener("keydown", onKeyDown);
-      window.removeEventListener("keyup", onKeyUp);
-    };
+  useEditorKeyboardShortcuts({
+    graph,
+    selection,
+    isCanvasEditable,
+    closeFloatingOverlays,
+    saveMermaidFile,
+    saveMermaidFileAs,
+    createGroupFromSelection,
+    editCanvasNodeAction,
+    executeCanvasNodeAction,
+    performRedo,
+    performUndo,
+    performCopy,
+    performPaste,
+    performDelete,
+    setSpacePanning,
+    applyEditorCommand
   });
 
   function changeWorkspaceView(nextView: WorkspaceView) {
@@ -1024,62 +840,42 @@ export function MermaidEditor() {
           className="absolute inset-0 z-0"
         >
         <div ref={workspaceSurfaceRef} className="h-full min-h-0">
-          {documentKind === "canvas" ? (
-            <CanvasDocumentEditor
-              document={canvasDocument}
-              fileRef={fileRef}
-              runtime={runtime}
-              onChange={applyCanvasDocument}
-              onStatus={setStatus}
-            />
-          ) : workspaceView === "canvas" && isCanvasEditable ? (
-            <Suspense fallback={<div className="grid min-h-0 place-items-center bg-card text-sm text-muted-foreground">正在载入画布</div>}>
-              <KonvaCanvas
-                graph={graph}
-                selection={selection}
-                viewport={viewport}
-                mode={mode}
-                panningRequested={spacePanning}
-                viewFilters={viewFilters}
-                edgeRouting={edgeRouting}
-                mermaidEdgeRoutes={mermaidEdgeRoutes}
-                layoutMode={layoutMode}
-                imageDisplaySrcBySrc={imageDisplaySrcBySrc}
-                visualTokens={compiledTheme.canvasVisualTokens}
-                geometryTokens={compiledTheme.geometry}
-                motion={resolvedMotion}
-                onEditorCommand={applyEditorCommand}
-                onOpenNodeAction={executeCanvasNodeAction}
-                onEditNodeAction={editCanvasNodeAction}
-                onPointerWorldChange={recordCanvasPointerWorld}
-                onLiveStateChange={updateCanvasLiveState}
-              />
-            </Suspense>
-          ) : workspaceView === "markdown" && documentKind === "markdown" ? (
-            <MarkdownPanel
-              key={`${fileRef?.path || fileName}:markdown`}
-              value={source}
-              onChange={applyMarkdownSource}
-            />
-          ) : workspaceView === "source" ? (
-            <SourcePanel
-              value={source}
-              title={`${documentKindLabel(documentKind)} 源码`}
-              diagnostics={documentKind === "mermaid" ? diagnostics : []}
-              onChange={applySource}
-              onRun={documentKind === "mermaid" ? refreshFromSource : undefined}
-              className="border-0"
-            />
-          ) : (
-            <PreviewPanel
-              source={previewSource}
-              graph={isCanvasEditable ? graph : undefined}
-              framed={false}
-              diagnostics={diagnostics}
-              mermaidThemeVariables={compiledTheme.mermaidThemeVariables}
-              onEditorCommand={isCanvasEditable ? applyEditorCommand : undefined}
-            />
-          )}
+          <EditorWorkspaceSurface
+            documentKind={documentKind}
+            canvasDocument={canvasDocument}
+            fileRef={fileRef}
+            fileName={fileName}
+            runtime={runtime}
+            workspaceView={workspaceView}
+            isCanvasEditable={isCanvasEditable}
+            graph={graph}
+            selection={selection}
+            viewport={viewport}
+            mode={mode}
+            spacePanning={spacePanning}
+            viewFilters={viewFilters}
+            edgeRouting={edgeRouting}
+            mermaidEdgeRoutes={mermaidEdgeRoutes}
+            layoutMode={layoutMode}
+            imageDisplaySrcBySrc={imageDisplaySrcBySrc}
+            visualTokens={compiledTheme.canvasVisualTokens}
+            geometryTokens={compiledTheme.geometry}
+            motion={resolvedMotion}
+            source={source}
+            previewSource={previewSource}
+            diagnostics={diagnostics}
+            mermaidThemeVariables={compiledTheme.mermaidThemeVariables}
+            onCanvasDocumentChange={applyCanvasDocument}
+            onStatus={setStatus}
+            onMarkdownChange={applyMarkdownSource}
+            onSourceChange={applySource}
+            onRunSource={refreshFromSource}
+            onEditorCommand={applyEditorCommand}
+            onOpenNodeAction={executeCanvasNodeAction}
+            onEditNodeAction={editCanvasNodeAction}
+            onPointerWorldChange={recordCanvasPointerWorld}
+            onLiveStateChange={updateCanvasLiveState}
+          />
         </div>
         </MotionPresence>
         {fileDropFeedback ? <FileDropFeedbackBadge feedback={fileDropFeedback} /> : null}
@@ -1181,71 +977,24 @@ export function MermaidEditor() {
             }
           />
         </FloatingPanel>
-        {detachedMarkdownWindows.map((markdownWindow) => (
-          <FloatingPanel
-            key={markdownWindow.id}
-            open
-            placement="center-panel"
-            kind="workspace"
-            dismissMode="explicit"
-            panelId={markdownWindow.id}
-            active={activeWorkspacePanel === markdownWindow.id}
-            stackIndex={workspacePanelStackPosition(markdownWindow.id)}
-            onFocusPanel={() => bringWorkspacePanelToFront(markdownWindow.id)}
-            resetDragOnOpen={false}
-            defaultSize={WORKSPACE_PANEL_DEFAULT_SIZES.markdown}
-            minSize={WORKSPACE_PANEL_MIN_SIZES.markdown}
-            windowState={workspacePanelWindowState(markdownWindow.id)}
-            onWindowStateChange={(state) => setWorkspacePanelWindowState(markdownWindow.id, state)}
-            className="relative h-full w-full min-h-0 overflow-hidden rounded-lg"
-          >
-            <MarkdownWindowPanel
-              title={markdownWindow.title}
-              path={markdownWindow.file.path}
-              value={markdownWindow.value}
-              dirty={markdownWindow.value !== markdownWindow.savedValue}
-              windowState={workspacePanelWindowState(markdownWindow.id)}
-              onWindowStateChange={(state) => setWorkspacePanelWindowState(markdownWindow.id, state)}
-              onClose={() => closeDetachedMarkdownWindow(markdownWindow.id)}
-              onSave={() => void saveDetachedMarkdownWindow(markdownWindow.id)}
-              onChange={(value) => updateDetachedMarkdownWindow(markdownWindow.id, value)}
-            />
-          </FloatingPanel>
-        ))}
-        {detachedBrowserWindows.map((browserWindow) => (
-          <FloatingPanel
-            key={browserWindow.id}
-            open
-            placement="center-panel"
-            kind="workspace"
-            dismissMode="explicit"
-            panelId={browserWindow.id}
-            active={activeWorkspacePanel === browserWindow.id}
-            stackIndex={workspacePanelStackPosition(browserWindow.id)}
-            onFocusPanel={() => bringWorkspacePanelToFront(browserWindow.id)}
-            resetDragOnOpen={false}
-            defaultSize={WORKSPACE_PANEL_DEFAULT_SIZES.browser}
-            minSize={WORKSPACE_PANEL_MIN_SIZES.browser}
-            windowState={workspacePanelWindowState(browserWindow.id)}
-            onWindowStateChange={(state) => setWorkspacePanelWindowState(browserWindow.id, state)}
-            className="relative h-full w-full min-h-0 overflow-hidden rounded-lg"
-          >
-            <BrowserWindowPanel
-              panelId={browserWindow.id}
-              title={browserWindow.title}
-              url={browserWindow.url}
-              runtime={runtime}
-              active={activeWorkspacePanel === browserWindow.id}
-              domOverlayActive={browserDomOverlayActive}
-              windowState={workspacePanelWindowState(browserWindow.id)}
-              onWindowStateChange={(state) => setWorkspacePanelWindowState(browserWindow.id, state)}
-              onNavigate={(url) => updateDetachedBrowserWindow(browserWindow.id, url)}
-              onClose={() => closeDetachedBrowserWindow(browserWindow.id)}
-              onStatus={setStatus}
-              onBrowserError={recordBrowserWebviewError}
-            />
-          </FloatingPanel>
-        ))}
+        <DetachedWorkspaceWindows
+          markdownWindows={detachedMarkdownWindows}
+          browserWindows={detachedBrowserWindows}
+          runtime={runtime}
+          activePanel={activeWorkspacePanel}
+          browserDomOverlayActive={browserDomOverlayActive}
+          bringPanelToFront={bringWorkspacePanelToFront}
+          panelStackPosition={workspacePanelStackPosition}
+          panelWindowState={workspacePanelWindowState}
+          setPanelWindowState={setWorkspacePanelWindowState}
+          closeMarkdownWindow={closeDetachedMarkdownWindow}
+          saveMarkdownWindow={saveDetachedMarkdownWindow}
+          updateMarkdownWindow={updateDetachedMarkdownWindow}
+          closeBrowserWindow={closeDetachedBrowserWindow}
+          updateBrowserWindow={updateDetachedBrowserWindow}
+          onStatus={setStatus}
+          onBrowserError={recordBrowserWebviewError}
+        />
 
         <FloatingChromeLayer>
           <FloatingChromeSlot placement="topLeft" pinned={fileMenuOpen}>

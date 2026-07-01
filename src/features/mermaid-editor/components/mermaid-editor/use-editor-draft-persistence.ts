@@ -40,7 +40,7 @@ import type { ViewFilters } from "@/features/mermaid-editor/lib/view-filters";
 import { workspaceViewForDocument, type WorkspaceView } from "@/features/mermaid-editor/lib/workspace-view";
 import { cleanCloseDocument } from "@/features/mermaid-editor/lib/desktop-close-workflow";
 
-type UseEditorDraftPersistenceArgs = {
+export type UseEditorDraftPersistenceArgs = {
   runtime: EditorRuntime;
   documentKind: DocumentKind;
   source: string;
