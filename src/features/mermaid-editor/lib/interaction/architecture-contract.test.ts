@@ -138,6 +138,12 @@ describe("interaction architecture contract", () => {
       { path: "src/features/mermaid-editor/components/canvas-document-editor/interaction-context.ts", maxLines: 40 },
       { path: "src/features/mermaid-editor/components/canvas-document-editor/use-canvas-document-image-sources.ts", maxLines: 100 },
       { path: "src/features/mermaid-editor/components/canvas-document-editor/use-canvas-document-keyboard-shortcuts.ts", maxLines: 100 },
+      { path: "src/features/mermaid-editor/lib/editor-theme.ts", maxLines: 120 },
+      { path: "src/features/mermaid-editor/lib/editor-theme/color.ts", maxLines: 120 },
+      { path: "src/features/mermaid-editor/lib/editor-theme/compile.ts", maxLines: 340 },
+      { path: "src/features/mermaid-editor/lib/editor-theme/normalize.ts", maxLines: 340 },
+      { path: "src/features/mermaid-editor/lib/editor-theme/presets.ts", maxLines: 420 },
+      { path: "src/features/mermaid-editor/lib/editor-theme/types.ts", maxLines: 340 },
       { path: "src-tauri/src/main.rs", maxLines: 1450 }
     ];
 
@@ -294,6 +300,27 @@ describe("interaction architecture contract", () => {
     expect(canvasDocumentEditor).not.toContain("useLayoutEffect");
     expect(canvasDocumentEditor).not.toContain("const CANVAS_DOCUMENT_INTERACTION_GRAPH");
     expect(canvasDocumentEditor).not.toContain("gsap.to(view.container");
+  });
+
+  it("keeps editor theme implementation behind focused theme modules", () => {
+    const barrel = readProjectFile("src/features/mermaid-editor/lib/editor-theme.ts");
+    const presets = readProjectFile("src/features/mermaid-editor/lib/editor-theme/presets.ts");
+    const normalize = readProjectFile("src/features/mermaid-editor/lib/editor-theme/normalize.ts");
+    const compile = readProjectFile("src/features/mermaid-editor/lib/editor-theme/compile.ts");
+    const color = readProjectFile("src/features/mermaid-editor/lib/editor-theme/color.ts");
+
+    expect(barrel).toContain("export * from \"./editor-theme/types\"");
+    expect(barrel).toContain("export * from \"./editor-theme/presets\"");
+    expect(barrel).toContain("export * from \"./editor-theme/normalize\"");
+    expect(barrel).toContain("export * from \"./editor-theme/compile\"");
+    expect(presets).toContain("DEFAULT_EDITOR_THEME");
+    expect(normalize).toContain("normalizeEditorTheme");
+    expect(compile).toContain("themeToCssVariables");
+    expect(color).toContain("function hexToRgb");
+    expect(barrel).not.toContain("DEFAULT_EDITOR_THEME: EditorTheme");
+    expect(barrel).not.toContain("function normalizeEditorTheme");
+    expect(barrel).not.toContain("function themeToCssVariables");
+    expect(barrel).not.toContain("function hexToRgb");
   });
 
   it("keeps file workflow logic outside the MermaidEditor composition file", () => {
