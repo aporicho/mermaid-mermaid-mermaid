@@ -126,7 +126,15 @@ describe("interaction architecture contract", () => {
       { path: "src/features/mermaid-editor/components/mermaid-editor/use-editor-draft-autosave.ts", maxLines: 80 },
       { path: "src/features/mermaid-editor/components/mermaid-editor/use-editor-draft-persistence.ts", maxLines: 250 },
       { path: "src/features/mermaid-editor/components/mermaid-editor/use-editor-keyboard-shortcuts.ts", maxLines: 260 },
-      { path: "src/features/mermaid-editor/components/mermaid-editor/use-editor-file-workflow.ts", maxLines: 900 },
+      { path: "src/features/mermaid-editor/components/mermaid-editor/use-editor-file-workflow.ts", maxLines: 160 },
+      { path: "src/features/mermaid-editor/components/mermaid-editor/file-workflow/types.ts", maxLines: 160 },
+      { path: "src/features/mermaid-editor/components/mermaid-editor/file-workflow/use-file-drop-workflow.ts", maxLines: 240 },
+      { path: "src/features/mermaid-editor/components/mermaid-editor/file-workflow/use-file-open-workflow.ts", maxLines: 120 },
+      { path: "src/features/mermaid-editor/components/mermaid-editor/file-workflow/use-file-save-workflow.ts", maxLines: 140 },
+      { path: "src/features/mermaid-editor/components/mermaid-editor/file-workflow/use-image-import-workflow.ts", maxLines: 190 },
+      { path: "src/features/mermaid-editor/components/mermaid-editor/file-workflow/use-project-workspace-workflow.ts", maxLines: 170 },
+      { path: "src/features/mermaid-editor/components/mermaid-editor/file-workflow/use-unsaved-file-switch.ts", maxLines: 100 },
+      { path: "src/features/mermaid-editor/components/mermaid-editor/file-workflow/utils.ts", maxLines: 70 },
       { path: "src/features/mermaid-editor/components/floating-chrome.tsx", maxLines: 20 },
       { path: "src/features/mermaid-editor/components/floating-chrome/chrome-slot.tsx", maxLines: 180 },
       { path: "src/features/mermaid-editor/components/floating-chrome/floating-buttons.tsx", maxLines: 100 },
@@ -447,6 +455,32 @@ describe("interaction architecture contract", () => {
     expect(editor).not.toContain("function handleRuntimeFileDropRequest(");
     expect(editor).not.toContain("function saveMermaidFile(");
     expect(editor).not.toContain("function saveMermaidFileAsResult(");
+  });
+
+  it("keeps file workflow implementation behind focused workflow modules", () => {
+    const workflow = readProjectFile("src/features/mermaid-editor/components/mermaid-editor/use-editor-file-workflow.ts");
+    const open = readProjectFile("src/features/mermaid-editor/components/mermaid-editor/file-workflow/use-file-open-workflow.ts");
+    const save = readProjectFile("src/features/mermaid-editor/components/mermaid-editor/file-workflow/use-file-save-workflow.ts");
+    const drop = readProjectFile("src/features/mermaid-editor/components/mermaid-editor/file-workflow/use-file-drop-workflow.ts");
+    const image = readProjectFile("src/features/mermaid-editor/components/mermaid-editor/file-workflow/use-image-import-workflow.ts");
+    const project = readProjectFile("src/features/mermaid-editor/components/mermaid-editor/file-workflow/use-project-workspace-workflow.ts");
+    const unsaved = readProjectFile("src/features/mermaid-editor/components/mermaid-editor/file-workflow/use-unsaved-file-switch.ts");
+
+    expect(workflow).toContain("useFileOpenWorkflow");
+    expect(workflow).toContain("useFileSaveWorkflow");
+    expect(workflow).toContain("useFileDropWorkflow");
+    expect(workflow).toContain("useProjectWorkspaceWorkflow");
+    expect(workflow).toContain("useUnsavedFileSwitch");
+    expect(open).toContain("export function useFileOpenWorkflow");
+    expect(save).toContain("export function useFileSaveWorkflow");
+    expect(drop).toContain("export function useFileDropWorkflow");
+    expect(image).toContain("export function useImageImportWorkflow");
+    expect(project).toContain("export function useProjectWorkspaceWorkflow");
+    expect(unsaved).toContain("export function useUnsavedFileSwitch");
+    expect(workflow).not.toContain("function openRuntimeFileRequest(");
+    expect(workflow).not.toContain("function handleBrowserFileDrop(");
+    expect(workflow).not.toContain("function saveMermaidFile(");
+    expect(workflow).not.toContain("function syncWorkspaceForOpenedFile(");
   });
 
   it("keeps MermaidEditor shell helpers and side effects in focused modules", () => {
