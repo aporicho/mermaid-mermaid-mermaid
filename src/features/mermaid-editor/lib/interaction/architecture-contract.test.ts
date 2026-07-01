@@ -144,6 +144,17 @@ describe("interaction architecture contract", () => {
       { path: "src/features/mermaid-editor/components/canvas-document-editor/interaction-context.ts", maxLines: 40 },
       { path: "src/features/mermaid-editor/components/canvas-document-editor/use-canvas-document-image-sources.ts", maxLines: 100 },
       { path: "src/features/mermaid-editor/components/canvas-document-editor/use-canvas-document-keyboard-shortcuts.ts", maxLines: 100 },
+      { path: "src/features/mermaid-editor/lib/mermaid-graph.ts", maxLines: 20 },
+      { path: "src/features/mermaid-editor/lib/mermaid-graph/constants.ts", maxLines: 40 },
+      { path: "src/features/mermaid-editor/lib/mermaid-graph/edge-token.ts", maxLines: 390 },
+      { path: "src/features/mermaid-editor/lib/mermaid-graph/node-action-token.ts", maxLines: 80 },
+      { path: "src/features/mermaid-editor/lib/mermaid-graph/node-id.ts", maxLines: 60 },
+      { path: "src/features/mermaid-editor/lib/mermaid-graph/node-token.ts", maxLines: 140 },
+      { path: "src/features/mermaid-editor/lib/mermaid-graph/parser.ts", maxLines: 360 },
+      { path: "src/features/mermaid-editor/lib/mermaid-graph/serializer.ts", maxLines: 130 },
+      { path: "src/features/mermaid-editor/lib/mermaid-graph/subgraph.ts", maxLines: 110 },
+      { path: "src/features/mermaid-editor/lib/mermaid-graph/syntax.ts", maxLines: 70 },
+      { path: "src/features/mermaid-editor/lib/mermaid-graph/types.ts", maxLines: 90 },
       { path: "src/features/mermaid-editor/lib/editor-theme.ts", maxLines: 120 },
       { path: "src/features/mermaid-editor/lib/editor-theme/color.ts", maxLines: 120 },
       { path: "src/features/mermaid-editor/lib/editor-theme/compile.ts", maxLines: 340 },
@@ -337,6 +348,32 @@ describe("interaction architecture contract", () => {
     expect(canvasDocumentEditor).not.toContain("useLayoutEffect");
     expect(canvasDocumentEditor).not.toContain("const CANVAS_DOCUMENT_INTERACTION_GRAPH");
     expect(canvasDocumentEditor).not.toContain("gsap.to(view.container");
+  });
+
+  it("keeps Mermaid graph parsing behind focused graph modules", () => {
+    const barrel = readProjectFile("src/features/mermaid-editor/lib/mermaid-graph.ts");
+    const parser = readProjectFile("src/features/mermaid-editor/lib/mermaid-graph/parser.ts");
+    const serializer = readProjectFile("src/features/mermaid-editor/lib/mermaid-graph/serializer.ts");
+    const edgeToken = readProjectFile("src/features/mermaid-editor/lib/mermaid-graph/edge-token.ts");
+    const nodeToken = readProjectFile("src/features/mermaid-editor/lib/mermaid-graph/node-token.ts");
+    const nodeActionToken = readProjectFile("src/features/mermaid-editor/lib/mermaid-graph/node-action-token.ts");
+    const subgraph = readProjectFile("src/features/mermaid-editor/lib/mermaid-graph/subgraph.ts");
+
+    expect(barrel).toContain("export { initialMermaidSource, palette } from \"./mermaid-graph/constants\"");
+    expect(barrel).toContain("export * from \"./mermaid-graph/node-id\"");
+    expect(barrel).toContain("export * from \"./mermaid-graph/parser\"");
+    expect(barrel).toContain("export * from \"./mermaid-graph/serializer\"");
+    expect(parser).toContain("export function parseMermaid");
+    expect(serializer).toContain("export function serializeMermaid");
+    expect(edgeToken).toContain("export function parseEdgeStatements");
+    expect(edgeToken).toContain("export function parseEdgeOperator");
+    expect(nodeToken).toContain("export function parseNodeToken");
+    expect(nodeActionToken).toContain("export function parseNodeActionStatement");
+    expect(subgraph).toContain("export function parseSubgraphHeader");
+    expect(barrel).not.toContain("function parseMermaid");
+    expect(barrel).not.toContain("function serializeMermaid");
+    expect(barrel).not.toContain("function parseEdgeOperator");
+    expect(barrel).not.toContain("function parseNodeToken");
   });
 
   it("keeps editor theme implementation behind focused theme modules", () => {
