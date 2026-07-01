@@ -114,7 +114,7 @@ describe("interaction architecture contract", () => {
 
   it("keeps known oversized files on a no-growth budget", () => {
     const budgets = [
-      { path: "src/features/mermaid-editor/components/mermaid-editor.tsx", maxLines: 2800 },
+      { path: "src/features/mermaid-editor/components/mermaid-editor.tsx", maxLines: 2000 },
       { path: "src/features/mermaid-editor/components/konva-canvas.tsx", maxLines: 1800 },
       { path: "src/features/mermaid-editor/components/canvas-document-editor.tsx", maxLines: 1300 },
       { path: "src-tauri/src/main.rs", maxLines: 1450 }
@@ -200,6 +200,22 @@ describe("interaction architecture contract", () => {
     expect(editor).not.toContain("function handleRuntimeFileDropRequest(");
     expect(editor).not.toContain("function saveMermaidFile(");
     expect(editor).not.toContain("function saveMermaidFileAsResult(");
+  });
+
+  it("keeps AI, desktop, and clipboard controllers outside the MermaidEditor composition file", () => {
+    const editor = readProjectFile("src/features/mermaid-editor/components/mermaid-editor.tsx");
+
+    expect(editor).toContain("useEditorAiCommands");
+    expect(editor).toContain("useEditorDesktopEvents");
+    expect(editor).toContain("useEditorClipboardActions");
+    expect(editor).not.toContain("function editorCommandDiagnostic(");
+    expect(editor).not.toContain("pollAiCommand");
+    expect(editor).not.toContain("finishAiCommand");
+    expect(editor).not.toContain("listenForExternalFileOpen");
+    expect(editor).not.toContain("listenForFileDrops");
+    expect(editor).not.toContain("listenForDesktopWindowCloseRequest");
+    expect(editor).not.toContain("function readSystemClipboardText(");
+    expect(editor).not.toContain("extractNodeActionsFromClipboardText");
   });
 
   it("keeps newly oversized frontend files out of the codebase", () => {

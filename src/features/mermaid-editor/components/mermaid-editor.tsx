@@ -15,7 +15,11 @@ import { ExplorerPanel } from "@/features/mermaid-editor/components/explorer-pan
 import { FileDropFeedbackBadge, FileWorkflowErrorBanner, UnsavedFilePrompt, type FileDropFeedback } from "@/features/mermaid-editor/components/file-workflow-feedback";
 import { FloatingChromeLayer, FloatingChromeSlot, FloatingIconButton, FloatingPanel, MotionPresence } from "@/features/mermaid-editor/components/floating-chrome";
 import { MarkdownPanel } from "@/features/mermaid-editor/components/markdown-panel";
-import { useEditorFileWorkflow, type FileOpenSource, type UnsavedPromptState } from "@/features/mermaid-editor/components/mermaid-editor/use-editor-file-workflow";
+import { useEditorAiCommands } from "@/features/mermaid-editor/components/mermaid-editor/use-editor-ai-commands";
+import { useEditorClipboardActions } from "@/features/mermaid-editor/components/mermaid-editor/use-editor-clipboard-actions";
+import { useEditorDesktopEvents } from "@/features/mermaid-editor/components/mermaid-editor/use-editor-desktop-events";
+import { useEditorFileWorkflow, type UnsavedPromptState } from "@/features/mermaid-editor/components/mermaid-editor/use-editor-file-workflow";
+import { useEditorRecentActions } from "@/features/mermaid-editor/components/mermaid-editor/use-editor-recent-actions";
 import { NodeActionEditorDialog } from "@/features/mermaid-editor/components/node-action-editor-dialog";
 import { PreviewPanel } from "@/features/mermaid-editor/components/preview-panel";
 import { SourcePanel } from "@/features/mermaid-editor/components/source-panel";
@@ -26,8 +30,7 @@ import { appLogoById } from "@/features/mermaid-editor/lib/app-logo";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { layoutFromGraph, parseCanvasLayout } from "@/features/mermaid-editor/lib/canvas-layout";
 import { applyDagreAutoLayout, deriveDagreAutoLayoutResult } from "@/features/mermaid-editor/lib/canvas-auto-layout";
-import { buildAiEditorContext, type AiCanvasSize, type AiEditingContext, type AiRecentAction } from "@/features/mermaid-editor/lib/ai-context";
-import type { AiApplyResult, AiEditorCommand } from "@/features/mermaid-editor/lib/ai-command-types";
+import type { AiCanvasSize, AiEditingContext, AiRecentAction } from "@/features/mermaid-editor/lib/ai-context";
 import { buildMermaidDocument, loadMermaidDocument } from "@/features/mermaid-editor/lib/mermaid-document";
 import {
   copySelection,
@@ -38,34 +41,26 @@ import {
 import { createHistory, pushHistory, redo, undo } from "@/features/mermaid-editor/lib/editor-history";
 import { normalizeMermaidError, type EditorDiagnostic } from "@/features/mermaid-editor/lib/editor-diagnostics";
 import {
-  FALLBACK_FILE_NAME,
-  comparableDocumentFileName,
   createEmptyDocumentGraph,
   ensureEditorDocumentFileName,
-  fallbackFileNameForKind,
   layoutThemeFromState,
   loadInitialState,
   normalizeThemeId,
   serializableRuntimeFileRef,
-  type StoredEditor,
-  type StoredEditorApplyResult
+  type StoredEditor
 } from "@/features/mermaid-editor/lib/editor-state";
 import {
   createEditorRuntime,
-  type RuntimeFileDropRequest,
-  type RuntimeFileOpenRequest,
   type RuntimeFileRef
 } from "@/features/mermaid-editor/lib/editor-runtime";
 import {
   isSupportedDocumentFilePath,
-  normalizeRecentFiles,
   upsertRecentFile,
   type FileWorkflowError,
   type RecentFileEntry
 } from "@/features/mermaid-editor/lib/file-workflow";
 import { documentKindLabel, isSupportedMarkdownFilePath, type DocumentKind } from "@/features/mermaid-editor/lib/document-kind";
 import {
-  normalizeProjectWorkspace,
   type ProjectFileEntry,
   type ProjectWorkspace
 } from "@/features/mermaid-editor/lib/project-workspace";
@@ -94,14 +89,12 @@ import {
   normalizeEditorTheme,
   resolveEditorTheme
 } from "@/features/mermaid-editor/lib/editor-theme";
-import { DEFAULT_EDITOR_PREFERENCES, normalizeEditorPreferences, type EditorPreferences } from "@/features/mermaid-editor/lib/editor-preferences";
+import type { EditorPreferences } from "@/features/mermaid-editor/lib/editor-preferences";
 import { EditorMotionProvider, gsap, useResolvedEditorMotion } from "@/features/mermaid-editor/lib/use-gsap-motion";
 import { incrementPerformanceCounter, measurePerformance } from "@/features/mermaid-editor/lib/editor-performance";
-import { buildInteractionContext } from "@/features/mermaid-editor/lib/interaction/context";
 import type { EditorCommand } from "@/features/mermaid-editor/lib/interaction/commands";
 import { applyEditorCommandTransaction } from "@/features/mermaid-editor/lib/interaction/transaction";
 import { serializeMermaid } from "@/features/mermaid-editor/lib/mermaid-graph";
-import { applyMermaidPatch } from "@/features/mermaid-editor/lib/mermaid-patch";
 import { DEFAULT_VIEW_FILTERS, hiddenFilterCount, type ViewFilters } from "@/features/mermaid-editor/lib/view-filters";
 import { useDisableNativeContextMenu } from "@/features/mermaid-editor/lib/native-context-menu";
 import { EDITOR_CHROME_CLASSES } from "@/features/mermaid-editor/lib/editor-chrome";
@@ -120,15 +113,12 @@ import {
   type StaticWorkspacePanelId
 } from "@/features/mermaid-editor/lib/workspace-panels";
 import {
-  extractNodeActionsFromClipboardText,
   isHttpUrl,
-  nodeActionSuggestedLabel,
   normalizeNodeAction
 } from "@/features/mermaid-editor/lib/node-actions";
 import { createImageAsset, DEFAULT_IMAGE_ASSET_HEIGHT, DEFAULT_IMAGE_ASSET_WIDTH } from "@/features/mermaid-editor/lib/node-assets";
 import { cn } from "@/lib/utils";
 import { OVERLAY_Z_INDEX, useGlobalOverlayActivity } from "@/lib/overlay-layers";
-import type { DropPoint } from "@/features/mermaid-editor/lib/file-drop";
 import {
   createBlankCanvasDocument,
   normalizeCanvasDocument,
@@ -144,12 +134,6 @@ type CanvasLiveState = {
   editing?: Exclude<AiEditingContext, { kind: "source" }> | null;
   interaction?: string;
 };
-function readableError(error: unknown) {
-  if (error instanceof Error) return error.message;
-  if (typeof error === "string") return error;
-  return String(error);
-}
-
 function edgeRoutingLabel(edgeRouting: EdgeRouting) {
   return edgeRoutingOptions.find((option) => option.value === edgeRouting)?.label || "曲线";
 }
@@ -234,35 +218,6 @@ function canvasLiveStateKey(state: CanvasLiveState) {
     editing: state.editing || null,
     interaction: state.interaction || ""
   });
-}
-
-function editorCommandDiagnostic(code: string, message: string, suggestion?: string, severity: EditorDiagnostic["severity"] = "error"): EditorDiagnostic {
-  return {
-    id: `editor-command:${code}:${hashText(message)}`,
-    severity,
-    source: "serializer",
-    code,
-    message,
-    suggestion
-  };
-}
-
-function hashText(value: string) {
-  let hash = 0;
-  for (let index = 0; index < value.length; index += 1) {
-    hash = (hash * 31 + value.charCodeAt(index)) >>> 0;
-  }
-  return hash.toString(36);
-}
-
-async function readSystemClipboardText() {
-  if (typeof navigator === "undefined" || !navigator.clipboard?.readText) return "";
-
-  try {
-    return await navigator.clipboard.readText();
-  } catch {
-    return "";
-  }
 }
 
 function parentDirectoryPath(path: string | undefined) {
@@ -369,7 +324,7 @@ export function MermaidEditor() {
   const [customTheme, setCustomTheme] = useState<EditorTheme | null>(initial.customTheme);
   const [preferences, setPreferences] = useState<EditorPreferences>(initial.preferences);
   const [canvasLiveState, setCanvasLiveState] = useState<CanvasLiveState>({});
-  const [recentActions, setRecentActions] = useState<AiRecentAction[]>([]);
+  const { recentActions, recordRecentAction } = useEditorRecentActions();
   const [imageDisplaySrcBySrc, setImageDisplaySrcBySrc] = useState<Record<string, string>>({});
   const [fileDropFeedback, setFileDropFeedback] = useState<FileDropFeedback | null>(null);
   const browserDomOverlayActive =
@@ -387,29 +342,11 @@ export function MermaidEditor() {
   const sourceEditTimerRef = useRef<number | null>(null);
   const themeEditBaseRef = useRef<{ themeId: EditorThemeId; customTheme: EditorTheme | null } | null>(null);
   const storageWriteTimerRef = useRef<number | null>(null);
-  const aiContextPostTimerRef = useRef<number | null>(null);
   const viewportMotionTweenRef = useRef<gsap.core.Tween | null>(null);
   const lastCanvasPointerWorldRef = useRef<{ x: number; y: number } | null>(null);
-  const lastInternalCopyAtRef = useRef(0);
   const lastWindowFocusAtRef = useRef(Date.now());
-  const aiCommandBusyRef = useRef(false);
-  const actionCounterRef = useRef(0);
-  const desktopFileWorkflowInitializedRef = useRef(false);
   const isDirtyRef = useRef(false);
   const currentDocumentRef = useRef("");
-  const canCloseWindowRef = useRef(false);
-  const openPathRequestRef = useRef<(file: RuntimeFileOpenRequest, source: FileOpenSource) => Promise<void>>(async () => undefined);
-  const importImagePathRequestRef = useRef<(file: RuntimeFileOpenRequest, position?: DropPoint) => Promise<void>>(async () => undefined);
-  const fileDropRequestRef = useRef<(request: RuntimeFileDropRequest) => void>(() => undefined);
-  const prepareCloseRequestRef = useRef<() => Promise<boolean>>(async () => true);
-  const applyLoadedDocumentRef = useRef<(text: string, name: string, file: RuntimeFileRef | null, source?: FileOpenSource) => void>(() => undefined);
-  const applyStoredEditorStateRef = useRef<(stored: StoredEditor) => StoredEditorApplyResult>(() => ({
-    documentKind: "mermaid",
-    currentDocument: "",
-    fileRef: null,
-    lastSavedDocument: "",
-    preferences: DEFAULT_EDITOR_PREFERENCES
-  }));
 
   const currentDocument = useMemo(
     () => {
@@ -495,115 +432,6 @@ export function MermaidEditor() {
 
   const recordCanvasPointerWorld = useCallback((point: { x: number; y: number }) => {
     lastCanvasPointerWorldRef.current = point;
-  }, []);
-
-  useEffect(() => {
-    function markWindowFocus() {
-      lastWindowFocusAtRef.current = Date.now();
-    }
-
-    window.addEventListener("focus", markWindowFocus);
-    return () => window.removeEventListener("focus", markWindowFocus);
-  }, []);
-
-  const startDesktopWindowDragHandle = useCallback(
-    async (event: React.PointerEvent<HTMLElement>) => {
-      if (runtime.kind !== "desktop" || event.button !== 0 || event.detail > 1) return;
-      try {
-        await runtime.startDesktopWindowDrag();
-      } catch {
-        // Window dragging is desktop-only; ignore capability/runtime failures in web-like shells.
-      }
-    },
-    [runtime]
-  );
-
-  const toggleDesktopWindowMaximizeHandle = useCallback(
-    async () => {
-      if (runtime.kind !== "desktop") return;
-      try {
-        await runtime.toggleDesktopWindowMaximize();
-      } catch {
-        // Window controls are optional outside the Tauri desktop shell.
-      }
-    },
-    [runtime]
-  );
-
-  const buildCurrentAiContext = useCallback(() => {
-    const editing: AiEditingContext | null =
-      canvasLiveState.editing || (sourceEditBaseRef.current ? { kind: "source", draftText: source.slice(0, 1200) } : null);
-    const interactionContext = buildInteractionContext({
-      sourceLength: source.length,
-      dirty: isDirty,
-      graph,
-      selection,
-      viewport,
-      viewFilters,
-      diagramType,
-      editableKind,
-      mode,
-      workspaceView,
-      edgeRouting,
-      layoutMode,
-      canvasSize: canvasLiveState.canvasSize,
-      editing
-    });
-
-    return buildAiEditorContext({
-      source,
-      graph,
-      selection,
-      viewport,
-      fileName: fileName || fallbackFileNameForKind(documentKind),
-      dirty: isDirty,
-      diagramType,
-      editableKind,
-      mode,
-      workspaceView,
-      edgeRouting,
-      layoutMode,
-      diagnostics,
-      canvasSize: canvasLiveState.canvasSize,
-      editing,
-      recentActions,
-      interactionContext
-    });
-  }, [
-    source,
-    documentKind,
-    graph,
-    selection,
-    viewport,
-    fileName,
-    isDirty,
-    diagramType,
-    editableKind,
-    mode,
-    workspaceView,
-    edgeRouting,
-    layoutMode,
-    viewFilters,
-    diagnostics,
-    canvasLiveState,
-    recentActions
-  ]);
-
-  const postAiEditorContext = useCallback((context: ReturnType<typeof buildAiEditorContext>) => {
-    return runtime.publishAiContext(context).catch(() => {
-      // The CLI context bridge is best-effort; editor usage should not be blocked by it.
-    });
-  }, [runtime]);
-
-  const recordRecentAction = useCallback((type: string, target?: AiRecentAction["target"], summary?: string) => {
-    const action: AiRecentAction = {
-      id: `${Date.now().toString(36)}-${actionCounterRef.current++}`,
-      at: new Date().toISOString(),
-      type,
-      target,
-      summary
-    };
-    setRecentActions((current) => [action, ...current].slice(0, 20));
   }, []);
 
   const recordBrowserWebviewError = useCallback((url: string, message: string) => {
@@ -1068,41 +896,14 @@ export function MermaidEditor() {
     applyEditorCommand({ type: "history.redo", source: "keyboard" });
   }
 
-  function performCopy() {
-    if (!selection.nodeIds.length) return;
-    lastInternalCopyAtRef.current = Date.now();
-    applyEditorCommand({ type: "clipboard.copy", source: "keyboard" });
-  }
-
-  async function performPaste() {
-    const canUseSystemClipboard = !clipboard || lastInternalCopyAtRef.current < lastWindowFocusAtRef.current;
-    const systemClipboardText = canUseSystemClipboard ? await readSystemClipboardText() : "";
-    const actions = extractNodeActionsFromClipboardText(systemClipboardText);
-
-    if (actions.length) {
-      const basePoint = lastCanvasPointerWorldRef.current || {
-        x: (420 - viewport.x) / viewport.scale,
-        y: (260 - viewport.y) / viewport.scale
-      };
-      applyEditorCommand({
-        type: "graph.addNodesAt",
-        nodes: actions.map((action, index) => ({
-          point: {
-            x: basePoint.x,
-            y: basePoint.y + index * 104
-          },
-          label: nodeActionSuggestedLabel(action),
-          action
-        })),
-        message: actions.length > 1 ? `已从剪贴板添加 ${actions.length} 个链接节点。` : "已从剪贴板添加链接节点。",
-        source: "keyboard"
-      });
-      return;
-    }
-
-    if (!clipboard) return;
-    applyEditorCommand({ type: "graph.pasteClipboard", payload: clipboard, source: "keyboard" });
-  }
+  const { performCopy, performPaste } = useEditorClipboardActions({
+    clipboard,
+    selection,
+    viewport,
+    lastWindowFocusAtRef,
+    lastCanvasPointerWorldRef,
+    applyEditorCommand
+  });
 
   function updateViewport(nextViewport: ViewportState, source: "wheel" | "gesture" | "keyboard" | "menu" | "api" = "wheel") {
     viewportMotionTweenRef.current?.kill();
@@ -1207,7 +1008,6 @@ export function MermaidEditor() {
     updateBrowserFileDragFeedback,
     handleBrowserFileDragLeave,
     handleBrowserFileDrop,
-    importImageAssetRequest,
     handleRuntimeFileDropRequest,
     openRecentFile,
     openProjectFile,
@@ -1280,6 +1080,28 @@ export function MermaidEditor() {
     applyCanvasDocument,
     applyEditorCommand,
     recordRecentAction
+  });
+
+  const { startDesktopWindowDragHandle, toggleDesktopWindowMaximizeHandle } = useEditorDesktopEvents({
+    runtime,
+    lastWindowFocusAtRef,
+    isDirtyRef,
+    currentDocumentRef,
+    openRuntimeFileRequest,
+    handleRuntimeFileDropRequest,
+    prepareWindowClose,
+    applyLoadedDocument,
+    applyStoredEditorState,
+    showFileWorkflowError,
+    setDraftPersistenceReady,
+    setPreferences,
+    setRecentFiles,
+    setProjectWorkspace,
+    setProjectBusy,
+    setFileName,
+    setFileRef,
+    setLastSavedDocument,
+    setStatus
   });
 
   async function openProjectMarkdownWindow(file: ProjectFileEntry) {
@@ -1482,276 +1304,54 @@ export function MermaidEditor() {
     }
   }
 
-  const postAiApplyResult = useCallback(async (result: AiApplyResult) => {
-    await runtime.finishAiCommand(result);
-  }, [runtime]);
-
-  const processAiCommand = useCallback(
-    async (command: AiEditorCommand) => {
-      if (command.type !== "applyPatch") {
-        await postAiApplyResult({
-          commandId: command.id,
-          applied: false,
-          saved: false,
-          changed: false,
-          fileName,
-          diagnostics: [editorCommandDiagnostic("UNKNOWN_COMMAND", `不支持的 AI 命令：${(command as { type?: string }).type || "unknown"}`)]
-        });
-        return;
-      }
-
-      if (documentKind !== "mermaid") {
-        const diagnostic = editorCommandDiagnostic(
-          "UNSUPPORTED_DOCUMENT_KIND",
-          "当前打开的是 Markdown 文件，AI Mermaid patch 只能应用到 Mermaid 文件。",
-          "请切换到 Mermaid 文件后再执行图表修改。"
-        );
-        await postAiApplyResult({
-          commandId: command.id,
-          applied: false,
-          saved: false,
-          changed: false,
-          fileName,
-          diagnostics: [diagnostic]
-        });
-        setStatus("AI 修改被拒绝：当前文件不是 Mermaid。");
-        return;
-      }
-
-      if (command.targetFileName && comparableDocumentFileName(command.targetFileName, documentKind) !== comparableDocumentFileName(fileName, documentKind)) {
-        const diagnostic = editorCommandDiagnostic(
-          "TARGET_FILE_MISMATCH",
-          `当前打开的是 ${fileName || FALLBACK_FILE_NAME}，不是 AI 命令目标 ${command.targetFileName}。`,
-          "重新打开目标 Mermaid 文件，或不要传 --target。"
-        );
-        await postAiApplyResult({
-          commandId: command.id,
-          applied: false,
-          saved: false,
-          changed: false,
-          fileName,
-          diagnostics: [diagnostic]
-        });
-        setStatus("AI 修改被拒绝：目标文件不匹配。");
-        return;
-      }
-
-      flushSourceHistory();
-      const previousSnapshot = snapshot();
-      const patched = applyMermaidPatch(currentDocument, { ops: command.ops }, { write: command.autoSave });
-
-      if (!patched.ok || !patched.result) {
-        setDiagnostics(patched.diagnostics);
-        setStatus("AI 修改失败，请查看诊断。");
-        await postAiApplyResult({
-          commandId: command.id,
-          applied: false,
-          saved: false,
-          changed: false,
-          fileName,
-          diagnostics: patched.diagnostics
-        });
-        return;
-      }
-
-      const loaded = loadMermaidDocument(patched.result.source, graph);
-      const nextViewport = loaded.viewport || viewport;
-      const nextLayoutMode = loaded.layoutMode;
-      const nextGraph =
-        loaded.editableKind === "flowchart" && nextLayoutMode === "auto"
-          ? measurePerformance("dagre-auto-layout", () => applyDagreAutoLayout(loaded.graph), {
-              nodes: loaded.graph.nodes.length,
-              edges: loaded.graph.edges.length,
-              aiApply: true
-            })
-          : loaded.graph;
-      const nextDocument = buildMermaidDocument(loaded.source, nextGraph, nextViewport, loaded.edgeRouting, nextLayoutMode, loaded.fileTheme ?? fileTheme);
-      const resultDiagnostics: EditorDiagnostic[] = [];
-      let saved = false;
-
-      if (command.autoSave) {
-        if (!fileRef) {
-          resultDiagnostics.push(
-            editorCommandDiagnostic(
-              "NO_FILE_HANDLE",
-              "当前编辑器没有可覆盖保存的文件路径，已更新编辑器但无法写回原文件。",
-              "先打开文件，或在编辑器里另存为一次。",
-              "warning"
-            )
-          );
-        } else {
-          try {
-            const saveResult = await runtime.saveFile(fileRef, nextDocument, fileName, documentKind);
-            if (saveResult.status === "saved") {
-              setFileRef(saveResult.file);
-              setRecentFiles((current) => upsertRecentFile(current, saveResult.file));
-            }
-            saved = true;
-          } catch (error) {
-            resultDiagnostics.push(editorCommandDiagnostic("SAVE_FAILED", `AI 修改已应用，但保存失败：${readableError(error)}`));
-          }
-        }
-      }
-
-      setHistory((current) => pushHistory(current, previousSnapshot));
-      setSource(loaded.source);
-      setGraph(nextGraph);
-      setDiagramType(loaded.diagramType);
-      setEditableKind(loaded.editableKind);
-      setViewport(nextViewport);
-      setEdgeRouting(loaded.edgeRouting);
-      setLayoutMode(nextLayoutMode);
-      setFileTheme(loaded.fileTheme ?? fileTheme);
-      if (loaded.fileTheme) {
-        setThemeId(normalizeThemeId(loaded.fileTheme.themeId));
-        setCustomTheme(loaded.fileTheme.customTheme ? normalizeEditorTheme(loaded.fileTheme.customTheme) : null);
-      }
-      setWorkspaceView(workspaceViewForDocument(loaded.editableKind, workspaceView, "mermaid"));
-      setSelection(emptySelection);
-      setDiagnostics([]);
-      if (fileRef) setFileName(ensureEditorDocumentFileName(fileRef.name, "mermaid"));
-      if (saved) {
-        setLastSavedDocument(nextDocument);
-        isDirtyRef.current = false;
-      }
-      setStatus(saved ? "AI 修改已应用并保存。" : "AI 修改已应用。");
-      recordRecentAction("ai.apply", { kind: "document" }, saved ? "AI 修改已应用并保存。" : "AI 修改已应用。");
-
-      await postAiApplyResult({
-        commandId: command.id,
-        applied: true,
-        saved,
-        changed: patched.result.changed,
-        fileName: fileRef?.name || fileName,
-        source: nextDocument,
-        diff: patched.result.diff,
-        diagnostics: resultDiagnostics
-      });
-    },
-    [currentDocument, documentKind, fileName, fileRef, fileTheme, graph, postAiApplyResult, recordRecentAction, runtime, snapshot, viewport, workspaceView]
-  );
-
-  useEffect(() => {
-    openPathRequestRef.current = openRuntimeFileRequest;
-    importImagePathRequestRef.current = importImageAssetRequest;
-    fileDropRequestRef.current = handleRuntimeFileDropRequest;
-    prepareCloseRequestRef.current = prepareWindowClose;
-    applyLoadedDocumentRef.current = applyLoadedDocument;
-    applyStoredEditorStateRef.current = applyStoredEditorState;
+  useEditorAiCommands({
+    runtime,
+    sourceEditBaseRef,
+    isDirtyRef,
+    source,
+    currentDocument,
+    documentKind,
+    graph,
+    selection,
+    viewport,
+    fileName,
+    fileRef,
+    fileTheme,
+    isDirty,
+    diagramType,
+    editableKind,
+    mode,
+    workspaceView,
+    edgeRouting,
+    layoutMode,
+    diagnostics,
+    viewFilters,
+    canvasLiveState,
+    recentActions,
+    preferences,
+    snapshot,
+    flushSourceHistory,
+    recordRecentAction,
+    setHistory,
+    setSource,
+    setGraph,
+    setDiagramType,
+    setEditableKind,
+    setViewport,
+    setEdgeRouting,
+    setLayoutMode,
+    setFileTheme,
+    setThemeId,
+    setCustomTheme,
+    setWorkspaceView,
+    setSelection,
+    setDiagnostics,
+    setFileName,
+    setFileRef,
+    setRecentFiles,
+    setLastSavedDocument,
+    setStatus
   });
-
-  useEffect(() => {
-    function onBeforeUnload(event: BeforeUnloadEvent) {
-      if (canCloseWindowRef.current) return;
-      if (!isDirtyRef.current) return;
-      event.preventDefault();
-      event.returnValue = "";
-    }
-
-    window.addEventListener("beforeunload", onBeforeUnload);
-    return () => window.removeEventListener("beforeunload", onBeforeUnload);
-  }, []);
-
-  useEffect(() => {
-    if (runtime.kind !== "desktop" || desktopFileWorkflowInitializedRef.current) return;
-    desktopFileWorkflowInitializedRef.current = true;
-    let disposed = false;
-    let unlistenExternal: (() => void) | undefined;
-    let unlistenDrop: (() => void) | undefined;
-    let unlistenClose: (() => void) | undefined;
-
-    async function restoreDesktopState() {
-      try {
-        const stored = (await runtime.loadSavedState()) as StoredEditor | null;
-        if (!stored) return;
-        const storedPreferences = normalizeEditorPreferences(stored.preferences);
-        const storedProjectWorkspace = normalizeProjectWorkspace(stored.projectWorkspace);
-        setPreferences(storedPreferences);
-        setRecentFiles(normalizeRecentFiles(stored.recentFiles));
-        setProjectWorkspace(storedProjectWorkspace);
-        if (storedProjectWorkspace) void refreshRestoredProjectWorkspace(storedProjectWorkspace.rootPath);
-        if (!storedPreferences.restoreLastFile) {
-          setFileName(FALLBACK_FILE_NAME);
-          setFileRef(null);
-          setLastSavedDocument(currentDocumentRef.current);
-          isDirtyRef.current = false;
-          return;
-        }
-        const restored = applyStoredEditorStateRef.current(stored);
-        const cleanStoredFile = Boolean(
-          restored.preferences.restoreLastFile &&
-            restored.fileRef?.path &&
-            restored.lastSavedDocument &&
-            restored.currentDocument === restored.lastSavedDocument
-        );
-        if (!cleanStoredFile || !restored.fileRef?.path) {
-          if (restored.lastSavedDocument && restored.currentDocument !== restored.lastSavedDocument) {
-            setStatus("已恢复未保存草稿。");
-          }
-          return;
-        }
-
-        try {
-          const result = await runtime.openFilePath(restored.fileRef.path);
-          if (!disposed && result.status === "opened") applyLoadedDocumentRef.current(result.text, result.file.name, result.file, "restore");
-        } catch (error) {
-          if (!disposed) showFileWorkflowError(error, "恢复上次文件失败。");
-        }
-      } catch (error) {
-        if (!disposed) showFileWorkflowError(error, "读取应用状态失败。");
-      }
-    }
-
-    async function refreshRestoredProjectWorkspace(rootPath: string) {
-      setProjectBusy(true);
-      try {
-        const result = await runtime.readProjectFolder(rootPath);
-        if (disposed || result.status !== "opened") return;
-        setProjectWorkspace(normalizeProjectWorkspace(result.workspace));
-      } catch {
-        // Restored project metadata is still useful if the folder cannot be refreshed.
-      } finally {
-        if (!disposed) setProjectBusy(false);
-      }
-    }
-
-    async function registerDesktopFileWorkflow() {
-      await restoreDesktopState();
-      const pendingFiles = await runtime.takePendingOpenFiles();
-      if (!disposed && pendingFiles[0]) await openPathRequestRef.current(pendingFiles[0], "external");
-      if (!disposed) setDraftPersistenceReady(true);
-
-      unlistenExternal = await runtime.listenForExternalFileOpen((files) => {
-        const file = files[0];
-        if (!file) return;
-        void openPathRequestRef.current(file, "external");
-      });
-
-      unlistenDrop = await runtime.listenForFileDrops((request) => fileDropRequestRef.current(request));
-
-      unlistenClose = await runtime.listenForDesktopWindowCloseRequest(async () => {
-        if (canCloseWindowRef.current || !isDirtyRef.current) return true;
-        const canClose = await prepareCloseRequestRef.current();
-        if (!canClose) return false;
-        canCloseWindowRef.current = true;
-        return true;
-      });
-    }
-
-    void registerDesktopFileWorkflow().catch((error) => {
-      if (!disposed) {
-        setDraftPersistenceReady(true);
-        showFileWorkflowError(error, "初始化桌面文件工作流失败。");
-      }
-    });
-
-    return () => {
-      disposed = true;
-      unlistenExternal?.();
-      unlistenDrop?.();
-      unlistenClose?.();
-    };
-  }, [runtime, showFileWorkflowError]);
 
   useEffect(() => {
     if (!status) return;
@@ -1810,54 +1410,6 @@ export function MermaidEditor() {
       if (storageWriteTimerRef.current) window.clearTimeout(storageWriteTimerRef.current);
     };
   }, [canvasDocument, documentKind, source, graph, viewport, edgeRouting, layoutMode, leftCollapsed, rightCollapsed, workspaceView, viewFilters, fileName, fileRef, fileTheme, recentFiles, projectWorkspace, lastSavedDocument, themeId, customTheme, preferences, runtime, draftPersistenceReady]);
-
-  useEffect(() => {
-    if (aiContextPostTimerRef.current) window.clearTimeout(aiContextPostTimerRef.current);
-    aiContextPostTimerRef.current = window.setTimeout(() => {
-      void postAiEditorContext(buildCurrentAiContext());
-      aiContextPostTimerRef.current = null;
-    }, 220);
-
-    return () => {
-      if (aiContextPostTimerRef.current) window.clearTimeout(aiContextPostTimerRef.current);
-    };
-  }, [buildCurrentAiContext, postAiEditorContext]);
-
-  useEffect(() => {
-    const timer = window.setInterval(() => {
-      void postAiEditorContext(buildCurrentAiContext());
-    }, 3000);
-    return () => window.clearInterval(timer);
-  }, [buildCurrentAiContext, postAiEditorContext]);
-
-  useEffect(() => {
-    let disposed = false;
-
-    async function pollAiCommand() {
-      if (aiCommandBusyRef.current) return;
-      aiCommandBusyRef.current = true;
-
-      try {
-        const command = await runtime.pollAiCommand();
-        if (disposed || !command) return;
-        await processAiCommand(command);
-      } catch {
-        // The AI command bridge is optional while a human edits in the browser.
-      } finally {
-        aiCommandBusyRef.current = false;
-      }
-    }
-
-    const timer = window.setInterval(() => {
-      void pollAiCommand();
-    }, 800);
-    void pollAiCommand();
-
-    return () => {
-      disposed = true;
-      window.clearInterval(timer);
-    };
-  }, [processAiCommand, runtime]);
 
   function openWorkspacePanel(panelId: StaticWorkspacePanelId) {
     bringWorkspacePanelToFront(panelId);
