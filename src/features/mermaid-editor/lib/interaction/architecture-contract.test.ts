@@ -116,10 +116,13 @@ describe("interaction architecture contract", () => {
 
   it("keeps known oversized files on a no-growth budget", () => {
     const budgets = [
-      { path: "src/features/mermaid-editor/components/mermaid-editor.tsx", maxLines: 1200 },
+      { path: "src/features/mermaid-editor/components/mermaid-editor.tsx", maxLines: 1000 },
       { path: "src/features/mermaid-editor/components/mermaid-editor/detached-workspace-windows.tsx", maxLines: 180 },
+      { path: "src/features/mermaid-editor/components/mermaid-editor/editor-floating-chrome.tsx", maxLines: 320 },
+      { path: "src/features/mermaid-editor/components/mermaid-editor/editor-overlays.tsx", maxLines: 120 },
       { path: "src/features/mermaid-editor/components/mermaid-editor/editor-shell-utils.ts", maxLines: 140 },
       { path: "src/features/mermaid-editor/components/mermaid-editor/editor-workspace-surface.tsx", maxLines: 240 },
+      { path: "src/features/mermaid-editor/components/mermaid-editor/editor-workspace-panels.tsx", maxLines: 280 },
       { path: "src/features/mermaid-editor/components/mermaid-editor/use-editor-draft-autosave.ts", maxLines: 80 },
       { path: "src/features/mermaid-editor/components/mermaid-editor/use-editor-draft-persistence.ts", maxLines: 250 },
       { path: "src/features/mermaid-editor/components/mermaid-editor/use-editor-keyboard-shortcuts.ts", maxLines: 260 },
@@ -171,12 +174,25 @@ describe("interaction architecture contract", () => {
     expect(editor).not.toContain("function FileWorkflowErrorBanner(");
     expect(editor).not.toContain("function UnsavedFilePrompt(");
     expect(editor).toContain("EditorWorkspaceSurface");
-    expect(editor).toContain("DetachedWorkspaceWindows");
+    expect(editor).toContain("EditorWorkspacePanels");
+    expect(editor).toContain("EditorFloatingChrome");
+    expect(editor).toContain("EditorOverlays");
+    expect(editor).not.toContain("DetachedWorkspaceWindows");
     expect(editor).not.toContain("<CanvasDocumentEditor");
     expect(editor).not.toContain("<KonvaCanvas");
     expect(editor).not.toContain("<MarkdownPanel");
     expect(editor).not.toContain("<SourcePanel");
     expect(editor).not.toContain("<PreviewPanel");
+    expect(editor).not.toContain("<FloatingPanel");
+    expect(editor).not.toContain("<FloatingChromeLayer");
+    expect(editor).not.toContain("<FileMenu");
+    expect(editor).not.toContain("<ViewFilterMenu");
+    expect(editor).not.toContain("<SecondaryActionsMenu");
+    expect(editor).not.toContain("<InspectorPanel");
+    expect(editor).not.toContain("<ExplorerPanel");
+    expect(editor).not.toContain("<TerminalPanel");
+    expect(editor).not.toContain("<NodeActionEditorDialog");
+    expect(editor).not.toContain("<ThemeSettingsPanel");
     expect(editor).not.toContain("detachedMarkdownWindows.map");
     expect(editor).not.toContain("detachedBrowserWindows.map");
     expect(editor).not.toContain("function loadInitialState(");

@@ -1,24 +1,16 @@
-import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  DotsGrid3x3 as Grid3X3,
-  SidebarExpand as PanelLeftOpen,
-  SidebarExpand as PanelRightOpen,
-  Terminal,
-  Xmark
-} from "iconoir-react/regular";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { InspectorPanel } from "@/features/mermaid-editor/components/inspector-panel";
-import { FileMenu, SecondaryActionsMenu, ViewFilterMenu } from "@/features/mermaid-editor/components/editor-menus";
-import { ExplorerPanel } from "@/features/mermaid-editor/components/explorer-panel";
-import { FileDropFeedbackBadge, FileWorkflowErrorBanner, UnsavedFilePrompt, type FileDropFeedback } from "@/features/mermaid-editor/components/file-workflow-feedback";
-import { FloatingChromeLayer, FloatingChromeSlot, FloatingIconButton, FloatingPanel, MotionPresence } from "@/features/mermaid-editor/components/floating-chrome";
+import { type FileDropFeedback } from "@/features/mermaid-editor/components/file-workflow-feedback";
+import { MotionPresence } from "@/features/mermaid-editor/components/floating-chrome";
 import { useEditorAiCommands } from "@/features/mermaid-editor/components/mermaid-editor/use-editor-ai-commands";
 import { useEditorClipboardActions } from "@/features/mermaid-editor/components/mermaid-editor/use-editor-clipboard-actions";
 import { useEditorDesktopEvents } from "@/features/mermaid-editor/components/mermaid-editor/use-editor-desktop-events";
 import { useEditorDraftAutosave } from "@/features/mermaid-editor/components/mermaid-editor/use-editor-draft-autosave";
 import { useEditorDocumentCommands } from "@/features/mermaid-editor/components/mermaid-editor/use-editor-document-commands";
-import { DetachedWorkspaceWindows } from "@/features/mermaid-editor/components/mermaid-editor/detached-workspace-windows";
+import { EditorFloatingChrome } from "@/features/mermaid-editor/components/mermaid-editor/editor-floating-chrome";
+import { EditorOverlays } from "@/features/mermaid-editor/components/mermaid-editor/editor-overlays";
 import { EditorWorkspaceSurface } from "@/features/mermaid-editor/components/mermaid-editor/editor-workspace-surface";
+import { EditorWorkspacePanels } from "@/features/mermaid-editor/components/mermaid-editor/editor-workspace-panels";
 import {
   canvasLiveStateKey,
   diagramTypeLabel,
@@ -32,10 +24,6 @@ import { useEditorFileWorkflow, type UnsavedPromptState } from "@/features/merma
 import { useEditorKeyboardShortcuts } from "@/features/mermaid-editor/components/mermaid-editor/use-editor-keyboard-shortcuts";
 import { useEditorRecentActions } from "@/features/mermaid-editor/components/mermaid-editor/use-editor-recent-actions";
 import { useEditorWindowActions } from "@/features/mermaid-editor/components/mermaid-editor/use-editor-window-actions";
-import { NodeActionEditorDialog } from "@/features/mermaid-editor/components/node-action-editor-dialog";
-import { TerminalPanel } from "@/features/mermaid-editor/components/terminal-panel";
-import { WorkspacePanelControls, WorkspacePanelHeader } from "@/features/mermaid-editor/components/workspace-panel-controls";
-import { DesktopWindowControls, ToolModeCluster, WorkspaceViewCluster } from "@/features/mermaid-editor/components/workspace-view-controls";
 import { appLogoById } from "@/features/mermaid-editor/lib/app-logo";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { deriveDagreAutoLayoutResult } from "@/features/mermaid-editor/lib/canvas-auto-layout";
@@ -88,26 +76,20 @@ import { EditorMotionProvider, gsap, useResolvedEditorMotion } from "@/features/
 import { serializeMermaid } from "@/features/mermaid-editor/lib/mermaid-graph";
 import { DEFAULT_VIEW_FILTERS, hiddenFilterCount, type ViewFilters } from "@/features/mermaid-editor/lib/view-filters";
 import { useDisableNativeContextMenu } from "@/features/mermaid-editor/lib/native-context-menu";
-import { EDITOR_CHROME_CLASSES } from "@/features/mermaid-editor/lib/editor-chrome";
 import { workspaceViewForDocument, type WorkspaceView } from "@/features/mermaid-editor/lib/workspace-view";
 import {
-  WORKSPACE_PANEL_DEFAULT_SIZES,
-  WORKSPACE_PANEL_MIN_SIZES,
   useWorkspacePanels,
   type DetachedBrowserWindow,
   type DetachedMarkdownWindow,
   type StaticWorkspacePanelId
 } from "@/features/mermaid-editor/lib/workspace-panels";
 import { createImageAsset } from "@/features/mermaid-editor/lib/node-assets";
-import { cn } from "@/lib/utils";
-import { OVERLAY_Z_INDEX, useGlobalOverlayActivity } from "@/lib/overlay-layers";
+import { useGlobalOverlayActivity } from "@/lib/overlay-layers";
 import {
   serializeCanvasDocument,
   type CanvasDocument
 } from "@/features/mermaid-editor/lib/canvas-document";
 import { parentDirectoryPath } from "@/features/mermaid-editor/lib/runtime-paths";
-
-const ThemeSettingsPanel = lazy(() => import("@/features/mermaid-editor/components/theme-settings-panel").then((mod) => ({ default: mod.ThemeSettingsPanel })));
 
 export function MermaidEditor() {
   useDisableNativeContextMenu();
@@ -819,6 +801,18 @@ export function MermaidEditor() {
     applyEditorCommand({ type: "mode.set", mode: setEditorMode(nextMode), source: "menu" });
   }
 
+  function syncAutoLayout() {
+    applyEditorCommand({ type: "layout.syncAuto", source: "menu" });
+  }
+
+  function resetCanvasView() {
+    if (documentKind === "canvas") {
+      applyCanvasDocument({ ...canvasDocument, viewport: { x: 160, y: 90, scale: 1 } }, "已重置画布视图。");
+      return;
+    }
+    updateViewport({ x: 160, y: 90, scale: 1 }, "menu");
+  }
+
   const nodeActionEditorNode = nodeActionEditor ? graph.nodes.find((node) => node.id === nodeActionEditor.nodeId) : undefined;
 
   return (
@@ -878,291 +872,121 @@ export function MermaidEditor() {
           />
         </div>
         </MotionPresence>
-        {fileDropFeedback ? <FileDropFeedbackBadge feedback={fileDropFeedback} /> : null}
-        <FloatingPanel
-          open={!leftCollapsed}
-          placement="left-panel"
-          kind="workspace"
-          dismissMode="explicit"
-          panelId="explorer"
-          active={activeWorkspacePanel === "explorer"}
-          stackIndex={workspacePanelStackPosition("explorer")}
-          onFocusPanel={() => bringWorkspacePanelToFront("explorer")}
-          resetDragOnOpen={false}
-          defaultSize={WORKSPACE_PANEL_DEFAULT_SIZES.explorer}
-          minSize={WORKSPACE_PANEL_MIN_SIZES.explorer}
-          windowState={workspacePanelWindowState("explorer")}
-          onWindowStateChange={(state) => setWorkspacePanelWindowState("explorer", state)}
-          className={cn(EDITOR_CHROME_CLASSES.sidePanel, "relative h-full w-full")}
-        >
-          <ExplorerPanel
-            runtimeKind={runtime.kind}
-            projectWorkspace={projectWorkspace}
-            projectFiles={projectFiles}
-            currentFileRef={fileRef}
-            projectBusy={projectBusy}
-            onOpenProject={() => void openProjectFolder()}
-            onRefreshProject={() => void refreshProjectWorkspace()}
-            onCloseProject={() => void closeProjectWorkspace()}
-            onOpenProjectFile={(file) => void openProjectFile(file)}
-            onOpenProjectMarkdownWindow={(file) => void openProjectMarkdownWindow(file)}
-            windowState={workspacePanelWindowState("explorer")}
-            onWindowStateChange={(state) => setWorkspacePanelWindowState("explorer", state)}
-            onCollapse={() => closeWorkspacePanel("explorer")}
-          />
-        </FloatingPanel>
-        <FloatingPanel
-          open={!rightCollapsed && documentKind === "mermaid"}
-          placement="right-panel"
-          kind="workspace"
-          dismissMode="explicit"
-          panelId="inspector"
-          active={activeWorkspacePanel === "inspector"}
-          stackIndex={workspacePanelStackPosition("inspector")}
-          onFocusPanel={() => bringWorkspacePanelToFront("inspector")}
-          resetDragOnOpen={false}
-          defaultSize={WORKSPACE_PANEL_DEFAULT_SIZES.inspector}
-          minSize={WORKSPACE_PANEL_MIN_SIZES.inspector}
-          windowState={workspacePanelWindowState("inspector")}
-          onWindowStateChange={(state) => setWorkspacePanelWindowState("inspector", state)}
-          className={cn(EDITOR_CHROME_CLASSES.sidePanel, "relative grid h-full w-full min-h-0")}
-        >
-          <WorkspacePanelHeader
-            windowState={workspacePanelWindowState("inspector")}
-            onWindowStateChange={(state) => setWorkspacePanelWindowState("inspector", state)}
-            onCollapse={() => closeWorkspacePanel("inspector")}
-          />
-          <div className="grid min-h-0">
-            <InspectorPanel
-              graph={graph}
-              selection={selection}
-              onEditorCommand={applyEditorCommand}
-              onOpenNodeAction={executeCanvasNodeAction}
-              onEditNodeAction={editCanvasNodeAction}
-            />
-          </div>
-        </FloatingPanel>
-        <FloatingPanel
-          open={terminalOpen}
-          placement="bottom-panel"
-          kind="workspace"
-          dismissMode="explicit"
-          panelId="terminal"
-          active={activeWorkspacePanel === "terminal"}
-          stackIndex={workspacePanelStackPosition("terminal")}
-          onFocusPanel={() => bringWorkspacePanelToFront("terminal")}
-          resetDragOnOpen={false}
-          defaultSize={WORKSPACE_PANEL_DEFAULT_SIZES.terminal}
-          minSize={WORKSPACE_PANEL_MIN_SIZES.terminal}
-          windowState={workspacePanelWindowState("terminal")}
-          onWindowStateChange={(state) => setWorkspacePanelWindowState("terminal", state)}
-          className="grid h-full w-full overflow-hidden"
-        >
-          <TerminalPanel
-            runtime={runtime}
-            cwd={terminalCwd}
-            theme={activeTheme}
-            terminalTheme={compiledTheme.terminalTheme}
-            onClose={() => closeWorkspacePanel("terminal")}
-            onStatus={setStatus}
-            windowControls={
-              <WorkspacePanelControls
-                windowState={workspacePanelWindowState("terminal")}
-                onWindowStateChange={(state) => setWorkspacePanelWindowState("terminal", state)}
-                onClose={() => closeWorkspacePanel("terminal")}
-                closeLabel="关闭终端"
-                closeTooltipSide="top"
-                closeIcon={<Xmark />}
-              />
-            }
-          />
-        </FloatingPanel>
-        <DetachedWorkspaceWindows
-          markdownWindows={detachedMarkdownWindows}
-          browserWindows={detachedBrowserWindows}
+        <EditorWorkspacePanels
           runtime={runtime}
-          activePanel={activeWorkspacePanel}
+          documentKind={documentKind}
+          leftCollapsed={leftCollapsed}
+          rightCollapsed={rightCollapsed}
+          terminalOpen={terminalOpen}
+          activeWorkspacePanel={activeWorkspacePanel}
           browserDomOverlayActive={browserDomOverlayActive}
-          bringPanelToFront={bringWorkspacePanelToFront}
-          panelStackPosition={workspacePanelStackPosition}
-          panelWindowState={workspacePanelWindowState}
-          setPanelWindowState={setWorkspacePanelWindowState}
-          closeMarkdownWindow={closeDetachedMarkdownWindow}
-          saveMarkdownWindow={saveDetachedMarkdownWindow}
-          updateMarkdownWindow={updateDetachedMarkdownWindow}
-          closeBrowserWindow={closeDetachedBrowserWindow}
-          updateBrowserWindow={updateDetachedBrowserWindow}
+          graph={graph}
+          selection={selection}
+          projectWorkspace={projectWorkspace}
+          projectFiles={projectFiles}
+          projectBusy={projectBusy}
+          fileRef={fileRef}
+          terminalCwd={terminalCwd}
+          activeTheme={activeTheme}
+          terminalTheme={compiledTheme.terminalTheme}
+          detachedMarkdownWindows={detachedMarkdownWindows}
+          detachedBrowserWindows={detachedBrowserWindows}
+          bringWorkspacePanelToFront={bringWorkspacePanelToFront}
+          workspacePanelStackPosition={workspacePanelStackPosition}
+          workspacePanelWindowState={workspacePanelWindowState}
+          setWorkspacePanelWindowState={setWorkspacePanelWindowState}
+          closeWorkspacePanel={closeWorkspacePanel}
+          openProjectFolder={openProjectFolder}
+          refreshProjectWorkspace={refreshProjectWorkspace}
+          closeProjectWorkspace={closeProjectWorkspace}
+          openProjectFile={openProjectFile}
+          openProjectMarkdownWindow={openProjectMarkdownWindow}
+          applyEditorCommand={applyEditorCommand}
+          executeCanvasNodeAction={executeCanvasNodeAction}
+          editCanvasNodeAction={editCanvasNodeAction}
+          closeDetachedMarkdownWindow={closeDetachedMarkdownWindow}
+          saveDetachedMarkdownWindow={saveDetachedMarkdownWindow}
+          updateDetachedMarkdownWindow={updateDetachedMarkdownWindow}
+          closeDetachedBrowserWindow={closeDetachedBrowserWindow}
+          updateDetachedBrowserWindow={updateDetachedBrowserWindow}
           onStatus={setStatus}
           onBrowserError={recordBrowserWebviewError}
         />
-
-        <FloatingChromeLayer>
-          <FloatingChromeSlot placement="topLeft" pinned={fileMenuOpen}>
-            <FileMenu
-              open={fileMenuOpen}
-              recentFiles={recentFiles}
-              runtimeKind={runtime.kind}
-              projectBusy={projectBusy}
-              isDirty={isDirty}
-              onOpenChange={updateFileMenuOpen}
-              onNewMermaidFile={() => void newMermaidFile()}
-              onNewMarkdownFile={() => void newMarkdownFile()}
-              onNewCanvasFile={() => void newCanvasFile()}
-              onOpenFile={() => void openMermaidFile()}
-              onOpenRecent={(file) => void openRecentFile(file)}
-              onOpenProject={() => void openProjectFolder()}
-              onSaveFile={() => void saveMermaidFile()}
-              onSaveAs={() => void saveMermaidFileAs()}
-            />
-          </FloatingChromeSlot>
-
-          {isDesktopChrome ? (
-            <FloatingChromeSlot placement="topCenter">
-              <FloatingIconButton
-                type="button"
-                label="拖拽移动窗口，双击最大化"
-                tooltipSide="bottom"
-                onPointerDown={startDesktopWindowDragHandle}
-                onDoubleClick={() => void toggleDesktopWindowMaximizeHandle()}
-              >
-                <Grid3X3 />
-              </FloatingIconButton>
-            </FloatingChromeSlot>
-          ) : null}
-
-          {isDesktopChrome ? (
-            <FloatingChromeSlot placement="topRight">
-              <DesktopWindowControls runtime={runtime} />
-            </FloatingChromeSlot>
-          ) : null}
-
-          {documentKind !== "canvas" ? (
-          <FloatingChromeSlot placement="rightView">
-            <WorkspaceViewCluster
-              workspaceView={workspaceView}
-              editableKind={editableKind}
-              documentKind={documentKind}
-              canvasViewTooltip={canvasViewTooltip}
-              onChange={changeWorkspaceView}
-            />
-          </FloatingChromeSlot>
-          ) : null}
-
-          {documentKind === "mermaid" ? (
-          <FloatingChromeSlot placement="rightFilter" pinned={viewFiltersOpen}>
-            <ViewFilterMenu
-              open={viewFiltersOpen}
-              filters={viewFilters}
-              hiddenCount={hiddenViewFilters}
-              editable={isCanvasEditable}
-              onOpenChange={updateViewFiltersOpen}
-              onChange={updateViewFilter}
-              onReset={resetViewFilters}
-            />
-          </FloatingChromeSlot>
-          ) : null}
-
-          {leftCollapsed ? (
-          <FloatingChromeSlot placement="leftCenter">
-            <FloatingIconButton
-              label="展开左侧文件夹"
-              tooltipSide="right"
-              onClick={() => openWorkspacePanel("explorer")}
-            >
-              <PanelLeftOpen />
-            </FloatingIconButton>
-          </FloatingChromeSlot>
-          ) : null}
-
-          {documentKind === "mermaid" && rightCollapsed ? (
-          <FloatingChromeSlot placement="rightCenter">
-            <FloatingIconButton
-              label="展开右侧检查器"
-              tooltipSide="left"
-              onClick={() => openWorkspacePanel("inspector")}
-            >
-              <PanelRightOpen />
-            </FloatingIconButton>
-          </FloatingChromeSlot>
-          ) : null}
-
-          <FloatingChromeSlot placement="leftBottom" pinned={secondaryActionsOpen}>
-            <SecondaryActionsMenu
-              open={secondaryActionsOpen}
-              direction={graph.direction}
-              edgeRouting={edgeRouting}
-              layoutMode={layoutMode}
-              preferences={preferences}
-              editable={isCanvasEditable}
-              documentKind={documentKind}
-              onOpenChange={updateSecondaryActionsOpen}
-              onAddNode={addNode}
-              onAddImageNode={() => void addImageNode()}
-              onCreateGroup={createGroupFromSelection}
-              onSaveAs={() => void saveMermaidFileAs()}
-              onDirectionChange={updateDirection}
-              onEdgeRoutingChange={updateEdgeRouting}
-              onLayoutModeChange={updateLayoutMode}
-              onPreferencesChange={updatePreferences}
-              onRefreshSource={refreshFromSource}
-              onSyncAutoLayout={() => applyEditorCommand({ type: "layout.syncAuto", source: "menu" })}
-              onResetView={() => {
-                if (documentKind === "canvas") applyCanvasDocument({ ...canvasDocument, viewport: { x: 160, y: 90, scale: 1 } }, "已重置画布视图。");
-                else updateViewport({ x: 160, y: 90, scale: 1 }, "menu");
-              }}
-              onOpenThemeSettings={openThemeSettings}
-            />
-          </FloatingChromeSlot>
-
-          {!terminalOpen ? (
-          <FloatingChromeSlot placement="bottomCenter">
-            <FloatingIconButton
-              label="打开终端"
-              tooltipSide="top"
-              onClick={() => openWorkspacePanel("terminal")}
-            >
-              <Terminal />
-            </FloatingIconButton>
-          </FloatingChromeSlot>
-          ) : null}
-
-          {isCanvasEditable && workspaceView === "canvas" ? (
-            <FloatingChromeSlot placement="rightBottom">
-              <ToolModeCluster mode={mode} onChange={changeToolMode} />
-            </FloatingChromeSlot>
-          ) : null}
-        </FloatingChromeLayer>
-        {fileWorkflowError ? <FileWorkflowErrorBanner error={fileWorkflowError} onClose={() => setFileWorkflowError(null)} /> : null}
-        {unsavedPrompt ? <UnsavedFilePrompt prompt={unsavedPrompt} onResolve={resolveUnsavedPrompt} /> : null}
-        {nodeActionEditorNode ? (
-          <NodeActionEditorDialog
-            node={nodeActionEditorNode}
-            projectFiles={projectFiles}
-            onClose={() => setNodeActionEditor(null)}
-            onSave={saveCanvasNodeAction}
-            onTestOpen={executeNodeActionDraft}
-          />
-        ) : null}
-        {preferences.statusMessages && status ? (
-          <div
-            className="pointer-events-none fixed bottom-3 left-1/2 -translate-x-1/2 rounded-md border bg-card/95 px-3 py-2 text-xs text-muted-foreground backdrop-blur"
-            style={{ zIndex: OVERLAY_Z_INDEX.statusToast }}
-          >
-            {status}
-          </div>
-        ) : null}
-        {themeSettingsOpen ? (
-          <Suspense fallback={null}>
-            <ThemeSettingsPanel
-              themeId={themeId}
-              customTheme={customTheme}
-              activeTheme={activeTheme}
-              onPreview={previewTheme}
-              onCancel={cancelThemeSettings}
-              onSave={saveThemeSettings}
-            />
-          </Suspense>
-        ) : null}
+        <EditorFloatingChrome
+          runtime={runtime}
+          isDesktopChrome={isDesktopChrome}
+          documentKind={documentKind}
+          editableKind={editableKind}
+          workspaceView={workspaceView}
+          canvasViewTooltip={canvasViewTooltip}
+          fileMenuOpen={fileMenuOpen}
+          viewFiltersOpen={viewFiltersOpen}
+          secondaryActionsOpen={secondaryActionsOpen}
+          leftCollapsed={leftCollapsed}
+          rightCollapsed={rightCollapsed}
+          terminalOpen={terminalOpen}
+          recentFiles={recentFiles}
+          projectBusy={projectBusy}
+          isDirty={isDirty}
+          viewFilters={viewFilters}
+          hiddenViewFilters={hiddenViewFilters}
+          isCanvasEditable={isCanvasEditable}
+          direction={graph.direction}
+          edgeRouting={edgeRouting}
+          layoutMode={layoutMode}
+          preferences={preferences}
+          mode={mode}
+          onFileMenuOpenChange={updateFileMenuOpen}
+          onViewFiltersOpenChange={updateViewFiltersOpen}
+          onSecondaryActionsOpenChange={updateSecondaryActionsOpen}
+          onNewMermaidFile={newMermaidFile}
+          onNewMarkdownFile={newMarkdownFile}
+          onNewCanvasFile={newCanvasFile}
+          onOpenFile={openMermaidFile}
+          onOpenRecent={openRecentFile}
+          onOpenProject={openProjectFolder}
+          onSaveFile={saveMermaidFile}
+          onSaveAs={saveMermaidFileAs}
+          onStartDesktopWindowDrag={startDesktopWindowDragHandle}
+          onToggleDesktopWindowMaximize={toggleDesktopWindowMaximizeHandle}
+          onWorkspaceViewChange={changeWorkspaceView}
+          onViewFiltersChange={updateViewFilter}
+          onResetViewFilters={resetViewFilters}
+          onOpenWorkspacePanel={openWorkspacePanel}
+          onAddNode={addNode}
+          onAddImageNode={addImageNode}
+          onCreateGroup={() => createGroupFromSelection()}
+          onDirectionChange={updateDirection}
+          onEdgeRoutingChange={updateEdgeRouting}
+          onLayoutModeChange={updateLayoutMode}
+          onPreferencesChange={updatePreferences}
+          onRefreshSource={refreshFromSource}
+          onSyncAutoLayout={syncAutoLayout}
+          onResetView={resetCanvasView}
+          onOpenThemeSettings={openThemeSettings}
+          onToolModeChange={changeToolMode}
+        />
+        <EditorOverlays
+          fileDropFeedback={fileDropFeedback}
+          fileWorkflowError={fileWorkflowError}
+          unsavedPrompt={unsavedPrompt}
+          nodeActionEditorNode={nodeActionEditorNode}
+          projectFiles={projectFiles}
+          status={status}
+          statusMessages={preferences.statusMessages}
+          themeSettingsOpen={themeSettingsOpen}
+          themeId={themeId}
+          customTheme={customTheme}
+          activeTheme={activeTheme}
+          onCloseFileWorkflowError={() => setFileWorkflowError(null)}
+          onResolveUnsavedPrompt={resolveUnsavedPrompt}
+          onCloseNodeActionEditor={() => setNodeActionEditor(null)}
+          onSaveCanvasNodeAction={saveCanvasNodeAction}
+          onExecuteNodeActionDraft={executeNodeActionDraft}
+          onPreviewTheme={previewTheme}
+          onCancelThemeSettings={cancelThemeSettings}
+          onSaveThemeSettings={saveThemeSettings}
+        />
       </main>
     </TooltipProvider>
     </EditorMotionProvider>
