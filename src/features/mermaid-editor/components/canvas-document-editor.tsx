@@ -1,24 +1,26 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type React from "react";
-import { Xmark } from "iconoir-react/regular";
 
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { animateCanvasDocumentElementCreated } from "@/features/mermaid-editor/components/canvas-document-editor/canvas-document-animation";
 import { CanvasDocumentToolbar } from "@/features/mermaid-editor/components/canvas-document-editor/canvas-document-toolbar";
-import { DEFAULT_DIMENSIONS, DEFAULT_TEXT_COLOR, PIXI_TEXT_FONT_FAMILY, VIEWPORT_COMMIT_DELAY_MS } from "@/features/mermaid-editor/components/canvas-document-editor/constants";
+import { DEFAULT_DIMENSIONS, VIEWPORT_COMMIT_DELAY_MS } from "@/features/mermaid-editor/components/canvas-document-editor/constants";
+import { CanvasDocumentImageUrlDialog } from "@/features/mermaid-editor/components/canvas-document-editor/image-url-dialog";
+import { CanvasDocumentInlineEditOverlays } from "@/features/mermaid-editor/components/canvas-document-editor/inline-edit-overlays";
+import { resolveCanvasDocumentInlineEditStyle } from "@/features/mermaid-editor/components/canvas-document-editor/inline-edit-style";
+import { CANVAS_DOCUMENT_INTERACTION_GRAPH } from "@/features/mermaid-editor/components/canvas-document-editor/interaction-context";
 import { loadImageDimensions } from "@/features/mermaid-editor/components/canvas-document-editor/image-utils";
 import { applyPixiViewport, createPixiCanvasRuntime, destroyPixiCanvasRuntime, resizePixiRenderer, schedulePixiRender } from "@/features/mermaid-editor/components/canvas-document-editor/pixi-runtime";
 import { drawSelectionOverlay, syncPixiScene } from "@/features/mermaid-editor/components/canvas-document-editor/pixi-scene";
 import type {
   CanvasDocumentInlineEdit,
-  CanvasDocumentInlineEditStyle,
   CanvasDocumentMoveDraft,
   CanvasDocumentResizeDraft,
   PixiCanvasRuntime,
   Point
 } from "@/features/mermaid-editor/components/canvas-document-editor/types";
+import { useCanvasDocumentImageSources } from "@/features/mermaid-editor/components/canvas-document-editor/use-canvas-document-image-sources";
+import { useCanvasDocumentKeyboardShortcuts } from "@/features/mermaid-editor/components/canvas-document-editor/use-canvas-document-keyboard-shortcuts";
 import { useContainerSize } from "@/features/mermaid-editor/components/canvas-document-editor/use-container-size";
 import {
   canvasDocumentHasSelection,
@@ -54,7 +56,6 @@ import {
 } from "@/features/mermaid-editor/lib/canvas-document";
 import {
   canvasDocumentClientToScreen,
-  canvasDocumentEndpointPoint,
   canvasDocumentScreenToWorld,
   endpointReferencesSelection,
   hitCanvasDocument,
@@ -78,8 +79,7 @@ import { commandFromInteractionIntent } from "@/features/mermaid-editor/lib/inte
 import { buildInteractionContext } from "@/features/mermaid-editor/lib/interaction/context";
 import { createStandardWheelInput, modifiersFromEvent } from "@/features/mermaid-editor/lib/interaction/input";
 import { resolveInteractionIntent } from "@/features/mermaid-editor/lib/interaction/intent";
-import type { MermaidGraph, ViewportState } from "@/features/mermaid-editor/lib/editor-types";
-import { gsap } from "@/features/mermaid-editor/lib/use-gsap-motion";
+import type { ViewportState } from "@/features/mermaid-editor/lib/editor-types";
 import { cn } from "@/lib/utils";
 
 type CanvasDocumentEditorProps = {
@@ -88,15 +88,6 @@ type CanvasDocumentEditorProps = {
   runtime: EditorRuntime;
   onChange: (document: CanvasDocument, status?: string) => void;
   onStatus?: (status: string) => void;
-};
-
-const CANVAS_DOCUMENT_INTERACTION_GRAPH: MermaidGraph = {
-  direction: "LR",
-  nodes: [],
-  edges: [],
-  subgraphs: [],
-  editableKind: "flowchart",
-  parseStatus: "parsed"
 };
 
 export function CanvasDocumentEditor({ document, fileRef, runtime, onChange, onStatus }: CanvasDocumentEditorProps) {
@@ -122,17 +113,13 @@ export function CanvasDocumentEditor({ document, fileRef, runtime, onChange, onS
   const lastPointerUpHitRef = useRef<StandardCanvasHitTarget>({ kind: "blank" });
   const renderCurrentSceneRef = useRef(() => {});
   const renderViewportOnlyRef = useRef(() => {});
-  const itemEditorRef = useRef<HTMLTextAreaElement>(null);
-  const itemEditorMeasureRef = useRef<HTMLDivElement>(null);
-  const connectionEditorRef = useRef<HTMLInputElement>(null);
   const dimensions = useContainerSize(containerRef);
   const [selectedIds, setSelectedIdsState] = useState<string[]>([]);
   const [interactionState, setInteractionState] = useState<StandardCanvasInteractionState>(standardIdleInteraction);
   const [connectorStartId, setConnectorStartIdState] = useState<string | null>(null);
-  const [imageDisplaySrcBySrc, setImageDisplaySrcBySrc] = useState<Record<string, string>>({});
+  const imageDisplaySrcBySrc = useCanvasDocumentImageSources({ document: normalizedDocument, fileRef, runtime });
   const [inlineEdit, setInlineEditState] = useState<CanvasDocumentInlineEdit | null>(null);
   const [inlineEditLayoutRevision, setInlineEditLayoutRevision] = useState(0);
-  const [itemEditorLayout, setItemEditorLayout] = useState({ insetTop: 0, height: 1, scrollable: false });
   const [imageUrlDialogOpen, setImageUrlDialogOpen] = useState(false);
   const [imageUrlDraft, setImageUrlDraft] = useState("");
 
@@ -184,48 +171,6 @@ export function CanvasDocumentEditor({ document, fileRef, runtime, onChange, onS
   }, [imageDisplaySrcBySrc]);
 
   useEffect(() => {
-    if (inlineEdit?.type === "item") {
-      const editor = itemEditorRef.current;
-      if (!editor) return;
-      editor.focus();
-      editor.select();
-      return;
-    }
-
-    if (inlineEdit?.type === "connection") {
-      const editor = connectionEditorRef.current;
-      if (!editor) return;
-      editor.focus();
-      editor.select();
-    }
-  }, [inlineEdit?.id, inlineEdit?.type]);
-
-  useEffect(() => {
-    const sources = Array.from(new Set(normalizedDocument.elements.flatMap((element) => (element.type === "image" && element.src ? [element.src] : []))));
-    if (!sources.length) {
-      setImageDisplaySrcBySrc({});
-      return;
-    }
-
-    let disposed = false;
-    void Promise.all(
-      sources.map(async (src) => {
-        try {
-          return [src, await runtime.resolveImageAssetSrc(fileRef, src)] as const;
-        } catch {
-          return [src, src] as const;
-        }
-      })
-    ).then((entries) => {
-      if (!disposed) setImageDisplaySrcBySrc(Object.fromEntries(entries));
-    });
-
-    return () => {
-      disposed = true;
-    };
-  }, [fileRef, normalizedDocument.elements, runtime]);
-
-  useEffect(() => {
     let disposed = false;
     const host = containerRef.current;
     if (!host) return;
@@ -254,50 +199,17 @@ export function CanvasDocumentEditor({ document, fileRef, runtime, onChange, onS
     };
   }, [onStatus]);
 
-  useEffect(() => {
-    function onKeyDown(event: KeyboardEvent) {
-      const target = event.target as HTMLElement | null;
-      if (target?.tagName === "INPUT" || target?.tagName === "TEXTAREA" || target?.isContentEditable) return;
-      if (inlineEditRef.current) return;
-      if ((event.key === "Delete" || event.key === "Backspace") && selectedIdsRef.current.length) {
-        event.preventDefault();
-        deleteSelection();
-        return;
-      }
-      if (interactionStateRef.current.kind !== "idle" || connectorStartIdRef.current) return;
-      if (event.metaKey || event.ctrlKey || event.altKey) return;
-      if (event.key !== "Enter" && event.key !== "F2") return;
-      if (selectedIdsRef.current.length !== 1) return;
-
-      const element = documentRef.current.elements.find((item) => item.id === selectedIdsRef.current[0]);
-      if (!element || (element.type !== "shape" && element.type !== "card" && element.type !== "text")) return;
-      event.preventDefault();
-      startInlineEdit(element);
-    }
-
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
+  useCanvasDocumentKeyboardShortcuts({
+    selectedIdsRef,
+    inlineEditRef,
+    interactionStateRef,
+    connectorStartIdRef,
+    documentRef,
+    onDeleteSelection: deleteSelection,
+    onStartInlineEdit: startInlineEdit
   });
 
-  const editStyle = inlineEditLayoutRevision >= 0 ? inlineEditStyle() : null;
-  const activeScale = documentRef.current.viewport.scale;
-
-  useLayoutEffect(() => {
-    if (inlineEdit?.type !== "item" || !editStyle) return;
-    const measure = itemEditorMeasureRef.current;
-    if (!measure) return;
-
-    const minimumHeight = editStyle.lineHeight;
-    const measuredHeight = Math.max(minimumHeight, Math.ceil(measure.scrollHeight));
-    const scrollable = measuredHeight > editStyle.height + 1;
-    const height = scrollable ? editStyle.height : Math.min(editStyle.height, measuredHeight);
-    const insetTop = editStyle.verticalAlign === "middle" ? Math.max(0, Math.floor((editStyle.height - height) / 2)) : 0;
-
-    setItemEditorLayout((current) => {
-      if (current.height === height && current.insetTop === insetTop && current.scrollable === scrollable) return current;
-      return { height, insetTop, scrollable };
-    });
-  }, [activeScale, editStyle, inlineEdit?.type, inlineEdit?.value]);
+  const editStyle = inlineEditLayoutRevision >= 0 ? resolveCanvasDocumentInlineEditStyle({ document: documentRef.current, inlineEdit, screenFromWorld }) : null;
 
   function commit(next: CanvasDocument, status?: string) {
     const normalized = normalizeCanvasDocument(next);
@@ -580,95 +492,6 @@ export function CanvasDocumentEditor({ document, fileRef, runtime, onChange, onS
     if (current.type === "item" && (element.type === "shape" || element.type === "text")) {
       updateElement(element.id, { text: current.value }, "已更新文本。");
     }
-  }
-
-  function inlineEditStyle(): CanvasDocumentInlineEditStyle | null {
-    if (!inlineEdit) return null;
-    const element = documentRef.current.elements.find((item) => item.id === inlineEdit.id);
-    if (!element) return null;
-    const scale = Math.max(documentRef.current.viewport.scale, 0.01);
-
-    if (inlineEdit.type === "item") {
-      if (element.type === "shape") {
-        const insetX = 12;
-        const insetY = 12;
-        const screen = screenFromWorld({ x: element.x + insetX, y: element.y + insetY });
-        return {
-          left: screen.x,
-          top: screen.y,
-          width: Math.max(1, element.width - insetX * 2) * scale,
-          height: Math.max(1, element.height - insetY * 2) * scale,
-          fontFamily: PIXI_TEXT_FONT_FAMILY,
-          fontSize: 14 * scale,
-          lineHeight: Math.round(14 * 1.25 * scale),
-          textAlign: "center",
-          fontWeight: 400,
-          color: DEFAULT_TEXT_COLOR,
-          verticalAlign: "middle"
-        };
-      }
-
-      if (element.type === "card") {
-        const insetX = 22;
-        const insetY = 22;
-        const screen = screenFromWorld({ x: element.x + insetX, y: element.y + insetY });
-        return {
-          left: screen.x,
-          top: screen.y,
-          width: Math.max(1, element.width - insetX * 2) * scale,
-          height: Math.max(1, element.height - insetY * 2) * scale,
-          fontFamily: PIXI_TEXT_FONT_FAMILY,
-          fontSize: 16 * scale,
-          lineHeight: Math.round(16 * 1.3 * scale),
-          textAlign: "left",
-          fontWeight: 400,
-          color: DEFAULT_TEXT_COLOR,
-          verticalAlign: "top"
-        };
-      }
-
-      if (element.type === "text") {
-        const screen = screenFromWorld({ x: element.x, y: element.y });
-        return {
-          left: screen.x,
-          top: screen.y,
-          width: Math.max(1, element.width) * scale,
-          height: Math.max(1, element.height) * scale,
-          fontFamily: PIXI_TEXT_FONT_FAMILY,
-          fontSize: element.fontSize * scale,
-          lineHeight: Math.round(element.fontSize * 1.25 * scale),
-          textAlign: "left",
-          fontWeight: 400,
-          color: element.fill,
-          verticalAlign: "top"
-        };
-      }
-
-      return null;
-    }
-
-    if (element.type !== "connector") return null;
-    const elementsById = new Map(documentRef.current.elements.map((item) => [item.id, item]));
-    const from = canvasDocumentEndpointPoint(element.from, elementsById);
-    const to = canvasDocumentEndpointPoint(element.to, elementsById);
-    const center = screenFromWorld({ x: (from.x + to.x) / 2, y: (from.y + to.y) / 2 - 8 });
-    const width = 180 * scale;
-    const height = 28 * scale;
-    return {
-      left: center.x - width / 2,
-      top: center.y - height / 2,
-      width,
-      height,
-      fontFamily: PIXI_TEXT_FONT_FAMILY,
-      fontSize: 12 * scale,
-      lineHeight: Math.round(12 * 1.25 * scale),
-      textAlign: "center",
-      fontWeight: 400,
-      color: DEFAULT_TEXT_COLOR,
-      verticalAlign: "middle",
-      borderRadius: 4 * scale,
-      paddingX: 8 * scale
-    };
   }
 
   function standardHitFromScreen(screen: Point) {
@@ -961,26 +784,7 @@ export function CanvasDocumentEditor({ document, fileRef, runtime, onChange, onS
   }
 
   function animateCreatedElement(id: string) {
-    window.requestAnimationFrame(() => {
-      const view = pixiRef.current?.views.get(id);
-      const pixi = pixiRef.current;
-      if (!view || !pixi) return;
-      view.container.alpha = 0.72;
-      view.container.scale.set(0.96);
-      gsap.to(view.container, {
-        alpha: 1,
-        duration: 0.16,
-        ease: "power2.out",
-        onUpdate: () => schedulePixiRender(pixi)
-      });
-      gsap.to(view.container.scale, {
-        x: 1,
-        y: 1,
-        duration: 0.16,
-        ease: "power2.out",
-        onUpdate: () => schedulePixiRender(pixi)
-      });
-    });
+    animateCanvasDocumentElementCreated(pixiRef.current, id);
   }
 
   return (
@@ -1002,52 +806,13 @@ export function CanvasDocumentEditor({ document, fileRef, runtime, onChange, onS
             选择第二个对象完成连线
           </div>
         ) : null}
-        {imageUrlDialogOpen ? (
-          <div
-            className="absolute inset-0 z-50 grid place-items-center bg-foreground/10 px-4 backdrop-blur-[1px]"
-            onMouseDown={(event) => {
-              if (event.target === event.currentTarget) setImageUrlDialogOpen(false);
-            }}
-          >
-            <form
-              className="grid w-[min(420px,100%)] gap-3 rounded-md border bg-card p-4 shadow-sm"
-              onSubmit={(event) => {
-                event.preventDefault();
-                void addImageFromUrl(imageUrlDraft);
-              }}
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="text-sm font-medium">添加图片 URL</div>
-                  <div className="mt-1 text-xs text-muted-foreground">输入 http、https、data 或本地可访问的图片地址。</div>
-                </div>
-                <Button type="button" size="icon" variant="ghost" className="size-8 shrink-0" onClick={() => setImageUrlDialogOpen(false)} aria-label="关闭图片 URL 输入">
-                  <Xmark className="size-4" />
-                </Button>
-              </div>
-              <Input
-                value={imageUrlDraft}
-                autoFocus
-                placeholder="https://example.com/image.png"
-                onChange={(event) => setImageUrlDraft(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Escape") {
-                    event.preventDefault();
-                    setImageUrlDialogOpen(false);
-                  }
-                }}
-              />
-              <div className="flex justify-end gap-2">
-                <Button type="button" variant="ghost" onClick={() => setImageUrlDialogOpen(false)}>
-                  取消
-                </Button>
-                <Button type="submit" disabled={!imageUrlDraft.trim()}>
-                  添加图片
-                </Button>
-              </div>
-            </form>
-          </div>
-        ) : null}
+        <CanvasDocumentImageUrlDialog
+          open={imageUrlDialogOpen}
+          value={imageUrlDraft}
+          onChange={setImageUrlDraft}
+          onClose={() => setImageUrlDialogOpen(false)}
+          onSubmit={() => void addImageFromUrl(imageUrlDraft)}
+        />
         <div
           ref={containerRef}
           className={cn("h-full min-h-0 touch-none overflow-hidden", interactionState.kind === "panning" || interactionState.kind === "draggingItems" || interactionState.kind === "resizingItem" ? "cursor-grabbing" : "cursor-default")}
@@ -1059,96 +824,15 @@ export function CanvasDocumentEditor({ document, fileRef, runtime, onChange, onS
           onDoubleClick={handleDoubleClick}
           onWheel={handleWheel}
         />
-        {inlineEdit?.type === "item" && editStyle ? (
-          <>
-            <div
-              ref={itemEditorMeasureRef}
-              aria-hidden="true"
-              className="pointer-events-none absolute -left-[9999px] top-0 whitespace-pre-wrap"
-              style={{
-                width: editStyle.width,
-                fontFamily: editStyle.fontFamily,
-                fontSize: editStyle.fontSize,
-                fontWeight: editStyle.fontWeight,
-                lineHeight: `${editStyle.lineHeight}px`,
-                textAlign: editStyle.textAlign,
-                overflowWrap: "break-word",
-                wordBreak: "break-word",
-                visibility: "hidden"
-              }}
-            >
-              {inlineEdit.value || "\u200b"}
-            </div>
-            <Textarea
-              ref={itemEditorRef}
-              aria-label="编辑画布文字"
-              value={inlineEdit.value}
-              className="absolute z-40 block min-h-0 resize-none overflow-x-hidden rounded-none border-0 bg-transparent p-0 shadow-none outline-none ring-0 focus-visible:ring-0 focus-visible:ring-offset-0"
-              style={{
-                left: editStyle.left,
-                top: editStyle.top + itemEditorLayout.insetTop,
-                width: editStyle.width,
-                height: itemEditorLayout.height,
-                color: editStyle.color,
-                fontFamily: editStyle.fontFamily,
-                fontSize: editStyle.fontSize,
-                fontWeight: editStyle.fontWeight,
-                lineHeight: `${editStyle.lineHeight}px`,
-                textAlign: editStyle.textAlign,
-                overflowWrap: "break-word",
-                wordBreak: "break-word",
-                overflowY: itemEditorLayout.scrollable ? "auto" : "hidden"
-              }}
-              onChange={(event) => setCanvasInlineEdit({ ...inlineEdit, value: event.target.value }, { renderScene: false })}
-              onBlur={() => commitInlineEdit(true)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
-                  event.preventDefault();
-                  commitInlineEdit(true);
-                }
-                if (event.key === "Escape") {
-                  event.preventDefault();
-                  commitInlineEdit(false);
-                }
-              }}
-            />
-          </>
-        ) : null}
-        {inlineEdit?.type === "connection" && editStyle ? (
-          <Input
-            ref={connectionEditorRef}
-            aria-label="编辑连线文字"
-            value={inlineEdit.value}
-            className="absolute z-40 h-auto min-h-0 rounded-none border bg-card p-0 text-center font-normal shadow-none outline-none ring-0 focus-visible:ring-0 focus-visible:ring-offset-0"
-            style={{
-              left: editStyle.left,
-              top: editStyle.top,
-              width: editStyle.width,
-              height: editStyle.height,
-              borderRadius: editStyle.borderRadius,
-              color: editStyle.color,
-              fontFamily: editStyle.fontFamily,
-              fontSize: editStyle.fontSize,
-              fontWeight: editStyle.fontWeight,
-              lineHeight: `${editStyle.lineHeight}px`,
-              paddingLeft: editStyle.paddingX,
-              paddingRight: editStyle.paddingX,
-              textAlign: editStyle.textAlign
-            }}
-            onChange={(event) => setCanvasInlineEdit({ ...inlineEdit, value: event.target.value }, { renderScene: false })}
-            onBlur={() => commitInlineEdit(true)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") {
-                event.preventDefault();
-                commitInlineEdit(true);
-              }
-              if (event.key === "Escape") {
-                event.preventDefault();
-                commitInlineEdit(false);
-              }
-            }}
-          />
-        ) : null}
+        <CanvasDocumentInlineEditOverlays
+          inlineEdit={inlineEdit}
+          editStyle={editStyle}
+          onChange={(value) => {
+            if (!inlineEdit) return;
+            setCanvasInlineEdit({ ...inlineEdit, value }, { renderScene: false });
+          }}
+          onCommit={commitInlineEdit}
+        />
       </section>
     </TooltipProvider>
   );

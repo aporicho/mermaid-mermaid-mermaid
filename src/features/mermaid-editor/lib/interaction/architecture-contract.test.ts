@@ -76,9 +76,11 @@ describe("interaction architecture contract", () => {
 
   it("keeps canvas document text editing inline instead of prompt-based", () => {
     const canvasDocumentEditor = readProjectFile("src/features/mermaid-editor/components/canvas-document-editor.tsx");
+    const inlineEditOverlays = readProjectFile("src/features/mermaid-editor/components/canvas-document-editor/inline-edit-overlays.tsx");
 
-    expect(canvasDocumentEditor).toContain("Textarea");
-    expect(canvasDocumentEditor).toContain("Input");
+    expect(canvasDocumentEditor).toContain("CanvasDocumentInlineEditOverlays");
+    expect(inlineEditOverlays).toContain("Textarea");
+    expect(inlineEditOverlays).toContain("Input");
     expect(canvasDocumentEditor).toContain("commitInlineEdit");
     expect(canvasDocumentEditor).toContain("editingItemText");
     expect(canvasDocumentEditor).toContain("editingConnectionText");
@@ -128,7 +130,14 @@ describe("interaction architecture contract", () => {
       { path: "src/features/mermaid-editor/components/inspector-panel/subgraph-sections.tsx", maxLines: 500 },
       { path: "src/features/mermaid-editor/components/inspector-panel/model.ts", maxLines: 500 },
       { path: "src/features/mermaid-editor/components/konva-canvas.tsx", maxLines: 1200 },
-      { path: "src/features/mermaid-editor/components/canvas-document-editor.tsx", maxLines: 1300 },
+      { path: "src/features/mermaid-editor/components/canvas-document-editor.tsx", maxLines: 850 },
+      { path: "src/features/mermaid-editor/components/canvas-document-editor/canvas-document-animation.ts", maxLines: 80 },
+      { path: "src/features/mermaid-editor/components/canvas-document-editor/image-url-dialog.tsx", maxLines: 100 },
+      { path: "src/features/mermaid-editor/components/canvas-document-editor/inline-edit-overlays.tsx", maxLines: 220 },
+      { path: "src/features/mermaid-editor/components/canvas-document-editor/inline-edit-style.ts", maxLines: 160 },
+      { path: "src/features/mermaid-editor/components/canvas-document-editor/interaction-context.ts", maxLines: 40 },
+      { path: "src/features/mermaid-editor/components/canvas-document-editor/use-canvas-document-image-sources.ts", maxLines: 100 },
+      { path: "src/features/mermaid-editor/components/canvas-document-editor/use-canvas-document-keyboard-shortcuts.ts", maxLines: 100 },
       { path: "src-tauri/src/main.rs", maxLines: 1450 }
     ];
 
@@ -265,6 +274,26 @@ describe("interaction architecture contract", () => {
     expect(canvasDocumentEditor).not.toContain("function ToolbarButton(");
     expect(canvasDocumentEditor).not.toContain("function useContainerSize(");
     expect(canvasDocumentEditor).not.toContain("function loadImageDimensions(");
+  });
+
+  it("keeps Pixi canvas document overlays and side effects outside the shell file", () => {
+    const canvasDocumentEditor = readProjectFile("src/features/mermaid-editor/components/canvas-document-editor.tsx");
+    const keyboard = readProjectFile("src/features/mermaid-editor/components/canvas-document-editor/use-canvas-document-keyboard-shortcuts.ts");
+
+    expect(canvasDocumentEditor).toContain("useCanvasDocumentImageSources");
+    expect(canvasDocumentEditor).toContain("useCanvasDocumentKeyboardShortcuts");
+    expect(canvasDocumentEditor).toContain("CanvasDocumentImageUrlDialog");
+    expect(canvasDocumentEditor).toContain("CanvasDocumentInlineEditOverlays");
+    expect(canvasDocumentEditor).toContain("resolveCanvasDocumentInlineEditStyle");
+    expect(keyboard).toContain("window.addEventListener(\"keydown\"");
+    expect(canvasDocumentEditor).not.toContain("window.addEventListener(\"keydown\"");
+    expect(canvasDocumentEditor).not.toContain("imageUrlDialogOpen ? (");
+    expect(canvasDocumentEditor).not.toContain("<Textarea");
+    expect(canvasDocumentEditor).not.toContain("<Input");
+    expect(canvasDocumentEditor).not.toContain("function inlineEditStyle(");
+    expect(canvasDocumentEditor).not.toContain("useLayoutEffect");
+    expect(canvasDocumentEditor).not.toContain("const CANVAS_DOCUMENT_INTERACTION_GRAPH");
+    expect(canvasDocumentEditor).not.toContain("gsap.to(view.container");
   });
 
   it("keeps file workflow logic outside the MermaidEditor composition file", () => {
