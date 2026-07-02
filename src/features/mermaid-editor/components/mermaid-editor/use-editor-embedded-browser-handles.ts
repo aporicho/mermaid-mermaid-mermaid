@@ -3,6 +3,8 @@ import { useCallback, useEffect, useMemo } from "react";
 import type { RuntimeEmbeddedBrowserHandle } from "@/features/mermaid-editor/lib/editor-runtime";
 import type { BrowserWindowPanelId } from "@/features/mermaid-editor/lib/workspace-panels";
 
+const disposedBrowserHandles = new WeakSet<RuntimeEmbeddedBrowserHandle>();
+
 export function useEditorEmbeddedBrowserHandles() {
   const registry = useMemo(createEmbeddedBrowserRegistry, []);
 
@@ -14,13 +16,17 @@ export function useEditorEmbeddedBrowserHandles() {
     registry.close(panelId);
   }, [registry]);
 
+  const closeAllEmbeddedBrowsers = useCallback(() => {
+    registry.closeAll();
+  }, [registry]);
+
   useEffect(() => {
     return () => {
       registry.closeAll();
     };
   }, [registry]);
 
-  return { setEmbeddedBrowserHandle, closeEmbeddedBrowser };
+  return { setEmbeddedBrowserHandle, closeEmbeddedBrowser, closeAllEmbeddedBrowsers };
 }
 
 export function createEmbeddedBrowserRegistry() {
@@ -30,11 +36,14 @@ export function createEmbeddedBrowserRegistry() {
     set(panelId: BrowserWindowPanelId, handle: RuntimeEmbeddedBrowserHandle | null) {
       const current = handles.get(panelId);
       if (current === handle) return;
+      if (current) {
+        handles.delete(panelId);
+        disposeRuntimeEmbeddedBrowserHandle(current);
+      }
       if (!handle) {
         handles.delete(panelId);
         return;
       }
-      if (current) disposeRuntimeEmbeddedBrowserHandle(current);
       handles.set(panelId, handle);
     },
     close(panelId: BrowserWindowPanelId) {
@@ -51,6 +60,8 @@ export function createEmbeddedBrowserRegistry() {
 }
 
 export function disposeRuntimeEmbeddedBrowserHandle(handle: RuntimeEmbeddedBrowserHandle) {
+  if (disposedBrowserHandles.has(handle)) return;
+  disposedBrowserHandles.add(handle);
   void handle.hide().catch(() => undefined);
   void handle.close().catch(() => undefined);
 }

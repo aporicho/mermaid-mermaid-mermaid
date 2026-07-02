@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { OpenNewWindow, Refresh as RefreshCw, WarningTriangle } from "iconoir-react/regular";
 
 import { Button } from "@/components/ui/button";
+import { disposeRuntimeEmbeddedBrowserHandle } from "@/features/mermaid-editor/components/mermaid-editor/use-editor-embedded-browser-handles";
 import { embeddedBrowserLogicalRect, embeddedBrowserRectKey } from "@/features/mermaid-editor/lib/embedded-browser-rect";
 import type { EditorRuntime, RuntimeEmbeddedBrowserHandle } from "@/features/mermaid-editor/lib/editor-runtime";
 import type { BrowserWindowPanelId } from "@/features/mermaid-editor/lib/workspace-panels";
@@ -18,6 +19,8 @@ type EmbeddedBrowserSurfaceProps = {
   onBrowserError: (url: string, message: string) => void;
   onBrowserHandleChange: (panelId: BrowserWindowPanelId, handle: RuntimeEmbeddedBrowserHandle | null) => void;
 };
+
+type EmbeddedBrowserCallbacks = Pick<EmbeddedBrowserSurfaceProps, "onStatus" | "onBrowserError" | "onBrowserHandleChange">;
 
 export function EmbeddedBrowserSurface({
   panelId,
@@ -36,9 +39,19 @@ export function EmbeddedBrowserSurface({
   const activeRef = useRef(active);
   const domOverlayActiveRef = useRef(domOverlayActive);
   const syncErrorReportedRef = useRef(false);
+  const callbacksRef = useRef<EmbeddedBrowserCallbacks>({ onStatus, onBrowserError, onBrowserHandleChange });
+  const instanceIdRef = useRef<number | null>(null);
+  const creationSeqRef = useRef(0);
   const [nativeState, setNativeState] = useState<"loading" | "ready" | "unavailable" | "error">("loading");
   const [nativeError, setNativeError] = useState("");
-  const browserLabel = useMemo(() => `browser_${hashText(`${panelId}:${url}:${reloadRevision}`)}`, [panelId, reloadRevision, url]);
+
+  if (instanceIdRef.current === null) {
+    instanceIdRef.current = nextEmbeddedBrowserInstanceId();
+  }
+
+  useEffect(() => {
+    callbacksRef.current = { onStatus, onBrowserError, onBrowserHandleChange };
+  }, [onBrowserError, onBrowserHandleChange, onStatus]);
 
   useEffect(() => {
     activeRef.current = active;
@@ -54,6 +67,7 @@ export function EmbeddedBrowserSurface({
     let frameId = 0;
     let lastRectKey = "";
     let nativeCreated = false;
+    const browserLabel = `browser_${hashText(`${instanceIdRef.current}:${panelId}:${url}:${reloadRevision}:${creationSeqRef.current++}`)}`;
     syncErrorReportedRef.current = false;
 
     async function createNativeBrowser() {
@@ -67,14 +81,25 @@ export function EmbeddedBrowserSurface({
       setNativeError("");
       setNativeState("loading");
 
-      const result = await runtime.createEmbeddedBrowser({
-        label: browserLabel,
-        url,
-        rect: embeddedBrowserLogicalRect(surface.getBoundingClientRect())
-      });
+      let result: Awaited<ReturnType<EditorRuntime["createEmbeddedBrowser"]>>;
+      try {
+        result = await runtime.createEmbeddedBrowser({
+          label: browserLabel,
+          url,
+          rect: embeddedBrowserLogicalRect(surface.getBoundingClientRect())
+        });
+      } catch (error) {
+        if (disposed) return;
+        const message = formatEmbeddedBrowserError(error);
+        setNativeError(message);
+        setNativeState("error");
+        callbacksRef.current.onStatus(`WebView2 内置浏览器创建失败${message ? `：${message}` : "。"}`);
+        callbacksRef.current.onBrowserError(url, message || "create rejected");
+        return;
+      }
 
       if (disposed) {
-        if (result.status === "created") void result.browser.close().catch(() => undefined);
+        if (result.status === "created") disposeRuntimeEmbeddedBrowserHandle(result.browser);
         return;
       }
 
@@ -82,22 +107,22 @@ export function EmbeddedBrowserSurface({
         setNativeError(result.message);
         setNativeState(result.status === "unsupported" ? "unavailable" : "error");
         if (result.status === "error") {
-          onStatus(`WebView2 内置浏览器不可用${result.message ? `：${result.message}` : "。"}`);
-          onBrowserError(url, result.message || "create failed");
+          callbacksRef.current.onStatus(`WebView2 内置浏览器不可用${result.message ? `：${result.message}` : "。"}`);
+          callbacksRef.current.onBrowserError(url, result.message || "create failed");
         }
         return;
       }
 
       const browser = result.browser;
       browserRef.current = browser;
-      onBrowserHandleChange(panelId, browser);
+      callbacksRef.current.onBrowserHandleChange(panelId, browser);
 
       const reportSyncError = (operation: string, error: unknown) => {
         if (disposed || syncErrorReportedRef.current) return;
         syncErrorReportedRef.current = true;
         const message = formatEmbeddedBrowserError(error) || operation;
-        onStatus(`WebView2 内置浏览器同步失败：${message}`);
-        onBrowserError(url, `sync ${operation}: ${message}`);
+        callbacksRef.current.onStatus(`WebView2 内置浏览器同步失败：${message}`);
+        callbacksRef.current.onBrowserError(url, `sync ${operation}: ${message}`);
       };
 
       const syncBrowserRect = (force = false) => {
@@ -129,14 +154,14 @@ export function EmbeddedBrowserSurface({
         if (disposed) return;
         if (browserRef.current === browser) {
           browserRef.current = null;
-          onBrowserHandleChange(panelId, null);
+          callbacksRef.current.onBrowserHandleChange(panelId, null);
         }
-        void browser.close().catch(() => undefined);
+        disposeRuntimeEmbeddedBrowserHandle(browser);
         const message = formatEmbeddedBrowserError(event);
         setNativeError(message);
         setNativeState("error");
-        onStatus(`WebView2 内置浏览器创建失败${message ? `：${message}` : "。"}`);
-        onBrowserError(url, message || "tauri://error");
+        callbacksRef.current.onStatus(`WebView2 内置浏览器创建失败${message ? `：${message}` : "。"}`);
+        callbacksRef.current.onBrowserError(url, message || "tauri://error");
       });
     }
 
@@ -147,10 +172,10 @@ export function EmbeddedBrowserSurface({
       if (frameId) window.cancelAnimationFrame(frameId);
       const browser = browserRef.current;
       browserRef.current = null;
-      onBrowserHandleChange(panelId, null);
-      void browser?.close().catch(() => undefined);
+      callbacksRef.current.onBrowserHandleChange(panelId, null);
+      if (browser) disposeRuntimeEmbeddedBrowserHandle(browser);
     };
-  }, [browserLabel, onBrowserError, onBrowserHandleChange, onStatus, panelId, reloadRevision, runtime, url]);
+  }, [panelId, reloadRevision, runtime, url]);
 
   return (
     <div ref={surfaceRef} className="relative h-full w-full min-h-0 min-w-0 overflow-hidden bg-background">
@@ -250,6 +275,13 @@ function formatEmbeddedBrowserError(error: unknown) {
   } catch {
     return String(error);
   }
+}
+
+let embeddedBrowserInstanceCounter = 0;
+
+function nextEmbeddedBrowserInstanceId() {
+  embeddedBrowserInstanceCounter += 1;
+  return embeddedBrowserInstanceCounter;
 }
 
 function hashText(value: string) {

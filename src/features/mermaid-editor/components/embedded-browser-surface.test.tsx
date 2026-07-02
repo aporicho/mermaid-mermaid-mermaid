@@ -53,9 +53,13 @@ describe("EmbeddedBrowserSurface", () => {
 
   async function renderSurface({
     runtime,
+    onStatus = vi.fn(),
+    onBrowserError = vi.fn(),
     onBrowserHandleChange = vi.fn()
   }: {
     runtime: EditorRuntime;
+    onStatus?: (message: string) => void;
+    onBrowserError?: (url: string, message: string) => void;
     onBrowserHandleChange?: (panelId: BrowserWindowPanelId, handle: RuntimeEmbeddedBrowserHandle | null) => void;
   }) {
     container = document.createElement("div");
@@ -72,8 +76,8 @@ describe("EmbeddedBrowserSurface", () => {
           domOverlayActive: false,
           reloadRevision: 0,
           onReload: vi.fn(),
-          onStatus: vi.fn(),
-          onBrowserError: vi.fn(),
+          onStatus,
+          onBrowserError,
           onBrowserHandleChange
         })
       );
@@ -99,6 +103,35 @@ describe("EmbeddedBrowserSurface", () => {
     expect(handle.close).toHaveBeenCalledTimes(1);
   });
 
+  it("keeps the native browser when parent callbacks change", async () => {
+    const handle = createHandle();
+    const createEmbeddedBrowser = vi.fn(async (): Promise<RuntimeEmbeddedBrowserResult> => ({ status: "created", browser: handle }));
+    const runtime = createRuntime(createEmbeddedBrowser);
+
+    await renderSurface({ runtime, onBrowserHandleChange: vi.fn() });
+
+    await act(async () => {
+      root?.render(
+        createElement(EmbeddedBrowserSurface, {
+          panelId,
+          url: "https://example.com",
+          runtime,
+          active: true,
+          domOverlayActive: false,
+          reloadRevision: 0,
+          onReload: vi.fn(),
+          onStatus: vi.fn(),
+          onBrowserError: vi.fn(),
+          onBrowserHandleChange: vi.fn()
+        })
+      );
+      await Promise.resolve();
+    });
+
+    expect(createEmbeddedBrowser).toHaveBeenCalledTimes(1);
+    expect(handle.close).not.toHaveBeenCalled();
+  });
+
   it("closes a native browser that is created after the surface has unmounted", async () => {
     const handle = createHandle();
     let resolveCreate: (result: RuntimeEmbeddedBrowserResult) => void = () => undefined;
@@ -119,5 +152,18 @@ describe("EmbeddedBrowserSurface", () => {
 
     expect(onBrowserHandleChange).not.toHaveBeenCalledWith(panelId, handle);
     expect(handle.close).toHaveBeenCalledTimes(1);
+  });
+
+  it("reports rejected native browser creation", async () => {
+    const onStatus = vi.fn();
+    const onBrowserError = vi.fn();
+    const runtime = createRuntime(vi.fn(async () => {
+      throw new Error("webview create failed");
+    }));
+
+    await renderSurface({ runtime, onStatus, onBrowserError });
+
+    expect(onStatus).toHaveBeenCalledWith(expect.stringContaining("webview create failed"));
+    expect(onBrowserError).toHaveBeenCalledWith("https://example.com", "webview create failed");
   });
 });

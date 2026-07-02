@@ -18,6 +18,7 @@ type UseEditorDesktopEventsArgs = {
   openRuntimeFileRequest: (file: RuntimeFileOpenRequest, source: FileOpenSource) => Promise<void>;
   handleRuntimeFileDropRequest: (request: RuntimeFileDropRequest) => void;
   prepareWindowClose: () => Promise<boolean>;
+  beforeDesktopWindowClose?: () => void;
   applyLoadedDocument: (text: string, name: string, file: RuntimeFileRef | null, source?: FileOpenSource) => void;
   applyStoredEditorState: (stored: StoredEditor) => StoredEditorApplyResult;
   showFileWorkflowError: (error: unknown, fallbackMessage?: string) => void;
@@ -40,6 +41,7 @@ export function useEditorDesktopEvents({
   openRuntimeFileRequest,
   handleRuntimeFileDropRequest,
   prepareWindowClose,
+  beforeDesktopWindowClose,
   applyLoadedDocument,
   applyStoredEditorState,
   showFileWorkflowError,
@@ -58,6 +60,7 @@ export function useEditorDesktopEvents({
   const openPathRequestRef = useRef(openRuntimeFileRequest);
   const fileDropRequestRef = useRef(handleRuntimeFileDropRequest);
   const prepareCloseRequestRef = useRef(prepareWindowClose);
+  const beforeCloseRef = useRef(beforeDesktopWindowClose);
   const applyLoadedDocumentRef = useRef(applyLoadedDocument);
   const applyStoredEditorStateRef = useRef(applyStoredEditorState);
 
@@ -98,6 +101,7 @@ export function useEditorDesktopEvents({
     openPathRequestRef.current = openRuntimeFileRequest;
     fileDropRequestRef.current = handleRuntimeFileDropRequest;
     prepareCloseRequestRef.current = prepareWindowClose;
+    beforeCloseRef.current = beforeDesktopWindowClose;
     applyLoadedDocumentRef.current = applyLoadedDocument;
     applyStoredEditorStateRef.current = applyStoredEditorState;
   });
@@ -192,10 +196,15 @@ export function useEditorDesktopEvents({
       unlistenDrop = await runtime.listenForFileDrops((request) => fileDropRequestRef.current(request));
 
       unlistenClose = await runtime.listenForDesktopWindowCloseRequest(async () => {
-        if (canCloseWindowRef.current || !isDirtyRef.current) return true;
+        if (canCloseWindowRef.current || !isDirtyRef.current) {
+          canCloseWindowRef.current = true;
+          beforeCloseRef.current?.();
+          return true;
+        }
         const canClose = await prepareCloseRequestRef.current();
         if (!canClose) return false;
         canCloseWindowRef.current = true;
+        beforeCloseRef.current?.();
         return true;
       });
     }

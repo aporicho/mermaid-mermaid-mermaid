@@ -49,6 +49,18 @@ describe("embedded browser handle registry", () => {
     expect(next.close).toHaveBeenCalledTimes(1);
   });
 
+  it("closes a registered browser handle when the panel unregisters it", () => {
+    const registry = createEmbeddedBrowserRegistry();
+    const handle = createHandle();
+
+    registry.set(panelId, handle);
+    registry.set(panelId, null);
+    registry.close(panelId);
+
+    expect(handle.hide).toHaveBeenCalledTimes(1);
+    expect(handle.close).toHaveBeenCalledTimes(1);
+  });
+
   it("closes all registered browser handles on editor unmount", () => {
     const registry = createEmbeddedBrowserRegistry();
     const first = createHandle();
@@ -61,6 +73,16 @@ describe("embedded browser handle registry", () => {
 
     expect(first.close).toHaveBeenCalledTimes(1);
     expect(second.close).toHaveBeenCalledTimes(1);
+  });
+
+  it("disposes the same native handle only once", () => {
+    const handle = createHandle();
+
+    disposeRuntimeEmbeddedBrowserHandle(handle);
+    disposeRuntimeEmbeddedBrowserHandle(handle);
+
+    expect(handle.hide).toHaveBeenCalledTimes(1);
+    expect(handle.close).toHaveBeenCalledTimes(1);
   });
 
   it("swallows dispose errors from stale native handles", () => {

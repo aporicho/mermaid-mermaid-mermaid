@@ -145,7 +145,7 @@ export function MermaidEditor() {
   const [terminalOpen, setTerminalOpen] = useState(false);
   const [detachedMarkdownWindows, setDetachedMarkdownWindows] = useState<DetachedMarkdownWindow[]>([]);
   const [detachedBrowserWindows, setDetachedBrowserWindows] = useState<DetachedBrowserWindow[]>([]);
-  const { setEmbeddedBrowserHandle, closeEmbeddedBrowser } = useEditorEmbeddedBrowserHandles();
+  const { setEmbeddedBrowserHandle, closeEmbeddedBrowser, closeAllEmbeddedBrowsers } = useEditorEmbeddedBrowserHandles();
   const {
     activeWorkspacePanel,
     bringWorkspacePanelToFront,
@@ -176,7 +176,6 @@ export function MermaidEditor() {
   const lastWindowFocusAtRef = useRef(Date.now());
   const isDirtyRef = useRef(false);
   const currentDocumentRef = useRef("");
-
   const isDesktopChrome = runtime.kind === "desktop";
 
   useEffect(() => {
@@ -371,6 +370,7 @@ export function MermaidEditor() {
     openRuntimeFileRequest,
     handleRuntimeFileDropRequest,
     prepareWindowClose,
+    beforeDesktopWindowClose: closeAllEmbeddedBrowsers,
     applyLoadedDocument,
     applyStoredEditorState,
     showFileWorkflowError,
