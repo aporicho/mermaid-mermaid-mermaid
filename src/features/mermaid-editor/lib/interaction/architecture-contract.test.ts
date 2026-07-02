@@ -129,6 +129,8 @@ describe("interaction architecture contract", () => {
       { path: "src/features/mermaid-editor/components/mermaid-editor/editor-workspace-surface.tsx", maxLines: 240 },
       { path: "src/features/mermaid-editor/components/mermaid-editor/editor-workspace-panels.tsx", maxLines: 280 },
       { path: "src/features/mermaid-editor/components/mermaid-editor/use-editor-command-actions.ts", maxLines: 400 },
+      { path: "src/features/mermaid-editor/components/mermaid-editor/use-editor-clipboard-actions.ts", maxLines: 100 },
+      { path: "src/features/mermaid-editor/components/mermaid-editor/use-editor-clipboard-image-paste.ts", maxLines: 120 },
       { path: "src/features/mermaid-editor/components/mermaid-editor/use-editor-document-model.ts", maxLines: 220 },
       { path: "src/features/mermaid-editor/components/mermaid-editor/use-editor-draft-autosave.ts", maxLines: 80 },
       { path: "src/features/mermaid-editor/components/mermaid-editor/use-editor-draft-persistence.ts", maxLines: 250 },
@@ -155,6 +157,11 @@ describe("interaction architecture contract", () => {
       { path: "src/features/mermaid-editor/components/floating-chrome/use-floating-panel-controller.ts", maxLines: 350 },
       { path: "src/features/mermaid-editor/components/floating-chrome/use-floating-panel-frame-state.ts", maxLines: 130 },
       { path: "src/features/mermaid-editor/components/floating-chrome/use-floating-panel-motion.ts", maxLines: 130 },
+      { path: "src/features/mermaid-editor/components/editor-menus.tsx", maxLines: 20 },
+      { path: "src/features/mermaid-editor/components/editor-menus/file-menu.tsx", maxLines: 150 },
+      { path: "src/features/mermaid-editor/components/editor-menus/view-filter-menu.tsx", maxLines: 180 },
+      { path: "src/features/mermaid-editor/components/editor-menus/secondary-actions-menu.tsx", maxLines: 330 },
+      { path: "src/features/mermaid-editor/components/editor-menus/shared.tsx", maxLines: 100 },
       { path: "src/features/mermaid-editor/components/inspector-panel.tsx", maxLines: 500 },
       { path: "src/features/mermaid-editor/components/inspector-panel/node-sections.tsx", maxLines: 500 },
       { path: "src/features/mermaid-editor/components/inspector-panel/edge-sections.tsx", maxLines: 500 },
@@ -179,6 +186,22 @@ describe("interaction architecture contract", () => {
       { path: "src/features/mermaid-editor/components/canvas-document-editor/use-canvas-document-pointer-interaction.ts", maxLines: 220 },
       { path: "src/features/mermaid-editor/components/canvas-document-editor/use-canvas-document-scene.ts", maxLines: 130 },
       { path: "src/features/mermaid-editor/components/canvas-document-editor/use-canvas-document-standard-commands.ts", maxLines: 180 },
+      { path: "src/features/mermaid-editor/lib/edge-geometry.ts", maxLines: 60 },
+      { path: "src/features/mermaid-editor/lib/edge-geometry/types.ts", maxLines: 130 },
+      { path: "src/features/mermaid-editor/lib/edge-geometry/vector.ts", maxLines: 140 },
+      { path: "src/features/mermaid-editor/lib/edge-geometry/shape-boundary.ts", maxLines: 190 },
+      { path: "src/features/mermaid-editor/lib/edge-geometry/lanes.ts", maxLines: 80 },
+      { path: "src/features/mermaid-editor/lib/edge-geometry/routing.ts", maxLines: 430 },
+      { path: "src/features/mermaid-editor/lib/edge-geometry/resolve.ts", maxLines: 80 },
+      { path: "src/features/mermaid-editor/lib/editor-runtime.ts", maxLines: 60 },
+      { path: "src/features/mermaid-editor/lib/editor-runtime/types.ts", maxLines: 230 },
+      { path: "src/features/mermaid-editor/lib/editor-runtime/shared.ts", maxLines: 40 },
+      { path: "src/features/mermaid-editor/lib/editor-runtime/browser-file.ts", maxLines: 60 },
+      { path: "src/features/mermaid-editor/lib/editor-runtime/tauri-bridge.ts", maxLines: 70 },
+      { path: "src/features/mermaid-editor/lib/editor-runtime/embedded-browser.ts", maxLines: 110 },
+      { path: "src/features/mermaid-editor/lib/editor-runtime/web-runtime.ts", maxLines: 220 },
+      { path: "src/features/mermaid-editor/lib/editor-runtime/desktop-runtime.ts", maxLines: 300 },
+      { path: "src/features/mermaid-editor/lib/clipboard-image.ts", maxLines: 80 },
       { path: "src/features/mermaid-editor/lib/mermaid-patch.ts", maxLines: 80 },
       { path: "src/features/mermaid-editor/lib/mermaid-patch/apply.ts", maxLines: 90 },
       { path: "src/features/mermaid-editor/lib/mermaid-patch/diagnostics.ts", maxLines: 60 },
@@ -257,6 +280,71 @@ describe("interaction architecture contract", () => {
     expect(editor).not.toContain("const DEFAULT_WORKSPACE_PANEL_STACK");
     expect(editor).not.toContain("const openWorkspacePanelIds");
     expect(editor).not.toContain("function workspacePanelWindowState(");
+  });
+
+  it("keeps editor menus behind focused menu modules", () => {
+    const facade = readProjectFile("src/features/mermaid-editor/components/editor-menus.tsx");
+    const fileMenu = readProjectFile("src/features/mermaid-editor/components/editor-menus/file-menu.tsx");
+    const viewFilter = readProjectFile("src/features/mermaid-editor/components/editor-menus/view-filter-menu.tsx");
+    const secondary = readProjectFile("src/features/mermaid-editor/components/editor-menus/secondary-actions-menu.tsx");
+    const shared = readProjectFile("src/features/mermaid-editor/components/editor-menus/shared.tsx");
+
+    expect(facade).toContain("FileMenu");
+    expect(facade).toContain("ViewFilterMenu");
+    expect(facade).toContain("SecondaryActionsMenu");
+    expect(fileMenu).toContain("export function FileMenu");
+    expect(viewFilter).toContain("export function ViewFilterMenu");
+    expect(secondary).toContain("export function SecondaryActionsMenu");
+    expect(shared).toContain("edgeRoutingOptions");
+    expect(shared).toContain("FilterToggle");
+    expect(facade).not.toContain("function FileMenu(");
+    expect(facade).not.toContain("function ViewFilterMenu(");
+    expect(facade).not.toContain("function SecondaryActionsMenu(");
+    expect(facade).not.toContain("<FloatingPanel");
+  });
+
+  it("keeps edge geometry behind a small public facade", () => {
+    const facade = readProjectFile("src/features/mermaid-editor/lib/edge-geometry.ts");
+    const routing = readProjectFile("src/features/mermaid-editor/lib/edge-geometry/routing.ts");
+    const boundary = readProjectFile("src/features/mermaid-editor/lib/edge-geometry/shape-boundary.ts");
+    const lanes = readProjectFile("src/features/mermaid-editor/lib/edge-geometry/lanes.ts");
+    const resolve = readProjectFile("src/features/mermaid-editor/lib/edge-geometry/resolve.ts");
+
+    expect(facade).toContain("computeEdgePath");
+    expect(facade).toContain("RoutedNodeRect");
+    expect(routing).toContain("function routeBetweenRects(");
+    expect(boundary).toContain("function intersectShapeBoundary(");
+    expect(lanes).toContain("resolveParallelEdgeLanes");
+    expect(resolve).toContain("resolveFinalEdgeGeometryMap");
+    expect(facade).not.toContain("function routeBetweenRects(");
+    expect(facade).not.toContain("function intersectShapeBoundary(");
+    expect(facade).not.toContain("function sampleCubic(");
+    expect(facade).not.toContain("routingPresets");
+  });
+
+  it("keeps editor runtime behind focused runtime modules", () => {
+    const facade = readProjectFile("src/features/mermaid-editor/lib/editor-runtime.ts");
+    const types = readProjectFile("src/features/mermaid-editor/lib/editor-runtime/types.ts");
+    const web = readProjectFile("src/features/mermaid-editor/lib/editor-runtime/web-runtime.ts");
+    const desktop = readProjectFile("src/features/mermaid-editor/lib/editor-runtime/desktop-runtime.ts");
+    const browserFile = readProjectFile("src/features/mermaid-editor/lib/editor-runtime/browser-file.ts");
+    const tauriBridge = readProjectFile("src/features/mermaid-editor/lib/editor-runtime/tauri-bridge.ts");
+    const embeddedBrowser = readProjectFile("src/features/mermaid-editor/lib/editor-runtime/embedded-browser.ts");
+
+    expect(facade).toContain("createEditorRuntime");
+    expect(facade).toContain("createWebRuntime");
+    expect(facade).toContain("createDesktopRuntime");
+    expect(types).toContain("export type EditorRuntime");
+    expect(web).toContain("export function createWebRuntime");
+    expect(desktop).toContain("export function createDesktopRuntime");
+    expect(browserFile).toContain("FILE_PICKER_TYPES");
+    expect(tauriBridge).toContain("export async function tauriInvoke");
+    expect(embeddedBrowser).toContain("createDesktopEmbeddedBrowser");
+    expect(facade).not.toContain("showOpenFilePicker");
+    expect(facade).not.toContain("terminal_open");
+    expect(facade).not.toContain("new Webview");
+    expect(facade).not.toContain("localStorage");
+    expect(facade).not.toContain("open_mermaid_file");
   });
 
   it("keeps Mermaid patch behind a small public facade", () => {
@@ -351,6 +439,31 @@ describe("interaction architecture contract", () => {
     expect(canvas).not.toContain("scopedVisibleEdges.map");
     expect(canvas).not.toContain("scopedRenderedNodes.map");
     expect(canvas).not.toContain("exitingNodes.map");
+  });
+
+  it("keeps Mermaid image nodes rendered as pure rectangular image surfaces", () => {
+    const nodeLayer = readProjectFile("src/features/mermaid-editor/components/konva-canvas/node-layer.tsx");
+    const nodeImage = readProjectFile("src/features/mermaid-editor/components/konva-canvas/node-image.tsx");
+    const nodeGeometry = readProjectFile("src/features/mermaid-editor/lib/node-geometry.ts");
+
+    expect(nodeGeometry).toContain("if (asset) return buildImageNodeGeometry(node, asset);");
+    expect(nodeGeometry).toContain("width: asset.width");
+    expect(nodeGeometry).toContain("height: asset.height");
+    expect(nodeGeometry).toContain("width: 0");
+    expect(nodeGeometry).toContain("height: 0");
+    expect(nodeImage).toContain("<KonvaImage");
+    expect(nodeImage).toContain("return null;");
+    expect(nodeImage).not.toContain("<Rect");
+    expect(nodeImage).not.toContain("<Line");
+    expect(nodeImage).not.toContain("cornerRadius");
+    expect(nodeImage).not.toContain("dash=");
+    expect(nodeImage).not.toContain("stroke");
+    expect(nodeLayer).toContain("!isImageNode ? (");
+    expect(nodeLayer).toContain("fill=\"rgba(0,0,0,0.001)\"");
+    expect(nodeLayer).toContain("strokeEnabled={false}");
+    expect(nodeLayer).toContain("cornerRadius={0}");
+    expect(nodeLayer).toContain("imageInteractionFrameVisible");
+    expect(nodeLayer).toContain("!isImageNode && normalizeNodeAction");
   });
 
   it("keeps Konva runtime controllers outside the KonvaCanvas shell file", () => {
@@ -575,6 +688,7 @@ describe("interaction architecture contract", () => {
   it("keeps MermaidEditor state models and command actions in focused hooks", () => {
     const editor = readProjectFile("src/features/mermaid-editor/components/mermaid-editor.tsx");
     const actions = readProjectFile("src/features/mermaid-editor/components/mermaid-editor/use-editor-command-actions.ts");
+    const clipboardImagePaste = readProjectFile("src/features/mermaid-editor/components/mermaid-editor/use-editor-clipboard-image-paste.ts");
     const documentModel = readProjectFile("src/features/mermaid-editor/components/mermaid-editor/use-editor-document-model.ts");
     const themeModel = readProjectFile("src/features/mermaid-editor/components/mermaid-editor/use-editor-theme-model.ts");
     const overlayState = readProjectFile("src/features/mermaid-editor/components/mermaid-editor/use-editor-overlay-state.ts");
@@ -587,6 +701,8 @@ describe("interaction architecture contract", () => {
     expect(editor).toContain("useEditorWorkspacePanelActions");
     expect(actions).toContain("useEditorDocumentCommands");
     expect(actions).toContain("useEditorClipboardActions");
+    expect(actions).toContain("useEditorClipboardImagePaste");
+    expect(clipboardImagePaste).toContain("pasteClipboardImageNode");
     expect(documentModel).toContain("currentDocument");
     expect(themeModel).toContain("useResolvedEditorMotion");
     expect(overlayState).toContain("browserDomOverlayActive");
@@ -595,6 +711,7 @@ describe("interaction architecture contract", () => {
     expect(editor).not.toContain("function updateViewport(");
     expect(editor).not.toContain("function updateFileMenuOpen(");
     expect(editor).not.toContain("const [documentKind, setDocumentKind]");
+    expect(actions).not.toContain("runtime.importImageAssetFile");
   });
 
   it("keeps document lifecycle and draft persistence outside the file workflow shell", () => {

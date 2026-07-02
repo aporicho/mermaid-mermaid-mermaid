@@ -2,6 +2,7 @@ import { useCallback, useRef } from "react";
 
 import type { ClipboardPayload, Selection, ViewportState } from "@/features/mermaid-editor/lib/editor-types";
 import type { EditorCommand } from "@/features/mermaid-editor/lib/interaction/commands";
+import { readClipboardImageFile } from "@/features/mermaid-editor/lib/clipboard-image";
 import { extractNodeActionsFromClipboardText, nodeActionSuggestedLabel } from "@/features/mermaid-editor/lib/node-actions";
 
 type UseEditorClipboardActionsArgs = {
@@ -11,6 +12,7 @@ type UseEditorClipboardActionsArgs = {
   lastWindowFocusAtRef: { current: number };
   lastCanvasPointerWorldRef: { current: { x: number; y: number } | null };
   applyEditorCommand: (command: EditorCommand) => void;
+  pasteClipboardImage?: (file: File) => Promise<void>;
 };
 
 export function useEditorClipboardActions({
@@ -19,7 +21,8 @@ export function useEditorClipboardActions({
   viewport,
   lastWindowFocusAtRef,
   lastCanvasPointerWorldRef,
-  applyEditorCommand
+  applyEditorCommand,
+  pasteClipboardImage
 }: UseEditorClipboardActionsArgs) {
   const lastInternalCopyAtRef = useRef(0);
 
@@ -31,6 +34,14 @@ export function useEditorClipboardActions({
 
   const performPaste = useCallback(async () => {
     const canUseSystemClipboard = !clipboard || lastInternalCopyAtRef.current < lastWindowFocusAtRef.current;
+    if (canUseSystemClipboard && pasteClipboardImage) {
+      const clipboardImage = await readClipboardImageFile();
+      if (clipboardImage.status === "ready") {
+        await pasteClipboardImage(clipboardImage.file);
+        return;
+      }
+    }
+
     const systemClipboardText = canUseSystemClipboard ? await readSystemClipboardText() : "";
     const actions = extractNodeActionsFromClipboardText(systemClipboardText);
 
@@ -57,7 +68,7 @@ export function useEditorClipboardActions({
 
     if (!clipboard) return;
     applyEditorCommand({ type: "graph.pasteClipboard", payload: clipboard, source: "keyboard" });
-  }, [applyEditorCommand, clipboard, lastCanvasPointerWorldRef, lastWindowFocusAtRef, viewport]);
+  }, [applyEditorCommand, clipboard, lastCanvasPointerWorldRef, lastWindowFocusAtRef, pasteClipboardImage, viewport]);
 
   return { performCopy, performPaste };
 }

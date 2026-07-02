@@ -1,31 +1,23 @@
 import { useEffect, useState } from "react";
-import { Group, Image as KonvaImage, Line, Rect } from "react-konva";
+import { Image as KonvaImage } from "react-konva";
 
 export function CanvasNodeImage({
   src,
   x,
   y,
   width,
-  height,
-  stroke
+  height
 }: {
   src: string;
   x: number;
   y: number;
   width: number;
   height: number;
-  stroke: string;
 }) {
   const image = useCanvasImage(src);
 
   if (!image) {
-    return (
-      <Group x={x} y={y} listening={false}>
-        <Rect width={width} height={height} fill="rgba(255,255,255,0.35)" stroke={stroke} strokeWidth={1} dash={[5, 5]} />
-        <Line points={[0, 0, width, height]} stroke={stroke} strokeWidth={1} opacity={0.45} />
-        <Line points={[width, 0, 0, height]} stroke={stroke} strokeWidth={1} opacity={0.45} />
-      </Group>
-    );
+    return null;
   }
 
   return <KonvaImage image={image} x={x} y={y} width={width} height={height} listening={false} />;

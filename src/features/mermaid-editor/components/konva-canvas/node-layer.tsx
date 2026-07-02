@@ -1,4 +1,4 @@
-import { Circle, Group, Text } from "react-konva";
+import { Circle, Group, Rect, Text } from "react-konva";
 import type Konva from "konva";
 import type { KonvaEventObject } from "konva/lib/Node";
 
@@ -118,10 +118,12 @@ export function KonvaNodeLayer({
         const connectionAnchorsVisible = nodeConnectionAnchorsVisible(node.id, connectionPreview, retargetPreview);
         const nodeAnchorsVisible = anchorVisual.visible || connectionAnchorsVisible;
         const imageAsset = normalizeImageAsset(node.asset);
+        const isImageNode = Boolean(imageAsset);
         const imageDisplaySrc = imageAsset ? imageDisplaySrcBySrc[imageAsset.src] || imageAsset.src : undefined;
         const nodeVisualTransform = centerScaleTransform(geometry.frame);
         const proximityScale = nodeProximityScale[node.id] ?? 1;
         const visualScale = (motionVisual?.scale ?? 1) * proximityScale;
+        const nodeStrokeWidth = nodeVisual.strokeWidth + (motionVisual?.highlight ?? 0) * visualTokens.node.emphasizedStrokeWidth;
 
         return (
           <Group
@@ -153,14 +155,24 @@ export function KonvaNodeLayer({
               scaleX={visualScale}
               scaleY={visualScale}
             >
-              <CanvasNodeShape
-                node={node}
-                width={geometry.frame.width}
-                height={geometry.frame.height}
-                stroke={nodeVisual.stroke}
-                strokeWidth={nodeVisual.strokeWidth + (motionVisual?.highlight ?? 0) * visualTokens.node.emphasizedStrokeWidth}
-                visualTokens={visualTokens}
-              />
+              {!isImageNode ? (
+                <CanvasNodeShape
+                  node={node}
+                  width={geometry.frame.width}
+                  height={geometry.frame.height}
+                  stroke={nodeVisual.stroke}
+                  strokeWidth={nodeStrokeWidth}
+                  visualTokens={visualTokens}
+                />
+              ) : null}
+              {isImageNode ? (
+                <Rect
+                  width={geometry.frame.width}
+                  height={geometry.frame.height}
+                  fill="rgba(0,0,0,0.001)"
+                  strokeEnabled={false}
+                />
+              ) : null}
               {imageAsset && imageDisplaySrc && geometry.imageBox ? (
                 <CanvasNodeImage
                   src={imageDisplaySrc}
@@ -168,27 +180,39 @@ export function KonvaNodeLayer({
                   y={geometry.imageBox.y}
                   width={geometry.imageBox.width}
                   height={geometry.imageBox.height}
-                  stroke={nodeVisual.stroke}
                 />
               ) : null}
-              <Text
-                x={geometry.textBox.x}
-                y={geometry.textBox.y}
-                width={geometry.textBox.width}
-                height={geometry.textBox.height}
-                align="center"
-                verticalAlign="middle"
-                text={node.label}
-                fontSize={nodeThemeTokens.fontSize}
-                fontStyle={String(nodeThemeTokens.fontWeight)}
-                fontFamily={nodeThemeTokens.fontFamily}
-                lineHeight={nodeThemeTokens.lineHeight / nodeThemeTokens.fontSize}
-                wrap="word"
-                fill={nodeVisual.textFill}
-                ellipsis
-                visible={viewFilters.nodeLabels && !(inlineEdit?.type === "node" && inlineEdit.id === node.id)}
-              />
-              {normalizeNodeAction(node.action) ? (
+              {isImageNode && imageInteractionFrameVisible(nodeVisual.kind) ? (
+                <Rect
+                  width={geometry.frame.width}
+                  height={geometry.frame.height}
+                  fillEnabled={false}
+                  stroke={nodeVisual.stroke}
+                  strokeWidth={nodeStrokeWidth}
+                  cornerRadius={0}
+                  listening={false}
+                />
+              ) : null}
+              {!isImageNode ? (
+                <Text
+                  x={geometry.textBox.x}
+                  y={geometry.textBox.y}
+                  width={geometry.textBox.width}
+                  height={geometry.textBox.height}
+                  align="center"
+                  verticalAlign="middle"
+                  text={node.label}
+                  fontSize={nodeThemeTokens.fontSize}
+                  fontStyle={String(nodeThemeTokens.fontWeight)}
+                  fontFamily={nodeThemeTokens.fontFamily}
+                  lineHeight={nodeThemeTokens.lineHeight / nodeThemeTokens.fontSize}
+                  wrap="word"
+                  fill={nodeVisual.textFill}
+                  ellipsis
+                  visible={viewFilters.nodeLabels && !(inlineEdit?.type === "node" && inlineEdit.id === node.id)}
+                />
+              ) : null}
+              {!isImageNode && normalizeNodeAction(node.action) ? (
                 <CanvasNodeActionBadge
                   actionKind={node.action?.kind || "url"}
                   x={Math.max(8, geometry.frame.width - 24)}
@@ -241,6 +265,7 @@ export function KonvaNodeLayer({
         const geometry = buildNodeGeometry(node, geometrySpec);
         const motionVisual = nodeMotion[node.id] ?? { x: node.x, y: node.y, opacity: 0, scale: runtimeCreateScale, highlight: 0 };
         const imageAsset = normalizeImageAsset(node.asset);
+        const isImageNode = Boolean(imageAsset);
         const imageDisplaySrc = imageAsset ? imageDisplaySrcBySrc[imageAsset.src] || imageAsset.src : undefined;
         const nodeVisualTransform = centerScaleTransform(geometry.frame);
 
@@ -260,14 +285,19 @@ export function KonvaNodeLayer({
               scaleX={motionVisual.scale}
               scaleY={motionVisual.scale}
             >
-              <CanvasNodeShape
-                node={node}
-                width={geometry.frame.width}
-                height={geometry.frame.height}
-                stroke={visualTokens.colors.accent}
-                strokeWidth={visualTokens.node.strokeWidth + motionVisual.highlight * visualTokens.node.emphasizedStrokeWidth}
-                visualTokens={visualTokens}
-              />
+              {!isImageNode ? (
+                <CanvasNodeShape
+                  node={node}
+                  width={geometry.frame.width}
+                  height={geometry.frame.height}
+                  stroke={visualTokens.colors.accent}
+                  strokeWidth={
+                    visualTokens.node.strokeWidth +
+                    motionVisual.highlight * visualTokens.node.emphasizedStrokeWidth
+                  }
+                  visualTokens={visualTokens}
+                />
+              ) : null}
               {imageAsset && imageDisplaySrc && geometry.imageBox ? (
                 <CanvasNodeImage
                   src={imageDisplaySrc}
@@ -275,26 +305,27 @@ export function KonvaNodeLayer({
                   y={geometry.imageBox.y}
                   width={geometry.imageBox.width}
                   height={geometry.imageBox.height}
-                  stroke={visualTokens.colors.accent}
                 />
               ) : null}
-              <Text
-                x={geometry.textBox.x}
-                y={geometry.textBox.y}
-                width={geometry.textBox.width}
-                height={geometry.textBox.height}
-                align="center"
-                verticalAlign="middle"
-                text={node.label}
-                fontSize={nodeThemeTokens.fontSize}
-                fontStyle={String(nodeThemeTokens.fontWeight)}
-                fontFamily={nodeThemeTokens.fontFamily}
-                lineHeight={nodeThemeTokens.lineHeight / nodeThemeTokens.fontSize}
-                wrap="word"
-                fill={visualTokens.colors.nodeText}
-                ellipsis
-                visible={viewFilters.nodeLabels}
-              />
+              {!isImageNode ? (
+                <Text
+                  x={geometry.textBox.x}
+                  y={geometry.textBox.y}
+                  width={geometry.textBox.width}
+                  height={geometry.textBox.height}
+                  align="center"
+                  verticalAlign="middle"
+                  text={node.label}
+                  fontSize={nodeThemeTokens.fontSize}
+                  fontStyle={String(nodeThemeTokens.fontWeight)}
+                  fontFamily={nodeThemeTokens.fontFamily}
+                  lineHeight={nodeThemeTokens.lineHeight / nodeThemeTokens.fontSize}
+                  wrap="word"
+                  fill={visualTokens.colors.nodeText}
+                  ellipsis
+                  visible={viewFilters.nodeLabels}
+                />
+              ) : null}
             </Group>
           </Group>
         );
@@ -328,4 +359,8 @@ function nodeConnectionAnchorsVisible(
     retargetPreview?.targetNodeId === nodeId ||
     retargetPreview?.invalidNodeId === nodeId
   );
+}
+
+function imageInteractionFrameVisible(kind: ReturnType<typeof getNodeVisualState>["kind"]) {
+  return kind !== "normal";
 }

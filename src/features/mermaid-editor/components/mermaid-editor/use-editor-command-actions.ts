@@ -8,6 +8,7 @@ import {
   type CanvasLiveState
 } from "@/features/mermaid-editor/components/mermaid-editor/editor-shell-utils";
 import { useEditorClipboardActions } from "@/features/mermaid-editor/components/mermaid-editor/use-editor-clipboard-actions";
+import { useEditorClipboardImagePaste } from "@/features/mermaid-editor/components/mermaid-editor/use-editor-clipboard-image-paste";
 import { useEditorDocumentCommands } from "@/features/mermaid-editor/components/mermaid-editor/use-editor-document-commands";
 import { type DocumentKind } from "@/features/mermaid-editor/lib/document-kind";
 import { hasSelection, setMode as setEditorMode } from "@/features/mermaid-editor/lib/editor-actions";
@@ -195,13 +196,28 @@ export function useEditorCommandActions(args: UseEditorCommandActionsArgs) {
     recordRecentAction
   });
 
+  const { pasteClipboardImageNode } = useEditorClipboardImagePaste({
+    runtime,
+    documentKind,
+    workspaceView,
+    isCanvasEditable,
+    fileRef,
+    viewport,
+    canvasLiveState,
+    lastCanvasPointerWorldRef,
+    applyEditorCommand,
+    setStatus,
+    setFileWorkflowError
+  });
+
   const { performCopy, performPaste } = useEditorClipboardActions({
     clipboard: args.clipboard,
     selection,
     viewport,
     lastWindowFocusAtRef,
     lastCanvasPointerWorldRef,
-    applyEditorCommand
+    applyEditorCommand,
+    pasteClipboardImage: runtime.kind === "desktop" ? pasteClipboardImageNode : undefined
   });
 
   function applyViewFilters(nextFilters: ViewFilters, message: string) {

@@ -80,7 +80,7 @@ describe("node geometry", () => {
     expect(nodeIntersectsRect(geometry, { x: 90, y: 70, width: 30, height: 30 })).toBe(true);
   });
 
-  it("builds image node geometry from image size and label position", () => {
+  it("builds image node geometry from only the image size", () => {
     const geometry = buildNodeGeometry(
       {
         ...node,
@@ -97,10 +97,20 @@ describe("node geometry", () => {
       spec
     );
 
-    expect(geometry.frame).toEqual({ x: 100, y: 80, width: 120, height: 108 });
+    expect(geometry.frame).toEqual({ x: 100, y: 80, width: 120, height: 80 });
     expect(geometry.imageBox).toEqual({ x: 0, y: 0, width: 120, height: 80 });
-    expect(geometry.textBox).toEqual({ x: 40, y: 88, width: 40, height: 20 });
-    expect(geometry.routedRect).toEqual({ id: "node-a", x: 100, y: 80, width: 120, height: 108, shape: "rect" });
+    expect(geometry.textBox).toEqual({ x: 0, y: 0, width: 0, height: 0 });
+    expect(geometry.routedRect).toEqual({ id: "node-a", x: 100, y: 80, width: 120, height: 80, shape: "rect" });
+    expect(geometry.anchorsWorld).toEqual([
+      { key: "top", kind: "edge-midpoint", x: 160, y: 80 },
+      { key: "top-right", kind: "corner", x: 220, y: 80 },
+      { key: "right", kind: "edge-midpoint", x: 220, y: 120 },
+      { key: "bottom-right", kind: "corner", x: 220, y: 160 },
+      { key: "bottom", kind: "edge-midpoint", x: 160, y: 160 },
+      { key: "bottom-left", kind: "corner", x: 100, y: 160 },
+      { key: "left", kind: "edge-midpoint", x: 100, y: 120 },
+      { key: "top-left", kind: "corner", x: 100, y: 80 }
+    ]);
   });
 
   it("caps wrapped text height at the configured maximum line count", () => {
