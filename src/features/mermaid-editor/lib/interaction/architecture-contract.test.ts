@@ -35,9 +35,11 @@ function lineCount(value: string) {
 describe("interaction architecture contract", () => {
   it("keeps canvas viewport navigation behind standard input and intent resolution", () => {
     const canvas = readProjectFile("src/features/mermaid-editor/components/konva-canvas.tsx");
+    const model = readProjectFile("src/features/mermaid-editor/components/konva-canvas/use-konva-canvas-model.ts");
     const viewport = readProjectFile("src/features/mermaid-editor/components/konva-canvas/use-konva-viewport.ts");
 
-    expect(canvas).toContain("useKonvaViewport");
+    expect(canvas).toContain("useKonvaCanvasModel");
+    expect(model).toContain("useKonvaViewport");
     expect(viewport).toContain("createStandardWheelInput");
     expect(viewport).toContain("createStandardGestureInput");
     expect(viewport).toContain("resolveInteractionIntent");
@@ -63,27 +65,30 @@ describe("interaction architecture contract", () => {
 
   it("keeps canvas document interactions on the standard canvas path", () => {
     const canvasDocumentEditor = readProjectFile("src/features/mermaid-editor/components/canvas-document-editor.tsx");
+    const pointer = readProjectFile("src/features/mermaid-editor/components/canvas-document-editor/use-canvas-document-pointer-interaction.ts");
 
-    expect(canvasDocumentEditor).toContain("dispatchStandardCanvasPointerDown");
-    expect(canvasDocumentEditor).toContain("dispatchStandardCanvasPointerMove");
-    expect(canvasDocumentEditor).toContain("dispatchStandardCanvasPointerUp");
-    expect(canvasDocumentEditor).toContain("createStandardWheelInput");
-    expect(canvasDocumentEditor).toContain("resolveInteractionIntent");
-    expect(canvasDocumentEditor).toContain("commandFromInteractionIntent");
+    expect(canvasDocumentEditor).toContain("useCanvasDocumentPointerInteraction");
+    expect(pointer).toContain("dispatchStandardCanvasPointerDown");
+    expect(pointer).toContain("dispatchStandardCanvasPointerMove");
+    expect(pointer).toContain("dispatchStandardCanvasPointerUp");
+    expect(pointer).toContain("createStandardWheelInput");
+    expect(pointer).toContain("resolveInteractionIntent");
+    expect(pointer).toContain("commandFromInteractionIntent");
     expect(canvasDocumentEditor).not.toContain("resolveWheelNavigation");
     expect(canvasDocumentEditor).not.toContain("zoomViewportAtPoint");
   });
 
   it("keeps canvas document text editing inline instead of prompt-based", () => {
     const canvasDocumentEditor = readProjectFile("src/features/mermaid-editor/components/canvas-document-editor.tsx");
+    const actions = readProjectFile("src/features/mermaid-editor/components/canvas-document-editor/use-canvas-document-actions.ts");
     const inlineEditOverlays = readProjectFile("src/features/mermaid-editor/components/canvas-document-editor/inline-edit-overlays.tsx");
 
     expect(canvasDocumentEditor).toContain("CanvasDocumentInlineEditOverlays");
     expect(inlineEditOverlays).toContain("Textarea");
     expect(inlineEditOverlays).toContain("Input");
-    expect(canvasDocumentEditor).toContain("commitInlineEdit");
-    expect(canvasDocumentEditor).toContain("editingItemText");
-    expect(canvasDocumentEditor).toContain("editingConnectionText");
+    expect(actions).toContain("commitInlineEdit");
+    expect(actions).toContain("editingItemText");
+    expect(actions).toContain("editingConnectionText");
     expect(canvasDocumentEditor).not.toContain("window.prompt(");
   });
 
@@ -155,18 +160,31 @@ describe("interaction architecture contract", () => {
       { path: "src/features/mermaid-editor/components/inspector-panel/edge-sections.tsx", maxLines: 500 },
       { path: "src/features/mermaid-editor/components/inspector-panel/subgraph-sections.tsx", maxLines: 500 },
       { path: "src/features/mermaid-editor/components/inspector-panel/model.ts", maxLines: 500 },
-      { path: "src/features/mermaid-editor/components/konva-canvas.tsx", maxLines: 760 },
+      { path: "src/features/mermaid-editor/components/konva-canvas.tsx", maxLines: 80 },
       { path: "src/features/mermaid-editor/components/konva-canvas/konva-canvas-stage.tsx", maxLines: 380 },
       { path: "src/features/mermaid-editor/components/konva-canvas/types.ts", maxLines: 100 },
+      { path: "src/features/mermaid-editor/components/konva-canvas/use-konva-canvas-model.ts", maxLines: 420 },
+      { path: "src/features/mermaid-editor/components/konva-canvas/use-konva-canvas-pointer-interaction.ts", maxLines: 480 },
       { path: "src/features/mermaid-editor/components/konva-canvas/use-konva-drag-membership.ts", maxLines: 280 },
-      { path: "src/features/mermaid-editor/components/canvas-document-editor.tsx", maxLines: 850 },
+      { path: "src/features/mermaid-editor/components/canvas-document-editor.tsx", maxLines: 120 },
       { path: "src/features/mermaid-editor/components/canvas-document-editor/canvas-document-animation.ts", maxLines: 80 },
       { path: "src/features/mermaid-editor/components/canvas-document-editor/image-url-dialog.tsx", maxLines: 100 },
       { path: "src/features/mermaid-editor/components/canvas-document-editor/inline-edit-overlays.tsx", maxLines: 220 },
       { path: "src/features/mermaid-editor/components/canvas-document-editor/inline-edit-style.ts", maxLines: 160 },
       { path: "src/features/mermaid-editor/components/canvas-document-editor/interaction-context.ts", maxLines: 40 },
+      { path: "src/features/mermaid-editor/components/canvas-document-editor/use-canvas-document-actions.ts", maxLines: 240 },
       { path: "src/features/mermaid-editor/components/canvas-document-editor/use-canvas-document-image-sources.ts", maxLines: 100 },
       { path: "src/features/mermaid-editor/components/canvas-document-editor/use-canvas-document-keyboard-shortcuts.ts", maxLines: 100 },
+      { path: "src/features/mermaid-editor/components/canvas-document-editor/use-canvas-document-model.ts", maxLines: 300 },
+      { path: "src/features/mermaid-editor/components/canvas-document-editor/use-canvas-document-pointer-interaction.ts", maxLines: 220 },
+      { path: "src/features/mermaid-editor/components/canvas-document-editor/use-canvas-document-scene.ts", maxLines: 130 },
+      { path: "src/features/mermaid-editor/components/canvas-document-editor/use-canvas-document-standard-commands.ts", maxLines: 180 },
+      { path: "src/features/mermaid-editor/lib/mermaid-patch.ts", maxLines: 80 },
+      { path: "src/features/mermaid-editor/lib/mermaid-patch/apply.ts", maxLines: 90 },
+      { path: "src/features/mermaid-editor/lib/mermaid-patch/diagnostics.ts", maxLines: 60 },
+      { path: "src/features/mermaid-editor/lib/mermaid-patch/diff.ts", maxLines: 160 },
+      { path: "src/features/mermaid-editor/lib/mermaid-patch/operations.ts", maxLines: 520 },
+      { path: "src/features/mermaid-editor/lib/mermaid-patch/types.ts", maxLines: 190 },
       { path: "src/features/mermaid-editor/lib/mermaid-graph.ts", maxLines: 20 },
       { path: "src/features/mermaid-editor/lib/mermaid-graph/constants.ts", maxLines: 40 },
       { path: "src/features/mermaid-editor/lib/mermaid-graph/edge-token.ts", maxLines: 390 },
@@ -241,6 +259,27 @@ describe("interaction architecture contract", () => {
     expect(editor).not.toContain("function workspacePanelWindowState(");
   });
 
+  it("keeps Mermaid patch behind a small public facade", () => {
+    const facade = readProjectFile("src/features/mermaid-editor/lib/mermaid-patch.ts");
+    const apply = readProjectFile("src/features/mermaid-editor/lib/mermaid-patch/apply.ts");
+    const operations = readProjectFile("src/features/mermaid-editor/lib/mermaid-patch/operations.ts");
+    const diff = readProjectFile("src/features/mermaid-editor/lib/mermaid-patch/diff.ts");
+    const diagnostics = readProjectFile("src/features/mermaid-editor/lib/mermaid-patch/diagnostics.ts");
+
+    expect(facade).toContain("applyMermaidPatch");
+    expect(facade).toContain("PatchOperation");
+    expect(apply).toContain("applyPatchOperations");
+    expect(operations).toContain("function addNodeOp(");
+    expect(operations).toContain("function updateEdgeOp(");
+    expect(operations).toContain("function createSubgraphOp(");
+    expect(diff).toContain("function diffById");
+    expect(diagnostics).toContain("patchDiagnostic");
+    expect(facade).not.toContain("function addNodeOp(");
+    expect(facade).not.toContain("function updateEdgeOp(");
+    expect(facade).not.toContain("function diffById(");
+    expect(facade).not.toContain("VALID_EDGE_STYLES");
+  });
+
   it("keeps window and node action logic outside the MermaidEditor composition file", () => {
     const editor = readProjectFile("src/features/mermaid-editor/components/mermaid-editor.tsx");
 
@@ -277,6 +316,7 @@ describe("interaction architecture contract", () => {
 
   it("keeps Konva render helpers outside the KonvaCanvas shell file", () => {
     const canvas = readProjectFile("src/features/mermaid-editor/components/konva-canvas.tsx");
+    const model = readProjectFile("src/features/mermaid-editor/components/konva-canvas/use-konva-canvas-model.ts");
     const stage = readProjectFile("src/features/mermaid-editor/components/konva-canvas/konva-canvas-stage.tsx");
 
     expect(canvas).not.toContain("function CanvasNodeShape(");
@@ -301,10 +341,12 @@ describe("interaction architecture contract", () => {
     expect(stage).toContain("KonvaEdgeLayer");
     expect(stage).toContain("KonvaEdgeOverlayLayer");
     expect(stage).toContain("KonvaNodeLayer");
-    expect(canvas).toContain("useKonvaRenderModel");
-    expect(canvas).toContain("useKonvaMotion");
-    expect(canvas).toContain("useKonvaViewport");
-    expect(canvas).toContain("useKonvaHoverState");
+    expect(canvas).toContain("useKonvaCanvasModel");
+    expect(canvas).toContain("useKonvaCanvasPointerInteraction");
+    expect(model).toContain("useKonvaRenderModel");
+    expect(model).toContain("useKonvaMotion");
+    expect(model).toContain("useKonvaViewport");
+    expect(model).toContain("useKonvaHoverState");
     expect(canvas).not.toContain("[...scopedSubgraphGeometries]");
     expect(canvas).not.toContain("scopedVisibleEdges.map");
     expect(canvas).not.toContain("scopedRenderedNodes.map");
@@ -313,15 +355,25 @@ describe("interaction architecture contract", () => {
 
   it("keeps Konva runtime controllers outside the KonvaCanvas shell file", () => {
     const canvas = readProjectFile("src/features/mermaid-editor/components/konva-canvas.tsx");
+    const model = readProjectFile("src/features/mermaid-editor/components/konva-canvas/use-konva-canvas-model.ts");
+    const pointer = readProjectFile("src/features/mermaid-editor/components/konva-canvas/use-konva-canvas-pointer-interaction.ts");
     const dragMembership = readProjectFile("src/features/mermaid-editor/components/konva-canvas/use-konva-drag-membership.ts");
 
-    expect(canvas).toContain("useKonvaDragDraft");
-    expect(canvas).toContain("useKonvaDragMembership");
-    expect(canvas).toContain("useKonvaNodeProximity");
-    expect(canvas).toContain("useKonvaInlineEditSession");
-    expect(canvas).toContain("useKonvaNodeEditorLayout");
+    expect(model).toContain("useKonvaDragDraft");
+    expect(model).toContain("useKonvaDragMembership");
+    expect(model).toContain("useKonvaNodeProximity");
+    expect(model).toContain("useKonvaInlineEditSession");
+    expect(model).toContain("useKonvaNodeEditorLayout");
+    expect(pointer).toContain("function handleCanvasPointerDown(");
+    expect(pointer).toContain("function applyCanvasPointerLocalEffect(");
+    expect(pointer).toContain("resolveCanvasPointerDown");
+    expect(pointer).toContain("resolveCanvasPointerMove");
+    expect(pointer).toContain("resolveCanvasPointerUp");
     expect(dragMembership).toContain("moveSelectedNodes");
     expect(dragMembership).toContain("finishDragWithMembership");
+    expect(canvas).not.toContain("function handleCanvasPointerDown(");
+    expect(canvas).not.toContain("function applyCanvasPointerLocalEffect(");
+    expect(canvas).not.toContain("resolveCanvasPointerDown");
     expect(canvas).not.toContain("function startNodeDrag(");
     expect(canvas).not.toContain("function startSubgraphDrag(");
     expect(canvas).not.toContain("function moveSelectedNodes(");
@@ -339,7 +391,13 @@ describe("interaction architecture contract", () => {
 
   it("keeps Pixi canvas document rendering outside the CanvasDocumentEditor shell file", () => {
     const canvasDocumentEditor = readProjectFile("src/features/mermaid-editor/components/canvas-document-editor.tsx");
+    const scene = readProjectFile("src/features/mermaid-editor/components/canvas-document-editor/use-canvas-document-scene.ts");
 
+    expect(canvasDocumentEditor).toContain("useCanvasDocumentModel");
+    expect(canvasDocumentEditor).toContain("useCanvasDocumentActions");
+    expect(canvasDocumentEditor).toContain("useCanvasDocumentPointerInteraction");
+    expect(scene).toContain("useCanvasDocumentImageSources");
+    expect(scene).toContain("createPixiCanvasRuntime");
     expect(canvasDocumentEditor).not.toContain("function syncPixiScene(");
     expect(canvasDocumentEditor).not.toContain("function getPixiElementView(");
     expect(canvasDocumentEditor).not.toContain("function syncElementView(");
@@ -356,14 +414,22 @@ describe("interaction architecture contract", () => {
   it("keeps Pixi canvas document overlays and side effects outside the shell file", () => {
     const canvasDocumentEditor = readProjectFile("src/features/mermaid-editor/components/canvas-document-editor.tsx");
     const keyboard = readProjectFile("src/features/mermaid-editor/components/canvas-document-editor/use-canvas-document-keyboard-shortcuts.ts");
+    const model = readProjectFile("src/features/mermaid-editor/components/canvas-document-editor/use-canvas-document-model.ts");
+    const actions = readProjectFile("src/features/mermaid-editor/components/canvas-document-editor/use-canvas-document-actions.ts");
+    const pointer = readProjectFile("src/features/mermaid-editor/components/canvas-document-editor/use-canvas-document-pointer-interaction.ts");
 
-    expect(canvasDocumentEditor).toContain("useCanvasDocumentImageSources");
     expect(canvasDocumentEditor).toContain("useCanvasDocumentKeyboardShortcuts");
     expect(canvasDocumentEditor).toContain("CanvasDocumentImageUrlDialog");
     expect(canvasDocumentEditor).toContain("CanvasDocumentInlineEditOverlays");
-    expect(canvasDocumentEditor).toContain("resolveCanvasDocumentInlineEditStyle");
+    expect(model).toContain("resolveCanvasDocumentInlineEditStyle");
+    expect(actions).toContain("function commitInlineEdit(");
+    expect(pointer).toContain("function handlePointerDown(");
     expect(keyboard).toContain("window.addEventListener(\"keydown\"");
     expect(canvasDocumentEditor).not.toContain("window.addEventListener(\"keydown\"");
+    expect(canvasDocumentEditor).not.toContain("useCanvasDocumentImageSources");
+    expect(canvasDocumentEditor).not.toContain("resolveCanvasDocumentInlineEditStyle");
+    expect(canvasDocumentEditor).not.toContain("function handlePointerDown(");
+    expect(canvasDocumentEditor).not.toContain("function commitInlineEdit(");
     expect(canvasDocumentEditor).not.toContain("imageUrlDialogOpen ? (");
     expect(canvasDocumentEditor).not.toContain("<Textarea");
     expect(canvasDocumentEditor).not.toContain("<Input");

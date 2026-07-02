@@ -26,7 +26,7 @@ import { cn } from "@/lib/utils";
 
 type RenderModel = ReturnType<typeof useKonvaRenderModel>;
 
-type KonvaCanvasStageProps = {
+export type KonvaCanvasStageProps = {
   containerRef: RefObject<HTMLDivElement | null>;
   stageRef: RefObject<Konva.Stage | null>;
   dimensions: { width: number; height: number };
