@@ -131,6 +131,7 @@ describe("interaction architecture contract", () => {
       { path: "src/features/mermaid-editor/components/mermaid-editor/use-editor-command-actions.ts", maxLines: 400 },
       { path: "src/features/mermaid-editor/components/mermaid-editor/use-editor-clipboard-actions.ts", maxLines: 100 },
       { path: "src/features/mermaid-editor/components/mermaid-editor/use-editor-clipboard-image-paste.ts", maxLines: 120 },
+      { path: "src/features/mermaid-editor/components/mermaid-editor/use-editor-embedded-browser-handles.ts", maxLines: 70 },
       { path: "src/features/mermaid-editor/components/mermaid-editor/use-editor-document-model.ts", maxLines: 220 },
       { path: "src/features/mermaid-editor/components/mermaid-editor/use-editor-draft-autosave.ts", maxLines: 80 },
       { path: "src/features/mermaid-editor/components/mermaid-editor/use-editor-draft-persistence.ts", maxLines: 250 },
@@ -370,8 +371,13 @@ describe("interaction architecture contract", () => {
 
   it("keeps window and node action logic outside the MermaidEditor composition file", () => {
     const editor = readProjectFile("src/features/mermaid-editor/components/mermaid-editor.tsx");
+    const actions = readProjectFile("src/features/mermaid-editor/components/mermaid-editor/use-editor-window-actions.ts");
+    const browserHandles = readProjectFile("src/features/mermaid-editor/components/mermaid-editor/use-editor-embedded-browser-handles.ts");
 
     expect(editor).toContain("useEditorWindowActions");
+    expect(editor).toContain("useEditorEmbeddedBrowserHandles");
+    expect(actions).toContain("closeEmbeddedBrowser(panelId)");
+    expect(browserHandles).toContain("disposeRuntimeEmbeddedBrowserHandle");
     expect(editor).not.toContain("function openProjectMarkdownWindow(");
     expect(editor).not.toContain("function openBrowserWindow(");
     expect(editor).not.toContain("function updateDetachedBrowserWindow(");

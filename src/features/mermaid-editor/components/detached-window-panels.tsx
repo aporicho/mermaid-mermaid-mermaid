@@ -8,8 +8,9 @@ import { EmbeddedBrowserSurface } from "@/features/mermaid-editor/components/emb
 import { MarkdownPanel } from "@/features/mermaid-editor/components/markdown-panel";
 import { WorkspacePanelControls } from "@/features/mermaid-editor/components/workspace-panel-controls";
 import { EDITOR_CHROME_CLASSES } from "@/features/mermaid-editor/lib/editor-chrome";
-import type { EditorRuntime } from "@/features/mermaid-editor/lib/editor-runtime";
+import type { EditorRuntime, RuntimeEmbeddedBrowserHandle } from "@/features/mermaid-editor/lib/editor-runtime";
 import type { FloatingPanelWindowState } from "@/features/mermaid-editor/lib/floating-chrome";
+import type { BrowserWindowPanelId } from "@/features/mermaid-editor/lib/workspace-panels";
 import { cn } from "@/lib/utils";
 
 export function MarkdownWindowPanel({
@@ -87,9 +88,10 @@ export function BrowserWindowPanel({
   onNavigate,
   onClose,
   onStatus,
-  onBrowserError
+  onBrowserError,
+  onBrowserHandleChange
 }: {
-  panelId: string;
+  panelId: BrowserWindowPanelId;
   title: string;
   url: string;
   runtime: EditorRuntime;
@@ -101,6 +103,7 @@ export function BrowserWindowPanel({
   onClose: () => void;
   onStatus: (message: string) => void;
   onBrowserError: (url: string, message: string) => void;
+  onBrowserHandleChange: (panelId: BrowserWindowPanelId, handle: RuntimeEmbeddedBrowserHandle | null) => void;
 }) {
   const [address, setAddress] = useState(url);
   const [reloadRevision, setReloadRevision] = useState(0);
@@ -190,6 +193,7 @@ export function BrowserWindowPanel({
         onReload={reloadBrowser}
         onStatus={onStatus}
         onBrowserError={onBrowserError}
+        onBrowserHandleChange={onBrowserHandleChange}
       />
     </section>
   );

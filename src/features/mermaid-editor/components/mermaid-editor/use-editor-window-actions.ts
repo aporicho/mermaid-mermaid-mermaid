@@ -65,6 +65,7 @@ type UseEditorWindowActionsArgs = {
   showFileWorkflowError: (error: unknown, fallbackMessage?: string) => void;
   openRuntimeFileRequest: (file: RuntimeFileOpenRequest, source: FileOpenSource) => Promise<void>;
   openInspectorPanel: () => void;
+  closeEmbeddedBrowser: (panelId: BrowserWindowPanelId) => void;
   applyEditorCommand: (command: EditorCommand) => void;
   recordRecentAction: (type: string, target?: AiRecentAction["target"], summary?: string) => void;
 };
@@ -85,6 +86,7 @@ export function useEditorWindowActions({
   showFileWorkflowError,
   openRuntimeFileRequest,
   openInspectorPanel,
+  closeEmbeddedBrowser,
   applyEditorCommand,
   recordRecentAction
 }: UseEditorWindowActionsArgs) {
@@ -165,6 +167,7 @@ export function useEditorWindowActions({
   }
 
   function closeDetachedBrowserWindow(panelId: BrowserWindowPanelId) {
+    closeEmbeddedBrowser(panelId);
     setDetachedBrowserWindows((current) => current.filter((window) => window.id !== panelId));
     removeWorkspacePanel(panelId);
   }

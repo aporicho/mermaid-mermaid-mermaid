@@ -4,9 +4,10 @@ import { OpenNewWindow, Refresh as RefreshCw, WarningTriangle } from "iconoir-re
 import { Button } from "@/components/ui/button";
 import { embeddedBrowserLogicalRect, embeddedBrowserRectKey } from "@/features/mermaid-editor/lib/embedded-browser-rect";
 import type { EditorRuntime, RuntimeEmbeddedBrowserHandle } from "@/features/mermaid-editor/lib/editor-runtime";
+import type { BrowserWindowPanelId } from "@/features/mermaid-editor/lib/workspace-panels";
 
 type EmbeddedBrowserSurfaceProps = {
-  panelId: string;
+  panelId: BrowserWindowPanelId;
   url: string;
   runtime: EditorRuntime;
   active: boolean;
@@ -15,6 +16,7 @@ type EmbeddedBrowserSurfaceProps = {
   onReload: () => void;
   onStatus: (message: string) => void;
   onBrowserError: (url: string, message: string) => void;
+  onBrowserHandleChange: (panelId: BrowserWindowPanelId, handle: RuntimeEmbeddedBrowserHandle | null) => void;
 };
 
 export function EmbeddedBrowserSurface({
@@ -26,7 +28,8 @@ export function EmbeddedBrowserSurface({
   reloadRevision,
   onReload,
   onStatus,
-  onBrowserError
+  onBrowserError,
+  onBrowserHandleChange
 }: EmbeddedBrowserSurfaceProps) {
   const surfaceRef = useRef<HTMLDivElement | null>(null);
   const browserRef = useRef<RuntimeEmbeddedBrowserHandle | null>(null);
@@ -87,6 +90,7 @@ export function EmbeddedBrowserSurface({
 
       const browser = result.browser;
       browserRef.current = browser;
+      onBrowserHandleChange(panelId, browser);
 
       const reportSyncError = (operation: string, error: unknown) => {
         if (disposed || syncErrorReportedRef.current) return;
@@ -123,7 +127,10 @@ export function EmbeddedBrowserSurface({
 
       void browser.onError((event) => {
         if (disposed) return;
-        if (browserRef.current === browser) browserRef.current = null;
+        if (browserRef.current === browser) {
+          browserRef.current = null;
+          onBrowserHandleChange(panelId, null);
+        }
         void browser.close().catch(() => undefined);
         const message = formatEmbeddedBrowserError(event);
         setNativeError(message);
@@ -140,9 +147,10 @@ export function EmbeddedBrowserSurface({
       if (frameId) window.cancelAnimationFrame(frameId);
       const browser = browserRef.current;
       browserRef.current = null;
+      onBrowserHandleChange(panelId, null);
       void browser?.close().catch(() => undefined);
     };
-  }, [browserLabel, onBrowserError, onStatus, reloadRevision, runtime, url]);
+  }, [browserLabel, onBrowserError, onBrowserHandleChange, onStatus, panelId, reloadRevision, runtime, url]);
 
   return (
     <div ref={surfaceRef} className="relative h-full w-full min-h-0 min-w-0 overflow-hidden bg-background">

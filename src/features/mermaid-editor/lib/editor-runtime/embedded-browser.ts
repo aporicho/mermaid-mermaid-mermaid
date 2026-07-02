@@ -1,8 +1,5 @@
 import type { EmbeddedBrowserLogicalRect } from "@/features/mermaid-editor/lib/embedded-browser-rect";
-import {
-  formatRuntimeError,
-  isTauriRuntime
-} from "@/features/mermaid-editor/lib/editor-runtime/tauri-bridge";
+import { formatRuntimeError, isTauriRuntime } from "@/features/mermaid-editor/lib/editor-runtime/tauri-bridge";
 import type { RuntimeEmbeddedBrowserResult } from "@/features/mermaid-editor/lib/editor-runtime/types";
 
 type NativeEmbeddedWebview = {
@@ -15,10 +12,7 @@ type NativeEmbeddedWebview = {
   once?: (event: string, handler: (event?: unknown) => void) => Promise<() => void>;
 };
 
-type NativeDpiConstructors = {
-  LogicalPosition: new (x: number, y: number) => unknown;
-  LogicalSize: new (width: number, height: number) => unknown;
-};
+type NativeEmbeddedWebviewConstructor = { getByLabel?: (label: string) => Promise<NativeEmbeddedWebview | null> };
 
 export async function createDesktopEmbeddedBrowser(request: {
   label: string;
@@ -40,10 +34,6 @@ export async function createDesktopEmbeddedBrowser(request: {
     ]);
     const currentWindow = getCurrentWindow();
 
-    const constructors: NativeDpiConstructors = {
-      LogicalPosition: dpi.LogicalPosition,
-      LogicalSize: dpi.LogicalSize
-    };
     const webview = new Webview(currentWindow, request.label, {
       url: request.url,
       x: request.rect.x,
@@ -53,27 +43,55 @@ export async function createDesktopEmbeddedBrowser(request: {
       focus: false,
       dragDropEnabled: false
     }) as NativeEmbeddedWebview;
+    const webviewApi = Webview as NativeEmbeddedWebviewConstructor;
+    let closed = false;
+
+    async function closeWebview() {
+      if (closed) return;
+      closed = true;
+      await webview.hide().catch(() => undefined);
+      try {
+        await webview.close();
+      } catch {
+        const labeledWebview = await webviewApi.getByLabel?.(request.label).catch(() => null);
+        await labeledWebview?.close().catch(() => undefined);
+      }
+    }
 
     return {
       status: "created",
       browser: {
-        close: () => webview.close(),
-        hide: () => webview.hide(),
-        show: () => webview.show(),
-        focus: () => webview.setFocus(),
+        close: closeWebview,
+        async hide() {
+          if (!closed) await webview.hide();
+        },
+        async show() {
+          if (!closed) await webview.show();
+        },
+        async focus() {
+          if (!closed) await webview.setFocus();
+        },
         async setRect(rect) {
-          await webview.setPosition(new constructors.LogicalPosition(rect.x, rect.y));
-          await webview.setSize(new constructors.LogicalSize(rect.width, rect.height));
+          if (closed) return;
+          await webview.setPosition(new dpi.LogicalPosition(rect.x, rect.y));
+          if (closed) return;
+          await webview.setSize(new dpi.LogicalSize(rect.width, rect.height));
         },
         async onCreated(handler) {
           if (webview.once) {
-            await webview.once("tauri://created", () => handler());
+            await webview.once("tauri://created", () => {
+              if (!closed) handler();
+            });
             return;
           }
-          window.requestAnimationFrame(handler);
+          window.requestAnimationFrame(() => {
+            if (!closed) handler();
+          });
         },
         async onError(handler) {
-          await webview.once?.("tauri://error", (event) => handler(event));
+          await webview.once?.("tauri://error", (event) => {
+            if (!closed) handler(event);
+          });
         }
       }
     };

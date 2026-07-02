@@ -8,7 +8,7 @@ import { TerminalPanel } from "@/features/mermaid-editor/components/terminal-pan
 import { WorkspacePanelControls, WorkspacePanelHeader } from "@/features/mermaid-editor/components/workspace-panel-controls";
 import type { DocumentKind } from "@/features/mermaid-editor/lib/document-kind";
 import { EDITOR_CHROME_CLASSES } from "@/features/mermaid-editor/lib/editor-chrome";
-import type { EditorRuntime, RuntimeFileRef } from "@/features/mermaid-editor/lib/editor-runtime";
+import type { EditorRuntime, RuntimeEmbeddedBrowserHandle, RuntimeFileRef } from "@/features/mermaid-editor/lib/editor-runtime";
 import type { CanvasNode, MermaidGraph, Selection } from "@/features/mermaid-editor/lib/editor-types";
 import type { EditorTheme, XtermThemeTokens } from "@/features/mermaid-editor/lib/editor-theme";
 import type { FloatingPanelWindowState } from "@/features/mermaid-editor/lib/floating-chrome";
@@ -65,6 +65,7 @@ type EditorWorkspacePanelsProps = {
   updateDetachedBrowserWindow: (panelId: BrowserWindowPanelId, url: string) => void;
   onStatus: (message: string) => void;
   onBrowserError: (url: string, message: string) => void;
+  onBrowserHandleChange: (panelId: BrowserWindowPanelId, handle: RuntimeEmbeddedBrowserHandle | null) => void;
 };
 
 export function EditorWorkspacePanels({
@@ -105,7 +106,8 @@ export function EditorWorkspacePanels({
   closeDetachedBrowserWindow,
   updateDetachedBrowserWindow,
   onStatus,
-  onBrowserError
+  onBrowserError,
+  onBrowserHandleChange
 }: EditorWorkspacePanelsProps) {
   return (
     <>
@@ -224,6 +226,7 @@ export function EditorWorkspacePanels({
         updateBrowserWindow={updateDetachedBrowserWindow}
         onStatus={onStatus}
         onBrowserError={onBrowserError}
+        onBrowserHandleChange={onBrowserHandleChange}
       />
     </>
   );

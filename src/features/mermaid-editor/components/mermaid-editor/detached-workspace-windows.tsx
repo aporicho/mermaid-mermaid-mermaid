@@ -1,6 +1,6 @@
 import { BrowserWindowPanel, MarkdownWindowPanel } from "@/features/mermaid-editor/components/detached-window-panels";
 import { FloatingPanel } from "@/features/mermaid-editor/components/floating-chrome";
-import type { EditorRuntime } from "@/features/mermaid-editor/lib/editor-runtime";
+import type { EditorRuntime, RuntimeEmbeddedBrowserHandle } from "@/features/mermaid-editor/lib/editor-runtime";
 import type { FloatingPanelWindowState } from "@/features/mermaid-editor/lib/floating-chrome";
 import {
   WORKSPACE_PANEL_DEFAULT_SIZES,
@@ -29,6 +29,7 @@ type DetachedWorkspaceWindowsProps = {
   updateBrowserWindow: (panelId: BrowserWindowPanelId, url: string) => void;
   onStatus: (message: string) => void;
   onBrowserError: (url: string, message: string) => void;
+  onBrowserHandleChange: (panelId: BrowserWindowPanelId, handle: RuntimeEmbeddedBrowserHandle | null) => void;
 };
 
 export function DetachedWorkspaceWindows({
@@ -47,7 +48,8 @@ export function DetachedWorkspaceWindows({
   closeBrowserWindow,
   updateBrowserWindow,
   onStatus,
-  onBrowserError
+  onBrowserError,
+  onBrowserHandleChange
 }: DetachedWorkspaceWindowsProps) {
   return (
     <>
@@ -113,6 +115,7 @@ export function DetachedWorkspaceWindows({
             onClose={() => closeBrowserWindow(browserWindow.id)}
             onStatus={onStatus}
             onBrowserError={onBrowserError}
+            onBrowserHandleChange={onBrowserHandleChange}
           />
         </FloatingPanel>
       ))}

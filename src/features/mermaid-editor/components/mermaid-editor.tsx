@@ -5,6 +5,7 @@ import { useEditorAiCommands } from "@/features/mermaid-editor/components/mermai
 import { useEditorCommandActions } from "@/features/mermaid-editor/components/mermaid-editor/use-editor-command-actions";
 import { useEditorDesktopEvents } from "@/features/mermaid-editor/components/mermaid-editor/use-editor-desktop-events";
 import { useEditorDraftAutosave } from "@/features/mermaid-editor/components/mermaid-editor/use-editor-draft-autosave";
+import { useEditorEmbeddedBrowserHandles } from "@/features/mermaid-editor/components/mermaid-editor/use-editor-embedded-browser-handles";
 import { EditorFloatingChrome } from "@/features/mermaid-editor/components/mermaid-editor/editor-floating-chrome";
 import { EditorOverlays } from "@/features/mermaid-editor/components/mermaid-editor/editor-overlays";
 import { EditorWorkspaceSurface } from "@/features/mermaid-editor/components/mermaid-editor/editor-workspace-surface";
@@ -19,12 +20,8 @@ import { useEditorWorkspacePanelActions } from "@/features/mermaid-editor/compon
 import { useEditorWindowActions } from "@/features/mermaid-editor/components/mermaid-editor/use-editor-window-actions";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { loadInitialState } from "@/features/mermaid-editor/lib/editor-state";
-import {
-  createEditorRuntime
-} from "@/features/mermaid-editor/lib/editor-runtime";
-import type {
-  EditorSnapshot
-} from "@/features/mermaid-editor/lib/editor-types";
+import { createEditorRuntime } from "@/features/mermaid-editor/lib/editor-runtime";
+import type { EditorSnapshot } from "@/features/mermaid-editor/lib/editor-types";
 import { EditorMotionProvider } from "@/features/mermaid-editor/lib/use-gsap-motion";
 import { useDisableNativeContextMenu } from "@/features/mermaid-editor/lib/native-context-menu";
 import {
@@ -148,6 +145,7 @@ export function MermaidEditor() {
   const [terminalOpen, setTerminalOpen] = useState(false);
   const [detachedMarkdownWindows, setDetachedMarkdownWindows] = useState<DetachedMarkdownWindow[]>([]);
   const [detachedBrowserWindows, setDetachedBrowserWindows] = useState<DetachedBrowserWindow[]>([]);
+  const { setEmbeddedBrowserHandle, closeEmbeddedBrowser } = useEditorEmbeddedBrowserHandles();
   const {
     activeWorkspacePanel,
     bringWorkspacePanelToFront,
@@ -415,6 +413,7 @@ export function MermaidEditor() {
     showFileWorkflowError,
     openRuntimeFileRequest,
     openInspectorPanel: () => openWorkspacePanel("inspector"),
+    closeEmbeddedBrowser,
     applyEditorCommand,
     recordRecentAction
   });
@@ -616,6 +615,7 @@ export function MermaidEditor() {
           updateDetachedBrowserWindow={updateDetachedBrowserWindow}
           onStatus={setStatus}
           onBrowserError={recordBrowserWebviewError}
+          onBrowserHandleChange={setEmbeddedBrowserHandle}
         />
         <EditorFloatingChrome
           runtime={runtime}
