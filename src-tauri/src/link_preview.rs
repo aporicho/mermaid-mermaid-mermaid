@@ -140,22 +140,13 @@ async fn resolve_xiaohongshu_link_preview(
         extract_title(&html),
     ])
     .unwrap_or_else(|| "小红书笔记".to_string());
-    let cover_url = first_non_empty(&[
-        extract_meta(&html, "og:image"),
-        extract_meta(&html, "og:image:url"),
-        extract_meta(&html, "twitter:image"),
-        extract_xiaohongshu_cover_url(&html),
-    ])
-    .and_then(|value| final_url.join(&value).ok())
-    .map(|value| value.to_string());
+    let cover_candidates = extract_xiaohongshu_preview_cover_urls(&html, &final_url);
     let canonical_url = extract_meta(&html, "og:url")
         .and_then(|value| final_url.join(&value).ok())
         .map(|value| value.to_string())
         .unwrap_or_else(|| final_url.to_string());
-    let cover = match cover_url {
-        Some(value) => resolve_preview_cover(&client, value, document_path.as_deref()).await,
-        None => None,
-    };
+    let cover =
+        resolve_preview_cover_candidates(&client, cover_candidates, document_path.as_deref()).await;
 
     Ok(LinkPreviewResponse::Ready {
         provider: "小红书".to_string(),
@@ -166,25 +157,24 @@ async fn resolve_xiaohongshu_link_preview(
     })
 }
 
+async fn resolve_preview_cover_candidates(
+    client: &reqwest::Client,
+    cover_urls: Vec<String>,
+    document_path: Option<&str>,
+) -> Option<LinkPreviewCover> {
+    for cover_url in cover_urls {
+        if let Some(cover) = resolve_preview_cover(client, cover_url, document_path).await {
+            return Some(cover);
+        }
+    }
+    None
+}
+
 async fn resolve_preview_cover(
     client: &reqwest::Client,
     cover_url: String,
     document_path: Option<&str>,
 ) -> Option<LinkPreviewCover> {
-    let remote_cover = LinkPreviewCover {
-        src: cover_url.clone(),
-        width: None,
-        height: None,
-        persistent: false,
-    };
-    let Some(document_path) = document_path else {
-        return Some(remote_cover);
-    };
-    let document = PathBuf::from(document_path);
-    if !is_supported_image_document_path(&document) {
-        return Some(remote_cover);
-    }
-
     let response = match client
         .get(&cover_url)
         .header(
@@ -196,38 +186,62 @@ async fn resolve_preview_cover(
         .await
     {
         Ok(response) => response,
-        Err(_) => return Some(remote_cover),
+        Err(_) => return None,
     };
+    if !response.status().is_success() {
+        return None;
+    }
     let content_type = response
         .headers()
         .get(reqwest::header::CONTENT_TYPE)
         .and_then(|value| value.to_str().ok())
-        .unwrap_or("");
-    let Some(extension) = preview_image_extension(content_type, &cover_url) else {
-        return Some(remote_cover);
-    };
+        .unwrap_or("")
+        .to_string();
+    let extension = preview_image_extension(&content_type, &cover_url)?;
     if response.content_length().unwrap_or(0) > MAX_IMAGE_BYTES {
-        return Some(remote_cover);
+        return None;
     }
     let bytes = match response.bytes().await {
         Ok(bytes) => bytes,
-        Err(_) => return Some(remote_cover),
+        Err(_) => return None,
     };
     if bytes.len() > MAX_IMAGE_BYTES as usize {
-        return Some(remote_cover);
+        return None;
     }
+    let (width, height) = preview_image_dimensions(&content_type, &bytes)?;
+
     let file_name = format!("xiaohongshu-{}.{}", short_text_hash(&cover_url), extension);
-    let src = match write_preview_asset(document, file_name, &bytes).await {
-        Ok(src) => src,
-        Err(_) => return Some(remote_cover),
-    };
+    let (src, persistent) =
+        match write_preview_asset_or_cache(document_path, file_name, &bytes).await {
+            Ok(result) => result,
+            Err(_) => return None,
+        };
 
     Some(LinkPreviewCover {
         src,
-        width: None,
-        height: None,
-        persistent: true,
+        width: Some(width),
+        height: Some(height),
+        persistent,
     })
+}
+
+async fn write_preview_asset_or_cache(
+    document_path: Option<&str>,
+    file_name: String,
+    bytes: &[u8],
+) -> Result<(String, bool), String> {
+    if let Some(document_path) = document_path {
+        let document = PathBuf::from(document_path);
+        if is_supported_image_document_path(&document) {
+            return write_preview_asset(document, file_name, bytes)
+                .await
+                .map(|src| (src, true));
+        }
+    };
+
+    write_preview_cache_asset(file_name, bytes)
+        .await
+        .map(|src| (src, false))
 }
 
 async fn write_preview_asset(
@@ -246,6 +260,16 @@ async fn write_preview_asset(
         .await
         .map_err(readable_error)?;
     Ok(relative_asset_src(document_dir, &destination))
+}
+
+async fn write_preview_cache_asset(file_name: String, bytes: &[u8]) -> Result<String, String> {
+    let destination_dir = link_preview_cache_dir()?;
+    fs::create_dir_all(&destination_dir).map_err(readable_error)?;
+    let destination = destination_dir.join(file_name);
+    tokio::fs::write(&destination, bytes)
+        .await
+        .map_err(readable_error)?;
+    Ok(path_to_string(&destination))
 }
 
 fn is_allowed_xiaohongshu_host(host: &str) -> bool {
@@ -321,6 +345,106 @@ fn extract_title(html: &str) -> Option<String> {
         .map(|value| clean_preview_text(&decode_basic_html_entities(value.as_str())))
 }
 
+#[cfg(test)]
+fn extract_xiaohongshu_preview_cover_url(html: &str, base_url: &Url) -> Option<String> {
+    extract_xiaohongshu_preview_cover_urls(html, base_url)
+        .into_iter()
+        .next()
+}
+
+fn extract_xiaohongshu_preview_cover_urls(html: &str, base_url: &Url) -> Vec<String> {
+    let mut candidates = Vec::new();
+    append_resolved_xiaohongshu_images(
+        &mut candidates,
+        base_url,
+        extract_meta_values(html, "property", "og:image"),
+    );
+    append_resolved_xiaohongshu_images(
+        &mut candidates,
+        base_url,
+        extract_meta_values(html, "property", "og:image:url"),
+    );
+    append_resolved_xiaohongshu_images(
+        &mut candidates,
+        base_url,
+        extract_meta_values(html, "property", "twitter:image"),
+    );
+    append_resolved_xiaohongshu_images(
+        &mut candidates,
+        base_url,
+        extract_meta_values(html, "name", "twitter:image"),
+    );
+    append_unique_strings(
+        &mut candidates,
+        extract_xiaohongshu_cover_urls(html, base_url),
+    );
+    append_resolved_xiaohongshu_images(
+        &mut candidates,
+        base_url,
+        extract_meta_values(html, "name", "og:image"),
+    );
+    append_resolved_xiaohongshu_images(
+        &mut candidates,
+        base_url,
+        extract_meta_values(html, "name", "og:image:url"),
+    );
+    append_resolved_xiaohongshu_images(
+        &mut candidates,
+        base_url,
+        extract_meta_values(html, "itemprop", "image"),
+    );
+    candidates
+}
+
+fn append_resolved_xiaohongshu_images(
+    candidates: &mut Vec<String>,
+    base_url: &Url,
+    values: Vec<String>,
+) {
+    append_unique_strings(
+        candidates,
+        values
+            .into_iter()
+            .filter_map(|value| resolve_xiaohongshu_image_url(base_url, &value)),
+    );
+}
+
+fn append_unique_strings(candidates: &mut Vec<String>, values: impl IntoIterator<Item = String>) {
+    for value in values {
+        if !candidates.iter().any(|candidate| candidate == &value) {
+            candidates.push(value);
+        }
+    }
+}
+
+fn extract_meta_values(html: &str, attribute_name: &str, key: &str) -> Vec<String> {
+    let Some(pattern) = Regex::new(r#"(?is)<meta\b[^>]*>"#).ok() else {
+        return Vec::new();
+    };
+    pattern
+        .find_iter(html)
+        .filter_map(|match_item| {
+            let tag = match_item.as_str();
+            let property = extract_html_attr(tag, attribute_name)?;
+            if !property.eq_ignore_ascii_case(key) {
+                return None;
+            }
+            let content =
+                extract_html_attr(tag, "content").map(|value| clean_preview_text(&value))?;
+            if content.is_empty() {
+                return None;
+            }
+            Some(content)
+        })
+        .collect()
+}
+
+fn resolve_xiaohongshu_image_url(base_url: &Url, value: &str) -> Option<String> {
+    let joined = base_url.join(value.trim()).ok()?;
+    let url = clean_embedded_url_candidate(joined.as_str());
+    is_likely_xiaohongshu_image_url(&url).then_some(url)
+}
+
 #[derive(Clone)]
 struct ImageCandidate {
     url: String,
@@ -328,13 +452,25 @@ struct ImageCandidate {
     index: usize,
 }
 
+#[cfg(test)]
 fn extract_xiaohongshu_cover_url(html: &str) -> Option<String> {
+    let base_url = Url::parse("https://www.xiaohongshu.com/").ok()?;
+    extract_xiaohongshu_cover_urls(html, &base_url)
+        .into_iter()
+        .next()
+}
+
+fn extract_xiaohongshu_cover_urls(html: &str, base_url: &Url) -> Vec<String> {
     let normalized = normalize_embedded_url_text(html);
-    let pattern = Regex::new(r#"https?://[^\s"'<>),;}\\]+"#).ok()?;
+    let Some(pattern) = Regex::new(r#"(?i)(?:https?:)?//[^\s"'<>),;}\\]+"#).ok() else {
+        return Vec::new();
+    };
     let mut candidates: Vec<ImageCandidate> = Vec::new();
 
     for match_item in pattern.find_iter(&normalized) {
-        let url = clean_embedded_url_candidate(match_item.as_str());
+        let Some(url) = resolve_xiaohongshu_image_url(base_url, match_item.as_str()) else {
+            continue;
+        };
         if !is_likely_xiaohongshu_image_url(&url)
             || candidates.iter().any(|candidate| candidate.url == url)
         {
@@ -358,7 +494,10 @@ fn extract_xiaohongshu_cover_url(html: &str) -> Option<String> {
             .cmp(&left.score)
             .then(left.index.cmp(&right.index))
     });
-    candidates.into_iter().map(|candidate| candidate.url).next()
+    candidates
+        .into_iter()
+        .map(|candidate| candidate.url)
+        .collect()
 }
 
 fn normalize_embedded_url_text(value: &str) -> String {
@@ -465,10 +604,19 @@ fn xiaohongshu_image_score(url: &str, context: &str) -> i32 {
         "urldefault",
         "urlpre",
         "cover",
+        "poster",
+        "thumbnail",
         "note_card",
         "notecard",
         "traceid",
         "image_info",
+        "background-image",
+        "player",
+        "player-container",
+        "browser-player",
+        "media",
+        "mediav2",
+        "video",
     ] {
         if context.contains(marker) {
             score += 12;
@@ -557,6 +705,144 @@ fn preview_image_extension(content_type: &str, url: &str) -> Option<&'static str
     None
 }
 
+fn preview_image_dimensions(content_type: &str, bytes: &[u8]) -> Option<(u32, u32)> {
+    let content_type = content_type.to_ascii_lowercase();
+    if content_type.contains("image/png") || bytes.starts_with(b"\x89PNG\r\n\x1a\n") {
+        return png_dimensions(bytes);
+    }
+    if content_type.contains("image/jpeg")
+        || content_type.contains("image/jpg")
+        || bytes.starts_with(&[0xff, 0xd8])
+    {
+        return jpeg_dimensions(bytes);
+    }
+    if content_type.contains("image/webp") || bytes.get(0..4) == Some(b"RIFF") {
+        return webp_dimensions(bytes);
+    }
+    if content_type.contains("image/gif")
+        || bytes.starts_with(b"GIF87a")
+        || bytes.starts_with(b"GIF89a")
+    {
+        return gif_dimensions(bytes);
+    }
+    None
+}
+
+fn png_dimensions(bytes: &[u8]) -> Option<(u32, u32)> {
+    if bytes.len() < 24
+        || !bytes.starts_with(b"\x89PNG\r\n\x1a\n")
+        || bytes.get(12..16) != Some(b"IHDR")
+    {
+        return None;
+    }
+    let width = u32::from_be_bytes(bytes.get(16..20)?.try_into().ok()?);
+    let height = u32::from_be_bytes(bytes.get(20..24)?.try_into().ok()?);
+    nonzero_dimensions(width, height)
+}
+
+fn jpeg_dimensions(bytes: &[u8]) -> Option<(u32, u32)> {
+    if !bytes.starts_with(&[0xff, 0xd8]) {
+        return None;
+    }
+    let mut index = 2;
+    while index + 3 < bytes.len() {
+        while index < bytes.len() && bytes[index] != 0xff {
+            index += 1;
+        }
+        while index < bytes.len() && bytes[index] == 0xff {
+            index += 1;
+        }
+        if index >= bytes.len() {
+            return None;
+        }
+        let marker = bytes[index];
+        index += 1;
+        if marker == 0xd9 || marker == 0xda {
+            return None;
+        }
+        if marker == 0x01 || (0xd0..=0xd7).contains(&marker) {
+            continue;
+        }
+        if index + 1 >= bytes.len() {
+            return None;
+        }
+        let segment_len =
+            u16::from_be_bytes(bytes.get(index..index + 2)?.try_into().ok()?) as usize;
+        if segment_len < 2 || index + segment_len > bytes.len() {
+            return None;
+        }
+        if is_jpeg_sof_marker(marker) && segment_len >= 7 {
+            let height =
+                u16::from_be_bytes(bytes.get(index + 3..index + 5)?.try_into().ok()?) as u32;
+            let width =
+                u16::from_be_bytes(bytes.get(index + 5..index + 7)?.try_into().ok()?) as u32;
+            return nonzero_dimensions(width, height);
+        }
+        index += segment_len;
+    }
+    None
+}
+
+fn is_jpeg_sof_marker(marker: u8) -> bool {
+    matches!(
+        marker,
+        0xc0 | 0xc1 | 0xc2 | 0xc3 | 0xc5 | 0xc6 | 0xc7 | 0xc9 | 0xca | 0xcb | 0xcd | 0xce | 0xcf
+    )
+}
+
+fn webp_dimensions(bytes: &[u8]) -> Option<(u32, u32)> {
+    if bytes.len() < 30 || bytes.get(0..4) != Some(b"RIFF") || bytes.get(8..12) != Some(b"WEBP") {
+        return None;
+    }
+    let chunk = bytes.get(12..16)?;
+    let data = bytes.get(20..)?;
+    if chunk == b"VP8X" {
+        let width = 1
+            + u32::from(data.get(4).copied()?)
+            + (u32::from(data.get(5).copied()?) << 8)
+            + (u32::from(data.get(6).copied()?) << 16);
+        let height = 1
+            + u32::from(data.get(7).copied()?)
+            + (u32::from(data.get(8).copied()?) << 8)
+            + (u32::from(data.get(9).copied()?) << 16);
+        return nonzero_dimensions(width, height);
+    }
+    if chunk == b"VP8L" {
+        if data.first().copied()? != 0x2f {
+            return None;
+        }
+        let b1 = u32::from(data.get(1).copied()?);
+        let b2 = u32::from(data.get(2).copied()?);
+        let b3 = u32::from(data.get(3).copied()?);
+        let b4 = u32::from(data.get(4).copied()?);
+        let width = 1 + (((b2 & 0x3f) << 8) | b1);
+        let height = 1 + (((b4 & 0x0f) << 10) | (b3 << 2) | ((b2 & 0xc0) >> 6));
+        return nonzero_dimensions(width, height);
+    }
+    if chunk == b"VP8 " {
+        if data.get(3..6) != Some(&[0x9d, 0x01, 0x2a][..]) {
+            return None;
+        }
+        let width = u16::from_le_bytes(data.get(6..8)?.try_into().ok()?) as u32 & 0x3fff;
+        let height = u16::from_le_bytes(data.get(8..10)?.try_into().ok()?) as u32 & 0x3fff;
+        return nonzero_dimensions(width, height);
+    }
+    None
+}
+
+fn gif_dimensions(bytes: &[u8]) -> Option<(u32, u32)> {
+    if bytes.len() < 10 || (!bytes.starts_with(b"GIF87a") && !bytes.starts_with(b"GIF89a")) {
+        return None;
+    }
+    let width = u16::from_le_bytes(bytes.get(6..8)?.try_into().ok()?) as u32;
+    let height = u16::from_le_bytes(bytes.get(8..10)?.try_into().ok()?) as u32;
+    nonzero_dimensions(width, height)
+}
+
+fn nonzero_dimensions(width: u32, height: u32) -> Option<(u32, u32)> {
+    (width > 0 && height > 0).then_some((width, height))
+}
+
 fn is_xiaohongshu_image_host(host: &str) -> bool {
     let host = host.to_ascii_lowercase();
     (host.ends_with(".xhscdn.com")
@@ -607,6 +893,14 @@ fn document_stem(path: &Path) -> String {
             }
         })
         .collect()
+}
+
+fn link_preview_cache_dir() -> Result<PathBuf, String> {
+    let home = std::env::var_os("HOME")
+        .or_else(|| std::env::var_os("USERPROFILE"))
+        .map(PathBuf::from)
+        .ok_or_else(|| "Cannot resolve home directory.".to_string())?;
+    Ok(home.join(".mermaid-canvas-editor").join("link-previews"))
 }
 
 fn relative_asset_src(base_dir: &Path, asset_path: &Path) -> String {
@@ -699,6 +993,103 @@ mod tests {
     }
 
     #[test]
+    fn prefers_real_property_og_image_over_default_name_og_image() {
+        let base_url = Url::parse("https://www.xiaohongshu.com/explore/691724fc000000000400711a?xsec_token=token&xsec_source=pc_search").unwrap();
+        let html = r#"
+            <meta name="og:image" content="//picasso-static.xiaohongshu.com/fe-platform/default.png">
+            <meta property="og:image" content="http://sns-webpic-qc.xhscdn.com/202607031428/c036fe0058372e1794eb5985e1400c4e/1040g00831os97ipuhq005paunskgmqfse41a0m8!nd_dft_wlteh_jpg_3">
+        "#;
+
+        assert_eq!(
+            extract_xiaohongshu_preview_cover_url(html, &base_url).as_deref(),
+            Some("https://sns-webpic-qc.xhscdn.com/202607031428/c036fe0058372e1794eb5985e1400c4e/1040g00831os97ipuhq005paunskgmqfse41a0m8!nd_dft_wlteh_jpg_3")
+        );
+    }
+
+    #[test]
+    fn extracts_note_detail_map_cover_when_meta_only_has_default_assets() {
+        let base_url = Url::parse(
+            "https://www.xiaohongshu.com/explore/abc?xsec_token=token&xsec_source=pc_search",
+        )
+        .unwrap();
+        let html = r#"
+            <meta name="og:image" content="//picasso-static.xiaohongshu.com/fe-platform/default.png">
+            <script>
+              window.__INITIAL_STATE__={"note":{"noteDetailMap":{"abc":{"note":{"imageList":[{"urlPre":"http:\u002F\u002Fsns-webpic-qc.xhscdn.com\u002Fnotes_pre_post\u002Fpreview!nd_prv_wlteh_jpg_3","urlDefault":"http:\u002F\u002Fsns-webpic-qc.xhscdn.com\u002Fnotes_pre_post\u002Fcover-3!nd_dft_wlteh_jpg_3"}]}}}}};
+            </script>
+        "#;
+
+        assert_eq!(
+            extract_xiaohongshu_preview_cover_url(html, &base_url).as_deref(),
+            Some("https://sns-webpic-qc.xhscdn.com/notes_pre_post/cover-3!nd_dft_wlteh_jpg_3")
+        );
+    }
+
+    #[test]
+    fn extracts_video_cover_from_protocol_relative_poster() {
+        let base_url = Url::parse("https://www.xiaohongshu.com/explore/video-note").unwrap();
+        let html = r#"
+            <video poster="//sns-webpic-qc.xhscdn.com/notes_pre_post/video-cover!nd_dft_wlteh_jpg_3"></video>
+        "#;
+
+        assert_eq!(
+            extract_xiaohongshu_preview_cover_url(html, &base_url).as_deref(),
+            Some("https://sns-webpic-qc.xhscdn.com/notes_pre_post/video-cover!nd_dft_wlteh_jpg_3")
+        );
+    }
+
+    #[test]
+    fn orders_video_cover_candidates_for_download_retry() {
+        let base_url = Url::parse("https://www.xiaohongshu.com/explore/video-note").unwrap();
+        let html = r#"
+            <meta property="og:image" content="//sns-webpic-qc.xhscdn.com/notes_pre_post/primary-cover!nd_dft_wlteh_jpg_3">
+            <script>
+              window.__INITIAL_STATE__={
+                "note":{"type":"video","imageList":[
+                  {"urlDefault":"http:\u002F\u002Fsns-webpic-qc.xhscdn.com\u002Fnotes_pre_post\u002Fstate-cover!nd_dft_wlteh_jpg_3"}
+                ]}
+              };
+            </script>
+        "#;
+
+        assert_eq!(
+            extract_xiaohongshu_preview_cover_urls(html, &base_url),
+            vec![
+                "https://sns-webpic-qc.xhscdn.com/notes_pre_post/primary-cover!nd_dft_wlteh_jpg_3"
+                    .to_string(),
+                "https://sns-webpic-qc.xhscdn.com/notes_pre_post/state-cover!nd_dft_wlteh_jpg_3"
+                    .to_string()
+            ]
+        );
+    }
+
+    #[test]
+    fn ignores_video_thumbnail_file_id_without_public_image_url() {
+        let base_url = Url::parse("https://www.xiaohongshu.com/explore/video-note").unwrap();
+        let html = r#"
+            <script>
+              window.__INITIAL_STATE__={"note":{"type":"video","video":{"media":{"image":{"thumbnailFileid":"frame/110/0/abc_0.webp"}}}}};
+            </script>
+        "#;
+
+        assert!(extract_xiaohongshu_preview_cover_urls(html, &base_url).is_empty());
+    }
+
+    #[test]
+    fn ignores_xiaohongshu_default_meta_images_as_covers() {
+        let base_url = Url::parse("https://www.xiaohongshu.com/explore/abc").unwrap();
+        let html = r#"
+            <meta name="og:image" content="//picasso-static.xiaohongshu.com/fe-platform/default.png">
+            <meta itemprop="image" content="//picasso-static.xiaohongshu.com/fe-platform/item.png">
+        "#;
+
+        assert_eq!(
+            extract_xiaohongshu_preview_cover_url(html, &base_url).as_deref(),
+            None
+        );
+    }
+
+    #[test]
     fn infers_xiaohongshu_extension_for_cdn_urls_without_suffix() {
         assert_eq!(
             preview_image_extension("", "https://sns-img-qc.xhscdn.com/notes_pre_post/abc123"),
@@ -710,6 +1101,32 @@ mod tests {
                 "https://sns-img-qc.xhscdn.com/notes_pre_post/abc123?format=webp"
             ),
             Some("webp")
+        );
+    }
+
+    #[test]
+    fn reads_jpeg_preview_dimensions() {
+        let bytes = [
+            0xff, 0xd8, 0xff, 0xc0, 0x00, 0x11, 0x08, 0x07, 0x80, 0x04, 0x38, 0x03, 0x01, 0x11,
+            0x00, 0x02, 0x11, 0x01, 0x03, 0x11, 0x01,
+        ];
+
+        assert_eq!(
+            preview_image_dimensions("image/jpeg", &bytes),
+            Some((1080, 1920))
+        );
+    }
+
+    #[test]
+    fn reads_png_preview_dimensions() {
+        let bytes = [
+            0x89, b'P', b'N', b'G', b'\r', b'\n', 0x1a, b'\n', 0x00, 0x00, 0x00, 0x0d, b'I', b'H',
+            b'D', b'R', 0x00, 0x00, 0x04, 0x38, 0x00, 0x00, 0x07, 0x80,
+        ];
+
+        assert_eq!(
+            preview_image_dimensions("image/png", &bytes),
+            Some((1080, 1920))
         );
     }
 }

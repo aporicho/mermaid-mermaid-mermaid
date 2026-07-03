@@ -1,10 +1,11 @@
+import { useEffect, useState } from "react";
 import { Group, Rect, Text } from "react-konva";
 
 import { CanvasNodeActionBadge } from "@/features/mermaid-editor/components/konva-canvas/node-action-ui";
-import { CanvasNodeImage } from "@/features/mermaid-editor/components/konva-canvas/node-image";
+import { CanvasNodeImage, type CanvasNodeImageLoadStatus } from "@/features/mermaid-editor/components/konva-canvas/node-image";
 import type { CanvasVisualTokens } from "@/features/mermaid-editor/lib/canvas-visual-state";
 import type { CanvasNode, CanvasNodePreview } from "@/features/mermaid-editor/lib/editor-types";
-import { LINK_CARD_COVER_HEIGHT, normalizeCanvasNodePreview } from "@/features/mermaid-editor/lib/node-preview";
+import { LINK_CARD_INSET, linkCardCoverHeight, normalizeCanvasNodePreview } from "@/features/mermaid-editor/lib/node-preview";
 
 export function CanvasNodeLinkCard({
   node,
@@ -28,12 +29,24 @@ export function CanvasNodeLinkCard({
   onOpen?: () => void;
 }) {
   const normalized = normalizeCanvasNodePreview(preview);
+  const [coverLoadStatus, setCoverLoadStatus] = useState<CanvasNodeImageLoadStatus>(coverSrc ? "loading" : "idle");
+
+  useEffect(() => {
+    setCoverLoadStatus(coverSrc ? "loading" : "idle");
+  }, [coverSrc]);
+
   if (!normalized) return null;
 
-  const inset = 8;
+  const inset = LINK_CARD_INSET;
   const coverWidth = width - inset * 2;
-  const coverHeight = LINK_CARD_COVER_HEIGHT;
+  const coverHeight = linkCardCoverHeight(normalized);
+  const providerY = inset + coverHeight + 10;
+  const titleY = providerY + 20;
+  const placeholderY = inset + Math.max(0, (coverHeight - 48) / 2);
+  const coverImage = coverImageRect(normalized.cover, coverWidth, coverHeight);
   const title = normalized.title || node.label;
+  const showCoverPlaceholder = !coverSrc || coverLoadStatus !== "loaded";
+  const showCoverImage = Boolean(coverSrc && coverLoadStatus !== "error");
 
   return (
     <Group>
@@ -58,14 +71,10 @@ export function CanvasNodeLinkCard({
         cornerRadius={6}
         listening={false}
       />
-      {coverSrc ? (
-        <Group x={inset} y={inset} clipX={0} clipY={0} clipWidth={coverWidth} clipHeight={coverHeight}>
-          <CanvasNodeImage src={coverSrc} x={0} y={0} width={coverWidth} height={coverHeight} />
-        </Group>
-      ) : (
+      {showCoverPlaceholder ? (
         <Text
           x={inset}
-          y={inset + 68}
+          y={placeholderY}
           width={coverWidth}
           height={48}
           text="小红书"
@@ -77,11 +86,16 @@ export function CanvasNodeLinkCard({
           fill="#e11d48"
           listening={false}
         />
-      )}
+      ) : null}
+      {showCoverImage && coverSrc ? (
+        <Group x={inset} y={inset} clipX={0} clipY={0} clipWidth={coverWidth} clipHeight={coverHeight}>
+          <CanvasNodeImage src={coverSrc} x={coverImage.x} y={coverImage.y} width={coverImage.width} height={coverImage.height} onLoadStatusChange={setCoverLoadStatus} />
+        </Group>
+      ) : null}
       <Rect x={inset} y={inset} width={coverWidth} height={coverHeight} fillEnabled={false} stroke="rgba(15,23,42,0.08)" strokeWidth={1} cornerRadius={6} listening={false} />
       <Text
         x={12}
-        y={206}
+        y={providerY}
         width={width - 24}
         height={16}
         text={normalized.provider}
@@ -93,7 +107,7 @@ export function CanvasNodeLinkCard({
       />
       <Text
         x={12}
-        y={226}
+        y={titleY}
         width={width - 24}
         height={44}
         text={title}
@@ -109,4 +123,26 @@ export function CanvasNodeLinkCard({
       <CanvasNodeActionBadge actionKind="url" x={width - 30} y={10} visualTokens={visualTokens} onOpen={onOpen} />
     </Group>
   );
+}
+
+function coverImageRect(cover: CanvasNodePreview["cover"], boxWidth: number, boxHeight: number) {
+  const imageWidth = cover?.width;
+  const imageHeight = cover?.height;
+  if (!isPositiveFiniteNumber(imageWidth) || !isPositiveFiniteNumber(imageHeight)) {
+    return { x: 0, y: 0, width: boxWidth, height: boxHeight };
+  }
+
+  const scale = Math.max(boxWidth / imageWidth, boxHeight / imageHeight);
+  const width = imageWidth * scale;
+  const height = imageHeight * scale;
+  return {
+    x: (boxWidth - width) / 2,
+    y: (boxHeight - height) / 2,
+    width,
+    height
+  };
+}
+
+function isPositiveFiniteNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value > 0;
 }

@@ -1,4 +1,4 @@
-import type { CanvasContentPlugin, PluginCardDraft, PluginPasteMatch, PluginResolveContext } from "@/features/mermaid-editor/lib/content-plugins/types";
+import type { CanvasContentPlugin, PluginCardDraft, PluginPasteMatch } from "@/features/mermaid-editor/lib/content-plugins/types";
 import type { CanvasNodePreview } from "@/features/mermaid-editor/lib/editor-types";
 import type { RuntimeLinkPreviewResult } from "@/features/mermaid-editor/lib/editor-runtime";
 import { normalizeCanvasNodePreview, previewSuggestedLabel } from "@/features/mermaid-editor/lib/node-preview";

@@ -3,7 +3,7 @@ import type { EditorDiagnostic } from "@/features/mermaid-editor/lib/editor-diag
 import { browserToolShellUrl, browserToolWindowLabel, browserToolWindowTitle } from "@/features/mermaid-editor/lib/browser-tool-window";
 import { createDesktopEmbeddedBrowser } from "@/features/mermaid-editor/lib/editor-runtime/embedded-browser";
 import { resolveDesktopLinkPreview } from "@/features/mermaid-editor/lib/editor-runtime/link-preview";
-import { ensureRuntimeDocumentFileName, isExternalAssetSrc, openExternalUrl } from "@/features/mermaid-editor/lib/editor-runtime/shared";
+import { ensureRuntimeDocumentFileName, isExternalAssetSrc, isNativeFilePath, openExternalUrl } from "@/features/mermaid-editor/lib/editor-runtime/shared";
 import {
   exposedNativeFilePath,
   filePathToDisplaySrc,
@@ -27,7 +27,6 @@ type DesktopOpenedFile = {
   path: string;
   text: string;
 };
-
 type DesktopSavedFile = {
   name: string;
   path: string;
@@ -210,9 +209,10 @@ export function createDesktopRuntime(): EditorRuntime {
       };
     },
     async resolveImageAssetSrc(file, src) {
-      if (isExternalAssetSrc(src) || !file?.path) return src;
+      if (isExternalAssetSrc(src)) return src;
+      if (!file?.path) return isNativeFilePath(src) ? filePathToDisplaySrc(src) : src;
       const path = await tauriInvoke<string | null>("resolve_image_asset_path", { documentPath: file.path, src });
-      return path ? filePathToDisplaySrc(path) : src;
+      return path ? filePathToDisplaySrc(path) : isNativeFilePath(src) ? filePathToDisplaySrc(src) : src;
     },
     resolveLinkPreview: resolveDesktopLinkPreview,
     async openProjectFolder() {

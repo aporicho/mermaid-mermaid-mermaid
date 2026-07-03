@@ -1,20 +1,24 @@
 import { useEffect, useState } from "react";
 import { Image as KonvaImage } from "react-konva";
 
+export type CanvasNodeImageLoadStatus = "idle" | "loading" | "loaded" | "error";
+
 export function CanvasNodeImage({
   src,
   x,
   y,
   width,
-  height
+  height,
+  onLoadStatusChange
 }: {
   src: string;
   x: number;
   y: number;
   width: number;
   height: number;
+  onLoadStatusChange?: (status: CanvasNodeImageLoadStatus) => void;
 }) {
-  const image = useCanvasImage(src);
+  const image = useCanvasImage(src, onLoadStatusChange);
 
   if (!image) {
     return null;
@@ -23,33 +27,41 @@ export function CanvasNodeImage({
   return <KonvaImage image={image} x={x} y={y} width={width} height={height} listening={false} />;
 }
 
-function useCanvasImage(src: string) {
+function useCanvasImage(src: string, onLoadStatusChange?: (status: CanvasNodeImageLoadStatus) => void) {
   const [image, setImage] = useState<HTMLImageElement | null>(null);
 
   useEffect(() => {
     if (typeof window === "undefined" || !src) {
       setImage(null);
+      onLoadStatusChange?.("idle");
       return;
     }
 
     let disposed = false;
     setImage(null);
+    onLoadStatusChange?.("loading");
     const nextImage = new window.Image();
     if (shouldUseAnonymousImageCrossOrigin(src)) {
       nextImage.crossOrigin = "anonymous";
     }
     nextImage.onload = () => {
-      if (!disposed) setImage(nextImage);
+      if (!disposed) {
+        setImage(nextImage);
+        onLoadStatusChange?.("loaded");
+      }
     };
     nextImage.onerror = () => {
-      if (!disposed) setImage(null);
+      if (!disposed) {
+        setImage(null);
+        onLoadStatusChange?.("error");
+      }
     };
     nextImage.src = src;
 
     return () => {
       disposed = true;
     };
-  }, [src]);
+  }, [onLoadStatusChange, src]);
 
   return image;
 }

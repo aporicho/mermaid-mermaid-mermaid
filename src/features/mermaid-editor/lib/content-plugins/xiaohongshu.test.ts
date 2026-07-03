@@ -36,6 +36,28 @@ describe("xiaohongshu content plugin", () => {
     });
   });
 
+  it("keeps the tokenized source url as the open target", async () => {
+    const sourceUrl = "https://www.xiaohongshu.com/explore/abc?xsec_token=token=&xsec_source=pc_search";
+    const runtime = {
+      resolveLinkPreview: async () => ({
+        status: "ready" as const,
+        provider: "小红书",
+        sourceUrl,
+        canonicalUrl: "https://www.xiaohongshu.com/explore/abc",
+        title: "周末探店"
+      })
+    } as unknown as EditorRuntime;
+
+    const [card] = await resolveContentPluginCardsFromText(sourceUrl, { runtime, fileRef: null });
+
+    expect(card.action).toMatchObject({
+      kind: "url",
+      url: sourceUrl,
+      openMode: "app-browser"
+    });
+    expect(card.preview.canonicalUrl).toBe("https://www.xiaohongshu.com/explore/abc");
+  });
+
   it("falls back to a clickable card when metadata is unavailable", async () => {
     const runtime = {
       resolveLinkPreview: async () => ({ status: "unsupported" as const, message: "unsupported" })

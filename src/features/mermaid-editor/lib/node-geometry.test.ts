@@ -134,6 +134,28 @@ describe("node geometry", () => {
     expect(geometry.textBox).toEqual({ x: 12, y: 216, width: 196, height: 48 });
   });
 
+  it("builds taller link card preview geometry from cover dimensions", () => {
+    const geometry = buildNodeGeometry(
+      {
+        ...node,
+        preview: {
+          kind: "link-card",
+          pluginId: "xiaohongshu",
+          provider: "小红书",
+          sourceUrl: "https://xhslink.com/a",
+          title: "小红书视频笔记",
+          cover: { src: "assets/xhs-video.jpg", width: 1080, height: 1920, persistent: true },
+          status: "ready"
+        }
+      },
+      spec
+    );
+
+    expect(geometry.frame).toEqual({ x: 100, y: 80, width: 220, height: 467 });
+    expect(geometry.routedRect).toEqual({ id: "node-a", x: 100, y: 80, width: 220, height: 467, shape: "rect" });
+    expect(geometry.textBox).toEqual({ x: 12, y: 391, width: 196, height: 48 });
+  });
+
   it("caps wrapped text height at the configured maximum line count", () => {
     const geometry = buildNodeGeometry({ ...node, label: "abcdefghijklmnopqrstuvwxyz" }, spec);
 
