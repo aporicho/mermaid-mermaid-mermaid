@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-galaxy",
+  "name": "Galaxy",
+  "description": "Galaxy kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/Galaxy.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/Galaxy.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "GPL-3.0"
+  },
+  "palette": {
+    "background": "#1c2836",
+    "foreground": "#ffffff",
+    "cursor": "#bbbbbb",
+    "selectionBackground": "#b4d5ff",
+    "selectionForeground": "#1c2836",
+    "color0": "#000000",
+    "color1": "#f9555f",
+    "color2": "#20af89",
+    "color3": "#fdf029",
+    "color4": "#589cf5",
+    "color5": "#934d95",
+    "color6": "#1e9ee6",
+    "color7": "#bbbbbb",
+    "color8": "#545454",
+    "color9": "#fa8b8e",
+    "color10": "#34bb99",
+    "color11": "#ffff55",
+    "color12": "#589cf5",
+    "color13": "#e75598",
+    "color14": "#3978bb",
+    "color15": "#ffffff"
+  }
+}

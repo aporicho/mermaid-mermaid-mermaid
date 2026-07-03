@@ -1,0 +1,42 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-base2tone-heath-dark",
+  "name": "Base2Tone Heath Dark",
+  "description": "Base2Tone Heath Dark kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/base2tone-heath-dark.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/base2tone-heath-dark.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "MIT",
+    "author": "Bram de Haan (https://github.com/atelierbram)",
+    "upstream": "https://github.com/atelierbram/Base2Tone-kitty/blob/main/themes/base2tone-heath-dark.conf"
+  },
+  "palette": {
+    "background": "#222022",
+    "foreground": "#9e999f",
+    "cursor": "#995900",
+    "cursorText": "#222022",
+    "selectionBackground": "#2f2d2f",
+    "selectionForeground": "#9e999f",
+    "color0": "#222022",
+    "color1": "#8f6c93",
+    "color2": "#cc8c33",
+    "color3": "#ffd599",
+    "color4": "#9a819c",
+    "color5": "#cc8c33",
+    "color6": "#cb79d2",
+    "color7": "#9e999f",
+    "color8": "#635f63",
+    "color9": "#d9b98c",
+    "color10": "#2f2d2f",
+    "color11": "#575158",
+    "color12": "#6f6b70",
+    "color13": "#eaa8f0",
+    "color14": "#c38022",
+    "color15": "#fdebff"
+  }
+}

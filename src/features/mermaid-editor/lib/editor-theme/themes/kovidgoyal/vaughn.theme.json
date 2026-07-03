@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-vaughn",
+  "name": "Vaughn",
+  "description": "Vaughn kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/Vaughn.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/Vaughn.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "GPL-3.0"
+  },
+  "palette": {
+    "background": "#25234e",
+    "foreground": "#dcdccc",
+    "cursor": "#ff5555",
+    "selectionBackground": "#b5d5ff",
+    "selectionForeground": "#25234e",
+    "color0": "#24234f",
+    "color1": "#705050",
+    "color2": "#60b48a",
+    "color3": "#dfaf8f",
+    "color4": "#5454ff",
+    "color5": "#f08cc3",
+    "color6": "#8cd0d3",
+    "color7": "#709080",
+    "color8": "#709080",
+    "color9": "#dca3a3",
+    "color10": "#60b48a",
+    "color11": "#f0dfaf",
+    "color12": "#5454ff",
+    "color13": "#ec93d3",
+    "color14": "#93e0e3",
+    "color15": "#ffffff"
+  }
+}

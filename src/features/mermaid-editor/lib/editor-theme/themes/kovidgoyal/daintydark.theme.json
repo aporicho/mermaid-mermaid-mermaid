@@ -1,0 +1,41 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-daintydark",
+  "name": "Dainty Dark",
+  "description": "Dainty Dark kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/daintyDark.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/daintyDark.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "MIT",
+    "author": "Anshul Singh Chauhan (https://github.com/anshul-exe)",
+    "upstream": "https://github.com/Anshul-exe/Dainty-Dark_kitty_theme/blob/main/daintyDark.conf"
+  },
+  "palette": {
+    "background": "#011423",
+    "foreground": "#cbe0f0",
+    "cursor": "#47ff9c",
+    "selectionBackground": "#47ff9c",
+    "selectionForeground": "#011423",
+    "color0": "#214969",
+    "color1": "#e52e2e",
+    "color2": "#44ffb1",
+    "color3": "#ffe073",
+    "color4": "#0fc5ed",
+    "color5": "#a277ff",
+    "color6": "#24eaf7",
+    "color7": "#24eaf7",
+    "color8": "#214969",
+    "color9": "#e52e2e",
+    "color10": "#44ffb1",
+    "color11": "#ffe073",
+    "color12": "#a277ff",
+    "color13": "#a277ff",
+    "color14": "#24eaf7",
+    "color15": "#24eaf7"
+  }
+}

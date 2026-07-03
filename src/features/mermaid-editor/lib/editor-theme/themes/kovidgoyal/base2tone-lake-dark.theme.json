@@ -1,0 +1,42 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-base2tone-lake-dark",
+  "name": "Base2Tone Lake Dark",
+  "description": "Base2Tone Lake Dark kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/base2tone-lake-dark.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/base2tone-lake-dark.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "MIT",
+    "author": "Bram de Haan (https://github.com/atelierbram)",
+    "upstream": "https://github.com/atelierbram/Base2Tone-kitty/blob/main/themes/base2tone-lake-dark.conf"
+  },
+  "palette": {
+    "background": "#192d34",
+    "foreground": "#7ba8b7",
+    "cursor": "#84740b",
+    "cursorText": "#192d34",
+    "selectionBackground": "#223c44",
+    "selectionForeground": "#7ba8b7",
+    "color0": "#192d34",
+    "color1": "#3e91ac",
+    "color2": "#cbbb4d",
+    "color3": "#ffeb66",
+    "color4": "#499fbc",
+    "color5": "#cbbb4d",
+    "color6": "#62b1cb",
+    "color7": "#7ba8b7",
+    "color8": "#3d6876",
+    "color9": "#d6c65c",
+    "color10": "#223c44",
+    "color11": "#335966",
+    "color12": "#467686",
+    "color13": "#a5d8e9",
+    "color14": "#c4b031",
+    "color15": "#e1f7ff"
+  }
+}

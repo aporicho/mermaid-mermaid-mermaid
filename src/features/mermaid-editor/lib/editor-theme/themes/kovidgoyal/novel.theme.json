@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-novel",
+  "name": "Novel",
+  "description": "Novel kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "light",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/Novel.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/Novel.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "GPL-3.0"
+  },
+  "palette": {
+    "background": "#dfdbc3",
+    "foreground": "#3b2322",
+    "cursor": "#73635a",
+    "selectionBackground": "#a4a390",
+    "selectionForeground": "#dfdbc3",
+    "color0": "#000000",
+    "color1": "#cc0000",
+    "color2": "#009600",
+    "color3": "#d06b00",
+    "color4": "#0000cc",
+    "color5": "#cc00cc",
+    "color6": "#0087cc",
+    "color7": "#cccccc",
+    "color8": "#7f7f7f",
+    "color9": "#cc0000",
+    "color10": "#009600",
+    "color11": "#d06b00",
+    "color12": "#0000cc",
+    "color13": "#cc00cc",
+    "color14": "#0086cb",
+    "color15": "#ffffff"
+  }
+}

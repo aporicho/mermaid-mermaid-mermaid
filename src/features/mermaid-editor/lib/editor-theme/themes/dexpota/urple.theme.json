@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-dexpota-urple",
+  "name": "Urple",
+  "description": "Urple kitty theme from dexpota/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "dexpota",
+    "name": "dexpota/kitty-themes",
+    "repository": "https://github.com/dexpota/kitty-themes",
+    "path": "themes/Urple.conf",
+    "url": "https://github.com/dexpota/kitty-themes/blob/b1abdd54ba655ef34f75a568d78625981bf1722c/themes/Urple.conf",
+    "commit": "b1abdd54ba655ef34f75a568d78625981bf1722c",
+    "license": "MIT"
+  },
+  "palette": {
+    "background": "#1b1b23",
+    "foreground": "#86799a",
+    "cursor": "#a062ea",
+    "selectionBackground": "#a062ea",
+    "selectionForeground": "#1b1b23",
+    "color0": "#000000",
+    "color1": "#af425b",
+    "color2": "#37a315",
+    "color3": "#ac5b41",
+    "color4": "#554d9a",
+    "color5": "#6c3ba1",
+    "color6": "#808080",
+    "color7": "#87799c",
+    "color8": "#5c3125",
+    "color9": "#ff6387",
+    "color10": "#28e51f",
+    "color11": "#f08061",
+    "color12": "#8579ed",
+    "color13": "#a05dee",
+    "color14": "#eaeaea",
+    "color15": "#bfa3ff"
+  }
+}

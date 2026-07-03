@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-dexpota-sundried",
+  "name": "Sundried",
+  "description": "Sundried kitty theme from dexpota/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "dexpota",
+    "name": "dexpota/kitty-themes",
+    "repository": "https://github.com/dexpota/kitty-themes",
+    "path": "themes/Sundried.conf",
+    "url": "https://github.com/dexpota/kitty-themes/blob/b1abdd54ba655ef34f75a568d78625981bf1722c/themes/Sundried.conf",
+    "commit": "b1abdd54ba655ef34f75a568d78625981bf1722c",
+    "license": "MIT"
+  },
+  "palette": {
+    "background": "#1a1818",
+    "foreground": "#c8c8c8",
+    "cursor": "#fffefe",
+    "selectionBackground": "#302b2a",
+    "selectionForeground": "#1a1818",
+    "color0": "#302b2a",
+    "color1": "#a6463d",
+    "color2": "#577644",
+    "color3": "#9c5f2a",
+    "color4": "#485a98",
+    "color5": "#854551",
+    "color6": "#9c814e",
+    "color7": "#c8c8c8",
+    "color8": "#4d4d47",
+    "color9": "#aa000c",
+    "color10": "#128c20",
+    "color11": "#fc6a20",
+    "color12": "#7898f7",
+    "color13": "#fc89a0",
+    "color14": "#fad384",
+    "color15": "#fffefe"
+  }
+}

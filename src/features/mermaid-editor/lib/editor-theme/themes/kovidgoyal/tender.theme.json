@@ -1,0 +1,38 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-tender",
+  "name": "Tender",
+  "description": "Tender kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/tender.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/tender.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "MIT",
+    "author": "CompEng0001",
+    "upstream": "https://github.com/CompEng0001/tender-kitty/raw/main/theme.conf"
+  },
+  "palette": {
+    "background": "#282828",
+    "foreground": "#eeeeee",
+    "color0": "#282828",
+    "color1": "#f43753",
+    "color2": "#c9d05c",
+    "color3": "#ffc24b",
+    "color4": "#b3deef",
+    "color5": "#d3b987",
+    "color6": "#73cef4",
+    "color7": "#eeeeee",
+    "color8": "#4c4c4c",
+    "color9": "#f43753",
+    "color10": "#c9d05c",
+    "color11": "#ffc24b",
+    "color12": "#b3deef",
+    "color13": "#d3b987",
+    "color14": "#73cef4",
+    "color15": "#feffff"
+  }
+}

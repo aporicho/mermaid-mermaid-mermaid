@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-dexpota-elemental",
+  "name": "Elemental",
+  "description": "Elemental kitty theme from dexpota/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "dexpota",
+    "name": "dexpota/kitty-themes",
+    "repository": "https://github.com/dexpota/kitty-themes",
+    "path": "themes/Elemental.conf",
+    "url": "https://github.com/dexpota/kitty-themes/blob/b1abdd54ba655ef34f75a568d78625981bf1722c/themes/Elemental.conf",
+    "commit": "b1abdd54ba655ef34f75a568d78625981bf1722c",
+    "license": "MIT"
+  },
+  "palette": {
+    "background": "#21211c",
+    "foreground": "#807973",
+    "cursor": "#facb7f",
+    "selectionBackground": "#403729",
+    "selectionForeground": "#21211c",
+    "color0": "#3c3b30",
+    "color1": "#97280f",
+    "color2": "#479942",
+    "color3": "#7f7110",
+    "color4": "#497f7d",
+    "color5": "#7e4e2e",
+    "color6": "#387f58",
+    "color7": "#807974",
+    "color8": "#545444",
+    "color9": "#df502a",
+    "color10": "#60e06f",
+    "color11": "#d69827",
+    "color12": "#78d8d8",
+    "color13": "#cd7c53",
+    "color14": "#58d598",
+    "color15": "#fff1e8"
+  }
+}

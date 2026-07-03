@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-clrs",
+  "name": "CLRS",
+  "description": "CLRS kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "light",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/CLRS.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/CLRS.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "GPL-3.0"
+  },
+  "palette": {
+    "background": "#ffffff",
+    "foreground": "#262626",
+    "cursor": "#6fd2fc",
+    "selectionBackground": "#6fd2fc",
+    "selectionForeground": "#ffffff",
+    "color0": "#000000",
+    "color1": "#f72729",
+    "color2": "#32895c",
+    "color3": "#f96f1c",
+    "color4": "#125ccf",
+    "color5": "#9f00bc",
+    "color6": "#32c2c0",
+    "color7": "#b2b2b2",
+    "color8": "#545753",
+    "color9": "#fb0416",
+    "color10": "#2cc631",
+    "color11": "#fcd627",
+    "color12": "#156ffe",
+    "color13": "#e800b0",
+    "color14": "#39d5ce",
+    "color15": "#ededec"
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-breath2",
+  "name": "Breath2",
+  "description": "Breath2 kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/breath2.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/breath2.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "MIT",
+    "author": "b3yc0d3 <b3yc0d3@dnmx.org>",
+    "upstream": "https://raw.githubusercontent.com/b3yc0d3/my-kitty-themes/main/themes/breath2.conf"
+  },
+  "palette": {
+    "background": "#1e2229",
+    "foreground": "#17a88b",
+    "cursor": "#00bc96",
+    "cursorText": "#1e2229",
+    "selectionBackground": "#00bc96",
+    "selectionForeground": "#1e2229",
+    "color0": "#0d0f11",
+    "color1": "#c0392b",
+    "color2": "#55a649",
+    "color3": "#fdbc4b",
+    "color4": "#3daee9",
+    "color5": "#8e44ad",
+    "color6": "#16a085",
+    "color7": "#ffffff",
+    "color8": "#2e3439",
+    "color9": "#783228",
+    "color10": "#32642c",
+    "color11": "#b65619",
+    "color12": "#1b668f",
+    "color13": "#614a73",
+    "color14": "#186c60",
+    "color15": "#63686d"
+  }
+}

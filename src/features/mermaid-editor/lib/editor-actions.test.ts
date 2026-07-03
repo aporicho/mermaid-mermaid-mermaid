@@ -69,6 +69,32 @@ describe("editor actions", () => {
     expect(result.selection).toEqual({ nodeIds: ["N1", "N2"], edgeIds: [], subgraphIds: [], primaryId: "N1" });
   });
 
+  it("adds content preview nodes with actions", () => {
+    const result = addNodesAt(graph([]), [
+      {
+        x: 10,
+        y: 20,
+        label: "小红书笔记",
+        action: { kind: "url", url: "https://www.xiaohongshu.com/explore/abc", openMode: "app-browser" },
+        preview: {
+          kind: "link-card",
+          pluginId: "xiaohongshu",
+          provider: "小红书",
+          sourceUrl: "https://xhslink.com/a",
+          title: "小红书笔记",
+          status: "fallback"
+        }
+      }
+    ]);
+
+    expect(result.graph.nodes[0]).toMatchObject({
+      id: "N1",
+      label: "小红书笔记",
+      preview: { kind: "link-card", pluginId: "xiaohongshu", provider: "小红书" },
+      action: { kind: "url", url: "https://www.xiaohongshu.com/explore/abc" }
+    });
+  });
+
   it("keeps paste IDs based on the original node instead of generated N IDs", () => {
     const source = node("WebUI");
     const result = pasteClipboard(graph([source]), { nodes: [source], edges: [] });

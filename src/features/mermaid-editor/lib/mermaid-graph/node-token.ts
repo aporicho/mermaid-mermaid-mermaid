@@ -1,6 +1,7 @@
 import type {
   CanvasNode,
   CanvasNodeAsset,
+  CanvasNodePreview,
   FlowchartNodeShape
 } from "@/features/mermaid-editor/lib/editor-types";
 import {
@@ -15,6 +16,7 @@ import {
 } from "@/features/mermaid-editor/lib/node-assets";
 
 import type { ParsedNodeToken } from "./types";
+import { readLinkCardPreview, serializeLinkCardPreviewFields } from "./node-preview-token";
 import { escapeMermaidLabel, normalizeLabel, readObjectFields } from "./syntax";
 
 export function parseNodeToken(raw: string): ParsedNodeToken | null {
@@ -35,6 +37,7 @@ export function parseNodeToken(raw: string): ParsedNodeToken | null {
       label: normalizeLabel(modern.label),
       shape: modern.shape,
       asset: modern.asset,
+      preview: modern.preview,
       hasShape: true
     };
   }
@@ -50,19 +53,21 @@ export function parseNodeToken(raw: string): ParsedNodeToken | null {
   };
 }
 
-function readModernNodeProps(value: string): { shape: FlowchartNodeShape; label: string; asset?: CanvasNodeAsset } | null {
+function readModernNodeProps(value: string): { shape: FlowchartNodeShape; label: string; asset?: CanvasNodeAsset; preview?: CanvasNodePreview } | null {
   const match = value.match(/^@\{\s*([\s\S]*?)\s*\}$/);
   if (!match) return null;
 
   const fields = readObjectFields(match[1]);
   const asset = readImageAsset(fields);
+  const preview = readLinkCardPreview(fields);
   const shape = normalizeFlowchartShape(fields.get("shape")) || DEFAULT_FLOWCHART_NODE_SHAPE;
-  if (!asset && !normalizeFlowchartShape(fields.get("shape"))) return null;
+  if (!asset && !preview && !normalizeFlowchartShape(fields.get("shape"))) return null;
 
   return {
     shape,
-    label: fields.get("label") || "",
-    asset
+    label: fields.get("label") || preview?.title || "",
+    asset,
+    preview
   };
 }
 
@@ -106,11 +111,13 @@ function readImageAsset(fields: Map<string, string>) {
 export function serializeNodeToken(node: CanvasNode) {
   const label = escapeMermaidLabel(node.label || node.id);
   const asset = normalizeImageAsset(node.asset);
+  const previewFields = serializeLinkCardPreviewFields(node.preview);
   if (asset) {
     return `${node.id}@{ img: "${escapeMermaidLabel(asset.src)}", label: "${label}", pos: "${mermaidImagePosition(asset.labelPosition)}", w: ${asset.width}, h: ${asset.height}, constraint: "${asset.preserveAspectRatio ? "on" : "off"}" }`;
   }
 
   const shape = node.shape || DEFAULT_FLOWCHART_NODE_SHAPE;
+  if (previewFields) return `${node.id}@{ shape: ${shape}, label: "${label}", ${previewFields} }`;
 
   return `${node.id}@{ shape: ${shape}, label: "${label}" }`;
 }

@@ -1,0 +1,40 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-github-dark-dimmed",
+  "name": "GitHub Dark Dimmed",
+  "description": "GitHub Dark Dimmed kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/GitHub_Dark_Dimmed.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/GitHub_Dark_Dimmed.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "MIT",
+    "author": "GitHub"
+  },
+  "palette": {
+    "background": "#22272e",
+    "foreground": "#adbac7",
+    "cursor": "#539bf5",
+    "selectionBackground": "#539bf5",
+    "selectionForeground": "#22272e",
+    "color0": "#545d68",
+    "color1": "#f47067",
+    "color2": "#57ab5a",
+    "color3": "#c69026",
+    "color4": "#539bf5",
+    "color5": "#b083f0",
+    "color6": "#39c5cf",
+    "color7": "#909dab",
+    "color8": "#636e7b",
+    "color9": "#ff938a",
+    "color10": "#6bc46d",
+    "color11": "#daaa3f",
+    "color12": "#6cb6ff",
+    "color13": "#dcbdfb",
+    "color14": "#56d4dd",
+    "color15": "#cdd9e5"
+  }
+}

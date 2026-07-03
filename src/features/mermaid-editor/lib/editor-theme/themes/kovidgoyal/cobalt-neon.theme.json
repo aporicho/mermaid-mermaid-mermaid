@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-cobalt-neon",
+  "name": "Cobalt Neon",
+  "description": "Cobalt Neon kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/Cobalt_Neon.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/Cobalt_Neon.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "GPL-3.0"
+  },
+  "palette": {
+    "background": "#142838",
+    "foreground": "#8ff586",
+    "cursor": "#c4206f",
+    "selectionBackground": "#084fb0",
+    "selectionForeground": "#142838",
+    "color0": "#142630",
+    "color1": "#ff2320",
+    "color2": "#3aa5ff",
+    "color3": "#e9e75c",
+    "color4": "#8ff586",
+    "color5": "#781aa0",
+    "color6": "#8ff586",
+    "color7": "#ba45b1",
+    "color8": "#fff688",
+    "color9": "#d4312e",
+    "color10": "#8ff586",
+    "color11": "#e9f06d",
+    "color12": "#3c7dd2",
+    "color13": "#8230a7",
+    "color14": "#6cbc67",
+    "color15": "#8ff586"
+  }
+}

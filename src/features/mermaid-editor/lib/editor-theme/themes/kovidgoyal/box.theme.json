@@ -1,0 +1,41 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-box",
+  "name": "Box",
+  "description": "Box kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/Box.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/Box.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "GPLv3",
+    "author": "D3vil0p3r"
+  },
+  "palette": {
+    "background": "#141d2b",
+    "foreground": "#9fef00",
+    "cursor": "#9fef00",
+    "cursorText": "#111111",
+    "selectionBackground": "#a4b1cd",
+    "selectionForeground": "#141d2b",
+    "color0": "#000000",
+    "color1": "#cc0403",
+    "color2": "#19cb00",
+    "color3": "#cecb00",
+    "color4": "#0d73cc",
+    "color5": "#cb1ed1",
+    "color6": "#0dcdcd",
+    "color7": "#dddddd",
+    "color8": "#767676",
+    "color9": "#f2201f",
+    "color10": "#23fd00",
+    "color11": "#fffd00",
+    "color12": "#1a8fff",
+    "color13": "#fd28ff",
+    "color14": "#14ffff",
+    "color15": "#ffffff"
+  }
+}

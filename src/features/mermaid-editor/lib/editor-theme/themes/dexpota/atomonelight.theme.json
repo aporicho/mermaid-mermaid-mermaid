@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-dexpota-atomonelight",
+  "name": "AtomOneLight",
+  "description": "AtomOneLight kitty theme from dexpota/kitty-themes.",
+  "mode": "light",
+  "source": {
+    "id": "dexpota",
+    "name": "dexpota/kitty-themes",
+    "repository": "https://github.com/dexpota/kitty-themes",
+    "path": "themes/AtomOneLight.conf",
+    "url": "https://github.com/dexpota/kitty-themes/blob/b1abdd54ba655ef34f75a568d78625981bf1722c/themes/AtomOneLight.conf",
+    "commit": "b1abdd54ba655ef34f75a568d78625981bf1722c",
+    "license": "MIT"
+  },
+  "palette": {
+    "background": "#f8f8f8",
+    "foreground": "#2a2b33",
+    "cursor": "#bbbbbb",
+    "selectionBackground": "#ececec",
+    "selectionForeground": "#f8f8f8",
+    "color0": "#000000",
+    "color1": "#de3d35",
+    "color2": "#3e953a",
+    "color3": "#d2b67b",
+    "color4": "#2f5af3",
+    "color5": "#950095",
+    "color6": "#3e953a",
+    "color7": "#bbbbbb",
+    "color8": "#000000",
+    "color9": "#de3d35",
+    "color10": "#3e953a",
+    "color11": "#d2b67b",
+    "color12": "#2f5af3",
+    "color13": "#a00095",
+    "color14": "#3e953a",
+    "color15": "#ffffff"
+  }
+}

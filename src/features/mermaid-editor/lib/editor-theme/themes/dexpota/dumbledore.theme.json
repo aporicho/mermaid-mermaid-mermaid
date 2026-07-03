@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-dexpota-dumbledore",
+  "name": "Dumbledore",
+  "description": "Dumbledore kitty theme from dexpota/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "dexpota",
+    "name": "dexpota/kitty-themes",
+    "repository": "https://github.com/dexpota/kitty-themes",
+    "path": "themes/Dumbledore.conf",
+    "url": "https://github.com/dexpota/kitty-themes/blob/b1abdd54ba655ef34f75a568d78625981bf1722c/themes/Dumbledore.conf",
+    "commit": "b1abdd54ba655ef34f75a568d78625981bf1722c",
+    "license": "MIT"
+  },
+  "palette": {
+    "background": "#422553",
+    "foreground": "#c4c8c5",
+    "cursor": "#c4c8c5",
+    "selectionBackground": "#008aff",
+    "selectionForeground": "#422553",
+    "color0": "#2b283d",
+    "color1": "#ae0000",
+    "color2": "#3e7c54",
+    "color3": "#f0c75e",
+    "color4": "#415baf",
+    "color5": "#9445ae",
+    "color6": "#008aff",
+    "color7": "#850000",
+    "color8": "#413e53",
+    "color9": "#d3a624",
+    "color10": "#aaaaaa",
+    "color11": "#716254",
+    "color12": "#946a2c",
+    "color13": "#b294ba",
+    "color14": "#25de50",
+    "color15": "#c9c9c9"
+  }
+}

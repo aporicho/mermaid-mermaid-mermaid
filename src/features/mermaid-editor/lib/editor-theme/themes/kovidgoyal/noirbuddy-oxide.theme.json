@@ -1,0 +1,41 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-noirbuddy-oxide",
+  "name": "noirbuddy-oxide",
+  "description": "noirbuddy-oxide kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/noirbuddy-oxide.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/noirbuddy-oxide.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "MIT",
+    "author": "Dimitar Dimitrov (https://github.com/n1ghtmare)"
+  },
+  "palette": {
+    "background": "#070e11",
+    "foreground": "#d5d5d5",
+    "cursor": "#00d992",
+    "cursorText": "#070e11",
+    "selectionBackground": "#b0b0b0",
+    "selectionForeground": "#070e11",
+    "color0": "#070e11",
+    "color1": "#fa5e86",
+    "color2": "#00d992",
+    "color3": "#ffffff",
+    "color4": "#b0b0b0",
+    "color5": "#90a7f8",
+    "color6": "#787878",
+    "color7": "#d5d5d5",
+    "color8": "#737373",
+    "color9": "#ff0088",
+    "color10": "#00ff77",
+    "color11": "#fdfdfd",
+    "color12": "#bebebe",
+    "color13": "#939393",
+    "color14": "#919191",
+    "color15": "#f5f5f5"
+  }
+}

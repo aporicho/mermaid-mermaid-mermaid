@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-parasio-dark",
+  "name": "Parasio Dark",
+  "description": "Parasio Dark kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/Parasio_Dark.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/Parasio_Dark.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "GPL-3.0"
+  },
+  "palette": {
+    "background": "#2f1d2e",
+    "foreground": "#a39d9b",
+    "cursor": "#a39d9b",
+    "selectionBackground": "#4f414c",
+    "selectionForeground": "#2f1d2e",
+    "color0": "#2f1d2e",
+    "color1": "#ef6154",
+    "color2": "#48b685",
+    "color3": "#fec418",
+    "color4": "#05b6ef",
+    "color5": "#805ba3",
+    "color6": "#5bc4be",
+    "color7": "#a39d9b",
+    "color8": "#776d70",
+    "color9": "#ef6154",
+    "color10": "#48b685",
+    "color11": "#fec418",
+    "color12": "#05b6ef",
+    "color13": "#805ba3",
+    "color14": "#5bc4be",
+    "color15": "#e6e9da"
+  }
+}

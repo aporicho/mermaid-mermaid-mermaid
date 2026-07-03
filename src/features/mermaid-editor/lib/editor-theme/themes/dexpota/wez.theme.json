@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-dexpota-wez",
+  "name": "Wez",
+  "description": "Wez kitty theme from dexpota/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "dexpota",
+    "name": "dexpota/kitty-themes",
+    "repository": "https://github.com/dexpota/kitty-themes",
+    "path": "themes/Wez.conf",
+    "url": "https://github.com/dexpota/kitty-themes/blob/b1abdd54ba655ef34f75a568d78625981bf1722c/themes/Wez.conf",
+    "commit": "b1abdd54ba655ef34f75a568d78625981bf1722c",
+    "license": "MIT"
+  },
+  "palette": {
+    "background": "#000000",
+    "foreground": "#b3b3b3",
+    "cursor": "#52ad70",
+    "selectionBackground": "#4c52f8",
+    "selectionForeground": "#000000",
+    "color0": "#000000",
+    "color1": "#cc5555",
+    "color2": "#55cc55",
+    "color3": "#cdcd55",
+    "color4": "#5455cb",
+    "color5": "#cc55cc",
+    "color6": "#7acaca",
+    "color7": "#cccccc",
+    "color8": "#555555",
+    "color9": "#ff5555",
+    "color10": "#55ff55",
+    "color11": "#ffff55",
+    "color12": "#5555ff",
+    "color13": "#ff55ff",
+    "color14": "#55ffff",
+    "color15": "#ffffff"
+  }
+}

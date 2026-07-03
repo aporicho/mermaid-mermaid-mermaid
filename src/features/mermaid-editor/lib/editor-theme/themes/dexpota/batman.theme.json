@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-dexpota-batman",
+  "name": "Batman",
+  "description": "Batman kitty theme from dexpota/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "dexpota",
+    "name": "dexpota/kitty-themes",
+    "repository": "https://github.com/dexpota/kitty-themes",
+    "path": "themes/Batman.conf",
+    "url": "https://github.com/dexpota/kitty-themes/blob/b1abdd54ba655ef34f75a568d78625981bf1722c/themes/Batman.conf",
+    "commit": "b1abdd54ba655ef34f75a568d78625981bf1722c",
+    "license": "MIT"
+  },
+  "palette": {
+    "background": "#1b1d1e",
+    "foreground": "#6e6e6e",
+    "cursor": "#fcee0b",
+    "selectionBackground": "#4d4f4c",
+    "selectionForeground": "#1b1d1e",
+    "color0": "#1b1d1e",
+    "color1": "#e6db43",
+    "color2": "#c8be46",
+    "color3": "#f3fd21",
+    "color4": "#737074",
+    "color5": "#737271",
+    "color6": "#615f5e",
+    "color7": "#c5c5be",
+    "color8": "#505354",
+    "color9": "#fff68d",
+    "color10": "#fff27c",
+    "color11": "#feed6c",
+    "color12": "#909495",
+    "color13": "#9a999d",
+    "color14": "#a2a2a5",
+    "color15": "#dadad5"
+  }
+}

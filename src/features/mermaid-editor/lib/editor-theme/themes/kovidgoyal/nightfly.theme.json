@@ -1,0 +1,40 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-nightfly",
+  "name": "Nightfly",
+  "description": "Nightfly kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/nightfly.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/nightfly.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "MIT",
+    "upstream": "https://github.com/bluz71/vim-nightfly-guicolors/blob/master/terminal_themes/kitty-theme.conf"
+  },
+  "palette": {
+    "background": "#011627",
+    "foreground": "#acb4c2",
+    "cursor": "#9ca1aa",
+    "selectionBackground": "#b2ceee",
+    "selectionForeground": "#080808",
+    "color0": "#9ca1aa",
+    "color1": "#fc514e",
+    "color2": "#a1cd5e",
+    "color3": "#e3d18a",
+    "color4": "#82aaff",
+    "color5": "#c792ea",
+    "color6": "#7fdbca",
+    "color7": "#a1aab8",
+    "color8": "#7c8f8f",
+    "color9": "#ff5874",
+    "color10": "#21c7a8",
+    "color11": "#ecc48d",
+    "color12": "#82aaff",
+    "color13": "#ae81ff",
+    "color14": "#7fdbca",
+    "color15": "#d6deeb"
+  }
+}

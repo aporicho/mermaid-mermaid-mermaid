@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-solarized-dark-higher-contrast",
+  "name": "Solarized Dark Higher Contrast",
+  "description": "Solarized Dark Higher Contrast kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/Solarized_Dark_Higher_Contrast.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/Solarized_Dark_Higher_Contrast.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "GPL-3.0"
+  },
+  "palette": {
+    "background": "#001e26",
+    "foreground": "#9bc1c2",
+    "cursor": "#f34a00",
+    "selectionBackground": "#003747",
+    "selectionForeground": "#001e26",
+    "color0": "#002731",
+    "color1": "#d01b24",
+    "color2": "#6bbe6c",
+    "color3": "#a57705",
+    "color4": "#2075c7",
+    "color5": "#c61b6e",
+    "color6": "#259185",
+    "color7": "#e9e2cb",
+    "color8": "#006388",
+    "color9": "#f4153b",
+    "color10": "#50ee84",
+    "color11": "#b17e28",
+    "color12": "#178dc7",
+    "color13": "#e14d8e",
+    "color14": "#00b29e",
+    "color15": "#fcf4dc"
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-solarized-light",
+  "name": "Solarized Light",
+  "description": "Solarized Light kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "light",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/Solarized_Light.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/Solarized_Light.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "MIT",
+    "author": "Ethan Schoonover"
+  },
+  "palette": {
+    "background": "#fdf6e3",
+    "foreground": "#657b83",
+    "cursor": "#657b83",
+    "cursorText": "#fdf6e3",
+    "selectionBackground": "#eee8d5",
+    "selectionForeground": "#586e75",
+    "color0": "#073642",
+    "color1": "#dc322f",
+    "color2": "#859900",
+    "color3": "#b58900",
+    "color4": "#268bd2",
+    "color5": "#d33682",
+    "color6": "#2aa198",
+    "color7": "#eee8d5",
+    "color8": "#93a1a1",
+    "color9": "#cb4b16",
+    "color10": "#586e75",
+    "color11": "#657b83",
+    "color12": "#839496",
+    "color13": "#6c71c4",
+    "color14": "#93a1a1",
+    "color15": "#fdf6e3"
+  }
+}

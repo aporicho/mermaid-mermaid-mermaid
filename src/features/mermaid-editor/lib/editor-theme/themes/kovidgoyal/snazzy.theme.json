@@ -1,0 +1,40 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-snazzy",
+  "name": "snazzy",
+  "description": "snazzy kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/snazzy.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/snazzy.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "GPL-3.0"
+  },
+  "palette": {
+    "background": "#282a36",
+    "foreground": "#eff0eb",
+    "cursor": "#97979b",
+    "cursorText": "#282a36",
+    "selectionBackground": "#fffacd",
+    "selectionForeground": "#000000",
+    "color0": "#282a36",
+    "color1": "#ff5c57",
+    "color2": "#5af78e",
+    "color3": "#f3f99d",
+    "color4": "#57c7ff",
+    "color5": "#ff6ac1",
+    "color6": "#9aedfe",
+    "color7": "#f1f1f0",
+    "color8": "#686868",
+    "color9": "#ff5c57",
+    "color10": "#5af78e",
+    "color11": "#f3f99d",
+    "color12": "#57c7ff",
+    "color13": "#ff6ac1",
+    "color14": "#9aedfe",
+    "color15": "#eff0eb"
+  }
+}

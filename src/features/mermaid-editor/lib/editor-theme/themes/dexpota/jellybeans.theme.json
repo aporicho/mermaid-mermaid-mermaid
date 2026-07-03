@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-dexpota-jellybeans",
+  "name": "Jellybeans",
+  "description": "Jellybeans kitty theme from dexpota/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "dexpota",
+    "name": "dexpota/kitty-themes",
+    "repository": "https://github.com/dexpota/kitty-themes",
+    "path": "themes/Jellybeans.conf",
+    "url": "https://github.com/dexpota/kitty-themes/blob/b1abdd54ba655ef34f75a568d78625981bf1722c/themes/Jellybeans.conf",
+    "commit": "b1abdd54ba655ef34f75a568d78625981bf1722c",
+    "license": "MIT"
+  },
+  "palette": {
+    "background": "#111111",
+    "foreground": "#dedede",
+    "cursor": "#ffa460",
+    "selectionBackground": "#464d91",
+    "selectionForeground": "#111111",
+    "color0": "#919191",
+    "color1": "#e17373",
+    "color2": "#94b978",
+    "color3": "#ffb97b",
+    "color4": "#96bddb",
+    "color5": "#e1c0fa",
+    "color6": "#00988e",
+    "color7": "#dedede",
+    "color8": "#bdbdbd",
+    "color9": "#ffa0a0",
+    "color10": "#bddeab",
+    "color11": "#ffdba0",
+    "color12": "#b1d7f6",
+    "color13": "#fbdaff",
+    "color14": "#19b2a7",
+    "color15": "#ffffff"
+  }
+}

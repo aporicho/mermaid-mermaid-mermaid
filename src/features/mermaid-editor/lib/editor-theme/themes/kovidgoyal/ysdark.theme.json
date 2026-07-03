@@ -1,0 +1,41 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-ysdark",
+  "name": "YsDark",
+  "description": "YsDark kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/YsDark.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/YsDark.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "MIT",
+    "author": "Ya-suke"
+  },
+  "palette": {
+    "background": "#1b1e35",
+    "foreground": "#bbc5ff",
+    "cursor": "#bbc5ff",
+    "cursorText": "#1b1e35",
+    "selectionBackground": "#44475a",
+    "selectionForeground": "#ffffff",
+    "color0": "#101010",
+    "color1": "#f07178",
+    "color2": "#c3e88d",
+    "color3": "#ffcb6b",
+    "color4": "#82aaff",
+    "color5": "#e1acff",
+    "color6": "#89ddff",
+    "color7": "#d0d0d0",
+    "color8": "#434758",
+    "color9": "#ff8b92",
+    "color10": "#ddffa7",
+    "color11": "#ffe585",
+    "color12": "#9cc4ff",
+    "color13": "#c792ea",
+    "color14": "#a3f7ff",
+    "color15": "#ffffff"
+  }
+}

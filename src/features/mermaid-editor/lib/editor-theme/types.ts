@@ -7,7 +7,7 @@ import type { SubgraphGeometryTokens } from "@/features/mermaid-editor/lib/subgr
 export const MERMAID_FONT_FAMILY = "Noto Sans SC Variable, Noto Sans SC, PingFang SC, Microsoft YaHei UI, Microsoft YaHei, system-ui, sans-serif";
 export const MONO_FONT_FAMILY = "Maple Mono, SF Mono, Cascadia Code, JetBrains Mono, Noto Sans SC Variable, ui-monospace, monospace";
 
-export type EditorThemeId = "warm-paper" | "classic-light" | "high-contrast" | "custom";
+export type EditorThemeId = string;
 
 export type ThemeDiagnostic = {
   severity: "warning";
@@ -90,7 +90,7 @@ export type EditorTheme = {
   id: EditorThemeId;
   name: string;
   description: string;
-  baseThemeId?: Exclude<EditorThemeId, "custom">;
+  baseThemeId?: string;
   ui: {
     background: string;
     foreground: string;

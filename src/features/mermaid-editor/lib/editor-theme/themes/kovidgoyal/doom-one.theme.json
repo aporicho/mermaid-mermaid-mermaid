@@ -1,0 +1,41 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-doom-one",
+  "name": "Doom One",
+  "description": "Doom One kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/Doom_One.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/Doom_One.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "MIT",
+    "author": "Henrik Lissner <https://github.com/hlissner>"
+  },
+  "palette": {
+    "background": "#282c34",
+    "foreground": "#bbc2cf",
+    "cursor": "#bbc2cf",
+    "cursorText": "#282c34",
+    "selectionBackground": "#3f444a",
+    "selectionForeground": "#bbc2cf",
+    "color0": "#2a2e38",
+    "color1": "#ff6c6b",
+    "color2": "#98be65",
+    "color3": "#ecbe7b",
+    "color4": "#51afef",
+    "color5": "#c678dd",
+    "color6": "#46d9ff",
+    "color7": "#dfdfdf",
+    "color8": "#3f444a",
+    "color9": "#ff6655",
+    "color10": "#99bb66",
+    "color11": "#ecbe7b",
+    "color12": "#51afef",
+    "color13": "#c678dd",
+    "color14": "#46d9ff",
+    "color15": "#bbc2cf"
+  }
+}

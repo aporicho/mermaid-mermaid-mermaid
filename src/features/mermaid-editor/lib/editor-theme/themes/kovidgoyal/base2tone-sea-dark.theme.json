@@ -1,0 +1,42 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-base2tone-sea-dark",
+  "name": "Base2Tone Sea Dark",
+  "description": "Base2Tone Sea Dark kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/base2tone-sea-dark.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/base2tone-sea-dark.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "MIT",
+    "author": "Bram de Haan (https://github.com/atelierbram)",
+    "upstream": "https://github.com/atelierbram/Base2Tone-kitty/blob/main/themes/base2tone-sea-dark.conf"
+  },
+  "palette": {
+    "background": "#1d262f",
+    "foreground": "#a1aab5",
+    "cursor": "#067953",
+    "cursorText": "#1d262f",
+    "selectionBackground": "#27323f",
+    "selectionForeground": "#a1aab5",
+    "color0": "#1d262f",
+    "color1": "#34659d",
+    "color2": "#0fc78a",
+    "color3": "#47ebb4",
+    "color4": "#57718e",
+    "color5": "#0fc78a",
+    "color6": "#6e9bcf",
+    "color7": "#a1aab5",
+    "color8": "#4a5f78",
+    "color9": "#14e19d",
+    "color10": "#27323f",
+    "color11": "#405368",
+    "color12": "#738191",
+    "color13": "#afd4fe",
+    "color14": "#0db57d",
+    "color15": "#ebf4ff"
+  }
+}

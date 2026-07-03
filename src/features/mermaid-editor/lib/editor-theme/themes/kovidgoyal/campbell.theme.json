@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-campbell",
+  "name": "Campbell",
+  "description": "Campbell kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/Campbell.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/Campbell.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "GPL-3.0",
+    "author": "Microsoft"
+  },
+  "palette": {
+    "background": "#0c0c0c",
+    "foreground": "#cccccc",
+    "cursor": "#ffffff",
+    "selectionBackground": "#ffffff",
+    "color0": "#0c0c0c",
+    "color1": "#c50f1f",
+    "color2": "#13a10e",
+    "color3": "#f19c00",
+    "color4": "#0037da",
+    "color5": "#881798",
+    "color6": "#3a96dd",
+    "color7": "#cccccc",
+    "color8": "#767676",
+    "color9": "#e74856",
+    "color10": "#16c60c",
+    "color11": "#f9f1a5",
+    "color12": "#3b78ff",
+    "color13": "#b4009e",
+    "color14": "#61d6d6",
+    "color15": "#f2f2f2"
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-n0tch2k",
+  "name": "N0tch2k",
+  "description": "N0tch2k kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/N0tch2k.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/N0tch2k.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "GPL-3.0"
+  },
+  "palette": {
+    "background": "#222222",
+    "foreground": "#a0a0a0",
+    "cursor": "#a99075",
+    "selectionBackground": "#4d4d4d",
+    "selectionForeground": "#222222",
+    "color0": "#383838",
+    "color1": "#a95551",
+    "color2": "#666666",
+    "color3": "#a98051",
+    "color4": "#657d3e",
+    "color5": "#767676",
+    "color6": "#c9c9c9",
+    "color7": "#d0b8a3",
+    "color8": "#474747",
+    "color9": "#a97775",
+    "color10": "#8c8c8c",
+    "color11": "#a99175",
+    "color12": "#98bd5e",
+    "color13": "#a3a3a3",
+    "color14": "#dcdcdc",
+    "color15": "#d8c8bb"
+  }
+}

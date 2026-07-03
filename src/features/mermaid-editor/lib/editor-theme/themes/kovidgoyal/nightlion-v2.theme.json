@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-nightlion-v2",
+  "name": "NightLion v2",
+  "description": "NightLion v2 kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/NightLion_v2.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/NightLion_v2.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "GPL-3.0"
+  },
+  "palette": {
+    "background": "#171717",
+    "foreground": "#bbbbbb",
+    "cursor": "#bbbbbb",
+    "selectionBackground": "#b4d5ff",
+    "selectionForeground": "#171717",
+    "color0": "#4c4c4c",
+    "color1": "#bb0000",
+    "color2": "#03f622",
+    "color3": "#f2f067",
+    "color4": "#63d0f0",
+    "color5": "#ce6fda",
+    "color6": "#00d9df",
+    "color7": "#bbbbbb",
+    "color8": "#545454",
+    "color9": "#ff5555",
+    "color10": "#7df61c",
+    "color11": "#ffff55",
+    "color12": "#62cae7",
+    "color13": "#ff9af5",
+    "color14": "#00ccd7",
+    "color15": "#ffffff"
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-modus-vivendi-tinted",
+  "name": "Modus Vivendi Tinted",
+  "description": "Modus Vivendi Tinted kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/Modus_Vivendi_Tinted.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/Modus_Vivendi_Tinted.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "GPLv3",
+    "author": "Protesilaos Stavrou"
+  },
+  "palette": {
+    "background": "#0d0e1c",
+    "foreground": "#ffffff",
+    "cursor": "#ff66ff",
+    "cursorText": "#0d0e1c",
+    "selectionBackground": "#555a66",
+    "selectionForeground": "#ffffff",
+    "color0": "#0d0e1c",
+    "color1": "#ff5f59",
+    "color2": "#44bc44",
+    "color3": "#d0bc00",
+    "color4": "#2fafff",
+    "color5": "#feacd0",
+    "color6": "#00d3d0",
+    "color7": "#a6a6a6",
+    "color8": "#595959",
+    "color9": "#ff6b55",
+    "color10": "#00c06f",
+    "color11": "#fec43f",
+    "color12": "#79a8ff",
+    "color13": "#b6a0ff",
+    "color14": "#6ae4b9",
+    "color15": "#ffffff"
+  }
+}

@@ -1,11 +1,16 @@
 import { useCallback, useRef } from "react";
 
 import type { ClipboardPayload, Selection, ViewportState } from "@/features/mermaid-editor/lib/editor-types";
+import type { EditorRuntime, RuntimeFileRef } from "@/features/mermaid-editor/lib/editor-runtime";
 import type { EditorCommand } from "@/features/mermaid-editor/lib/interaction/commands";
+import { actionNodesPasteCommand, contentCardsPasteCommand, pasteBasePoint } from "@/features/mermaid-editor/components/mermaid-editor/clipboard-paste-commands";
 import { readClipboardImageFile } from "@/features/mermaid-editor/lib/clipboard-image";
-import { extractNodeActionsFromClipboardText, nodeActionSuggestedLabel } from "@/features/mermaid-editor/lib/node-actions";
+import { resolveContentPluginCardsFromText } from "@/features/mermaid-editor/lib/content-plugins/registry";
+import { extractNodeActionsFromClipboardText } from "@/features/mermaid-editor/lib/node-actions";
 
 type UseEditorClipboardActionsArgs = {
+  runtime: EditorRuntime;
+  fileRef: RuntimeFileRef | null;
   clipboard: ClipboardPayload | null;
   selection: Selection;
   viewport: ViewportState;
@@ -16,6 +21,8 @@ type UseEditorClipboardActionsArgs = {
 };
 
 export function useEditorClipboardActions({
+  runtime,
+  fileRef,
   clipboard,
   selection,
   viewport,
@@ -43,32 +50,25 @@ export function useEditorClipboardActions({
     }
 
     const systemClipboardText = canUseSystemClipboard ? await readSystemClipboardText() : "";
+    const pluginCards = systemClipboardText ? await resolveContentPluginCardsFromText(systemClipboardText, { runtime, fileRef }) : [];
+
+    if (pluginCards.length) {
+      const basePoint = pasteBasePoint(lastCanvasPointerWorldRef.current, viewport);
+      applyEditorCommand(contentCardsPasteCommand(pluginCards, basePoint));
+      return;
+    }
+
     const actions = extractNodeActionsFromClipboardText(systemClipboardText);
 
     if (actions.length) {
-      const basePoint = lastCanvasPointerWorldRef.current || {
-        x: (420 - viewport.x) / viewport.scale,
-        y: (260 - viewport.y) / viewport.scale
-      };
-      applyEditorCommand({
-        type: "graph.addNodesAt",
-        nodes: actions.map((action, index) => ({
-          point: {
-            x: basePoint.x,
-            y: basePoint.y + index * 104
-          },
-          label: nodeActionSuggestedLabel(action),
-          action
-        })),
-        message: actions.length > 1 ? `已从剪贴板添加 ${actions.length} 个链接节点。` : "已从剪贴板添加链接节点。",
-        source: "keyboard"
-      });
+      const basePoint = pasteBasePoint(lastCanvasPointerWorldRef.current, viewport);
+      applyEditorCommand(actionNodesPasteCommand(actions, basePoint));
       return;
     }
 
     if (!clipboard) return;
     applyEditorCommand({ type: "graph.pasteClipboard", payload: clipboard, source: "keyboard" });
-  }, [applyEditorCommand, clipboard, lastCanvasPointerWorldRef, lastWindowFocusAtRef, pasteClipboardImage, viewport]);
+  }, [applyEditorCommand, clipboard, fileRef, lastCanvasPointerWorldRef, lastWindowFocusAtRef, pasteClipboardImage, runtime, viewport]);
 
   return { performCopy, performPaste };
 }

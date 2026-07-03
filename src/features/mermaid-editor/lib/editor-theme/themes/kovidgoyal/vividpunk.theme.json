@@ -1,0 +1,41 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-vividpunk",
+  "name": "VividPunk",
+  "description": "VividPunk kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/VividPunk.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/VividPunk.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "MIT",
+    "author": "CarleScript"
+  },
+  "palette": {
+    "background": "#171a26",
+    "foreground": "#f88132",
+    "cursor": "#f88132",
+    "cursorText": "#171a26",
+    "selectionBackground": "#f88132",
+    "selectionForeground": "#171a26",
+    "color0": "#010101",
+    "color1": "#a32522",
+    "color2": "#115a24",
+    "color3": "#d5a243",
+    "color4": "#263788",
+    "color5": "#793664",
+    "color6": "#128ca1",
+    "color7": "#dadad7",
+    "color8": "#757575",
+    "color9": "#d53b3e",
+    "color10": "#0a8439",
+    "color11": "#f5bf59",
+    "color12": "#6c85e8",
+    "color13": "#b75492",
+    "color14": "#7accd4",
+    "color15": "#f3f3f2"
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-dexpota-ic-green-ppl",
+  "name": "IC Green PPL",
+  "description": "IC Green PPL kitty theme from dexpota/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "dexpota",
+    "name": "dexpota/kitty-themes",
+    "repository": "https://github.com/dexpota/kitty-themes",
+    "path": "themes/IC_Green_PPL.conf",
+    "url": "https://github.com/dexpota/kitty-themes/blob/b1abdd54ba655ef34f75a568d78625981bf1722c/themes/IC_Green_PPL.conf",
+    "commit": "b1abdd54ba655ef34f75a568d78625981bf1722c",
+    "license": "MIT"
+  },
+  "palette": {
+    "background": "#3a3c3e",
+    "foreground": "#d9eed2",
+    "cursor": "#41ff58",
+    "selectionBackground": "#2a9b34",
+    "selectionForeground": "#3a3c3e",
+    "color0": "#1e1e1e",
+    "color1": "#fb0029",
+    "color2": "#329b24",
+    "color3": "#649a25",
+    "color4": "#149b45",
+    "color5": "#53b82b",
+    "color6": "#2bb767",
+    "color7": "#dffeee",
+    "color8": "#03260f",
+    "color9": "#a6ff3e",
+    "color10": "#9fff6d",
+    "color11": "#d1ff6d",
+    "color12": "#72ffb5",
+    "color13": "#50ff3d",
+    "color14": "#22ff71",
+    "color15": "#daeed0"
+  }
+}

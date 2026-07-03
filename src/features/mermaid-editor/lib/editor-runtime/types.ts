@@ -1,8 +1,12 @@
 import type { AiApplyResult, AiEditorCommand } from "@/features/mermaid-editor/lib/ai-command-types";
 import type { AiEditorContext } from "@/features/mermaid-editor/lib/ai-context";
+import type { BrowserToolWindowRequest } from "@/features/mermaid-editor/lib/browser-tool-window";
 import type { DocumentKind } from "@/features/mermaid-editor/lib/document-kind";
 import type { EmbeddedBrowserLogicalRect } from "@/features/mermaid-editor/lib/embedded-browser-rect";
+import type { RuntimeLinkPreviewRequest, RuntimeLinkPreviewResult } from "@/features/mermaid-editor/lib/editor-runtime/link-preview-types";
 import type { ProjectWorkspace } from "@/features/mermaid-editor/lib/project-workspace";
+
+export type { RuntimeLinkPreviewRequest, RuntimeLinkPreviewResult } from "@/features/mermaid-editor/lib/editor-runtime/link-preview-types";
 
 export type EditorDraftState = Record<string, unknown>;
 
@@ -153,6 +157,17 @@ export type RuntimeEmbeddedBrowserResult =
       message: string;
     };
 
+export type RuntimeBrowserToolWindowResult =
+  | {
+      status: "opened";
+      reused?: boolean;
+      external?: boolean;
+    }
+  | {
+      status: "unsupported";
+      message: string;
+    };
+
 export type EditorRuntime = {
   kind: "web" | "desktop";
   openExternalUrl: (url: string) => void;
@@ -166,6 +181,7 @@ export type EditorRuntime = {
     url: string;
     rect: EmbeddedBrowserLogicalRect;
   }) => Promise<RuntimeEmbeddedBrowserResult>;
+  openBrowserToolWindow: (request: BrowserToolWindowRequest) => Promise<RuntimeBrowserToolWindowResult>;
   loadDraft: () => EditorDraftState | null;
   loadSavedState: () => Promise<EditorDraftState | null>;
   saveDraft: (draft: EditorDraftState) => Promise<void>;
@@ -182,6 +198,7 @@ export type EditorRuntime = {
   importImageAssetPath: (file: RuntimeFileRef | null, path: string) => Promise<RuntimeImageAssetResult>;
   importImageAssetFile: (file: RuntimeFileRef | null, image: File) => Promise<RuntimeImageAssetResult>;
   resolveImageAssetSrc: (file: RuntimeFileRef | null, src: string) => Promise<string>;
+  resolveLinkPreview: (request: RuntimeLinkPreviewRequest) => Promise<RuntimeLinkPreviewResult>;
   openProjectFolder: () => Promise<RuntimeProjectFolderResult>;
   readProjectFolder: (rootPath: string) => Promise<RuntimeProjectFolderResult>;
   takePendingOpenFiles: () => Promise<RuntimeFileOpenRequest[]>;

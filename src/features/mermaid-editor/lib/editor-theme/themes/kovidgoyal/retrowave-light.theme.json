@@ -1,0 +1,42 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-retrowave-light",
+  "name": "Retrowave Light",
+  "description": "Retrowave Light kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "light",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/retrowave-light.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/retrowave-light.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "MIT",
+    "author": "BrokenSideViewMirror (https://github.com/BrokenSideViewMirror)",
+    "upstream": "https://github.com/BrokenSideViewMirror/themes-lair/blob/main/themes/Retrowave/retrowave-light.conf"
+  },
+  "palette": {
+    "background": "#f2ebbf",
+    "foreground": "#5c4b51",
+    "cursor": "#5c4b51",
+    "cursorText": "#f2eebf",
+    "selectionBackground": "#5c4b51",
+    "selectionForeground": "#f2ebbf",
+    "color0": "#bfba9c",
+    "color1": "#9c4e27",
+    "color2": "#788663",
+    "color3": "#9b6d18",
+    "color4": "#1c6470",
+    "color5": "#a31b42",
+    "color6": "#4a8e7c",
+    "color7": "#5c4b51",
+    "color8": "#9b977f",
+    "color9": "#68341a",
+    "color10": "#4e5641",
+    "color11": "#7a5512",
+    "color12": "#113f47",
+    "color13": "#681a30",
+    "color14": "#2d5b4f",
+    "color15": "#3d3135"
+  }
+}

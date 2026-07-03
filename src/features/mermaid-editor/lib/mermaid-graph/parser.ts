@@ -2,6 +2,7 @@ import type {
   CanvasEdge,
   CanvasNode,
   CanvasNodeAsset,
+  CanvasNodePreview,
   CanvasSubgraph,
   DiagramType,
   EditableKind,
@@ -66,7 +67,7 @@ export function parseMermaid(source: string, previous?: MermaidGraph): MermaidGr
   const flowLine = lines.find((line) => FLOWCHART_LINE_PATTERN.test(line.trim()));
   const direction = ((flowLine?.trim().split(/\s+/)[1] || "LR") as GraphDirection) || "LR";
 
-  function ensureNode(id: string, label?: string, shape?: FlowchartNodeShape, parentId?: string, asset?: CanvasNodeAsset) {
+  function ensureNode(id: string, label?: string, shape?: FlowchartNodeShape, parentId?: string, asset?: CanvasNodeAsset, preview?: CanvasNodePreview) {
     const old = previous?.nodes.find((node) => node.id === id);
 
     if (!nodes.has(id)) {
@@ -78,13 +79,15 @@ export function parseMermaid(source: string, previous?: MermaidGraph): MermaidGr
         y: old?.y ?? 120 + Math.floor(index / 3) * 150,
         fill: old?.fill || NODE_COLORS[index % NODE_COLORS.length],
         shape: shape || old?.shape || DEFAULT_FLOWCHART_NODE_SHAPE,
-        ...(asset || old?.asset ? { asset: asset || old?.asset } : {})
+        ...(asset || old?.asset ? { asset: asset || old?.asset } : {}),
+        ...(preview || old?.preview ? { preview: preview || old?.preview } : {})
       });
     } else {
       const node = nodes.get(id)!;
       if (label) node.label = label;
       if (shape) node.shape = shape;
       if (asset) node.asset = asset;
+      if (preview) node.preview = preview;
     }
 
     if (parentId) assignNodeToSubgraph(subgraphs, id, parentId);
@@ -149,7 +152,7 @@ export function parseMermaid(source: string, previous?: MermaidGraph): MermaidGr
 
     const node = parseNodeToken(clean);
     if (node) {
-      ensureNode(node.id, node.label, node.hasShape ? node.shape : undefined, subgraphStack.at(-1)?.id, node.asset);
+      ensureNode(node.id, node.label, node.hasShape ? node.shape : undefined, subgraphStack.at(-1)?.id, node.asset, node.preview);
       continue;
     }
 
@@ -161,8 +164,8 @@ export function parseMermaid(source: string, previous?: MermaidGraph): MermaidGr
     const leftKind = endpointKind(edge.left, subgraphIds);
     const rightKind = endpointKind(edge.right, subgraphIds);
 
-    if (leftKind === "node") ensureNode(edge.left.id, edge.left.label, edge.left.hasShape ? edge.left.shape : undefined, edge.parentId, edge.left.asset);
-    if (rightKind === "node") ensureNode(edge.right.id, edge.right.label, edge.right.hasShape ? edge.right.shape : undefined, edge.parentId, edge.right.asset);
+    if (leftKind === "node") ensureNode(edge.left.id, edge.left.label, edge.left.hasShape ? edge.left.shape : undefined, edge.parentId, edge.left.asset, edge.left.preview);
+    if (rightKind === "node") ensureNode(edge.right.id, edge.right.label, edge.right.hasShape ? edge.right.shape : undefined, edge.parentId, edge.right.asset, edge.right.preview);
     const style = edge.operator.style;
     const markerStart = edge.operator.markerStart;
     const markerEnd = edge.operator.markerEnd;

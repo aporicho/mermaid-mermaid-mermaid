@@ -1,0 +1,42 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-base2tone-desert-dark",
+  "name": "Base2Tone Desert Dark",
+  "description": "Base2Tone Desert Dark kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/base2tone-desert-dark.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/base2tone-desert-dark.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "MIT",
+    "author": "Bram de Haan (https://github.com/atelierbram)",
+    "upstream": "https://github.com/atelierbram/Base2Tone-kitty/blob/main/themes/base2tone-desert-dark.conf"
+  },
+  "palette": {
+    "background": "#292724",
+    "foreground": "#ada594",
+    "cursor": "#bc672f",
+    "cursorText": "#292724",
+    "selectionBackground": "#3d3a34",
+    "selectionForeground": "#ada594",
+    "color0": "#292724",
+    "color1": "#816f4b",
+    "color2": "#ec9255",
+    "color3": "#ffb380",
+    "color4": "#957e50",
+    "color5": "#ec9255",
+    "color6": "#ac8e53",
+    "color7": "#ada594",
+    "color8": "#7e7767",
+    "color9": "#f29d63",
+    "color10": "#3d3a34",
+    "color11": "#615c51",
+    "color12": "#908774",
+    "color13": "#ddcba6",
+    "color14": "#e58748",
+    "color15": "#f2ead9"
+  }
+}

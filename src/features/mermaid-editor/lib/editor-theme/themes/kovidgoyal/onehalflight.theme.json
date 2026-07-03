@@ -1,0 +1,40 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-onehalflight",
+  "name": "One Half Light",
+  "description": "One Half Light kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "light",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/OneHalfLight.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/OneHalfLight.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "MIT",
+    "author": "Son A. Pham",
+    "upstream": "https://raw.githubusercontent.com/sonph/onehalf/master/kitty/onehalf-light.conf"
+  },
+  "palette": {
+    "background": "#fafafa",
+    "foreground": "#383a42",
+    "selectionBackground": "#bfceff",
+    "selectionForeground": "#383a42",
+    "color0": "#383a42",
+    "color1": "#e45649",
+    "color2": "#40a14f",
+    "color3": "#c18401",
+    "color4": "#0184bc",
+    "color5": "#a626a4",
+    "color6": "#0997b3",
+    "color7": "#fafafa",
+    "color8": "#383a42",
+    "color9": "#e45649",
+    "color10": "#40a14f",
+    "color11": "#c18401",
+    "color12": "#0184bc",
+    "color13": "#a626a4",
+    "color14": "#0997b3",
+    "color15": "#fafafa"
+  }
+}

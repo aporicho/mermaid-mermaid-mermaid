@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-dexpota-adventuretime",
+  "name": "AdventureTime",
+  "description": "AdventureTime kitty theme from dexpota/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "dexpota",
+    "name": "dexpota/kitty-themes",
+    "repository": "https://github.com/dexpota/kitty-themes",
+    "path": "themes/AdventureTime.conf",
+    "url": "https://github.com/dexpota/kitty-themes/blob/b1abdd54ba655ef34f75a568d78625981bf1722c/themes/AdventureTime.conf",
+    "commit": "b1abdd54ba655ef34f75a568d78625981bf1722c",
+    "license": "MIT"
+  },
+  "palette": {
+    "background": "#1e1c44",
+    "foreground": "#f8dbc0",
+    "cursor": "#eebf37",
+    "selectionBackground": "#6f6a4e",
+    "selectionForeground": "#1e1c44",
+    "color0": "#050404",
+    "color1": "#bc0013",
+    "color2": "#49b117",
+    "color3": "#e6741d",
+    "color4": "#0f49c6",
+    "color5": "#665992",
+    "color6": "#6fa497",
+    "color7": "#f8dbc0",
+    "color8": "#4e7bbf",
+    "color9": "#fc5e59",
+    "color10": "#9dff6e",
+    "color11": "#efc11a",
+    "color12": "#1896c6",
+    "color13": "#9a5952",
+    "color14": "#c8f9f3",
+    "color15": "#f5f4fb"
+  }
+}

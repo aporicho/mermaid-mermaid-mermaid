@@ -1,0 +1,42 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-everforest-dark-medium",
+  "name": "Everforest Dark Medium",
+  "description": "Everforest Dark Medium kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/everforest_dark_medium.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/everforest_dark_medium.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "MIT",
+    "author": "Sainnhe Park",
+    "upstream": "https://github.com/ewal/kitty-everforest/blob/master/themes/everforest_dark_medium.conf"
+  },
+  "palette": {
+    "background": "#2d353b",
+    "foreground": "#d3c6aa",
+    "cursor": "#d3c6aa",
+    "cursorText": "#343f44",
+    "selectionBackground": "#505a60",
+    "selectionForeground": "#9da9a0",
+    "color0": "#343f44",
+    "color1": "#e67e80",
+    "color2": "#a7c080",
+    "color3": "#dbbc7f",
+    "color4": "#7fbbb3",
+    "color5": "#d699b6",
+    "color6": "#83c092",
+    "color7": "#859289",
+    "color8": "#868d80",
+    "color9": "#e67e80",
+    "color10": "#a7c080",
+    "color11": "#dbbc7f",
+    "color12": "#7fbbb3",
+    "color13": "#d699b6",
+    "color14": "#83c092",
+    "color15": "#9da9a0"
+  }
+}

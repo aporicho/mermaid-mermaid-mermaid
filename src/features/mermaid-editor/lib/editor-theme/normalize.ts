@@ -1,12 +1,10 @@
-import { BUILT_IN_EDITOR_THEMES, DEFAULT_EDITOR_THEME } from "./presets";
-import type { EditorMotionTokens, EditorTheme, EditorThemeId } from "./types";
+import { DEFAULT_EDITOR_THEME, getBuiltInEditorTheme, isBuiltInThemeId } from "./presets";
+import type { EditorMotionTokens, EditorTheme } from "./types";
 import { isHexColor } from "./color";
-
-const builtInThemeById = new Map(BUILT_IN_EDITOR_THEMES.map((theme) => [theme.id, theme]));
 
 export function resolveEditorTheme(themeId: string | undefined, customTheme: unknown): EditorTheme {
   if (themeId === "custom") return normalizeEditorTheme(customTheme, { ...DEFAULT_EDITOR_THEME, id: "custom", name: "自定义主题" });
-  return builtInThemeById.get(themeId as EditorThemeId) ?? DEFAULT_EDITOR_THEME;
+  return getBuiltInEditorTheme(themeId) ?? DEFAULT_EDITOR_THEME;
 }
 
 export function normalizeEditorTheme(value: unknown, fallback: EditorTheme = DEFAULT_EDITOR_THEME): EditorTheme {
@@ -39,7 +37,7 @@ export function normalizeEditorTheme(value: unknown, fallback: EditorTheme = DEF
 }
 
 function normalizeBaseThemeId(value: unknown, fallback: EditorTheme["baseThemeId"]) {
-  return value === "warm-paper" || value === "classic-light" || value === "high-contrast" ? value : fallback;
+  return isBuiltInThemeId(value) ? value : fallback;
 }
 
 function normalizeColorGroup<T extends object>(raw: unknown, fallback: T): T {

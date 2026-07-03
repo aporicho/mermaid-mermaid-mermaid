@@ -1,0 +1,40 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-cyberpunk",
+  "name": "Cyberpunk",
+  "description": "Cyberpunk kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/cyberpunk.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/cyberpunk.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "MIT",
+    "upstream": "https://raw.githubusercontent.com/jandre953/kitty-cyberpunk/master/cyberpunk.conf"
+  },
+  "palette": {
+    "background": "#120b10",
+    "foreground": "#ff0055",
+    "cursor": "#00ffc8",
+    "cursorText": "#120b10",
+    "selectionBackground": "#563466",
+    "color0": "#000000",
+    "color1": "#ff0055",
+    "color2": "#009550",
+    "color3": "#f4ef00",
+    "color4": "#6766b3",
+    "color5": "#d57bff",
+    "color6": "#0dcdcd",
+    "color7": "#eeffff",
+    "color8": "#777777",
+    "color9": "#ff4081",
+    "color10": "#00ff9c",
+    "color11": "#fffc58",
+    "color12": "#76c1ff",
+    "color13": "#c592ff",
+    "color14": "#00ffc8",
+    "color15": "#ffffff"
+  }
+}

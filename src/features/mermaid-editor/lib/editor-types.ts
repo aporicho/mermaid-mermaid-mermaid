@@ -30,6 +30,7 @@ export type CanvasNode = {
   shape?: FlowchartNodeShape;
   asset?: CanvasNodeAsset;
   action?: CanvasNodeAction;
+  preview?: CanvasNodePreview;
 };
 
 export type ImageLabelPosition = "top" | "bottom";
@@ -55,6 +56,24 @@ export type CanvasNodeAsset = {
   height: number;
   preserveAspectRatio: boolean;
   labelPosition: ImageLabelPosition;
+};
+
+export type CanvasNodePreview = {
+  kind: "link-card";
+  pluginId: string;
+  provider: string;
+  sourceUrl: string;
+  canonicalUrl?: string;
+  title: string;
+  cover?: CanvasNodePreviewCover;
+  status: "ready" | "fallback";
+};
+
+export type CanvasNodePreviewCover = {
+  src: string;
+  width?: number;
+  height?: number;
+  persistent: boolean;
 };
 
 export type EdgeStyle = "solid" | "thick" | "dotted" | "invisible";

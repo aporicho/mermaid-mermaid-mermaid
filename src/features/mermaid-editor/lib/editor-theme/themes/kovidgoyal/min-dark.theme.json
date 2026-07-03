@@ -1,0 +1,42 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-min-dark",
+  "name": "Min Dark",
+  "description": "Min Dark kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/Min_Dark.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/Min_Dark.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "MIT",
+    "author": "pivattogui",
+    "upstream": "https://raw.githubusercontent.com/pivattogui/min-dark-kitty/main/kitty.conf"
+  },
+  "palette": {
+    "background": "#1f1f1f",
+    "foreground": "#f8f8f8",
+    "cursor": "#f8f8f8",
+    "cursorText": "#1f1f1f",
+    "selectionBackground": "#79b8ff",
+    "selectionForeground": "#1f1f1f",
+    "color0": "#1a1a1a",
+    "color1": "#f97583",
+    "color2": "#85e89d",
+    "color3": "#ffab70",
+    "color4": "#79b8ff",
+    "color5": "#f97583",
+    "color6": "#9db1c5",
+    "color7": "#bbbbbb",
+    "color8": "#5c5c5c",
+    "color9": "#ff7a84",
+    "color10": "#85e89d",
+    "color11": "#ff9800",
+    "color12": "#b392f0",
+    "color13": "#ff7a84",
+    "color14": "#79b8ff",
+    "color15": "#f8f8f8"
+  }
+}

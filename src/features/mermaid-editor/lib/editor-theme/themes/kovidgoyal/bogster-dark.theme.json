@@ -1,0 +1,42 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-bogster-dark",
+  "name": "Bogster (Dark)",
+  "description": "Bogster (Dark) kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/bogster_dark.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/bogster_dark.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "MIT",
+    "author": "lhs",
+    "upstream": "https://github.com/vv9k/bogster"
+  },
+  "palette": {
+    "background": "#161c23",
+    "foreground": "#c6bfba",
+    "cursor": "#dfd7d0",
+    "cursorText": "#161c23",
+    "selectionBackground": "#252f3b",
+    "selectionForeground": "#d2c6b8",
+    "color0": "#161c23",
+    "color1": "#bd2853",
+    "color2": "#549d2f",
+    "color3": "#cca734",
+    "color4": "#248baa",
+    "color5": "#b759dc",
+    "color6": "#23a580",
+    "color7": "#c6bfba",
+    "color8": "#45576d",
+    "color9": "#db567c",
+    "color10": "#6fcc4c",
+    "color11": "#dfc26b",
+    "color12": "#4fbadb",
+    "color13": "#dc59c0",
+    "color14": "#59dcb7",
+    "color15": "#dfd7d0"
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-tomorrow-night-bright",
+  "name": "Tomorrow Night Bright",
+  "description": "Tomorrow Night Bright kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/Tomorrow_Night_Bright.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/Tomorrow_Night_Bright.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "GPL-3.0"
+  },
+  "palette": {
+    "background": "#000000",
+    "foreground": "#e9e9e9",
+    "cursor": "#e9e9e9",
+    "selectionBackground": "#424242",
+    "selectionForeground": "#000000",
+    "color0": "#000000",
+    "color1": "#d44d53",
+    "color2": "#b9c949",
+    "color3": "#e6c446",
+    "color4": "#79a6da",
+    "color5": "#c396d7",
+    "color6": "#70c0b1",
+    "color7": "#fffefe",
+    "color8": "#000000",
+    "color9": "#d44d53",
+    "color10": "#b9c949",
+    "color11": "#e6c446",
+    "color12": "#79a6da",
+    "color13": "#c396d7",
+    "color14": "#70c0b1",
+    "color15": "#fffefe"
+  }
+}

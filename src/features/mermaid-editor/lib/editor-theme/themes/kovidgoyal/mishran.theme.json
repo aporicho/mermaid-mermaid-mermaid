@@ -1,0 +1,40 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-mishran",
+  "name": "Mishran",
+  "description": "Mishran kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/mishran.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/mishran.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "GPLv3",
+    "author": "Anupam Srivastava",
+    "upstream": "https://github.com/kovidgoyal/kitty-themes"
+  },
+  "palette": {
+    "background": "#000000",
+    "foreground": "#bebebe",
+    "cursor": "#ff6d0a",
+    "cursorText": "#111111",
+    "color0": "#4e4e4e",
+    "color1": "#ff6c60",
+    "color2": "#a8ff60",
+    "color3": "#ffffb6",
+    "color4": "#96cbfe",
+    "color5": "#ff73fd",
+    "color6": "#c6c5fe",
+    "color7": "#eeeeee",
+    "color8": "#7c7c7c",
+    "color9": "#ffb6b0",
+    "color10": "#ceffab",
+    "color11": "#ffffcb",
+    "color12": "#b5dcfe",
+    "color13": "#ff9cfe",
+    "color14": "#dfdffe",
+    "color15": "#ffffff"
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-tango-light",
+  "name": "Tango Light",
+  "description": "Tango Light kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "light",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/Tango_Light.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/Tango_Light.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "GPL-3.0"
+  },
+  "palette": {
+    "background": "#ffffff",
+    "foreground": "#000000",
+    "cursor": "#000000",
+    "selectionBackground": "#b4d5ff",
+    "selectionForeground": "#ffffff",
+    "color0": "#000000",
+    "color1": "#cc0000",
+    "color2": "#4e9a06",
+    "color3": "#c4a000",
+    "color4": "#3465a4",
+    "color5": "#75507b",
+    "color6": "#06989a",
+    "color7": "#d3d7cf",
+    "color8": "#555753",
+    "color9": "#ef2929",
+    "color10": "#8ae234",
+    "color11": "#fce94f",
+    "color12": "#729fcf",
+    "color13": "#ad7fa8",
+    "color14": "#34e2e2",
+    "color15": "#eeeeec"
+  }
+}

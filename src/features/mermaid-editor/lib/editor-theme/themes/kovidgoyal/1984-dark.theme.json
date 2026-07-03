@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-1984-dark",
+  "name": "1984 dark",
+  "description": "1984 dark kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/1984_dark.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/1984_dark.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "GPL-3.0"
+  },
+  "palette": {
+    "background": "#0d0f31",
+    "foreground": "#ffffff",
+    "cursor": "#59e1e3",
+    "selectionBackground": "#00d5eb",
+    "selectionForeground": "#000000",
+    "color0": "#000000",
+    "color1": "#ff16b0",
+    "color2": "#b3f361",
+    "color3": "#ffea16",
+    "color4": "#46bdff",
+    "color5": "#f806fa",
+    "color6": "#59e1e3",
+    "color7": "#feffff",
+    "color8": "#000000",
+    "color9": "#ff16b0",
+    "color10": "#b3f361",
+    "color11": "#ffea16",
+    "color12": "#46bdff",
+    "color13": "#f806fa",
+    "color14": "#6be4e6",
+    "color15": "#feffff"
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-dexpota-alucard",
+  "name": "Alucard",
+  "description": "Alucard kitty theme from dexpota/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "dexpota",
+    "name": "dexpota/kitty-themes",
+    "repository": "https://github.com/dexpota/kitty-themes",
+    "path": "themes/Alucard.conf",
+    "url": "https://github.com/dexpota/kitty-themes/blob/b1abdd54ba655ef34f75a568d78625981bf1722c/themes/Alucard.conf",
+    "commit": "b1abdd54ba655ef34f75a568d78625981bf1722c",
+    "license": "MIT"
+  },
+  "palette": {
+    "background": "#222330",
+    "foreground": "#cef3ff",
+    "cursor": "#ffffff",
+    "selectionBackground": "#44475a",
+    "selectionForeground": "#222330",
+    "color0": "#000000",
+    "color1": "#ff5555",
+    "color2": "#fa0074",
+    "color3": "#7f0a1f",
+    "color4": "#3282ff",
+    "color5": "#1b3cff",
+    "color6": "#0037fc",
+    "color7": "#bbbbbb",
+    "color8": "#545454",
+    "color9": "#ff5454",
+    "color10": "#50fa7b",
+    "color11": "#f0fa8b",
+    "color12": "#1200f8",
+    "color13": "#ff78c5",
+    "color14": "#8ae9fc",
+    "color15": "#ffffff"
+  }
+}

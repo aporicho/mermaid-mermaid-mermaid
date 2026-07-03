@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-argonaut",
+  "name": "Argonaut",
+  "description": "Argonaut kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/Argonaut.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/Argonaut.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "GPL-3.0"
+  },
+  "palette": {
+    "background": "#0d0f18",
+    "foreground": "#fffaf3",
+    "cursor": "#ff0017",
+    "selectionBackground": "#002a3a",
+    "selectionForeground": "#0d0f18",
+    "color0": "#222222",
+    "color1": "#ff000f",
+    "color2": "#8ce00a",
+    "color3": "#ffb900",
+    "color4": "#008df8",
+    "color5": "#6c43a5",
+    "color6": "#00d7eb",
+    "color7": "#ffffff",
+    "color8": "#444444",
+    "color9": "#ff273f",
+    "color10": "#abe05a",
+    "color11": "#ffd141",
+    "color12": "#0092ff",
+    "color13": "#9a5feb",
+    "color14": "#67ffef",
+    "color15": "#ffffff"
+  }
+}

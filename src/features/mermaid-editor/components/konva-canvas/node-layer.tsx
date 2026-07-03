@@ -5,6 +5,7 @@ import type { KonvaEventObject } from "konva/lib/Node";
 import type { InlineEdit } from "@/features/mermaid-editor/components/konva-canvas/inline-edit-overlays";
 import { CanvasNodeActionBadge } from "@/features/mermaid-editor/components/konva-canvas/node-action-ui";
 import { CanvasNodeImage } from "@/features/mermaid-editor/components/konva-canvas/node-image";
+import { CanvasNodeLinkCard } from "@/features/mermaid-editor/components/konva-canvas/node-link-card";
 import { CanvasNodeShape } from "@/features/mermaid-editor/components/konva-canvas/node-shapes";
 import { scaleLocalPointFromCenter } from "@/features/mermaid-editor/components/konva-canvas/render-utils";
 import type { CanvasNodeMotionVisual } from "@/features/mermaid-editor/components/konva-canvas/types";
@@ -24,6 +25,7 @@ import {
 import type { CanvasNode, EditorMode, Selection } from "@/features/mermaid-editor/lib/editor-types";
 import { normalizeNodeAction } from "@/features/mermaid-editor/lib/node-actions";
 import { normalizeImageAsset } from "@/features/mermaid-editor/lib/node-assets";
+import { normalizeCanvasNodePreview } from "@/features/mermaid-editor/lib/node-preview";
 import type { NodeGeometryTokens } from "@/features/mermaid-editor/lib/node-geometry";
 import { buildNodeGeometry } from "@/features/mermaid-editor/lib/node-geometry";
 import type { ViewFilters } from "@/features/mermaid-editor/lib/view-filters";
@@ -117,9 +119,12 @@ export function KonvaNodeLayer({
         const connectionAnchorTarget = nodeConnectionAnchorTarget(node.id, connectionPreview, retargetPreview);
         const connectionAnchorsVisible = nodeConnectionAnchorsVisible(node.id, connectionPreview, retargetPreview);
         const nodeAnchorsVisible = anchorVisual.visible || connectionAnchorsVisible;
+        const linkPreview = normalizeCanvasNodePreview(node.preview);
         const imageAsset = normalizeImageAsset(node.asset);
-        const isImageNode = Boolean(imageAsset);
+        const isLinkCardNode = Boolean(linkPreview);
+        const isImageNode = Boolean(imageAsset) && !isLinkCardNode;
         const imageDisplaySrc = imageAsset ? imageDisplaySrcBySrc[imageAsset.src] || imageAsset.src : undefined;
+        const previewCoverSrc = linkPreview?.cover?.src ? imageDisplaySrcBySrc[linkPreview.cover.src] || linkPreview.cover.src : undefined;
         const nodeVisualTransform = centerScaleTransform(geometry.frame);
         const proximityScale = nodeProximityScale[node.id] ?? 1;
         const visualScale = (motionVisual?.scale ?? 1) * proximityScale;
@@ -155,7 +160,7 @@ export function KonvaNodeLayer({
               scaleX={visualScale}
               scaleY={visualScale}
             >
-              {!isImageNode ? (
+              {!isImageNode && !isLinkCardNode ? (
                 <CanvasNodeShape
                   node={node}
                   width={geometry.frame.width}
@@ -173,7 +178,7 @@ export function KonvaNodeLayer({
                   strokeEnabled={false}
                 />
               ) : null}
-              {imageAsset && imageDisplaySrc && geometry.imageBox ? (
+              {isImageNode && imageDisplaySrc && geometry.imageBox ? (
                 <CanvasNodeImage
                   src={imageDisplaySrc}
                   x={geometry.imageBox.x}
@@ -193,7 +198,20 @@ export function KonvaNodeLayer({
                   listening={false}
                 />
               ) : null}
-              {!isImageNode ? (
+              {linkPreview ? (
+                <CanvasNodeLinkCard
+                  node={node}
+                  preview={linkPreview}
+                  width={geometry.frame.width}
+                  height={geometry.frame.height}
+                  coverSrc={previewCoverSrc}
+                  stroke={nodeVisual.stroke}
+                  strokeWidth={nodeStrokeWidth}
+                  visualTokens={visualTokens}
+                  onOpen={() => onOpenNodeAction?.(node)}
+                />
+              ) : null}
+              {!isImageNode && !isLinkCardNode ? (
                 <Text
                   x={geometry.textBox.x}
                   y={geometry.textBox.y}
@@ -212,7 +230,7 @@ export function KonvaNodeLayer({
                   visible={viewFilters.nodeLabels && !(inlineEdit?.type === "node" && inlineEdit.id === node.id)}
                 />
               ) : null}
-              {!isImageNode && normalizeNodeAction(node.action) ? (
+              {!isImageNode && !isLinkCardNode && normalizeNodeAction(node.action) ? (
                 <CanvasNodeActionBadge
                   actionKind={node.action?.kind || "url"}
                   x={Math.max(8, geometry.frame.width - 24)}
@@ -264,9 +282,12 @@ export function KonvaNodeLayer({
       {exitingNodes.map((node) => {
         const geometry = buildNodeGeometry(node, geometrySpec);
         const motionVisual = nodeMotion[node.id] ?? { x: node.x, y: node.y, opacity: 0, scale: runtimeCreateScale, highlight: 0 };
+        const linkPreview = normalizeCanvasNodePreview(node.preview);
         const imageAsset = normalizeImageAsset(node.asset);
-        const isImageNode = Boolean(imageAsset);
+        const isLinkCardNode = Boolean(linkPreview);
+        const isImageNode = Boolean(imageAsset) && !isLinkCardNode;
         const imageDisplaySrc = imageAsset ? imageDisplaySrcBySrc[imageAsset.src] || imageAsset.src : undefined;
+        const previewCoverSrc = linkPreview?.cover?.src ? imageDisplaySrcBySrc[linkPreview.cover.src] || linkPreview.cover.src : undefined;
         const nodeVisualTransform = centerScaleTransform(geometry.frame);
 
         return (
@@ -285,7 +306,7 @@ export function KonvaNodeLayer({
               scaleX={motionVisual.scale}
               scaleY={motionVisual.scale}
             >
-              {!isImageNode ? (
+              {!isImageNode && !isLinkCardNode ? (
                 <CanvasNodeShape
                   node={node}
                   width={geometry.frame.width}
@@ -298,7 +319,7 @@ export function KonvaNodeLayer({
                   visualTokens={visualTokens}
                 />
               ) : null}
-              {imageAsset && imageDisplaySrc && geometry.imageBox ? (
+              {isImageNode && imageDisplaySrc && geometry.imageBox ? (
                 <CanvasNodeImage
                   src={imageDisplaySrc}
                   x={geometry.imageBox.x}
@@ -307,7 +328,19 @@ export function KonvaNodeLayer({
                   height={geometry.imageBox.height}
                 />
               ) : null}
-              {!isImageNode ? (
+              {linkPreview ? (
+                <CanvasNodeLinkCard
+                  node={node}
+                  preview={linkPreview}
+                  width={geometry.frame.width}
+                  height={geometry.frame.height}
+                  coverSrc={previewCoverSrc}
+                  stroke={visualTokens.colors.accent}
+                  strokeWidth={visualTokens.node.strokeWidth + motionVisual.highlight * visualTokens.node.emphasizedStrokeWidth}
+                  visualTokens={visualTokens}
+                />
+              ) : null}
+              {!isImageNode && !isLinkCardNode ? (
                 <Text
                   x={geometry.textBox.x}
                   y={geometry.textBox.y}

@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-dexpota-alienblood",
+  "name": "AlienBlood",
+  "description": "AlienBlood kitty theme from dexpota/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "dexpota",
+    "name": "dexpota/kitty-themes",
+    "repository": "https://github.com/dexpota/kitty-themes",
+    "path": "themes/AlienBlood.conf",
+    "url": "https://github.com/dexpota/kitty-themes/blob/b1abdd54ba655ef34f75a568d78625981bf1722c/themes/AlienBlood.conf",
+    "commit": "b1abdd54ba655ef34f75a568d78625981bf1722c",
+    "license": "MIT"
+  },
+  "palette": {
+    "background": "#0f160f",
+    "foreground": "#637d75",
+    "cursor": "#73f990",
+    "selectionBackground": "#1d4025",
+    "selectionForeground": "#0f160f",
+    "color0": "#112615",
+    "color1": "#7f2b26",
+    "color2": "#2f7e25",
+    "color3": "#707f23",
+    "color4": "#2f697f",
+    "color5": "#47577e",
+    "color6": "#317f76",
+    "color7": "#647d75",
+    "color8": "#3c4711",
+    "color9": "#df8008",
+    "color10": "#18e000",
+    "color11": "#bde000",
+    "color12": "#00a9df",
+    "color13": "#0058df",
+    "color14": "#00dfc3",
+    "color15": "#73f990"
+  }
+}

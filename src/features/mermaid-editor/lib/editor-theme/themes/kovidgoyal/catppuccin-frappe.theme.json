@@ -1,0 +1,42 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-catppuccin-frappe",
+  "name": "Catppuccin-Frappe",
+  "description": "Catppuccin-Frappe kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/Catppuccin-Frappe.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/Catppuccin-Frappe.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "MIT",
+    "author": "Pocco81 (https://github.com/Pocco81)",
+    "upstream": "https://github.com/catppuccin/kitty/blob/main/themes/frappe.conf"
+  },
+  "palette": {
+    "background": "#303446",
+    "foreground": "#c6d0f5",
+    "cursor": "#f2d5cf",
+    "cursorText": "#303446",
+    "selectionBackground": "#f2d5cf",
+    "selectionForeground": "#303446",
+    "color0": "#51576d",
+    "color1": "#e78284",
+    "color2": "#a6d189",
+    "color3": "#e5c890",
+    "color4": "#8caaee",
+    "color5": "#f4b8e4",
+    "color6": "#81c8be",
+    "color7": "#b5bfe2",
+    "color8": "#626880",
+    "color9": "#e78284",
+    "color10": "#a6d189",
+    "color11": "#e5c890",
+    "color12": "#8caaee",
+    "color13": "#f4b8e4",
+    "color14": "#81c8be",
+    "color15": "#a5adce"
+  }
+}

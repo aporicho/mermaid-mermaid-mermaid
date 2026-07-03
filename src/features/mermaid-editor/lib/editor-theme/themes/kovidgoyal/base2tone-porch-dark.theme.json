@@ -1,0 +1,42 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-base2tone-porch-dark",
+  "name": "Base2Tone Porch Dark",
+  "description": "Base2Tone Porch Dark kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/base2tone-porch-dark.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/base2tone-porch-dark.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "MIT",
+    "author": "Bram de Haan (https://github.com/atelierbram)",
+    "upstream": "https://github.com/atelierbram/Base2Tone-kitty/blob/main/themes/base2tone-porch-dark.conf"
+  },
+  "palette": {
+    "background": "#221e24",
+    "foreground": "#9f95a3",
+    "cursor": "#c46731",
+    "cursorText": "#221e24",
+    "selectionBackground": "#302a32",
+    "selectionForeground": "#9f95a3",
+    "color0": "#221e24",
+    "color1": "#9466a3",
+    "color2": "#f39b68",
+    "color3": "#ffc29e",
+    "color4": "#a77cb6",
+    "color5": "#f39b68",
+    "color6": "#ba95c6",
+    "color7": "#9f95a3",
+    "color8": "#645a68",
+    "color9": "#f8aa7c",
+    "color10": "#302a32",
+    "color11": "#574e5a",
+    "color12": "#716774",
+    "color13": "#dfcbe6",
+    "color14": "#ec8d55",
+    "color15": "#f2e3f7"
+  }
+}

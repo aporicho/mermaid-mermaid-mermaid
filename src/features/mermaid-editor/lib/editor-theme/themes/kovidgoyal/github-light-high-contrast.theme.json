@@ -1,0 +1,40 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-github-light-high-contrast",
+  "name": "GitHub Light High Contrast",
+  "description": "GitHub Light High Contrast kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "light",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/GitHub_Light_High_Contrast.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/GitHub_Light_High_Contrast.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "MIT",
+    "author": "GitHub"
+  },
+  "palette": {
+    "background": "#ffffff",
+    "foreground": "#0e1116",
+    "cursor": "#0349b4",
+    "selectionBackground": "#0349b4",
+    "selectionForeground": "#ffffff",
+    "color0": "#0e1116",
+    "color1": "#a0111f",
+    "color2": "#024c1a",
+    "color3": "#3f2200",
+    "color4": "#0349b4",
+    "color5": "#622cbc",
+    "color6": "#1b7c83",
+    "color7": "#66707b",
+    "color8": "#4b535d",
+    "color9": "#86061d",
+    "color10": "#055d20",
+    "color11": "#4e2c00",
+    "color12": "#1168e3",
+    "color13": "#844ae7",
+    "color14": "#3192aa",
+    "color15": "#88929d"
+  }
+}

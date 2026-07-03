@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-relaxed-afterglow",
+  "name": "Relaxed Afterglow",
+  "description": "Relaxed Afterglow kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/Relaxed_Afterglow.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/Relaxed_Afterglow.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "GPL-3.0"
+  },
+  "palette": {
+    "background": "#353a44",
+    "foreground": "#d9d9d9",
+    "cursor": "#d9d9d9",
+    "selectionBackground": "#6a7984",
+    "selectionForeground": "#d8d8d8",
+    "color0": "#151515",
+    "color1": "#bc5653",
+    "color2": "#909d63",
+    "color3": "#ebc17a",
+    "color4": "#6a8799",
+    "color5": "#b06698",
+    "color6": "#c9dfff",
+    "color7": "#d9d9d9",
+    "color8": "#636363",
+    "color9": "#bc5653",
+    "color10": "#a0ac77",
+    "color11": "#ebc17a",
+    "color12": "#7eaac7",
+    "color13": "#b06698",
+    "color14": "#acbbd0",
+    "color15": "#f7f7f7"
+  }
+}

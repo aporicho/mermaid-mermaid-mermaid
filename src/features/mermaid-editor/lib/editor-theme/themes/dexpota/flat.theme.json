@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-dexpota-flat",
+  "name": "Flat",
+  "description": "Flat kitty theme from dexpota/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "dexpota",
+    "name": "dexpota/kitty-themes",
+    "repository": "https://github.com/dexpota/kitty-themes",
+    "path": "themes/Flat.conf",
+    "url": "https://github.com/dexpota/kitty-themes/blob/b1abdd54ba655ef34f75a568d78625981bf1722c/themes/Flat.conf",
+    "commit": "b1abdd54ba655ef34f75a568d78625981bf1722c",
+    "license": "MIT"
+  },
+  "palette": {
+    "background": "#002240",
+    "foreground": "#2bc45d",
+    "cursor": "#e5bd0c",
+    "selectionBackground": "#782b9c",
+    "selectionForeground": "#002240",
+    "color0": "#212c3e",
+    "color1": "#a72320",
+    "color2": "#32a448",
+    "color3": "#e58d11",
+    "color4": "#3066ab",
+    "color5": "#7819a0",
+    "color6": "#2b9270",
+    "color7": "#afb6b9",
+    "color8": "#202b3b",
+    "color9": "#d3302e",
+    "color10": "#2c9440",
+    "color11": "#e5bd0c",
+    "color12": "#3b7cd2",
+    "color13": "#822fa7",
+    "color14": "#35b286",
+    "color15": "#e6ecec"
+  }
+}

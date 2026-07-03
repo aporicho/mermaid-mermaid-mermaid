@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-dexpota-crayonponyfish",
+  "name": "CrayonPonyFish",
+  "description": "CrayonPonyFish kitty theme from dexpota/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "dexpota",
+    "name": "dexpota/kitty-themes",
+    "repository": "https://github.com/dexpota/kitty-themes",
+    "path": "themes/CrayonPonyFish.conf",
+    "url": "https://github.com/dexpota/kitty-themes/blob/b1abdd54ba655ef34f75a568d78625981bf1722c/themes/CrayonPonyFish.conf",
+    "commit": "b1abdd54ba655ef34f75a568d78625981bf1722c",
+    "license": "MIT"
+  },
+  "palette": {
+    "background": "#140607",
+    "foreground": "#685259",
+    "cursor": "#685259",
+    "selectionBackground": "#2a1a1c",
+    "selectionForeground": "#140607",
+    "color0": "#2a1a1c",
+    "color1": "#90002a",
+    "color2": "#579523",
+    "color3": "#aa301b",
+    "color4": "#8b87af",
+    "color5": "#682e50",
+    "color6": "#e8a766",
+    "color7": "#685259",
+    "color8": "#3c2a2e",
+    "color9": "#c5245c",
+    "color10": "#8dff56",
+    "color11": "#c7371d",
+    "color12": "#cfc9ff",
+    "color13": "#fb6cb9",
+    "color14": "#ffceae",
+    "color15": "#af949d"
+  }
+}

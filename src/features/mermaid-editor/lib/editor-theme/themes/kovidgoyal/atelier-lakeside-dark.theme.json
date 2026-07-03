@@ -1,0 +1,42 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-atelier-lakeside-dark",
+  "name": "Atelier Lakeside Dark",
+  "description": "Atelier Lakeside Dark kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/atelier-lakeside-dark.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/atelier-lakeside-dark.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "MIT",
+    "author": "Bram de Haan (https://github.com/atelierbram)",
+    "upstream": "https://github.com/atelierbram/AtelierSchemes-kitty/blob/main/themes/atelier-lakeside-dark.conf"
+  },
+  "palette": {
+    "background": "#161b1d",
+    "foreground": "#7ea2b4",
+    "cursor": "#7ea2b4",
+    "cursorText": "#161b1d",
+    "selectionBackground": "#1f292e",
+    "selectionForeground": "#7ea2b4",
+    "color0": "#161b1d",
+    "color1": "#d22d72",
+    "color2": "#568c3b",
+    "color3": "#8a8a0f",
+    "color4": "#257fad",
+    "color5": "#6b6bb8",
+    "color6": "#2d8f6f",
+    "color7": "#7ea2b4",
+    "color8": "#5a7b8c",
+    "color9": "#935c25",
+    "color10": "#1f292e",
+    "color11": "#516d7b",
+    "color12": "#7195a8",
+    "color13": "#c1e4f6",
+    "color14": "#b72dd2",
+    "color15": "#ebf8ff"
+  }
+}

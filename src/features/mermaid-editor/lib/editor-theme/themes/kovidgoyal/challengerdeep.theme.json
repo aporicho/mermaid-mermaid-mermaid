@@ -1,0 +1,38 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-challengerdeep",
+  "name": "ChallengerDeep",
+  "description": "ChallengerDeep kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/ChallengerDeep.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/ChallengerDeep.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "GPL-3.0"
+  },
+  "palette": {
+    "background": "#1e1c31",
+    "foreground": "#cbe3e7",
+    "selectionBackground": "#aaffe4",
+    "selectionForeground": "#1e1c31",
+    "color0": "#565575",
+    "color1": "#ff8080",
+    "color2": "#95ffa4",
+    "color3": "#ffe9aa",
+    "color4": "#91ddff",
+    "color5": "#c991e1",
+    "color6": "#aaffe4",
+    "color7": "#cbe3e7",
+    "color8": "#100e23",
+    "color9": "#ff5458",
+    "color10": "#62d196",
+    "color11": "#ffb378",
+    "color12": "#65b2ff",
+    "color13": "#906cff",
+    "color14": "#63f2f1",
+    "color15": "#a6b3cc"
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-dexpota-blazer",
+  "name": "Blazer",
+  "description": "Blazer kitty theme from dexpota/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "dexpota",
+    "name": "dexpota/kitty-themes",
+    "repository": "https://github.com/dexpota/kitty-themes",
+    "path": "themes/Blazer.conf",
+    "url": "https://github.com/dexpota/kitty-themes/blob/b1abdd54ba655ef34f75a568d78625981bf1722c/themes/Blazer.conf",
+    "commit": "b1abdd54ba655ef34f75a568d78625981bf1722c",
+    "license": "MIT"
+  },
+  "palette": {
+    "background": "#0d1925",
+    "foreground": "#d9e5f1",
+    "cursor": "#d9e5f1",
+    "selectionBackground": "#d9e6f2",
+    "selectionForeground": "#0d1925",
+    "color0": "#000000",
+    "color1": "#b87979",
+    "color2": "#79b879",
+    "color3": "#b8b879",
+    "color4": "#7979b8",
+    "color5": "#b879b8",
+    "color6": "#79b8b8",
+    "color7": "#d9d9d9",
+    "color8": "#252525",
+    "color9": "#dabdbd",
+    "color10": "#bddabd",
+    "color11": "#dadabd",
+    "color12": "#bdbdda",
+    "color13": "#dabdda",
+    "color14": "#bddada",
+    "color15": "#ffffff"
+  }
+}

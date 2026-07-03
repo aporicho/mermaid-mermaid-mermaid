@@ -1,0 +1,42 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-kokiri",
+  "name": "Kokiri",
+  "description": "Kokiri kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "light",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/Kokiri.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/Kokiri.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "MIT",
+    "author": "Chuck",
+    "upstream": "https://github.com/fremontcw/kokiri-theme/blob/main/kitty/Kokiri.conf"
+  },
+  "palette": {
+    "background": "#c5d8a0",
+    "foreground": "#704518",
+    "cursor": "#8a6830",
+    "cursorText": "#c5d8a0",
+    "selectionBackground": "#a0c080",
+    "selectionForeground": "#c5d8a0",
+    "color0": "#a0c080",
+    "color1": "#b8860b",
+    "color2": "#4a7a4a",
+    "color3": "#8a6830",
+    "color4": "#4a6a8a",
+    "color5": "#7a5a7a",
+    "color6": "#4a7a7a",
+    "color7": "#c9a654",
+    "color8": "#704518",
+    "color9": "#d4a420",
+    "color10": "#5a8a5a",
+    "color11": "#a07838",
+    "color12": "#5a7a9a",
+    "color13": "#8a6a8a",
+    "color14": "#5a8a8a",
+    "color15": "#ddc070"
+  }
+}

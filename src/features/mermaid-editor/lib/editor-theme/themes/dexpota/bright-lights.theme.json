@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-dexpota-bright-lights",
+  "name": "Bright Lights",
+  "description": "Bright Lights kitty theme from dexpota/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "dexpota",
+    "name": "dexpota/kitty-themes",
+    "repository": "https://github.com/dexpota/kitty-themes",
+    "path": "themes/Bright_Lights.conf",
+    "url": "https://github.com/dexpota/kitty-themes/blob/b1abdd54ba655ef34f75a568d78625981bf1722c/themes/Bright_Lights.conf",
+    "commit": "b1abdd54ba655ef34f75a568d78625981bf1722c",
+    "license": "MIT"
+  },
+  "palette": {
+    "background": "#191919",
+    "foreground": "#b2c8d6",
+    "cursor": "#f34a00",
+    "selectionBackground": "#b2c8d6",
+    "selectionForeground": "#191919",
+    "color0": "#191919",
+    "color1": "#ff355b",
+    "color2": "#b6e875",
+    "color3": "#ffc150",
+    "color4": "#75d3ff",
+    "color5": "#b975e6",
+    "color6": "#6cbeb5",
+    "color7": "#c1c8d6",
+    "color8": "#191919",
+    "color9": "#ff355b",
+    "color10": "#b6e875",
+    "color11": "#ffc150",
+    "color12": "#75d4ff",
+    "color13": "#b975e6",
+    "color14": "#6cbeb5",
+    "color15": "#c1c8d6"
+  }
+}

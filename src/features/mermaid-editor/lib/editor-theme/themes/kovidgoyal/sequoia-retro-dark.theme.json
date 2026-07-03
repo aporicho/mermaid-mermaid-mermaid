@@ -1,0 +1,40 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-sequoia-retro-dark",
+  "name": "Sequoia Retro Dark",
+  "description": "Sequoia Retro Dark kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/Sequoia_Retro_Dark.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/Sequoia_Retro_Dark.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "MIT",
+    "author": "Micheal Andreuzza",
+    "upstream": "https://raw.githubusercontent.com/Sequoia-Theme/kitty/main/sequoia-retro-dark.conf"
+  },
+  "palette": {
+    "background": "#0f1014",
+    "foreground": "#868690",
+    "cursor": "#5c87a4",
+    "selectionForeground": "#868690",
+    "color0": "#131317",
+    "color1": "#829fa7",
+    "color2": "#648f68",
+    "color3": "#da674b",
+    "color4": "#5c87a4",
+    "color5": "#e8b246",
+    "color6": "#a27e57",
+    "color7": "#868690",
+    "color8": "#575861",
+    "color9": "#e8b246",
+    "color10": "#648f68",
+    "color11": "#da674b",
+    "color12": "#5c87a4",
+    "color13": "#829fa7",
+    "color14": "#a27e57",
+    "color15": "#868690"
+  }
+}

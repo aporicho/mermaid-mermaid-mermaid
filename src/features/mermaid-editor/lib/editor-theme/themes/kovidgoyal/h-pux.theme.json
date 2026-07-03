@@ -1,0 +1,41 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-h-pux",
+  "name": "H-PUX",
+  "description": "H-PUX kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "light",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/h_pux.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/h_pux.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "CC0 1.0",
+    "author": "Jacob Chapman",
+    "upstream": "https://github.com/chapmanjacobd/computer/blob/main/.config/kitty/theme.conf"
+  },
+  "palette": {
+    "background": "#d1bca7",
+    "foreground": "#000000",
+    "cursor": "#73635a",
+    "selectionBackground": "#223322",
+    "selectionForeground": "#dfdbc3",
+    "color0": "#000000",
+    "color1": "#8c0000",
+    "color2": "#007d00",
+    "color3": "#8c7000",
+    "color4": "#003cb4",
+    "color5": "#820082",
+    "color6": "#008b8b",
+    "color7": "#bbbbbb",
+    "color8": "#545454",
+    "color9": "#ff0000",
+    "color10": "#00ee00",
+    "color11": "#ffff00",
+    "color12": "#0000ff",
+    "color13": "#ff00ff",
+    "color14": "#00cdcd",
+    "color15": "#ffffff"
+  }
+}

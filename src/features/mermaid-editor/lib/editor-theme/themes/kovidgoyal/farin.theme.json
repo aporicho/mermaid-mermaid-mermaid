@@ -1,0 +1,38 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-farin",
+  "name": "Farin",
+  "description": "Farin kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/Farin.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/Farin.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "GPL-3.0"
+  },
+  "palette": {
+    "background": "#1e1e1e",
+    "foreground": "#aaaaaa",
+    "selectionBackground": "#aaaaaa",
+    "selectionForeground": "#1e1e1e",
+    "color0": "#444444",
+    "color1": "#ff1155",
+    "color2": "#11ff55",
+    "color3": "#ffbb33",
+    "color4": "#1155ff",
+    "color5": "#ed53c9",
+    "color6": "#00ffbb",
+    "color7": "#cccccc",
+    "color8": "#666666",
+    "color9": "#ff4488",
+    "color10": "#44ff88",
+    "color11": "#ffdd66",
+    "color12": "#4488ff",
+    "color13": "#dd66ff",
+    "color14": "#66ffdd",
+    "color15": "#ffffff"
+  }
+}

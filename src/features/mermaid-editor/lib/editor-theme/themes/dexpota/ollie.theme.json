@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-dexpota-ollie",
+  "name": "Ollie",
+  "description": "Ollie kitty theme from dexpota/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "dexpota",
+    "name": "dexpota/kitty-themes",
+    "repository": "https://github.com/dexpota/kitty-themes",
+    "path": "themes/Ollie.conf",
+    "url": "https://github.com/dexpota/kitty-themes/blob/b1abdd54ba655ef34f75a568d78625981bf1722c/themes/Ollie.conf",
+    "commit": "b1abdd54ba655ef34f75a568d78625981bf1722c",
+    "license": "MIT"
+  },
+  "palette": {
+    "background": "#212024",
+    "foreground": "#8a8dae",
+    "cursor": "#5b6da7",
+    "selectionBackground": "#1e3965",
+    "selectionForeground": "#212024",
+    "color0": "#000000",
+    "color1": "#ab2e30",
+    "color2": "#31ab60",
+    "color3": "#ab4200",
+    "color4": "#2c56ab",
+    "color5": "#af8427",
+    "color6": "#1fa5ab",
+    "color7": "#8a8dab",
+    "color8": "#5a3625",
+    "color9": "#ff3d48",
+    "color10": "#3bff99",
+    "color11": "#ff5e1e",
+    "color12": "#4487ff",
+    "color13": "#ffc21c",
+    "color14": "#1efaff",
+    "color15": "#5b6da7"
+  }
+}

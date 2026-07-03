@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-e-ink",
+  "name": "E-Ink",
+  "description": "E-Ink kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "light",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/E-Ink.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/E-Ink.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "MIT",
+    "author": "Algilbert Gomez (https://github.com/alexxGmZ)",
+    "upstream": "https://github.com/alexxGmZ/e-ink.kitty/blob/main/E-Ink.conf"
+  },
+  "palette": {
+    "background": "#cccccc",
+    "foreground": "#474747",
+    "selectionBackground": "#aeaeae",
+    "color0": "#cccccc",
+    "color1": "#333333",
+    "color2": "#9a9a9a",
+    "color3": "#868686",
+    "color4": "#727272",
+    "color5": "#aeaeae",
+    "color6": "#4a4a4a",
+    "color7": "#5e5e5e",
+    "color8": "#5e5e5e",
+    "color9": "#333333",
+    "color10": "#9a9a9a",
+    "color11": "#868686",
+    "color12": "#727272",
+    "color13": "#aeaeae",
+    "color14": "#4a4a4a",
+    "color15": "#7c7c7c"
+  }
+}

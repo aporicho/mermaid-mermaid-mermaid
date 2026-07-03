@@ -12,6 +12,7 @@ export {
 export type {
   EditorDraftState,
   EditorRuntime,
+  RuntimeBrowserToolWindowResult,
   RuntimeDesktopWindowAction,
   RuntimeEmbeddedBrowserHandle,
   RuntimeEmbeddedBrowserResult,
@@ -19,6 +20,8 @@ export type {
   RuntimeFileOpenRequest,
   RuntimeFileRef,
   RuntimeImageAssetResult,
+  RuntimeLinkPreviewRequest,
+  RuntimeLinkPreviewResult,
   RuntimeOpenFileResult,
   RuntimeProjectFolderResult,
   RuntimeSaveFileResult,

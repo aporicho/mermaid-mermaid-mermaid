@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-dexpota-vibrantink",
+  "name": "VibrantInk",
+  "description": "VibrantInk kitty theme from dexpota/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "dexpota",
+    "name": "dexpota/kitty-themes",
+    "repository": "https://github.com/dexpota/kitty-themes",
+    "path": "themes/VibrantInk.conf",
+    "url": "https://github.com/dexpota/kitty-themes/blob/b1abdd54ba655ef34f75a568d78625981bf1722c/themes/VibrantInk.conf",
+    "commit": "b1abdd54ba655ef34f75a568d78625981bf1722c",
+    "license": "MIT"
+  },
+  "palette": {
+    "background": "#000000",
+    "foreground": "#ffffff",
+    "cursor": "#ffffff",
+    "selectionBackground": "#b4d5ff",
+    "selectionForeground": "#000000",
+    "color0": "#868686",
+    "color1": "#ff6600",
+    "color2": "#ccff04",
+    "color3": "#ffcc00",
+    "color4": "#44b3cc",
+    "color5": "#9933cc",
+    "color6": "#44b3cc",
+    "color7": "#f4f4f4",
+    "color8": "#545454",
+    "color9": "#ff0000",
+    "color10": "#00ff00",
+    "color11": "#ffff00",
+    "color12": "#0000ff",
+    "color13": "#ff00ff",
+    "color14": "#00ffff",
+    "color15": "#e5e5e5"
+  }
+}

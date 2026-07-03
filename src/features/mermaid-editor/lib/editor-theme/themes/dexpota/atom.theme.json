@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-dexpota-atom",
+  "name": "Atom",
+  "description": "Atom kitty theme from dexpota/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "dexpota",
+    "name": "dexpota/kitty-themes",
+    "repository": "https://github.com/dexpota/kitty-themes",
+    "path": "themes/Atom.conf",
+    "url": "https://github.com/dexpota/kitty-themes/blob/b1abdd54ba655ef34f75a568d78625981bf1722c/themes/Atom.conf",
+    "commit": "b1abdd54ba655ef34f75a568d78625981bf1722c",
+    "license": "MIT"
+  },
+  "palette": {
+    "background": "#161718",
+    "foreground": "#c4c8c5",
+    "cursor": "#d0d0d0",
+    "selectionBackground": "#444444",
+    "selectionForeground": "#161718",
+    "color0": "#000000",
+    "color1": "#fc5ef0",
+    "color2": "#86c38a",
+    "color3": "#ffd6b1",
+    "color4": "#85befd",
+    "color5": "#b9b5fc",
+    "color6": "#85befd",
+    "color7": "#dfdfdf",
+    "color8": "#000000",
+    "color9": "#fc5ef0",
+    "color10": "#94f936",
+    "color11": "#f5ffa7",
+    "color12": "#95cbfe",
+    "color13": "#b9b5fc",
+    "color14": "#85befd",
+    "color15": "#dfdfdf"
+  }
+}

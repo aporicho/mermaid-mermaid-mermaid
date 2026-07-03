@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-hardcore",
+  "name": "Hardcore",
+  "description": "Hardcore kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/Hardcore.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/Hardcore.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "GPL-3.0"
+  },
+  "palette": {
+    "background": "#121212",
+    "foreground": "#a0a0a0",
+    "cursor": "#bbbbbb",
+    "selectionBackground": "#453a39",
+    "selectionForeground": "#121212",
+    "color0": "#1b1d1e",
+    "color1": "#f92672",
+    "color2": "#a6e22e",
+    "color3": "#fd971f",
+    "color4": "#66d9ef",
+    "color5": "#9e6ffe",
+    "color6": "#5e7175",
+    "color7": "#ccccc6",
+    "color8": "#505354",
+    "color9": "#ff669d",
+    "color10": "#beed5f",
+    "color11": "#e6db74",
+    "color12": "#66d9ef",
+    "color13": "#9e6ffe",
+    "color14": "#a3babf",
+    "color15": "#f8f8f2"
+  }
+}

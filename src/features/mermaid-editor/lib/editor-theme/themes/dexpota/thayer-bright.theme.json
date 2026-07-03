@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-dexpota-thayer-bright",
+  "name": "Thayer Bright",
+  "description": "Thayer Bright kitty theme from dexpota/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "dexpota",
+    "name": "dexpota/kitty-themes",
+    "repository": "https://github.com/dexpota/kitty-themes",
+    "path": "themes/Thayer_Bright.conf",
+    "url": "https://github.com/dexpota/kitty-themes/blob/b1abdd54ba655ef34f75a568d78625981bf1722c/themes/Thayer_Bright.conf",
+    "commit": "b1abdd54ba655ef34f75a568d78625981bf1722c",
+    "license": "MIT"
+  },
+  "palette": {
+    "background": "#1b1d1e",
+    "foreground": "#f8f8f8",
+    "cursor": "#fc971e",
+    "selectionBackground": "#4d4d4d",
+    "selectionForeground": "#1b1d1e",
+    "color0": "#1b1d1e",
+    "color1": "#f92672",
+    "color2": "#4df740",
+    "color3": "#f3fd21",
+    "color4": "#2656d6",
+    "color5": "#8c54fe",
+    "color6": "#37c8b4",
+    "color7": "#ccccc6",
+    "color8": "#505354",
+    "color9": "#ff5995",
+    "color10": "#b6e354",
+    "color11": "#feed6c",
+    "color12": "#3f78ff",
+    "color13": "#9e6ffe",
+    "color14": "#23ced4",
+    "color15": "#f8f8f2"
+  }
+}

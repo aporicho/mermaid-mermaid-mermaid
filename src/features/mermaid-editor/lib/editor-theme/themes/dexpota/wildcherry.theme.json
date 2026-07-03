@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-dexpota-wildcherry",
+  "name": "WildCherry",
+  "description": "WildCherry kitty theme from dexpota/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "dexpota",
+    "name": "dexpota/kitty-themes",
+    "repository": "https://github.com/dexpota/kitty-themes",
+    "path": "themes/WildCherry.conf",
+    "url": "https://github.com/dexpota/kitty-themes/blob/b1abdd54ba655ef34f75a568d78625981bf1722c/themes/WildCherry.conf",
+    "commit": "b1abdd54ba655ef34f75a568d78625981bf1722c",
+    "license": "MIT"
+  },
+  "palette": {
+    "background": "#1f1626",
+    "foreground": "#d9faff",
+    "cursor": "#dd00ff",
+    "selectionBackground": "#002731",
+    "selectionForeground": "#1f1626",
+    "color0": "#000506",
+    "color1": "#d94085",
+    "color2": "#2ab250",
+    "color3": "#ffd06e",
+    "color4": "#873bdb",
+    "color5": "#ececec",
+    "color6": "#c1b8b6",
+    "color7": "#fff8dd",
+    "color8": "#009cc9",
+    "color9": "#da6bab",
+    "color10": "#f4dba5",
+    "color11": "#eac066",
+    "color12": "#2f8bb9",
+    "color13": "#ae636b",
+    "color14": "#ff919d",
+    "color15": "#e4838d"
+  }
+}

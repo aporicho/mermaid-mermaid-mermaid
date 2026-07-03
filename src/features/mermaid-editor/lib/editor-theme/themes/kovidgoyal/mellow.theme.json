@@ -1,0 +1,40 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-mellow",
+  "name": "Mellow",
+  "description": "Mellow kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/mellow.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/mellow.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "MIT",
+    "upstream": "https://raw.githubusercontent.com/mellow-theme/mellow.nvim/refs/heads/main/extras/kitty/mellow.conf"
+  },
+  "palette": {
+    "background": "#161617",
+    "foreground": "#c9c7cd",
+    "cursor": "#e3e2e5",
+    "selectionBackground": "#3c3b3e",
+    "selectionForeground": "#e3e2e5",
+    "color0": "#27272a",
+    "color1": "#f5a191",
+    "color2": "#90b99f",
+    "color3": "#e6b99d",
+    "color4": "#aca1cf",
+    "color5": "#e29eca",
+    "color6": "#ea83a5",
+    "color7": "#c1c0d4",
+    "color8": "#353539",
+    "color9": "#ffae9f",
+    "color10": "#9dc6ac",
+    "color11": "#f0c5a9",
+    "color12": "#b9aeda",
+    "color13": "#ecaad6",
+    "color14": "#f591b2",
+    "color15": "#cac9dd"
+  }
+}

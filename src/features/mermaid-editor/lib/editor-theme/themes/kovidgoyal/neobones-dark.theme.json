@@ -1,0 +1,42 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-neobones-dark",
+  "name": "neobones_dark",
+  "description": "neobones_dark kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/neobones_dark.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/neobones_dark.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "MIT",
+    "author": "Michael Chris Lopez",
+    "upstream": "https://github.com/mcchrish/zenbones.nvim/raw/main/extras/kitty/neobones_dark.conf"
+  },
+  "palette": {
+    "background": "#0f191f",
+    "foreground": "#c6d5cf",
+    "cursor": "#ceddd7",
+    "cursorText": "#0f191f",
+    "selectionBackground": "#3a3e3d",
+    "selectionForeground": "#c6d5cf",
+    "color0": "#0f191f",
+    "color1": "#de6e7c",
+    "color2": "#90ff6b",
+    "color3": "#b77e64",
+    "color4": "#8190d4",
+    "color5": "#b279a7",
+    "color6": "#66a5ad",
+    "color7": "#c6d5cf",
+    "color8": "#263945",
+    "color9": "#e8838f",
+    "color10": "#a0ff85",
+    "color11": "#d68c67",
+    "color12": "#92a0e2",
+    "color13": "#cf86c1",
+    "color14": "#65b8c1",
+    "color15": "#98a39e"
+  }
+}

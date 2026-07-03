@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-grass",
+  "name": "Grass",
+  "description": "Grass kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/Grass.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/Grass.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "GPL-3.0"
+  },
+  "palette": {
+    "background": "#12773d",
+    "foreground": "#fff0a4",
+    "cursor": "#8b2800",
+    "selectionBackground": "#b64825",
+    "selectionForeground": "#12773d",
+    "color0": "#000000",
+    "color1": "#ba0000",
+    "color2": "#00ba00",
+    "color3": "#e6af00",
+    "color4": "#0000a3",
+    "color5": "#950062",
+    "color6": "#00baba",
+    "color7": "#bababa",
+    "color8": "#545454",
+    "color9": "#ba0000",
+    "color10": "#00ba00",
+    "color11": "#e6af00",
+    "color12": "#0000ba",
+    "color13": "#ff54ff",
+    "color14": "#54ffff",
+    "color15": "#ffffff"
+  }
+}

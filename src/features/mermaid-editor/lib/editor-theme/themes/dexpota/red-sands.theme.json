@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-dexpota-red-sands",
+  "name": "Red Sands",
+  "description": "Red Sands kitty theme from dexpota/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "dexpota",
+    "name": "dexpota/kitty-themes",
+    "repository": "https://github.com/dexpota/kitty-themes",
+    "path": "themes/Red_Sands.conf",
+    "url": "https://github.com/dexpota/kitty-themes/blob/b1abdd54ba655ef34f75a568d78625981bf1722c/themes/Red_Sands.conf",
+    "commit": "b1abdd54ba655ef34f75a568d78625981bf1722c",
+    "license": "MIT"
+  },
+  "palette": {
+    "background": "#79241d",
+    "foreground": "#d6c8a7",
+    "cursor": "#ffffff",
+    "selectionBackground": "#a4a390",
+    "selectionForeground": "#79241d",
+    "color0": "#000000",
+    "color1": "#ff3e00",
+    "color2": "#00ba00",
+    "color3": "#e6af00",
+    "color4": "#0071ff",
+    "color5": "#ba00ba",
+    "color6": "#00baba",
+    "color7": "#bababa",
+    "color8": "#545454",
+    "color9": "#ba0000",
+    "color10": "#00ba00",
+    "color11": "#e6af00",
+    "color12": "#0071ae",
+    "color13": "#ff54ff",
+    "color14": "#54ffff",
+    "color15": "#ffffff"
+  }
+}

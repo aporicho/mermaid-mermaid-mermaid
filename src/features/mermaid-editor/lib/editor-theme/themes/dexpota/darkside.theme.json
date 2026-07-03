@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-dexpota-darkside",
+  "name": "Darkside",
+  "description": "Darkside kitty theme from dexpota/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "dexpota",
+    "name": "dexpota/kitty-themes",
+    "repository": "https://github.com/dexpota/kitty-themes",
+    "path": "themes/Darkside.conf",
+    "url": "https://github.com/dexpota/kitty-themes/blob/b1abdd54ba655ef34f75a568d78625981bf1722c/themes/Darkside.conf",
+    "commit": "b1abdd54ba655ef34f75a568d78625981bf1722c",
+    "license": "MIT"
+  },
+  "palette": {
+    "background": "#212324",
+    "foreground": "#b9b9b9",
+    "cursor": "#bbbbbb",
+    "selectionBackground": "#2f3333",
+    "selectionForeground": "#212324",
+    "color0": "#000000",
+    "color1": "#e8331c",
+    "color2": "#68c156",
+    "color3": "#f1d32b",
+    "color4": "#1c98e8",
+    "color5": "#8e69c8",
+    "color6": "#1c98e8",
+    "color7": "#b9b9b9",
+    "color8": "#000000",
+    "color9": "#df5a4f",
+    "color10": "#76b768",
+    "color11": "#eed64a",
+    "color12": "#387bd2",
+    "color13": "#957bbd",
+    "color14": "#3d96e2",
+    "color15": "#b9b9b9"
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-ic-orange-ppl",
+  "name": "IC Orange PPL",
+  "description": "IC Orange PPL kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/IC_Orange_PPL.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/IC_Orange_PPL.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "GPL-3.0"
+  },
+  "palette": {
+    "background": "#262626",
+    "foreground": "#ffcb83",
+    "cursor": "#fb521c",
+    "selectionBackground": "#c03f1f",
+    "selectionForeground": "#262626",
+    "color0": "#000000",
+    "color1": "#c03900",
+    "color2": "#a3a900",
+    "color3": "#caae00",
+    "color4": "#bd6c00",
+    "color5": "#fb5d00",
+    "color6": "#f79400",
+    "color7": "#ffc88a",
+    "color8": "#6a4e29",
+    "color9": "#ff8b67",
+    "color10": "#f6ff3f",
+    "color11": "#ffe36e",
+    "color12": "#ffbd54",
+    "color13": "#fc874f",
+    "color14": "#c59752",
+    "color15": "#f9f9fe"
+  }
+}

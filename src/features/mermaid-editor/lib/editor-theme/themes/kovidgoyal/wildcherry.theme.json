@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-wildcherry",
+  "name": "WildCherry",
+  "description": "WildCherry kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/WildCherry.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/WildCherry.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "GPL-3.0"
+  },
+  "palette": {
+    "background": "#1f1626",
+    "foreground": "#d9faff",
+    "cursor": "#dd00ff",
+    "selectionBackground": "#002731",
+    "selectionForeground": "#1f1626",
+    "color0": "#000506",
+    "color1": "#d94085",
+    "color2": "#2ab250",
+    "color3": "#ffd06e",
+    "color4": "#873bdb",
+    "color5": "#ececec",
+    "color6": "#c1b8b6",
+    "color7": "#fff8dd",
+    "color8": "#009cc9",
+    "color9": "#da6bab",
+    "color10": "#f4dba5",
+    "color11": "#eac066",
+    "color12": "#2f8bb9",
+    "color13": "#ae636b",
+    "color14": "#ff919d",
+    "color15": "#e4838d"
+  }
+}

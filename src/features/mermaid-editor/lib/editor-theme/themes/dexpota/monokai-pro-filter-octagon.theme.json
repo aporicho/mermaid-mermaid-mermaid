@@ -1,0 +1,40 @@
+{
+  "kind": "kitty",
+  "id": "kitty-dexpota-monokai-pro-filter-octagon",
+  "name": "Monokai Pro (Filter Octagon)",
+  "description": "Monokai Pro (Filter Octagon) kitty theme from dexpota/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "dexpota",
+    "name": "dexpota/kitty-themes",
+    "repository": "https://github.com/dexpota/kitty-themes",
+    "path": "themes/Monokai_Pro_(Filter_Octagon).conf",
+    "url": "https://github.com/dexpota/kitty-themes/blob/b1abdd54ba655ef34f75a568d78625981bf1722c/themes/Monokai_Pro_(Filter_Octagon).conf",
+    "commit": "b1abdd54ba655ef34f75a568d78625981bf1722c",
+    "license": "MIT"
+  },
+  "palette": {
+    "background": "#3a3d4b",
+    "foreground": "#eaf2f1",
+    "cursor": "#eaf2f1",
+    "cursorText": "#000000",
+    "selectionBackground": "#eaf2f1",
+    "selectionForeground": "#3a3d4b",
+    "color0": "#3a3d4b",
+    "color1": "#ff657a",
+    "color2": "#bad761",
+    "color3": "#ffd76d",
+    "color4": "#ff9b5e",
+    "color5": "#c39ac9",
+    "color6": "#9cd1bb",
+    "color7": "#eaf2f1",
+    "color8": "#696d77",
+    "color9": "#ff657a",
+    "color10": "#bad761",
+    "color11": "#ffd76d",
+    "color12": "#ff9b5e",
+    "color13": "#c39ac9",
+    "color14": "#9cd1bb",
+    "color15": "#eaf2f1"
+  }
+}

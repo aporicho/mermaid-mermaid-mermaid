@@ -1,0 +1,40 @@
+{
+  "kind": "kitty",
+  "id": "kitty-dexpota-monokai-pro-filter-ristretto",
+  "name": "Monokai Pro (Filter Ristretto)",
+  "description": "Monokai Pro (Filter Ristretto) kitty theme from dexpota/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "dexpota",
+    "name": "dexpota/kitty-themes",
+    "repository": "https://github.com/dexpota/kitty-themes",
+    "path": "themes/Monokai_Pro_(Filter_Ristretto).conf",
+    "url": "https://github.com/dexpota/kitty-themes/blob/b1abdd54ba655ef34f75a568d78625981bf1722c/themes/Monokai_Pro_(Filter_Ristretto).conf",
+    "commit": "b1abdd54ba655ef34f75a568d78625981bf1722c",
+    "license": "MIT"
+  },
+  "palette": {
+    "background": "#403838",
+    "foreground": "#fff1f3",
+    "cursor": "#fff1f3",
+    "cursorText": "#000000",
+    "selectionBackground": "#fff1f3",
+    "selectionForeground": "#403838",
+    "color0": "#403838",
+    "color1": "#fd6883",
+    "color2": "#adda78",
+    "color3": "#f9cc6c",
+    "color4": "#f38d70",
+    "color5": "#a8a9eb",
+    "color6": "#85dacc",
+    "color7": "#fff1f3",
+    "color8": "#72696a",
+    "color9": "#fd6883",
+    "color10": "#adda78",
+    "color11": "#f9cc6c",
+    "color12": "#f38d70",
+    "color13": "#a8a9eb",
+    "color14": "#85dacc",
+    "color15": "#fff1f3"
+  }
+}

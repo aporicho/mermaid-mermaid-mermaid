@@ -93,7 +93,13 @@ export function useEditorDocumentModel({ initial, runtime }: UseEditorDocumentMo
   const canvasViewTooltip = isCanvasEditable ? "无限画布" : `${diagramTypeLabel(diagramType)} 仅支持渲染`;
 
   useEffect(() => {
-    const assetSources = Array.from(new Set(graph.nodes.map((node) => node.asset?.src).filter((src): src is string => Boolean(src))));
+    const assetSources = Array.from(
+      new Set(
+        graph.nodes
+          .flatMap((node) => [node.asset?.src, node.preview?.cover?.src])
+          .filter((src): src is string => Boolean(src))
+      )
+    );
     if (!assetSources.length) {
       setImageDisplaySrcBySrc({});
       return;

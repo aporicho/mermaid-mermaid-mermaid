@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-dexpota-paulmillr",
+  "name": "PaulMillr",
+  "description": "PaulMillr kitty theme from dexpota/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "dexpota",
+    "name": "dexpota/kitty-themes",
+    "repository": "https://github.com/dexpota/kitty-themes",
+    "path": "themes/PaulMillr.conf",
+    "url": "https://github.com/dexpota/kitty-themes/blob/b1abdd54ba655ef34f75a568d78625981bf1722c/themes/PaulMillr.conf",
+    "commit": "b1abdd54ba655ef34f75a568d78625981bf1722c",
+    "license": "MIT"
+  },
+  "palette": {
+    "background": "#000000",
+    "foreground": "#f1f1f1",
+    "cursor": "#4c4c4c",
+    "selectionBackground": "#414141",
+    "selectionForeground": "#000000",
+    "color0": "#2a2a2a",
+    "color1": "#ff0000",
+    "color2": "#78ff0e",
+    "color3": "#e6be00",
+    "color4": "#396ad6",
+    "color5": "#b348bd",
+    "color6": "#66ccff",
+    "color7": "#bababa",
+    "color8": "#666666",
+    "color9": "#ff007f",
+    "color10": "#66ff66",
+    "color11": "#f3d64d",
+    "color12": "#7099ec",
+    "color13": "#da66e5",
+    "color14": "#79def1",
+    "color15": "#ffffff"
+  }
+}

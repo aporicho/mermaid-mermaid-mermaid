@@ -1,0 +1,37 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-leaf-light",
+  "name": "Leaf Light",
+  "description": "Leaf Light kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "light",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/leaf_light.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/leaf_light.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "GPLv3",
+    "author": "qewer33, brought to kitty by KodiakWeb"
+  },
+  "palette": {
+    "background": "#e1e4dc",
+    "foreground": "#2e2c2f",
+    "color0": "#2e2c2f",
+    "color1": "#ba5860",
+    "color2": "#729b79",
+    "color3": "#ccaa6c",
+    "color4": "#5292c6",
+    "color5": "#8c6aa8",
+    "color6": "#489ca5",
+    "color7": "#e1e4dc",
+    "color8": "#403f42",
+    "color9": "#9d4b53",
+    "color10": "#59795f",
+    "color11": "#a78a58",
+    "color12": "#40739a",
+    "color13": "#715688",
+    "color14": "#3b8187",
+    "color15": "#b1b3ad"
+  }
+}

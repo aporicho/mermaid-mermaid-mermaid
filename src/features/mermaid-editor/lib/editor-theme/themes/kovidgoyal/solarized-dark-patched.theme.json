@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-solarized-dark-patched",
+  "name": "Solarized Dark Patched",
+  "description": "Solarized Dark Patched kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/Solarized_Dark_-_Patched.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/Solarized_Dark_-_Patched.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "GPL-3.0"
+  },
+  "palette": {
+    "background": "#001e26",
+    "foreground": "#708183",
+    "cursor": "#708183",
+    "selectionBackground": "#002731",
+    "selectionForeground": "#001e26",
+    "color0": "#002731",
+    "color1": "#d01b24",
+    "color2": "#728905",
+    "color3": "#a57705",
+    "color4": "#2075c7",
+    "color5": "#c61b6e",
+    "color6": "#259185",
+    "color7": "#e9e2cb",
+    "color8": "#465a61",
+    "color9": "#bd3612",
+    "color10": "#465a61",
+    "color11": "#52676f",
+    "color12": "#708183",
+    "color13": "#5856b9",
+    "color14": "#81908f",
+    "color15": "#fcf4dc"
+  }
+}

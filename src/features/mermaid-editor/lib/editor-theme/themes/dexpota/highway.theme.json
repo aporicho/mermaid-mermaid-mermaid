@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-dexpota-highway",
+  "name": "Highway",
+  "description": "Highway kitty theme from dexpota/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "dexpota",
+    "name": "dexpota/kitty-themes",
+    "repository": "https://github.com/dexpota/kitty-themes",
+    "path": "themes/Highway.conf",
+    "url": "https://github.com/dexpota/kitty-themes/blob/b1abdd54ba655ef34f75a568d78625981bf1722c/themes/Highway.conf",
+    "commit": "b1abdd54ba655ef34f75a568d78625981bf1722c",
+    "license": "MIT"
+  },
+  "palette": {
+    "background": "#212224",
+    "foreground": "#ededed",
+    "cursor": "#dfd9b8",
+    "selectionBackground": "#384563",
+    "selectionForeground": "#212224",
+    "color0": "#000000",
+    "color1": "#cf0d17",
+    "color2": "#128033",
+    "color3": "#ffca3d",
+    "color4": "#006ab3",
+    "color5": "#6a2674",
+    "color6": "#384563",
+    "color7": "#ededed",
+    "color8": "#5c4f49",
+    "color9": "#ef7d17",
+    "color10": "#b1d130",
+    "color11": "#fff11f",
+    "color12": "#4fc2fd",
+    "color13": "#de0070",
+    "color14": "#5c4f49",
+    "color15": "#fefffe"
+  }
+}

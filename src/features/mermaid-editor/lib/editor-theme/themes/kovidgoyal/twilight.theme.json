@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-twilight",
+  "name": "Twilight",
+  "description": "Twilight kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/Twilight.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/Twilight.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "GPL-3.0"
+  },
+  "palette": {
+    "background": "#141414",
+    "foreground": "#feffd3",
+    "cursor": "#ffffff",
+    "selectionBackground": "#303030",
+    "selectionForeground": "#141414",
+    "color0": "#141414",
+    "color1": "#c06c43",
+    "color2": "#afb979",
+    "color3": "#c2a86c",
+    "color4": "#444649",
+    "color5": "#b4be7b",
+    "color6": "#778284",
+    "color7": "#feffd3",
+    "color8": "#262626",
+    "color9": "#dd7c4c",
+    "color10": "#cbd88c",
+    "color11": "#e1c47d",
+    "color12": "#5a5d61",
+    "color13": "#d0db8e",
+    "color14": "#8a989a",
+    "color15": "#feffd3"
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-paradiso-dark",
+  "name": "Paradiso Dark",
+  "description": "Paradiso Dark kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/paradiso-dark.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/paradiso-dark.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "MIT",
+    "author": "BrokenSideViewMirror (https://github.com/BrokenSideViewMirror)",
+    "upstream": "https://github.com/BrokenSideViewMirror/paradiso-theme-kitty/blob/main/themes/paradiso-dark.conf"
+  },
+  "palette": {
+    "background": "#302138",
+    "foreground": "#b8d0db",
+    "cursor": "#89a7bf",
+    "cursorText": "#232438",
+    "selectionBackground": "#d7bee5",
+    "selectionForeground": "#1e1423",
+    "color0": "#553a63",
+    "color1": "#8eb8db",
+    "color2": "#8e92db",
+    "color3": "#9157cc",
+    "color4": "#4660a0",
+    "color5": "#db74e0",
+    "color6": "#68acc1",
+    "color7": "#b8d0db",
+    "color8": "#6f4c82",
+    "color9": "#c2e1fc",
+    "color10": "#c2c4fc",
+    "color11": "#c68ffc",
+    "color12": "#5d8afc",
+    "color13": "#f8aefc",
+    "color14": "#99e5fc",
+    "color15": "#ccebf9"
+  }
+}

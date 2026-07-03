@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-espresso",
+  "name": "Espresso",
+  "description": "Espresso kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/Espresso.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/Espresso.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "GPL-3.0"
+  },
+  "palette": {
+    "background": "#323232",
+    "foreground": "#ffffff",
+    "cursor": "#d6d6d6",
+    "selectionBackground": "#5b5b5b",
+    "selectionForeground": "#323232",
+    "color0": "#353535",
+    "color1": "#d25252",
+    "color2": "#a4c161",
+    "color3": "#ffc56d",
+    "color4": "#6c99ba",
+    "color5": "#d096d9",
+    "color6": "#bdd6ff",
+    "color7": "#ededec",
+    "color8": "#535353",
+    "color9": "#f00c0c",
+    "color10": "#c1df74",
+    "color11": "#e1e48a",
+    "color12": "#8ab6d9",
+    "color13": "#efb5f7",
+    "color14": "#dbf4ff",
+    "color15": "#ffffff"
+  }
+}

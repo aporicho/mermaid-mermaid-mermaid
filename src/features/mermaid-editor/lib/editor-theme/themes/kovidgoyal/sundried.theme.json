@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-sundried",
+  "name": "Sundried",
+  "description": "Sundried kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/Sundried.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/Sundried.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "GPL-3.0"
+  },
+  "palette": {
+    "background": "#1a1818",
+    "foreground": "#c8c8c8",
+    "cursor": "#fffefe",
+    "selectionBackground": "#302b2a",
+    "selectionForeground": "#1a1818",
+    "color0": "#302b2a",
+    "color1": "#a6463d",
+    "color2": "#577644",
+    "color3": "#9c5f2a",
+    "color4": "#485a98",
+    "color5": "#854551",
+    "color6": "#9c814e",
+    "color7": "#c8c8c8",
+    "color8": "#4d4d47",
+    "color9": "#aa000c",
+    "color10": "#128c20",
+    "color11": "#fc6a20",
+    "color12": "#7898f7",
+    "color13": "#fc89a0",
+    "color14": "#fad384",
+    "color15": "#fffefe"
+  }
+}

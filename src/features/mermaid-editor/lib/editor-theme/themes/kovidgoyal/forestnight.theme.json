@@ -1,0 +1,36 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-forestnight",
+  "name": "ForestNight",
+  "description": "ForestNight kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/ForestNight.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/ForestNight.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "GPL-3.0"
+  },
+  "palette": {
+    "background": "#3c4c55",
+    "foreground": "#ffebc3",
+    "color0": "#7f8f9f",
+    "color1": "#fd8489",
+    "color2": "#a9dd9d",
+    "color3": "#f0aa8a",
+    "color4": "#bdd0e5",
+    "color5": "#daccf0",
+    "color6": "#a9dd9d",
+    "color7": "#ffebc3",
+    "color8": "#7f8f9f",
+    "color9": "#fd8489",
+    "color10": "#a9dd9d",
+    "color11": "#eed094",
+    "color12": "#bdd0e5",
+    "color13": "#daccf0",
+    "color14": "#a9dd9d",
+    "color15": "#ffebc3"
+  }
+}

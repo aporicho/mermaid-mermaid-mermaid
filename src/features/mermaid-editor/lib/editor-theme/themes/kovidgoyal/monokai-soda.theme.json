@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-monokai-soda",
+  "name": "Monokai Soda",
+  "description": "Monokai Soda kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/Monokai_Soda.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/Monokai_Soda.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "GPL-3.0"
+  },
+  "palette": {
+    "background": "#191919",
+    "foreground": "#c4c4b5",
+    "cursor": "#f6f6ec",
+    "selectionBackground": "#343434",
+    "selectionForeground": "#191919",
+    "color0": "#191919",
+    "color1": "#f3005f",
+    "color2": "#97e023",
+    "color3": "#fa8419",
+    "color4": "#9c64fe",
+    "color5": "#f3005f",
+    "color6": "#57d1ea",
+    "color7": "#c4c4b5",
+    "color8": "#615e4b",
+    "color9": "#f3005f",
+    "color10": "#97e023",
+    "color11": "#dfd561",
+    "color12": "#9c64fe",
+    "color13": "#f3005f",
+    "color14": "#57d1ea",
+    "color15": "#f6f6ee"
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-corvine",
+  "name": "Corvine",
+  "description": "Corvine kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/Corvine.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/Corvine.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "GPL-3.0"
+  },
+  "palette": {
+    "background": "#262626",
+    "foreground": "#c6c6c6",
+    "color0": "#3a3a3a",
+    "color1": "#d78787",
+    "color2": "#87af5f",
+    "color3": "#d7d7af",
+    "color4": "#87afd7",
+    "color5": "#afafd7",
+    "color6": "#87d7d7",
+    "color7": "#c6c6c6",
+    "color8": "#626262",
+    "color9": "#ffafaf",
+    "color10": "#afd787",
+    "color11": "#d7d787",
+    "color12": "#87d7ff",
+    "color13": "#d7afd7",
+    "color14": "#5fd7d7",
+    "color15": "#eeeeee"
+  }
+}

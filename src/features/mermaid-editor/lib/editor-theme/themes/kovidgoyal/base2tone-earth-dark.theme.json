@@ -1,0 +1,42 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-base2tone-earth-dark",
+  "name": "Base2Tone Earth Dark",
+  "description": "Base2Tone Earth Dark kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/base2tone-earth-dark.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/base2tone-earth-dark.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "MIT",
+    "author": "Bram de Haan (https://github.com/atelierbram)",
+    "upstream": "https://github.com/atelierbram/Base2Tone-kitty/blob/main/themes/base2tone-earth-dark.conf"
+  },
+  "palette": {
+    "background": "#322d29",
+    "foreground": "#b5a9a1",
+    "cursor": "#9c8349",
+    "cursorText": "#322d29",
+    "selectionBackground": "#3f3a37",
+    "selectionForeground": "#b5a9a1",
+    "color0": "#322d29",
+    "color1": "#816d5f",
+    "color2": "#d9b154",
+    "color3": "#fcc440",
+    "color4": "#88786d",
+    "color5": "#d9b154",
+    "color6": "#967e6e",
+    "color7": "#b5a9a1",
+    "color8": "#6a5f58",
+    "color9": "#e6b84d",
+    "color10": "#3f3a37",
+    "color11": "#5b534d",
+    "color12": "#796b63",
+    "color13": "#dfb99f",
+    "color14": "#cda956",
+    "color15": "#fff3eb"
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-dexpota-treehouse",
+  "name": "Treehouse",
+  "description": "Treehouse kitty theme from dexpota/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "dexpota",
+    "name": "dexpota/kitty-themes",
+    "repository": "https://github.com/dexpota/kitty-themes",
+    "path": "themes/Treehouse.conf",
+    "url": "https://github.com/dexpota/kitty-themes/blob/b1abdd54ba655ef34f75a568d78625981bf1722c/themes/Treehouse.conf",
+    "commit": "b1abdd54ba655ef34f75a568d78625981bf1722c",
+    "license": "MIT"
+  },
+  "palette": {
+    "background": "#191919",
+    "foreground": "#776b53",
+    "cursor": "#fac814",
+    "selectionBackground": "#776b53",
+    "selectionForeground": "#191919",
+    "color0": "#321200",
+    "color1": "#b1270e",
+    "color2": "#44a900",
+    "color3": "#a9810b",
+    "color4": "#578499",
+    "color5": "#96363c",
+    "color6": "#b2591d",
+    "color7": "#776b53",
+    "color8": "#423625",
+    "color9": "#ed5c20",
+    "color10": "#55f237",
+    "color11": "#f1b731",
+    "color12": "#85cfec",
+    "color13": "#e04b5a",
+    "color14": "#f07c14",
+    "color15": "#ffc800"
+  }
+}

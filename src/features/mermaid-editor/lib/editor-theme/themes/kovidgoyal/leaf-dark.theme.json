@@ -1,0 +1,37 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-leaf-dark",
+  "name": "Leaf Dark",
+  "description": "Leaf Dark kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/leaf_dark.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/leaf_dark.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "GPLv3",
+    "author": "qewer33, brought to kitty by KodiakWeb"
+  },
+  "palette": {
+    "background": "#2e2c2f",
+    "foreground": "#e1e4dc",
+    "color0": "#2e2c2f",
+    "color1": "#ba5860",
+    "color2": "#729b79",
+    "color3": "#ccaa6c",
+    "color4": "#5292c6",
+    "color5": "#8c6aa8",
+    "color6": "#489ca5",
+    "color7": "#e1e4dc",
+    "color8": "#403f42",
+    "color9": "#d6797a",
+    "color10": "#98cca4",
+    "color11": "#e3c882",
+    "color12": "#76ace6",
+    "color13": "#b798e6",
+    "color14": "#77c5da",
+    "color15": "#fcfff6"
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-kaolin-breeze",
+  "name": "Kaolin Breeze",
+  "description": "Kaolin Breeze kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "light",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/Kaolin_Breeze.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/Kaolin_Breeze.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "GPLv3",
+    "author": "Ogden Webb"
+  },
+  "palette": {
+    "background": "#ebe8e4",
+    "foreground": "#383e3f",
+    "cursor": "#383e3f",
+    "cursorText": "#ebe8e4",
+    "selectionBackground": "#383e3f",
+    "selectionForeground": "#ebe8e4",
+    "color0": "#383e3f",
+    "color1": "#cd5c60",
+    "color2": "#39855f",
+    "color3": "#b87e3c",
+    "color4": "#2683b5",
+    "color5": "#845a84",
+    "color6": "#48a9a9",
+    "color7": "#c9c2bd",
+    "color8": "#7d8468",
+    "color9": "#ef6787",
+    "color10": "#3e594e",
+    "color11": "#d1832e",
+    "color12": "#4f9cb8",
+    "color13": "#605db3",
+    "color14": "#008b8b",
+    "color15": "#60696b"
+  }
+}

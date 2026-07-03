@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  BUILT_IN_EDITOR_THEME_CATALOG,
+  BUILT_IN_EDITOR_THEMES,
   compileEditorTheme,
   DEFAULT_EDITOR_THEME,
+  isBuiltInThemeId,
   normalizeEditorTheme,
   resolveEditorTheme,
   themeToCanvasVisualTokens,
@@ -12,6 +15,18 @@ import {
 } from "@/features/mermaid-editor/lib/editor-theme";
 
 describe("editor theme", () => {
+  it("loads built-in themes from theme files", () => {
+    const ids = BUILT_IN_EDITOR_THEME_CATALOG.map((entry) => entry.id);
+
+    expect(ids).toContain("warm-paper");
+    expect(ids).toContain("kitty-dexpota-dracula");
+    expect(ids).toContain("kitty-kovidgoyal-dracula");
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(BUILT_IN_EDITOR_THEMES).toHaveLength(BUILT_IN_EDITOR_THEME_CATALOG.length);
+    expect(isBuiltInThemeId("kitty-kovidgoyal-dracula")).toBe(true);
+    expect(isBuiltInThemeId("custom")).toBe(false);
+  });
+
   it("resolves built-in themes and normalizes custom colors", () => {
     expect(resolveEditorTheme("warm-paper", null)).toBe(DEFAULT_EDITOR_THEME);
 
@@ -55,6 +70,19 @@ describe("editor theme", () => {
         background: "#ffffff"
       }
     });
+  });
+
+  it("converts kitty theme files to complete editor themes", () => {
+    const dracula = resolveEditorTheme("kitty-kovidgoyal-dracula", null);
+    const terminalTheme = themeToTerminalTheme(dracula);
+
+    expect(dracula.name).toBe("Dracula");
+    expect(dracula.terminal.background).toBe("#282a36");
+    expect(dracula.terminal.foreground).toBe("#f8f8f2");
+    expect(dracula.ansi.black).toBe("#21222c");
+    expect(dracula.ansi.brightBlue).toBe("#d6acff");
+    expect(terminalTheme.selectionBackground).toContain("rgba");
+    expect(compileEditorTheme(dracula).mermaidThemeVariables.primaryColor).toBe(dracula.canvas.surface);
   });
 
   it("maps theme colors to shadcn css variables", () => {
@@ -227,5 +255,17 @@ describe("editor theme", () => {
     expect(compiled.cssVariables["--theme-terminal-line-height"]).toBe(`${DEFAULT_EDITOR_THEME.font.lineHeightTerminal}px`);
     expect(compiled.motion.duration.layout).toBe(DEFAULT_EDITOR_THEME.motion.duration.layout);
     expect(compiled.diagnostics.every((diagnostic) => diagnostic.severity === "warning")).toBe(true);
+  });
+
+  it("compiles every built-in theme without breaking core contrast", () => {
+    const blockingDiagnostics = new Set(["APP_TEXT_CONTRAST", "CANVAS_NODE_TEXT_CONTRAST", "TERMINAL_TEXT_CONTRAST"]);
+
+    for (const theme of BUILT_IN_EDITOR_THEMES) {
+      const compiled = compileEditorTheme(theme);
+
+      expect(compiled.cssVariables["--background"], theme.id).toBeDefined();
+      expect(compiled.terminalTheme.background, theme.id).toBe(theme.terminal.background);
+      expect(compiled.diagnostics.filter((diagnostic) => blockingDiagnostics.has(diagnostic.code)), theme.id).toEqual([]);
+    }
   });
 });

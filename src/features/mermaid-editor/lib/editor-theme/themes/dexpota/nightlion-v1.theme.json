@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-dexpota-nightlion-v1",
+  "name": "NightLion v1",
+  "description": "NightLion v1 kitty theme from dexpota/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "dexpota",
+    "name": "dexpota/kitty-themes",
+    "repository": "https://github.com/dexpota/kitty-themes",
+    "path": "themes/NightLion_v1.conf",
+    "url": "https://github.com/dexpota/kitty-themes/blob/b1abdd54ba655ef34f75a568d78625981bf1722c/themes/NightLion_v1.conf",
+    "commit": "b1abdd54ba655ef34f75a568d78625981bf1722c",
+    "license": "MIT"
+  },
+  "palette": {
+    "background": "#000000",
+    "foreground": "#bbbbbb",
+    "cursor": "#bbbbbb",
+    "selectionBackground": "#b4d5ff",
+    "selectionForeground": "#000000",
+    "color0": "#4c4c4c",
+    "color1": "#bb0000",
+    "color2": "#5ede8f",
+    "color3": "#f2f067",
+    "color4": "#266ad7",
+    "color5": "#bb00bb",
+    "color6": "#00d9df",
+    "color7": "#bbbbbb",
+    "color8": "#545454",
+    "color9": "#ff5555",
+    "color10": "#55ff55",
+    "color11": "#ffff55",
+    "color12": "#5555ff",
+    "color13": "#ff55ff",
+    "color14": "#55ffff",
+    "color15": "#ffffff"
+  }
+}

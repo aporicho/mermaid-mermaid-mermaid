@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-hipster-green",
+  "name": "Hipster Green",
+  "description": "Hipster Green kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/Hipster_Green.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/Hipster_Green.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "GPL-3.0"
+  },
+  "palette": {
+    "background": "#0f0a05",
+    "foreground": "#84c137",
+    "cursor": "#23ff18",
+    "selectionBackground": "#083905",
+    "selectionForeground": "#0f0a05",
+    "color0": "#000000",
+    "color1": "#b6204a",
+    "color2": "#00a600",
+    "color3": "#bebe00",
+    "color4": "#246db2",
+    "color5": "#b200b2",
+    "color6": "#00a6b2",
+    "color7": "#bfbfbf",
+    "color8": "#666666",
+    "color9": "#e50000",
+    "color10": "#86a83e",
+    "color11": "#e5e500",
+    "color12": "#0000ff",
+    "color13": "#e500e5",
+    "color14": "#00e5e5",
+    "color15": "#e5e5e5"
+  }
+}

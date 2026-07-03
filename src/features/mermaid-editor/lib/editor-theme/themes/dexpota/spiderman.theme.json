@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-dexpota-spiderman",
+  "name": "Spiderman",
+  "description": "Spiderman kitty theme from dexpota/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "dexpota",
+    "name": "dexpota/kitty-themes",
+    "repository": "https://github.com/dexpota/kitty-themes",
+    "path": "themes/Spiderman.conf",
+    "url": "https://github.com/dexpota/kitty-themes/blob/b1abdd54ba655ef34f75a568d78625981bf1722c/themes/Spiderman.conf",
+    "commit": "b1abdd54ba655ef34f75a568d78625981bf1722c",
+    "license": "MIT"
+  },
+  "palette": {
+    "background": "#1b1d1e",
+    "foreground": "#e2e2e2",
+    "cursor": "#2b3fff",
+    "selectionBackground": "#070e4f",
+    "selectionForeground": "#1b1d1e",
+    "color0": "#1b1d1e",
+    "color1": "#e60712",
+    "color2": "#e22828",
+    "color3": "#e24655",
+    "color4": "#2b3fff",
+    "color5": "#2435db",
+    "color6": "#3255ff",
+    "color7": "#fffef6",
+    "color8": "#505354",
+    "color9": "#ff0325",
+    "color10": "#ff3238",
+    "color11": "#fe3935",
+    "color12": "#1d4fff",
+    "color13": "#737bff",
+    "color14": "#6083ff",
+    "color15": "#fefff9"
+  }
+}

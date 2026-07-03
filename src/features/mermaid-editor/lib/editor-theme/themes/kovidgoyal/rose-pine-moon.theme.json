@@ -1,0 +1,42 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-rose-pine-moon",
+  "name": "Rosé Pine Moon",
+  "description": "Rosé Pine Moon kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/rose-pine-moon.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/rose-pine-moon.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "MIT",
+    "author": "mvllow",
+    "upstream": "https://github.com/rose-pine/kitty/blob/main/dist/rose-pine-moon.conf"
+  },
+  "palette": {
+    "background": "#232136",
+    "foreground": "#e0def4",
+    "cursor": "#56526e",
+    "cursorText": "#e0def4",
+    "selectionBackground": "#44415a",
+    "selectionForeground": "#e0def4",
+    "color0": "#393552",
+    "color1": "#eb6f92",
+    "color2": "#3e8fb0",
+    "color3": "#f6c177",
+    "color4": "#9ccfd8",
+    "color5": "#c4a7e7",
+    "color6": "#ea9a97",
+    "color7": "#e0def4",
+    "color8": "#6e6a86",
+    "color9": "#eb6f92",
+    "color10": "#3e8fb0",
+    "color11": "#f6c177",
+    "color12": "#9ccfd8",
+    "color13": "#c4a7e7",
+    "color14": "#ea9a97",
+    "color15": "#e0def4"
+  }
+}

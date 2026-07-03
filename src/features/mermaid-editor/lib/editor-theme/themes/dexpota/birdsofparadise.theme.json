@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-dexpota-birdsofparadise",
+  "name": "BirdsOfParadise",
+  "description": "BirdsOfParadise kitty theme from dexpota/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "dexpota",
+    "name": "dexpota/kitty-themes",
+    "repository": "https://github.com/dexpota/kitty-themes",
+    "path": "themes/BirdsOfParadise.conf",
+    "url": "https://github.com/dexpota/kitty-themes/blob/b1abdd54ba655ef34f75a568d78625981bf1722c/themes/BirdsOfParadise.conf",
+    "commit": "b1abdd54ba655ef34f75a568d78625981bf1722c",
+    "license": "MIT"
+  },
+  "palette": {
+    "background": "#2a1e1d",
+    "foreground": "#dfdab7",
+    "cursor": "#573d25",
+    "selectionBackground": "#563c27",
+    "selectionForeground": "#2a1e1d",
+    "color0": "#573d25",
+    "color1": "#be2d26",
+    "color2": "#6ba08a",
+    "color3": "#e99c29",
+    "color4": "#5a86ac",
+    "color5": "#ab80a6",
+    "color6": "#74a5ac",
+    "color7": "#dfdab7",
+    "color8": "#9a6b49",
+    "color9": "#e84526",
+    "color10": "#94d7ba",
+    "color11": "#d0d04f",
+    "color12": "#b8d3ed",
+    "color13": "#d09dca",
+    "color14": "#92ced6",
+    "color15": "#fff9d4"
+  }
+}

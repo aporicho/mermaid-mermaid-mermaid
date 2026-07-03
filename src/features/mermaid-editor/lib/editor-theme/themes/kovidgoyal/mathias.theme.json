@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-mathias",
+  "name": "Mathias",
+  "description": "Mathias kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/Mathias.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/Mathias.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "GPL-3.0"
+  },
+  "palette": {
+    "background": "#000000",
+    "foreground": "#bbbbbb",
+    "cursor": "#bbbbbb",
+    "selectionBackground": "#545454",
+    "selectionForeground": "#000000",
+    "color0": "#000000",
+    "color1": "#e52222",
+    "color2": "#a6e32d",
+    "color3": "#fc951e",
+    "color4": "#c48dff",
+    "color5": "#fa2573",
+    "color6": "#67d9f0",
+    "color7": "#f2f2f2",
+    "color8": "#545454",
+    "color9": "#ff5555",
+    "color10": "#55ff55",
+    "color11": "#ffff55",
+    "color12": "#5555ff",
+    "color13": "#ff55ff",
+    "color14": "#55ffff",
+    "color15": "#ffffff"
+  }
+}

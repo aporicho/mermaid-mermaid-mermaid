@@ -1,0 +1,40 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-serendipity-midnight",
+  "name": "Serendipity Midnight",
+  "description": "Serendipity Midnight kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/Serendipity_Midnight.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/Serendipity_Midnight.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "MIT",
+    "author": "Micheal Andreuzza",
+    "upstream": "https://raw.githubusercontent.com/Serendipity-Theme/kitty/main/serendipity-midnight.conf"
+  },
+  "palette": {
+    "background": "#151726",
+    "foreground": "#dee0ef",
+    "cursor": "#d1918f",
+    "selectionForeground": "#dee0ef",
+    "color0": "#232534",
+    "color1": "#ee8679",
+    "color2": "#5ba2d0",
+    "color3": "#a78bfa",
+    "color4": "#94b8ff",
+    "color5": "#9ccfd8",
+    "color6": "#f8d2c9",
+    "color7": "#dee0ef",
+    "color8": "#8d8f9e",
+    "color9": "#ee8679",
+    "color10": "#5ba2d0",
+    "color11": "#a78bfa",
+    "color12": "#94b8ff",
+    "color13": "#9ccfd8",
+    "color14": "#f8d2c9",
+    "color15": "#dee0ef"
+  }
+}

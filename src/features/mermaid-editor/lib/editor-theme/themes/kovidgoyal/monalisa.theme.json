@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-monalisa",
+  "name": "MonaLisa",
+  "description": "MonaLisa kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/MonaLisa.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/MonaLisa.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "GPL-3.0"
+  },
+  "palette": {
+    "background": "#110b0d",
+    "foreground": "#f6d56a",
+    "cursor": "#c36c32",
+    "selectionBackground": "#f6d56a",
+    "selectionForeground": "#110b0d",
+    "color0": "#341a0d",
+    "color1": "#9b281b",
+    "color2": "#626132",
+    "color3": "#c26e27",
+    "color4": "#515b5c",
+    "color5": "#9b1d29",
+    "color6": "#588056",
+    "color7": "#f6d75c",
+    "color8": "#874227",
+    "color9": "#ff4230",
+    "color10": "#b3b163",
+    "color11": "#ff9565",
+    "color12": "#9eb2b3",
+    "color13": "#ff5b6a",
+    "color14": "#89cc8e",
+    "color15": "#ffe597"
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-dexpota-royal",
+  "name": "Royal",
+  "description": "Royal kitty theme from dexpota/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "dexpota",
+    "name": "dexpota/kitty-themes",
+    "repository": "https://github.com/dexpota/kitty-themes",
+    "path": "themes/Royal.conf",
+    "url": "https://github.com/dexpota/kitty-themes/blob/b1abdd54ba655ef34f75a568d78625981bf1722c/themes/Royal.conf",
+    "commit": "b1abdd54ba655ef34f75a568d78625981bf1722c",
+    "license": "MIT"
+  },
+  "palette": {
+    "background": "#100814",
+    "foreground": "#504868",
+    "cursor": "#514965",
+    "selectionBackground": "#1e1d2a",
+    "selectionForeground": "#100814",
+    "color0": "#241f2a",
+    "color1": "#90274b",
+    "color2": "#23801c",
+    "color3": "#b49d27",
+    "color4": "#6480af",
+    "color5": "#664d96",
+    "color6": "#8aaabd",
+    "color7": "#514965",
+    "color8": "#312d3c",
+    "color9": "#d4346c",
+    "color10": "#2cd845",
+    "color11": "#fde83a",
+    "color12": "#8fb9f9",
+    "color13": "#a479e2",
+    "color14": "#abd3eb",
+    "color15": "#9d8bbd"
+  }
+}

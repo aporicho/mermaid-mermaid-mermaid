@@ -1,0 +1,42 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-tokyo-night-day",
+  "name": "Tokyo Night Day",
+  "description": "Tokyo Night Day kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "light",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/tokyo_night_day.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/tokyo_night_day.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "MIT",
+    "author": "Folke Lemaitre",
+    "upstream": "https://github.com/folke/tokyonight.nvim/raw/main/extras/kitty/tokyonight_day.conf"
+  },
+  "palette": {
+    "background": "#e1e2e7",
+    "foreground": "#3760bf",
+    "cursor": "#3760bf",
+    "cursorText": "#e1e2e7",
+    "selectionBackground": "#b7c1e3",
+    "selectionForeground": "#3760bf",
+    "color0": "#b4b5b9",
+    "color1": "#f52a65",
+    "color2": "#587539",
+    "color3": "#8c6c3e",
+    "color4": "#2e7de9",
+    "color5": "#9854f1",
+    "color6": "#007197",
+    "color7": "#6172b0",
+    "color8": "#a1a6c5",
+    "color9": "#ff4774",
+    "color10": "#5c8524",
+    "color11": "#a27629",
+    "color12": "#358aff",
+    "color13": "#a463ff",
+    "color14": "#007ea8",
+    "color15": "#3760bf"
+  }
+}

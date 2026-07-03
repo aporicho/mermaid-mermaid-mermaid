@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-dexpota-borland",
+  "name": "Borland",
+  "description": "Borland kitty theme from dexpota/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "dexpota",
+    "name": "dexpota/kitty-themes",
+    "repository": "https://github.com/dexpota/kitty-themes",
+    "path": "themes/Borland.conf",
+    "url": "https://github.com/dexpota/kitty-themes/blob/b1abdd54ba655ef34f75a568d78625981bf1722c/themes/Borland.conf",
+    "commit": "b1abdd54ba655ef34f75a568d78625981bf1722c",
+    "license": "MIT"
+  },
+  "palette": {
+    "background": "#0000a3",
+    "foreground": "#ffff4d",
+    "cursor": "#ffa460",
+    "selectionBackground": "#a3a3a3",
+    "selectionForeground": "#0000a3",
+    "color0": "#4e4e4e",
+    "color1": "#ff6b60",
+    "color2": "#a7ff60",
+    "color3": "#ffffb6",
+    "color4": "#96cafd",
+    "color5": "#ff73fd",
+    "color6": "#c6c4fd",
+    "color7": "#eeeeee",
+    "color8": "#7c7c7c",
+    "color9": "#ffb6b0",
+    "color10": "#ceffab",
+    "color11": "#ffffcb",
+    "color12": "#b5dcfe",
+    "color13": "#ff9cfe",
+    "color14": "#dfdffe",
+    "color15": "#ffffff"
+  }
+}

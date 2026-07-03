@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-tomorrow",
+  "name": "Tomorrow",
+  "description": "Tomorrow kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "light",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/Tomorrow.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/Tomorrow.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "GPL-3.0"
+  },
+  "palette": {
+    "background": "#ffffff",
+    "foreground": "#4c4c4c",
+    "cursor": "#4c4c4c",
+    "selectionBackground": "#d6d6d6",
+    "selectionForeground": "#ffffff",
+    "color0": "#000000",
+    "color1": "#c82828",
+    "color2": "#708b00",
+    "color3": "#e9b600",
+    "color4": "#4170ae",
+    "color5": "#8958a7",
+    "color6": "#3d999f",
+    "color7": "#fffefe",
+    "color8": "#000000",
+    "color9": "#c82828",
+    "color10": "#708b00",
+    "color11": "#e9b600",
+    "color12": "#4170ae",
+    "color13": "#8958a7",
+    "color14": "#3d999f",
+    "color15": "#fffefe"
+  }
+}

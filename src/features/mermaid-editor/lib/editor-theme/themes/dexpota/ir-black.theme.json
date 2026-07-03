@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-dexpota-ir-black",
+  "name": "IR Black",
+  "description": "IR Black kitty theme from dexpota/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "dexpota",
+    "name": "dexpota/kitty-themes",
+    "repository": "https://github.com/dexpota/kitty-themes",
+    "path": "themes/IR_Black.conf",
+    "url": "https://github.com/dexpota/kitty-themes/blob/b1abdd54ba655ef34f75a568d78625981bf1722c/themes/IR_Black.conf",
+    "commit": "b1abdd54ba655ef34f75a568d78625981bf1722c",
+    "license": "MIT"
+  },
+  "palette": {
+    "background": "#000000",
+    "foreground": "#f1f1f1",
+    "cursor": "#7f7f7f",
+    "selectionBackground": "#b4d5ff",
+    "selectionForeground": "#000000",
+    "color0": "#4f4f4f",
+    "color1": "#fa6c5f",
+    "color2": "#a8fe60",
+    "color3": "#fffeb6",
+    "color4": "#96cafd",
+    "color5": "#fa72fc",
+    "color6": "#c6c4fd",
+    "color7": "#eeedee",
+    "color8": "#7b7b7b",
+    "color9": "#fcb6af",
+    "color10": "#ceffab",
+    "color11": "#fffecc",
+    "color12": "#b5dcfe",
+    "color13": "#fb9bfe",
+    "color14": "#dfdffd",
+    "color15": "#fefffe"
+  }
+}

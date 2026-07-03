@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-royal",
+  "name": "Royal",
+  "description": "Royal kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/Royal.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/Royal.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "GPL-3.0"
+  },
+  "palette": {
+    "background": "#100814",
+    "foreground": "#504868",
+    "cursor": "#514965",
+    "selectionBackground": "#1e1d2a",
+    "selectionForeground": "#100814",
+    "color0": "#241f2a",
+    "color1": "#90274b",
+    "color2": "#23801c",
+    "color3": "#b49d27",
+    "color4": "#6480af",
+    "color5": "#664d96",
+    "color6": "#8aaabd",
+    "color7": "#514965",
+    "color8": "#312d3c",
+    "color9": "#d4346c",
+    "color10": "#2cd845",
+    "color11": "#fde83a",
+    "color12": "#8fb9f9",
+    "color13": "#a479e2",
+    "color14": "#abd3eb",
+    "color15": "#9d8bbd"
+  }
+}

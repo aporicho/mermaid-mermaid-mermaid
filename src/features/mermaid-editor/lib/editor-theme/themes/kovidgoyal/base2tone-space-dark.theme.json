@@ -1,0 +1,42 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-base2tone-space-dark",
+  "name": "Base2Tone Space Dark",
+  "description": "Base2Tone Space Dark kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/base2tone-space-dark.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/base2tone-space-dark.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "MIT",
+    "author": "Bram de Haan (https://github.com/atelierbram)",
+    "upstream": "https://github.com/atelierbram/Base2Tone-kitty/blob/main/themes/base2tone-space-dark.conf"
+  },
+  "palette": {
+    "background": "#24242e",
+    "foreground": "#a1a1b5",
+    "cursor": "#b25424",
+    "cursorText": "#24242e",
+    "selectionBackground": "#333342",
+    "selectionForeground": "#a1a1b5",
+    "color0": "#24242e",
+    "color1": "#7676f4",
+    "color2": "#ec7336",
+    "color3": "#fe8c52",
+    "color4": "#767693",
+    "color5": "#ec7336",
+    "color6": "#8a8aad",
+    "color7": "#a1a1b5",
+    "color8": "#5b5b76",
+    "color9": "#f37b3f",
+    "color10": "#333342",
+    "color11": "#515167",
+    "color12": "#737391",
+    "color13": "#cecee3",
+    "color14": "#e66e33",
+    "color15": "#ebebff"
+  }
+}

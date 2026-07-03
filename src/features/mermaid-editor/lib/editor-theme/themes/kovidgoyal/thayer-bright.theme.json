@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-thayer-bright",
+  "name": "Thayer Bright",
+  "description": "Thayer Bright kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/Thayer_Bright.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/Thayer_Bright.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "GPL-3.0"
+  },
+  "palette": {
+    "background": "#1b1d1e",
+    "foreground": "#f8f8f8",
+    "cursor": "#fc971e",
+    "selectionBackground": "#4d4d4d",
+    "selectionForeground": "#1b1d1e",
+    "color0": "#1b1d1e",
+    "color1": "#f92672",
+    "color2": "#4df740",
+    "color3": "#f3fd21",
+    "color4": "#2656d6",
+    "color5": "#8c54fe",
+    "color6": "#37c8b4",
+    "color7": "#ccccc6",
+    "color8": "#505354",
+    "color9": "#ff5995",
+    "color10": "#b6e354",
+    "color11": "#feed6c",
+    "color12": "#3f78ff",
+    "color13": "#9e6ffe",
+    "color14": "#23ced4",
+    "color15": "#f8f8f2"
+  }
+}

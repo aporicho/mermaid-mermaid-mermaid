@@ -8,6 +8,7 @@
     "mmm": "node --import tsx src/cli/index.ts",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview --host 127.0.0.1 --port 4173",
+    "themes:generate": "node --import tsx scripts/generate-kitty-themes.ts",
     "tauri": "tauri",
     "desktop:dev": "tauri dev",
     "desktop:build": "tauri build",

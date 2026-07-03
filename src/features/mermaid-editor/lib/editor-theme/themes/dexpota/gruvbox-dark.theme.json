@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-dexpota-gruvbox-dark",
+  "name": "gruvbox dark",
+  "description": "gruvbox dark kitty theme from dexpota/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "dexpota",
+    "name": "dexpota/kitty-themes",
+    "repository": "https://github.com/dexpota/kitty-themes",
+    "path": "themes/gruvbox_dark.conf",
+    "url": "https://github.com/dexpota/kitty-themes/blob/b1abdd54ba655ef34f75a568d78625981bf1722c/themes/gruvbox_dark.conf",
+    "commit": "b1abdd54ba655ef34f75a568d78625981bf1722c",
+    "license": "MIT"
+  },
+  "palette": {
+    "background": "#282828",
+    "foreground": "#ebdbb2",
+    "cursor": "#928374",
+    "selectionBackground": "#3c3836",
+    "selectionForeground": "#928374",
+    "color0": "#282828",
+    "color1": "#cc241d",
+    "color2": "#98971a",
+    "color3": "#d79921",
+    "color4": "#458588",
+    "color5": "#b16286",
+    "color6": "#689d6a",
+    "color7": "#a89984",
+    "color8": "#928374",
+    "color9": "#fb4934",
+    "color10": "#b8bb26",
+    "color11": "#fabd2d",
+    "color12": "#83a598",
+    "color13": "#d3869b",
+    "color14": "#8ec07c",
+    "color15": "#928374"
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-dracula",
+  "name": "Dracula",
+  "description": "Dracula kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/Dracula.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/Dracula.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "MIT",
+    "author": "Keegan Carruthers-Smith",
+    "upstream": "https://raw.githubusercontent.com/dracula/kitty/master/dracula.conf"
+  },
+  "palette": {
+    "background": "#282a36",
+    "foreground": "#f8f8f2",
+    "cursor": "#f8f8f2",
+    "cursorText": "#282a36",
+    "selectionBackground": "#44475a",
+    "selectionForeground": "#ffffff",
+    "color0": "#21222c",
+    "color1": "#ff5555",
+    "color2": "#50fa7b",
+    "color3": "#f1fa8c",
+    "color4": "#bd93f9",
+    "color5": "#ff79c6",
+    "color6": "#8be9fd",
+    "color7": "#f8f8f2",
+    "color8": "#6272a4",
+    "color9": "#ff6e6e",
+    "color10": "#69ff94",
+    "color11": "#ffffa5",
+    "color12": "#d6acff",
+    "color13": "#ff92df",
+    "color14": "#a4ffff",
+    "color15": "#ffffff"
+  }
+}

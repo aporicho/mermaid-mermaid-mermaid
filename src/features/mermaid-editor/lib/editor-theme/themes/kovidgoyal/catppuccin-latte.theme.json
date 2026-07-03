@@ -1,0 +1,42 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-catppuccin-latte",
+  "name": "Catppuccin-Latte",
+  "description": "Catppuccin-Latte kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "light",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/Catppuccin-Latte.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/Catppuccin-Latte.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "MIT",
+    "author": "Pocco81 (https://github.com/Pocco81)",
+    "upstream": "https://github.com/catppuccin/kitty/blob/main/themes/latte.conf"
+  },
+  "palette": {
+    "background": "#eff1f5",
+    "foreground": "#4c4f69",
+    "cursor": "#dc8a78",
+    "cursorText": "#eff1f5",
+    "selectionBackground": "#dc8a78",
+    "selectionForeground": "#eff1f5",
+    "color0": "#5c5f77",
+    "color1": "#d20f39",
+    "color2": "#40a02b",
+    "color3": "#df8e1d",
+    "color4": "#1e66f5",
+    "color5": "#ea76cb",
+    "color6": "#179299",
+    "color7": "#acb0be",
+    "color8": "#6c6f85",
+    "color9": "#d20f39",
+    "color10": "#40a02b",
+    "color11": "#df8e1d",
+    "color12": "#1e66f5",
+    "color13": "#ea76cb",
+    "color14": "#179299",
+    "color15": "#bcc0cc"
+  }
+}

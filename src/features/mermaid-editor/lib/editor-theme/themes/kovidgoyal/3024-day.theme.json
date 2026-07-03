@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-3024-day",
+  "name": "3024 Day",
+  "description": "3024 Day kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "light",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/3024_Day.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/3024_Day.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "GPL-3.0"
+  },
+  "palette": {
+    "background": "#f7f7f7",
+    "foreground": "#494542",
+    "cursor": "#494542",
+    "selectionBackground": "#a4a1a1",
+    "selectionForeground": "#f7f7f7",
+    "color0": "#090200",
+    "color1": "#da2c20",
+    "color2": "#00a152",
+    "color3": "#fcec02",
+    "color4": "#00a0e4",
+    "color5": "#a06994",
+    "color6": "#b5e4f4",
+    "color7": "#a4a1a1",
+    "color8": "#5b5754",
+    "color9": "#e8bacf",
+    "color10": "#3a3332",
+    "color11": "#494542",
+    "color12": "#7f7c7b",
+    "color13": "#d6d4d3",
+    "color14": "#ccab53",
+    "color15": "#f7f7f7"
+  }
+}

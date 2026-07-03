@@ -1,0 +1,42 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-cherry-midnight",
+  "name": "Cherry Midnight",
+  "description": "Cherry Midnight kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/cherry-midnight.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/cherry-midnight.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "GPLv3",
+    "author": "nullxception",
+    "upstream": "https://github.com/nullxception/cherry-kde/raw/main/kitty/cherry-midnight.conf"
+  },
+  "palette": {
+    "background": "#101017",
+    "foreground": "#bdc3df",
+    "cursor": "#bdc3df",
+    "cursorText": "#101017",
+    "selectionBackground": "#bdc3df",
+    "selectionForeground": "#101017",
+    "color0": "#33333f",
+    "color1": "#ff568e",
+    "color2": "#64de83",
+    "color3": "#efff73",
+    "color4": "#73a9ff",
+    "color5": "#946ff7",
+    "color6": "#62c6da",
+    "color7": "#dedeff",
+    "color8": "#43435a",
+    "color9": "#ff69a2",
+    "color10": "#73de8a",
+    "color11": "#f3ff85",
+    "color12": "#85b6ff",
+    "color13": "#a481f7",
+    "color14": "#71c2d9",
+    "color15": "#ebebff"
+  }
+}

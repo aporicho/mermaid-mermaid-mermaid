@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-fideloper",
+  "name": "Fideloper",
+  "description": "Fideloper kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/Fideloper.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/Fideloper.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "GPL-3.0"
+  },
+  "palette": {
+    "background": "#282f32",
+    "foreground": "#dad9df",
+    "cursor": "#d35f5a",
+    "selectionBackground": "#eeb7ab",
+    "selectionForeground": "#282f32",
+    "color0": "#282f32",
+    "color1": "#ca1d2c",
+    "color2": "#edb7ab",
+    "color3": "#b7aa9a",
+    "color4": "#2e78c1",
+    "color5": "#c0226e",
+    "color6": "#309185",
+    "color7": "#e9e2cd",
+    "color8": "#092027",
+    "color9": "#d35f5a",
+    "color10": "#d35f5a",
+    "color11": "#a86571",
+    "color12": "#7c84c4",
+    "color13": "#5b5db2",
+    "color14": "#81908f",
+    "color15": "#fcf4de"
+  }
+}

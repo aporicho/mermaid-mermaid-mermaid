@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-ollie",
+  "name": "Ollie",
+  "description": "Ollie kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/Ollie.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/Ollie.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "GPL-3.0"
+  },
+  "palette": {
+    "background": "#212024",
+    "foreground": "#8a8dae",
+    "cursor": "#5b6da7",
+    "selectionBackground": "#1e3965",
+    "selectionForeground": "#212024",
+    "color0": "#000000",
+    "color1": "#ab2e30",
+    "color2": "#31ab60",
+    "color3": "#ab4200",
+    "color4": "#2c56ab",
+    "color5": "#af8427",
+    "color6": "#1fa5ab",
+    "color7": "#8a8dab",
+    "color8": "#5a3625",
+    "color9": "#ff3d48",
+    "color10": "#3bff99",
+    "color11": "#ff5e1e",
+    "color12": "#4487ff",
+    "color13": "#ffc21c",
+    "color14": "#1efaff",
+    "color15": "#5b6da7"
+  }
+}

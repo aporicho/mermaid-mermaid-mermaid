@@ -1,0 +1,42 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-blueberry-mango",
+  "name": "Blueberry Mango",
+  "description": "Blueberry Mango kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/blueberry-mango.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/blueberry-mango.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "MIT",
+    "author": "janbridley",
+    "upstream": "https://github.com/janbridley/blueberry-mango/blob/main/kitty/blueberry-mango.conf"
+  },
+  "palette": {
+    "background": "#181321",
+    "foreground": "#feffe0",
+    "cursor": "#d28133",
+    "cursorText": "#fefefe",
+    "selectionBackground": "#1e0623",
+    "selectionForeground": "#f4f4f4",
+    "color0": "#16141e",
+    "color1": "#ed7481",
+    "color2": "#54b99d",
+    "color3": "#e0c750",
+    "color4": "#6ee4de",
+    "color5": "#ca476a",
+    "color6": "#6fb3bf",
+    "color7": "#f1f1f1",
+    "color8": "#4a5060",
+    "color9": "#f0a2a3",
+    "color10": "#a0c180",
+    "color11": "#f5e47d",
+    "color12": "#abfcf3",
+    "color13": "#cc75d0",
+    "color14": "#c7f1fc",
+    "color15": "#fefefe"
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-dexpota-pencillight",
+  "name": "PencilLight",
+  "description": "PencilLight kitty theme from dexpota/kitty-themes.",
+  "mode": "light",
+  "source": {
+    "id": "dexpota",
+    "name": "dexpota/kitty-themes",
+    "repository": "https://github.com/dexpota/kitty-themes",
+    "path": "themes/PencilLight.conf",
+    "url": "https://github.com/dexpota/kitty-themes/blob/b1abdd54ba655ef34f75a568d78625981bf1722c/themes/PencilLight.conf",
+    "commit": "b1abdd54ba655ef34f75a568d78625981bf1722c",
+    "license": "MIT"
+  },
+  "palette": {
+    "background": "#f0f0f0",
+    "foreground": "#414141",
+    "cursor": "#20bafb",
+    "selectionBackground": "#b6d6fc",
+    "selectionForeground": "#f0f0f0",
+    "color0": "#202020",
+    "color1": "#c30670",
+    "color2": "#10a778",
+    "color3": "#a79c14",
+    "color4": "#008ec4",
+    "color5": "#523b78",
+    "color6": "#20a4b9",
+    "color7": "#d9d9d9",
+    "color8": "#414141",
+    "color9": "#fb0079",
+    "color10": "#5ed6ae",
+    "color11": "#f3e42f",
+    "color12": "#20bafb",
+    "color13": "#6854de",
+    "color14": "#4fb8cc",
+    "color15": "#f0f0f0"
+  }
+}

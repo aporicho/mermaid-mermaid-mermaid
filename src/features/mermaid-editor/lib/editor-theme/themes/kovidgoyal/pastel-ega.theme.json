@@ -1,0 +1,41 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-pastel-ega",
+  "name": "Pastel EGA",
+  "description": "Pastel EGA kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/pastel_ega.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/pastel_ega.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "GPL-3.0",
+    "author": "Timo Heidutzek (trzyglow)"
+  },
+  "palette": {
+    "background": "#414141",
+    "foreground": "#f6f6f6",
+    "cursor": "#bfbfbf",
+    "cursorText": "#bfbfbf",
+    "selectionBackground": "#f6f6f6",
+    "selectionForeground": "#414141",
+    "color0": "#414141",
+    "color1": "#dd4274",
+    "color2": "#1db37b",
+    "color3": "#cbae25",
+    "color4": "#4c96d7",
+    "color5": "#bf2faf",
+    "color6": "#41bcbc",
+    "color7": "#bfbfbf",
+    "color8": "#8d8d8d",
+    "color9": "#db7497",
+    "color10": "#70e6ae",
+    "color11": "#faf8ac",
+    "color12": "#a5d2f3",
+    "color13": "#df7cd3",
+    "color14": "#5fe4e4",
+    "color15": "#f6f6f6"
+  }
+}

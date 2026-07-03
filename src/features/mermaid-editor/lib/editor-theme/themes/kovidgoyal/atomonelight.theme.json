@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-atomonelight",
+  "name": "AtomOneLight",
+  "description": "AtomOneLight kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "light",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/AtomOneLight.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/AtomOneLight.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "GPL-3.0"
+  },
+  "palette": {
+    "background": "#f8f8f8",
+    "foreground": "#2a2b33",
+    "cursor": "#bbbbbb",
+    "selectionBackground": "#e5e5e6",
+    "selectionForeground": "#2a2b33",
+    "color0": "#000000",
+    "color1": "#de3d35",
+    "color2": "#3e953a",
+    "color3": "#d2b67b",
+    "color4": "#2f5af3",
+    "color5": "#950095",
+    "color6": "#3e953a",
+    "color7": "#bbbbbb",
+    "color8": "#000000",
+    "color9": "#de3d35",
+    "color10": "#3e953a",
+    "color11": "#d2b67b",
+    "color12": "#2f5af3",
+    "color13": "#a00095",
+    "color14": "#3e953a",
+    "color15": "#ffffff"
+  }
+}

@@ -23,6 +23,9 @@ use tauri::{Emitter, Manager, State};
 use tiny_http::{Header, Method, Request, Response, StatusCode};
 use uuid::Uuid;
 
+mod link_preview;
+use link_preview::resolve_link_preview;
+
 const PROJECT_FILE_LIMIT: usize = 500;
 
 #[derive(Clone, Default)]
@@ -1393,6 +1396,7 @@ pub fn run() {
             import_image_asset_path,
             import_image_asset_bytes,
             resolve_image_asset_path,
+            resolve_link_preview,
             write_app_state,
             read_app_state,
             take_pending_file_opens,

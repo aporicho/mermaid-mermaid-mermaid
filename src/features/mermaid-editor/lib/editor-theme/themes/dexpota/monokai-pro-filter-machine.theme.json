@@ -1,0 +1,40 @@
+{
+  "kind": "kitty",
+  "id": "kitty-dexpota-monokai-pro-filter-machine",
+  "name": "Monokai Pro (Filter Machine)",
+  "description": "Monokai Pro (Filter Machine) kitty theme from dexpota/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "dexpota",
+    "name": "dexpota/kitty-themes",
+    "repository": "https://github.com/dexpota/kitty-themes",
+    "path": "themes/Monokai_Pro_(Filter_Machine).conf",
+    "url": "https://github.com/dexpota/kitty-themes/blob/b1abdd54ba655ef34f75a568d78625981bf1722c/themes/Monokai_Pro_(Filter_Machine).conf",
+    "commit": "b1abdd54ba655ef34f75a568d78625981bf1722c",
+    "license": "MIT"
+  },
+  "palette": {
+    "background": "#3a4449",
+    "foreground": "#f2fffc",
+    "cursor": "#f2fffc",
+    "cursorText": "#000000",
+    "selectionBackground": "#f2fffc",
+    "selectionForeground": "#3a4449",
+    "color0": "#3a4449",
+    "color1": "#ff6d7e",
+    "color2": "#a2e57b",
+    "color3": "#ffed72",
+    "color4": "#ffb270",
+    "color5": "#baa0f8",
+    "color6": "#7cd5f1",
+    "color7": "#f2fffc",
+    "color8": "#6b7678",
+    "color9": "#ff6d7e",
+    "color10": "#a2e57b",
+    "color11": "#ffed72",
+    "color12": "#ffb270",
+    "color13": "#baa0f8",
+    "color14": "#7cd5f1",
+    "color15": "#f2fffc"
+  }
+}

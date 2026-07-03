@@ -58,8 +58,14 @@ function shouldUseAnonymousImageCrossOrigin(src: string) {
   if (!/^https?:\/\//i.test(src)) return false;
   try {
     const url = new URL(src);
+    if (isXiaohongshuImageHost(url.hostname)) return false;
     return url.hostname !== "asset.localhost" && url.hostname !== "localhost" && url.hostname !== "127.0.0.1";
   } catch {
     return false;
   }
+}
+
+function isXiaohongshuImageHost(hostname: string) {
+  const host = hostname.toLowerCase();
+  return (host.endsWith(".xhscdn.com") && (host.startsWith("sns-img") || host.startsWith("sns-webpic"))) || host === "ci.xiaohongshu.com" || host.endsWith(".ci.xiaohongshu.com");
 }

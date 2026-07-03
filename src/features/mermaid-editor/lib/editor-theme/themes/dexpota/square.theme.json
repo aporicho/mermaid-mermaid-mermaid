@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-dexpota-square",
+  "name": "Square",
+  "description": "Square kitty theme from dexpota/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "dexpota",
+    "name": "dexpota/kitty-themes",
+    "repository": "https://github.com/dexpota/kitty-themes",
+    "path": "themes/Square.conf",
+    "url": "https://github.com/dexpota/kitty-themes/blob/b1abdd54ba655ef34f75a568d78625981bf1722c/themes/Square.conf",
+    "commit": "b1abdd54ba655ef34f75a568d78625981bf1722c",
+    "license": "MIT"
+  },
+  "palette": {
+    "background": "#1a1a1a",
+    "foreground": "#acacab",
+    "cursor": "#fbfacc",
+    "selectionBackground": "#4d4d4d",
+    "selectionForeground": "#1a1a1a",
+    "color0": "#050505",
+    "color1": "#e9897c",
+    "color2": "#b6377d",
+    "color3": "#ecebbe",
+    "color4": "#a9cdeb",
+    "color5": "#75507b",
+    "color6": "#c9caec",
+    "color7": "#f2f2f2",
+    "color8": "#141414",
+    "color9": "#f99286",
+    "color10": "#c3f786",
+    "color11": "#fcfbcc",
+    "color12": "#b6defb",
+    "color13": "#ad7fa8",
+    "color14": "#d7d9fc",
+    "color15": "#e2e2e2"
+  }
+}

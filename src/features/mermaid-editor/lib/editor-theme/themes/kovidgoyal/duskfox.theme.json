@@ -1,0 +1,42 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-duskfox",
+  "name": "Duskfox",
+  "description": "Duskfox kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/Duskfox.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/Duskfox.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "MIT",
+    "author": "EdenEast",
+    "upstream": "https://github.com/EdenEast/nightfox.nvim/blob/main/extra/duskfox/kitty.conf"
+  },
+  "palette": {
+    "background": "#232136",
+    "foreground": "#e0def4",
+    "cursor": "#e0def4",
+    "cursorText": "#232136",
+    "selectionBackground": "#433c59",
+    "selectionForeground": "#e0def4",
+    "color0": "#393552",
+    "color1": "#eb6f92",
+    "color2": "#a3be8c",
+    "color3": "#f6c177",
+    "color4": "#569fba",
+    "color5": "#c4a7e7",
+    "color6": "#9ccfd8",
+    "color7": "#e0def4",
+    "color8": "#47407d",
+    "color9": "#f083a2",
+    "color10": "#b1d196",
+    "color11": "#f9cb8c",
+    "color12": "#65b1cd",
+    "color13": "#ccb1ed",
+    "color14": "#a6dae3",
+    "color15": "#e2e0f7"
+  }
+}

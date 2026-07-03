@@ -1,0 +1,41 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-synthwave84-python",
+  "name": "SynthWave 84 python",
+  "description": "SynthWave 84 python kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/SynthWave84_Python.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/SynthWave84_Python.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "MIT",
+    "author": "Dio Lin (Dionysus326)"
+  },
+  "palette": {
+    "background": "#100a24",
+    "foreground": "#ffade8",
+    "cursor": "#03edf9",
+    "cursorText": "#100a24",
+    "selectionBackground": "#34294f",
+    "selectionForeground": "#ffffff",
+    "color0": "#2a2139",
+    "color1": "#ff2331",
+    "color2": "#37f39e",
+    "color3": "#ffd83d",
+    "color4": "#03edf9",
+    "color5": "#b30065",
+    "color6": "#03edf9",
+    "color7": "#dddddd",
+    "color8": "#444251",
+    "color9": "#fe4450",
+    "color10": "#72f1b8",
+    "color11": "#fede5d",
+    "color12": "#03edf9",
+    "color13": "#d40078",
+    "color14": "#03edf9",
+    "color15": "#ffffff"
+  }
+}

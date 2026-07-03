@@ -1,0 +1,41 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-night-owl",
+  "name": "Night Owl",
+  "description": "Night Owl kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/night_owl.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/night_owl.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "MIT",
+    "author": "Luke Glazebrook <lukeglazebrook@hey.com>",
+    "upstream": "https://github.com/Glazy/night-owl-kitty-theme/blob/main/night-owl.conf"
+  },
+  "palette": {
+    "background": "#011627",
+    "foreground": "#d6deeb",
+    "cursor": "#80a4c2",
+    "cursorText": "#011627",
+    "selectionBackground": "#1d3b53",
+    "color0": "#011627",
+    "color1": "#ef5350",
+    "color2": "#22da6e",
+    "color3": "#addb67",
+    "color4": "#82aaff",
+    "color5": "#c792ea",
+    "color6": "#21c7a8",
+    "color7": "#ffffff",
+    "color8": "#575656",
+    "color9": "#ef5350",
+    "color10": "#22da6e",
+    "color11": "#ffeb95",
+    "color12": "#82aaff",
+    "color13": "#c792ea",
+    "color14": "#7fdbca",
+    "color15": "#ffffff"
+  }
+}

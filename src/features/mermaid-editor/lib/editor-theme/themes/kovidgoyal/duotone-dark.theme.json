@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-duotone-dark",
+  "name": "Duotone Dark",
+  "description": "Duotone Dark kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/Duotone_Dark.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/Duotone_Dark.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "GPL-3.0"
+  },
+  "palette": {
+    "background": "#1f1c27",
+    "foreground": "#b6a0ff",
+    "cursor": "#ff9738",
+    "selectionBackground": "#353146",
+    "selectionForeground": "#1f1c27",
+    "color0": "#1f1c27",
+    "color1": "#d8393d",
+    "color2": "#2dcc72",
+    "color3": "#d8b76e",
+    "color4": "#ffc183",
+    "color5": "#dd8d40",
+    "color6": "#2388ff",
+    "color7": "#b6a0ff",
+    "color8": "#353146",
+    "color9": "#d8393d",
+    "color10": "#2dcc72",
+    "color11": "#d8b76e",
+    "color12": "#ffc183",
+    "color13": "#dd8d40",
+    "color14": "#2388ff",
+    "color15": "#e9e4ff"
+  }
+}

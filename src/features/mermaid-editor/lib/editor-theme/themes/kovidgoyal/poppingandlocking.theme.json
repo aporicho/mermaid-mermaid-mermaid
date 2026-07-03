@@ -1,0 +1,41 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-poppingandlocking",
+  "name": "Popping and Locking",
+  "description": "Popping and Locking kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/PoppingAndLocking.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/PoppingAndLocking.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "GPL-3.0",
+    "author": "hedinee"
+  },
+  "palette": {
+    "background": "#181921",
+    "foreground": "#ebdbb2",
+    "cursor": "#c7c7c7",
+    "cursorText": "#8c8c8c",
+    "selectionBackground": "#ebdbb2",
+    "selectionForeground": "#928374",
+    "color0": "#1d2021",
+    "color1": "#cc241d",
+    "color2": "#98971a",
+    "color3": "#d79921",
+    "color4": "#458588",
+    "color5": "#b16286",
+    "color6": "#689d6a",
+    "color7": "#a89984",
+    "color8": "#928374",
+    "color9": "#f42c3e",
+    "color10": "#b8bb26",
+    "color11": "#fabd2f",
+    "color12": "#99c6ca",
+    "color13": "#d3869b",
+    "color14": "#7ec16e",
+    "color15": "#ebdbb2"
+  }
+}

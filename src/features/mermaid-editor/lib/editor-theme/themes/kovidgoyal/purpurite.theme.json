@@ -1,0 +1,42 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-purpurite",
+  "name": "purpurite",
+  "description": "purpurite kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/purpurite.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/purpurite.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "UPL-1.0",
+    "author": "Ehan Ahamed and contributors",
+    "upstream": "https://raw.githubusercontent.com/purpurite/kitty/main/purpurite.conf"
+  },
+  "palette": {
+    "background": "#1f2533",
+    "foreground": "#ccddff",
+    "cursor": "#9999ff",
+    "cursorText": "#1f2533",
+    "selectionBackground": "#9999ff",
+    "selectionForeground": "#1f2533",
+    "color0": "#1f2533",
+    "color1": "#ff6666",
+    "color2": "#99ff99",
+    "color3": "#ff9966",
+    "color4": "#99bbff",
+    "color5": "#ff99dd",
+    "color6": "#99ddff",
+    "color7": "#ccddff",
+    "color8": "#3d4b66",
+    "color9": "#ff9999",
+    "color10": "#99ffdd",
+    "color11": "#ffcc66",
+    "color12": "#ccddff",
+    "color13": "#9999ff",
+    "color14": "#cceeff",
+    "color15": "#99ffdd"
+  }
+}

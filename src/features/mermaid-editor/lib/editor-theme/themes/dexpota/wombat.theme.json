@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-dexpota-wombat",
+  "name": "Wombat",
+  "description": "Wombat kitty theme from dexpota/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "dexpota",
+    "name": "dexpota/kitty-themes",
+    "repository": "https://github.com/dexpota/kitty-themes",
+    "path": "themes/Wombat.conf",
+    "url": "https://github.com/dexpota/kitty-themes/blob/b1abdd54ba655ef34f75a568d78625981bf1722c/themes/Wombat.conf",
+    "commit": "b1abdd54ba655ef34f75a568d78625981bf1722c",
+    "license": "MIT"
+  },
+  "palette": {
+    "background": "#171717",
+    "foreground": "#ded9ce",
+    "cursor": "#bbbbbb",
+    "selectionBackground": "#453a39",
+    "selectionForeground": "#171717",
+    "color0": "#000000",
+    "color1": "#ff605a",
+    "color2": "#b1e869",
+    "color3": "#ead89c",
+    "color4": "#5da9f6",
+    "color5": "#e86aff",
+    "color6": "#82fff6",
+    "color7": "#ded9ce",
+    "color8": "#313131",
+    "color9": "#f58b7f",
+    "color10": "#dcf88f",
+    "color11": "#eee5b2",
+    "color12": "#a5c7ff",
+    "color13": "#ddaaff",
+    "color14": "#b6fff9",
+    "color15": "#fefffe"
+  }
+}

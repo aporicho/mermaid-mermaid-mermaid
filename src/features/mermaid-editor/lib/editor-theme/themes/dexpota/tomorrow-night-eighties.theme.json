@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-dexpota-tomorrow-night-eighties",
+  "name": "Tomorrow Night Eighties",
+  "description": "Tomorrow Night Eighties kitty theme from dexpota/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "dexpota",
+    "name": "dexpota/kitty-themes",
+    "repository": "https://github.com/dexpota/kitty-themes",
+    "path": "themes/Tomorrow_Night_Eighties.conf",
+    "url": "https://github.com/dexpota/kitty-themes/blob/b1abdd54ba655ef34f75a568d78625981bf1722c/themes/Tomorrow_Night_Eighties.conf",
+    "commit": "b1abdd54ba655ef34f75a568d78625981bf1722c",
+    "license": "MIT"
+  },
+  "palette": {
+    "background": "#2c2c2c",
+    "foreground": "#cccccc",
+    "cursor": "#cccccc",
+    "selectionBackground": "#505050",
+    "selectionForeground": "#2c2c2c",
+    "color0": "#000000",
+    "color1": "#f17779",
+    "color2": "#99cc99",
+    "color3": "#ffcc66",
+    "color4": "#6699cc",
+    "color5": "#cc99cc",
+    "color6": "#66cccc",
+    "color7": "#fffefe",
+    "color8": "#000000",
+    "color9": "#f17779",
+    "color10": "#99cc99",
+    "color11": "#ffcc66",
+    "color12": "#6699cc",
+    "color13": "#cc99cc",
+    "color14": "#66cccc",
+    "color15": "#fffefe"
+  }
+}

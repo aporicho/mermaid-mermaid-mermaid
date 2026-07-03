@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-dexpota-seafoam-pastel",
+  "name": "Seafoam Pastel",
+  "description": "Seafoam Pastel kitty theme from dexpota/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "dexpota",
+    "name": "dexpota/kitty-themes",
+    "repository": "https://github.com/dexpota/kitty-themes",
+    "path": "themes/Seafoam_Pastel.conf",
+    "url": "https://github.com/dexpota/kitty-themes/blob/b1abdd54ba655ef34f75a568d78625981bf1722c/themes/Seafoam_Pastel.conf",
+    "commit": "b1abdd54ba655ef34f75a568d78625981bf1722c",
+    "license": "MIT"
+  },
+  "palette": {
+    "background": "#243335",
+    "foreground": "#d3e6d3",
+    "cursor": "#576379",
+    "selectionBackground": "#ffffff",
+    "selectionForeground": "#243335",
+    "color0": "#747474",
+    "color1": "#825d4c",
+    "color2": "#718b62",
+    "color3": "#aca06d",
+    "color4": "#4c7b82",
+    "color5": "#8a7166",
+    "color6": "#719494",
+    "color7": "#dfdfdf",
+    "color8": "#8a8a8a",
+    "color9": "#cf9279",
+    "color10": "#98d9aa",
+    "color11": "#fae69c",
+    "color12": "#79c3cf",
+    "color13": "#d6b2a0",
+    "color14": "#acdfdf",
+    "color15": "#dfdfdf"
+  }
+}

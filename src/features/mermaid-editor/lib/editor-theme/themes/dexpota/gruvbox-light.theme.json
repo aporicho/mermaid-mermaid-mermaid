@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-dexpota-gruvbox-light",
+  "name": "gruvbox light",
+  "description": "gruvbox light kitty theme from dexpota/kitty-themes.",
+  "mode": "light",
+  "source": {
+    "id": "dexpota",
+    "name": "dexpota/kitty-themes",
+    "repository": "https://github.com/dexpota/kitty-themes",
+    "path": "themes/gruvbox_light.conf",
+    "url": "https://github.com/dexpota/kitty-themes/blob/b1abdd54ba655ef34f75a568d78625981bf1722c/themes/gruvbox_light.conf",
+    "commit": "b1abdd54ba655ef34f75a568d78625981bf1722c",
+    "license": "MIT"
+  },
+  "palette": {
+    "background": "#fbf1c7",
+    "foreground": "#3c3836",
+    "cursor": "#928374",
+    "selectionBackground": "#928374",
+    "selectionForeground": "#3c3836",
+    "color0": "#fbf1c7",
+    "color1": "#cc241d",
+    "color2": "#98971a",
+    "color3": "#d79921",
+    "color4": "#458588",
+    "color5": "#b16286",
+    "color6": "#689d6a",
+    "color7": "#7c6f64",
+    "color8": "#282828",
+    "color9": "#9d0006",
+    "color10": "#79740e",
+    "color11": "#b57614",
+    "color12": "#076678",
+    "color13": "#8f3f71",
+    "color14": "#427b58",
+    "color15": "#928374"
+  }
+}

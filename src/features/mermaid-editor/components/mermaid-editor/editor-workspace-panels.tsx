@@ -8,7 +8,7 @@ import { TerminalPanel } from "@/features/mermaid-editor/components/terminal-pan
 import { WorkspacePanelControls, WorkspacePanelHeader } from "@/features/mermaid-editor/components/workspace-panel-controls";
 import type { DocumentKind } from "@/features/mermaid-editor/lib/document-kind";
 import { EDITOR_CHROME_CLASSES } from "@/features/mermaid-editor/lib/editor-chrome";
-import type { EditorRuntime, RuntimeEmbeddedBrowserHandle, RuntimeFileRef } from "@/features/mermaid-editor/lib/editor-runtime";
+import type { EditorRuntime, RuntimeFileRef } from "@/features/mermaid-editor/lib/editor-runtime";
 import type { CanvasNode, MermaidGraph, Selection } from "@/features/mermaid-editor/lib/editor-types";
 import type { EditorTheme, XtermThemeTokens } from "@/features/mermaid-editor/lib/editor-theme";
 import type { FloatingPanelWindowState } from "@/features/mermaid-editor/lib/floating-chrome";
@@ -17,8 +17,6 @@ import type { ProjectFileEntry, ProjectWorkspace } from "@/features/mermaid-edit
 import {
   WORKSPACE_PANEL_DEFAULT_SIZES,
   WORKSPACE_PANEL_MIN_SIZES,
-  type BrowserWindowPanelId,
-  type DetachedBrowserWindow,
   type DetachedMarkdownWindow,
   type MarkdownWindowPanelId,
   type StaticWorkspacePanelId,
@@ -33,7 +31,6 @@ type EditorWorkspacePanelsProps = {
   rightCollapsed: boolean;
   terminalOpen: boolean;
   activeWorkspacePanel: WorkspaceFloatingPanelId | null;
-  browserDomOverlayActive: boolean;
   graph: MermaidGraph;
   selection: Selection;
   projectWorkspace: ProjectWorkspace | null;
@@ -44,7 +41,6 @@ type EditorWorkspacePanelsProps = {
   activeTheme: EditorTheme;
   terminalTheme: XtermThemeTokens;
   detachedMarkdownWindows: DetachedMarkdownWindow[];
-  detachedBrowserWindows: DetachedBrowserWindow[];
   bringWorkspacePanelToFront: (panelId: WorkspaceFloatingPanelId) => void;
   workspacePanelStackPosition: (panelId: WorkspaceFloatingPanelId) => number;
   workspacePanelWindowState: (panelId: WorkspaceFloatingPanelId) => FloatingPanelWindowState;
@@ -61,11 +57,7 @@ type EditorWorkspacePanelsProps = {
   closeDetachedMarkdownWindow: (panelId: MarkdownWindowPanelId) => void;
   saveDetachedMarkdownWindow: (panelId: MarkdownWindowPanelId) => void | Promise<unknown>;
   updateDetachedMarkdownWindow: (panelId: MarkdownWindowPanelId, value: string) => void;
-  closeDetachedBrowserWindow: (panelId: BrowserWindowPanelId) => void;
-  updateDetachedBrowserWindow: (panelId: BrowserWindowPanelId, url: string) => void;
   onStatus: (message: string) => void;
-  onBrowserError: (url: string, message: string) => void;
-  onBrowserHandleChange: (panelId: BrowserWindowPanelId, handle: RuntimeEmbeddedBrowserHandle | null) => void;
 };
 
 export function EditorWorkspacePanels({
@@ -75,7 +67,6 @@ export function EditorWorkspacePanels({
   rightCollapsed,
   terminalOpen,
   activeWorkspacePanel,
-  browserDomOverlayActive,
   graph,
   selection,
   projectWorkspace,
@@ -86,7 +77,6 @@ export function EditorWorkspacePanels({
   activeTheme,
   terminalTheme,
   detachedMarkdownWindows,
-  detachedBrowserWindows,
   bringWorkspacePanelToFront,
   workspacePanelStackPosition,
   workspacePanelWindowState,
@@ -103,11 +93,7 @@ export function EditorWorkspacePanels({
   closeDetachedMarkdownWindow,
   saveDetachedMarkdownWindow,
   updateDetachedMarkdownWindow,
-  closeDetachedBrowserWindow,
-  updateDetachedBrowserWindow,
-  onStatus,
-  onBrowserError,
-  onBrowserHandleChange
+  onStatus
 }: EditorWorkspacePanelsProps) {
   return (
     <>
@@ -211,10 +197,7 @@ export function EditorWorkspacePanels({
       </FloatingPanel>
       <DetachedWorkspaceWindows
         markdownWindows={detachedMarkdownWindows}
-        browserWindows={detachedBrowserWindows}
-        runtime={runtime}
         activePanel={activeWorkspacePanel}
-        browserDomOverlayActive={browserDomOverlayActive}
         bringPanelToFront={bringWorkspacePanelToFront}
         panelStackPosition={workspacePanelStackPosition}
         panelWindowState={workspacePanelWindowState}
@@ -222,11 +205,6 @@ export function EditorWorkspacePanels({
         closeMarkdownWindow={closeDetachedMarkdownWindow}
         saveMarkdownWindow={saveDetachedMarkdownWindow}
         updateMarkdownWindow={updateDetachedMarkdownWindow}
-        closeBrowserWindow={closeDetachedBrowserWindow}
-        updateBrowserWindow={updateDetachedBrowserWindow}
-        onStatus={onStatus}
-        onBrowserError={onBrowserError}
-        onBrowserHandleChange={onBrowserHandleChange}
       />
     </>
   );

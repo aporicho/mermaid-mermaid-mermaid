@@ -1,0 +1,42 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-srcery",
+  "name": "srcery",
+  "description": "srcery kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/Srcery.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/Srcery.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "MIT",
+    "author": "Daniel Berg",
+    "upstream": "https://github.com/srcery-colors/srcery-terminal/blob/master/kitty/srcery_kitty.conf"
+  },
+  "palette": {
+    "background": "#1c1b19",
+    "foreground": "#fce8c3",
+    "cursor": "#fbb829",
+    "cursorText": "#1c1b19",
+    "selectionBackground": "#fce8c3",
+    "selectionForeground": "#1c1b19",
+    "color0": "#1c1b19",
+    "color1": "#ef2f27",
+    "color2": "#519f50",
+    "color3": "#fbb829",
+    "color4": "#2c78bf",
+    "color5": "#e02c6d",
+    "color6": "#0aaeb3",
+    "color7": "#baa67f",
+    "color8": "#918175",
+    "color9": "#f75341",
+    "color10": "#98bc37",
+    "color11": "#fed06e",
+    "color12": "#68a8e4",
+    "color13": "#ff5c8f",
+    "color14": "#2be4d0",
+    "color15": "#fce8c3"
+  }
+}

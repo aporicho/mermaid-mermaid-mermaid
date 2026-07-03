@@ -4,6 +4,7 @@ import type { CanvasNode } from "@/features/mermaid-editor/lib/editor-types";
 import { flowchartPortPoints, isEllipseLikeFlowchartShape, opticalWeightScaleForShape, type ShapeGeometryPortKind } from "@/features/mermaid-editor/lib/flowchart-shape-geometry";
 import { DEFAULT_FLOWCHART_NODE_SHAPE, isEqualAspectFlowchartShape, normalizeFlowchartShape, type FlowchartNodeShape } from "@/features/mermaid-editor/lib/flowchart-shapes";
 import { normalizeImageAsset } from "@/features/mermaid-editor/lib/node-assets";
+import { LINK_CARD_NODE_HEIGHT, LINK_CARD_NODE_WIDTH, normalizeCanvasNodePreview } from "@/features/mermaid-editor/lib/node-preview";
 
 export type NodeAnchorKey = string;
 
@@ -93,6 +94,9 @@ export function defaultNodeGeometrySpec(measureText: (value: string) => number =
 }
 
 export function buildNodeGeometry(node: CanvasNode, spec: NodeGeometrySpec): NodeGeometry {
+  const preview = normalizeCanvasNodePreview(node.preview);
+  if (preview) return buildLinkCardNodeGeometry(node);
+
   const asset = normalizeImageAsset(node.asset);
   if (asset) return buildImageNodeGeometry(node, asset);
 
@@ -127,6 +131,37 @@ export function buildNodeGeometry(node: CanvasNode, spec: NodeGeometrySpec): Nod
     anchorsWorld,
     alignmentRect: { id: node.id, ...frame },
     routedRect: { id: node.id, ...frame, shape }
+  };
+}
+
+function buildLinkCardNodeGeometry(node: CanvasNode): NodeGeometry {
+  const frame = {
+    x: node.x,
+    y: node.y,
+    width: LINK_CARD_NODE_WIDTH,
+    height: LINK_CARD_NODE_HEIGHT
+  };
+  const textBox = {
+    x: 12,
+    y: LINK_CARD_NODE_HEIGHT - 76,
+    width: LINK_CARD_NODE_WIDTH - 24,
+    height: 48
+  };
+  const anchorsLocal = localAnchorPoints(DEFAULT_FLOWCHART_NODE_SHAPE, frame.width, frame.height);
+  const anchorsWorld = anchorsLocal.map((anchor) => ({
+    ...anchor,
+    x: frame.x + anchor.x,
+    y: frame.y + anchor.y
+  }));
+
+  return {
+    id: node.id,
+    frame,
+    textBox,
+    anchorsLocal,
+    anchorsWorld,
+    alignmentRect: { id: node.id, ...frame },
+    routedRect: { id: node.id, ...frame, shape: DEFAULT_FLOWCHART_NODE_SHAPE }
   };
 }
 

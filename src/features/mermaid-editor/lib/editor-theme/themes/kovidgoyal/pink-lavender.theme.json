@@ -1,0 +1,42 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-pink-lavender",
+  "name": "pink lavender",
+  "description": "pink lavender kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/pink_lavender.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/pink_lavender.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "GPLv3",
+    "author": "playerofceleste",
+    "upstream": "https://raw.githubusercontent.com/playerofceleste/pink-lavender/refs/heads/main/implementations/kitty/pink-lavender.conf"
+  },
+  "palette": {
+    "background": "#0c0611",
+    "foreground": "#eed8e5",
+    "cursor": "#eed8e5",
+    "cursorText": "#0c0611",
+    "selectionBackground": "#c8a3bc",
+    "selectionForeground": "#1c1621",
+    "color0": "#0c0611",
+    "color1": "#b292ac",
+    "color2": "#c8a3bc",
+    "color3": "#dab2cc",
+    "color4": "#a697a0",
+    "color5": "#b292ac",
+    "color6": "#c8a3bc",
+    "color7": "#dab2cc",
+    "color8": "#90758d",
+    "color9": "#c29eb6",
+    "color10": "#bb9fc2",
+    "color11": "#eed8e5",
+    "color12": "#90758d",
+    "color13": "#c29eb6",
+    "color14": "#bb9fc2",
+    "color15": "#eed8e5"
+  }
+}

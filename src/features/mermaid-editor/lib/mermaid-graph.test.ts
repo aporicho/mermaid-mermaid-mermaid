@@ -107,6 +107,32 @@ describe("mermaid graph parser", () => {
     expect(serialized).toContain('Logo@{ img: "assets/demo/logo.png", label: "产品 Logo", pos: "t", w: 180, h: 120, constraint: "on" }');
   });
 
+  it("round-trips link card preview nodes through Mermaid object syntax", () => {
+    const graph = parseMermaid(`flowchart LR
+  XHS@{ shape: rect, label: "周末探店", preview: "link-card", plugin: "xiaohongshu", provider: "小红书", url: "https://xhslink.com/a", title: "周末探店", status: "ready", canonical: "https://www.xiaohongshu.com/explore/abc", cover: "assets/xhs.jpg", coverPersistent: "on" }
+  click XHS href "https://www.xiaohongshu.com/explore/abc" "打开小红书笔记" _blank`);
+    const node = graph.nodes.find((item) => item.id === "XHS");
+    const serialized = serializeMermaid(graph);
+
+    expect(node).toMatchObject({
+      label: "周末探店",
+      preview: {
+        kind: "link-card",
+        pluginId: "xiaohongshu",
+        provider: "小红书",
+        sourceUrl: "https://xhslink.com/a",
+        canonicalUrl: "https://www.xiaohongshu.com/explore/abc",
+        title: "周末探店",
+        cover: { src: "assets/xhs.jpg", persistent: true },
+        status: "ready"
+      },
+      action: { kind: "url", url: "https://www.xiaohongshu.com/explore/abc" }
+    });
+    expect(serialized).toContain('preview: "link-card"');
+    expect(serialized).toContain('plugin: "xiaohongshu"');
+    expect(serialized).toContain('cover: "assets/xhs.jpg"');
+  });
+
   it("round-trips every public Mermaid 11 flowchart shape through the canonical serializer", () => {
     const source = [
       "flowchart LR",

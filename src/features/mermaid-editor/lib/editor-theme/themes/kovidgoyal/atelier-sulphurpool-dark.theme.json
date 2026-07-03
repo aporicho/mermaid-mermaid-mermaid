@@ -1,0 +1,42 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-atelier-sulphurpool-dark",
+  "name": "Atelier Sulphurpool Dark",
+  "description": "Atelier Sulphurpool Dark kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/atelier-sulphurpool-dark.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/atelier-sulphurpool-dark.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "MIT",
+    "author": "Bram de Haan (https://github.com/atelierbram)",
+    "upstream": "https://github.com/atelierbram/AtelierSchemes-kitty/blob/main/themes/atelier-sulphurpool-dark.conf"
+  },
+  "palette": {
+    "background": "#202746",
+    "foreground": "#979db4",
+    "cursor": "#979db4",
+    "cursorText": "#202746",
+    "selectionBackground": "#293256",
+    "selectionForeground": "#979db4",
+    "color0": "#202746",
+    "color1": "#c94922",
+    "color2": "#ac9739",
+    "color3": "#c08b30",
+    "color4": "#3d8fd1",
+    "color5": "#6679cc",
+    "color6": "#22a2c9",
+    "color7": "#979db4",
+    "color8": "#6b7394",
+    "color9": "#c76b29",
+    "color10": "#293256",
+    "color11": "#5e6687",
+    "color12": "#898ea4",
+    "color13": "#dfe2f1",
+    "color14": "#9c637a",
+    "color15": "#f5f7ff"
+  }
+}

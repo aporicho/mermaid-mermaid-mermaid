@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-floraverse",
+  "name": "Floraverse",
+  "description": "Floraverse kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/Floraverse.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/Floraverse.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "GPL-3.0"
+  },
+  "palette": {
+    "background": "#0e0c15",
+    "foreground": "#dbd0b9",
+    "cursor": "#bbbbbb",
+    "selectionBackground": "#f3e0b8",
+    "selectionForeground": "#0e0c15",
+    "color0": "#08002e",
+    "color1": "#64002c",
+    "color2": "#5d731a",
+    "color3": "#cd751c",
+    "color4": "#1d6da1",
+    "color5": "#b7077e",
+    "color6": "#42a38c",
+    "color7": "#f3e0b8",
+    "color8": "#331d4c",
+    "color9": "#cf2062",
+    "color10": "#b3ce58",
+    "color11": "#fac357",
+    "color12": "#40a4cf",
+    "color13": "#f02aae",
+    "color14": "#62caa8",
+    "color15": "#fff5db"
+  }
+}

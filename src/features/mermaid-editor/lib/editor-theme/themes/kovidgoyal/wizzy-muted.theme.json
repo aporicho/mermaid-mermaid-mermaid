@@ -1,0 +1,41 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-wizzy-muted",
+  "name": "Wizzy Muted",
+  "description": "Wizzy Muted kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/wizzy-muted.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/wizzy-muted.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "MIT",
+    "author": "erin",
+    "upstream": "https://github.com/erincerys/kitty-themes/blob/master/themes/wizzy-muted.conf"
+  },
+  "palette": {
+    "background": "#100814",
+    "foreground": "#b2b8c4",
+    "cursor": "#9d9eca",
+    "selectionBackground": "#4d4d4d",
+    "selectionForeground": "#101010",
+    "color0": "#444444",
+    "color1": "#9d5776",
+    "color2": "#398484",
+    "color3": "#6b6b88",
+    "color4": "#4a6684",
+    "color5": "#6f579d",
+    "color6": "#42769d",
+    "color7": "#9aadb2",
+    "color8": "#4e4e4e",
+    "color9": "#cf5e91",
+    "color10": "#64b7b7",
+    "color11": "#8d8dba",
+    "color12": "#588bc4",
+    "color13": "#8f73c4",
+    "color14": "#71a7cf",
+    "color15": "#d1d1d1"
+  }
+}

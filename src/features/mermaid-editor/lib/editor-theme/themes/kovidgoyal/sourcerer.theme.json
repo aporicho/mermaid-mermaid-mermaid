@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-sourcerer",
+  "name": "Sourcerer",
+  "description": "Sourcerer kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/Sourcerer.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/Sourcerer.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "GPL-3.0"
+  },
+  "palette": {
+    "background": "#222222",
+    "foreground": "#c2c2b0",
+    "cursor": "#c2c2b0",
+    "selectionBackground": "#c2c2b0",
+    "selectionForeground": "#222222",
+    "color0": "#111111",
+    "color1": "#aa4450",
+    "color2": "#719611",
+    "color3": "#ff9800",
+    "color4": "#6688aa",
+    "color5": "#8f6f8f",
+    "color6": "#528b8b",
+    "color7": "#d3d3d3",
+    "color8": "#181818",
+    "color9": "#ff6a6a",
+    "color10": "#b1d631",
+    "color11": "#87875f",
+    "color12": "#90b0d1",
+    "color13": "#8181a6",
+    "color14": "#87ceeb",
+    "color15": "#c1cdc1"
+  }
+}

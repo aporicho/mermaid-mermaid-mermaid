@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-red-alert",
+  "name": "Red Alert",
+  "description": "Red Alert kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/Red_Alert.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/Red_Alert.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "GPL-3.0"
+  },
+  "palette": {
+    "background": "#762423",
+    "foreground": "#ffffff",
+    "cursor": "#ffffff",
+    "selectionBackground": "#073642",
+    "selectionForeground": "#762423",
+    "color0": "#000000",
+    "color1": "#d52e4d",
+    "color2": "#71be6b",
+    "color3": "#beb86b",
+    "color4": "#479bed",
+    "color5": "#e878d6",
+    "color6": "#6bbeb8",
+    "color7": "#d6d6d6",
+    "color8": "#262626",
+    "color9": "#e02453",
+    "color10": "#aff08b",
+    "color11": "#dfddb7",
+    "color12": "#65a9f0",
+    "color13": "#ddb7df",
+    "color14": "#b7dfdd",
+    "color15": "#ffffff"
+  }
+}

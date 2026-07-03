@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-dexpota-hurtado",
+  "name": "Hurtado",
+  "description": "Hurtado kitty theme from dexpota/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "dexpota",
+    "name": "dexpota/kitty-themes",
+    "repository": "https://github.com/dexpota/kitty-themes",
+    "path": "themes/Hurtado.conf",
+    "url": "https://github.com/dexpota/kitty-themes/blob/b1abdd54ba655ef34f75a568d78625981bf1722c/themes/Hurtado.conf",
+    "commit": "b1abdd54ba655ef34f75a568d78625981bf1722c",
+    "license": "MIT"
+  },
+  "palette": {
+    "background": "#000000",
+    "foreground": "#dadbda",
+    "cursor": "#bbbbbb",
+    "selectionBackground": "#b4d5ff",
+    "selectionForeground": "#000000",
+    "color0": "#575757",
+    "color1": "#ff1b00",
+    "color2": "#a5df55",
+    "color3": "#fbe74a",
+    "color4": "#486387",
+    "color5": "#fc5ef0",
+    "color6": "#85e9fe",
+    "color7": "#cbcbcb",
+    "color8": "#252525",
+    "color9": "#d41c00",
+    "color10": "#a5df55",
+    "color11": "#fbe749",
+    "color12": "#89bdff",
+    "color13": "#bf00c0",
+    "color14": "#85e9fe",
+    "color15": "#dbdbdb"
+  }
+}

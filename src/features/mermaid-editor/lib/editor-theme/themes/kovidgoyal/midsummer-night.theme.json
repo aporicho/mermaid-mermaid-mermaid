@@ -1,0 +1,40 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-midsummer-night",
+  "name": "Midsummer Night",
+  "description": "Midsummer Night kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/midsummer-night.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/midsummer-night.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "GPL-3.0",
+    "author": "abrielleing"
+  },
+  "palette": {
+    "background": "#1c1e26",
+    "foreground": "#c6b8b1",
+    "cursor": "#d34c6b",
+    "cursorText": "#1c1e26",
+    "selectionBackground": "#2e303e",
+    "color0": "#000000",
+    "color1": "#d85069",
+    "color2": "#2dcbbe",
+    "color3": "#e5a382",
+    "color4": "#35a5bb",
+    "color5": "#d34c68",
+    "color6": "#2dcbbe",
+    "color7": "#b1c7c9",
+    "color8": "#666666",
+    "color9": "#d85069",
+    "color10": "#2dcbbe",
+    "color11": "#e5a382",
+    "color12": "#35a5bb",
+    "color13": "#d34c68",
+    "color14": "#2dcbbe",
+    "color15": "#b1c7c9"
+  }
+}

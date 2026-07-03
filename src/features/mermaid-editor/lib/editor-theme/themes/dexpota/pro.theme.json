@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-dexpota-pro",
+  "name": "Pro",
+  "description": "Pro kitty theme from dexpota/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "dexpota",
+    "name": "dexpota/kitty-themes",
+    "repository": "https://github.com/dexpota/kitty-themes",
+    "path": "themes/Pro.conf",
+    "url": "https://github.com/dexpota/kitty-themes/blob/b1abdd54ba655ef34f75a568d78625981bf1722c/themes/Pro.conf",
+    "commit": "b1abdd54ba655ef34f75a568d78625981bf1722c",
+    "license": "MIT"
+  },
+  "palette": {
+    "background": "#000000",
+    "foreground": "#f2f2f2",
+    "cursor": "#4d4d4d",
+    "selectionBackground": "#414141",
+    "selectionForeground": "#000000",
+    "color0": "#000000",
+    "color1": "#990000",
+    "color2": "#00a600",
+    "color3": "#999900",
+    "color4": "#1f08db",
+    "color5": "#b200b2",
+    "color6": "#00a6b2",
+    "color7": "#bfbfbf",
+    "color8": "#666666",
+    "color9": "#e50000",
+    "color10": "#00d900",
+    "color11": "#e5e500",
+    "color12": "#0000ff",
+    "color13": "#e500e5",
+    "color14": "#00e5e5",
+    "color15": "#e5e5e5"
+  }
+}

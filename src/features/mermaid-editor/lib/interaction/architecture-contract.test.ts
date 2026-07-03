@@ -372,12 +372,13 @@ describe("interaction architecture contract", () => {
   it("keeps window and node action logic outside the MermaidEditor composition file", () => {
     const editor = readProjectFile("src/features/mermaid-editor/components/mermaid-editor.tsx");
     const actions = readProjectFile("src/features/mermaid-editor/components/mermaid-editor/use-editor-window-actions.ts");
-    const browserHandles = readProjectFile("src/features/mermaid-editor/components/mermaid-editor/use-editor-embedded-browser-handles.ts");
+    const browserSurface = readProjectFile("src/features/mermaid-editor/components/embedded-browser-surface.tsx");
 
     expect(editor).toContain("useEditorWindowActions");
-    expect(editor).toContain("useEditorEmbeddedBrowserHandles");
-    expect(actions).toContain("closeEmbeddedBrowser(panelId)");
-    expect(browserHandles).toContain("disposeRuntimeEmbeddedBrowserHandle");
+    expect(editor).not.toContain("useEditorEmbeddedBrowserHandles");
+    expect(actions).toContain("openBrowserToolWindow");
+    expect(actions).not.toContain("closeEmbeddedBrowser(panelId)");
+    expect(browserSurface).toContain("disposeRuntimeEmbeddedBrowserHandle");
     expect(editor).not.toContain("function openProjectMarkdownWindow(");
     expect(editor).not.toContain("function openBrowserWindow(");
     expect(editor).not.toContain("function updateDetachedBrowserWindow(");
@@ -464,12 +465,13 @@ describe("interaction architecture contract", () => {
     expect(nodeImage).not.toContain("cornerRadius");
     expect(nodeImage).not.toContain("dash=");
     expect(nodeImage).not.toContain("stroke");
-    expect(nodeLayer).toContain("!isImageNode ? (");
+    expect(nodeLayer).toContain("!isImageNode && !isLinkCardNode ? (");
+    expect(nodeLayer).toContain("<CanvasNodeLinkCard");
     expect(nodeLayer).toContain("fill=\"rgba(0,0,0,0.001)\"");
     expect(nodeLayer).toContain("strokeEnabled={false}");
     expect(nodeLayer).toContain("cornerRadius={0}");
     expect(nodeLayer).toContain("imageInteractionFrameVisible");
-    expect(nodeLayer).toContain("!isImageNode && normalizeNodeAction");
+    expect(nodeLayer).toContain("!isImageNode && !isLinkCardNode && normalizeNodeAction");
   });
 
   it("keeps Konva runtime controllers outside the KonvaCanvas shell file", () => {

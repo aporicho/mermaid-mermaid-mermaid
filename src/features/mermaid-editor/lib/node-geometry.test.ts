@@ -113,6 +113,27 @@ describe("node geometry", () => {
     ]);
   });
 
+  it("builds link card preview geometry from stable card dimensions", () => {
+    const geometry = buildNodeGeometry(
+      {
+        ...node,
+        preview: {
+          kind: "link-card",
+          pluginId: "xiaohongshu",
+          provider: "小红书",
+          sourceUrl: "https://xhslink.com/a",
+          title: "小红书笔记",
+          status: "fallback"
+        }
+      },
+      spec
+    );
+
+    expect(geometry.frame).toEqual({ x: 100, y: 80, width: 220, height: 292 });
+    expect(geometry.routedRect).toEqual({ id: "node-a", x: 100, y: 80, width: 220, height: 292, shape: "rect" });
+    expect(geometry.textBox).toEqual({ x: 12, y: 216, width: 196, height: 48 });
+  });
+
   it("caps wrapped text height at the configured maximum line count", () => {
     const geometry = buildNodeGeometry({ ...node, label: "abcdefghijklmnopqrstuvwxyz" }, spec);
 

@@ -1,0 +1,42 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-base2tone-morning-dark",
+  "name": "Base2Tone Morning Dark",
+  "description": "Base2Tone Morning Dark kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/base2tone-morning-dark.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/base2tone-morning-dark.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "MIT",
+    "author": "Bram de Haan (https://github.com/atelierbram)",
+    "upstream": "https://github.com/atelierbram/Base2Tone-kitty/blob/main/themes/base2tone-morning-dark.conf"
+  },
+  "palette": {
+    "background": "#232834",
+    "foreground": "#8d95a5",
+    "cursor": "#2d2006",
+    "cursorText": "#232834",
+    "selectionBackground": "#31363f",
+    "selectionForeground": "#8d95a5",
+    "color0": "#232834",
+    "color1": "#1659df",
+    "color2": "#b29762",
+    "color3": "#e5ddcd",
+    "color4": "#3d75e6",
+    "color5": "#b29762",
+    "color6": "#728fcb",
+    "color7": "#8d95a5",
+    "color8": "#656e81",
+    "color9": "#c6b28b",
+    "color10": "#31363f",
+    "color11": "#4f5664",
+    "color12": "#707a8f",
+    "color13": "#b7c9eb",
+    "color14": "#9a7c42",
+    "color15": "#dee6f7"
+  }
+}

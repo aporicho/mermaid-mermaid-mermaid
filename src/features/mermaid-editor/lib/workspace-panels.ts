@@ -11,7 +11,7 @@ import {
 export type StaticWorkspacePanelId = "explorer" | "inspector" | "terminal";
 export type MarkdownWindowPanelId = `markdown:${string}`;
 export type BrowserWindowPanelId = `browser:${string}`;
-export type WorkspaceFloatingPanelId = StaticWorkspacePanelId | MarkdownWindowPanelId | BrowserWindowPanelId;
+export type WorkspaceFloatingPanelId = StaticWorkspacePanelId | MarkdownWindowPanelId;
 
 export type DetachedMarkdownWindow = {
   id: MarkdownWindowPanelId;
@@ -21,12 +21,6 @@ export type DetachedMarkdownWindow = {
   savedValue: string;
 };
 
-export type DetachedBrowserWindow = {
-  id: BrowserWindowPanelId;
-  title: string;
-  url: string;
-};
-
 const DEFAULT_WORKSPACE_PANEL_STACK: WorkspaceFloatingPanelId[] = ["explorer", "inspector", "terminal"];
 const DEFAULT_WORKSPACE_PANEL_WINDOW_STATES: Record<StaticWorkspacePanelId, FloatingPanelWindowState> = {
   explorer: "normal",
@@ -34,28 +28,22 @@ const DEFAULT_WORKSPACE_PANEL_WINDOW_STATES: Record<StaticWorkspacePanelId, Floa
   terminal: "normal"
 };
 
-export const WORKSPACE_PANEL_DEFAULT_SIZES: Record<StaticWorkspacePanelId | "markdown" | "browser", { width: number; height: number }> = {
+export const WORKSPACE_PANEL_DEFAULT_SIZES: Record<StaticWorkspacePanelId | "markdown", { width: number; height: number }> = {
   explorer: { width: 360, height: 640 },
   inspector: { width: 360, height: 640 },
   terminal: { width: 860, height: 320 },
-  markdown: { width: 760, height: 640 },
-  browser: { width: 920, height: 680 }
+  markdown: { width: 760, height: 640 }
 };
 
-export const WORKSPACE_PANEL_MIN_SIZES: Record<StaticWorkspacePanelId | "markdown" | "browser", { width: number; height: number }> = {
+export const WORKSPACE_PANEL_MIN_SIZES: Record<StaticWorkspacePanelId | "markdown", { width: number; height: number }> = {
   explorer: { width: 320, height: 220 },
   inspector: { width: 320, height: 220 },
   terminal: { width: 560, height: 260 },
-  markdown: { width: 420, height: 300 },
-  browser: { width: 520, height: 360 }
+  markdown: { width: 420, height: 300 }
 };
 
 export function markdownWindowPanelId(file: Pick<RuntimeFileRef, "name" | "path">): MarkdownWindowPanelId {
   return `markdown:${file.path || file.name}` as MarkdownWindowPanelId;
-}
-
-export function browserWindowPanelId(url: string): BrowserWindowPanelId {
-  return `browser:${hashText(url)}` as BrowserWindowPanelId;
 }
 
 export function useWorkspacePanels({
@@ -63,15 +51,13 @@ export function useWorkspacePanels({
   rightCollapsed,
   terminalOpen,
   documentKind,
-  detachedMarkdownWindows,
-  detachedBrowserWindows
+  detachedMarkdownWindows
 }: {
   leftCollapsed: boolean;
   rightCollapsed: boolean;
   terminalOpen: boolean;
   documentKind: DocumentKind;
   detachedMarkdownWindows: DetachedMarkdownWindow[];
-  detachedBrowserWindows: DetachedBrowserWindow[];
 }) {
   const [workspacePanelStack, setWorkspacePanelStack] = useState<WorkspaceFloatingPanelId[]>(DEFAULT_WORKSPACE_PANEL_STACK);
   const [workspacePanelWindowStates, setWorkspacePanelWindowStates] = useState<Record<string, FloatingPanelWindowState>>(() => ({
@@ -84,9 +70,8 @@ export function useWorkspacePanels({
     if (!rightCollapsed && documentKind === "mermaid") panelIds.push("inspector");
     if (terminalOpen) panelIds.push("terminal");
     panelIds.push(...detachedMarkdownWindows.map((window) => window.id));
-    panelIds.push(...detachedBrowserWindows.map((window) => window.id));
     return panelIds;
-  }, [detachedBrowserWindows, detachedMarkdownWindows, documentKind, leftCollapsed, rightCollapsed, terminalOpen]);
+  }, [detachedMarkdownWindows, documentKind, leftCollapsed, rightCollapsed, terminalOpen]);
 
   const activeWorkspacePanel = useMemo(() => {
     for (let index = workspacePanelStack.length - 1; index >= 0; index -= 1) {
@@ -125,12 +110,4 @@ export function useWorkspacePanels({
     workspacePanelStackPosition,
     workspacePanelWindowState
   };
-}
-
-function hashText(value: string) {
-  let hash = 0;
-  for (let index = 0; index < value.length; index += 1) {
-    hash = (hash * 31 + value.charCodeAt(index)) >>> 0;
-  }
-  return hash.toString(36);
 }

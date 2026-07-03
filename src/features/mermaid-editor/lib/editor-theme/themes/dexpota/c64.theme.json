@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-dexpota-c64",
+  "name": "C64",
+  "description": "C64 kitty theme from dexpota/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "dexpota",
+    "name": "dexpota/kitty-themes",
+    "repository": "https://github.com/dexpota/kitty-themes",
+    "path": "themes/C64.conf",
+    "url": "https://github.com/dexpota/kitty-themes/blob/b1abdd54ba655ef34f75a568d78625981bf1722c/themes/C64.conf",
+    "commit": "b1abdd54ba655ef34f75a568d78625981bf1722c",
+    "license": "MIT"
+  },
+  "palette": {
+    "background": "#40318d",
+    "foreground": "#7869c4",
+    "cursor": "#7869c4",
+    "selectionBackground": "#7869c4",
+    "selectionForeground": "#40318d",
+    "color0": "#090300",
+    "color1": "#883932",
+    "color2": "#55a049",
+    "color3": "#bfce72",
+    "color4": "#40318d",
+    "color5": "#8b3f96",
+    "color6": "#67b6bd",
+    "color7": "#ffffff",
+    "color8": "#000000",
+    "color9": "#883932",
+    "color10": "#55a049",
+    "color11": "#bfce72",
+    "color12": "#40318d",
+    "color13": "#8a3e95",
+    "color14": "#67b6bd",
+    "color15": "#f7f7f7"
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-urple",
+  "name": "Urple",
+  "description": "Urple kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/Urple.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/Urple.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "GPL-3.0"
+  },
+  "palette": {
+    "background": "#1b1b23",
+    "foreground": "#86799a",
+    "cursor": "#a062ea",
+    "selectionBackground": "#a062ea",
+    "selectionForeground": "#1b1b23",
+    "color0": "#000000",
+    "color1": "#af425b",
+    "color2": "#37a315",
+    "color3": "#ac5b41",
+    "color4": "#554d9a",
+    "color5": "#6c3ba1",
+    "color6": "#808080",
+    "color7": "#87799c",
+    "color8": "#5c3125",
+    "color9": "#ff6387",
+    "color10": "#28e51f",
+    "color11": "#f08061",
+    "color12": "#8579ed",
+    "color13": "#a05dee",
+    "color14": "#eaeaea",
+    "color15": "#bfa3ff"
+  }
+}

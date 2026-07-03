@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-dexpota-encom",
+  "name": "ENCOM",
+  "description": "ENCOM kitty theme from dexpota/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "dexpota",
+    "name": "dexpota/kitty-themes",
+    "repository": "https://github.com/dexpota/kitty-themes",
+    "path": "themes/ENCOM.conf",
+    "url": "https://github.com/dexpota/kitty-themes/blob/b1abdd54ba655ef34f75a568d78625981bf1722c/themes/ENCOM.conf",
+    "commit": "b1abdd54ba655ef34f75a568d78625981bf1722c",
+    "license": "MIT"
+  },
+  "palette": {
+    "background": "#000000",
+    "foreground": "#00a595",
+    "cursor": "#bbbbbb",
+    "selectionBackground": "#00a48c",
+    "selectionForeground": "#000000",
+    "color0": "#000000",
+    "color1": "#9f0000",
+    "color2": "#008b00",
+    "color3": "#ffcf00",
+    "color4": "#0081ff",
+    "color5": "#bc00ca",
+    "color6": "#008b8b",
+    "color7": "#bbbbbb",
+    "color8": "#545454",
+    "color9": "#ff0000",
+    "color10": "#00ee00",
+    "color11": "#ffff00",
+    "color12": "#0000ff",
+    "color13": "#ff00ff",
+    "color14": "#00cdcd",
+    "color15": "#ffffff"
+  }
+}

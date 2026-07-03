@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-flat",
+  "name": "Flat",
+  "description": "Flat kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/Flat.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/Flat.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "GPL-3.0"
+  },
+  "palette": {
+    "background": "#002240",
+    "foreground": "#2bc45d",
+    "cursor": "#e5bd0c",
+    "selectionBackground": "#782b9c",
+    "selectionForeground": "#002240",
+    "color0": "#212c3e",
+    "color1": "#a72320",
+    "color2": "#32a448",
+    "color3": "#e58d11",
+    "color4": "#3066ab",
+    "color5": "#7819a0",
+    "color6": "#2b9270",
+    "color7": "#afb6b9",
+    "color8": "#202b3b",
+    "color9": "#d3302e",
+    "color10": "#2c9440",
+    "color11": "#e5bd0c",
+    "color12": "#3b7cd2",
+    "color13": "#822fa7",
+    "color14": "#35b286",
+    "color15": "#e6ecec"
+  }
+}

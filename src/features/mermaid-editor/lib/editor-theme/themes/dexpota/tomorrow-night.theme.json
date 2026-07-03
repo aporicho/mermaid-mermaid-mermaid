@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-dexpota-tomorrow-night",
+  "name": "Tomorrow Night",
+  "description": "Tomorrow Night kitty theme from dexpota/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "dexpota",
+    "name": "dexpota/kitty-themes",
+    "repository": "https://github.com/dexpota/kitty-themes",
+    "path": "themes/Tomorrow_Night.conf",
+    "url": "https://github.com/dexpota/kitty-themes/blob/b1abdd54ba655ef34f75a568d78625981bf1722c/themes/Tomorrow_Night.conf",
+    "commit": "b1abdd54ba655ef34f75a568d78625981bf1722c",
+    "license": "MIT"
+  },
+  "palette": {
+    "background": "#1d1f21",
+    "foreground": "#c4c8c5",
+    "cursor": "#c4c8c5",
+    "selectionBackground": "#363a41",
+    "selectionForeground": "#1d1f21",
+    "color0": "#000000",
+    "color1": "#cc6666",
+    "color2": "#b5bd68",
+    "color3": "#f0c574",
+    "color4": "#80a1bd",
+    "color5": "#b294ba",
+    "color6": "#8abdb6",
+    "color7": "#fffefe",
+    "color8": "#000000",
+    "color9": "#cc6666",
+    "color10": "#b5bd68",
+    "color11": "#f0c574",
+    "color12": "#80a1bd",
+    "color13": "#b294ba",
+    "color14": "#8abdb6",
+    "color15": "#fffefe"
+  }
+}

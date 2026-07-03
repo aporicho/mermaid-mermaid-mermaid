@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-renault-style",
+  "name": "Renault Style",
+  "description": "Renault Style kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/Renault_Style.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/Renault_Style.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "GPL-3.0"
+  },
+  "palette": {
+    "background": "#3a3a3a",
+    "foreground": "#e9cb7b",
+    "cursor": "#7f7f7f",
+    "selectionBackground": "#958553",
+    "selectionForeground": "#3a3a3a",
+    "color0": "#000000",
+    "color1": "#990000",
+    "color2": "#00a600",
+    "color3": "#999900",
+    "color4": "#0000b2",
+    "color5": "#b200b2",
+    "color6": "#00a6b2",
+    "color7": "#bfbfbf",
+    "color8": "#666666",
+    "color9": "#e50000",
+    "color10": "#00d800",
+    "color11": "#e5e500",
+    "color12": "#0000ff",
+    "color13": "#e500e5",
+    "color14": "#00e5e5",
+    "color15": "#e5e5e5"
+  }
+}

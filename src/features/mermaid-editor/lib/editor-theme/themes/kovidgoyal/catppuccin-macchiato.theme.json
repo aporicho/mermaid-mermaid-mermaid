@@ -1,0 +1,42 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-catppuccin-macchiato",
+  "name": "Catppuccin-Macchiato",
+  "description": "Catppuccin-Macchiato kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/Catppuccin-Macchiato.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/Catppuccin-Macchiato.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "MIT",
+    "author": "Pocco81 (https://github.com/Pocco81)",
+    "upstream": "https://github.com/catppuccin/kitty/blob/main/themes/macchiato.conf"
+  },
+  "palette": {
+    "background": "#24273a",
+    "foreground": "#cad3f5",
+    "cursor": "#f4dbd6",
+    "cursorText": "#24273a",
+    "selectionBackground": "#f4dbd6",
+    "selectionForeground": "#24273a",
+    "color0": "#494d64",
+    "color1": "#ed8796",
+    "color2": "#a6da95",
+    "color3": "#eed49f",
+    "color4": "#8aadf4",
+    "color5": "#f5bde6",
+    "color6": "#8bd5ca",
+    "color7": "#b8c0e0",
+    "color8": "#5b6078",
+    "color9": "#ed8796",
+    "color10": "#a6da95",
+    "color11": "#eed49f",
+    "color12": "#8aadf4",
+    "color13": "#f5bde6",
+    "color14": "#8bd5ca",
+    "color15": "#a5adcb"
+  }
+}

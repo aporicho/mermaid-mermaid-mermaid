@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-dexpota-molokai",
+  "name": "Molokai",
+  "description": "Molokai kitty theme from dexpota/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "dexpota",
+    "name": "dexpota/kitty-themes",
+    "repository": "https://github.com/dexpota/kitty-themes",
+    "path": "themes/Molokai.conf",
+    "url": "https://github.com/dexpota/kitty-themes/blob/b1abdd54ba655ef34f75a568d78625981bf1722c/themes/Molokai.conf",
+    "commit": "b1abdd54ba655ef34f75a568d78625981bf1722c",
+    "license": "MIT"
+  },
+  "palette": {
+    "background": "#121212",
+    "foreground": "#bbbbbb",
+    "cursor": "#bbbbbb",
+    "selectionBackground": "#b4d5ff",
+    "selectionForeground": "#121212",
+    "color0": "#121212",
+    "color1": "#fa2573",
+    "color2": "#97e123",
+    "color3": "#dfd460",
+    "color4": "#0f7fcf",
+    "color5": "#8700ff",
+    "color6": "#42a7cf",
+    "color7": "#bbbbbb",
+    "color8": "#545454",
+    "color9": "#f5669c",
+    "color10": "#b0e05e",
+    "color11": "#fef26c",
+    "color12": "#00afff",
+    "color13": "#af87ff",
+    "color14": "#50cdfe",
+    "color15": "#ffffff"
+  }
+}

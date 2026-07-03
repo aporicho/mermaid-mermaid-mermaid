@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-misterioso",
+  "name": "Misterioso",
+  "description": "Misterioso kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/Misterioso.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/Misterioso.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "GPL-3.0"
+  },
+  "palette": {
+    "background": "#2d3743",
+    "foreground": "#e1e1e0",
+    "cursor": "#000000",
+    "selectionBackground": "#2d37ff",
+    "selectionForeground": "#2d3743",
+    "color0": "#000000",
+    "color1": "#ff4141",
+    "color2": "#74ae68",
+    "color3": "#ffac28",
+    "color4": "#338e86",
+    "color5": "#9413e5",
+    "color6": "#23d6d6",
+    "color7": "#e1e1df",
+    "color8": "#545454",
+    "color9": "#ff3241",
+    "color10": "#74cc68",
+    "color11": "#ffb928",
+    "color12": "#23d6d6",
+    "color13": "#ff37ff",
+    "color14": "#00ece1",
+    "color15": "#ffffff"
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-xcodedark",
+  "name": "xcodedark",
+  "description": "xcodedark kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/xcodedark.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/xcodedark.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "GPL-3.0"
+  },
+  "palette": {
+    "background": "#292a30",
+    "foreground": "#dfdfe0",
+    "cursor": "#53606e",
+    "selectionBackground": "#393b44",
+    "selectionForeground": "#53606e",
+    "color0": "#292a30",
+    "color1": "#ff8170",
+    "color2": "#78c2b3",
+    "color3": "#ffa14f",
+    "color4": "#4eb0cc",
+    "color5": "#b281eb",
+    "color6": "#84b360",
+    "color7": "#a3b1bf",
+    "color8": "#53606e",
+    "color9": "#ff7ab2",
+    "color10": "#acf2e4",
+    "color11": "#d9c97c",
+    "color12": "#6bdfff",
+    "color13": "#dabaff",
+    "color14": "#b0e687",
+    "color15": "#53606e"
+  }
+}

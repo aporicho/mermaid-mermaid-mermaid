@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-dexpota-monalisa",
+  "name": "MonaLisa",
+  "description": "MonaLisa kitty theme from dexpota/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "dexpota",
+    "name": "dexpota/kitty-themes",
+    "repository": "https://github.com/dexpota/kitty-themes",
+    "path": "themes/MonaLisa.conf",
+    "url": "https://github.com/dexpota/kitty-themes/blob/b1abdd54ba655ef34f75a568d78625981bf1722c/themes/MonaLisa.conf",
+    "commit": "b1abdd54ba655ef34f75a568d78625981bf1722c",
+    "license": "MIT"
+  },
+  "palette": {
+    "background": "#110b0d",
+    "foreground": "#f6d56a",
+    "cursor": "#c36c32",
+    "selectionBackground": "#f6d56a",
+    "selectionForeground": "#110b0d",
+    "color0": "#341a0d",
+    "color1": "#9b281b",
+    "color2": "#626132",
+    "color3": "#c26e27",
+    "color4": "#515b5c",
+    "color5": "#9b1d29",
+    "color6": "#588056",
+    "color7": "#f6d75c",
+    "color8": "#874227",
+    "color9": "#ff4230",
+    "color10": "#b3b163",
+    "color11": "#ff9565",
+    "color12": "#9eb2b3",
+    "color13": "#ff5b6a",
+    "color14": "#89cc8e",
+    "color15": "#ffe597"
+  }
+}

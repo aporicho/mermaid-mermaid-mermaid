@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-c64",
+  "name": "C64",
+  "description": "C64 kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/C64.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/C64.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "GPL-3.0"
+  },
+  "palette": {
+    "background": "#40318d",
+    "foreground": "#7869c4",
+    "cursor": "#7869c4",
+    "selectionBackground": "#7869c4",
+    "selectionForeground": "#40318d",
+    "color0": "#090300",
+    "color1": "#883932",
+    "color2": "#55a049",
+    "color3": "#bfce72",
+    "color4": "#40318d",
+    "color5": "#8b3f96",
+    "color6": "#67b6bd",
+    "color7": "#ffffff",
+    "color8": "#000000",
+    "color9": "#883932",
+    "color10": "#55a049",
+    "color11": "#bfce72",
+    "color12": "#40318d",
+    "color13": "#8a3e95",
+    "color14": "#67b6bd",
+    "color15": "#f7f7f7"
+  }
+}

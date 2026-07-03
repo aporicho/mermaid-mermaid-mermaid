@@ -1,0 +1,40 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-aquarium-light",
+  "name": "Aquarium Light",
+  "description": "Aquarium Light kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "light",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/Aquarium_Light.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/Aquarium_Light.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "MIT",
+    "author": "ragdoll2iguess",
+    "upstream": "https://github.com/FrenzyExists/aquarium-vim/raw/develop/extras/kitty_aquarium_light.conf"
+  },
+  "palette": {
+    "background": "#e6e6f1",
+    "foreground": "#708190",
+    "selectionBackground": "#3d4059",
+    "selectionForeground": "#9ca6b9",
+    "color0": "#d5d4e0",
+    "color1": "#c34864",
+    "color2": "#7d9685",
+    "color3": "#de956f",
+    "color4": "#6a8cbc",
+    "color5": "#8787bf",
+    "color6": "#829fb0",
+    "color7": "#313449",
+    "color8": "#cccbd9",
+    "color9": "#b7435e",
+    "color10": "#7e8f80",
+    "color11": "#d88b72",
+    "color12": "#6e7ebf",
+    "color13": "#7170c2",
+    "color14": "#728a9a",
+    "color15": "#414560"
+  }
+}

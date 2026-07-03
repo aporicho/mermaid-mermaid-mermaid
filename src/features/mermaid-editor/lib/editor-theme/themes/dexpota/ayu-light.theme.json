@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-dexpota-ayu-light",
+  "name": "ayu light",
+  "description": "ayu light kitty theme from dexpota/kitty-themes.",
+  "mode": "light",
+  "source": {
+    "id": "dexpota",
+    "name": "dexpota/kitty-themes",
+    "repository": "https://github.com/dexpota/kitty-themes",
+    "path": "themes/ayu_light.conf",
+    "url": "https://github.com/dexpota/kitty-themes/blob/b1abdd54ba655ef34f75a568d78625981bf1722c/themes/ayu_light.conf",
+    "commit": "b1abdd54ba655ef34f75a568d78625981bf1722c",
+    "license": "MIT"
+  },
+  "palette": {
+    "background": "#fafafa",
+    "foreground": "#5b6673",
+    "cursor": "#ff6900",
+    "selectionBackground": "#f0ede4",
+    "selectionForeground": "#fafafa",
+    "color0": "#000000",
+    "color1": "#ff3333",
+    "color2": "#86b200",
+    "color3": "#f19618",
+    "color4": "#41a6d9",
+    "color5": "#f07078",
+    "color6": "#4cbe99",
+    "color7": "#ffffff",
+    "color8": "#323232",
+    "color9": "#ff6565",
+    "color10": "#b8e532",
+    "color11": "#ffc849",
+    "color12": "#73d7ff",
+    "color13": "#ffa3aa",
+    "color14": "#7ff0cb",
+    "color15": "#ffffff"
+  }
+}

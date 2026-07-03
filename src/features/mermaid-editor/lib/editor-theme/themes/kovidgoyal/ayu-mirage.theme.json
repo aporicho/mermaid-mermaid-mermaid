@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-ayu-mirage",
+  "name": "ayu mirage",
+  "description": "ayu mirage kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/ayu_mirage.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/ayu_mirage.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "GPL-3.0"
+  },
+  "palette": {
+    "background": "#212733",
+    "foreground": "#d9d7ce",
+    "cursor": "#ffcc66",
+    "selectionBackground": "#343f4c",
+    "selectionForeground": "#212733",
+    "color0": "#191e2a",
+    "color1": "#ed8274",
+    "color2": "#a6cc70",
+    "color3": "#fad07b",
+    "color4": "#6dcbfa",
+    "color5": "#cfbafa",
+    "color6": "#90e1c6",
+    "color7": "#c7c7c7",
+    "color8": "#686868",
+    "color9": "#f28779",
+    "color10": "#bae67e",
+    "color11": "#ffd580",
+    "color12": "#73d0ff",
+    "color13": "#d4bfff",
+    "color14": "#95e6cb",
+    "color15": "#ffffff"
+  }
+}

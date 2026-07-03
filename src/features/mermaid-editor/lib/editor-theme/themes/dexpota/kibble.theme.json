@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-dexpota-kibble",
+  "name": "Kibble",
+  "description": "Kibble kitty theme from dexpota/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "dexpota",
+    "name": "dexpota/kitty-themes",
+    "repository": "https://github.com/dexpota/kitty-themes",
+    "path": "themes/Kibble.conf",
+    "url": "https://github.com/dexpota/kitty-themes/blob/b1abdd54ba655ef34f75a568d78625981bf1722c/themes/Kibble.conf",
+    "commit": "b1abdd54ba655ef34f75a568d78625981bf1722c",
+    "license": "MIT"
+  },
+  "palette": {
+    "background": "#0e100a",
+    "foreground": "#f7f7f7",
+    "cursor": "#9fda9c",
+    "selectionBackground": "#9ba686",
+    "selectionForeground": "#0e100a",
+    "color0": "#4d4d4d",
+    "color1": "#c70031",
+    "color2": "#29cf13",
+    "color3": "#d8e30e",
+    "color4": "#3449d1",
+    "color5": "#8400ff",
+    "color6": "#0798ab",
+    "color7": "#e2d1e3",
+    "color8": "#5a5a5a",
+    "color9": "#f01578",
+    "color10": "#6ce05c",
+    "color11": "#f3f79e",
+    "color12": "#97a4f7",
+    "color13": "#c495f0",
+    "color14": "#68f2e0",
+    "color15": "#ffffff"
+  }
+}

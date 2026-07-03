@@ -1,0 +1,42 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-flexoki-light",
+  "name": "Flexoki (Light)",
+  "description": "Flexoki (Light) kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "light",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/flexoki_light.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/flexoki_light.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "MIT",
+    "author": "Kepano",
+    "upstream": "https://raw.githubusercontent.com/kepano/flexoki/main/kitty/flexoki_light.conf"
+  },
+  "palette": {
+    "background": "#fffcf0",
+    "foreground": "#100f0f",
+    "cursor": "#100f0f",
+    "cursorText": "#fffcf0",
+    "selectionBackground": "#cecdc3",
+    "selectionForeground": "#100f0f",
+    "color0": "#100f0f",
+    "color1": "#d14d41",
+    "color2": "#879a39",
+    "color3": "#d0a215",
+    "color4": "#4385be",
+    "color5": "#ce5d97",
+    "color6": "#3aa99f",
+    "color7": "#fffcf0",
+    "color8": "#6f6e69",
+    "color9": "#af3029",
+    "color10": "#66800b",
+    "color11": "#ad8301",
+    "color12": "#205ea6",
+    "color13": "#a02f6f",
+    "color14": "#24837b",
+    "color15": "#f2f0e5"
+  }
+}

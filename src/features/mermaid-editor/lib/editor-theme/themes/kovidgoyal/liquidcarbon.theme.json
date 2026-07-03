@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-liquidcarbon",
+  "name": "LiquidCarbon",
+  "description": "LiquidCarbon kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/LiquidCarbon.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/LiquidCarbon.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "GPL-3.0"
+  },
+  "palette": {
+    "background": "#2f2f2f",
+    "foreground": "#afc2c2",
+    "cursor": "#ffffff",
+    "selectionBackground": "#7cbeff",
+    "selectionForeground": "#2f2f2f",
+    "color0": "#000000",
+    "color1": "#ff2f2f",
+    "color2": "#549a6f",
+    "color3": "#ccac00",
+    "color4": "#0099cc",
+    "color5": "#cc68c8",
+    "color6": "#79c4cc",
+    "color7": "#bccccc",
+    "color8": "#000000",
+    "color9": "#ff2f2f",
+    "color10": "#549a6f",
+    "color11": "#ccac00",
+    "color12": "#0099cc",
+    "color13": "#cc68c8",
+    "color14": "#79c4cc",
+    "color15": "#bccccc"
+  }
+}

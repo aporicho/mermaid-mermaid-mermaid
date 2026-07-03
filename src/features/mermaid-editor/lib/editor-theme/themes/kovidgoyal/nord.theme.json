@@ -1,0 +1,42 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-nord",
+  "name": "Nord",
+  "description": "Nord kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/Nord.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/Nord.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "GPL-3.0",
+    "author": "Eric N. Vander Weele",
+    "upstream": "https://www.nordtheme.com/"
+  },
+  "palette": {
+    "background": "#2e3440",
+    "foreground": "#d8dee9",
+    "cursor": "#d8dee9",
+    "cursorText": "#3b4252",
+    "selectionBackground": "#434c5e",
+    "selectionForeground": "#d8dee9",
+    "color0": "#3b4252",
+    "color1": "#bf616a",
+    "color2": "#a3be8c",
+    "color3": "#ebcb8b",
+    "color4": "#81a1c1",
+    "color5": "#b48ead",
+    "color6": "#88c0d0",
+    "color7": "#e5e9f0",
+    "color8": "#4c566a",
+    "color9": "#bf616a",
+    "color10": "#a3be8c",
+    "color11": "#d08770",
+    "color12": "#5e81ac",
+    "color13": "#b48ead",
+    "color14": "#8fbcbb",
+    "color15": "#eceff4"
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-vague",
+  "name": "Vague",
+  "description": "Vague kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/vague.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/vague.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "MIT",
+    "author": "skewb1k",
+    "upstream": "https://github.com/vague-theme/vague-kitty/blob/main/vague.conf"
+  },
+  "palette": {
+    "background": "#141415",
+    "foreground": "#cdcdcd",
+    "selectionBackground": "#252530",
+    "selectionForeground": "#cdcdcd",
+    "color0": "#252530",
+    "color1": "#d8647e",
+    "color2": "#7fa563",
+    "color3": "#f3be7c",
+    "color4": "#6e94b2",
+    "color5": "#bb9dbd",
+    "color6": "#aeaed1",
+    "color7": "#cdcdcd",
+    "color8": "#606079",
+    "color9": "#e08398",
+    "color10": "#99b782",
+    "color11": "#f5cb96",
+    "color12": "#8ba9c1",
+    "color13": "#c9b1ca",
+    "color14": "#bebeda",
+    "color15": "#d7d7d7"
+  }
+}

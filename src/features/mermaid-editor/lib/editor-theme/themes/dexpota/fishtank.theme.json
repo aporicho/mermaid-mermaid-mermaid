@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-dexpota-fishtank",
+  "name": "FishTank",
+  "description": "FishTank kitty theme from dexpota/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "dexpota",
+    "name": "dexpota/kitty-themes",
+    "repository": "https://github.com/dexpota/kitty-themes",
+    "path": "themes/FishTank.conf",
+    "url": "https://github.com/dexpota/kitty-themes/blob/b1abdd54ba655ef34f75a568d78625981bf1722c/themes/FishTank.conf",
+    "commit": "b1abdd54ba655ef34f75a568d78625981bf1722c",
+    "license": "MIT"
+  },
+  "palette": {
+    "background": "#222436",
+    "foreground": "#eceffd",
+    "cursor": "#fdcd5e",
+    "selectionBackground": "#fcf6e8",
+    "selectionForeground": "#222436",
+    "color0": "#03063c",
+    "color1": "#c60049",
+    "color2": "#abf157",
+    "color3": "#fdcd5e",
+    "color4": "#525fb8",
+    "color5": "#976f81",
+    "color6": "#968662",
+    "color7": "#eceffc",
+    "color8": "#6c5a30",
+    "color9": "#d94a8a",
+    "color10": "#daffa8",
+    "color11": "#fee6a8",
+    "color12": "#b1bdf9",
+    "color13": "#fda4cc",
+    "color14": "#a4bc86",
+    "color15": "#f6ffec"
+  }
+}

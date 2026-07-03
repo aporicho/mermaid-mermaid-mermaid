@@ -1,0 +1,42 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-nordfox",
+  "name": "Nordfox",
+  "description": "Nordfox kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/Nordfox.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/Nordfox.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "MIT",
+    "author": "EdenEast",
+    "upstream": "https://github.com/EdenEast/nightfox.nvim/blob/main/extra/nordfox/kitty.conf"
+  },
+  "palette": {
+    "background": "#2e3440",
+    "foreground": "#cdcecf",
+    "cursor": "#cdcecf",
+    "cursorText": "#2e3440",
+    "selectionBackground": "#3e4a5b",
+    "selectionForeground": "#cdcecf",
+    "color0": "#3b4252",
+    "color1": "#bf616a",
+    "color2": "#a3be8c",
+    "color3": "#ebcb8b",
+    "color4": "#81a1c1",
+    "color5": "#b48ead",
+    "color6": "#88c0d0",
+    "color7": "#e5e9f0",
+    "color8": "#465780",
+    "color9": "#d06f79",
+    "color10": "#b1d196",
+    "color11": "#f0d399",
+    "color12": "#8cafd2",
+    "color13": "#c895bf",
+    "color14": "#93ccdc",
+    "color15": "#e7ecf4"
+  }
+}

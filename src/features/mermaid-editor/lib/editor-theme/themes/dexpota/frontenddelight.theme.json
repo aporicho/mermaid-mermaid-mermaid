@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-dexpota-frontenddelight",
+  "name": "FrontEndDelight",
+  "description": "FrontEndDelight kitty theme from dexpota/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "dexpota",
+    "name": "dexpota/kitty-themes",
+    "repository": "https://github.com/dexpota/kitty-themes",
+    "path": "themes/FrontEndDelight.conf",
+    "url": "https://github.com/dexpota/kitty-themes/blob/b1abdd54ba655ef34f75a568d78625981bf1722c/themes/FrontEndDelight.conf",
+    "commit": "b1abdd54ba655ef34f75a568d78625981bf1722c",
+    "license": "MIT"
+  },
+  "palette": {
+    "background": "#1b1b1d",
+    "foreground": "#acacac",
+    "cursor": "#cccccc",
+    "selectionBackground": "#e96153",
+    "selectionForeground": "#1b1b1d",
+    "color0": "#242426",
+    "color1": "#f8501a",
+    "color2": "#565746",
+    "color3": "#f9761d",
+    "color4": "#2c70b7",
+    "color5": "#f02d4e",
+    "color6": "#3ba0a5",
+    "color7": "#acacac",
+    "color8": "#5eac6c",
+    "color9": "#f64319",
+    "color10": "#74eb4c",
+    "color11": "#fcc224",
+    "color12": "#3393c9",
+    "color13": "#e75e4e",
+    "color14": "#4ebce5",
+    "color15": "#8b735a"
+  }
+}

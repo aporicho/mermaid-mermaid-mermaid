@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-softserver",
+  "name": "SoftServer",
+  "description": "SoftServer kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/SoftServer.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/SoftServer.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "GPL-3.0"
+  },
+  "palette": {
+    "background": "#242626",
+    "foreground": "#99a3a2",
+    "cursor": "#d1dfde",
+    "selectionBackground": "#7f8786",
+    "selectionForeground": "#242626",
+    "color0": "#000000",
+    "color1": "#a16869",
+    "color2": "#99a569",
+    "color3": "#a29069",
+    "color4": "#6a8fa3",
+    "color5": "#6971a3",
+    "color6": "#6ba48f",
+    "color7": "#99a3a2",
+    "color8": "#666c6b",
+    "color9": "#dc5b5f",
+    "color10": "#bfde54",
+    "color11": "#deb35f",
+    "color12": "#62b1df",
+    "color13": "#5f6ede",
+    "color14": "#64e39c",
+    "color15": "#d1dfde"
+  }
+}

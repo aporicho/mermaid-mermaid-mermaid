@@ -1,0 +1,40 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-monokai-classic",
+  "name": "Monokai Classic",
+  "description": "Monokai Classic kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/Monokai_Classic.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/Monokai_Classic.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "GPL-3.0"
+  },
+  "palette": {
+    "background": "#3b3c35",
+    "foreground": "#fdfff1",
+    "cursor": "#fdfff1",
+    "cursorText": "#000000",
+    "selectionBackground": "#fdfff1",
+    "selectionForeground": "#3b3c35",
+    "color0": "#3b3c35",
+    "color1": "#f82570",
+    "color2": "#a6e12d",
+    "color3": "#e4db73",
+    "color4": "#fc961f",
+    "color5": "#ae81ff",
+    "color6": "#66d9ee",
+    "color7": "#fdfff1",
+    "color8": "#6e7066",
+    "color9": "#f82570",
+    "color10": "#a6e12d",
+    "color11": "#e4db73",
+    "color12": "#fc961f",
+    "color13": "#ae81ff",
+    "color14": "#66d9ee",
+    "color15": "#fdfff1"
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-dexpota-dracula",
+  "name": "Dracula",
+  "description": "Dracula kitty theme from dexpota/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "dexpota",
+    "name": "dexpota/kitty-themes",
+    "repository": "https://github.com/dexpota/kitty-themes",
+    "path": "themes/Dracula.conf",
+    "url": "https://github.com/dexpota/kitty-themes/blob/b1abdd54ba655ef34f75a568d78625981bf1722c/themes/Dracula.conf",
+    "commit": "b1abdd54ba655ef34f75a568d78625981bf1722c",
+    "license": "MIT"
+  },
+  "palette": {
+    "background": "#1e1f28",
+    "foreground": "#f8f8f2",
+    "cursor": "#bbbbbb",
+    "selectionBackground": "#44475a",
+    "selectionForeground": "#1e1f28",
+    "color0": "#000000",
+    "color1": "#ff5555",
+    "color2": "#50fa7b",
+    "color3": "#f0fa8b",
+    "color4": "#bd92f8",
+    "color5": "#ff78c5",
+    "color6": "#8ae9fc",
+    "color7": "#bbbbbb",
+    "color8": "#545454",
+    "color9": "#ff5454",
+    "color10": "#50fa7b",
+    "color11": "#f0fa8b",
+    "color12": "#bd92f8",
+    "color13": "#ff78c5",
+    "color14": "#8ae9fc",
+    "color15": "#ffffff"
+  }
+}

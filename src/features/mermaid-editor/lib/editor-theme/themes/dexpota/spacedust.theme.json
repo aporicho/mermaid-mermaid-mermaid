@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-dexpota-spacedust",
+  "name": "Spacedust",
+  "description": "Spacedust kitty theme from dexpota/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "dexpota",
+    "name": "dexpota/kitty-themes",
+    "repository": "https://github.com/dexpota/kitty-themes",
+    "path": "themes/Spacedust.conf",
+    "url": "https://github.com/dexpota/kitty-themes/blob/b1abdd54ba655ef34f75a568d78625981bf1722c/themes/Spacedust.conf",
+    "commit": "b1abdd54ba655ef34f75a568d78625981bf1722c",
+    "license": "MIT"
+  },
+  "palette": {
+    "background": "#0a1e24",
+    "foreground": "#ecefc1",
+    "cursor": "#708183",
+    "selectionBackground": "#0a385c",
+    "selectionForeground": "#0a1e24",
+    "color0": "#6e5246",
+    "color1": "#e35a00",
+    "color2": "#5cab96",
+    "color3": "#e3cd7b",
+    "color4": "#0e548b",
+    "color5": "#e35a00",
+    "color6": "#06afc7",
+    "color7": "#f0f1ce",
+    "color8": "#674c31",
+    "color9": "#ff8a39",
+    "color10": "#adcab8",
+    "color11": "#ffc777",
+    "color12": "#67a0cd",
+    "color13": "#ff8a39",
+    "color14": "#83a6b3",
+    "color15": "#fefff0"
+  }
+}

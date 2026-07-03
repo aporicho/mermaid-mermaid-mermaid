@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-seafoam-pastel",
+  "name": "Seafoam Pastel",
+  "description": "Seafoam Pastel kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/Seafoam_Pastel.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/Seafoam_Pastel.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "GPL-3.0"
+  },
+  "palette": {
+    "background": "#243335",
+    "foreground": "#d3e6d3",
+    "cursor": "#576379",
+    "selectionBackground": "#ffffff",
+    "selectionForeground": "#243335",
+    "color0": "#747474",
+    "color1": "#825d4c",
+    "color2": "#718b62",
+    "color3": "#aca06d",
+    "color4": "#4c7b82",
+    "color5": "#8a7166",
+    "color6": "#719494",
+    "color7": "#dfdfdf",
+    "color8": "#8a8a8a",
+    "color9": "#cf9279",
+    "color10": "#98d9aa",
+    "color11": "#fae69c",
+    "color12": "#79c3cf",
+    "color13": "#d6b2a0",
+    "color14": "#acdfdf",
+    "color15": "#dfdfdf"
+  }
+}

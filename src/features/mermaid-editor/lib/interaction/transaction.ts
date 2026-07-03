@@ -127,7 +127,7 @@ export function applyEditorCommandTransaction(state: EditorTransactionState, com
   }
 
   if (command.type === "graph.addNodeAt") {
-    const result = addNodeAt(state.graph, command.point.x, command.point.y, { label: command.label, action: command.action });
+    const result = addNodeAt(state.graph, command.point.x, command.point.y, { label: command.label, action: command.action, preview: command.preview });
     const graph = command.point.parentId ? setNodeParent(result.graph, result.selection.nodeIds[0], command.point.parentId) : result.graph;
     const message = command.message || "已在画布中新增节点。";
     return commitGraphState({ ...state, graph, selection: result.selection }, message);
@@ -140,7 +140,8 @@ export function applyEditorCommandTransaction(state: EditorTransactionState, com
         x: node.point.x,
         y: node.point.y,
         label: node.label,
-        action: node.action
+        action: node.action,
+        preview: node.preview
       }))
     );
     const graph = command.nodes.reduce((currentGraph, node, index) => {

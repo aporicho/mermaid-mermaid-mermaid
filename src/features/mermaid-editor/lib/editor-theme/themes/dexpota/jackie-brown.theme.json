@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-dexpota-jackie-brown",
+  "name": "Jackie Brown",
+  "description": "Jackie Brown kitty theme from dexpota/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "dexpota",
+    "name": "dexpota/kitty-themes",
+    "repository": "https://github.com/dexpota/kitty-themes",
+    "path": "themes/Jackie_Brown.conf",
+    "url": "https://github.com/dexpota/kitty-themes/blob/b1abdd54ba655ef34f75a568d78625981bf1722c/themes/Jackie_Brown.conf",
+    "commit": "b1abdd54ba655ef34f75a568d78625981bf1722c",
+    "license": "MIT"
+  },
+  "palette": {
+    "background": "#2c1c15",
+    "foreground": "#ffcc2f",
+    "cursor": "#23ff18",
+    "selectionBackground": "#ae8c20",
+    "selectionForeground": "#2c1c15",
+    "color0": "#2c1d16",
+    "color1": "#ef5734",
+    "color2": "#2baf2b",
+    "color3": "#bdbe00",
+    "color4": "#246db2",
+    "color5": "#cf5ec0",
+    "color6": "#00acee",
+    "color7": "#bfbfbf",
+    "color8": "#666666",
+    "color9": "#e50000",
+    "color10": "#86a83e",
+    "color11": "#e5e500",
+    "color12": "#0000ff",
+    "color13": "#e500e5",
+    "color14": "#00e5e5",
+    "color15": "#e5e5e5"
+  }
+}

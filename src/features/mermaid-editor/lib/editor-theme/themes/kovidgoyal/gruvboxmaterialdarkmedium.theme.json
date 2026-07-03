@@ -1,0 +1,42 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-gruvboxmaterialdarkmedium",
+  "name": "Gruvbox Material Dark Medium",
+  "description": "Gruvbox Material Dark Medium kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/GruvboxMaterialDarkMedium.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/GruvboxMaterialDarkMedium.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "MIT",
+    "author": "Sainnhe Park",
+    "upstream": "https://raw.githubusercontent.com/rsaihe/gruvbox-material-kitty/main/colors/gruvbox-material-dark-medium.conf"
+  },
+  "palette": {
+    "background": "#282828",
+    "foreground": "#d4be98",
+    "cursor": "#a89984",
+    "cursorText": "#282828",
+    "selectionBackground": "#d4be98",
+    "selectionForeground": "#282828",
+    "color0": "#665c54",
+    "color1": "#ea6962",
+    "color2": "#a9b665",
+    "color3": "#e78a4e",
+    "color4": "#7daea3",
+    "color5": "#d3869b",
+    "color6": "#89b482",
+    "color7": "#d4be98",
+    "color8": "#928374",
+    "color9": "#ea6962",
+    "color10": "#a9b665",
+    "color11": "#d8a657",
+    "color12": "#7daea3",
+    "color13": "#d3869b",
+    "color14": "#89b482",
+    "color15": "#d4be98"
+  }
+}

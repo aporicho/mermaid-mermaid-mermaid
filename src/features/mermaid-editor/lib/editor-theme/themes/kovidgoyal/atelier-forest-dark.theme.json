@@ -1,0 +1,42 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-atelier-forest-dark",
+  "name": "Atelier Forest Dark",
+  "description": "Atelier Forest Dark kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/atelier-forest-dark.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/atelier-forest-dark.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "MIT",
+    "author": "Bram de Haan (https://github.com/atelierbram)",
+    "upstream": "https://github.com/atelierbram/AtelierSchemes-kitty/blob/main/themes/atelier-forest-dark.conf"
+  },
+  "palette": {
+    "background": "#1b1918",
+    "foreground": "#a8a19f",
+    "cursor": "#a8a19f",
+    "cursorText": "#1b1918",
+    "selectionBackground": "#2c2421",
+    "selectionForeground": "#a8a19f",
+    "color0": "#1b1918",
+    "color1": "#f22c40",
+    "color2": "#7b9726",
+    "color3": "#c38418",
+    "color4": "#407ee7",
+    "color5": "#6666ea",
+    "color6": "#3d97b8",
+    "color7": "#a8a19f",
+    "color8": "#766e6b",
+    "color9": "#df5320",
+    "color10": "#2c2421",
+    "color11": "#68615e",
+    "color12": "#9c9491",
+    "color13": "#e6e2e0",
+    "color14": "#c33ff3",
+    "color15": "#f1efee"
+  }
+}

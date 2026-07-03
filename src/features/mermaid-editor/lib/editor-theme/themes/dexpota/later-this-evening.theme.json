@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-dexpota-later-this-evening",
+  "name": "Later This Evening",
+  "description": "Later This Evening kitty theme from dexpota/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "dexpota",
+    "name": "dexpota/kitty-themes",
+    "repository": "https://github.com/dexpota/kitty-themes",
+    "path": "themes/Later_This_Evening.conf",
+    "url": "https://github.com/dexpota/kitty-themes/blob/b1abdd54ba655ef34f75a568d78625981bf1722c/themes/Later_This_Evening.conf",
+    "commit": "b1abdd54ba655ef34f75a568d78625981bf1722c",
+    "license": "MIT"
+  },
+  "palette": {
+    "background": "#212121",
+    "foreground": "#949494",
+    "cursor": "#424242",
+    "selectionBackground": "#424242",
+    "selectionForeground": "#212121",
+    "color0": "#2b2b2b",
+    "color1": "#d35a5f",
+    "color2": "#afba66",
+    "color3": "#e5d289",
+    "color4": "#a0b9d5",
+    "color5": "#bf92d5",
+    "color6": "#91beb6",
+    "color7": "#3b3c3c",
+    "color8": "#444747",
+    "color9": "#d3222e",
+    "color10": "#aabb39",
+    "color11": "#e4bd39",
+    "color12": "#6599d5",
+    "color13": "#aa52d5",
+    "color14": "#5fbfad",
+    "color15": "#c0c2c2"
+  }
+}

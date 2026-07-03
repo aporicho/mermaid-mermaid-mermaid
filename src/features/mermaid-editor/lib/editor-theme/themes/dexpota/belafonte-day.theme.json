@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-dexpota-belafonte-day",
+  "name": "Belafonte Day",
+  "description": "Belafonte Day kitty theme from dexpota/kitty-themes.",
+  "mode": "light",
+  "source": {
+    "id": "dexpota",
+    "name": "dexpota/kitty-themes",
+    "repository": "https://github.com/dexpota/kitty-themes",
+    "path": "themes/Belafonte_Day.conf",
+    "url": "https://github.com/dexpota/kitty-themes/blob/b1abdd54ba655ef34f75a568d78625981bf1722c/themes/Belafonte_Day.conf",
+    "commit": "b1abdd54ba655ef34f75a568d78625981bf1722c",
+    "license": "MIT"
+  },
+  "palette": {
+    "background": "#d4ccb9",
+    "foreground": "#45363b",
+    "cursor": "#45363b",
+    "selectionBackground": "#958b83",
+    "selectionForeground": "#d4ccb9",
+    "color0": "#20111a",
+    "color1": "#bd100d",
+    "color2": "#858062",
+    "color3": "#e9a448",
+    "color4": "#416978",
+    "color5": "#96522b",
+    "color6": "#98999c",
+    "color7": "#958b83",
+    "color8": "#5e5252",
+    "color9": "#bd100d",
+    "color10": "#858062",
+    "color11": "#e9a448",
+    "color12": "#416978",
+    "color13": "#96522b",
+    "color14": "#98999c",
+    "color15": "#d4ccb9"
+  }
+}

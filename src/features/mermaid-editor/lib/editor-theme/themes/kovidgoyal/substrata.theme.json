@@ -1,0 +1,38 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-substrata",
+  "name": "Substrata",
+  "description": "Substrata kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/Substrata.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/Substrata.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "GPL-3.0"
+  },
+  "palette": {
+    "background": "#191c25",
+    "foreground": "#b5b4c9",
+    "selectionBackground": "#b5b4c9",
+    "selectionForeground": "#191c25",
+    "color0": "#2e313d",
+    "color1": "#cf8164",
+    "color2": "#76a065",
+    "color3": "#ab924c",
+    "color4": "#8296b0",
+    "color5": "#a18daf",
+    "color6": "#659ea2",
+    "color7": "#b5b4c9",
+    "color8": "#5b5f71",
+    "color9": "#fe9f7c",
+    "color10": "#92c47e",
+    "color11": "#d2b45f",
+    "color12": "#a0b9d8",
+    "color13": "#c6aed7",
+    "color14": "#7dc2c7",
+    "color15": "#f0ecfe"
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-dexpota-toychest",
+  "name": "ToyChest",
+  "description": "ToyChest kitty theme from dexpota/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "dexpota",
+    "name": "dexpota/kitty-themes",
+    "repository": "https://github.com/dexpota/kitty-themes",
+    "path": "themes/ToyChest.conf",
+    "url": "https://github.com/dexpota/kitty-themes/blob/b1abdd54ba655ef34f75a568d78625981bf1722c/themes/ToyChest.conf",
+    "commit": "b1abdd54ba655ef34f75a568d78625981bf1722c",
+    "license": "MIT"
+  },
+  "palette": {
+    "background": "#23364a",
+    "foreground": "#30cf7b",
+    "cursor": "#d4d4d4",
+    "selectionBackground": "#5f207a",
+    "selectionForeground": "#23364a",
+    "color0": "#2c3f57",
+    "color1": "#be2d26",
+    "color2": "#199171",
+    "color3": "#da8e26",
+    "color4": "#325d96",
+    "color5": "#8a5ddb",
+    "color6": "#35a08f",
+    "color7": "#23d082",
+    "color8": "#326889",
+    "color9": "#dd5943",
+    "color10": "#30cf7b",
+    "color11": "#e7d74b",
+    "color12": "#33a5d9",
+    "color13": "#ad6bdc",
+    "color14": "#41c3ad",
+    "color15": "#d4d4d4"
+  }
+}

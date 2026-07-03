@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-borland",
+  "name": "Borland",
+  "description": "Borland kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/Borland.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/Borland.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "GPL-3.0"
+  },
+  "palette": {
+    "background": "#0000a3",
+    "foreground": "#ffff4d",
+    "cursor": "#ffa460",
+    "selectionBackground": "#a3a3a3",
+    "selectionForeground": "#0000a3",
+    "color0": "#4e4e4e",
+    "color1": "#ff6b60",
+    "color2": "#a7ff60",
+    "color3": "#ffffb6",
+    "color4": "#96cafd",
+    "color5": "#ff73fd",
+    "color6": "#c6c4fd",
+    "color7": "#eeeeee",
+    "color8": "#7c7c7c",
+    "color9": "#ffb6b0",
+    "color10": "#ceffab",
+    "color11": "#ffffcb",
+    "color12": "#b5dcfe",
+    "color13": "#ff9cfe",
+    "color14": "#dfdffe",
+    "color15": "#ffffff"
+  }
+}

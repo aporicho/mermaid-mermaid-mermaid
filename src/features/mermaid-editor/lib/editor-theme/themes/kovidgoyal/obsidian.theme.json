@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-obsidian",
+  "name": "Obsidian",
+  "description": "Obsidian kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/Obsidian.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/Obsidian.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "GPL-3.0"
+  },
+  "palette": {
+    "background": "#273032",
+    "foreground": "#cccccc",
+    "cursor": "#c0cad0",
+    "selectionBackground": "#3d4b4e",
+    "selectionForeground": "#273032",
+    "color0": "#000000",
+    "color1": "#a50001",
+    "color2": "#00bb00",
+    "color3": "#fecc22",
+    "color4": "#399bda",
+    "color5": "#bb00bb",
+    "color6": "#00bbbb",
+    "color7": "#bbbbbb",
+    "color8": "#545454",
+    "color9": "#ff0003",
+    "color10": "#92c763",
+    "color11": "#fef773",
+    "color12": "#a0d6ff",
+    "color13": "#ff55ff",
+    "color14": "#55ffff",
+    "color15": "#ffffff"
+  }
+}

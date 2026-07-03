@@ -1,0 +1,72 @@
+{
+  "kind": "editor",
+  "id": "classic-light",
+  "name": "经典浅色",
+  "description": "清爽浅色界面和绿色主强调。",
+  "mode": "light",
+  "order": 10,
+  "source": {
+    "id": "local",
+    "name": "内置"
+  },
+  "theme": {
+    "ui": {
+      "background": "#f7faf9",
+      "foreground": "#172022",
+      "icon": "#526766",
+      "card": "#ffffff",
+      "popover": "#ffffff",
+      "primary": "#1f7a68",
+      "secondary": "#edf3f1",
+      "muted": "#eef4f2",
+      "mutedForeground": "#667977",
+      "accent": "#e4f3ef",
+      "accentForeground": "#185f52",
+      "destructive": "#b63e4b",
+      "border": "#c9d5d3"
+    },
+    "canvas": {
+      "surface": "#ffffff",
+      "nodeStroke": "#526766",
+      "nodeText": "#172022",
+      "edge": "#526766",
+      "edgeText": "#344441",
+      "labelStroke": "#c9d5d3",
+      "connectionInvalid": "#a06a5f",
+      "previewInvalid": "#8a9996"
+    },
+    "source": {
+      "line": "#dce8e5"
+    },
+    "render": {
+      "background": "#f7faf9",
+      "gridDot": "#172022"
+    },
+    "ansi": {
+      "black": "#25302f",
+      "red": "#b63e4b",
+      "green": "#1f7a68",
+      "yellow": "#8a6f19",
+      "blue": "#326c8a",
+      "magenta": "#80618f",
+      "cyan": "#297782",
+      "white": "#e8f0ee",
+      "brightBlack": "#667977",
+      "brightRed": "#d85a66",
+      "brightGreen": "#2f9a83",
+      "brightYellow": "#ae8d2a",
+      "brightBlue": "#4c8aac",
+      "brightMagenta": "#9e78ad",
+      "brightCyan": "#3b98a5",
+      "brightWhite": "#ffffff"
+    },
+    "terminal": {
+      "background": "#ffffff",
+      "foreground": "#172022",
+      "cursor": "#1f7a68",
+      "cursorAccent": "#f7faf9",
+      "selectionBackground": "#e4f3ef",
+      "selectionForeground": "#172022"
+    }
+  }
+}

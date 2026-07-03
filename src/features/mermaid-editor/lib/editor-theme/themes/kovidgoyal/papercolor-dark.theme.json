@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-papercolor-dark",
+  "name": "PaperColor Dark",
+  "description": "PaperColor Dark kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/PaperColor_dark.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/PaperColor_dark.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "MIT",
+    "author": "Nikyle Nguyen"
+  },
+  "palette": {
+    "background": "#1c1c1c",
+    "foreground": "#d0d0d0",
+    "cursor": "#d0d0d0",
+    "cursorText": "#1c1c1c",
+    "color0": "#1c1c1c",
+    "color1": "#af005f",
+    "color2": "#5faf00",
+    "color3": "#d7af5f",
+    "color4": "#5fafd7",
+    "color5": "#808080",
+    "color6": "#d7875f",
+    "color7": "#d0d0d0",
+    "color8": "#585858",
+    "color9": "#5faf5f",
+    "color10": "#afd700",
+    "color11": "#af87d7",
+    "color12": "#ffaf00",
+    "color13": "#ff5faf",
+    "color14": "#00afaf",
+    "color15": "#5f8787"
+  }
+}

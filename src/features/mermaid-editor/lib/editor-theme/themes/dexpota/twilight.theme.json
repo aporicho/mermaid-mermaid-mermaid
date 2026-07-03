@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-dexpota-twilight",
+  "name": "Twilight",
+  "description": "Twilight kitty theme from dexpota/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "dexpota",
+    "name": "dexpota/kitty-themes",
+    "repository": "https://github.com/dexpota/kitty-themes",
+    "path": "themes/Twilight.conf",
+    "url": "https://github.com/dexpota/kitty-themes/blob/b1abdd54ba655ef34f75a568d78625981bf1722c/themes/Twilight.conf",
+    "commit": "b1abdd54ba655ef34f75a568d78625981bf1722c",
+    "license": "MIT"
+  },
+  "palette": {
+    "background": "#141414",
+    "foreground": "#feffd3",
+    "cursor": "#ffffff",
+    "selectionBackground": "#303030",
+    "selectionForeground": "#141414",
+    "color0": "#141414",
+    "color1": "#c06c43",
+    "color2": "#afb979",
+    "color3": "#c2a86c",
+    "color4": "#444649",
+    "color5": "#b4be7b",
+    "color6": "#778284",
+    "color7": "#feffd3",
+    "color8": "#262626",
+    "color9": "#dd7c4c",
+    "color10": "#cbd88c",
+    "color11": "#e1c47d",
+    "color12": "#5a5d61",
+    "color13": "#d0db8e",
+    "color14": "#8a989a",
+    "color15": "#feffd3"
+  }
+}

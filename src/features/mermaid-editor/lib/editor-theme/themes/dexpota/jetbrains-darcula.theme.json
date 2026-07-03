@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-dexpota-jetbrains-darcula",
+  "name": "JetBrains Darcula",
+  "description": "JetBrains Darcula kitty theme from dexpota/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "dexpota",
+    "name": "dexpota/kitty-themes",
+    "repository": "https://github.com/dexpota/kitty-themes",
+    "path": "themes/JetBrains_Darcula.conf",
+    "url": "https://github.com/dexpota/kitty-themes/blob/b1abdd54ba655ef34f75a568d78625981bf1722c/themes/JetBrains_Darcula.conf",
+    "commit": "b1abdd54ba655ef34f75a568d78625981bf1722c",
+    "license": "MIT"
+  },
+  "palette": {
+    "background": "#202020",
+    "foreground": "#adadad",
+    "cursor": "#ffffff",
+    "selectionBackground": "#1a3272",
+    "selectionForeground": "#202020",
+    "color0": "#000000",
+    "color1": "#fa5355",
+    "color2": "#126e00",
+    "color3": "#c2c300",
+    "color4": "#4581eb",
+    "color5": "#fa54ff",
+    "color6": "#33c2c1",
+    "color7": "#adadad",
+    "color8": "#545454",
+    "color9": "#fb7172",
+    "color10": "#67ff4f",
+    "color11": "#ffff00",
+    "color12": "#6d9df1",
+    "color13": "#fb82ff",
+    "color14": "#60d3d1",
+    "color15": "#eeeeee"
+  }
+}

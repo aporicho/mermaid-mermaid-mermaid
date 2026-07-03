@@ -1,0 +1,42 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-base2tone-motel-dark",
+  "name": "Base2Tone Motel Dark",
+  "description": "Base2Tone Motel Dark kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/base2tone-motel-dark.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/base2tone-motel-dark.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "MIT",
+    "author": "Bram de Haan (https://github.com/atelierbram)",
+    "upstream": "https://github.com/atelierbram/Base2Tone-kitty/blob/main/themes/base2tone-motel-dark.conf"
+  },
+  "palette": {
+    "background": "#242323",
+    "foreground": "#a5979a",
+    "cursor": "#e24f32",
+    "cursorText": "#242323",
+    "selectionBackground": "#373434",
+    "selectionForeground": "#a5979a",
+    "color0": "#242323",
+    "color1": "#956f76",
+    "color2": "#f8917c",
+    "color3": "#ffc8bd",
+    "color4": "#a7868b",
+    "color5": "#f8917c",
+    "color6": "#b89da2",
+    "color7": "#a5979a",
+    "color8": "#766b6c",
+    "color9": "#ffa28f",
+    "color10": "#373434",
+    "color11": "#5a5354",
+    "color12": "#86797b",
+    "color13": "#dec9cc",
+    "color14": "#f77c64",
+    "color15": "#f0dbdf"
+  }
+}

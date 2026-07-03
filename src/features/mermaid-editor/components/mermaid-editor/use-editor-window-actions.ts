@@ -15,24 +15,22 @@ import type {
   RuntimeFileRef
 } from "@/features/mermaid-editor/lib/editor-runtime";
 import type { AiRecentAction } from "@/features/mermaid-editor/lib/ai-context";
+import {
+  browserToolWindowTitle,
+  normalizeBrowserUrl
+} from "@/features/mermaid-editor/lib/browser-tool-window";
 import type {
   CanvasNode,
   CanvasNodeAction
 } from "@/features/mermaid-editor/lib/editor-types";
 import type { EditorCommand } from "@/features/mermaid-editor/lib/interaction/commands";
-import {
-  isHttpUrl,
-  normalizeNodeAction
-} from "@/features/mermaid-editor/lib/node-actions";
+import { normalizeNodeAction } from "@/features/mermaid-editor/lib/node-actions";
 import type {
   ProjectFileEntry,
   ProjectWorkspace
 } from "@/features/mermaid-editor/lib/project-workspace";
 import {
-  browserWindowPanelId,
   markdownWindowPanelId,
-  type BrowserWindowPanelId,
-  type DetachedBrowserWindow,
   type DetachedMarkdownWindow,
   type MarkdownWindowPanelId,
   type WorkspaceFloatingPanelId
@@ -55,7 +53,6 @@ type UseEditorWindowActionsArgs = {
   projectWorkspace: ProjectWorkspace | null;
   detachedMarkdownWindows: DetachedMarkdownWindow[];
   setDetachedMarkdownWindows: StateSetter<DetachedMarkdownWindow[]>;
-  setDetachedBrowserWindows: StateSetter<DetachedBrowserWindow[]>;
   setRecentFiles: StateSetter<RecentFileEntry[]>;
   setNodeActionEditor: StateSetter<{ nodeId: string } | null>;
   setStatus: StateSetter<string>;
@@ -65,7 +62,6 @@ type UseEditorWindowActionsArgs = {
   showFileWorkflowError: (error: unknown, fallbackMessage?: string) => void;
   openRuntimeFileRequest: (file: RuntimeFileOpenRequest, source: FileOpenSource) => Promise<void>;
   openInspectorPanel: () => void;
-  closeEmbeddedBrowser: (panelId: BrowserWindowPanelId) => void;
   applyEditorCommand: (command: EditorCommand) => void;
   recordRecentAction: (type: string, target?: AiRecentAction["target"], summary?: string) => void;
 };
@@ -76,7 +72,6 @@ export function useEditorWindowActions({
   projectWorkspace,
   detachedMarkdownWindows,
   setDetachedMarkdownWindows,
-  setDetachedBrowserWindows,
   setRecentFiles,
   setNodeActionEditor,
   setStatus,
@@ -86,7 +81,6 @@ export function useEditorWindowActions({
   showFileWorkflowError,
   openRuntimeFileRequest,
   openInspectorPanel,
-  closeEmbeddedBrowser,
   applyEditorCommand,
   recordRecentAction
 }: UseEditorWindowActionsArgs) {
@@ -157,25 +151,6 @@ export function useEditorWindowActions({
     }
   }
 
-  function updateDetachedBrowserWindow(panelId: BrowserWindowPanelId, url: string) {
-    const targetUrl = normalizeBrowserUrl(url);
-    if (!targetUrl) {
-      setStatus("浏览器地址只支持 http/https URL。");
-      return;
-    }
-    setDetachedBrowserWindows((current) => current.map((window) => (window.id === panelId ? { ...window, url: targetUrl, title: browserWindowTitle(targetUrl) } : window)));
-  }
-
-  function closeDetachedBrowserWindow(panelId: BrowserWindowPanelId) {
-    closeEmbeddedBrowser(panelId);
-    setDetachedBrowserWindows((current) => current.filter((window) => window.id !== panelId));
-    removeWorkspacePanel(panelId);
-  }
-
-  function recordBrowserWebviewError(url: string, message: string) {
-    recordRecentAction("browser.webview.error", { kind: "canvas" }, `${browserWindowTitle(url)} ${message}`.trim());
-  }
-
   function executeCanvasNodeAction(node: CanvasNode) {
     const action = normalizeNodeAction(node.action);
     if (!action) {
@@ -184,7 +159,7 @@ export function useEditorWindowActions({
     }
 
     if (action.kind === "url") {
-      openUrlNodeAction(action);
+      openUrlNodeAction(action, node);
       return;
     }
 
@@ -223,31 +198,44 @@ export function useEditorWindowActions({
     setNodeActionEditor(null);
   }
 
-  function openBrowserWindow(url: string) {
+  async function openBrowserToolWindow(url: string, sourceNode?: CanvasNode) {
     const targetUrl = normalizeBrowserUrl(url);
     if (!targetUrl) {
       setStatus("节点链接只支持 http/https URL。");
       return;
     }
 
-    const panelId = browserWindowPanelId(targetUrl);
-    const title = browserWindowTitle(targetUrl);
-    setDetachedBrowserWindows((current) => {
-      const existing = current.find((window) => window.id === panelId);
-      if (existing) return current.map((window) => (window.id === panelId ? { ...window, title, url: targetUrl } : window));
-      return [...current, { id: panelId, title, url: targetUrl }];
-    });
-    bringWorkspacePanelToFront(panelId);
-    setWorkspacePanelWindowState(panelId, "normal");
-    setStatus(`已打开网页 ${title}。`);
+    const title = browserToolWindowTitle(targetUrl, sourceNode?.label);
+    try {
+      const result = await runtime.openBrowserToolWindow({
+        url: targetUrl,
+        title,
+        sourceNodeId: sourceNode?.id,
+        sourceLabel: sourceNode?.label
+      });
+      if (result.status === "unsupported") {
+        setStatus(result.message);
+        return;
+      }
+      recordRecentAction("browser.open", sourceNode ? { kind: "node", id: sourceNode.id } : { kind: "canvas" }, title);
+      if (result.external) {
+        setStatus(`已使用系统浏览器打开 ${title}。`);
+      } else if (result.reused) {
+        setStatus(`已切换到网页工具 ${title}。`);
+      } else {
+        setStatus(`已打开网页工具 ${title}。`);
+      }
+    } catch (error) {
+      showFileWorkflowError(error, "打开浏览器工具失败。");
+    }
   }
 
-  function openUrlNodeAction(action: Extract<CanvasNodeAction, { kind: "url" }>) {
+  function openUrlNodeAction(action: Extract<CanvasNodeAction, { kind: "url" }>, sourceNode?: CanvasNode) {
     if (action.openMode === "system") {
       runtime.openExternalUrl(action.url);
       return;
     }
-    openBrowserWindow(action.url);
+    void openBrowserToolWindow(action.url, sourceNode);
   }
 
   async function openFileNodeAction(action: Extract<CanvasNodeAction, { kind: "file" }>) {
@@ -300,28 +288,9 @@ export function useEditorWindowActions({
     updateDetachedMarkdownWindow,
     closeDetachedMarkdownWindow,
     saveDetachedMarkdownWindow,
-    updateDetachedBrowserWindow,
-    closeDetachedBrowserWindow,
-    recordBrowserWebviewError,
     executeCanvasNodeAction,
     executeNodeActionDraft,
     editCanvasNodeAction,
     saveCanvasNodeAction
   };
-}
-
-function normalizeBrowserUrl(url: string) {
-  const trimmed = url.trim();
-  if (!trimmed) return "";
-  if (isHttpUrl(trimmed)) return trimmed;
-  if (/^www\./i.test(trimmed)) return `https://${trimmed}`;
-  return "";
-}
-
-function browserWindowTitle(url: string) {
-  try {
-    return new URL(url).hostname || url;
-  } catch {
-    return url;
-  }
 }

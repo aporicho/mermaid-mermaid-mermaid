@@ -1,0 +1,42 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-citylights",
+  "name": "citylights",
+  "description": "citylights kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/citylights.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/citylights.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "MIT",
+    "author": "食無魚 <liuyinz@gmail.com>",
+    "upstream": "https://raw.githubusercontent.com/liuyinz/dotfile/master/common/kitty/citylights.conf"
+  },
+  "palette": {
+    "background": "#1d252c",
+    "foreground": "#a0b3c5",
+    "cursor": "#a0b3c5",
+    "cursorText": "#1d252c",
+    "selectionBackground": "#a0b3c5",
+    "selectionForeground": "#1d252c",
+    "color0": "#1d252c",
+    "color1": "#d95468",
+    "color2": "#8bd49c",
+    "color3": "#ebbf83",
+    "color4": "#5ec4ff",
+    "color5": "#c06ece",
+    "color6": "#008b94",
+    "color7": "#a0b3c5",
+    "color8": "#566c7d",
+    "color9": "#d95468",
+    "color10": "#8bd49c",
+    "color11": "#ebbf83",
+    "color12": "#5ec4ff",
+    "color13": "#c06ece",
+    "color14": "#70e1e8",
+    "color15": "#a0b3c5"
+  }
+}

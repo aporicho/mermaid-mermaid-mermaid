@@ -1,0 +1,42 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-cobalt2",
+  "name": "Cobalt2",
+  "description": "Cobalt2 kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/Cobalt2.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/Cobalt2.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "MIT",
+    "author": "Lalit Kumar(@laltimee)",
+    "upstream": "https://github.com/lalitmee/kitty-cobalt2/blob/master/cobalt2.conf"
+  },
+  "palette": {
+    "background": "#193549",
+    "foreground": "#ffffff",
+    "cursor": "#ffc600",
+    "cursorText": "#1c1c1c",
+    "selectionBackground": "#185294",
+    "selectionForeground": "#ffffff",
+    "color0": "#1c1c1c",
+    "color1": "#ff0000",
+    "color2": "#3ad900",
+    "color3": "#ffc600",
+    "color4": "#00aaff",
+    "color5": "#ff628c",
+    "color6": "#80fcff",
+    "color7": "#ffffff",
+    "color8": "#9e9e9e",
+    "color9": "#700009",
+    "color10": "#88ff88",
+    "color11": "#ff9a00",
+    "color12": "#0050a4",
+    "color13": "#ee80e1",
+    "color14": "#8fbfdc",
+    "color15": "#bcbcbc"
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-atom",
+  "name": "Atom",
+  "description": "Atom kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/Atom.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/Atom.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "GPL-3.0"
+  },
+  "palette": {
+    "background": "#161718",
+    "foreground": "#c4c8c5",
+    "cursor": "#d0d0d0",
+    "selectionBackground": "#444444",
+    "selectionForeground": "#161718",
+    "color0": "#000000",
+    "color1": "#fc5ef0",
+    "color2": "#86c38a",
+    "color3": "#ffd6b1",
+    "color4": "#85befd",
+    "color5": "#b9b5fc",
+    "color6": "#85befd",
+    "color7": "#dfdfdf",
+    "color8": "#000000",
+    "color9": "#fc5ef0",
+    "color10": "#94f936",
+    "color11": "#f5ffa7",
+    "color12": "#95cbfe",
+    "color13": "#b9b5fc",
+    "color14": "#85befd",
+    "color15": "#dfdfdf"
+  }
+}

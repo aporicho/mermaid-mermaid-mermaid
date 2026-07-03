@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-dexpota-obsidian",
+  "name": "Obsidian",
+  "description": "Obsidian kitty theme from dexpota/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "dexpota",
+    "name": "dexpota/kitty-themes",
+    "repository": "https://github.com/dexpota/kitty-themes",
+    "path": "themes/Obsidian.conf",
+    "url": "https://github.com/dexpota/kitty-themes/blob/b1abdd54ba655ef34f75a568d78625981bf1722c/themes/Obsidian.conf",
+    "commit": "b1abdd54ba655ef34f75a568d78625981bf1722c",
+    "license": "MIT"
+  },
+  "palette": {
+    "background": "#273032",
+    "foreground": "#cccccc",
+    "cursor": "#c0cad0",
+    "selectionBackground": "#3d4b4e",
+    "selectionForeground": "#273032",
+    "color0": "#000000",
+    "color1": "#a50001",
+    "color2": "#00bb00",
+    "color3": "#fecc22",
+    "color4": "#399bda",
+    "color5": "#bb00bb",
+    "color6": "#00bbbb",
+    "color7": "#bbbbbb",
+    "color8": "#545454",
+    "color9": "#ff0003",
+    "color10": "#92c763",
+    "color11": "#fef773",
+    "color12": "#a0d6ff",
+    "color13": "#ff55ff",
+    "color14": "#55ffff",
+    "color15": "#ffffff"
+  }
+}

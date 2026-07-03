@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-earthsong",
+  "name": "Earthsong",
+  "description": "Earthsong kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/Earthsong.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/Earthsong.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "GPL-3.0"
+  },
+  "palette": {
+    "background": "#282420",
+    "foreground": "#e5c6a8",
+    "cursor": "#f6f6ec",
+    "selectionBackground": "#111417",
+    "selectionForeground": "#282420",
+    "color0": "#111417",
+    "color1": "#c84134",
+    "color2": "#84c44b",
+    "color3": "#f4ae2e",
+    "color4": "#1397b9",
+    "color5": "#d0623c",
+    "color6": "#4f9452",
+    "color7": "#e5c5a9",
+    "color8": "#665e54",
+    "color9": "#ff6459",
+    "color10": "#97e035",
+    "color11": "#dfd561",
+    "color12": "#5ed9ff",
+    "color13": "#ff9168",
+    "color14": "#83ef88",
+    "color15": "#f6f6ec"
+  }
+}

@@ -1,6 +1,7 @@
 import type {
   CanvasNodeAction,
   CanvasNodeAsset,
+  CanvasNodePreview,
   EdgeMarker,
   EdgeStyle,
   FlowchartNodeShape
@@ -11,6 +12,7 @@ export type ParsedNodeToken = {
   label: string;
   shape: FlowchartNodeShape;
   asset?: CanvasNodeAsset;
+  preview?: CanvasNodePreview;
   hasShape: boolean;
 };
 

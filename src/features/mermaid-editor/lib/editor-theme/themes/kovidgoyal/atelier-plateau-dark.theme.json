@@ -1,0 +1,42 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-atelier-plateau-dark",
+  "name": "Atelier Plateau Dark",
+  "description": "Atelier Plateau Dark kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/atelier-plateau-dark.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/atelier-plateau-dark.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "MIT",
+    "author": "Bram de Haan (https://github.com/atelierbram)",
+    "upstream": "https://github.com/atelierbram/AtelierSchemes-kitty/blob/main/themes/atelier-plateau-dark.conf"
+  },
+  "palette": {
+    "background": "#1b1818",
+    "foreground": "#8a8585",
+    "cursor": "#8a8585",
+    "cursorText": "#1b1818",
+    "selectionBackground": "#292424",
+    "selectionForeground": "#8a8585",
+    "color0": "#1b1818",
+    "color1": "#ca4949",
+    "color2": "#4b8b8b",
+    "color3": "#a06e3b",
+    "color4": "#7272ca",
+    "color5": "#8464c4",
+    "color6": "#5485b6",
+    "color7": "#8a8585",
+    "color8": "#655d5d",
+    "color9": "#b45a3c",
+    "color10": "#292424",
+    "color11": "#585050",
+    "color12": "#7e7777",
+    "color13": "#e7dfdf",
+    "color14": "#bd5187",
+    "color15": "#f4ecec"
+  }
+}

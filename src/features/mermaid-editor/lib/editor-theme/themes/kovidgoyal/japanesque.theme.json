@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-japanesque",
+  "name": "Japanesque",
+  "description": "Japanesque kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/Japanesque.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/Japanesque.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "GPL-3.0"
+  },
+  "palette": {
+    "background": "#1d1d1d",
+    "foreground": "#f7f6ec",
+    "cursor": "#eccf4f",
+    "selectionBackground": "#165776",
+    "selectionForeground": "#1d1d1d",
+    "color0": "#343835",
+    "color1": "#ce3e60",
+    "color2": "#7bb75b",
+    "color3": "#e8b32a",
+    "color4": "#4c99d3",
+    "color5": "#a57fc4",
+    "color6": "#389aac",
+    "color7": "#f9faf6",
+    "color8": "#585a58",
+    "color9": "#d18ea6",
+    "color10": "#767e2b",
+    "color11": "#77592e",
+    "color12": "#135879",
+    "color13": "#5f4190",
+    "color14": "#76bbca",
+    "color15": "#b1b5ae"
+  }
+}

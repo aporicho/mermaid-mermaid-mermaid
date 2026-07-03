@@ -1,0 +1,42 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-base2tone-cave-dark",
+  "name": "Base2Tone Cave Dark",
+  "description": "Base2Tone Cave Dark kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/base2tone-cave-dark.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/base2tone-cave-dark.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "MIT",
+    "author": "Bram de Haan (https://github.com/atelierbram)",
+    "upstream": "https://github.com/atelierbram/Base2Tone-kitty/blob/main/themes/base2tone-cave-dark.conf"
+  },
+  "palette": {
+    "background": "#222021",
+    "foreground": "#9f999b",
+    "cursor": "#996e00",
+    "cursorText": "#222021",
+    "selectionBackground": "#2f2d2e",
+    "selectionForeground": "#9f999b",
+    "color0": "#222021",
+    "color1": "#936c7a",
+    "color2": "#cca133",
+    "color3": "#ffcc4d",
+    "color4": "#9c818b",
+    "color5": "#cca133",
+    "color6": "#d27998",
+    "color7": "#9f999b",
+    "color8": "#635f60",
+    "color9": "#ddaf3c",
+    "color10": "#2f2d2e",
+    "color11": "#565254",
+    "color12": "#706b6d",
+    "color13": "#f0a8c1",
+    "color14": "#c39622",
+    "color15": "#ffebf2"
+  }
+}

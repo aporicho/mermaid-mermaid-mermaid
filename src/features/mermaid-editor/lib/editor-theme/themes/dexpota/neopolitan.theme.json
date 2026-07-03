@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-dexpota-neopolitan",
+  "name": "Neopolitan",
+  "description": "Neopolitan kitty theme from dexpota/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "dexpota",
+    "name": "dexpota/kitty-themes",
+    "repository": "https://github.com/dexpota/kitty-themes",
+    "path": "themes/Neopolitan.conf",
+    "url": "https://github.com/dexpota/kitty-themes/blob/b1abdd54ba655ef34f75a568d78625981bf1722c/themes/Neopolitan.conf",
+    "commit": "b1abdd54ba655ef34f75a568d78625981bf1722c",
+    "license": "MIT"
+  },
+  "palette": {
+    "background": "#271f19",
+    "foreground": "#ffffff",
+    "cursor": "#ffffff",
+    "selectionBackground": "#253b76",
+    "selectionForeground": "#271f19",
+    "color0": "#000000",
+    "color1": "#800000",
+    "color2": "#61ce3c",
+    "color3": "#fbde2d",
+    "color4": "#253b76",
+    "color5": "#ff0080",
+    "color6": "#8da6ce",
+    "color7": "#f8f8f8",
+    "color8": "#000000",
+    "color9": "#800000",
+    "color10": "#61ce3c",
+    "color11": "#fbde2d",
+    "color12": "#253b76",
+    "color13": "#ff0080",
+    "color14": "#8da6ce",
+    "color15": "#f8f8f8"
+  }
+}

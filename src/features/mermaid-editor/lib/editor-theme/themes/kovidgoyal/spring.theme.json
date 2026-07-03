@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-spring",
+  "name": "Spring",
+  "description": "Spring kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "light",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/Spring.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/Spring.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "GPL-3.0"
+  },
+  "palette": {
+    "background": "#ffffff",
+    "foreground": "#4d4d4c",
+    "cursor": "#4d4d4c",
+    "selectionBackground": "#d6d6d6",
+    "selectionForeground": "#ffffff",
+    "color0": "#000000",
+    "color1": "#ff4c83",
+    "color2": "#1f8c3a",
+    "color3": "#1fc95a",
+    "color4": "#1cd2ee",
+    "color5": "#8959a8",
+    "color6": "#3e999f",
+    "color7": "#fffefe",
+    "color8": "#000000",
+    "color9": "#ff0021",
+    "color10": "#1fc231",
+    "color11": "#d4b706",
+    "color12": "#15a9fd",
+    "color13": "#8959a8",
+    "color14": "#3e999f",
+    "color15": "#fffefe"
+  }
+}

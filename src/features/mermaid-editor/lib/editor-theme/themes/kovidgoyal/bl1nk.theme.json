@@ -1,0 +1,38 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-bl1nk",
+  "name": "bl1nk",
+  "description": "bl1nk kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/bl1nk.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/bl1nk.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "CC0 1.0",
+    "author": "dhay3",
+    "upstream": "https://github.com/dhay3/kitty-bl1nk/blob/main/bl1nk.conf"
+  },
+  "palette": {
+    "background": "#111111",
+    "foreground": "#a0a0a0",
+    "color0": "#1a1c1d",
+    "color1": "#ff5894",
+    "color2": "#b5e354",
+    "color3": "#f5921d",
+    "color4": "#4e81aa",
+    "color5": "#8b54fe",
+    "color6": "#465456",
+    "color7": "#cbcbc5",
+    "color8": "#505354",
+    "color9": "#f92571",
+    "color10": "#81b313",
+    "color11": "#feed6b",
+    "color12": "#0b72c1",
+    "color13": "#9d6efe",
+    "color14": "#889ba1",
+    "color15": "#f8f8f2"
+  }
+}

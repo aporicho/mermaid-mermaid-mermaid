@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-jetbrains-darcula",
+  "name": "JetBrains Darcula",
+  "description": "JetBrains Darcula kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/JetBrains_Darcula.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/JetBrains_Darcula.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "GPL-3.0"
+  },
+  "palette": {
+    "background": "#202020",
+    "foreground": "#adadad",
+    "cursor": "#ffffff",
+    "selectionBackground": "#1a3272",
+    "selectionForeground": "#202020",
+    "color0": "#000000",
+    "color1": "#fa5355",
+    "color2": "#126e00",
+    "color3": "#c2c300",
+    "color4": "#4581eb",
+    "color5": "#fa54ff",
+    "color6": "#33c2c1",
+    "color7": "#adadad",
+    "color8": "#545454",
+    "color9": "#fb7172",
+    "color10": "#67ff4f",
+    "color11": "#ffff00",
+    "color12": "#6d9df1",
+    "color13": "#fb82ff",
+    "color14": "#60d3d1",
+    "color15": "#eeeeee"
+  }
+}

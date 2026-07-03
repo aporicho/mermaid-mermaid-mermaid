@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-dexpota-spacegray-eighties-dull",
+  "name": "SpaceGray Eighties Dull",
+  "description": "SpaceGray Eighties Dull kitty theme from dexpota/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "dexpota",
+    "name": "dexpota/kitty-themes",
+    "repository": "https://github.com/dexpota/kitty-themes",
+    "path": "themes/SpaceGray_Eighties_Dull.conf",
+    "url": "https://github.com/dexpota/kitty-themes/blob/b1abdd54ba655ef34f75a568d78625981bf1722c/themes/SpaceGray_Eighties_Dull.conf",
+    "commit": "b1abdd54ba655ef34f75a568d78625981bf1722c",
+    "license": "MIT"
+  },
+  "palette": {
+    "background": "#212121",
+    "foreground": "#c8c5bc",
+    "cursor": "#bbbbbb",
+    "selectionBackground": "#262e36",
+    "selectionForeground": "#212121",
+    "color0": "#15171c",
+    "color1": "#b14956",
+    "color2": "#91b377",
+    "color3": "#c6725a",
+    "color4": "#7b8fa4",
+    "color5": "#a5779e",
+    "color6": "#7fcccb",
+    "color7": "#b2b8c2",
+    "color8": "#545454",
+    "color9": "#ec5f67",
+    "color10": "#88e985",
+    "color11": "#fdc253",
+    "color12": "#5485c0",
+    "color13": "#bf83c0",
+    "color14": "#58c2c0",
+    "color15": "#ffffff"
+  }
+}

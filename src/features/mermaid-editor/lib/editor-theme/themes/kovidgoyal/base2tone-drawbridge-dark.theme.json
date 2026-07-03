@@ -1,0 +1,42 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-base2tone-drawbridge-dark",
+  "name": "Base2Tone Drawbridge Dark",
+  "description": "Base2Tone Drawbridge Dark kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/base2tone-drawbridge-dark.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/base2tone-drawbridge-dark.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "MIT",
+    "author": "Bram de Haan (https://github.com/atelierbram)",
+    "upstream": "https://github.com/atelierbram/Base2Tone-kitty/blob/main/themes/base2tone-drawbridge-dark.conf"
+  },
+  "palette": {
+    "background": "#1b1f32",
+    "foreground": "#9094a7",
+    "cursor": "#289dbd",
+    "cursorText": "#1b1f32",
+    "selectionBackground": "#252a41",
+    "selectionForeground": "#9094a7",
+    "color0": "#1b1f32",
+    "color1": "#627af4",
+    "color2": "#67c9e4",
+    "color3": "#99e9ff",
+    "color4": "#7289fd",
+    "color5": "#67c9e4",
+    "color6": "#8b9efd",
+    "color7": "#9094a7",
+    "color8": "#51587b",
+    "color9": "#75d5f0",
+    "color10": "#252a41",
+    "color11": "#444b6f",
+    "color12": "#5e6587",
+    "color13": "#c3cdfe",
+    "color14": "#5cbcd6",
+    "color15": "#e1e6ff"
+  }
+}

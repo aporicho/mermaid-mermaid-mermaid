@@ -1,0 +1,42 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-kurayami",
+  "name": "Kurayami",
+  "description": "Kurayami kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/kurayami.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/kurayami.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "MIT",
+    "author": "Kevin M (github.com/kevinm6)",
+    "upstream": "https://github.com/kevinm6/kitty-themes/blob/master/themes/kurayami.conf"
+  },
+  "palette": {
+    "background": "#1c1c1c",
+    "foreground": "#cccccc",
+    "cursor": "#ffffff",
+    "cursorText": "#3c3c3c",
+    "selectionBackground": "#264f78",
+    "selectionForeground": "#cccccc",
+    "color0": "#2c2c2c",
+    "color1": "#bf616a",
+    "color2": "#00af87",
+    "color3": "#cecb00",
+    "color4": "#158c8a",
+    "color5": "#b48ead",
+    "color6": "#1a8fff",
+    "color7": "#dcdcdc",
+    "color8": "#626262",
+    "color9": "#b2201f",
+    "color10": "#36f57a",
+    "color11": "#fffd00",
+    "color12": "#1a8fff",
+    "color13": "#cb1ed1",
+    "color14": "#14ffff",
+    "color15": "#ffffff"
+  }
+}

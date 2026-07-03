@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-later-this-evening",
+  "name": "Later This Evening",
+  "description": "Later This Evening kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/Later_This_Evening.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/Later_This_Evening.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "GPL-3.0"
+  },
+  "palette": {
+    "background": "#212121",
+    "foreground": "#949494",
+    "cursor": "#424242",
+    "selectionBackground": "#424242",
+    "selectionForeground": "#212121",
+    "color0": "#2b2b2b",
+    "color1": "#d35a5f",
+    "color2": "#afba66",
+    "color3": "#e5d289",
+    "color4": "#a0b9d5",
+    "color5": "#bf92d5",
+    "color6": "#91beb6",
+    "color7": "#3b3c3c",
+    "color8": "#444747",
+    "color9": "#d3222e",
+    "color10": "#aabb39",
+    "color11": "#e4bd39",
+    "color12": "#6599d5",
+    "color13": "#aa52d5",
+    "color14": "#5fbfad",
+    "color15": "#c0c2c2"
+  }
+}

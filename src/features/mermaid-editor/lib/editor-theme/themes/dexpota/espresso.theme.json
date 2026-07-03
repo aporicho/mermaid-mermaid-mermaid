@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-dexpota-espresso",
+  "name": "Espresso",
+  "description": "Espresso kitty theme from dexpota/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "dexpota",
+    "name": "dexpota/kitty-themes",
+    "repository": "https://github.com/dexpota/kitty-themes",
+    "path": "themes/Espresso.conf",
+    "url": "https://github.com/dexpota/kitty-themes/blob/b1abdd54ba655ef34f75a568d78625981bf1722c/themes/Espresso.conf",
+    "commit": "b1abdd54ba655ef34f75a568d78625981bf1722c",
+    "license": "MIT"
+  },
+  "palette": {
+    "background": "#323232",
+    "foreground": "#ffffff",
+    "cursor": "#d6d6d6",
+    "selectionBackground": "#5b5b5b",
+    "selectionForeground": "#323232",
+    "color0": "#353535",
+    "color1": "#d25252",
+    "color2": "#a4c161",
+    "color3": "#ffc56d",
+    "color4": "#6c99ba",
+    "color5": "#d096d9",
+    "color6": "#bdd6ff",
+    "color7": "#ededec",
+    "color8": "#535353",
+    "color9": "#f00c0c",
+    "color10": "#c1df74",
+    "color11": "#e1e48a",
+    "color12": "#8ab6d9",
+    "color13": "#efb5f7",
+    "color14": "#dbf4ff",
+    "color15": "#ffffff"
+  }
+}

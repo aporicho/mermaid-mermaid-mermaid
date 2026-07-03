@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-tomorrow-night-eighties",
+  "name": "Tomorrow Night Eighties",
+  "description": "Tomorrow Night Eighties kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/Tomorrow_Night_Eighties.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/Tomorrow_Night_Eighties.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "GPL-3.0"
+  },
+  "palette": {
+    "background": "#2c2c2c",
+    "foreground": "#cccccc",
+    "cursor": "#cccccc",
+    "selectionBackground": "#505050",
+    "selectionForeground": "#2c2c2c",
+    "color0": "#000000",
+    "color1": "#f17779",
+    "color2": "#99cc99",
+    "color3": "#ffcc66",
+    "color4": "#6699cc",
+    "color5": "#cc99cc",
+    "color6": "#66cccc",
+    "color7": "#fffefe",
+    "color8": "#000000",
+    "color9": "#f17779",
+    "color10": "#99cc99",
+    "color11": "#ffcc66",
+    "color12": "#6699cc",
+    "color13": "#cc99cc",
+    "color14": "#66cccc",
+    "color15": "#fffefe"
+  }
+}

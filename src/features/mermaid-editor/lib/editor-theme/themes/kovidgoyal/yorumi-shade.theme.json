@@ -1,0 +1,42 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-yorumi-shade",
+  "name": "Yorumi Shade",
+  "description": "Yorumi Shade kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/yorumi-shade.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/yorumi-shade.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "GPLv3",
+    "author": "yorumicolors",
+    "upstream": "https://raw.githubusercontent.com/yorumicolors/kitty/refs/heads/main/yorumi-shade.conf"
+  },
+  "palette": {
+    "background": "#0f101b",
+    "foreground": "#bdbfcb",
+    "cursor": "#878996",
+    "cursorText": "#060914",
+    "selectionBackground": "#343742",
+    "selectionForeground": "#bdbfcb",
+    "color0": "#0f1015",
+    "color1": "#913b3b",
+    "color2": "#697f4d",
+    "color3": "#9d672f",
+    "color4": "#42608a",
+    "color5": "#8d3f5a",
+    "color6": "#478584",
+    "color7": "#878996",
+    "color8": "#343742",
+    "color9": "#c65e53",
+    "color10": "#8cb167",
+    "color11": "#c39d55",
+    "color12": "#597bc0",
+    "color13": "#bb5d7d",
+    "color14": "#67bbb9",
+    "color15": "#bdbfcb"
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-belafonte-night",
+  "name": "Belafonte Night",
+  "description": "Belafonte Night kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/Belafonte_Night.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/Belafonte_Night.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "GPL-3.0"
+  },
+  "palette": {
+    "background": "#20111a",
+    "foreground": "#958b83",
+    "cursor": "#958b83",
+    "selectionBackground": "#45363b",
+    "selectionForeground": "#20111a",
+    "color0": "#20111a",
+    "color1": "#bd100d",
+    "color2": "#858062",
+    "color3": "#e9a448",
+    "color4": "#416978",
+    "color5": "#96522b",
+    "color6": "#98999c",
+    "color7": "#958b83",
+    "color8": "#5e5252",
+    "color9": "#bd100d",
+    "color10": "#858062",
+    "color11": "#e9a448",
+    "color12": "#416978",
+    "color13": "#96522b",
+    "color14": "#98999c",
+    "color15": "#d4ccb9"
+  }
+}

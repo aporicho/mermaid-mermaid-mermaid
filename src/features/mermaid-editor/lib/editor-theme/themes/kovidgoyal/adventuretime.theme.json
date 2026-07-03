@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-adventuretime",
+  "name": "AdventureTime",
+  "description": "AdventureTime kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/AdventureTime.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/AdventureTime.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "GPL-3.0"
+  },
+  "palette": {
+    "background": "#1e1c44",
+    "foreground": "#f8dbc0",
+    "cursor": "#eebf37",
+    "selectionBackground": "#6f6a4e",
+    "selectionForeground": "#1e1c44",
+    "color0": "#050404",
+    "color1": "#bc0013",
+    "color2": "#49b117",
+    "color3": "#e6741d",
+    "color4": "#0f49c6",
+    "color5": "#665992",
+    "color6": "#6fa497",
+    "color7": "#f8dbc0",
+    "color8": "#4e7bbf",
+    "color9": "#fc5e59",
+    "color10": "#9dff6e",
+    "color11": "#efc11a",
+    "color12": "#1896c6",
+    "color13": "#9a5952",
+    "color14": "#c8f9f3",
+    "color15": "#f5f4fb"
+  }
+}

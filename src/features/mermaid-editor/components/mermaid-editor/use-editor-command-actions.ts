@@ -211,6 +211,8 @@ export function useEditorCommandActions(args: UseEditorCommandActionsArgs) {
   });
 
   const { performCopy, performPaste } = useEditorClipboardActions({
+    runtime,
+    fileRef,
     clipboard: args.clipboard,
     selection,
     viewport,

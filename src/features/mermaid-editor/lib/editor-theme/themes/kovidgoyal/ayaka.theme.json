@@ -1,0 +1,41 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-ayaka",
+  "name": "Ayaka",
+  "description": "Ayaka kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/Ayaka.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/Ayaka.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "MIT",
+    "author": "Ruhannn",
+    "upstream": "https://raw.githubusercontent.com/Ruhannn/kitty-themes/refs/heads/master/themes/Ayaka.conf"
+  },
+  "palette": {
+    "background": "#36283d",
+    "foreground": "#cedaeb",
+    "cursor": "#cedaeb",
+    "selectionBackground": "#cedaeb",
+    "selectionForeground": "#000000",
+    "color0": "#36283d",
+    "color1": "#71ade9",
+    "color2": "#ab8cae",
+    "color3": "#e59db1",
+    "color4": "#9ea0d3",
+    "color5": "#8bb8e9",
+    "color6": "#e1b4ce",
+    "color7": "#cedaeb",
+    "color8": "#9098a4",
+    "color9": "#71ade9",
+    "color10": "#ab8cae",
+    "color11": "#e59db1",
+    "color12": "#9ea0d3",
+    "color13": "#8bb8e9",
+    "color14": "#e1b4ce",
+    "color15": "#cedaeb"
+  }
+}

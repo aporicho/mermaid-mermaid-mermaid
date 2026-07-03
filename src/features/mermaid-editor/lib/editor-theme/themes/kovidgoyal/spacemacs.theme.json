@@ -1,0 +1,37 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-spacemacs",
+  "name": "Spacemacs",
+  "description": "Spacemacs kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/Spacemacs.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/Spacemacs.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "GPL-3.0"
+  },
+  "palette": {
+    "background": "#282a2e",
+    "foreground": "#bfbfbf",
+    "selectionBackground": "#5c4c79",
+    "color0": "#292b2d",
+    "color1": "#ce527a",
+    "color2": "#2d9474",
+    "color3": "#bfa325",
+    "color4": "#4e97d6",
+    "color5": "#bb6dc3",
+    "color6": "#299ba2",
+    "color7": "#e4e4e4",
+    "color8": "#68717b",
+    "color9": "#ce527a",
+    "color10": "#84d82f",
+    "color11": "#edad0d",
+    "color12": "#4c91cc",
+    "color13": "#bb6dc3",
+    "color14": "#299ba2",
+    "color15": "#f2f2f2"
+  }
+}

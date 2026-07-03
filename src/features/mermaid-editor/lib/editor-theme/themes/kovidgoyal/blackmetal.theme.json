@@ -1,0 +1,38 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-blackmetal",
+  "name": "BlackMetal",
+  "description": "BlackMetal kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/BlackMetal.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/BlackMetal.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "GPL-3.0"
+  },
+  "palette": {
+    "background": "#000000",
+    "foreground": "#ffffff",
+    "selectionBackground": "#ffffff",
+    "selectionForeground": "#000000",
+    "color0": "#000000",
+    "color1": "#5f8787",
+    "color2": "#dd9999",
+    "color3": "#a06666",
+    "color4": "#888888",
+    "color5": "#999999",
+    "color6": "#aaaaaa",
+    "color7": "#c1c1c1",
+    "color8": "#333333",
+    "color9": "#5f8787",
+    "color10": "#dd9999",
+    "color11": "#a06666",
+    "color12": "#888888",
+    "color13": "#999999",
+    "color14": "#aaaaaa",
+    "color15": "#c1c1c1"
+  }
+}

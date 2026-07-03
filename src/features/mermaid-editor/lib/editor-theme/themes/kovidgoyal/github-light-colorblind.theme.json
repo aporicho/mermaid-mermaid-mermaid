@@ -1,0 +1,40 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-github-light-colorblind",
+  "name": "GitHub Light Colorblind",
+  "description": "GitHub Light Colorblind kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "light",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/GitHub_Light_Colorblind.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/GitHub_Light_Colorblind.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "MIT",
+    "author": "GitHub"
+  },
+  "palette": {
+    "background": "#ffffff",
+    "foreground": "#24292f",
+    "cursor": "#0969da",
+    "selectionBackground": "#0969da",
+    "selectionForeground": "#ffffff",
+    "color0": "#24292f",
+    "color1": "#b35900",
+    "color2": "#0550ae",
+    "color3": "#4d2d00",
+    "color4": "#0969da",
+    "color5": "#8250df",
+    "color6": "#1b7c83",
+    "color7": "#6e7781",
+    "color8": "#57606a",
+    "color9": "#8a4600",
+    "color10": "#0969da",
+    "color11": "#633c01",
+    "color12": "#218bff",
+    "color13": "#a475f9",
+    "color14": "#3192aa",
+    "color15": "#8c959f"
+  }
+}

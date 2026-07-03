@@ -1,11 +1,9 @@
 import type { AiEditorCommand } from "@/features/mermaid-editor/lib/ai-command-types";
 import type { EditorDiagnostic } from "@/features/mermaid-editor/lib/editor-diagnostics";
+import { browserToolShellUrl, browserToolWindowLabel, browserToolWindowTitle } from "@/features/mermaid-editor/lib/browser-tool-window";
 import { createDesktopEmbeddedBrowser } from "@/features/mermaid-editor/lib/editor-runtime/embedded-browser";
-import {
-  ensureRuntimeDocumentFileName,
-  isExternalAssetSrc,
-  openExternalUrl
-} from "@/features/mermaid-editor/lib/editor-runtime/shared";
+import { resolveDesktopLinkPreview } from "@/features/mermaid-editor/lib/editor-runtime/link-preview";
+import { ensureRuntimeDocumentFileName, isExternalAssetSrc, openExternalUrl } from "@/features/mermaid-editor/lib/editor-runtime/shared";
 import {
   exposedNativeFilePath,
   filePathToDisplaySrc,
@@ -24,7 +22,6 @@ import type {
 } from "@/features/mermaid-editor/lib/editor-runtime/types";
 import { runtimeFileRefFromPath } from "@/features/mermaid-editor/lib/file-workflow";
 import type { ProjectWorkspace } from "@/features/mermaid-editor/lib/project-workspace";
-
 type DesktopOpenedFile = {
   name: string;
   path: string;
@@ -86,6 +83,41 @@ export function createDesktopRuntime(): EditorRuntime {
     },
     async createEmbeddedBrowser(request) {
       return createDesktopEmbeddedBrowser(request);
+    },
+    async openBrowserToolWindow(request) {
+      if (!isTauriRuntime()) {
+        openExternalUrl(request.url);
+        return { status: "opened", external: true };
+      }
+
+      const { WebviewWindow } = await import("@tauri-apps/api/webviewWindow");
+      const label = browserToolWindowLabel(request.url);
+      const existing = await WebviewWindow.getByLabel(label).catch(() => null);
+      if (existing) {
+        await existing.show().catch(() => undefined);
+        await existing.setFocus().catch(() => undefined);
+        return { status: "opened", reused: true };
+      }
+
+      const shellUrl = browserToolShellUrl(request, window.location.href);
+      const title = `MMM Browser - ${browserToolWindowTitle(request.url, request.title)}`;
+      new WebviewWindow(label, {
+        url: shellUrl,
+        title,
+        width: 1040,
+        height: 720,
+        minWidth: 640,
+        minHeight: 420,
+        center: true,
+        preventOverflow: true,
+        resizable: true,
+        decorations: false,
+        shadow: true,
+        focus: true,
+        skipTaskbar: true,
+        parent: "main"
+      });
+      return { status: "opened" };
     },
     loadDraft() {
       return null;
@@ -182,6 +214,7 @@ export function createDesktopRuntime(): EditorRuntime {
       const path = await tauriInvoke<string | null>("resolve_image_asset_path", { documentPath: file.path, src });
       return path ? filePathToDisplaySrc(path) : src;
     },
+    resolveLinkPreview: resolveDesktopLinkPreview,
     async openProjectFolder() {
       const workspace = await tauriInvoke<ProjectWorkspace | null>("open_mermaid_project_folder");
       if (!workspace) return { status: "cancelled" };

@@ -1,0 +1,41 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-kaolin-dark",
+  "name": "Kaolin Dark",
+  "description": "Kaolin Dark kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/Kaolin_Dark.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/Kaolin_Dark.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "GPLv3",
+    "author": "Ogden Webb"
+  },
+  "palette": {
+    "background": "#18181b",
+    "foreground": "#e4e4e8",
+    "cursor": "#e4e4e8",
+    "cursorText": "#ffffff",
+    "selectionBackground": "#e4e4e8",
+    "selectionForeground": "#18181b",
+    "color0": "#4b5254",
+    "color1": "#cd5c60",
+    "color2": "#6fb593",
+    "color3": "#dbac66",
+    "color4": "#91b9c7",
+    "color5": "#845a84",
+    "color6": "#4d9391",
+    "color7": "#e4e4e8",
+    "color8": "#879193",
+    "color9": "#e36d5b",
+    "color10": "#72ccba",
+    "color11": "#f2c866",
+    "color12": "#97b8de",
+    "color13": "#8c629c",
+    "color14": "#5096ab",
+    "color15": "#efeff1"
+  }
+}

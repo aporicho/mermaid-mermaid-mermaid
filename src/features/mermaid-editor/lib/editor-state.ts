@@ -23,6 +23,7 @@ import {
 } from "@/features/mermaid-editor/lib/editor-types";
 import {
   DEFAULT_EDITOR_THEME,
+  isBuiltInThemeId,
   normalizeEditorTheme,
   type EditorTheme,
   type EditorThemeId
@@ -359,7 +360,7 @@ export function serializableRuntimeFileRef(file: RuntimeFileRef | null): Runtime
 }
 
 export function normalizeThemeId(value: unknown): EditorThemeId {
-  return value === "classic-light" || value === "high-contrast" || value === "custom" ? value : DEFAULT_EDITOR_THEME.id;
+  return isBuiltInThemeId(value) || value === "custom" ? value : DEFAULT_EDITOR_THEME.id;
 }
 
 export function layoutThemeFromState(themeId: EditorThemeId, customTheme: EditorTheme | null): CanvasLayoutTheme {

@@ -1,0 +1,41 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-kaolin-aurora",
+  "name": "Kaolin Aurora",
+  "description": "Kaolin Aurora kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/Kaolin_Aurora.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/Kaolin_Aurora.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "GPLv3",
+    "author": "Ogden Webb"
+  },
+  "palette": {
+    "background": "#14191e",
+    "foreground": "#e6e6e8",
+    "cursor": "#e6e6e8",
+    "cursorText": "#14191e",
+    "selectionBackground": "#e6e6e8",
+    "selectionForeground": "#14191e",
+    "color0": "#14191e",
+    "color1": "#e55c7a",
+    "color2": "#31e183",
+    "color3": "#f5c791",
+    "color4": "#4ca6e8",
+    "color5": "#9d81ba",
+    "color6": "#49bdb0",
+    "color7": "#e6e6e8",
+    "color8": "#454459",
+    "color9": "#cd5c60",
+    "color10": "#7cf083",
+    "color11": "#dbac66",
+    "color12": "#91b9c7",
+    "color13": "#6e6884",
+    "color14": "#0d9c94",
+    "color15": "#f2f2f2"
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-dexpota-wryan",
+  "name": "Wryan",
+  "description": "Wryan kitty theme from dexpota/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "dexpota",
+    "name": "dexpota/kitty-themes",
+    "repository": "https://github.com/dexpota/kitty-themes",
+    "path": "themes/Wryan.conf",
+    "url": "https://github.com/dexpota/kitty-themes/blob/b1abdd54ba655ef34f75a568d78625981bf1722c/themes/Wryan.conf",
+    "commit": "b1abdd54ba655ef34f75a568d78625981bf1722c",
+    "license": "MIT"
+  },
+  "palette": {
+    "background": "#101010",
+    "foreground": "#999993",
+    "cursor": "#9d9eca",
+    "selectionBackground": "#4d4d4d",
+    "selectionForeground": "#101010",
+    "color0": "#333333",
+    "color1": "#8c4665",
+    "color2": "#287373",
+    "color3": "#7c7c99",
+    "color4": "#395573",
+    "color5": "#5e468c",
+    "color6": "#31658c",
+    "color7": "#899ca1",
+    "color8": "#3d3d3d",
+    "color9": "#bf4d80",
+    "color10": "#53a6a6",
+    "color11": "#9e9ecb",
+    "color12": "#477ab3",
+    "color13": "#7e62b3",
+    "color14": "#6096bf",
+    "color15": "#c0c0c0"
+  }
+}

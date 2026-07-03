@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-dexpota-grass",
+  "name": "Grass",
+  "description": "Grass kitty theme from dexpota/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "dexpota",
+    "name": "dexpota/kitty-themes",
+    "repository": "https://github.com/dexpota/kitty-themes",
+    "path": "themes/Grass.conf",
+    "url": "https://github.com/dexpota/kitty-themes/blob/b1abdd54ba655ef34f75a568d78625981bf1722c/themes/Grass.conf",
+    "commit": "b1abdd54ba655ef34f75a568d78625981bf1722c",
+    "license": "MIT"
+  },
+  "palette": {
+    "background": "#12773d",
+    "foreground": "#fff0a4",
+    "cursor": "#8b2800",
+    "selectionBackground": "#b64825",
+    "selectionForeground": "#12773d",
+    "color0": "#000000",
+    "color1": "#ba0000",
+    "color2": "#00ba00",
+    "color3": "#e6af00",
+    "color4": "#0000a3",
+    "color5": "#950062",
+    "color6": "#00baba",
+    "color7": "#bababa",
+    "color8": "#545454",
+    "color9": "#ba0000",
+    "color10": "#00ba00",
+    "color11": "#e6af00",
+    "color12": "#0000ba",
+    "color13": "#ff54ff",
+    "color14": "#54ffff",
+    "color15": "#ffffff"
+  }
+}

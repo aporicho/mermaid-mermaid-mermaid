@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-dexpota-idletoes",
+  "name": "idleToes",
+  "description": "idleToes kitty theme from dexpota/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "dexpota",
+    "name": "dexpota/kitty-themes",
+    "repository": "https://github.com/dexpota/kitty-themes",
+    "path": "themes/idleToes.conf",
+    "url": "https://github.com/dexpota/kitty-themes/blob/b1abdd54ba655ef34f75a568d78625981bf1722c/themes/idleToes.conf",
+    "commit": "b1abdd54ba655ef34f75a568d78625981bf1722c",
+    "license": "MIT"
+  },
+  "palette": {
+    "background": "#323232",
+    "foreground": "#ffffff",
+    "cursor": "#d6d6d6",
+    "selectionBackground": "#5b5b5b",
+    "selectionForeground": "#323232",
+    "color0": "#323232",
+    "color1": "#d25252",
+    "color2": "#7fe173",
+    "color3": "#ffc66d",
+    "color4": "#4098ff",
+    "color5": "#f57fff",
+    "color6": "#bed6ff",
+    "color7": "#eeeeec",
+    "color8": "#535353",
+    "color9": "#f07070",
+    "color10": "#9dff90",
+    "color11": "#ffe48b",
+    "color12": "#5eb7f7",
+    "color13": "#ff9dff",
+    "color14": "#dcf4ff",
+    "color15": "#ffffff"
+  }
+}

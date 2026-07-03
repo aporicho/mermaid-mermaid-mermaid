@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-spacegray-eighties",
+  "name": "SpaceGray Eighties",
+  "description": "SpaceGray Eighties kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/SpaceGray_Eighties.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/SpaceGray_Eighties.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "GPL-3.0"
+  },
+  "palette": {
+    "background": "#212121",
+    "foreground": "#bdb9ae",
+    "cursor": "#bbbbbb",
+    "selectionBackground": "#262e35",
+    "selectionForeground": "#212121",
+    "color0": "#15171c",
+    "color1": "#ec5f67",
+    "color2": "#80a763",
+    "color3": "#fdc253",
+    "color4": "#5485c0",
+    "color5": "#bf83c0",
+    "color6": "#57c2c0",
+    "color7": "#eeece7",
+    "color8": "#545454",
+    "color9": "#ff6973",
+    "color10": "#93d393",
+    "color11": "#ffd156",
+    "color12": "#4d83d0",
+    "color13": "#ff55ff",
+    "color14": "#83e8e4",
+    "color15": "#ffffff"
+  }
+}

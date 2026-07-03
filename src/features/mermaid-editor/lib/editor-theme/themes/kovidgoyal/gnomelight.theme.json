@@ -1,0 +1,41 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-gnomelight",
+  "name": "Gnome Light",
+  "description": "Gnome Light kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "light",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/GnomeLight.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/GnomeLight.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "MIT",
+    "author": "rbbl"
+  },
+  "palette": {
+    "background": "#ffffff",
+    "foreground": "#171421",
+    "cursor": "#000000",
+    "cursorText": "#ffffff",
+    "selectionBackground": "#000000",
+    "selectionForeground": "#ffffff",
+    "color0": "#171421",
+    "color1": "#c01c28",
+    "color2": "#26a269",
+    "color3": "#a2734c",
+    "color4": "#12488b",
+    "color5": "#a347ba",
+    "color6": "#2aa1b3",
+    "color7": "#d0cfcc",
+    "color8": "#5e5c64",
+    "color9": "#f66151",
+    "color10": "#33d17a",
+    "color11": "#e9ad0c",
+    "color12": "#2a7bde",
+    "color13": "#c061cb",
+    "color14": "#33c7de",
+    "color15": "#ffffff"
+  }
+}

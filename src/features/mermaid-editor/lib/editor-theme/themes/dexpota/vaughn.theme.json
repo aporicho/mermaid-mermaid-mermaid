@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-dexpota-vaughn",
+  "name": "Vaughn",
+  "description": "Vaughn kitty theme from dexpota/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "dexpota",
+    "name": "dexpota/kitty-themes",
+    "repository": "https://github.com/dexpota/kitty-themes",
+    "path": "themes/Vaughn.conf",
+    "url": "https://github.com/dexpota/kitty-themes/blob/b1abdd54ba655ef34f75a568d78625981bf1722c/themes/Vaughn.conf",
+    "commit": "b1abdd54ba655ef34f75a568d78625981bf1722c",
+    "license": "MIT"
+  },
+  "palette": {
+    "background": "#25234e",
+    "foreground": "#dcdccc",
+    "cursor": "#ff5555",
+    "selectionBackground": "#b5d5ff",
+    "selectionForeground": "#25234e",
+    "color0": "#24234f",
+    "color1": "#705050",
+    "color2": "#60b48a",
+    "color3": "#dfaf8f",
+    "color4": "#5454ff",
+    "color5": "#f08cc3",
+    "color6": "#8cd0d3",
+    "color7": "#709080",
+    "color8": "#709080",
+    "color9": "#dca3a3",
+    "color10": "#60b48a",
+    "color11": "#f0dfaf",
+    "color12": "#5454ff",
+    "color13": "#ec93d3",
+    "color14": "#93e0e3",
+    "color15": "#ffffff"
+  }
+}

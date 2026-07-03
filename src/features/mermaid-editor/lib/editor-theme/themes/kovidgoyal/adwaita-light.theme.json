@@ -1,0 +1,42 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-adwaita-light",
+  "name": "Adwaita light",
+  "description": "Adwaita light kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "light",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/adwaita_light.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/adwaita_light.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "MIT",
+    "author": "Emil Löfquist (https://github.com/ewal)",
+    "upstream": "https://github.com/ewal/kitty-adwaita/blob/main/adwaita_light.conf"
+  },
+  "palette": {
+    "background": "#fcfcfc",
+    "foreground": "#504e55",
+    "cursor": "#504e55",
+    "cursorText": "#fcfcfc",
+    "selectionBackground": "#deddda",
+    "selectionForeground": "#5e5c64",
+    "color0": "#fcfcfc",
+    "color1": "#ed333b",
+    "color2": "#57e389",
+    "color3": "#ff7800",
+    "color4": "#62a0ea",
+    "color5": "#9141ac",
+    "color6": "#5bc8af",
+    "color7": "#deddda",
+    "color8": "#9a9996",
+    "color9": "#f66151",
+    "color10": "#8ff0a4",
+    "color11": "#ffa348",
+    "color12": "#99c1f1",
+    "color13": "#dc8add",
+    "color14": "#93ddc2",
+    "color15": "#f6f5f4"
+  }
+}

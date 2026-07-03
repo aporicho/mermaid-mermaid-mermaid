@@ -37,10 +37,10 @@ export type EditorCommand =
   | { type: "history.redo"; source: UiCommandSource }
   | { type: "clipboard.copy"; source: UiCommandSource }
   | { type: "graph.addNodeAtViewportCenter"; message?: string; source: GraphCommandSource }
-  | { type: "graph.addNodeAt"; point: { x: number; y: number; parentId?: string }; label?: string; action?: CanvasNodeAction; message?: string; source: GraphCommandSource }
+  | { type: "graph.addNodeAt"; point: { x: number; y: number; parentId?: string }; label?: string; action?: CanvasNodeAction; preview?: CanvasNode["preview"]; message?: string; source: GraphCommandSource }
   | {
       type: "graph.addNodesAt";
-      nodes: { point: { x: number; y: number; parentId?: string }; label?: string; action?: CanvasNodeAction }[];
+      nodes: { point: { x: number; y: number; parentId?: string }; label?: string; action?: CanvasNodeAction; preview?: CanvasNode["preview"] }[];
       message?: string;
       source: GraphCommandSource;
     }
@@ -69,7 +69,7 @@ export type EditorCommand =
     }
   | { type: "graph.renameNode"; nodeId: string; value: string; source: GraphCommandSource }
   | { type: "graph.renameSubgraph"; subgraphId: string; value: string; source: GraphCommandSource }
-  | { type: "graph.updateNode"; nodeId: string; patch: Partial<Pick<CanvasNode, "label" | "fill" | "shape" | "asset" | "action">>; message?: string; source: GraphCommandSource }
+  | { type: "graph.updateNode"; nodeId: string; patch: Partial<Pick<CanvasNode, "label" | "fill" | "shape" | "asset" | "action" | "preview">>; message?: string; source: GraphCommandSource }
   | { type: "graph.updateNodes"; nodeIds: string[]; patch: CanvasNodeBatchPatch; message?: string; source: GraphCommandSource }
   | { type: "graph.updateNodeFill"; nodeIds: string[]; fill: string; source: GraphCommandSource }
   | {

@@ -1,0 +1,40 @@
+{
+  "kind": "kitty",
+  "id": "kitty-dexpota-monokai-pro",
+  "name": "Monokai Pro",
+  "description": "Monokai Pro kitty theme from dexpota/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "dexpota",
+    "name": "dexpota/kitty-themes",
+    "repository": "https://github.com/dexpota/kitty-themes",
+    "path": "themes/Monokai_Pro.conf",
+    "url": "https://github.com/dexpota/kitty-themes/blob/b1abdd54ba655ef34f75a568d78625981bf1722c/themes/Monokai_Pro.conf",
+    "commit": "b1abdd54ba655ef34f75a568d78625981bf1722c",
+    "license": "MIT"
+  },
+  "palette": {
+    "background": "#403e41",
+    "foreground": "#fcfcfa",
+    "cursor": "#fcfcfa",
+    "cursorText": "#000000",
+    "selectionBackground": "#fcfcfa",
+    "selectionForeground": "#403e41",
+    "color0": "#403e41",
+    "color1": "#ff6188",
+    "color2": "#a9dc76",
+    "color3": "#ffd866",
+    "color4": "#fc9867",
+    "color5": "#ab9df2",
+    "color6": "#78dce8",
+    "color7": "#fcfcfa",
+    "color8": "#727072",
+    "color9": "#ff6188",
+    "color10": "#a9dc76",
+    "color11": "#ffd866",
+    "color12": "#fc9867",
+    "color13": "#ab9df2",
+    "color14": "#78dce8",
+    "color15": "#fcfcfa"
+  }
+}

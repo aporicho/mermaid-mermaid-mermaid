@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-elemental",
+  "name": "Elemental",
+  "description": "Elemental kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/Elemental.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/Elemental.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "GPL-3.0"
+  },
+  "palette": {
+    "background": "#21211c",
+    "foreground": "#807973",
+    "cursor": "#facb7f",
+    "selectionBackground": "#403729",
+    "selectionForeground": "#21211c",
+    "color0": "#3c3b30",
+    "color1": "#97280f",
+    "color2": "#479942",
+    "color3": "#7f7110",
+    "color4": "#497f7d",
+    "color5": "#7e4e2e",
+    "color6": "#387f58",
+    "color7": "#807974",
+    "color8": "#545444",
+    "color9": "#df502a",
+    "color10": "#60e06f",
+    "color11": "#d69827",
+    "color12": "#78d8d8",
+    "color13": "#cd7c53",
+    "color14": "#58d598",
+    "color15": "#fff1e8"
+  }
+}

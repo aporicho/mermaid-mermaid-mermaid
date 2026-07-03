@@ -1,0 +1,40 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-sequoia-moonlight-light",
+  "name": "Sequoia Moonlight Light",
+  "description": "Sequoia Moonlight Light kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "light",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/Sequoia_Moonlight_Light.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/Sequoia_Moonlight_Light.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "MIT",
+    "author": "Micheal Andreuzza",
+    "upstream": "https://raw.githubusercontent.com/Sequoia-Theme/kitty/main/sequoia-moonlight-light.conf"
+  },
+  "palette": {
+    "background": "#edeef2",
+    "foreground": "#282930",
+    "cursor": "#9a5fd9",
+    "selectionForeground": "#282930",
+    "color0": "#d4d5dc",
+    "color1": "#c94da8",
+    "color2": "#4a85d4",
+    "color3": "#6a6a78",
+    "color4": "#9a5fd9",
+    "color5": "#282930",
+    "color6": "#d9884a",
+    "color7": "#282930",
+    "color8": "#42434e",
+    "color9": "#c94da8",
+    "color10": "#4a85d4",
+    "color11": "#6a6a78",
+    "color12": "#9a5fd9",
+    "color13": "#282930",
+    "color14": "#d9884a",
+    "color15": "#282930"
+  }
+}

@@ -5,7 +5,6 @@ import { useEditorAiCommands } from "@/features/mermaid-editor/components/mermai
 import { useEditorCommandActions } from "@/features/mermaid-editor/components/mermaid-editor/use-editor-command-actions";
 import { useEditorDesktopEvents } from "@/features/mermaid-editor/components/mermaid-editor/use-editor-desktop-events";
 import { useEditorDraftAutosave } from "@/features/mermaid-editor/components/mermaid-editor/use-editor-draft-autosave";
-import { useEditorEmbeddedBrowserHandles } from "@/features/mermaid-editor/components/mermaid-editor/use-editor-embedded-browser-handles";
 import { EditorFloatingChrome } from "@/features/mermaid-editor/components/mermaid-editor/editor-floating-chrome";
 import { EditorOverlays } from "@/features/mermaid-editor/components/mermaid-editor/editor-overlays";
 import { EditorWorkspaceSurface } from "@/features/mermaid-editor/components/mermaid-editor/editor-workspace-surface";
@@ -26,7 +25,6 @@ import { EditorMotionProvider } from "@/features/mermaid-editor/lib/use-gsap-mot
 import { useDisableNativeContextMenu } from "@/features/mermaid-editor/lib/native-context-menu";
 import {
   useWorkspacePanels,
-  type DetachedBrowserWindow,
   type DetachedMarkdownWindow
 } from "@/features/mermaid-editor/lib/workspace-panels";
 import { useGlobalOverlayActivity } from "@/lib/overlay-layers";
@@ -117,7 +115,6 @@ export function MermaidEditor() {
     setNodeActionEditor,
     fileDropFeedback,
     setFileDropFeedback,
-    browserDomOverlayActive,
     updateFileMenuOpen,
     updateViewFiltersOpen,
     updateSecondaryActionsOpen,
@@ -144,8 +141,6 @@ export function MermaidEditor() {
   const [draftPersistenceReady, setDraftPersistenceReady] = useState(runtime.kind !== "desktop");
   const [terminalOpen, setTerminalOpen] = useState(false);
   const [detachedMarkdownWindows, setDetachedMarkdownWindows] = useState<DetachedMarkdownWindow[]>([]);
-  const [detachedBrowserWindows, setDetachedBrowserWindows] = useState<DetachedBrowserWindow[]>([]);
-  const { setEmbeddedBrowserHandle, closeEmbeddedBrowser, closeAllEmbeddedBrowsers } = useEditorEmbeddedBrowserHandles();
   const {
     activeWorkspacePanel,
     bringWorkspacePanelToFront,
@@ -158,8 +153,7 @@ export function MermaidEditor() {
     rightCollapsed,
     terminalOpen,
     documentKind,
-    detachedMarkdownWindows,
-    detachedBrowserWindows
+    detachedMarkdownWindows
   });
   const { openWorkspacePanel, closeWorkspacePanel } = useEditorWorkspacePanelActions({
     bringWorkspacePanelToFront,
@@ -370,7 +364,6 @@ export function MermaidEditor() {
     openRuntimeFileRequest,
     handleRuntimeFileDropRequest,
     prepareWindowClose,
-    beforeDesktopWindowClose: closeAllEmbeddedBrowsers,
     applyLoadedDocument,
     applyStoredEditorState,
     showFileWorkflowError,
@@ -390,9 +383,6 @@ export function MermaidEditor() {
     updateDetachedMarkdownWindow,
     closeDetachedMarkdownWindow,
     saveDetachedMarkdownWindow,
-    updateDetachedBrowserWindow,
-    closeDetachedBrowserWindow,
-    recordBrowserWebviewError,
     executeCanvasNodeAction,
     executeNodeActionDraft,
     editCanvasNodeAction,
@@ -403,7 +393,6 @@ export function MermaidEditor() {
     projectWorkspace,
     detachedMarkdownWindows,
     setDetachedMarkdownWindows,
-    setDetachedBrowserWindows,
     setRecentFiles,
     setNodeActionEditor,
     setStatus,
@@ -413,7 +402,6 @@ export function MermaidEditor() {
     showFileWorkflowError,
     openRuntimeFileRequest,
     openInspectorPanel: () => openWorkspacePanel("inspector"),
-    closeEmbeddedBrowser,
     applyEditorCommand,
     recordRecentAction
   });
@@ -583,7 +571,6 @@ export function MermaidEditor() {
           rightCollapsed={rightCollapsed}
           terminalOpen={terminalOpen}
           activeWorkspacePanel={activeWorkspacePanel}
-          browserDomOverlayActive={browserDomOverlayActive}
           graph={graph}
           selection={selection}
           projectWorkspace={projectWorkspace}
@@ -594,7 +581,6 @@ export function MermaidEditor() {
           activeTheme={activeTheme}
           terminalTheme={compiledTheme.terminalTheme}
           detachedMarkdownWindows={detachedMarkdownWindows}
-          detachedBrowserWindows={detachedBrowserWindows}
           bringWorkspacePanelToFront={bringWorkspacePanelToFront}
           workspacePanelStackPosition={workspacePanelStackPosition}
           workspacePanelWindowState={workspacePanelWindowState}
@@ -611,11 +597,7 @@ export function MermaidEditor() {
           closeDetachedMarkdownWindow={closeDetachedMarkdownWindow}
           saveDetachedMarkdownWindow={saveDetachedMarkdownWindow}
           updateDetachedMarkdownWindow={updateDetachedMarkdownWindow}
-          closeDetachedBrowserWindow={closeDetachedBrowserWindow}
-          updateDetachedBrowserWindow={updateDetachedBrowserWindow}
           onStatus={setStatus}
-          onBrowserError={recordBrowserWebviewError}
-          onBrowserHandleChange={setEmbeddedBrowserHandle}
         />
         <EditorFloatingChrome
           runtime={runtime}

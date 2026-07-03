@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-dexpota-pnevma",
+  "name": "Pnevma",
+  "description": "Pnevma kitty theme from dexpota/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "dexpota",
+    "name": "dexpota/kitty-themes",
+    "repository": "https://github.com/dexpota/kitty-themes",
+    "path": "themes/Pnevma.conf",
+    "url": "https://github.com/dexpota/kitty-themes/blob/b1abdd54ba655ef34f75a568d78625981bf1722c/themes/Pnevma.conf",
+    "commit": "b1abdd54ba655ef34f75a568d78625981bf1722c",
+    "license": "MIT"
+  },
+  "palette": {
+    "background": "#1c1c1c",
+    "foreground": "#d0d0d0",
+    "cursor": "#e3c8ae",
+    "selectionBackground": "#4d4d4d",
+    "selectionForeground": "#1c1c1c",
+    "color0": "#2f2e2d",
+    "color1": "#a36666",
+    "color2": "#90a57d",
+    "color3": "#d7af87",
+    "color4": "#7fa5bd",
+    "color5": "#c79ec4",
+    "color6": "#8adbb4",
+    "color7": "#d0d0d0",
+    "color8": "#4a4845",
+    "color9": "#d78787",
+    "color10": "#afbea2",
+    "color11": "#e4c9af",
+    "color12": "#a1bdce",
+    "color13": "#d7beda",
+    "color14": "#b1e7dd",
+    "color15": "#efefef"
+  }
+}

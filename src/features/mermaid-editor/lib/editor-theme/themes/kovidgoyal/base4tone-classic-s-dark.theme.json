@@ -1,0 +1,42 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-base4tone-classic-s-dark",
+  "name": "Base4Tone_Classic_S Dark",
+  "description": "Base4Tone_Classic_S Dark kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/base4tone-classic-s-dark.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/base4tone-classic-s-dark.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "MIT",
+    "author": "Bram de Haan (https://github.com/atelierbram)",
+    "upstream": "https://github.com/atelierbram/Base4Tone-kitty/blob/main/themes/base4tone-classic-s-dark.conf"
+  },
+  "palette": {
+    "background": "#1f1d20",
+    "foreground": "#ebe8ed",
+    "cursor": "#767481",
+    "cursorText": "#1f1d20",
+    "selectionBackground": "#151217",
+    "selectionForeground": "#ebe8ed",
+    "color0": "#1f1d20",
+    "color1": "#d64f3d",
+    "color2": "#7e70e6",
+    "color3": "#aba1f7",
+    "color4": "#c27eed",
+    "color5": "#e963b8",
+    "color6": "#9488f2",
+    "color7": "#ebe8ed",
+    "color8": "#0b070d",
+    "color9": "#eb8275",
+    "color10": "#b7aff8",
+    "color11": "#d1cbfb",
+    "color12": "#e6c8f9",
+    "color13": "#f17ec7",
+    "color14": "#e0baf7",
+    "color15": "#f8f6f9"
+  }
+}

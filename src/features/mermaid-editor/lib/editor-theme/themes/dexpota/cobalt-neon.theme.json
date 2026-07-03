@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-dexpota-cobalt-neon",
+  "name": "Cobalt Neon",
+  "description": "Cobalt Neon kitty theme from dexpota/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "dexpota",
+    "name": "dexpota/kitty-themes",
+    "repository": "https://github.com/dexpota/kitty-themes",
+    "path": "themes/Cobalt_Neon.conf",
+    "url": "https://github.com/dexpota/kitty-themes/blob/b1abdd54ba655ef34f75a568d78625981bf1722c/themes/Cobalt_Neon.conf",
+    "commit": "b1abdd54ba655ef34f75a568d78625981bf1722c",
+    "license": "MIT"
+  },
+  "palette": {
+    "background": "#142838",
+    "foreground": "#8ff586",
+    "cursor": "#c4206f",
+    "selectionBackground": "#084fb0",
+    "selectionForeground": "#142838",
+    "color0": "#142630",
+    "color1": "#ff2320",
+    "color2": "#3aa5ff",
+    "color3": "#e9e75c",
+    "color4": "#8ff586",
+    "color5": "#781aa0",
+    "color6": "#8ff586",
+    "color7": "#ba45b1",
+    "color8": "#fff688",
+    "color9": "#d4312e",
+    "color10": "#8ff586",
+    "color11": "#e9f06d",
+    "color12": "#3c7dd2",
+    "color13": "#8230a7",
+    "color14": "#6cbc67",
+    "color15": "#8ff586"
+  }
+}

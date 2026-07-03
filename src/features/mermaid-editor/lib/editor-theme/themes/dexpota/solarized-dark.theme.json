@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-dexpota-solarized-dark",
+  "name": "Solarized Dark",
+  "description": "Solarized Dark kitty theme from dexpota/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "dexpota",
+    "name": "dexpota/kitty-themes",
+    "repository": "https://github.com/dexpota/kitty-themes",
+    "path": "themes/Solarized_Dark.conf",
+    "url": "https://github.com/dexpota/kitty-themes/blob/b1abdd54ba655ef34f75a568d78625981bf1722c/themes/Solarized_Dark.conf",
+    "commit": "b1abdd54ba655ef34f75a568d78625981bf1722c",
+    "license": "MIT"
+  },
+  "palette": {
+    "background": "#001e26",
+    "foreground": "#708183",
+    "cursor": "#708183",
+    "selectionBackground": "#002731",
+    "selectionForeground": "#001e26",
+    "color0": "#002731",
+    "color1": "#d01b24",
+    "color2": "#728905",
+    "color3": "#a57705",
+    "color4": "#2075c7",
+    "color5": "#c61b6e",
+    "color6": "#259185",
+    "color7": "#e9e2cb",
+    "color8": "#001e26",
+    "color9": "#bd3612",
+    "color10": "#465a61",
+    "color11": "#52676f",
+    "color12": "#708183",
+    "color13": "#5856b9",
+    "color14": "#81908f",
+    "color15": "#fcf4dc"
+  }
+}

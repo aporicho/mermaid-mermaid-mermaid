@@ -1,0 +1,40 @@
+{
+  "kind": "kitty",
+  "id": "kitty-dexpota-apprentice",
+  "name": "Apprentice",
+  "description": "Apprentice kitty theme from dexpota/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "dexpota",
+    "name": "dexpota/kitty-themes",
+    "repository": "https://github.com/dexpota/kitty-themes",
+    "path": "themes/Apprentice.conf",
+    "url": "https://github.com/dexpota/kitty-themes/blob/b1abdd54ba655ef34f75a568d78625981bf1722c/themes/Apprentice.conf",
+    "commit": "b1abdd54ba655ef34f75a568d78625981bf1722c",
+    "license": "MIT"
+  },
+  "palette": {
+    "background": "#323232",
+    "foreground": "#c8c8c8",
+    "cursor": "#c7c7c7",
+    "cursorText": "#feffff",
+    "selectionBackground": "#c1ddff",
+    "selectionForeground": "#3e3e3e",
+    "color0": "#252525",
+    "color1": "#be7472",
+    "color2": "#709772",
+    "color3": "#989772",
+    "color4": "#7199bc",
+    "color5": "#727399",
+    "color6": "#719899",
+    "color7": "#7f7f7f",
+    "color8": "#555555",
+    "color9": "#ff9900",
+    "color10": "#97bb98",
+    "color11": "#fefdbc",
+    "color12": "#9fbdde",
+    "color13": "#989abc",
+    "color14": "#6fbbbc",
+    "color15": "#feffff"
+  }
+}

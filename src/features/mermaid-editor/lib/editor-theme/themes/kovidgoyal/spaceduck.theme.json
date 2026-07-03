@@ -1,0 +1,41 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-spaceduck",
+  "name": "spaceduck",
+  "description": "spaceduck kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/spaceduck.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/spaceduck.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "MIT",
+    "author": "Guillermo Rodriguez",
+    "upstream": "https://github.com/foofrog/kitty-themes/blob/master/themes/spaceduck.conf"
+  },
+  "palette": {
+    "background": "#0f111b",
+    "foreground": "#ecf0c1",
+    "cursor": "#ecf0c1",
+    "selectionBackground": "#686f9a",
+    "selectionForeground": "#ffffff",
+    "color0": "#000000",
+    "color1": "#e33400",
+    "color2": "#5ccc96",
+    "color3": "#b3a1e6",
+    "color4": "#00a3cc",
+    "color5": "#f2ce00",
+    "color6": "#7a5ccc",
+    "color7": "#686f9a",
+    "color8": "#686f9a",
+    "color9": "#e33400",
+    "color10": "#5ccc96",
+    "color11": "#b3a1e6",
+    "color12": "#00a3cc",
+    "color13": "#f2ce00",
+    "color14": "#7a5ccc",
+    "color15": "#f0f1ce"
+  }
+}

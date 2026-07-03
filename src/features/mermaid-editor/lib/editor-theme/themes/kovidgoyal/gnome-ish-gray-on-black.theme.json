@@ -1,0 +1,41 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-gnome-ish-gray-on-black",
+  "name": "Gnome-ish gray-on-black",
+  "description": "Gnome-ish gray-on-black kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/Gnome-ish_gray-on-black.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/Gnome-ish_gray-on-black.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "GPLv3+",
+    "author": "Ittner (https://www.ittner.com.br)"
+  },
+  "palette": {
+    "background": "#000000",
+    "foreground": "#aaaaaa",
+    "cursor": "#aaaaaa",
+    "cursorText": "#111111",
+    "selectionBackground": "#b4d5ff",
+    "selectionForeground": "#000000",
+    "color0": "#1e1e1e",
+    "color1": "#c01c28",
+    "color2": "#26a269",
+    "color3": "#a2734c",
+    "color4": "#12488b",
+    "color5": "#a347ba",
+    "color6": "#2aa1b3",
+    "color7": "#cfcfcf",
+    "color8": "#5d5d5d",
+    "color9": "#f66151",
+    "color10": "#33d17a",
+    "color11": "#e9ad0c",
+    "color12": "#2a7bde",
+    "color13": "#c061cb",
+    "color14": "#33c7de",
+    "color15": "#ffffff"
+  }
+}

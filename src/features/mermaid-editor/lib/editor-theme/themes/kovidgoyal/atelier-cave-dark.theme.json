@@ -1,0 +1,42 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-atelier-cave-dark",
+  "name": "Atelier Cave Dark",
+  "description": "Atelier Cave Dark kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/atelier-cave-dark.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/atelier-cave-dark.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "MIT",
+    "author": "Bram de Haan (https://github.com/atelierbram)",
+    "upstream": "https://github.com/atelierbram/AtelierSchemes-kitty/blob/main/themes/atelier-cave-dark.conf"
+  },
+  "palette": {
+    "background": "#19171c",
+    "foreground": "#8b8792",
+    "cursor": "#8b8792",
+    "cursorText": "#19171c",
+    "selectionBackground": "#26232a",
+    "selectionForeground": "#8b8792",
+    "color0": "#19171c",
+    "color1": "#be4678",
+    "color2": "#2a9292",
+    "color3": "#a06e3b",
+    "color4": "#576ddb",
+    "color5": "#955ae7",
+    "color6": "#398bc6",
+    "color7": "#8b8792",
+    "color8": "#655f6d",
+    "color9": "#aa573c",
+    "color10": "#26232a",
+    "color11": "#585260",
+    "color12": "#7e7887",
+    "color13": "#e2dfe7",
+    "color14": "#bf40bf",
+    "color15": "#efecf4"
+  }
+}

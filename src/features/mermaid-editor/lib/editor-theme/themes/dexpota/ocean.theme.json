@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-dexpota-ocean",
+  "name": "Ocean",
+  "description": "Ocean kitty theme from dexpota/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "dexpota",
+    "name": "dexpota/kitty-themes",
+    "repository": "https://github.com/dexpota/kitty-themes",
+    "path": "themes/Ocean.conf",
+    "url": "https://github.com/dexpota/kitty-themes/blob/b1abdd54ba655ef34f75a568d78625981bf1722c/themes/Ocean.conf",
+    "commit": "b1abdd54ba655ef34f75a568d78625981bf1722c",
+    "license": "MIT"
+  },
+  "palette": {
+    "background": "#214fbc",
+    "foreground": "#ffffff",
+    "cursor": "#7f7f7f",
+    "selectionBackground": "#216dff",
+    "selectionForeground": "#214fbc",
+    "color0": "#000000",
+    "color1": "#990000",
+    "color2": "#00a600",
+    "color3": "#999900",
+    "color4": "#0000b2",
+    "color5": "#b200b2",
+    "color6": "#00a6b2",
+    "color7": "#bebebe",
+    "color8": "#666666",
+    "color9": "#e50000",
+    "color10": "#00d900",
+    "color11": "#e5e500",
+    "color12": "#0000ff",
+    "color13": "#e500e5",
+    "color14": "#00e5e5",
+    "color15": "#e5e5e5"
+  }
+}

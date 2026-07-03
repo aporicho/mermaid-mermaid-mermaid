@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-dexpota-softserver",
+  "name": "SoftServer",
+  "description": "SoftServer kitty theme from dexpota/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "dexpota",
+    "name": "dexpota/kitty-themes",
+    "repository": "https://github.com/dexpota/kitty-themes",
+    "path": "themes/SoftServer.conf",
+    "url": "https://github.com/dexpota/kitty-themes/blob/b1abdd54ba655ef34f75a568d78625981bf1722c/themes/SoftServer.conf",
+    "commit": "b1abdd54ba655ef34f75a568d78625981bf1722c",
+    "license": "MIT"
+  },
+  "palette": {
+    "background": "#242626",
+    "foreground": "#99a3a2",
+    "cursor": "#d1dfde",
+    "selectionBackground": "#7f8786",
+    "selectionForeground": "#242626",
+    "color0": "#000000",
+    "color1": "#a16869",
+    "color2": "#99a569",
+    "color3": "#a29069",
+    "color4": "#6a8fa3",
+    "color5": "#6971a3",
+    "color6": "#6ba48f",
+    "color7": "#99a3a2",
+    "color8": "#666c6b",
+    "color9": "#dc5b5f",
+    "color10": "#bfde54",
+    "color11": "#deb35f",
+    "color12": "#62b1df",
+    "color13": "#5f6ede",
+    "color14": "#64e39c",
+    "color15": "#d1dfde"
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-vscode-dark",
+  "name": "VSCode_Dark",
+  "description": "VSCode_Dark kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/VSCode_Dark.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/VSCode_Dark.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "MIT",
+    "author": "ported from Microsoft VSCode by huabeiyou"
+  },
+  "palette": {
+    "background": "#1e1e1e",
+    "foreground": "#cccccc",
+    "cursor": "#ffffff",
+    "cursorText": "#1e1e1e",
+    "selectionBackground": "#264f78",
+    "selectionForeground": "#cccccc",
+    "color0": "#000000",
+    "color1": "#f14c4c",
+    "color2": "#23d18b",
+    "color3": "#f5f543",
+    "color4": "#3b8eea",
+    "color5": "#d670d6",
+    "color6": "#29b8db",
+    "color7": "#e5e5e5",
+    "color8": "#666666",
+    "color9": "#cd3131",
+    "color10": "#0dbc79",
+    "color11": "#e5e510",
+    "color12": "#2472c8",
+    "color13": "#bc3fbc",
+    "color14": "#11a8cd",
+    "color15": "#e5e5e5"
+  }
+}

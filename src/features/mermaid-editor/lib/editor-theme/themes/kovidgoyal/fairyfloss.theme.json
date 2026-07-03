@@ -1,0 +1,41 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-fairyfloss",
+  "name": "fairyfloss",
+  "description": "fairyfloss kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/fairyfloss.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/fairyfloss.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "MIT",
+    "author": "Snuggle · https://github.com/Snuggle",
+    "upstream": "https://github.com/Snuggle/kitty-themes"
+  },
+  "palette": {
+    "background": "#5a5475",
+    "foreground": "#f8f8f0",
+    "cursor": "#ffb8d1",
+    "selectionBackground": "#ffb8d1",
+    "selectionForeground": "#ad5877",
+    "color0": "#464258",
+    "color1": "#ff857f",
+    "color2": "#ad5877",
+    "color3": "#e6c000",
+    "color4": "#6c71c4",
+    "color5": "#b267e6",
+    "color6": "#afecad",
+    "color7": "#cccccc",
+    "color8": "#c19fd8",
+    "color9": "#f44747",
+    "color10": "#ffb8d1",
+    "color11": "#ffea00",
+    "color12": "#6796e6",
+    "color13": "#c5a3ff",
+    "color14": "#b2ffdd",
+    "color15": "#f8f8f0"
+  }
+}

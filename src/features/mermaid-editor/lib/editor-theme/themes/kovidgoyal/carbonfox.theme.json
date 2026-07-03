@@ -1,0 +1,42 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-carbonfox",
+  "name": "Carbonfox",
+  "description": "Carbonfox kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/Carbonfox.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/Carbonfox.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "MIT",
+    "author": "EdenEast",
+    "upstream": "https://github.com/EdenEast/nightfox.nvim/blob/main/extra/carbonfox/kitty.conf"
+  },
+  "palette": {
+    "background": "#161616",
+    "foreground": "#f2f4f8",
+    "cursor": "#f2f4f8",
+    "cursorText": "#161616",
+    "selectionBackground": "#2a2a2a",
+    "selectionForeground": "#f2f4f8",
+    "color0": "#282828",
+    "color1": "#ee5396",
+    "color2": "#25be6a",
+    "color3": "#ebcb8b",
+    "color4": "#78a9ff",
+    "color5": "#be95ff",
+    "color6": "#33b1ff",
+    "color7": "#dfdfe0",
+    "color8": "#484848",
+    "color9": "#f16da6",
+    "color10": "#46c880",
+    "color11": "#f0d399",
+    "color12": "#8cb6ff",
+    "color13": "#c8a5ff",
+    "color14": "#52bdff",
+    "color15": "#e4e4e5"
+  }
+}

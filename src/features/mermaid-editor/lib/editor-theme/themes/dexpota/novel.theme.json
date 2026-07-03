@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-dexpota-novel",
+  "name": "Novel",
+  "description": "Novel kitty theme from dexpota/kitty-themes.",
+  "mode": "light",
+  "source": {
+    "id": "dexpota",
+    "name": "dexpota/kitty-themes",
+    "repository": "https://github.com/dexpota/kitty-themes",
+    "path": "themes/Novel.conf",
+    "url": "https://github.com/dexpota/kitty-themes/blob/b1abdd54ba655ef34f75a568d78625981bf1722c/themes/Novel.conf",
+    "commit": "b1abdd54ba655ef34f75a568d78625981bf1722c",
+    "license": "MIT"
+  },
+  "palette": {
+    "background": "#dfdbc3",
+    "foreground": "#3b2322",
+    "cursor": "#73635a",
+    "selectionBackground": "#a4a390",
+    "selectionForeground": "#dfdbc3",
+    "color0": "#000000",
+    "color1": "#cc0000",
+    "color2": "#009600",
+    "color3": "#d06b00",
+    "color4": "#0000cc",
+    "color5": "#cc00cc",
+    "color6": "#0087cc",
+    "color7": "#cccccc",
+    "color8": "#7f7f7f",
+    "color9": "#cc0000",
+    "color10": "#009600",
+    "color11": "#d06b00",
+    "color12": "#0000cc",
+    "color13": "#cc00cc",
+    "color14": "#0086cb",
+    "color15": "#ffffff"
+  }
+}

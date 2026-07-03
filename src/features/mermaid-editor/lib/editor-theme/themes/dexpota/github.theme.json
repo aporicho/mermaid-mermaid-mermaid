@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-dexpota-github",
+  "name": "Github",
+  "description": "Github kitty theme from dexpota/kitty-themes.",
+  "mode": "light",
+  "source": {
+    "id": "dexpota",
+    "name": "dexpota/kitty-themes",
+    "repository": "https://github.com/dexpota/kitty-themes",
+    "path": "themes/Github.conf",
+    "url": "https://github.com/dexpota/kitty-themes/blob/b1abdd54ba655ef34f75a568d78625981bf1722c/themes/Github.conf",
+    "commit": "b1abdd54ba655ef34f75a568d78625981bf1722c",
+    "license": "MIT"
+  },
+  "palette": {
+    "background": "#f4f4f4",
+    "foreground": "#3e3e3e",
+    "cursor": "#3f3f3f",
+    "selectionBackground": "#a9c1e2",
+    "selectionForeground": "#f4f4f4",
+    "color0": "#3e3e3e",
+    "color1": "#970b16",
+    "color2": "#07962a",
+    "color3": "#f7edc7",
+    "color4": "#003e8a",
+    "color5": "#e94691",
+    "color6": "#89d1ec",
+    "color7": "#ffffff",
+    "color8": "#666666",
+    "color9": "#de0000",
+    "color10": "#87d5a2",
+    "color11": "#f0cf06",
+    "color12": "#2e6cba",
+    "color13": "#ffa29f",
+    "color14": "#1cfafe",
+    "color15": "#ffffff"
+  }
+}

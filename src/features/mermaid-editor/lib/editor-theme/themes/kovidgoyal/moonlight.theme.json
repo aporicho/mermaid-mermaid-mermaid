@@ -1,0 +1,42 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-moonlight",
+  "name": "moonlight",
+  "description": "moonlight kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/moonlight.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/moonlight.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "MIT",
+    "author": "Ramon Saraiva",
+    "upstream": "https://raw.githubusercontent.com/ramonsaraiva/kitty-moonlight/main/moonlight.conf"
+  },
+  "palette": {
+    "background": "#212337",
+    "foreground": "#e4f3fa",
+    "cursor": "#5cb4fc",
+    "cursorText": "#111111",
+    "selectionBackground": "#403c64",
+    "selectionForeground": "#e4f3fa",
+    "color0": "#000000",
+    "color1": "#ff757f",
+    "color2": "#2df4c0",
+    "color3": "#ffc777",
+    "color4": "#04d1f9",
+    "color5": "#ecb2f0",
+    "color6": "#b994f1",
+    "color7": "#eeffff",
+    "color8": "#767676",
+    "color9": "#f78b92",
+    "color10": "#4ff0c6",
+    "color11": "#fcce8b",
+    "color12": "#2ddbfc",
+    "color13": "#ebc5ed",
+    "color14": "#bf9ef0",
+    "color15": "#edf7f7"
+  }
+}

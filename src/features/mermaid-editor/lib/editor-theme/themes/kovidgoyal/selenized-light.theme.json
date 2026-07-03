@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-selenized-light",
+  "name": "Selenized Light",
+  "description": "Selenized Light kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "light",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/selenized-light.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/selenized-light.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "MIT",
+    "author": "Jan Warchol",
+    "upstream": "https://github.com/jan-warchol/selenized/raw/master/terminals/kitty/kitty-selenized-light.conf"
+  },
+  "palette": {
+    "background": "#fbf3db",
+    "foreground": "#53676d",
+    "selectionBackground": "#cfcebe",
+    "color0": "#e9e4d0",
+    "color1": "#d2212d",
+    "color2": "#489100",
+    "color3": "#ad8900",
+    "color4": "#0072d4",
+    "color5": "#ca4898",
+    "color6": "#009c8f",
+    "color7": "#909995",
+    "color8": "#cfcebe",
+    "color9": "#cc1729",
+    "color10": "#428b00",
+    "color11": "#a78300",
+    "color12": "#006dce",
+    "color13": "#c44392",
+    "color14": "#00978a",
+    "color15": "#3a4d53"
+  }
+}

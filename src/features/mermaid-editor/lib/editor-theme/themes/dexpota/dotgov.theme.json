@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-dexpota-dotgov",
+  "name": "DotGov",
+  "description": "DotGov kitty theme from dexpota/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "dexpota",
+    "name": "dexpota/kitty-themes",
+    "repository": "https://github.com/dexpota/kitty-themes",
+    "path": "themes/DotGov.conf",
+    "url": "https://github.com/dexpota/kitty-themes/blob/b1abdd54ba655ef34f75a568d78625981bf1722c/themes/DotGov.conf",
+    "commit": "b1abdd54ba655ef34f75a568d78625981bf1722c",
+    "license": "MIT"
+  },
+  "palette": {
+    "background": "#252b35",
+    "foreground": "#eaeaea",
+    "cursor": "#d9002f",
+    "selectionBackground": "#194080",
+    "selectionForeground": "#252b35",
+    "color0": "#181818",
+    "color1": "#bf081d",
+    "color2": "#3d9751",
+    "color3": "#f6bb33",
+    "color4": "#16b1df",
+    "color5": "#772fb0",
+    "color6": "#8bd1ed",
+    "color7": "#ffffff",
+    "color8": "#181818",
+    "color9": "#bf081d",
+    "color10": "#3d9751",
+    "color11": "#f6bb33",
+    "color12": "#16b1df",
+    "color13": "#772fb0",
+    "color14": "#8bd1ed",
+    "color15": "#ffffff"
+  }
+}

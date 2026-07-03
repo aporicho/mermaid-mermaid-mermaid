@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-dexpota-smyck",
+  "name": "Smyck",
+  "description": "Smyck kitty theme from dexpota/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "dexpota",
+    "name": "dexpota/kitty-themes",
+    "repository": "https://github.com/dexpota/kitty-themes",
+    "path": "themes/Smyck.conf",
+    "url": "https://github.com/dexpota/kitty-themes/blob/b1abdd54ba655ef34f75a568d78625981bf1722c/themes/Smyck.conf",
+    "commit": "b1abdd54ba655ef34f75a568d78625981bf1722c",
+    "license": "MIT"
+  },
+  "palette": {
+    "background": "#1b1b1b",
+    "foreground": "#f7f7f7",
+    "cursor": "#bbbbbb",
+    "selectionBackground": "#207383",
+    "selectionForeground": "#1b1b1b",
+    "color0": "#000000",
+    "color1": "#b74131",
+    "color2": "#7da900",
+    "color3": "#c4a400",
+    "color4": "#62a3c4",
+    "color5": "#b98acc",
+    "color6": "#207383",
+    "color7": "#a0a0a0",
+    "color8": "#7a7a7a",
+    "color9": "#d6837b",
+    "color10": "#c4f036",
+    "color11": "#fee14d",
+    "color12": "#8dcff0",
+    "color13": "#f799ff",
+    "color14": "#69d9cf",
+    "color15": "#f7f7f7"
+  }
+}

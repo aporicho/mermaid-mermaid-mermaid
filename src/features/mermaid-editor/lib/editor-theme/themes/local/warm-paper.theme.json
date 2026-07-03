@@ -1,0 +1,13 @@
+{
+  "kind": "editor",
+  "id": "warm-paper",
+  "name": "暖纸红",
+  "description": "暖色纸面、近黑细线和珊瑚红强调。",
+  "mode": "light",
+  "order": 0,
+  "source": {
+    "id": "local",
+    "name": "内置"
+  },
+  "theme": {}
+}

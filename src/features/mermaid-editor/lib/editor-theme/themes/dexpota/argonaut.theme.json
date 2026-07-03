@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-dexpota-argonaut",
+  "name": "Argonaut",
+  "description": "Argonaut kitty theme from dexpota/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "dexpota",
+    "name": "dexpota/kitty-themes",
+    "repository": "https://github.com/dexpota/kitty-themes",
+    "path": "themes/Argonaut.conf",
+    "url": "https://github.com/dexpota/kitty-themes/blob/b1abdd54ba655ef34f75a568d78625981bf1722c/themes/Argonaut.conf",
+    "commit": "b1abdd54ba655ef34f75a568d78625981bf1722c",
+    "license": "MIT"
+  },
+  "palette": {
+    "background": "#0d0f18",
+    "foreground": "#fffaf3",
+    "cursor": "#ff0017",
+    "selectionBackground": "#002a3a",
+    "selectionForeground": "#0d0f18",
+    "color0": "#222222",
+    "color1": "#ff000f",
+    "color2": "#8ce00a",
+    "color3": "#ffb900",
+    "color4": "#008df8",
+    "color5": "#6c43a5",
+    "color6": "#00d7eb",
+    "color7": "#ffffff",
+    "color8": "#444444",
+    "color9": "#ff273f",
+    "color10": "#abe05a",
+    "color11": "#ffd141",
+    "color12": "#0092ff",
+    "color13": "#9a5feb",
+    "color14": "#67ffef",
+    "color15": "#ffffff"
+  }
+}

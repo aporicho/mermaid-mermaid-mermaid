@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-wombat",
+  "name": "Wombat",
+  "description": "Wombat kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/Wombat.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/Wombat.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "GPL-3.0"
+  },
+  "palette": {
+    "background": "#171717",
+    "foreground": "#ded9ce",
+    "cursor": "#bbbbbb",
+    "selectionBackground": "#453a39",
+    "selectionForeground": "#171717",
+    "color0": "#000000",
+    "color1": "#ff605a",
+    "color2": "#b1e869",
+    "color3": "#ead89c",
+    "color4": "#5da9f6",
+    "color5": "#e86aff",
+    "color6": "#82fff6",
+    "color7": "#ded9ce",
+    "color8": "#313131",
+    "color9": "#f58b7f",
+    "color10": "#dcf88f",
+    "color11": "#eee5b2",
+    "color12": "#a5c7ff",
+    "color13": "#ddaaff",
+    "color14": "#b6fff9",
+    "color15": "#fefffe"
+  }
+}

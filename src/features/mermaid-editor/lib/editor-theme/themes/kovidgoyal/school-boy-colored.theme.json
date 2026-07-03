@@ -1,0 +1,42 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-school-boy-colored",
+  "name": "School Boy Colored Dark",
+  "description": "School Boy Colored Dark kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/school-boy-colored.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/school-boy-colored.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "MIT",
+    "author": "BrokenSideViewMirror (https://github.com/BrokenSideViewMirror)",
+    "upstream": "https://github.com/BrokenSideViewMirror/themes-lair/blob/main/themes/School-Boy/school-boy-colored.conf"
+  },
+  "palette": {
+    "background": "#0b230a",
+    "foreground": "#bfbfbf",
+    "cursor": "#a3a3a3",
+    "cursorText": "#0b230a",
+    "selectionBackground": "#bfbfbf",
+    "selectionForeground": "#0b230a",
+    "color0": "#174715",
+    "color1": "#fca4a4",
+    "color2": "#9bfc94",
+    "color3": "#fcf45f",
+    "color4": "#6384f9",
+    "color5": "#f771fc",
+    "color6": "#7ee9fc",
+    "color7": "#bfbfbf",
+    "color8": "#21631e",
+    "color9": "#fcc2c2",
+    "color10": "#bcfcb8",
+    "color11": "#fcf797",
+    "color12": "#8aa3fc",
+    "color13": "#f99ffc",
+    "color14": "#a9effc",
+    "color15": "#dddddd"
+  }
+}

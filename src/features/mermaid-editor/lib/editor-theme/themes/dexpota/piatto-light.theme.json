@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-dexpota-piatto-light",
+  "name": "Piatto Light",
+  "description": "Piatto Light kitty theme from dexpota/kitty-themes.",
+  "mode": "light",
+  "source": {
+    "id": "dexpota",
+    "name": "dexpota/kitty-themes",
+    "repository": "https://github.com/dexpota/kitty-themes",
+    "path": "themes/Piatto_Light.conf",
+    "url": "https://github.com/dexpota/kitty-themes/blob/b1abdd54ba655ef34f75a568d78625981bf1722c/themes/Piatto_Light.conf",
+    "commit": "b1abdd54ba655ef34f75a568d78625981bf1722c",
+    "license": "MIT"
+  },
+  "palette": {
+    "background": "#ffffff",
+    "foreground": "#414141",
+    "cursor": "#5e76c7",
+    "selectionBackground": "#6f6a4e",
+    "selectionForeground": "#ffffff",
+    "color0": "#414141",
+    "color1": "#b23670",
+    "color2": "#66781d",
+    "color3": "#cc6e33",
+    "color4": "#3b5ea7",
+    "color5": "#a353b2",
+    "color6": "#66781d",
+    "color7": "#ffffff",
+    "color8": "#3e3e3e",
+    "color9": "#da3365",
+    "color10": "#829428",
+    "color11": "#cc6e33",
+    "color12": "#3b5ea7",
+    "color13": "#a353b2",
+    "color14": "#829428",
+    "color15": "#f1f1f1"
+  }
+}

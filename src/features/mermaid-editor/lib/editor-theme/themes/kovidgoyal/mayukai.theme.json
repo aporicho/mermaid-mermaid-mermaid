@@ -1,0 +1,38 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-mayukai",
+  "name": "Mayukai",
+  "description": "Mayukai kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/mayukai.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/mayukai.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "MIT",
+    "author": "Gulajava Ministudio",
+    "upstream": "https://github.com/elianiva/mayukai-terminal-themes/blob/master/kitty.conf"
+  },
+  "palette": {
+    "background": "#1b1c24",
+    "foreground": "#cbccc6",
+    "color0": "#191e2a",
+    "color1": "#ed8274",
+    "color2": "#a6cc70",
+    "color3": "#fad07b",
+    "color4": "#95e6cb",
+    "color5": "#cfbafa",
+    "color6": "#95e6cb",
+    "color7": "#c7c7c7",
+    "color8": "#686868",
+    "color9": "#f28779",
+    "color10": "#bae67e",
+    "color11": "#ffd580",
+    "color12": "#95e6cb",
+    "color13": "#d4bfff",
+    "color14": "#95e6cb",
+    "color15": "#ffffff"
+  }
+}

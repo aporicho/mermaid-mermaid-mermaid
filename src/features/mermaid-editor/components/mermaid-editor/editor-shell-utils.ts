@@ -30,9 +30,13 @@ export function resolveGraphImageDisplaySources(graph: MermaidGraph, displaySrcB
   return {
     ...graph,
     nodes: graph.nodes.map((node) => {
-      if (node.asset?.kind !== "image") return node;
-      const displaySrc = displaySrcBySrc[node.asset.src];
-      return displaySrc && displaySrc !== node.asset.src ? { ...node, asset: { ...node.asset, src: displaySrc } } : node;
+      const displayAssetSrc = node.asset?.kind === "image" ? displaySrcBySrc[node.asset.src] : "";
+      const displayCoverSrc = node.preview?.cover?.src ? displaySrcBySrc[node.preview.cover.src] : "";
+      return {
+        ...node,
+        ...(displayAssetSrc && node.asset && displayAssetSrc !== node.asset.src ? { asset: { ...node.asset, src: displayAssetSrc } } : {}),
+        ...(displayCoverSrc && node.preview?.cover && displayCoverSrc !== node.preview.cover.src ? { preview: { ...node.preview, cover: { ...node.preview.cover, src: displayCoverSrc } } } : {})
+      };
     })
   };
 }

@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-frontenddelight",
+  "name": "FrontEndDelight",
+  "description": "FrontEndDelight kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/FrontEndDelight.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/FrontEndDelight.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "GPL-3.0"
+  },
+  "palette": {
+    "background": "#1b1b1d",
+    "foreground": "#acacac",
+    "cursor": "#cccccc",
+    "selectionBackground": "#e96153",
+    "selectionForeground": "#1b1b1d",
+    "color0": "#242426",
+    "color1": "#f8501a",
+    "color2": "#565746",
+    "color3": "#f9761d",
+    "color4": "#2c70b7",
+    "color5": "#f02d4e",
+    "color6": "#3ba0a5",
+    "color7": "#acacac",
+    "color8": "#5eac6c",
+    "color9": "#f64319",
+    "color10": "#74eb4c",
+    "color11": "#fcc224",
+    "color12": "#3393c9",
+    "color13": "#e75e4e",
+    "color14": "#4ebce5",
+    "color15": "#8b735a"
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-dexpota-liquidcarbon",
+  "name": "LiquidCarbon",
+  "description": "LiquidCarbon kitty theme from dexpota/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "dexpota",
+    "name": "dexpota/kitty-themes",
+    "repository": "https://github.com/dexpota/kitty-themes",
+    "path": "themes/LiquidCarbon.conf",
+    "url": "https://github.com/dexpota/kitty-themes/blob/b1abdd54ba655ef34f75a568d78625981bf1722c/themes/LiquidCarbon.conf",
+    "commit": "b1abdd54ba655ef34f75a568d78625981bf1722c",
+    "license": "MIT"
+  },
+  "palette": {
+    "background": "#2f2f2f",
+    "foreground": "#afc2c2",
+    "cursor": "#ffffff",
+    "selectionBackground": "#7cbeff",
+    "selectionForeground": "#2f2f2f",
+    "color0": "#000000",
+    "color1": "#ff2f2f",
+    "color2": "#549a6f",
+    "color3": "#ccac00",
+    "color4": "#0099cc",
+    "color5": "#cc68c8",
+    "color6": "#79c4cc",
+    "color7": "#bccccc",
+    "color8": "#000000",
+    "color9": "#ff2f2f",
+    "color10": "#549a6f",
+    "color11": "#ccac00",
+    "color12": "#0099cc",
+    "color13": "#cc68c8",
+    "color14": "#79c4cc",
+    "color15": "#bccccc"
+  }
+}

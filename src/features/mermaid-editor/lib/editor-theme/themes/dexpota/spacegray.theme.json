@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-dexpota-spacegray",
+  "name": "SpaceGray",
+  "description": "SpaceGray kitty theme from dexpota/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "dexpota",
+    "name": "dexpota/kitty-themes",
+    "repository": "https://github.com/dexpota/kitty-themes",
+    "path": "themes/SpaceGray.conf",
+    "url": "https://github.com/dexpota/kitty-themes/blob/b1abdd54ba655ef34f75a568d78625981bf1722c/themes/SpaceGray.conf",
+    "commit": "b1abdd54ba655ef34f75a568d78625981bf1722c",
+    "license": "MIT"
+  },
+  "palette": {
+    "background": "#20232c",
+    "foreground": "#b2b8c2",
+    "cursor": "#b2b8c2",
+    "selectionBackground": "#15171e",
+    "selectionForeground": "#20232c",
+    "color0": "#000000",
+    "color1": "#af4b57",
+    "color2": "#87b279",
+    "color3": "#e5c078",
+    "color4": "#7c8fa3",
+    "color5": "#a37996",
+    "color6": "#84a6a4",
+    "color7": "#b2b8c2",
+    "color8": "#000000",
+    "color9": "#af4b57",
+    "color10": "#87b279",
+    "color11": "#e5c078",
+    "color12": "#7c8fa3",
+    "color13": "#a37996",
+    "color14": "#84a6a4",
+    "color15": "#fffefe"
+  }
+}

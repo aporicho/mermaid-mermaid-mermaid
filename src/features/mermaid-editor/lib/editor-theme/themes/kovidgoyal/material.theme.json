@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-material",
+  "name": "Material",
+  "description": "Material kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "light",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/Material.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/Material.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "GPL-3.0"
+  },
+  "palette": {
+    "background": "#eaeaea",
+    "foreground": "#222221",
+    "cursor": "#16aec9",
+    "selectionBackground": "#c1c1c1",
+    "selectionForeground": "#eaeaea",
+    "color0": "#212121",
+    "color1": "#b7141e",
+    "color2": "#457b23",
+    "color3": "#f5971d",
+    "color4": "#134eb2",
+    "color5": "#550087",
+    "color6": "#0e707c",
+    "color7": "#eeeeee",
+    "color8": "#424242",
+    "color9": "#e83a3f",
+    "color10": "#7aba39",
+    "color11": "#fee92e",
+    "color12": "#53a4f3",
+    "color13": "#a94dbb",
+    "color14": "#26bad1",
+    "color15": "#d8d8d8"
+  }
+}

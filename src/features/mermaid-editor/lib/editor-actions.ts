@@ -15,6 +15,7 @@ import type {
 import type { CanvasNodeAction } from "@/features/mermaid-editor/lib/editor-types";
 import { createImageAsset } from "@/features/mermaid-editor/lib/node-assets";
 import { inferNodeActionFromPlainText } from "@/features/mermaid-editor/lib/node-actions";
+import { normalizeCanvasNodePreview } from "@/features/mermaid-editor/lib/node-preview";
 import { createNode, nextCanvasNodeId, toSafeNodeId } from "@/features/mermaid-editor/lib/mermaid-graph";
 
 export const emptySelection: Selection = { nodeIds: [], edgeIds: [], subgraphIds: [] };
@@ -64,6 +65,7 @@ export function addNode(graph: MermaidGraph, viewport: ViewportState): { graph: 
 export type AddCanvasNodeOptions = {
   label?: string;
   action?: CanvasNodeAction;
+  preview?: CanvasNode["preview"];
 };
 
 export type AddCanvasNodeItem = AddCanvasNodeOptions & {
@@ -181,10 +183,12 @@ function createNodeWithOptions(existingNodes: CanvasNode[], x: number, y: number
   const node = createNode(existingNodes, x, y);
   const label = options.label ?? node.label;
   const action = options.action || inferNodeActionFromPlainText(label);
+  const preview = normalizeCanvasNodePreview(options.preview);
   return {
     ...node,
     label,
-    ...(action ? { action } : {})
+    ...(action ? { action } : {}),
+    ...(preview ? { preview } : {})
   };
 }
 

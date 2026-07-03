@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-dimmedmonokai",
+  "name": "DimmedMonokai",
+  "description": "DimmedMonokai kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/DimmedMonokai.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/DimmedMonokai.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "GPL-3.0"
+  },
+  "palette": {
+    "background": "#1e1e1e",
+    "foreground": "#b8bcb9",
+    "cursor": "#eeeeee",
+    "selectionBackground": "#efcc00",
+    "selectionForeground": "#1e1e1e",
+    "color0": "#3a3c43",
+    "color1": "#be3e48",
+    "color2": "#869a3a",
+    "color3": "#c4a535",
+    "color4": "#4e76a1",
+    "color5": "#855b8d",
+    "color6": "#568ea3",
+    "color7": "#b8bcb9",
+    "color8": "#888987",
+    "color9": "#fb001e",
+    "color10": "#0e712e",
+    "color11": "#c37033",
+    "color12": "#176ce3",
+    "color13": "#fb0067",
+    "color14": "#2d6f6c",
+    "color15": "#fcffb8"
+  }
+}

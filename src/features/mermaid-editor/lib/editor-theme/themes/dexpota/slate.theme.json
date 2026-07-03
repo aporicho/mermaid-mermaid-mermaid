@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-dexpota-slate",
+  "name": "Slate",
+  "description": "Slate kitty theme from dexpota/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "dexpota",
+    "name": "dexpota/kitty-themes",
+    "repository": "https://github.com/dexpota/kitty-themes",
+    "path": "themes/Slate.conf",
+    "url": "https://github.com/dexpota/kitty-themes/blob/b1abdd54ba655ef34f75a568d78625981bf1722c/themes/Slate.conf",
+    "commit": "b1abdd54ba655ef34f75a568d78625981bf1722c",
+    "license": "MIT"
+  },
+  "palette": {
+    "background": "#212121",
+    "foreground": "#34b0d2",
+    "cursor": "#87d2c3",
+    "selectionBackground": "#0f3754",
+    "selectionForeground": "#212121",
+    "color0": "#212121",
+    "color1": "#e1a7bf",
+    "color2": "#80d778",
+    "color3": "#c4c9bf",
+    "color4": "#254a49",
+    "color5": "#a380d3",
+    "color6": "#14ab9c",
+    "color7": "#02c4e0",
+    "color8": "#ffffff",
+    "color9": "#ffccd8",
+    "color10": "#bdffa8",
+    "color11": "#d0cbc9",
+    "color12": "#79afd2",
+    "color13": "#c4a7d8",
+    "color14": "#8bdee0",
+    "color15": "#e0e0e0"
+  }
+}

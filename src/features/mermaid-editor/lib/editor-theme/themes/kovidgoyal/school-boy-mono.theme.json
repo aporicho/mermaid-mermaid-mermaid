@@ -1,0 +1,42 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-school-boy-mono",
+  "name": "School Boy Mono Dark",
+  "description": "School Boy Mono Dark kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/school-boy-mono.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/school-boy-mono.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "MIT",
+    "author": "BrokenSideViewMirror (https://github.com/BrokenSideViewMirror)",
+    "upstream": "https://github.com/BrokenSideViewMirror/themes-lair/blob/main/themes/School-Boy/school-boy-mono.conf"
+  },
+  "palette": {
+    "background": "#0b230a",
+    "foreground": "#bfbfbf",
+    "cursor": "#a3a3a3",
+    "cursorText": "#0b230a",
+    "selectionBackground": "#bfbfbf",
+    "selectionForeground": "#0b230a",
+    "color0": "#174715",
+    "color1": "#bfbfbf",
+    "color2": "#bfbfbf",
+    "color3": "#bfbfbf",
+    "color4": "#bfbfbf",
+    "color5": "#bfbfbf",
+    "color6": "#bfbfbf",
+    "color7": "#bfbfbf",
+    "color8": "#21631e",
+    "color9": "#dddddd",
+    "color10": "#dddddd",
+    "color11": "#dddddd",
+    "color12": "#dddddd",
+    "color13": "#dddddd",
+    "color14": "#dddddd",
+    "color15": "#dddddd"
+  }
+}

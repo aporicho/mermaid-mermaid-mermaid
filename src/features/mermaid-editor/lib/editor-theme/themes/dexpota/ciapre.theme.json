@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-dexpota-ciapre",
+  "name": "Ciapre",
+  "description": "Ciapre kitty theme from dexpota/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "dexpota",
+    "name": "dexpota/kitty-themes",
+    "repository": "https://github.com/dexpota/kitty-themes",
+    "path": "themes/Ciapre.conf",
+    "url": "https://github.com/dexpota/kitty-themes/blob/b1abdd54ba655ef34f75a568d78625981bf1722c/themes/Ciapre.conf",
+    "commit": "b1abdd54ba655ef34f75a568d78625981bf1722c",
+    "license": "MIT"
+  },
+  "palette": {
+    "background": "#181c27",
+    "foreground": "#ada37a",
+    "cursor": "#91805a",
+    "selectionBackground": "#172539",
+    "selectionForeground": "#181c27",
+    "color0": "#181818",
+    "color1": "#800009",
+    "color2": "#48513b",
+    "color3": "#cc8a3e",
+    "color4": "#566d8c",
+    "color5": "#724c7c",
+    "color6": "#5b4f4a",
+    "color7": "#ada37e",
+    "color8": "#555555",
+    "color9": "#ab3834",
+    "color10": "#a6a65d",
+    "color11": "#dcde7b",
+    "color12": "#2f97c6",
+    "color13": "#d33060",
+    "color14": "#f3dab1",
+    "color15": "#f3f3f3"
+  }
+}

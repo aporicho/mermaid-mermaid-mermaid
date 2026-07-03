@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-idletoes",
+  "name": "idleToes",
+  "description": "idleToes kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/idleToes.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/idleToes.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "GPL-3.0"
+  },
+  "palette": {
+    "background": "#323232",
+    "foreground": "#ffffff",
+    "cursor": "#d6d6d6",
+    "selectionBackground": "#5b5b5b",
+    "selectionForeground": "#323232",
+    "color0": "#323232",
+    "color1": "#d25252",
+    "color2": "#7fe173",
+    "color3": "#ffc66d",
+    "color4": "#4098ff",
+    "color5": "#f57fff",
+    "color6": "#bed6ff",
+    "color7": "#eeeeec",
+    "color8": "#535353",
+    "color9": "#f07070",
+    "color10": "#9dff90",
+    "color11": "#ffe48b",
+    "color12": "#5eb7f7",
+    "color13": "#ff9dff",
+    "color14": "#dcf4ff",
+    "color15": "#ffffff"
+  }
+}

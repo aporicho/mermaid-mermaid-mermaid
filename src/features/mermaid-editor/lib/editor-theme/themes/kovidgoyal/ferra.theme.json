@@ -1,0 +1,41 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-ferra",
+  "name": "ferra",
+  "description": "ferra kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/ferra.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/ferra.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "MIT",
+    "author": "eureka-cpu · https://github.com/eureka-cpu",
+    "upstream": "https://github.com/casperstorm/ferra"
+  },
+  "palette": {
+    "background": "#2b292d",
+    "foreground": "#fecdb2",
+    "cursor": "#fecdb2",
+    "selectionBackground": "#4d424b",
+    "selectionForeground": "#fecdb2",
+    "color0": "#1f1e20",
+    "color1": "#c05862",
+    "color2": "#8e9478",
+    "color3": "#ffa07a",
+    "color4": "#bfbfcf",
+    "color5": "#f6b6c9",
+    "color6": "#8eb5b0",
+    "color7": "#d8d4d6",
+    "color8": "#6f5d63",
+    "color9": "#e06b75",
+    "color10": "#b1b695",
+    "color11": "#b8864e",
+    "color12": "#d1d1e0",
+    "color13": "#e8829c",
+    "color14": "#aacdc8",
+    "color15": "#e4e0e2"
+  }
+}

@@ -1,4 +1,5 @@
 export * from "./editor-theme/types";
+export * from "./editor-theme/theme-definition";
 export * from "./editor-theme/presets";
 export * from "./editor-theme/normalize";
 export * from "./editor-theme/compile";

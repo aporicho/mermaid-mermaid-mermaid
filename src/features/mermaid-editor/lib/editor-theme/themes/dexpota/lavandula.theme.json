@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-dexpota-lavandula",
+  "name": "Lavandula",
+  "description": "Lavandula kitty theme from dexpota/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "dexpota",
+    "name": "dexpota/kitty-themes",
+    "repository": "https://github.com/dexpota/kitty-themes",
+    "path": "themes/Lavandula.conf",
+    "url": "https://github.com/dexpota/kitty-themes/blob/b1abdd54ba655ef34f75a568d78625981bf1722c/themes/Lavandula.conf",
+    "commit": "b1abdd54ba655ef34f75a568d78625981bf1722c",
+    "license": "MIT"
+  },
+  "palette": {
+    "background": "#050014",
+    "foreground": "#736d7c",
+    "cursor": "#8b91fa",
+    "selectionBackground": "#36323b",
+    "selectionForeground": "#050014",
+    "color0": "#230045",
+    "color1": "#7c1525",
+    "color2": "#337e6f",
+    "color3": "#7f6f49",
+    "color4": "#4f4a7f",
+    "color5": "#593f7e",
+    "color6": "#57767f",
+    "color7": "#736d7c",
+    "color8": "#362c45",
+    "color9": "#df5066",
+    "color10": "#52e0c4",
+    "color11": "#e0c286",
+    "color12": "#8e86df",
+    "color13": "#a675df",
+    "color14": "#9ad3df",
+    "color15": "#8b91fa"
+  }
+}

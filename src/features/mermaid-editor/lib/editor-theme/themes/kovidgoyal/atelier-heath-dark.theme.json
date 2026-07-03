@@ -1,0 +1,42 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-atelier-heath-dark",
+  "name": "Atelier Heath Dark",
+  "description": "Atelier Heath Dark kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/atelier-heath-dark.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/atelier-heath-dark.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "MIT",
+    "author": "Bram de Haan (https://github.com/atelierbram)",
+    "upstream": "https://github.com/atelierbram/AtelierSchemes-kitty/blob/main/themes/atelier-heath-dark.conf"
+  },
+  "palette": {
+    "background": "#1b181b",
+    "foreground": "#ab9bab",
+    "cursor": "#ab9bab",
+    "cursorText": "#1b181b",
+    "selectionBackground": "#292329",
+    "selectionForeground": "#ab9bab",
+    "color0": "#1b181b",
+    "color1": "#ca402b",
+    "color2": "#918b3b",
+    "color3": "#bb8a35",
+    "color4": "#516aec",
+    "color5": "#7b59c0",
+    "color6": "#159393",
+    "color7": "#ab9bab",
+    "color8": "#776977",
+    "color9": "#a65926",
+    "color10": "#292329",
+    "color11": "#695d69",
+    "color12": "#9e8f9e",
+    "color13": "#d8cad8",
+    "color14": "#cc33cc",
+    "color15": "#f7f3f7"
+  }
+}

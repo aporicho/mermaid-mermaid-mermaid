@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-dexpota-ayu-mirage",
+  "name": "ayu mirage",
+  "description": "ayu mirage kitty theme from dexpota/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "dexpota",
+    "name": "dexpota/kitty-themes",
+    "repository": "https://github.com/dexpota/kitty-themes",
+    "path": "themes/ayu_mirage.conf",
+    "url": "https://github.com/dexpota/kitty-themes/blob/b1abdd54ba655ef34f75a568d78625981bf1722c/themes/ayu_mirage.conf",
+    "commit": "b1abdd54ba655ef34f75a568d78625981bf1722c",
+    "license": "MIT"
+  },
+  "palette": {
+    "background": "#212733",
+    "foreground": "#d9d7ce",
+    "cursor": "#ffcc66",
+    "selectionBackground": "#343f4c",
+    "selectionForeground": "#212733",
+    "color0": "#191e2a",
+    "color1": "#ed8274",
+    "color2": "#a6cc70",
+    "color3": "#fad07b",
+    "color4": "#6dcbfa",
+    "color5": "#cfbafa",
+    "color6": "#90e1c6",
+    "color7": "#c7c7c7",
+    "color8": "#686868",
+    "color9": "#f28779",
+    "color10": "#bae67e",
+    "color11": "#ffd580",
+    "color12": "#73d0ff",
+    "color13": "#d4bfff",
+    "color14": "#95e6cb",
+    "color15": "#ffffff"
+  }
+}

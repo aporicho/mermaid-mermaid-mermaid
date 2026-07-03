@@ -1,23 +1,25 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { ColorWheel, Terminal } from "iconoir-react/regular";
 
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
+  BUILT_IN_EDITOR_THEME_CATALOG,
   BUILT_IN_EDITOR_THEMES,
   compileEditorTheme,
   DEFAULT_EDITOR_THEME,
   type EditorTheme,
   type EditorThemeId,
-  isHexColor
+  isBuiltInThemeId,
+  isHexColor,
+  themeModeLabel
 } from "@/features/mermaid-editor/lib/editor-theme";
 import { OVERLAY_Z_INDEX } from "@/lib/overlay-layers";
 
 type NumberKeys<T> = {
   [K in keyof T]: T[K] extends number ? K : never;
 }[keyof T];
-
 
 const ansiColorRows = [
   ["black", "red", "green", "yellow", "blue", "magenta", "cyan", "white"],
@@ -43,7 +45,7 @@ const ansiColorLabels: Record<keyof EditorTheme["ansi"], string> = {
 };
 
 function normalizeThemeId(value: unknown): EditorThemeId {
-  return BUILT_IN_EDITOR_THEMES.some((theme) => theme.id === value) || value === "custom" ? (value as EditorThemeId) : DEFAULT_EDITOR_THEME.id;
+  return isBuiltInThemeId(value) || value === "custom" ? (value as EditorThemeId) : DEFAULT_EDITOR_THEME.id;
 }
 
 export function ThemeSettingsPanel({
@@ -61,6 +63,8 @@ export function ThemeSettingsPanel({
   onCancel: () => void;
   onSave: () => void;
 }) {
+  const [themeQuery, setThemeQuery] = useState("");
+
   function selectTheme(value: string) {
     const nextThemeId = normalizeThemeId(value);
     if (nextThemeId === "custom") {
@@ -154,6 +158,13 @@ export function ThemeSettingsPanel({
     updateCustomTheme((theme) => ({ ...theme, motion: { ...DEFAULT_EDITOR_THEME.motion } }));
   }
 
+  const visibleThemeEntries = useMemo(() => {
+    const query = themeQuery.trim().toLowerCase();
+    if (!query) return BUILT_IN_EDITOR_THEME_CATALOG;
+    return BUILT_IN_EDITOR_THEME_CATALOG.filter((entry) =>
+      [entry.name, entry.id, entry.description, entry.source.name].some((value) => value.toLowerCase().includes(query))
+    );
+  }, [themeQuery]);
   const themeDiagnostics = useMemo(() => compileEditorTheme(activeTheme).diagnostics, [activeTheme]);
 
   return (
@@ -173,19 +184,45 @@ export function ThemeSettingsPanel({
           <div className="grid gap-5">
             <div className="grid gap-2">
               <Label>预设</Label>
-              <Select value={themeId} onValueChange={selectTheme}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {BUILT_IN_EDITOR_THEMES.map((theme) => (
-                    <SelectItem key={theme.id} value={theme.id}>
-                      {theme.name}
-                    </SelectItem>
-                  ))}
-                  <SelectItem value="custom">自定义主题</SelectItem>
-                </SelectContent>
-              </Select>
+              <Input value={themeQuery} placeholder={`搜索 ${BUILT_IN_EDITOR_THEMES.length} 个主题`} onChange={(event) => setThemeQuery(event.target.value)} />
+              <div className="max-h-72 overflow-y-auto rounded-md border bg-background">
+                {visibleThemeEntries.map((entry) => (
+                  <button
+                    key={entry.id}
+                    type="button"
+                    className={`flex w-full items-center gap-3 border-b px-3 py-2 text-left text-sm last:border-b-0 ${
+                      entry.id === themeId ? "bg-accent text-accent-foreground" : "text-foreground hover:bg-muted"
+                    }`}
+                    onClick={() => selectTheme(entry.id)}
+                  >
+                    <span className="flex shrink-0 overflow-hidden rounded-sm border">
+                      {entry.swatches.map((color) => (
+                        <span key={color} className="h-6 w-5" style={{ backgroundColor: color }} />
+                      ))}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-medium">{entry.name}</span>
+                      <span className="block truncate text-xs opacity-70">
+                        {entry.source.name} · {themeModeLabel(entry.mode)}
+                      </span>
+                    </span>
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  className={`flex w-full items-center gap-3 px-3 py-2 text-left text-sm ${
+                    themeId === "custom" ? "bg-accent text-accent-foreground" : "text-foreground hover:bg-muted"
+                  }`}
+                  onClick={() => selectTheme("custom")}
+                >
+                  <span className="size-6 rounded-sm border" style={{ backgroundColor: activeTheme.ui.primary }} />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate font-medium">自定义主题</span>
+                    <span className="block truncate text-xs opacity-70">当前编辑</span>
+                  </span>
+                </button>
+                {visibleThemeEntries.length === 0 ? <div className="px-3 py-6 text-center text-xs text-muted-foreground">没有匹配主题</div> : null}
+              </div>
               <div className="flex gap-2">
                 <Button variant="outline" className="h-8 px-2" onClick={() => onPreview("custom", toCustomTheme(activeTheme))}>
                   复制当前

@@ -1,0 +1,40 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-wood",
+  "name": "Wood",
+  "description": "Wood kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/Wood.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/Wood.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "GPLv3",
+    "author": "ed9w2in6",
+    "upstream": "https://github.com/ed9w2in6/wood-theme/blob/master/kitty/Wood.conf"
+  },
+  "palette": {
+    "background": "#331401",
+    "foreground": "#fffbca",
+    "cursor": "#d00016",
+    "cursorText": "#55eeff",
+    "color0": "#161616",
+    "color1": "#d00016",
+    "color2": "#7bbb00",
+    "color3": "#f5ec00",
+    "color4": "#6644cc",
+    "color5": "#9d1650",
+    "color6": "#55aaff",
+    "color7": "#c8cccd",
+    "color8": "#7a7a7a",
+    "color9": "#ff6481",
+    "color10": "#bde271",
+    "color11": "#eeee88",
+    "color12": "#bbaaff",
+    "color13": "#e372d9",
+    "color14": "#55eeff",
+    "color15": "#feffff"
+  }
+}

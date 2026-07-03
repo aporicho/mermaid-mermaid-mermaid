@@ -1,0 +1,42 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-atelier-seaside-dark",
+  "name": "Atelier Seaside Dark",
+  "description": "Atelier Seaside Dark kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/atelier-seaside-dark.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/atelier-seaside-dark.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "MIT",
+    "author": "Bram de Haan (https://github.com/atelierbram)",
+    "upstream": "https://github.com/atelierbram/AtelierSchemes-kitty/blob/main/themes/atelier-seaside-dark.conf"
+  },
+  "palette": {
+    "background": "#131513",
+    "foreground": "#8ca68c",
+    "cursor": "#8ca68c",
+    "cursorText": "#131513",
+    "selectionBackground": "#242924",
+    "selectionForeground": "#8ca68c",
+    "color0": "#131513",
+    "color1": "#e6193c",
+    "color2": "#29a329",
+    "color3": "#98981b",
+    "color4": "#3d62f5",
+    "color5": "#ad2bee",
+    "color6": "#1999b3",
+    "color7": "#8ca68c",
+    "color8": "#687d68",
+    "color9": "#87711d",
+    "color10": "#242924",
+    "color11": "#5e6e5e",
+    "color12": "#809980",
+    "color13": "#cfe8cf",
+    "color14": "#e619c3",
+    "color15": "#f4fbf4"
+  }
+}

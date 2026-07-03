@@ -1,0 +1,42 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-phanes",
+  "name": "Phanes",
+  "description": "Phanes kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/phanes.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/phanes.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "GPLv3",
+    "author": "dbw (https://github.com/wolgamot)",
+    "upstream": "https://github.com/wolgamot/phanes_colors/blob/main/phanes.conf"
+  },
+  "palette": {
+    "background": "#222021",
+    "foreground": "#9f999b",
+    "cursor": "#996e00",
+    "cursorText": "#222021",
+    "selectionBackground": "#2f2d2e",
+    "selectionForeground": "#9f999b",
+    "color0": "#222021",
+    "color1": "#6e5b86",
+    "color2": "#cca133",
+    "color3": "#ffcc4d",
+    "color4": "#8b78a3",
+    "color5": "#cca133",
+    "color6": "#9067cf",
+    "color7": "#9f999b",
+    "color8": "#635f60",
+    "color9": "#ddaf3c",
+    "color10": "#2f2d2e",
+    "color11": "#565254",
+    "color12": "#706b6d",
+    "color13": "#b28ce7",
+    "color14": "#c39622",
+    "color15": "#ffebf2"
+  }
+}

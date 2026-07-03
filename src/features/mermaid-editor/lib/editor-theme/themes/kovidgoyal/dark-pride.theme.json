@@ -1,0 +1,40 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-dark-pride",
+  "name": "Dark Pride",
+  "description": "Dark Pride kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/dark_pride.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/dark_pride.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "GPLv3",
+    "author": "apathyrecharge"
+  },
+  "palette": {
+    "background": "#0d0d1b",
+    "foreground": "#ccccce",
+    "cursor": "#ff0017",
+    "selectionBackground": "#002a3a",
+    "selectionForeground": "#0d0f18",
+    "color0": "#282828",
+    "color1": "#ca1444",
+    "color2": "#789aba",
+    "color3": "#b3879f",
+    "color4": "#94469b",
+    "color5": "#cb6fa1",
+    "color6": "#fb6e93",
+    "color7": "#cf98c1",
+    "color8": "#98218e",
+    "color9": "#cb515d",
+    "color10": "#5a87b1",
+    "color11": "#9c61ab",
+    "color12": "#9a77b1",
+    "color13": "#f2a297",
+    "color14": "#f4436f",
+    "color15": "#ebdbb2"
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-dexpota-dark-pastel",
+  "name": "Dark Pastel",
+  "description": "Dark Pastel kitty theme from dexpota/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "dexpota",
+    "name": "dexpota/kitty-themes",
+    "repository": "https://github.com/dexpota/kitty-themes",
+    "path": "themes/Dark_Pastel.conf",
+    "url": "https://github.com/dexpota/kitty-themes/blob/b1abdd54ba655ef34f75a568d78625981bf1722c/themes/Dark_Pastel.conf",
+    "commit": "b1abdd54ba655ef34f75a568d78625981bf1722c",
+    "license": "MIT"
+  },
+  "palette": {
+    "background": "#000000",
+    "foreground": "#ffffff",
+    "cursor": "#bbbbbb",
+    "selectionBackground": "#b5d5ff",
+    "selectionForeground": "#000000",
+    "color0": "#000000",
+    "color1": "#ff5555",
+    "color2": "#55ff55",
+    "color3": "#ffff55",
+    "color4": "#5555ff",
+    "color5": "#ff55ff",
+    "color6": "#55ffff",
+    "color7": "#bbbbbb",
+    "color8": "#545454",
+    "color9": "#ff5555",
+    "color10": "#55ff55",
+    "color11": "#ffff55",
+    "color12": "#5555ff",
+    "color13": "#ff55ff",
+    "color14": "#55ffff",
+    "color15": "#ffffff"
+  }
+}

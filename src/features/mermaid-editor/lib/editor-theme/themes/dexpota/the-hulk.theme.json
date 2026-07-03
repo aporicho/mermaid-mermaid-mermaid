@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-dexpota-the-hulk",
+  "name": "The Hulk",
+  "description": "The Hulk kitty theme from dexpota/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "dexpota",
+    "name": "dexpota/kitty-themes",
+    "repository": "https://github.com/dexpota/kitty-themes",
+    "path": "themes/The_Hulk.conf",
+    "url": "https://github.com/dexpota/kitty-themes/blob/b1abdd54ba655ef34f75a568d78625981bf1722c/themes/The_Hulk.conf",
+    "commit": "b1abdd54ba655ef34f75a568d78625981bf1722c",
+    "license": "MIT"
+  },
+  "palette": {
+    "background": "#1b1d1e",
+    "foreground": "#b4b4b4",
+    "cursor": "#15b61a",
+    "selectionBackground": "#4d4f4c",
+    "selectionForeground": "#1b1d1e",
+    "color0": "#1b1d1e",
+    "color1": "#259d1a",
+    "color2": "#13ce2f",
+    "color3": "#62e456",
+    "color4": "#2424f4",
+    "color5": "#641e73",
+    "color6": "#378ca9",
+    "color7": "#d8d8d0",
+    "color8": "#505354",
+    "color9": "#8dff2a",
+    "color10": "#48ff76",
+    "color11": "#3afe15",
+    "color12": "#4f6a95",
+    "color13": "#72579d",
+    "color14": "#3f85a5",
+    "color15": "#e5e5e0"
+  }
+}

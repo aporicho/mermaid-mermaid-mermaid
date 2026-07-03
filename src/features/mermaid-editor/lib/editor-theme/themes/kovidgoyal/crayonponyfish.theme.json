@@ -1,0 +1,39 @@
+{
+  "kind": "kitty",
+  "id": "kitty-kovidgoyal-crayonponyfish",
+  "name": "CrayonPonyFish",
+  "description": "CrayonPonyFish kitty theme from kovidgoyal/kitty-themes.",
+  "mode": "dark",
+  "source": {
+    "id": "kovidgoyal",
+    "name": "kovidgoyal/kitty-themes",
+    "repository": "https://github.com/kovidgoyal/kitty-themes",
+    "path": "themes/CrayonPonyFish.conf",
+    "url": "https://github.com/kovidgoyal/kitty-themes/blob/f54e894cce7c2232c8af9a82f85dca874e496da1/themes/CrayonPonyFish.conf",
+    "commit": "f54e894cce7c2232c8af9a82f85dca874e496da1",
+    "license": "GPL-3.0"
+  },
+  "palette": {
+    "background": "#140607",
+    "foreground": "#685259",
+    "cursor": "#685259",
+    "selectionBackground": "#2a1a1c",
+    "selectionForeground": "#140607",
+    "color0": "#2a1a1c",
+    "color1": "#90002a",
+    "color2": "#579523",
+    "color3": "#aa301b",
+    "color4": "#8b87af",
+    "color5": "#682e50",
+    "color6": "#e8a766",
+    "color7": "#685259",
+    "color8": "#3c2a2e",
+    "color9": "#c5245c",
+    "color10": "#8dff56",
+    "color11": "#c7371d",
+    "color12": "#cfc9ff",
+    "color13": "#fb6cb9",
+    "color14": "#ffceae",
+    "color15": "#af949d"
+  }
+}
