@@ -113,6 +113,7 @@ jobs:
       - name: Publish release assets
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
         run: |
           cat > release-notes.md <<'EOF'
           Electron 桌面安装包。
