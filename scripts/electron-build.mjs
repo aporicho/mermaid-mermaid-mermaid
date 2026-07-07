@@ -12,7 +12,7 @@ main();
 
 function main() {
   run(npmCommand(), ["run", "build"]);
-  run(electronBuilderBin(), process.argv.slice(2));
+  run(electronBuilderBin(), withDefaultPublishMode(process.argv.slice(2)));
 }
 
 function run(command, args) {
@@ -21,7 +21,7 @@ function run(command, args) {
     cwd: PROJECT_DIR,
     env: process.env,
     stdio: "inherit",
-    shell: false
+    shell: shouldUseShell(command)
   });
 
   if (result.error) {
@@ -41,4 +41,15 @@ function electronBuilderBin() {
 
 function npmCommand() {
   return process.platform === "win32" ? "npm.cmd" : "npm";
+}
+
+function shouldUseShell(command) {
+  return process.platform === "win32" && /\.cmd$/i.test(path.basename(command));
+}
+
+function withDefaultPublishMode(args) {
+  if (args.some((arg) => arg === "--publish" || arg.startsWith("--publish="))) {
+    return args;
+  }
+  return [...args, "--publish", "never"];
 }

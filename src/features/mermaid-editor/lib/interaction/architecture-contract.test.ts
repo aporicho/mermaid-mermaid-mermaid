@@ -366,6 +366,7 @@ describe("interaction architecture contract", () => {
     const release = readProjectFile(".github/workflows/release.yml");
     const ci = readProjectFile(".github/workflows/ci.yml");
     const windowsRun = readProjectFile("scripts/run-on-windows.mjs");
+    const electronBuild = readProjectFile("scripts/electron-build.mjs");
 
     expect(release).toContain("build-electron");
     expect(release).toContain("npm run electron:ship");
@@ -377,6 +378,8 @@ describe("interaction architecture contract", () => {
     expect(ci).toContain("npm run electron:build -- --dir");
     expect(windowsRun).toContain("npm run electron:ship");
     expect(windowsRun).not.toContain("src-tauri\\\\target\\\\release");
+    expect(electronBuild).toContain("--publish");
+    expect(electronBuild).toContain("never");
   });
 
   it("keeps Mermaid patch behind a small public facade", () => {
