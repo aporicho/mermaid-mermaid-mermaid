@@ -7,7 +7,6 @@ import {
   FALLBACK_MARKDOWN_FILE_NAME,
   buildFallbackCleanDocument,
   createEmptyDocumentGraph,
-  normalizeThemeId,
   serializableRuntimeFileRef,
   type StoredEditor,
   type StoredEditorDraftOverrides
@@ -30,9 +29,7 @@ import type {
   MermaidGraph,
   ViewportState
 } from "@/features/mermaid-editor/lib/editor-types";
-import type { CanvasLayoutTheme } from "@/features/mermaid-editor/lib/editor-types";
 import type { EditorTheme, EditorThemeId } from "@/features/mermaid-editor/lib/editor-theme";
-import { normalizeEditorTheme } from "@/features/mermaid-editor/lib/editor-theme";
 import type { RecentFileEntry } from "@/features/mermaid-editor/lib/file-workflow";
 import type { DocumentKind } from "@/features/mermaid-editor/lib/document-kind";
 import type { ProjectWorkspace } from "@/features/mermaid-editor/lib/project-workspace";
@@ -54,7 +51,6 @@ export type UseEditorDraftPersistenceArgs = {
   workspaceView: WorkspaceView;
   viewFilters: ViewFilters;
   fileName: string;
-  fileTheme: CanvasLayoutTheme | null;
   fileRef: RuntimeFileRef | null;
   recentFiles: RecentFileEntry[];
   projectWorkspace: ProjectWorkspace | null;
@@ -78,7 +74,6 @@ export function useEditorDraftPersistence({
   workspaceView,
   viewFilters,
   fileName,
-  fileTheme,
   fileRef,
   recentFiles,
   projectWorkspace,
@@ -95,7 +90,6 @@ export function useEditorDraftPersistence({
     const draftViewport = overrides.viewport ?? viewport;
     const draftEdgeRouting = overrides.edgeRouting ?? edgeRouting;
     const draftLayoutMode = overrides.layoutMode ?? layoutMode;
-    const draftFileTheme = "fileTheme" in overrides ? overrides.fileTheme : fileTheme;
     const draftFileRef = "fileRef" in overrides ? overrides.fileRef : fileRef;
     const draftThemeId = overrides.themeId ?? themeId;
     const draftCustomTheme = "customTheme" in overrides ? overrides.customTheme : customTheme;
@@ -105,7 +99,7 @@ export function useEditorDraftPersistence({
       documentKind: draftDocumentKind,
       source: draftDocumentKind === "canvas" ? serializeCanvasDocument(draftCanvasDocument) : draftSource,
       ...(draftDocumentKind === "canvas" ? { canvasDocument: draftCanvasDocument } : {}),
-      ...(draftDocumentKind === "mermaid" ? { layout: layoutFromGraph(draftGraph, draftViewport, draftEdgeRouting, draftLayoutMode, draftFileTheme) } : {}),
+      ...(draftDocumentKind === "mermaid" ? { layout: layoutFromGraph(draftGraph, draftViewport, draftEdgeRouting, draftLayoutMode) } : {}),
       viewport: draftDocumentKind === "canvas" ? draftCanvasDocument.viewport : draftViewport,
       edgeRouting: draftEdgeRouting,
       layoutMode: draftLayoutMode,
@@ -166,11 +160,8 @@ export function useEditorDraftPersistence({
     const nextViewport = loaded.viewport || { x: 160, y: 90, scale: 1 };
     const nextLayoutMode = loaded.layoutMode;
     const nextGraph = loaded.editableKind === "flowchart" && nextLayoutMode === "auto" ? applyDagreAutoLayout(loaded.graph) : loaded.graph;
-    const nextFileTheme = loaded.fileTheme ?? null;
-    const normalizedDocument = buildMermaidDocument(loaded.source, nextGraph, nextViewport, loaded.edgeRouting, nextLayoutMode, nextFileTheme);
+    const normalizedDocument = buildMermaidDocument(loaded.source, nextGraph, nextViewport, loaded.edgeRouting, nextLayoutMode);
     const keepCurrentFile = Boolean(lastSavedDocument?.trim());
-    const nextThemeId = normalizeThemeId(nextFileTheme?.themeId);
-    const nextCustomTheme = nextFileTheme?.customTheme ? normalizeEditorTheme(nextFileTheme.customTheme) : null;
 
     await persistStoredEditorDraft({
       source: loaded.source,
@@ -178,13 +169,10 @@ export function useEditorDraftPersistence({
       viewport: nextViewport,
       edgeRouting: loaded.edgeRouting,
       layoutMode: nextLayoutMode,
-      fileTheme: nextFileTheme,
       fileName: keepCurrentFile ? fileName : FALLBACK_FILE_NAME,
       fileRef: keepCurrentFile ? fileRef : null,
       lastSavedDocument: normalizedDocument,
-      workspaceView: workspaceViewForDocument(loaded.editableKind, workspaceView, "mermaid"),
-      themeId: nextThemeId,
-      customTheme: nextCustomTheme
+      workspaceView: workspaceViewForDocument(loaded.editableKind, workspaceView, "mermaid")
     });
   }
 

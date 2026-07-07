@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
 
 import { appLogoById } from "@/features/mermaid-editor/lib/app-logo";
-import { layoutThemeFromState, loadInitialState } from "@/features/mermaid-editor/lib/editor-state";
-import type { CanvasLayoutTheme } from "@/features/mermaid-editor/lib/editor-types";
+import { loadInitialState } from "@/features/mermaid-editor/lib/editor-state";
 import {
   applyEditorThemeToDocument,
   compileEditorTheme,
@@ -17,11 +16,10 @@ type InitialEditorState = ReturnType<typeof loadInitialState>;
 
 type UseEditorThemeModelArgs = {
   initial: InitialEditorState;
-  setFileTheme: Dispatch<SetStateAction<CanvasLayoutTheme | null>>;
   setStatus: Dispatch<SetStateAction<string>>;
 };
 
-export function useEditorThemeModel({ initial, setFileTheme, setStatus }: UseEditorThemeModelArgs) {
+export function useEditorThemeModel({ initial, setStatus }: UseEditorThemeModelArgs) {
   const themeEditBaseRef = useRef<{ themeId: EditorThemeId; customTheme: EditorTheme | null } | null>(null);
   const [themeId, setThemeId] = useState<EditorThemeId>(initial.themeId);
   const [customTheme, setCustomTheme] = useState<EditorTheme | null>(initial.customTheme);
@@ -75,9 +73,8 @@ export function useEditorThemeModel({ initial, setFileTheme, setStatus }: UseEdi
   }
 
   function saveThemeSettings() {
-    setFileTheme(layoutThemeFromState(themeId, customTheme));
     themeEditBaseRef.current = null;
-    setStatus("主题已保存。");
+    setStatus("主题偏好已保存。");
   }
 
   return {

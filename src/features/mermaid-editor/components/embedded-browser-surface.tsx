@@ -161,7 +161,7 @@ export function EmbeddedBrowserSurface({
         setNativeError(message);
         setNativeState("error");
         callbacksRef.current.onStatus(`WebView2 内置浏览器创建失败${message ? `：${message}` : "。"}`);
-        callbacksRef.current.onBrowserError(url, message || "tauri://error");
+        callbacksRef.current.onBrowserError(url, message || "desktop-browser-error");
       });
     }
 

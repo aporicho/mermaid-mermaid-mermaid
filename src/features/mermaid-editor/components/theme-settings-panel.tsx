@@ -411,7 +411,7 @@ export function ThemeSettingsPanel({
           <Button variant="outline" onClick={onCancel}>
             取消
           </Button>
-          <Button onClick={onSave}>保存</Button>
+          <Button onClick={onSave}>应用</Button>
         </footer>
       </section>
     </div>

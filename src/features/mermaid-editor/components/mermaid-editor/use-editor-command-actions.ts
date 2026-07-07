@@ -16,7 +16,6 @@ import { normalizeFileWorkflowError } from "@/features/mermaid-editor/lib/file-w
 import type { EditorDiagnostic } from "@/features/mermaid-editor/lib/editor-diagnostics";
 import type { RuntimeEditorMotion } from "@/features/mermaid-editor/lib/editor-motion";
 import type {
-  CanvasLayoutTheme,
   ClipboardPayload,
   DiagramType,
   EditableKind,
@@ -30,7 +29,6 @@ import type {
   Selection,
   ViewportState
 } from "@/features/mermaid-editor/lib/editor-types";
-import type { EditorTheme, EditorThemeId } from "@/features/mermaid-editor/lib/editor-theme";
 import type { EditorRuntime, RuntimeFileRef } from "@/features/mermaid-editor/lib/editor-runtime";
 import { DEFAULT_VIEW_FILTERS, type ViewFilters } from "@/features/mermaid-editor/lib/view-filters";
 import { workspaceViewForDocument, type WorkspaceView } from "@/features/mermaid-editor/lib/workspace-view";
@@ -53,7 +51,6 @@ type UseEditorCommandActionsArgs = {
   layoutMode: LayoutMode;
   workspaceView: WorkspaceView;
   viewFilters: ViewFilters;
-  fileTheme: CanvasLayoutTheme | null;
   fileRef: RuntimeFileRef | null;
   isCanvasEditable: boolean;
   mode: EditorMode;
@@ -78,9 +75,6 @@ type UseEditorCommandActionsArgs = {
   setLayoutMode: StateSetter<LayoutMode>;
   setWorkspaceView: StateSetter<WorkspaceView>;
   setViewFilters: StateSetter<ViewFilters>;
-  setFileTheme: StateSetter<CanvasLayoutTheme | null>;
-  setThemeId: StateSetter<EditorThemeId>;
-  setCustomTheme: StateSetter<EditorTheme | null>;
   setDiagnostics: StateSetter<EditorDiagnostic[]>;
   setStatus: StateSetter<string>;
   setFileWorkflowError: StateSetter<ReturnType<typeof normalizeFileWorkflowError> | null>;
@@ -101,7 +95,6 @@ export function useEditorCommandActions(args: UseEditorCommandActionsArgs) {
     layoutMode,
     workspaceView,
     viewFilters,
-    fileTheme,
     fileRef,
     isCanvasEditable,
     mode,
@@ -125,9 +118,6 @@ export function useEditorCommandActions(args: UseEditorCommandActionsArgs) {
     setLayoutMode,
     setWorkspaceView,
     setViewFilters,
-    setFileTheme,
-    setThemeId,
-    setCustomTheme,
     setDiagnostics,
     setStatus,
     setFileWorkflowError,
@@ -169,7 +159,6 @@ export function useEditorCommandActions(args: UseEditorCommandActionsArgs) {
     layoutMode,
     workspaceView,
     viewFilters,
-    fileTheme,
     isCanvasEditable,
     sourceEditBaseRef,
     sourceEditTimerRef,
@@ -188,9 +177,6 @@ export function useEditorCommandActions(args: UseEditorCommandActionsArgs) {
     setLayoutMode,
     setWorkspaceView,
     setViewFilters,
-    setFileTheme,
-    setThemeId,
-    setCustomTheme,
     setDiagnostics,
     setStatus,
     recordRecentAction

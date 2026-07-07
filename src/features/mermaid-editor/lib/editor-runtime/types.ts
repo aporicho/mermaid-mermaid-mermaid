@@ -168,8 +168,11 @@ export type RuntimeBrowserToolWindowResult =
       message: string;
     };
 
+export type EditorRuntimeHost = "web" | "tauri" | "electron";
+
 export type EditorRuntime = {
   kind: "web" | "desktop";
+  host: EditorRuntimeHost;
   openExternalUrl: (url: string) => void;
   isDesktopWindowAvailable: () => boolean;
   startDesktopWindowDrag: () => Promise<void>;

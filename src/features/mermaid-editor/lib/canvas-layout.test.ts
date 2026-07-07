@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { edgeRoutingFromLayout, layoutModeFromLayout } from "@/features/mermaid-editor/lib/canvas-layout";
+import { edgeRoutingFromLayout, layoutModeFromLayout, parseCanvasLayout } from "@/features/mermaid-editor/lib/canvas-layout";
 import type { CanvasLayout } from "@/features/mermaid-editor/lib/editor-types";
 
 const baseLayout: CanvasLayout = {
@@ -37,5 +37,17 @@ describe("layoutModeFromLayout", () => {
   it("defaults missing or invalid layout modes to manual", () => {
     expect(layoutModeFromLayout(baseLayout)).toBe("manual");
     expect(layoutModeFromLayout({ ...baseLayout, layoutMode: "locked" } as unknown as CanvasLayout)).toBe("manual");
+  });
+});
+
+describe("parseCanvasLayout", () => {
+  it("drops legacy theme metadata", () => {
+    const layout = parseCanvasLayout(
+      `%% canvas-layout: {"version":1,"edgeRouting":"bezier","layoutMode":"manual","theme":{"themeId":"minimal-mono"},"viewport":{"x":0,"y":0,"scale":1},"nodes":{}}
+flowchart LR`
+    );
+
+    expect(layout).toMatchObject({ edgeRouting: "bezier", layoutMode: "manual" });
+    expect(layout).not.toHaveProperty("theme");
   });
 });

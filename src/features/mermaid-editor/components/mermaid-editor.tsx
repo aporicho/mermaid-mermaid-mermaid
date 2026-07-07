@@ -76,8 +76,6 @@ export function MermaidEditor() {
     setViewFilters,
     fileName,
     setFileName,
-    fileTheme,
-    setFileTheme,
     fileRef,
     setFileRef,
     recentFiles,
@@ -137,7 +135,7 @@ export function MermaidEditor() {
     previewTheme,
     cancelThemeSettings: cancelThemeSettingsDraft,
     saveThemeSettings: saveThemeSettingsDraft
-  } = useEditorThemeModel({ initial, setFileTheme, setStatus });
+  } = useEditorThemeModel({ initial, setStatus });
   const [draftPersistenceReady, setDraftPersistenceReady] = useState(runtime.kind !== "desktop");
   const [terminalOpen, setTerminalOpen] = useState(false);
   const [detachedMarkdownWindows, setDetachedMarkdownWindows] = useState<DetachedMarkdownWindow[]>([]);
@@ -219,7 +217,6 @@ export function MermaidEditor() {
     layoutMode,
     workspaceView,
     viewFilters,
-    fileTheme,
     fileRef,
     isCanvasEditable,
     mode,
@@ -243,9 +240,6 @@ export function MermaidEditor() {
     setLayoutMode,
     setWorkspaceView,
     setViewFilters,
-    setFileTheme,
-    setThemeId,
-    setCustomTheme,
     setDiagnostics,
     setStatus,
     setFileWorkflowError,
@@ -308,7 +302,6 @@ export function MermaidEditor() {
     workspaceView,
     viewFilters,
     fileName,
-    fileTheme,
     fileRef,
     recentFiles,
     projectWorkspace,
@@ -336,7 +329,6 @@ export function MermaidEditor() {
     setWorkspaceView,
     setViewFilters,
     setFileName,
-    setFileTheme,
     setFileRef,
     setRecentFiles,
     setProjectWorkspace,
@@ -418,7 +410,6 @@ export function MermaidEditor() {
     viewport,
     fileName,
     fileRef,
-    fileTheme,
     isDirty,
     diagramType,
     editableKind,
@@ -442,9 +433,6 @@ export function MermaidEditor() {
     setViewport,
     setEdgeRouting,
     setLayoutMode,
-    setFileTheme,
-    setThemeId,
-    setCustomTheme,
     setWorkspaceView,
     setSelection,
     setDiagnostics,
@@ -472,7 +460,6 @@ export function MermaidEditor() {
     workspaceView,
     viewFilters,
     fileName,
-    fileTheme,
     fileRef,
     recentFiles,
     projectWorkspace,

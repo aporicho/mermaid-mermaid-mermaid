@@ -13,7 +13,6 @@ import {
   DEFAULT_EDGE_ROUTING,
   DEFAULT_LAYOUT_MODE,
   type CanvasLayout,
-  type CanvasLayoutTheme,
   type DiagramType,
   type EditableKind,
   type EdgeRouting,
@@ -83,7 +82,6 @@ export type StoredEditorDraftOverrides = {
   viewport?: ViewportState;
   edgeRouting?: EdgeRouting;
   layoutMode?: LayoutMode;
-  fileTheme?: CanvasLayoutTheme | null;
   fileName?: string;
   fileRef?: RuntimeFileRef | null;
   recentFiles?: RecentFileEntry[];
@@ -153,7 +151,6 @@ export function loadInitialState() {
       recentFiles: [] as RecentFileEntry[],
       projectWorkspace: null,
       lastSavedDocument: "",
-      fileTheme: null,
       themeId: DEFAULT_EDITOR_THEME.id,
       customTheme: null,
       preferences: fallbackPreferences
@@ -170,13 +167,8 @@ export function loadInitialState() {
       const recentFiles = normalizeRecentFiles(stored.recentFiles);
       const viewFilters = normalizeViewFilters(stored.viewFilters, { showGrid: stored.showGrid, showEdges: stored.showEdges });
       const fileName = ensureRuntimeDocumentFileName(stored.fileName || stored.fileRef?.name || FALLBACK_MARKDOWN_FILE_NAME, "markdown");
-      const fileTheme = stored.layout?.theme ?? null;
-      const themeId = normalizeThemeId(fileTheme?.themeId ?? stored.themeId);
-      const customTheme = fileTheme?.customTheme
-        ? normalizeEditorTheme(fileTheme.customTheme)
-        : stored.customTheme
-          ? normalizeEditorTheme(stored.customTheme)
-          : null;
+      const themeId = normalizeThemeId(stored.themeId);
+      const customTheme = stored.customTheme ? normalizeEditorTheme(stored.customTheme) : null;
 
       return {
         documentKind: "markdown" as DocumentKind,
@@ -205,7 +197,6 @@ export function loadInitialState() {
         recentFiles,
         projectWorkspace,
         lastSavedDocument: stored.lastSavedDocument || "",
-        fileTheme,
         themeId,
         customTheme,
         preferences
@@ -247,7 +238,6 @@ export function loadInitialState() {
         recentFiles,
         projectWorkspace,
         lastSavedDocument: stored.lastSavedDocument || "",
-        fileTheme: null,
         themeId: normalizeThemeId(stored.themeId),
         customTheme: stored.customTheme ? normalizeEditorTheme(stored.customTheme) : null,
         preferences
@@ -264,13 +254,8 @@ export function loadInitialState() {
     const edgeRouting = stored.edgeRouting || edgeRoutingFromLayout(layout);
     const layoutMode = stored.layoutMode || layoutModeFromLayout(layout);
     const resolvedGraph = loaded.editableKind === "flowchart" && layoutMode === "auto" ? applyDagreAutoLayout(graph) : graph;
-    const fileTheme = layout?.theme ?? loaded.fileTheme ?? null;
-    const themeId = normalizeThemeId(fileTheme?.themeId ?? stored.themeId);
-    const customTheme = fileTheme?.customTheme
-      ? normalizeEditorTheme(fileTheme.customTheme)
-      : stored.customTheme
-        ? normalizeEditorTheme(stored.customTheme)
-        : null;
+    const themeId = normalizeThemeId(stored.themeId);
+    const customTheme = stored.customTheme ? normalizeEditorTheme(stored.customTheme) : null;
     const viewFilters = normalizeViewFilters(stored.viewFilters, { showGrid: stored.showGrid, showEdges: stored.showEdges });
     const preferences = normalizeEditorPreferences(stored.preferences);
     const projectWorkspace = normalizeProjectWorkspace(stored.projectWorkspace);
@@ -303,7 +288,6 @@ export function loadInitialState() {
       recentFiles,
       projectWorkspace,
       lastSavedDocument: stored.lastSavedDocument || "",
-      fileTheme,
       themeId,
       customTheme,
       preferences
@@ -328,7 +312,6 @@ export function loadInitialState() {
       recentFiles: [] as RecentFileEntry[],
       projectWorkspace: null,
       lastSavedDocument: "",
-      fileTheme: null,
       themeId: DEFAULT_EDITOR_THEME.id,
       customTheme: null,
       preferences: fallbackPreferences
@@ -339,7 +322,7 @@ export function loadInitialState() {
 export function buildFallbackCleanDocument() {
   const graph = parseMermaid(initialMermaidSource);
   const source = serializeMermaid(graph);
-  return buildMermaidDocument(source, graph, { x: 160, y: 90, scale: 1 }, DEFAULT_EDGE_ROUTING, DEFAULT_LAYOUT_MODE, null);
+  return buildMermaidDocument(source, graph, { x: 160, y: 90, scale: 1 }, DEFAULT_EDGE_ROUTING, DEFAULT_LAYOUT_MODE);
 }
 
 export function ensureEditorDocumentFileName(value: string | undefined, documentKind: DocumentKind) {
@@ -361,11 +344,4 @@ export function serializableRuntimeFileRef(file: RuntimeFileRef | null): Runtime
 
 export function normalizeThemeId(value: unknown): EditorThemeId {
   return isBuiltInThemeId(value) || value === "custom" ? value : DEFAULT_EDITOR_THEME.id;
-}
-
-export function layoutThemeFromState(themeId: EditorThemeId, customTheme: EditorTheme | null): CanvasLayoutTheme {
-  return {
-    themeId,
-    ...(themeId === "custom" && customTheme ? { customTheme } : {})
-  };
 }

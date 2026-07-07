@@ -17,6 +17,7 @@ import type {
 export function createWebRuntime(): EditorRuntime {
   return {
     kind: "web",
+    host: "web",
     openExternalUrl(url) {
       openExternalUrl(url);
     },

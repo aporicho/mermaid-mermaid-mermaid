@@ -1,4 +1,6 @@
 import { createDesktopRuntime } from "@/features/mermaid-editor/lib/editor-runtime/desktop-runtime";
+import { createElectronRuntime } from "@/features/mermaid-editor/lib/editor-runtime/electron-runtime";
+import { isElectronRuntime } from "@/features/mermaid-editor/lib/editor-runtime/electron-bridge";
 import { isTauriRuntime } from "@/features/mermaid-editor/lib/editor-runtime/tauri-bridge";
 import type { EditorRuntime } from "@/features/mermaid-editor/lib/editor-runtime/types";
 import { createWebRuntime } from "@/features/mermaid-editor/lib/editor-runtime/web-runtime";
@@ -11,6 +13,7 @@ export {
 } from "@/features/mermaid-editor/lib/editor-runtime/shared";
 export type {
   EditorDraftState,
+  EditorRuntimeHost,
   EditorRuntime,
   RuntimeBrowserToolWindowResult,
   RuntimeDesktopWindowAction,
@@ -33,5 +36,6 @@ export type {
 } from "@/features/mermaid-editor/lib/editor-runtime/types";
 
 export function createEditorRuntime(): EditorRuntime {
+  if (isElectronRuntime()) return createElectronRuntime();
   return isTauriRuntime() ? createDesktopRuntime() : createWebRuntime();
 }

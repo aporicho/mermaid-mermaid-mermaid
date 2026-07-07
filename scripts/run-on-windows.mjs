@@ -216,6 +216,7 @@ function shouldSkip(relativePath, name) {
   return relativePath === ".git"
     || relativePath === "node_modules"
     || relativePath === "dist"
+    || relativePath === "dist-electron"
     || relativePath === ".next"
     || relativePath === ".vite"
     || relativePath === "src-tauri/target"
@@ -245,7 +246,7 @@ function runWindowsDesktopFlow(powershell, projectWindowsPath) {
     ? "$env:MMM_SHIP_SKIP_CHECKS = $null"
     : "$env:MMM_SHIP_SKIP_CHECKS = '1'";
   if (!fullChecks) {
-    log("Skipping tests/typecheck in Windows packaging. Set MMM_WINDOWS_RUN_FULL_CHECKS=1 to include them.");
+    log("Skipping extra Windows-side checks. Set MMM_WINDOWS_RUN_FULL_CHECKS=1 to include them.");
   }
 
   run(powershell, [
@@ -260,8 +261,12 @@ function runWindowsDesktopFlow(powershell, projectWindowsPath) {
       "if (!(Get-Command npm -ErrorAction SilentlyContinue)) { throw 'npm was not found in the Windows PATH.' }",
       "npm install",
       checksLine,
-      "$env:MMM_SHIP_NO_LAUNCH = '1'",
-      "npm run desktop:ship"
+      "npm run electron:ship",
+      "$artifactDir = Join-Path (Get-Location) 'dist-electron'",
+      "$installer = Get-ChildItem -LiteralPath $artifactDir -Filter '*.exe' -File -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1",
+      "if (!$installer) { throw 'Electron Windows installer was not found under dist-electron.' }",
+      "Write-Host \"Installing $($installer.FullName)\"",
+      "Start-Process -FilePath $installer.FullName -ArgumentList '/S' -Wait"
     ].join("; ")
   ]);
 }
@@ -288,8 +293,9 @@ function launchInstalledWindowsApp(powershell) {
       `$candidates += (Join-Path $env:LOCALAPPDATA ${psQuote(`${APP_NAME}\\${BIN_NAME}.exe`)})`,
       `$candidates += (Join-Path $env:LOCALAPPDATA ${psQuote(`Programs\\${APP_NAME}\\${BIN_NAME}.exe`)})`,
       `$candidates += (Join-Path $env:LOCALAPPDATA ${psQuote(`Programs\\${APP_NAME}\\${APP_NAME}.exe`)})`,
-      `$candidates += (Join-Path $env:TEMP ${psQuote(`${STAGING_NAME}\\src-tauri\\target\\release\\${BIN_NAME}.exe`)})`,
+      `$candidates += (Join-Path $env:TEMP ${psQuote(`${STAGING_NAME}\\dist-electron\\win-unpacked\\${APP_NAME}.exe`)})`,
       `$candidates += (Join-Path $env:ProgramFiles ${psQuote(`${APP_NAME}\\${BIN_NAME}.exe`)})`,
+      `$candidates += (Join-Path $env:ProgramFiles ${psQuote(`${APP_NAME}\\${APP_NAME}.exe`)})`,
       "$target = $candidates | Where-Object { $_ -and (Test-Path -LiteralPath $_) } | Select-Object -First 1",
       "if (!$target) { throw 'Installed Mermaid Canvas Editor was not found. Run npm run windows:run without MMM_WINDOWS_RUN_LAUNCH_ONLY first.' }",
       "Write-Host \"Launching $target\"",

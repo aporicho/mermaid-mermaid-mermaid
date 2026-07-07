@@ -19,7 +19,6 @@ import type {
   Selection,
   ViewportState
 } from "@/features/mermaid-editor/lib/editor-types";
-import type { CanvasLayoutTheme } from "@/features/mermaid-editor/lib/editor-types";
 import type { EditorCommand } from "@/features/mermaid-editor/lib/interaction/commands";
 import type { ViewFilters } from "@/features/mermaid-editor/lib/view-filters";
 import type { WorkspaceView } from "@/features/mermaid-editor/lib/workspace-view";
@@ -62,7 +61,6 @@ export type UseEditorFileWorkflowArgs = {
   workspaceView: WorkspaceView;
   viewFilters: ViewFilters;
   fileName: string;
-  fileTheme: CanvasLayoutTheme | null;
   fileRef: RuntimeFileRef | null;
   recentFiles: RecentFileEntry[];
   projectWorkspace: ProjectWorkspace | null;
@@ -90,7 +88,6 @@ export type UseEditorFileWorkflowArgs = {
   setWorkspaceView: StateSetter<WorkspaceView>;
   setViewFilters: StateSetter<ViewFilters>;
   setFileName: StateSetter<string>;
-  setFileTheme: StateSetter<CanvasLayoutTheme | null>;
   setFileRef: StateSetter<RuntimeFileRef | null>;
   setRecentFiles: StateSetter<RecentFileEntry[]>;
   setProjectWorkspace: StateSetter<ProjectWorkspace | null>;

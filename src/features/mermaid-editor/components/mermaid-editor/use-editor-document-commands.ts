@@ -14,12 +14,9 @@ import { normalizeMermaidError, type EditorDiagnostic } from "@/features/mermaid
 import { pushHistory, redo, undo } from "@/features/mermaid-editor/lib/editor-history";
 import { measurePerformance } from "@/features/mermaid-editor/lib/editor-performance";
 import {
-  createEmptyDocumentGraph,
-  normalizeThemeId
+  createEmptyDocumentGraph
 } from "@/features/mermaid-editor/lib/editor-state";
-import { normalizeEditorTheme, type EditorTheme, type EditorThemeId } from "@/features/mermaid-editor/lib/editor-theme";
 import type {
-  CanvasLayoutTheme,
   ClipboardPayload,
   DiagramType,
   EdgeRouting,
@@ -53,7 +50,6 @@ type UseEditorDocumentCommandsArgs = {
   layoutMode: LayoutMode;
   workspaceView: WorkspaceView;
   viewFilters: ViewFilters;
-  fileTheme: CanvasLayoutTheme | null;
   isCanvasEditable: boolean;
   sourceEditBaseRef: { current: EditorSnapshot | null };
   sourceEditTimerRef: { current: number | null };
@@ -72,9 +68,6 @@ type UseEditorDocumentCommandsArgs = {
   setLayoutMode: StateSetter<LayoutMode>;
   setWorkspaceView: StateSetter<WorkspaceView>;
   setViewFilters: StateSetter<ViewFilters>;
-  setFileTheme: StateSetter<CanvasLayoutTheme | null>;
-  setThemeId: StateSetter<EditorThemeId>;
-  setCustomTheme: StateSetter<EditorTheme | null>;
   setDiagnostics: StateSetter<EditorDiagnostic[]>;
   setStatus: StateSetter<string>;
   recordRecentAction: (type: string, target?: AiRecentAction["target"], summary?: string) => void;
@@ -91,7 +84,6 @@ export function useEditorDocumentCommands({
   layoutMode,
   workspaceView,
   viewFilters,
-  fileTheme,
   isCanvasEditable,
   sourceEditBaseRef,
   sourceEditTimerRef,
@@ -110,9 +102,6 @@ export function useEditorDocumentCommands({
   setLayoutMode,
   setWorkspaceView,
   setViewFilters,
-  setFileTheme,
-  setThemeId,
-  setCustomTheme,
   setDiagnostics,
   setStatus,
   recordRecentAction
@@ -380,7 +369,6 @@ export function useEditorDocumentCommands({
     });
     const nextEdgeRouting = sourceLayout ? loaded.edgeRouting : edgeRouting;
     const nextLayoutMode = sourceLayout ? loaded.layoutMode : layoutMode;
-    const nextFileTheme = sourceLayout ? loaded.fileTheme ?? null : fileTheme;
     const loadedGraph = loaded.editableKind === "flowchart" && nextLayoutMode === "auto" ? applyDagreAutoLayout(loaded.graph) : loaded.graph;
     setSource(loaded.source);
     setDiagramType(loaded.diagramType);
@@ -394,11 +382,6 @@ export function useEditorDocumentCommands({
     if (loaded.editableKind !== "flowchart") switchToRenderUnlessSource();
     setEdgeRouting(nextEdgeRouting);
     setLayoutMode(nextLayoutMode);
-    setFileTheme(nextFileTheme);
-    if (sourceLayout?.theme) {
-      setThemeId(normalizeThemeId(sourceLayout.theme.themeId));
-      setCustomTheme(sourceLayout.theme.customTheme ? normalizeEditorTheme(sourceLayout.theme.customTheme) : null);
-    }
     if (loaded.viewport) setViewport(loaded.viewport);
     if (sourceEditTimerRef.current) window.clearTimeout(sourceEditTimerRef.current);
     sourceEditTimerRef.current = window.setTimeout(() => {

@@ -202,6 +202,12 @@ describe("interaction architecture contract", () => {
       { path: "src/features/mermaid-editor/lib/editor-runtime/embedded-browser.ts", maxLines: 110 },
       { path: "src/features/mermaid-editor/lib/editor-runtime/web-runtime.ts", maxLines: 220 },
       { path: "src/features/mermaid-editor/lib/editor-runtime/desktop-runtime.ts", maxLines: 300 },
+      { path: "src/features/mermaid-editor/lib/editor-runtime/electron-runtime.ts", maxLines: 230 },
+      { path: "src/features/mermaid-editor/lib/editor-runtime/electron-bridge.ts", maxLines: 140 },
+      { path: "electron/main.cjs", maxLines: 650 },
+      { path: "electron/preload.cjs", maxLines: 220 },
+      { path: "electron/terminal.cjs", maxLines: 260 },
+      { path: "electron/ai-bridge.cjs", maxLines: 250 },
       { path: "src/features/mermaid-editor/lib/clipboard-image.ts", maxLines: 80 },
       { path: "src/features/mermaid-editor/lib/mermaid-patch.ts", maxLines: 80 },
       { path: "src/features/mermaid-editor/lib/mermaid-patch/apply.ts", maxLines: 90 },
@@ -328,15 +334,23 @@ describe("interaction architecture contract", () => {
     const types = readProjectFile("src/features/mermaid-editor/lib/editor-runtime/types.ts");
     const web = readProjectFile("src/features/mermaid-editor/lib/editor-runtime/web-runtime.ts");
     const desktop = readProjectFile("src/features/mermaid-editor/lib/editor-runtime/desktop-runtime.ts");
+    const electronRuntime = readProjectFile("src/features/mermaid-editor/lib/editor-runtime/electron-runtime.ts");
+    const electronBridge = readProjectFile("src/features/mermaid-editor/lib/editor-runtime/electron-bridge.ts");
+    const electronMain = readProjectFile("electron/main.cjs");
     const browserFile = readProjectFile("src/features/mermaid-editor/lib/editor-runtime/browser-file.ts");
     const tauriBridge = readProjectFile("src/features/mermaid-editor/lib/editor-runtime/tauri-bridge.ts");
     const embeddedBrowser = readProjectFile("src/features/mermaid-editor/lib/editor-runtime/embedded-browser.ts");
 
     expect(facade).toContain("createEditorRuntime");
     expect(facade).toContain("createWebRuntime");
+    expect(facade).toContain("createElectronRuntime");
     expect(facade).toContain("createDesktopRuntime");
     expect(types).toContain("export type EditorRuntime");
     expect(web).toContain("export function createWebRuntime");
+    expect(electronRuntime).toContain("export function createElectronRuntime");
+    expect(electronBridge).toContain("export function getElectronBridge");
+    expect(electronMain).toContain("createAiBridge");
+    expect(electronMain).toContain("createTerminalManager");
     expect(desktop).toContain("export function createDesktopRuntime");
     expect(browserFile).toContain("FILE_PICKER_TYPES");
     expect(tauriBridge).toContain("export async function tauriInvoke");
@@ -346,6 +360,23 @@ describe("interaction architecture contract", () => {
     expect(facade).not.toContain("new Webview");
     expect(facade).not.toContain("localStorage");
     expect(facade).not.toContain("open_mermaid_file");
+  });
+
+  it("keeps desktop release automation on Electron", () => {
+    const release = readProjectFile(".github/workflows/release.yml");
+    const ci = readProjectFile(".github/workflows/ci.yml");
+    const windowsRun = readProjectFile("scripts/run-on-windows.mjs");
+
+    expect(release).toContain("build-electron");
+    expect(release).toContain("npm run electron:ship");
+    expect(release).toContain("dist-electron/*.dmg");
+    expect(release).toContain("dist-electron/*.exe");
+    expect(release).toContain("dist-electron/*.AppImage");
+    expect(release).not.toContain("tauri-apps/tauri-action");
+    expect(release).not.toContain("rust-toolchain");
+    expect(ci).toContain("npm run electron:build -- --dir");
+    expect(windowsRun).toContain("npm run electron:ship");
+    expect(windowsRun).not.toContain("src-tauri\\\\target\\\\release");
   });
 
   it("keeps Mermaid patch behind a small public facade", () => {

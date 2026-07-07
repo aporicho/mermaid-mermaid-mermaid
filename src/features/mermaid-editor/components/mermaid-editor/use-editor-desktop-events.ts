@@ -91,7 +91,7 @@ export function useEditorDesktopEvents({
       try {
         await runtime.toggleDesktopWindowMaximize();
       } catch {
-        // Window controls are optional outside the Tauri desktop shell.
+        // Window controls are optional outside the desktop shell.
       }
     },
     [runtime]

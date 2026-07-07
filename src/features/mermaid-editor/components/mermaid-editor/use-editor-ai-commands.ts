@@ -7,13 +7,11 @@ import {
   FALLBACK_FILE_NAME,
   comparableDocumentFileName,
   ensureEditorDocumentFileName,
-  fallbackFileNameForKind,
-  normalizeThemeId
+  fallbackFileNameForKind
 } from "@/features/mermaid-editor/lib/editor-state";
 import type { EditorPreferences } from "@/features/mermaid-editor/lib/editor-preferences";
 import { type EditorDiagnostic } from "@/features/mermaid-editor/lib/editor-diagnostics";
-import { normalizeEditorTheme, type EditorTheme, type EditorThemeId } from "@/features/mermaid-editor/lib/editor-theme";
-import type { CanvasLayoutTheme, DiagramType, EdgeRouting, EditableKind, EditorHistory, EditorMode, EditorSnapshot, LayoutMode, MermaidGraph, Selection, ViewportState } from "@/features/mermaid-editor/lib/editor-types";
+import type { DiagramType, EdgeRouting, EditableKind, EditorHistory, EditorMode, EditorSnapshot, LayoutMode, MermaidGraph, Selection, ViewportState } from "@/features/mermaid-editor/lib/editor-types";
 import type { EditorRuntime, RuntimeFileRef } from "@/features/mermaid-editor/lib/editor-runtime";
 import { pushHistory } from "@/features/mermaid-editor/lib/editor-history";
 import { buildInteractionContext } from "@/features/mermaid-editor/lib/interaction/context";
@@ -46,7 +44,6 @@ type UseEditorAiCommandsArgs = {
   viewport: ViewportState;
   fileName: string;
   fileRef: RuntimeFileRef | null;
-  fileTheme: CanvasLayoutTheme | null;
   isDirty: boolean;
   diagramType: DiagramType;
   editableKind: EditableKind;
@@ -70,9 +67,6 @@ type UseEditorAiCommandsArgs = {
   setViewport: StateSetter<ViewportState>;
   setEdgeRouting: StateSetter<EdgeRouting>;
   setLayoutMode: StateSetter<LayoutMode>;
-  setFileTheme: StateSetter<CanvasLayoutTheme | null>;
-  setThemeId: StateSetter<EditorThemeId>;
-  setCustomTheme: StateSetter<EditorTheme | null>;
   setWorkspaceView: StateSetter<WorkspaceView>;
   setSelection: StateSetter<Selection>;
   setDiagnostics: StateSetter<EditorDiagnostic[]>;
@@ -95,7 +89,6 @@ export function useEditorAiCommands({
   viewport,
   fileName,
   fileRef,
-  fileTheme,
   isDirty,
   diagramType,
   editableKind,
@@ -119,9 +112,6 @@ export function useEditorAiCommands({
   setViewport,
   setEdgeRouting,
   setLayoutMode,
-  setFileTheme,
-  setThemeId,
-  setCustomTheme,
   setWorkspaceView,
   setSelection,
   setDiagnostics,
@@ -283,7 +273,7 @@ export function useEditorAiCommands({
               aiApply: true
             })
           : loaded.graph;
-      const nextDocument = buildMermaidDocument(loaded.source, nextGraph, nextViewport, loaded.edgeRouting, nextLayoutMode, loaded.fileTheme ?? fileTheme);
+      const nextDocument = buildMermaidDocument(loaded.source, nextGraph, nextViewport, loaded.edgeRouting, nextLayoutMode);
       const resultDiagnostics: EditorDiagnostic[] = [];
       let saved = false;
 
@@ -319,11 +309,6 @@ export function useEditorAiCommands({
       setViewport(nextViewport);
       setEdgeRouting(loaded.edgeRouting);
       setLayoutMode(nextLayoutMode);
-      setFileTheme(loaded.fileTheme ?? fileTheme);
-      if (loaded.fileTheme) {
-        setThemeId(normalizeThemeId(loaded.fileTheme.themeId));
-        setCustomTheme(loaded.fileTheme.customTheme ? normalizeEditorTheme(loaded.fileTheme.customTheme) : null);
-      }
       setWorkspaceView(workspaceViewForDocument(loaded.editableKind, workspaceView, "mermaid"));
       setSelection(emptySelection);
       setDiagnostics([]);
@@ -351,21 +336,18 @@ export function useEditorAiCommands({
       documentKind,
       fileName,
       fileRef,
-      fileTheme,
       flushSourceHistory,
       graph,
       isDirtyRef,
       postAiApplyResult,
       recordRecentAction,
       runtime,
-      setCustomTheme,
       setDiagramType,
       setDiagnostics,
       setEditableKind,
       setEdgeRouting,
       setFileName,
       setFileRef,
-      setFileTheme,
       setGraph,
       setHistory,
       setLastSavedDocument,
@@ -374,7 +356,6 @@ export function useEditorAiCommands({
       setSelection,
       setSource,
       setStatus,
-      setThemeId,
       setViewport,
       setWorkspaceView,
       snapshot,

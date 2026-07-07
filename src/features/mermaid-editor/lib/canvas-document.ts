@@ -90,9 +90,6 @@ export type CanvasDocument = {
   viewport: ViewportState;
   elements: CanvasDocumentElement[];
   assets?: CanvasDocumentAsset[];
-  theme?: {
-    themeId?: string;
-  };
 };
 
 export const CANVAS_DOCUMENT_SCHEMA = "mmm.canvas";
@@ -139,8 +136,7 @@ export function normalizeCanvasDocument(value: unknown): CanvasDocument {
     version: CANVAS_DOCUMENT_VERSION,
     viewport: normalizeViewport(raw.viewport),
     elements: Array.isArray(raw.elements) ? raw.elements.map(normalizeElement).filter((item): item is CanvasDocumentElement => Boolean(item)) : [],
-    ...(Array.isArray(raw.assets) ? { assets: raw.assets.map(normalizeAsset).filter((item): item is CanvasDocumentAsset => Boolean(item)) } : {}),
-    ...(raw.theme && typeof raw.theme === "object" ? { theme: { ...(typeof raw.theme.themeId === "string" ? { themeId: raw.theme.themeId } : {}) } } : {})
+    ...(Array.isArray(raw.assets) ? { assets: raw.assets.map(normalizeAsset).filter((item): item is CanvasDocumentAsset => Boolean(item)) } : {})
   };
 }
 

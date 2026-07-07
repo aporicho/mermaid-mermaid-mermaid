@@ -19,12 +19,32 @@ describe("editor theme", () => {
     const ids = BUILT_IN_EDITOR_THEME_CATALOG.map((entry) => entry.id);
 
     expect(ids).toContain("warm-paper");
+    expect(ids).toContain("minimal-mono");
     expect(ids).toContain("kitty-dexpota-dracula");
     expect(ids).toContain("kitty-kovidgoyal-dracula");
     expect(new Set(ids).size).toBe(ids.length);
     expect(BUILT_IN_EDITOR_THEMES).toHaveLength(BUILT_IN_EDITOR_THEME_CATALOG.length);
     expect(isBuiltInThemeId("kitty-kovidgoyal-dracula")).toBe(true);
     expect(isBuiltInThemeId("custom")).toBe(false);
+  });
+
+  it("loads minimal monochrome theme with grayscale application colors", () => {
+    const theme = resolveEditorTheme("minimal-mono", null);
+    const compiled = compileEditorTheme(theme);
+    const appGrayscaleColors = [
+      ...Object.values(theme.ui),
+      ...Object.values(theme.canvas),
+      ...Object.values(theme.source),
+      ...Object.values(theme.render)
+    ];
+    const terminalPaletteColors = [...Object.values(theme.terminal), ...Object.values(theme.ansi)];
+
+    expect(theme.name).toBe("极简黑白");
+    expect(theme.ui.primary).toBe("#111111");
+    expect(theme.ui.accent).toBe("#eeeeee");
+    expect(appGrayscaleColors.every(isGrayscaleHexColor)).toBe(true);
+    expect(terminalPaletteColors.some((color) => !isGrayscaleHexColor(color))).toBe(true);
+    expect(compiled.diagnostics).toEqual([]);
   });
 
   it("resolves built-in themes and normalizes custom colors", () => {
@@ -269,3 +289,8 @@ describe("editor theme", () => {
     }
   });
 });
+
+function isGrayscaleHexColor(value: string) {
+  const match = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(value);
+  return !!match && match[1].toLowerCase() === match[2].toLowerCase() && match[2].toLowerCase() === match[3].toLowerCase();
+}

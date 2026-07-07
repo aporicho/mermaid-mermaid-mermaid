@@ -87,16 +87,16 @@ flowchart LR
     });
   });
 
-  it("round-trips file theme through the canvas layout comment", () => {
+  it("drops legacy file theme from the canvas layout comment", () => {
     const document = loadMermaidDocument(`%% canvas-layout: {"version":1,"edgeRouting":"bezier","layoutMode":"manual","theme":{"themeId":"custom","customTheme":{"version":2,"name":"文件主题","ui":{"primary":"#123456"},"space":{"nodePaddingX":20}}},"viewport":{"x":0,"y":0,"scale":1},"nodes":{"A":{"x":10,"y":20,"fill":"#fff"}}}
 flowchart LR
   A[Alpha]`);
-    const saved = buildMermaidDocument(document.source, document.graph, { x: 12, y: 24, scale: 1.2 }, document.edgeRouting, document.layoutMode, document.fileTheme);
+    const saved = buildMermaidDocument(document.source, document.graph, { x: 12, y: 24, scale: 1.2 }, document.edgeRouting, document.layoutMode);
     const reloaded = loadMermaidDocument(saved);
 
-    expect(document.fileTheme?.themeId).toBe("custom");
-    expect(reloaded.fileTheme?.themeId).toBe("custom");
-    expect((reloaded.fileTheme?.customTheme as { ui?: { primary?: string } }).ui?.primary).toBe("#123456");
+    expect((document as { fileTheme?: unknown }).fileTheme).toBeUndefined();
+    expect(saved).not.toContain('"theme"');
+    expect((reloaded as { fileTheme?: unknown }).fileTheme).toBeUndefined();
     expect(reloaded.viewport).toEqual({ x: 12, y: 24, scale: 1.2 });
   });
 });

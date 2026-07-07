@@ -27,6 +27,13 @@ export default [
     }
   },
   {
+    files: ["electron/**/*.cjs"],
+    rules: {
+      "no-undef": "off",
+      "@typescript-eslint/no-require-imports": "off"
+    }
+  },
+  {
     files: ["src/**/*.{ts,tsx}", "*.ts"],
     languageOptions: {
       parserOptions: {

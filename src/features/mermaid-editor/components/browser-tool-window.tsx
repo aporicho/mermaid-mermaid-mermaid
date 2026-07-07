@@ -1,4 +1,13 @@
-import { useEffect, useMemo, useState, type FormEvent, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type CSSProperties,
+  type FormEvent,
+  type MouseEvent as ReactMouseEvent,
+  type PointerEvent as ReactPointerEvent,
+  type ReactNode
+} from "react";
 import { Copy, Maximize, OpenNewWindow, Refresh as RefreshCw, Substract, WebWindow, Xmark } from "iconoir-react/regular";
 
 import { Button } from "@/components/ui/button";
@@ -27,6 +36,8 @@ export function BrowserToolWindow({ request }: BrowserToolWindowProps) {
   const [status, setStatus] = useState("");
   const [reloadRevision, setReloadRevision] = useState(0);
   const panelId = `browser:${browserToolWindowLabel(currentUrl)}` as BrowserWindowPanelId;
+  const electronDragStyle = electronWindowRegionStyle("drag", runtime.host === "electron");
+  const electronNoDragStyle = electronWindowRegionStyle("no-drag", runtime.host === "electron");
 
   useEffect(() => {
     document.title = `MMM Browser - ${pageTitle}`;
@@ -86,6 +97,7 @@ export function BrowserToolWindow({ request }: BrowserToolWindowProps) {
     <section className="grid h-screen min-h-0 grid-rows-[44px_minmax(0,1fr)] overflow-hidden border bg-background text-foreground">
       <header
         className="flex min-w-0 cursor-grab items-center gap-2 border-b bg-card/95 px-2 active:cursor-grabbing"
+        style={electronDragStyle}
         onPointerDown={startWindowDrag}
         onDoubleClick={toggleMaximize}
       >
@@ -98,7 +110,7 @@ export function BrowserToolWindow({ request }: BrowserToolWindowProps) {
             </div>
           </div>
         </div>
-        <form className="flex min-w-0 flex-1 items-center gap-1.5" data-browser-window-drag-exclude onSubmit={submitAddress}>
+        <form className="flex min-w-0 flex-1 items-center gap-1.5" data-browser-window-drag-exclude style={electronNoDragStyle} onSubmit={submitAddress}>
           <Input
             value={address}
             className="h-8 min-w-0 flex-1 rounded-md bg-background/95 px-2 text-sm"
@@ -115,7 +127,7 @@ export function BrowserToolWindow({ request }: BrowserToolWindowProps) {
             <OpenNewWindow />
           </BrowserToolButton>
         </form>
-        <div className="flex shrink-0 items-center gap-1" data-browser-window-drag-exclude>
+        <div className="flex shrink-0 items-center gap-1" data-browser-window-drag-exclude style={electronNoDragStyle}>
           <BrowserToolButton label="最小化" onClick={() => runWindowAction("minimize")}>
             <Substract />
           </BrowserToolButton>
@@ -141,6 +153,10 @@ export function BrowserToolWindow({ request }: BrowserToolWindowProps) {
       />
     </section>
   );
+}
+
+function electronWindowRegionStyle(value: "drag" | "no-drag", enabled: boolean): CSSProperties | undefined {
+  return enabled ? ({ WebkitAppRegion: value } as CSSProperties) : undefined;
 }
 
 function BrowserToolButton({

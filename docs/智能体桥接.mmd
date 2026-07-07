@@ -28,7 +28,7 @@ flowchart LR
 
   subgraph DesktopBridge[桌面 bridge 与编辑器会话]
     direction TB
-    TauriBridge["Tauri bridge server"]
+    ElectronBridge["Electron bridge server"]
     ContextStore["最新智能体上下文"]
     CommandQueue["apply 命令队列"]
     EditorSession["打开的编辑器会话"]
@@ -70,9 +70,9 @@ flowchart LR
   Ping --> HttpBridge
   Context --> HttpBridge
   Apply --> HttpBridge
-  HttpBridge --> TauriBridge
-  TauriBridge --> ContextStore
-  TauriBridge --> CommandQueue
+  HttpBridge --> ElectronBridge
+  ElectronBridge --> ContextStore
+  ElectronBridge --> CommandQueue
   ContextStore --> EditorSession
   CommandQueue --> EditorSession
   EditorSession --> Transaction

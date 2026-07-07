@@ -17,15 +17,15 @@ flowchart LR
     BrowserBlob["Blob / data / 远程图片 URL"]
   end
 
-  subgraph Desktop[Tauri 桌面运行时]
+  subgraph Desktop[Electron 桌面运行时]
     direction TB
-    TauriInvoke["Tauri invoke commands"]
+    ElectronIpc["Electron IPC / preload bridge"]
     NativeFiles["打开 / 保存 / 另存为"]
     ProjectScan["打开或读取项目文件夹<br/>递归扫描 .mmd / .mermaid"]
-    NativeState["read_app_state / write_app_state"]
-    ImportImage["import_image_asset_path"]
-    ResolveImage["resolve_image_asset_path"]
-    ConvertFileSrc["convertFileSrc<br/>asset protocol 显示 URL"]
+    NativeState["app-state read / write"]
+    ImportImage["import image asset"]
+    ResolveImage["resolve image asset"]
+    ConvertFileSrc["mmm-asset<br/>asset protocol 显示 URL"]
   end
 
   subgraph AssetLifecycle[图片资源生命周期]
@@ -42,12 +42,12 @@ flowchart LR
   RuntimeAdapter --> BrowserDownload
   RuntimeAdapter --> BrowserDraft
   RuntimeAdapter --> BrowserBlob
-  RuntimeAdapter --> TauriInvoke
-  TauriInvoke --> NativeFiles
-  TauriInvoke --> ProjectScan
-  TauriInvoke --> NativeState
-  TauriInvoke --> ImportImage
-  TauriInvoke --> ResolveImage
+  RuntimeAdapter --> ElectronIpc
+  ElectronIpc --> NativeFiles
+  ElectronIpc --> ProjectScan
+  ElectronIpc --> NativeState
+  ElectronIpc --> ImportImage
+  ElectronIpc --> ResolveImage
   ProjectScan --> ProjectWorkspace
   ProjectWorkspace --> UiActions
 

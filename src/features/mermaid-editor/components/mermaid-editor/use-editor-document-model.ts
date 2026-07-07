@@ -8,7 +8,6 @@ import { type EditorDiagnostic } from "@/features/mermaid-editor/lib/editor-diag
 import { createHistory } from "@/features/mermaid-editor/lib/editor-history";
 import { loadInitialState } from "@/features/mermaid-editor/lib/editor-state";
 import type {
-  CanvasLayoutTheme,
   ClipboardPayload,
   DiagramType,
   EditableKind,
@@ -58,7 +57,6 @@ export function useEditorDocumentModel({ initial, runtime }: UseEditorDocumentMo
   const [workspaceView, setWorkspaceView] = useState<WorkspaceView>(initial.workspaceView);
   const [viewFilters, setViewFilters] = useState<ViewFilters>(initial.viewFilters);
   const [fileName, setFileName] = useState(initial.fileName);
-  const [fileTheme, setFileTheme] = useState<CanvasLayoutTheme | null>(initial.fileTheme);
   const [fileRef, setFileRef] = useState<RuntimeFileRef | null>(initial.fileRef);
   const [recentFiles, setRecentFiles] = useState<RecentFileEntry[]>(initial.recentFiles);
   const [projectWorkspace, setProjectWorkspace] = useState<ProjectWorkspace | null>(initial.projectWorkspace);
@@ -70,16 +68,16 @@ export function useEditorDocumentModel({ initial, runtime }: UseEditorDocumentMo
     () => {
       if (documentKind === "markdown") return source;
       if (documentKind === "canvas") return serializeCanvasDocument(canvasDocument);
-      return buildMermaidDocument(source, graph, viewport, edgeRouting, layoutMode, fileTheme);
+      return buildMermaidDocument(source, graph, viewport, edgeRouting, layoutMode);
     },
-    [canvasDocument, documentKind, source, graph, viewport, edgeRouting, layoutMode, fileTheme]
+    [canvasDocument, documentKind, source, graph, viewport, edgeRouting, layoutMode]
   );
   const previewSource = useMemo(
     () =>
       documentKind === "mermaid" && editableKind === "flowchart"
-        ? buildMermaidDocument(serializeMermaid(resolveGraphImageDisplaySources(graph, imageDisplaySrcBySrc)), graph, viewport, edgeRouting, layoutMode, fileTheme)
+        ? buildMermaidDocument(serializeMermaid(resolveGraphImageDisplaySources(graph, imageDisplaySrcBySrc)), graph, viewport, edgeRouting, layoutMode)
         : source,
-    [documentKind, editableKind, edgeRouting, fileTheme, graph, imageDisplaySrcBySrc, layoutMode, source, viewport]
+    [documentKind, editableKind, edgeRouting, graph, imageDisplaySrcBySrc, layoutMode, source, viewport]
   );
   const hiddenViewFilters = useMemo(() => hiddenFilterCount(viewFilters), [viewFilters]);
   const projectFiles = useMemo(() => projectWorkspace?.files || [], [projectWorkspace]);
@@ -164,8 +162,6 @@ export function useEditorDocumentModel({ initial, runtime }: UseEditorDocumentMo
     setViewFilters,
     fileName,
     setFileName,
-    fileTheme,
-    setFileTheme,
     fileRef,
     setFileRef,
     recentFiles,

@@ -37,9 +37,10 @@ flowchart LR
     direction TB
     RuntimeAdapter["运行时适配器<br/>editor-runtime.ts"]
     BrowserRuntime["浏览器运行时<br/>文件选择 / 下载 / localStorage"]
-    TauriNative["Tauri 原生层<br/>文件 / 项目扫描 / 应用状态 / 图片资源 / PTY / bridge"]
-    PtySession["本地 PTY 会话<br/>portable-pty / shell / resize"]
-    WindowsFlow["Windows 验收流程<br/>WSL 同步 -> desktop:ship -> launch"]
+    ElectronNative["Electron 原生层<br/>文件 / 项目扫描 / 应用状态 / 图片资源 / PTY / bridge"]
+    TauriNative["Tauri 原生层<br/>迁移期回退"]
+    PtySession["本地 PTY 会话<br/>node-pty / shell / resize"]
+    WindowsFlow["Windows 验收流程<br/>windows:run -> electron:ship -> launch"]
   end
 
   subgraph AiCli[智能体与 CLI]
@@ -98,18 +99,19 @@ flowchart LR
   Orchestrator --> RuntimeAdapter
   Orchestrator --> ProjectWorkspace
   RuntimeAdapter --> BrowserRuntime
-  RuntimeAdapter --> TauriNative
-  TauriNative --> PtySession
+  RuntimeAdapter --> ElectronNative
+  ElectronNative --> PtySession
+  RuntimeAdapter -.-> TauriNative
   PtySession -->|data / exit event| RuntimeAdapter
-  TauriNative --> WindowsFlow
+  ElectronNative --> WindowsFlow
   RuntimeAdapter -->|打开 / 保存 / 草稿 / 图片显示 URL| Truth
 
   OfflineCli -->|共享文档逻辑| MermaidEngine
   OfflineCli -->|文件 patch 输出| MermaidSource
   Agent --> OfflineCli
   Agent --> LiveBridge
-  LiveBridge -->|带 token 的 loopback bridge| TauriNative
-  TauriNative -->|context / apply command / result| Orchestrator
+  LiveBridge -->|带 token 的 loopback bridge| ElectronNative
+  ElectronNative -->|context / apply command / result| Orchestrator
 
   Performance -.-> CanvasEngine
   Performance -.-> CommandTx

@@ -5,6 +5,7 @@ node_modules
 .next-build
 out
 dist
+dist-electron
 src-tauri/target
 coverage
 *.tsbuildinfo

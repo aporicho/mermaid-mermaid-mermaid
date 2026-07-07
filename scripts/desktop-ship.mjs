@@ -45,7 +45,7 @@ function main() {
     log("Skipping tests and typecheck because MMM_SHIP_SKIP_CHECKS=1.");
   }
 
-  runNpm(["run", "desktop:build"]);
+  runNpm(["run", "tauri:build"]);
 
   const artifacts = collectArtifacts();
   if (artifacts.length === 0) {
@@ -77,15 +77,15 @@ function isEnabled(name) {
 }
 
 function log(message) {
-  console.log(`[desktop:ship] ${message}`);
+  console.log(`[tauri:ship] ${message}`);
 }
 
 function warn(message) {
-  console.warn(`[desktop:ship] ${message}`);
+  console.warn(`[tauri:ship] ${message}`);
 }
 
 function fail(message) {
-  console.error(`[desktop:ship] ${message}`);
+  console.error(`[tauri:ship] ${message}`);
   process.exit(1);
 }
 
@@ -180,7 +180,7 @@ function preflightSystemDependencies() {
   fail([
     "Missing Linux desktop build dependencies.",
     `Using pkg-config: ${pkgConfig}`,
-    "Install them once, then rerun npm run desktop:ship:",
+    "Install them once, then rerun npm run tauri:ship:",
     `  sudo apt update`,
     `  sudo apt install -y ${packages}`
   ].join("\n"));
@@ -213,8 +213,8 @@ function warnIfWsl() {
     return;
   }
 
-  warn("Running inside WSL. Tauri will build and install a Linux artifact, not a Windows installer.");
-  warn("Run this command from Windows PowerShell/CMD if you need the Windows NSIS installer.");
+  warn("Running inside WSL. Tauri fallback will build and install a Linux artifact, not a Windows installer.");
+  warn("Use npm run windows:run if you need the Windows Electron installer from WSL.");
 }
 
 function safeRead(filePath) {

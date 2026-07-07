@@ -44,3 +44,6 @@ jobs:
 
       - name: Build web app
         run: npm run build
+
+      - name: Build Electron desktop directory
+        run: npm run electron:build -- --dir

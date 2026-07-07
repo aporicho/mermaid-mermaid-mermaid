@@ -92,6 +92,22 @@ describe("canvas document", () => {
     expect(parseCanvasDocument("")).toMatchObject({ schema: CANVAS_DOCUMENT_SCHEMA, version: 1 });
   });
 
+  it("drops legacy document theme metadata", () => {
+    const document = parseCanvasDocument(
+      JSON.stringify({
+        schema: CANVAS_DOCUMENT_SCHEMA,
+        version: 1,
+        viewport: { x: 0, y: 0, scale: 1 },
+        theme: { themeId: "minimal-mono" },
+        elements: []
+      })
+    );
+    const serialized = serializeCanvasDocument(document);
+
+    expect((document as { theme?: unknown }).theme).toBeUndefined();
+    expect(serialized).not.toContain('"theme"');
+  });
+
   it("generates compact element ids", () => {
     expect(nextCanvasElementId([])).toBe("C1");
     expect(nextCanvasElementId([{ id: "C1" }, { id: "C2" }])).toBe("C3");

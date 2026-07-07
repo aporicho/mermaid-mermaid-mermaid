@@ -1,6 +1,6 @@
 # Mermaid 画布编辑器
 
-这是一个本地项目文档编辑器，把 Mermaid 源码编辑、官方渲染预览、Mermaid 可编辑无限画布、Markdown 阅读/编辑、独立无限白板画布和桌面端集成终端放在同一个工作区里。项目使用 Vite、React、TypeScript、Tailwind CSS、shadcn 风格 UI 原语、Mermaid、Milkdown、xterm.js、React Konva、PixiJS 和 Tauri 构建。
+这是一个本地项目文档编辑器，把 Mermaid 源码编辑、官方渲染预览、Mermaid 可编辑无限画布、Markdown 阅读/编辑、独立无限白板画布和桌面端集成终端放在同一个工作区里。项目使用 Vite、React、TypeScript、Tailwind CSS、shadcn 风格 UI 原语、Mermaid、Milkdown、xterm.js、React Konva、PixiJS 和 Electron 构建桌面端。
 
 ## 核心能力
 
@@ -59,9 +59,9 @@ npm run windows:run
 npm run desktop:ship
 ```
 
-它会运行测试和类型检查，构建 Tauri 安装包，安装当前平台产物并启动应用。只想快速打包、安装、启动时可设置 `MMM_SHIP_SKIP_CHECKS=1`；只想生成安装包时可设置 `MMM_SHIP_PACKAGE_ONLY=1`。
+`desktop:*` 默认走 Electron 壳：`desktop:dev` 启动 Vite + Electron，`desktop:build` / `desktop:ship` 构建当前平台 Electron 产物。旧 Tauri 链路保留在 `tauri:dev`、`tauri:build`、`tauri:ship`，仅作为回退和迁移对照。
 
-Tauri 会为执行命令的操作系统构建产物。从 WSL 运行会得到 Linux 产物；需要 Windows 安装包时，应从 Windows PowerShell/CMD 执行同样命令。
+Electron 会为执行命令的操作系统构建产物。从 WSL 运行会得到 Linux 产物；需要 Windows 安装包时，使用 `npm run windows:run` 从 WSL 同步到 Windows 环境构建、安装并启动。
 
 从 WSL 做 Windows 端验收时使用：
 
@@ -69,7 +69,7 @@ Tauri 会为执行命令的操作系统构建产物。从 WSL 运行会得到 Li
 npm run windows:run
 ```
 
-该脚本会把当前工作区同步到 Windows 临时目录，执行 Windows 侧 `npm install`，构建 Windows Tauri 包，安装并启动桌面应用。默认跳过重复的 Windows 侧测试和类型检查，因为常规检查应先在 WSL 仓库完成。设置 `MMM_WINDOWS_RUN_FULL_CHECKS=1` 可包含这些检查；设置 `MMM_WINDOWS_RUN_LAUNCH_ONLY=1` 可只启动已安装应用。
+该脚本会把当前工作区同步到 Windows 临时目录，执行 Windows 侧 `npm install`，构建 Windows Electron 包，安装并启动桌面应用。默认跳过重复的 Windows 侧测试和类型检查，因为常规检查应先在 WSL 仓库完成。设置 `MMM_WINDOWS_RUN_FULL_CHECKS=1` 可包含这些检查；设置 `MMM_WINDOWS_RUN_LAUNCH_ONLY=1` 可只启动已安装应用。
 
 桌面应用启动后，会在随机 `127.0.0.1` 端口开启带 token 的本地桥接服务，并把发现信息写入：
 
@@ -131,7 +131,7 @@ npm run build
 npm run dev
 ```
 
-浏览器验收优先使用 `npm run ready`。Tauri 验收使用 `npm run desktop:dev` 或 `npm run desktop:ship`。Windows 端从 WSL 验收使用 `npm run windows:run`。
+浏览器验收优先使用 `npm run ready`。桌面端验收使用 `npm run desktop:dev` 或 `npm run desktop:ship`。Windows 端从 WSL 验收使用 `npm run windows:run`。
 
 ## 持续集成与发布
 
@@ -178,8 +178,11 @@ flowchart 解析器是项目内轻量解析器，不是完整 Mermaid AST 实现
 src/main.tsx, src/App.tsx, src/styles/
   Vite React 应用入口和全局样式。
 
+electron/
+  Electron 桌面壳、内嵌浏览器、原生文件命令、图片资源、本地 PTY 终端和本地智能体桥接。
+
 src-tauri/
-  Tauri 桌面壳、原生文件命令、本地 PTY 终端和本地智能体桥接。
+  旧 Tauri 桌面壳，迁移期保留作为回退实现和能力对照。
 
 src/components/ui/
   共享 UI 原语。
@@ -229,7 +232,7 @@ docs/
 - `node-geometry.ts` 负责节点 frame、文本、锚点、路由、对齐和命中测试几何。
 - `edge-geometry.ts` 负责完成连线和草稿连线路由。
 - Konva/Pixi 组件只翻译事件、渲染图形、执行返回命令；不要在组件里分散业务规则。
-- 浏览器和桌面平台行为必须经过 `editor-runtime.ts`；编辑器组件不要直接调用 Tauri API、浏览器文件选择 API、PTY 终端或智能体桥接 endpoint。
+- 浏览器和桌面平台行为必须经过 `editor-runtime.ts`；编辑器组件不要直接调用 Electron / Tauri API、浏览器文件选择 API、PTY 终端或智能体桥接 endpoint。
 - 新节点 ID 默认使用 `N1`、`N2`、`N3` 序列，除非保留用户已有 ID。
 - 新增图标按钮必须沿用圆形 `size="icon"` 规则。
 

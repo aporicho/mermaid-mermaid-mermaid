@@ -44,12 +44,17 @@ describe("application style contract", () => {
     expect(globals).toContain("var(--theme-source-line-height)");
   });
 
-  it("allows desktop image assets to load through the Tauri asset protocol", () => {
-    const tauriConfig = JSON.parse(readProjectFile("src-tauri/tauri.conf.json"));
+  it("packages Electron image assets through the desktop asset protocol", () => {
+    const packageJson = JSON.parse(readProjectFile("package.json"));
+    const electronMain = readProjectFile("electron/main.cjs");
+    const imageAssets = readProjectFile("electron/image-assets.cjs");
 
-    expect(tauriConfig.app.security.assetProtocol).toEqual({
-      enable: true,
-      scope: ["**"]
-    });
+    expect(packageJson.build.win.icon).toBe("electron/icons/icon.ico");
+    expect(packageJson.build.mac.icon).toBe("electron/icons/icon.icns");
+    expect(packageJson.build.linux.icon).toBe("electron/icons/icon.png");
+    expect(packageJson.build.artifactName).toBe("mermaid-canvas-editor-${version}-${os}-${arch}.${ext}");
+    expect(imageAssets).toContain('const ASSET_PROTOCOL = "mmm-asset"');
+    expect(electronMain).toContain("protocol.registerSchemesAsPrivileged");
+    expect(electronMain).toContain("registerAssetProtocol");
   });
 });

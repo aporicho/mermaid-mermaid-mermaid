@@ -27,7 +27,7 @@ export function graphSummary(graph: MermaidGraph): GraphSummary {
 }
 
 export function buildSourceFromDocument(document: MermaidDocument, graph: MermaidGraph, viewport: ViewportState, edgeRouting: EdgeRouting, layoutMode: LayoutMode) {
-  return buildMermaidDocument(serializeMermaid(graph), graph, viewport || document.viewport || DEFAULT_VIEWPORT, edgeRouting, layoutMode, document.fileTheme ?? null);
+  return buildMermaidDocument(serializeMermaid(graph), graph, viewport || document.viewport || DEFAULT_VIEWPORT, edgeRouting, layoutMode);
 }
 
 export function diffDocuments(before: MermaidDocument, after: MermaidDocument): DiffResult {

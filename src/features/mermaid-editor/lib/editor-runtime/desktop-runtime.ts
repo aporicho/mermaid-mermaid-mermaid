@@ -22,15 +22,13 @@ import type {
 } from "@/features/mermaid-editor/lib/editor-runtime/types";
 import { runtimeFileRefFromPath } from "@/features/mermaid-editor/lib/file-workflow";
 import type { ProjectWorkspace } from "@/features/mermaid-editor/lib/project-workspace";
+
 type DesktopOpenedFile = {
   name: string;
   path: string;
   text: string;
 };
-type DesktopSavedFile = {
-  name: string;
-  path: string;
-};
+type DesktopSavedFile = { name: string; path: string };
 
 type DesktopPendingFile = {
   name: string;
@@ -52,6 +50,7 @@ type AiNextCommandResponse = {
 export function createDesktopRuntime(): EditorRuntime {
   return {
     kind: "desktop",
+    host: "tauri",
     openExternalUrl(url) {
       openExternalUrl(url);
     },

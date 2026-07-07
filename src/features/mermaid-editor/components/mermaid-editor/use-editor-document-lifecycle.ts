@@ -51,7 +51,6 @@ import type {
   ViewportState
 } from "@/features/mermaid-editor/lib/editor-types";
 import { DEFAULT_EDGE_ROUTING, DEFAULT_LAYOUT_MODE } from "@/features/mermaid-editor/lib/editor-types";
-import type { CanvasLayoutTheme } from "@/features/mermaid-editor/lib/editor-types";
 import type { EditorTheme, EditorThemeId } from "@/features/mermaid-editor/lib/editor-theme";
 import { normalizeEditorTheme } from "@/features/mermaid-editor/lib/editor-theme";
 import { DEFAULT_VIEW_FILTERS, normalizeViewFilters, type ViewFilters } from "@/features/mermaid-editor/lib/view-filters";
@@ -62,8 +61,6 @@ type StateSetter<T> = Dispatch<SetStateAction<T>>;
 
 type UseEditorDocumentLifecycleArgs = {
   isDirtyRef: { current: boolean };
-  themeId: EditorThemeId;
-  customTheme: EditorTheme | null;
   setDocumentKind: StateSetter<DocumentKind>;
   setSource: StateSetter<string>;
   setCanvasDocument: StateSetter<CanvasDocument>;
@@ -81,7 +78,6 @@ type UseEditorDocumentLifecycleArgs = {
   setWorkspaceView: StateSetter<WorkspaceView>;
   setViewFilters: StateSetter<ViewFilters>;
   setFileName: StateSetter<string>;
-  setFileTheme: StateSetter<CanvasLayoutTheme | null>;
   setFileRef: StateSetter<RuntimeFileRef | null>;
   setRecentFiles: StateSetter<RecentFileEntry[]>;
   setProjectWorkspace: StateSetter<ProjectWorkspace | null>;
@@ -101,8 +97,6 @@ type UseEditorDocumentLifecycleArgs = {
 
 export function useEditorDocumentLifecycle({
   isDirtyRef,
-  themeId,
-  customTheme,
   setDocumentKind,
   setSource,
   setCanvasDocument,
@@ -120,7 +114,6 @@ export function useEditorDocumentLifecycle({
   setWorkspaceView,
   setViewFilters,
   setFileName,
-  setFileTheme,
   setFileRef,
   setRecentFiles,
   setProjectWorkspace,
@@ -164,7 +157,6 @@ export function useEditorDocumentLifecycle({
       setDiagnostics([]);
       setHistory(createHistory());
       setFileName(ensureEditorDocumentFileName(name, "canvas"));
-      setFileTheme(null);
       setFileRef(file);
       setLastSavedDocument(savedDocument);
       isDirtyRef.current = false;
@@ -193,7 +185,6 @@ export function useEditorDocumentLifecycle({
       setDiagnostics([]);
       setHistory(createHistory());
       setFileName(ensureEditorDocumentFileName(name, "markdown"));
-      setFileTheme(null);
       setFileRef(file);
       setLastSavedDocument(savedDocument);
       isDirtyRef.current = false;
@@ -209,9 +200,7 @@ export function useEditorDocumentLifecycle({
     const nextViewport = loaded.viewport || { x: 160, y: 90, scale: 1 };
     const nextLayoutMode = loaded.layoutMode;
     const loadedGraph = loaded.editableKind === "flowchart" && nextLayoutMode === "auto" ? applyDagreAutoLayout(loaded.graph) : loaded.graph;
-    const nextThemeId = normalizeThemeId(loaded.fileTheme?.themeId ?? themeId);
-    const nextCustomTheme = loaded.fileTheme?.customTheme ? normalizeEditorTheme(loaded.fileTheme.customTheme) : customTheme;
-    const savedDocument = buildMermaidDocument(loaded.source, loadedGraph, nextViewport, loaded.edgeRouting, nextLayoutMode, loaded.fileTheme ?? null);
+    const savedDocument = buildMermaidDocument(loaded.source, loadedGraph, nextViewport, loaded.edgeRouting, nextLayoutMode);
 
     setDocumentKind("mermaid");
     setSource(loaded.source);
@@ -227,9 +216,6 @@ export function useEditorDocumentLifecycle({
     setDiagnostics([]);
     setHistory(createHistory());
     setFileName(ensureEditorDocumentFileName(name, "mermaid"));
-    setFileTheme(loaded.fileTheme ?? null);
-    setThemeId(nextThemeId);
-    setCustomTheme(nextCustomTheme);
     setFileRef(file);
     setLastSavedDocument(savedDocument);
     isDirtyRef.current = false;
@@ -282,7 +268,6 @@ export function useEditorDocumentLifecycle({
       setProjectWorkspace(nextProjectWorkspace);
       setLastSavedDocument(stored.lastSavedDocument || "");
       isDirtyRef.current = !stored.lastSavedDocument || nextSource !== stored.lastSavedDocument;
-      setFileTheme(null);
       setThemeId(normalizeThemeId(stored.themeId));
       setCustomTheme(stored.customTheme ? normalizeEditorTheme(stored.customTheme) : null);
       setPreferences(nextPreferences);
@@ -335,7 +320,6 @@ export function useEditorDocumentLifecycle({
       setProjectWorkspace(nextProjectWorkspace);
       setLastSavedDocument(stored.lastSavedDocument || "");
       isDirtyRef.current = !stored.lastSavedDocument || nextSource !== stored.lastSavedDocument;
-      setFileTheme(null);
       setThemeId(normalizeThemeId(stored.themeId));
       setCustomTheme(stored.customTheme ? normalizeEditorTheme(stored.customTheme) : null);
       setPreferences(nextPreferences);
@@ -359,18 +343,13 @@ export function useEditorDocumentLifecycle({
     const nextEdgeRouting = stored.edgeRouting || edgeRoutingFromLayout(layout);
     const nextLayoutMode = stored.layoutMode || layoutModeFromLayout(layout);
     const resolvedGraph = loaded.editableKind === "flowchart" && nextLayoutMode === "auto" ? applyDagreAutoLayout(nextGraph) : nextGraph;
-    const nextFileTheme = layout?.theme ?? loaded.fileTheme ?? null;
-    const nextThemeId = normalizeThemeId(nextFileTheme?.themeId ?? stored.themeId);
-    const nextCustomTheme = nextFileTheme?.customTheme
-      ? normalizeEditorTheme(nextFileTheme.customTheme)
-      : stored.customTheme
-        ? normalizeEditorTheme(stored.customTheme)
-        : null;
+    const nextThemeId = normalizeThemeId(stored.themeId);
+    const nextCustomTheme = stored.customTheme ? normalizeEditorTheme(stored.customTheme) : null;
     const nextPreferences = normalizeEditorPreferences(stored.preferences);
     const nextViewFilters = normalizeViewFilters(stored.viewFilters, { showGrid: stored.showGrid, showEdges: stored.showEdges });
     const nextProjectWorkspace = normalizeProjectWorkspace(stored.projectWorkspace);
     const nextRecentFiles = normalizeRecentFiles(stored.recentFiles);
-    const currentStoredDocument = buildMermaidDocument(loaded.source, resolvedGraph, nextViewport, nextEdgeRouting, nextLayoutMode, nextFileTheme);
+    const currentStoredDocument = buildMermaidDocument(loaded.source, resolvedGraph, nextViewport, nextEdgeRouting, nextLayoutMode);
 
     setDocumentKind("mermaid");
     setSource(loaded.source);
@@ -402,7 +381,6 @@ export function useEditorDocumentLifecycle({
     setProjectWorkspace(nextProjectWorkspace);
     setLastSavedDocument(stored.lastSavedDocument || "");
     isDirtyRef.current = !stored.lastSavedDocument || currentStoredDocument !== stored.lastSavedDocument;
-    setFileTheme(nextFileTheme);
     setThemeId(nextThemeId);
     setCustomTheme(nextCustomTheme);
     setPreferences(nextPreferences);
@@ -441,7 +419,6 @@ export function useEditorDocumentLifecycle({
     setHistory(createHistory());
     setFileName(FALLBACK_FILE_NAME);
     setFileRef(null);
-    setFileTheme(null);
     setLastSavedDocument("");
     isDirtyRef.current = true;
     setFileWorkflowError(null);
@@ -456,7 +433,6 @@ export function useEditorDocumentLifecycle({
         viewport: nextViewport,
         edgeRouting: DEFAULT_EDGE_ROUTING,
         layoutMode: DEFAULT_LAYOUT_MODE,
-        fileTheme: null,
         fileName: FALLBACK_FILE_NAME,
         fileRef: null,
         lastSavedDocument: "",
@@ -489,7 +465,6 @@ export function useEditorDocumentLifecycle({
     setHistory(createHistory());
     setFileName(FALLBACK_MARKDOWN_FILE_NAME);
     setFileRef(null);
-    setFileTheme(null);
     setLastSavedDocument("");
     isDirtyRef.current = true;
     setFileWorkflowError(null);
@@ -504,7 +479,6 @@ export function useEditorDocumentLifecycle({
         viewport: { x: 160, y: 90, scale: 1 },
         edgeRouting: DEFAULT_EDGE_ROUTING,
         layoutMode: DEFAULT_LAYOUT_MODE,
-        fileTheme: null,
         fileName: FALLBACK_MARKDOWN_FILE_NAME,
         fileRef: null,
         lastSavedDocument: "",
@@ -538,7 +512,6 @@ export function useEditorDocumentLifecycle({
     setHistory(createHistory());
     setFileName(FALLBACK_CANVAS_FILE_NAME);
     setFileRef(null);
-    setFileTheme(null);
     setLastSavedDocument("");
     isDirtyRef.current = true;
     setFileWorkflowError(null);
@@ -554,7 +527,6 @@ export function useEditorDocumentLifecycle({
         viewport: nextCanvasDocument.viewport,
         edgeRouting: DEFAULT_EDGE_ROUTING,
         layoutMode: DEFAULT_LAYOUT_MODE,
-        fileTheme: null,
         fileName: FALLBACK_CANVAS_FILE_NAME,
         fileRef: null,
         lastSavedDocument: "",

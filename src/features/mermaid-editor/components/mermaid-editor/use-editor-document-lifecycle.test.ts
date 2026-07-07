@@ -17,7 +17,6 @@ import type { RuntimeFileRef } from "@/features/mermaid-editor/lib/editor-runtim
 import type { FileWorkflowError, RecentFileEntry } from "@/features/mermaid-editor/lib/file-workflow";
 import type { DocumentKind } from "@/features/mermaid-editor/lib/document-kind";
 import type {
-  CanvasLayoutTheme,
   DiagramType,
   EditableKind,
   EdgeRouting,
@@ -51,7 +50,6 @@ type LifecycleState = {
   workspaceView: WorkspaceView;
   viewFilters: ViewFilters;
   fileName: string;
-  fileTheme: CanvasLayoutTheme | null;
   fileRef: RuntimeFileRef | null;
   recentFiles: RecentFileEntry[];
   projectWorkspace: ProjectWorkspace | null;
@@ -82,7 +80,6 @@ function createLifecycleHarness() {
     workspaceView: "render",
     viewFilters: DEFAULT_VIEW_FILTERS,
     fileName: "diagram.mmd",
-    fileTheme: null,
     fileRef: null,
     recentFiles: [],
     projectWorkspace: null,
@@ -109,8 +106,6 @@ function createLifecycleHarness() {
   // eslint-disable-next-line react-hooks/rules-of-hooks
   const lifecycle = useEditorDocumentLifecycle({
     isDirtyRef,
-    themeId: state.themeId,
-    customTheme: state.customTheme,
     setDocumentKind: setState("documentKind"),
     setSource: setState("source"),
     setCanvasDocument: setState("canvasDocument"),
@@ -128,7 +123,6 @@ function createLifecycleHarness() {
     setWorkspaceView: setState("workspaceView"),
     setViewFilters: setState("viewFilters"),
     setFileName: setState("fileName"),
-    setFileTheme: setState("fileTheme"),
     setFileRef: setState("fileRef"),
     setRecentFiles: setState("recentFiles"),
     setProjectWorkspace: setState("projectWorkspace"),
@@ -165,6 +159,23 @@ describe("editor document lifecycle", () => {
     expect(state.lastSavedDocument).toContain("flowchart LR");
     expect(isDirtyRef.current).toBe(false);
     expect(syncedFiles).toEqual([file]);
+  });
+
+  it("opens Mermaid documents without applying legacy file themes", () => {
+    const { lifecycle, state } = createLifecycleHarness();
+    const file = { name: "diagram.mmd", path: "/project/diagram.mmd" };
+
+    lifecycle.applyLoadedDocument(
+      `%% canvas-layout: {"version":1,"edgeRouting":"bezier","layoutMode":"manual","theme":{"themeId":"minimal-mono"},"viewport":{"x":0,"y":0,"scale":1},"nodes":{"A":{"x":10,"y":20,"fill":"#fff"}}}
+flowchart LR
+  A[Alpha]`,
+      file.name,
+      file
+    );
+
+    expect(state.themeId).toBe("warm-paper");
+    expect(state.customTheme).toBeNull();
+    expect(state.lastSavedDocument).not.toContain('"theme"');
   });
 
   it("opens Markdown documents into the Markdown workspace", () => {
