@@ -374,6 +374,7 @@ describe("interaction architecture contract", () => {
     expect(release).toContain("dist-electron/*.exe");
     expect(release).toContain("dist-electron/*.AppImage");
     expect(release).toContain("GH_REPO: ${{ github.repository }}");
+    expect(release).toContain("gh release delete-asset");
     expect(release).not.toContain("tauri-apps/tauri-action");
     expect(release).not.toContain("rust-toolchain");
     expect(ci).toContain("npm run electron:build -- --dir");
