@@ -367,9 +367,12 @@ describe("interaction architecture contract", () => {
     const ci = readProjectFile(".github/workflows/ci.yml");
     const windowsRun = readProjectFile("scripts/run-on-windows.mjs");
     const electronBuild = readProjectFile("scripts/electron-build.mjs");
+    const electronShip = readProjectFile("scripts/electron-ship.mjs");
+    const packageJson = readProjectFile("package.json");
 
     expect(release).toContain("build-electron");
-    expect(release).toContain("npm run electron:ship");
+    expect(release).toContain("npm run electron:build");
+    expect(release).not.toContain("npm run electron:ship");
     expect(release).toContain("dist-electron/*.dmg");
     expect(release).toContain("dist-electron/*.exe");
     expect(release).toContain("dist-electron/*.AppImage");
@@ -378,8 +381,12 @@ describe("interaction architecture contract", () => {
     expect(release).not.toContain("tauri-apps/tauri-action");
     expect(release).not.toContain("rust-toolchain");
     expect(ci).toContain("npm run electron:build -- --dir");
-    expect(windowsRun).toContain("npm run electron:ship");
+    expect(windowsRun).toContain("npm run electron:build");
+    expect(windowsRun).toContain("--config.npmRebuild=false");
+    expect(windowsRun).not.toContain("npm run electron:ship");
     expect(windowsRun).not.toContain("src-tauri\\\\target\\\\release");
+    expect(packageJson).toContain('"electron:ship": "node scripts/electron-ship.mjs"');
+    expect(electronShip).toContain('"electron:build"');
     expect(electronBuild).toContain("--publish");
     expect(electronBuild).toContain("never");
   });
