@@ -22,6 +22,7 @@ const DEV_SERVER_URL = process.env.MMM_ELECTRON_DEV_SERVER_URL || "";
 const PROJECT_DIR = path.resolve(__dirname, "..");
 const DIST_INDEX = path.join(PROJECT_DIR, "dist", "index.html");
 const PRELOAD_PATH = path.join(__dirname, "preload.cjs");
+const CLOSE_REQUEST_TIMEOUT_MS = 3000;
 const PROJECT_FILE_LIMIT = 500;
 
 const DOCUMENT_FILTERS = [
@@ -34,6 +35,7 @@ const IMAGE_FILTERS = [{ name: "Images", extensions: ["png", "jpg", "jpeg", "web
 
 const embeddedBrowsers = new Map();
 const forceCloseWindowIds = new Set();
+const pendingCloseWindowIds = new Set(), pendingCloseTimers = new Map();
 const browserToolWindows = new Map();
 const pendingOpenFiles = [];
 
@@ -205,9 +207,17 @@ function registerIpc() {
 
   ipcMain.on("mmm:window:close-response", (event, payload) => {
     const window = BrowserWindow.fromWebContents(event.sender);
-    if (!window || !payload?.accepted) return;
+    if (!window) return;
+    clearPendingClose(window.id);
+    if (!payload?.accepted) return;
     forceCloseWindowIds.add(window.id);
     window.close();
+  });
+
+  ipcMain.on("mmm:window:close-request-received", (event) => {
+    const window = BrowserWindow.fromWebContents(event.sender);
+    if (!window) return;
+    clearPendingCloseTimer(window.id);
   });
 
   ipcMain.handle("mmm:app-state:read", readAppState);
@@ -418,20 +428,43 @@ function attachWindowCloseGuard(window) {
   window.on("close", (event) => {
     if (forceCloseWindowIds.has(window.id)) {
       forceCloseWindowIds.delete(window.id);
+      clearPendingClose(window.id);
+      return;
+    }
+    if (pendingCloseWindowIds.has(window.id)) {
+      event.preventDefault();
       return;
     }
     if (window.webContents.isDestroyed()) return;
     event.preventDefault();
+    pendingCloseWindowIds.add(window.id);
+    const timer = setTimeout(() => {
+      if (window.isDestroyed()) return;
+      clearPendingClose(window.id);
+      forceCloseWindowIds.add(window.id);
+      window.close();
+    }, CLOSE_REQUEST_TIMEOUT_MS);
+    timer.unref?.();
+    pendingCloseTimers.set(window.id, timer);
     window.webContents.send("mmm:window:close-request");
   });
 }
 
 function attachWindowCleanup(window) {
   window.on("closed", () => {
+    clearPendingClose(window.id);
     for (const [label, record] of embeddedBrowsers) {
       if (record.ownerId === window.id) closeEmbeddedBrowser(label);
     }
   });
+}
+
+function clearPendingClose(windowId) {
+  pendingCloseWindowIds.delete(windowId); clearPendingCloseTimer(windowId);
+}
+function clearPendingCloseTimer(windowId) {
+  const timer = pendingCloseTimers.get(windowId); if (!timer) return;
+  clearTimeout(timer); pendingCloseTimers.delete(windowId);
 }
 
 function assertSupportedDocumentPath(filePath) {

@@ -367,8 +367,11 @@ describe("interaction architecture contract", () => {
     const ci = readProjectFile(".github/workflows/ci.yml");
     const windowsRun = readProjectFile("scripts/run-on-windows.mjs");
     const electronBuild = readProjectFile("scripts/electron-build.mjs");
+    const electronMain = readProjectFile("electron/main.cjs");
+    const electronPreload = readProjectFile("electron/preload.cjs");
     const electronShip = readProjectFile("scripts/electron-ship.mjs");
     const packageJson = readProjectFile("package.json");
+    const viteConfig = readProjectFile("vite.config.ts");
 
     expect(release).toContain("build-electron");
     expect(release).toContain("npm run electron:build");
@@ -389,6 +392,9 @@ describe("interaction architecture contract", () => {
     expect(electronShip).toContain('"electron:build"');
     expect(electronBuild).toContain("--publish");
     expect(electronBuild).toContain("never");
+    expect(viteConfig).toContain('base: "./"');
+    expect(electronMain).toContain("CLOSE_REQUEST_TIMEOUT_MS");
+    expect(electronPreload).toContain("mmm:window:close-request-received");
   });
 
   it("keeps Mermaid patch behind a small public facade", () => {

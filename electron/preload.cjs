@@ -16,6 +16,7 @@ contextBridge.exposeInMainWorld("mmmElectron", {
   },
   onDesktopWindowCloseRequest(handler) {
     const listener = async () => {
+      ipcRenderer.send("mmm:window:close-request-received");
       let accepted = false;
       try {
         accepted = Boolean(await handler());
