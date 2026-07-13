@@ -173,6 +173,16 @@ git push origin v0.1.0
 
 发布工作流会构建并上传 macOS、Windows 和 Linux 安装包到对应 GitHub Release。当前首次公开版本为 `v0.1.0`。
 
+### macOS 首次打开
+
+当前公开 macOS 包未配置 Apple Developer ID 签名和公证时，GitHub 下载的 `.dmg` 可能会被 Gatekeeper 标记为“应用已损坏，无法打开”。这不是安装包实际损坏。把 App 拖到 `/Applications` 后执行：
+
+```bash
+xattr -dr com.apple.quarantine "/Applications/Mermaid Canvas Editor.app"
+```
+
+要根治该提示，需要在 GitHub 仓库配置 Apple Developer 证书和公证凭据：`MACOS_CSC_LINK`、`MACOS_CSC_KEY_PASSWORD`、`APPLE_ID`、`APPLE_APP_SPECIFIC_PASSWORD`、`APPLE_TEAM_ID`。
+
 ## Mermaid 支持边界
 
 flowchart 可在无限画布上编辑。内部模型使用 `node`、`edge` 等图结构术语；Mermaid 源码层保持 `id`、`label`、`shape` 等 Mermaid 术语。
