@@ -16,6 +16,7 @@ const args = new Set(process.argv.slice(2));
 const launchOnly = isEnabled("MMM_WINDOWS_RUN_LAUNCH_ONLY") || args.has("--launch-only");
 const installOnly = isEnabled("MMM_WINDOWS_RUN_INSTALL_ONLY") || args.has("--install-only");
 const fullChecks = isEnabled("MMM_WINDOWS_RUN_FULL_CHECKS");
+const nativeRebuild = isEnabled("MMM_WINDOWS_RUN_NATIVE_REBUILD");
 
 main();
 
@@ -245,8 +246,14 @@ function runWindowsDesktopFlow(powershell, projectWindowsPath) {
   const checksLine = fullChecks
     ? "$env:MMM_SHIP_SKIP_CHECKS = $null"
     : "$env:MMM_SHIP_SKIP_CHECKS = '1'";
+  const buildLine = nativeRebuild
+    ? "npm run electron:build"
+    : "npm run electron:build -- --config.npmRebuild=false";
   if (!fullChecks) {
     log("Skipping extra Windows-side checks. Set MMM_WINDOWS_RUN_FULL_CHECKS=1 to include them.");
+  }
+  if (!nativeRebuild) {
+    log("Skipping Windows native dependency rebuild. Set MMM_WINDOWS_RUN_NATIVE_REBUILD=1 after installing Visual Studio C++ Build Tools to rebuild node-pty.");
   }
 
   run(powershell, [
@@ -261,7 +268,7 @@ function runWindowsDesktopFlow(powershell, projectWindowsPath) {
       "if (!(Get-Command npm -ErrorAction SilentlyContinue)) { throw 'npm was not found in the Windows PATH.' }",
       "npm install",
       checksLine,
-      "npm run electron:ship",
+      buildLine,
       "$artifactDir = Join-Path (Get-Location) 'dist-electron'",
       "$installer = Get-ChildItem -LiteralPath $artifactDir -Filter '*.exe' -File -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1",
       "if (!$installer) { throw 'Electron Windows installer was not found under dist-electron.' }",

@@ -5,6 +5,7 @@
   "author": "Mermaid Canvas Editor",
   "private": true,
   "main": "electron/main.cjs",
+  "desktopName": "mermaid-canvas-editor.desktop",
   "scripts": {
     "dev": "vite --host 127.0.0.1 --port 5173",
     "ready": "bash scripts/ready.sh",
@@ -15,14 +16,14 @@
     "electron:rebuild": "electron-rebuild -f -w node-pty",
     "electron:dev": "node scripts/electron-dev.mjs",
     "electron:build": "node scripts/electron-build.mjs",
-    "electron:ship": "node scripts/electron-build.mjs",
+    "electron:ship": "node scripts/electron-ship.mjs",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build",
     "tauri:ship": "node scripts/desktop-ship.mjs",
     "desktop:dev": "npm run electron:dev",
-    "desktop:build": "npm run electron:build",
-    "desktop:ship": "npm run electron:ship",
+    "desktop:build": "npm run electron:build --",
+    "desktop:ship": "npm run electron:ship --",
     "windows:run": "node scripts/run-on-windows.mjs",
     "windows:install": "node scripts/run-on-windows.mjs --install-only",
     "windows:launch": "node scripts/run-on-windows.mjs --launch-only",
@@ -113,7 +114,8 @@
     "linux": {
       "target": "AppImage",
       "icon": "electron/icons/icon.png",
-      "category": "Development"
+      "category": "Development",
+      "syncDesktopName": true
     }
   }
 }

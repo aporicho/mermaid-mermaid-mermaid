@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { spawnSync } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, rmSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -12,6 +12,7 @@ main();
 
 function main() {
   run(npmCommand(), ["run", "build"]);
+  rmSync(path.join(PROJECT_DIR, "dist-electron"), { recursive: true, force: true });
   run(electronBuilderBin(), withDefaultPublishMode(process.argv.slice(2)));
 }
 

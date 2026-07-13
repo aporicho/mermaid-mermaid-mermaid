@@ -16,7 +16,7 @@
 - 桌面端支持底部悬浮终端面板，终端在当前项目目录或当前文件目录中启动，并可在可用的受控 shell 之间切换。
 - 应用主题会同时作用于 CSS 变量、Konva/Pixi 画布 token、Mermaid `themeVariables` 和终端 ANSI 16 色。
 
-## 快速开始
+## 编译安装使用
 
 安装依赖：
 
@@ -24,21 +24,41 @@
 npm install
 ```
 
-使用主准备命令启动：
+构建当前平台桌面安装产物：
 
 ```bash
-npm run ready
+npm run desktop:build
 ```
 
-`npm run ready` 会依次运行测试、类型检查、生产构建，然后保持前端开发服务运行：
+构建、安装并启动当前平台桌面应用：
+
+```bash
+npm run desktop:ship
+```
+
+`desktop:*` 默认走 Electron 壳。`desktop:build` 只生成当前操作系统的安装产物，`desktop:ship` 会在构建后执行本机安装并启动应用。
+
+在 WSL 中直接运行 `npm run desktop:ship` 会构建和安装 Linux 产物。需要 Windows 安装包时，使用：
+
+```bash
+npm run windows:run
+```
+
+该命令会同步源码到 Windows 临时目录，在 Windows 侧安装依赖、构建 NSIS 安装包、静默安装并启动应用。
+
+只想生成安装包、不安装不启动时使用：
+
+```bash
+MMM_SHIP_PACKAGE_ONLY=1 npm run desktop:ship
+```
+
+开发网页版时再使用 `npm run ready`。`npm run ready` 会运行测试、类型检查和生产构建，然后保持 Vite 开发服务运行在：
 
 ```text
 http://127.0.0.1:5173
 ```
 
-如果 5173 端口已有本项目开发服务，脚本会先临时停止它，完成验收后再重新启动。它不会停止非本项目进程。
-
-开发网页版时，在普通本地 shell 里运行 `npm run ready` 并保持该命令运行。调试桌面壳时使用 `npm run desktop:dev`。
+调试桌面壳时使用 `npm run desktop:dev`。
 
 ## 桌面端与智能体桥接
 
@@ -59,7 +79,7 @@ npm run windows:run
 npm run desktop:ship
 ```
 
-`desktop:*` 默认走 Electron 壳：`desktop:dev` 启动 Vite + Electron，`desktop:build` / `desktop:ship` 构建当前平台 Electron 产物。旧 Tauri 链路保留在 `tauri:dev`、`tauri:build`、`tauri:ship`，仅作为回退和迁移对照。
+`desktop:*` 默认走 Electron 壳：`desktop:dev` 启动 Vite + Electron，`desktop:build` 构建当前平台 Electron 产物，`desktop:ship` 构建、安装并启动当前平台桌面应用。旧 Tauri 链路保留在 `tauri:dev`、`tauri:build`、`tauri:ship`，仅作为回退和迁移对照。
 
 Electron 会为执行命令的操作系统构建产物。从 WSL 运行会得到 Linux 产物；需要 Windows 安装包时，使用 `npm run windows:run` 从 WSL 同步到 Windows 环境构建、安装并启动。
 
@@ -69,7 +89,7 @@ Electron 会为执行命令的操作系统构建产物。从 WSL 运行会得到
 npm run windows:run
 ```
 
-该脚本会把当前工作区同步到 Windows 临时目录，执行 Windows 侧 `npm install`，构建 Windows Electron 包，安装并启动桌面应用。默认跳过重复的 Windows 侧测试和类型检查，因为常规检查应先在 WSL 仓库完成。设置 `MMM_WINDOWS_RUN_FULL_CHECKS=1` 可包含这些检查；设置 `MMM_WINDOWS_RUN_LAUNCH_ONLY=1` 可只启动已安装应用。
+该脚本会把当前工作区同步到 Windows 临时目录，执行 Windows 侧 `npm install`，构建 Windows Electron 包，安装并启动桌面应用。默认跳过重复的 Windows 侧测试、类型检查和原生依赖重建，因为常规检查应先在 WSL 仓库完成，且 `node-pty` 终端依赖在未安装 Visual Studio C++ Build Tools 的 Windows 上会阻塞安装包生成。设置 `MMM_WINDOWS_RUN_FULL_CHECKS=1` 可包含这些检查；安装 Visual Studio C++ Build Tools 后设置 `MMM_WINDOWS_RUN_NATIVE_REBUILD=1` 可重建原生终端依赖；设置 `MMM_WINDOWS_RUN_LAUNCH_ONLY=1` 可只启动已安装应用。
 
 桌面应用启动后，会在随机 `127.0.0.1` 端口开启带 token 的本地桥接服务，并把发现信息写入：
 
