@@ -372,6 +372,8 @@ describe("interaction architecture contract", () => {
     const electronShip = readProjectFile("scripts/electron-ship.mjs");
     const packageJson = readProjectFile("package.json");
     const viteConfig = readProjectFile("vite.config.ts");
+    const macEntitlements = readProjectFile("build/entitlements.mac.plist");
+    const macInheritedEntitlements = readProjectFile("build/entitlements.mac.inherit.plist");
 
     expect(release).toContain("build-electron");
     expect(release).toContain("npm run electron:build");
@@ -395,6 +397,12 @@ describe("interaction architecture contract", () => {
     expect(viteConfig).toContain('base: "./"');
     expect(electronMain).toContain("CLOSE_REQUEST_TIMEOUT_MS");
     expect(electronPreload).toContain("mmm:window:close-request-received");
+    expect(packageJson).toContain('"hardenedRuntime": true');
+    expect(packageJson).toContain('"notarize": true');
+    expect(packageJson).toContain('"entitlements": "build/entitlements.mac.plist"');
+    expect(release).toContain("APPLE_API_KEY");
+    expect(macEntitlements).toContain("com.apple.security.cs.allow-jit");
+    expect(macInheritedEntitlements).toContain("com.apple.security.cs.disable-library-validation");
   });
 
   it("keeps Mermaid patch behind a small public facade", () => {

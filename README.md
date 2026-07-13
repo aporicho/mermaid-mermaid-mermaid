@@ -181,7 +181,13 @@ git push origin v0.1.0
 xattr -dr com.apple.quarantine "/Applications/Mermaid Canvas Editor.app"
 ```
 
-要根治该提示，需要在 GitHub 仓库配置 Apple Developer 证书和公证凭据：`MACOS_CSC_LINK`、`MACOS_CSC_KEY_PASSWORD`、`APPLE_ID`、`APPLE_APP_SPECIFIC_PASSWORD`、`APPLE_TEAM_ID`。
+要根治该提示，需要在 GitHub 仓库配置 Apple Developer 证书和公证凭据。项目侧已经配置 hardened runtime、Electron entitlements 和 notarization 环境变量注入；仓库 secrets 至少需要：
+
+- 签名证书：`MACOS_CSC_LINK`、`MACOS_CSC_KEY_PASSWORD`
+- 推荐公证方式：`APPLE_API_KEY`、`APPLE_API_KEY_ID`、`APPLE_API_ISSUER`
+- 备选公证方式：`APPLE_ID`、`APPLE_APP_SPECIFIC_PASSWORD`、`APPLE_TEAM_ID`
+
+如果这些 secrets 没有配置，release workflow 仍可生成未公证的 `.dmg`，但首次打开可能需要上面的 `xattr` 命令。
 
 ## Mermaid 支持边界
 
