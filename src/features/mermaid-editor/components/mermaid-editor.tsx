@@ -26,10 +26,7 @@ import { createEditorRuntime } from "@/features/mermaid-editor/lib/editor-runtim
 import type { EditorSnapshot } from "@/features/mermaid-editor/lib/editor-types";
 import { EditorMotionProvider } from "@/features/mermaid-editor/lib/use-gsap-motion";
 import { useDisableNativeContextMenu } from "@/features/mermaid-editor/lib/native-context-menu";
-import {
-  useWorkspacePanels,
-  type DetachedMarkdownWindow
-} from "@/features/mermaid-editor/lib/workspace-panels";
+import { useWorkspacePanels, type DetachedMarkdownWindow } from "@/features/mermaid-editor/lib/workspace-panels";
 import { useGlobalOverlayActivity } from "@/lib/overlay-layers";
 
 export function MermaidEditor() {
@@ -559,6 +556,7 @@ export function MermaidEditor() {
             layoutMode={layoutMode}
             imageDisplaySrcBySrc={imageDisplaySrcBySrc}
             markdownDocumentPreviewByNodeId={markdownDocumentPreviewByNodeId}
+            markdownSpellcheckEnabled={preferences.markdownSpellcheckEnabled}
             visualTokens={compiledTheme.canvasVisualTokens}
             geometryTokens={compiledTheme.geometry}
             motion={resolvedMotion}
@@ -597,6 +595,7 @@ export function MermaidEditor() {
           activeTheme={activeTheme}
           terminalTheme={compiledTheme.terminalTheme}
           detachedMarkdownWindows={detachedMarkdownWindows}
+          markdownSpellcheckEnabled={preferences.markdownSpellcheckEnabled}
           bringWorkspacePanelToFront={bringWorkspacePanelToFront}
           workspacePanelStackPosition={workspacePanelStackPosition}
           workspacePanelWindowState={workspacePanelWindowState}

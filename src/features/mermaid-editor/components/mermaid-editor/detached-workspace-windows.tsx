@@ -11,6 +11,7 @@ import {
 
 type DetachedWorkspaceWindowsProps = {
   markdownWindows: DetachedMarkdownWindow[];
+  markdownSpellcheckEnabled: boolean;
   activePanel: WorkspaceFloatingPanelId | null;
   bringPanelToFront: (panelId: WorkspaceFloatingPanelId) => void;
   panelStackPosition: (panelId: WorkspaceFloatingPanelId) => number;
@@ -23,6 +24,7 @@ type DetachedWorkspaceWindowsProps = {
 
 export function DetachedWorkspaceWindows({
   markdownWindows,
+  markdownSpellcheckEnabled,
   activePanel,
   bringPanelToFront,
   panelStackPosition,
@@ -57,6 +59,7 @@ export function DetachedWorkspaceWindows({
             path={markdownWindow.file.path}
             value={markdownWindow.value}
             dirty={markdownWindow.value !== markdownWindow.savedValue}
+            spellCheck={markdownSpellcheckEnabled}
             windowState={panelWindowState(markdownWindow.id)}
             onWindowStateChange={(state) => setPanelWindowState(markdownWindow.id, state)}
             onClose={() => closeMarkdownWindow(markdownWindow.id)}

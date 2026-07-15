@@ -48,6 +48,7 @@ type EditorWorkspaceSurfaceProps = {
   layoutMode: LayoutMode;
   imageDisplaySrcBySrc: Record<string, string>;
   markdownDocumentPreviewByNodeId: Record<string, MarkdownDocumentPreview>;
+  markdownSpellcheckEnabled: boolean;
   visualTokens: CanvasVisualTokens;
   geometryTokens: EditorThemeGeometryTokens;
   motion: RuntimeEditorMotion;
@@ -87,6 +88,7 @@ export function EditorWorkspaceSurface({
   layoutMode,
   imageDisplaySrcBySrc,
   markdownDocumentPreviewByNodeId,
+  markdownSpellcheckEnabled,
   visualTokens,
   geometryTokens,
   motion,
@@ -152,6 +154,7 @@ export function EditorWorkspaceSurface({
       <MarkdownPanel
         key={`${fileRef?.path || fileName}:markdown`}
         value={source}
+        spellCheck={markdownSpellcheckEnabled}
         onChange={onMarkdownChange}
       />
     );

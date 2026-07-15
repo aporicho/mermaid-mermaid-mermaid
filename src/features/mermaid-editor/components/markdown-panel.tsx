@@ -13,16 +13,18 @@ type MarkdownPanelProps = {
   value: string;
   className?: string;
   readOnly?: boolean;
+  spellCheck: boolean;
   onChange: (value: string) => void;
 };
 
-export function MarkdownPanel({ value, className, readOnly = false, onChange }: MarkdownPanelProps) {
+export function MarkdownPanel({ value, className, readOnly = false, spellCheck, onChange }: MarkdownPanelProps) {
   const panelRef = useRef<HTMLElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const crepeRef = useRef<Crepe | null>(null);
   const blockDragCleanupTimerRef = useRef<number | null>(null);
   const initialValueRef = useRef(value);
   const initialReadOnlyRef = useRef(readOnly);
+  const spellCheckRef = useRef(spellCheck);
   const onChangeRef = useRef(onChange);
 
   useEffect(() => {
@@ -32,6 +34,7 @@ export function MarkdownPanel({ value, className, readOnly = false, onChange }: 
   useEffect(() => {
     const root = rootRef.current;
     if (!root) return;
+    let disposed = false;
 
     const crepe = new Crepe({
       root,
@@ -44,9 +47,14 @@ export function MarkdownPanel({ value, className, readOnly = false, onChange }: 
       });
     });
     crepeRef.current = crepe;
-    void crepe.create();
+    void crepe.create().then(() => {
+      if (!disposed && crepeRef.current === crepe) {
+        applyMarkdownSpellcheck(crepe, spellCheckRef.current);
+      }
+    });
 
     return () => {
+      disposed = true;
       crepeRef.current = null;
       void crepe.destroy();
     };
@@ -55,6 +63,12 @@ export function MarkdownPanel({ value, className, readOnly = false, onChange }: 
   useEffect(() => {
     crepeRef.current?.setReadonly(readOnly);
   }, [readOnly]);
+
+  useEffect(() => {
+    spellCheckRef.current = spellCheck;
+    const crepe = crepeRef.current;
+    if (crepe) applyMarkdownSpellcheck(crepe, spellCheck);
+  }, [spellCheck]);
 
   useEffect(() => {
     const currentPanel = panelRef.current;
@@ -150,4 +164,12 @@ export function MarkdownPanel({ value, className, readOnly = false, onChange }: 
       <div ref={rootRef} className="min-h-full" />
     </section>
   );
+}
+
+function applyMarkdownSpellcheck(crepe: Crepe, enabled: boolean) {
+  if (crepe.editor.status !== EditorStatus.Created) return;
+  crepe.editor.action((ctx) => {
+    const view = ctx.get(editorViewCtx);
+    view.dom.setAttribute("spellcheck", enabled ? "true" : "false");
+  });
 }

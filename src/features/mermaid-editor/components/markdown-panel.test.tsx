@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MarkdownPanel } from "@/features/mermaid-editor/components/markdown-panel";
 
 type MockEditorView = {
+  dom: HTMLElement;
   state: {
     selection: { from: number };
     doc: {
@@ -70,6 +71,7 @@ describe("MarkdownPanel", () => {
     (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
     vi.useFakeTimers();
     milkdownMock.view = {
+      dom: document.createElement("div"),
       state: {
         selection: { from: 5 },
         doc: {
@@ -100,13 +102,13 @@ describe("MarkdownPanel", () => {
     vi.useRealTimers();
   });
 
-  function renderPanel() {
+  function renderPanel(spellCheck = false) {
     container = document.createElement("div");
     document.body.appendChild(container);
     root = createRoot(container);
 
     act(() => {
-      root?.render(createElement(MarkdownPanel, { value: "# Hello", onChange: vi.fn() }));
+      root?.render(createElement(MarkdownPanel, { value: "# Hello", spellCheck, onChange: vi.fn() }));
     });
 
     const panel = container.querySelector(".markdown-editor-panel");
@@ -114,6 +116,20 @@ describe("MarkdownPanel", () => {
 
     return panel;
   }
+
+  it("applies and updates the native spellcheck setting without recreating Milkdown", () => {
+    renderPanel(false);
+
+    expect(milkdownMock.view?.dom.getAttribute("spellcheck")).toBe("false");
+    expect(milkdownMock.create).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      root?.render(createElement(MarkdownPanel, { value: "# Hello", spellCheck: true, onChange: vi.fn() }));
+    });
+
+    expect(milkdownMock.view?.dom.getAttribute("spellcheck")).toBe("true");
+    expect(milkdownMock.create).toHaveBeenCalledTimes(1);
+  });
 
   function appendBlockHandle(panel: HTMLElement) {
     const handle = document.createElement("div");

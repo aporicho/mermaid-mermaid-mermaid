@@ -13,7 +13,8 @@ import {
   Refresh as RefreshCw,
   SidebarExpand as PanelLeftOpen,
   SquareCursor as SquareDashedMousePointer,
-  Text
+  Text,
+  Translate
 } from "iconoir-react/regular";
 
 import { Button } from "@/components/ui/button";
@@ -278,6 +279,17 @@ export function SecondaryActionsMenu({
                 updatePreference(
                   { ...preferences, restoreLastFile: !preferences.restoreLastFile },
                   preferences.restoreLastFile ? "启动时将打开默认空白文件。" : "启动时将恢复上次文件。"
+                )
+              }
+            />
+            <PreferenceToggle
+              active={preferences.markdownSpellcheckEnabled}
+              icon={<Translate className="size-4" />}
+              label="Markdown 拼写检查"
+              onClick={() =>
+                updatePreference(
+                  { ...preferences, markdownSpellcheckEnabled: !preferences.markdownSpellcheckEnabled },
+                  preferences.markdownSpellcheckEnabled ? "Markdown 拼写检查已关闭。" : "Markdown 拼写检查已开启。"
                 )
               }
             />

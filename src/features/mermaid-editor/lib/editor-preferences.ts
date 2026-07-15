@@ -8,6 +8,7 @@ export type EditorPreferences = {
   statusMessages: boolean;
   desktopTitlebarAutoHide: boolean;
   restoreLastFile: boolean;
+  markdownSpellcheckEnabled: boolean;
   appLogo: AppLogoId;
 };
 
@@ -17,6 +18,7 @@ export const DEFAULT_EDITOR_PREFERENCES: EditorPreferences = {
   statusMessages: false,
   desktopTitlebarAutoHide: true,
   restoreLastFile: true,
+  markdownSpellcheckEnabled: false,
   appLogo: DEFAULT_APP_LOGO_ID
 };
 
@@ -27,6 +29,7 @@ export function normalizeEditorPreferences(value: Partial<EditorPreferences> | u
     statusMessages: value?.statusMessages ?? DEFAULT_EDITOR_PREFERENCES.statusMessages,
     desktopTitlebarAutoHide: value?.desktopTitlebarAutoHide ?? DEFAULT_EDITOR_PREFERENCES.desktopTitlebarAutoHide,
     restoreLastFile: value?.restoreLastFile ?? DEFAULT_EDITOR_PREFERENCES.restoreLastFile,
+    markdownSpellcheckEnabled: value?.markdownSpellcheckEnabled ?? DEFAULT_EDITOR_PREFERENCES.markdownSpellcheckEnabled,
     appLogo: normalizeAppLogoId(value?.appLogo)
   };
 }
