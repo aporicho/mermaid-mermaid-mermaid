@@ -35,6 +35,18 @@ describe("node geometry", () => {
     expect(geometry.routedRect).toEqual({ id: "node-a", x: 100, y: 80, width: 70, height: 36, shape: "rect" });
   });
 
+  it("uses stable Markdown card geometry for drawing, anchors, and edge routing", () => {
+    const geometry = buildNodeGeometry({
+      ...node,
+      action: { kind: "file", path: "docs/spec.md", openMode: "app-window" }
+    }, spec);
+
+    expect(geometry.frame).toEqual({ x: 100, y: 80, width: 272, height: 144 });
+    expect(geometry.textBox).toEqual({ x: 60, y: 12, width: 200, height: 22 });
+    expect(geometry.routedRect).toEqual({ id: "node-a", x: 100, y: 80, width: 272, height: 144, shape: "rect" });
+    expect(geometry.anchorsWorld.find((anchor) => anchor.key === "right")).toEqual({ key: "right", kind: "edge-midpoint", x: 372, y: 152 });
+  });
+
   it("keeps anchor points in local node coordinates", () => {
     const geometry = buildNodeGeometry(node, spec);
 

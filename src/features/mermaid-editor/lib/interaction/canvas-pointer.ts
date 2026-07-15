@@ -24,12 +24,14 @@ import {
 import type { InteractionContext } from "@/features/mermaid-editor/lib/interaction/context";
 import type { EditorCommand } from "@/features/mermaid-editor/lib/interaction/commands";
 import type { StandardPointerInput } from "@/features/mermaid-editor/lib/interaction/input";
+import { isMarkdownDocumentNode } from "@/features/mermaid-editor/lib/markdown-document";
 
 export type CanvasPointerLocalEffect =
   | { type: "blankClick.invalidate" }
   | { type: "blankClick.record"; intent: BlankClickIntent }
   | { type: "interaction.reset" }
   | { type: "inlineEdit.start"; target: InlineEditCommandTarget }
+  | { type: "nodeAction.open"; nodeId: string }
   | { type: "drag.startNode"; nodeId: string }
   | { type: "drag.startSubgraph"; subgraphId: string }
   | { type: "graph.resolveAddNodeAt"; point: CanvasPoint }
@@ -198,6 +200,13 @@ export function commandsToPointerResolution(commands: CanvasInteractionCommand[]
     }
 
     if (command.type === "startInlineEdit") {
+      if (command.target.type === "node") {
+        const node = context.graph.nodes.find((item) => item.id === command.target.id);
+        if (node && isMarkdownDocumentNode(node)) {
+          localEffects.push({ type: "nodeAction.open", nodeId: node.id });
+          continue;
+        }
+      }
       localEffects.push({ type: "inlineEdit.start", target: command.target });
       continue;
     }

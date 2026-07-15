@@ -21,6 +21,7 @@ import type { EdgeLabelGeometryTokens } from "@/features/mermaid-editor/lib/edge
 import type { CanvasNode, EditorMode, MermaidGraph, Selection, ViewportState } from "@/features/mermaid-editor/lib/editor-types";
 import { normalizeNodeAction } from "@/features/mermaid-editor/lib/node-actions";
 import type { NodeGeometryTokens } from "@/features/mermaid-editor/lib/node-geometry";
+import type { MarkdownDocumentPreview } from "@/features/mermaid-editor/lib/markdown-document";
 import type { ViewFilters } from "@/features/mermaid-editor/lib/view-filters";
 import { cn } from "@/lib/utils";
 
@@ -46,6 +47,7 @@ export type KonvaCanvasStageProps = {
   edgeLabelThemeTokens: EdgeLabelGeometryTokens;
   runtimeCreateScale: number;
   imageDisplaySrcBySrc: Record<string, string>;
+  markdownDocumentPreviewByNodeId: Record<string, MarkdownDocumentPreview>;
   alignmentGuides: AlignmentGuide[];
   hoveredNodeId: string | null;
   hoveredSubgraphId: string | null;
@@ -100,6 +102,7 @@ export type KonvaCanvasStageProps = {
   onCloseNodeContextMenu: () => void;
   onOpenNodeAction?: (node: CanvasNode) => void;
   onEditNodeAction?: (node: CanvasNode) => void;
+  onRequestMarkdownDocumentPreview?: (node: CanvasNode) => void;
   onInlineEditChange: (next: InlineEdit) => void;
   onInlineEditCommit: (save: boolean) => void;
 };
@@ -124,6 +127,7 @@ export function KonvaCanvasStage({
   edgeLabelThemeTokens,
   runtimeCreateScale,
   imageDisplaySrcBySrc,
+  markdownDocumentPreviewByNodeId,
   alignmentGuides,
   hoveredNodeId,
   hoveredSubgraphId,
@@ -178,6 +182,7 @@ export function KonvaCanvasStage({
   onCloseNodeContextMenu,
   onOpenNodeAction,
   onEditNodeAction,
+  onRequestMarkdownDocumentPreview,
   onInlineEditChange,
   onInlineEditCommit
 }: KonvaCanvasStageProps) {
@@ -277,6 +282,7 @@ export function KonvaCanvasStage({
               nodeMotion={nodeMotion}
               nodeProximityScale={nodeProximityScale}
               imageDisplaySrcBySrc={imageDisplaySrcBySrc}
+              markdownDocumentPreviewByNodeId={markdownDocumentPreviewByNodeId}
               runtimeCreateScale={runtimeCreateScale}
               visualTokens={visualTokens}
               nodeThemeTokens={nodeThemeTokens}
@@ -288,6 +294,7 @@ export function KonvaCanvasStage({
               onNodeContextMenu={onNodeContextMenu}
               onNodeAnchorPointerDown={(event, hit, world) => onCanvasPointerDown(event, hit, world)}
               onOpenNodeAction={onOpenNodeAction}
+              onRequestMarkdownDocumentPreview={onRequestMarkdownDocumentPreview}
             />
 
             <KonvaEdgeOverlayLayer

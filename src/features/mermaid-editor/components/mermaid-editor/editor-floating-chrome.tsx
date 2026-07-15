@@ -61,6 +61,7 @@ type EditorFloatingChromeProps = {
   onOpenWorkspacePanel: (panelId: StaticWorkspacePanelId) => void;
   onAddNode: () => void;
   onAddImageNode: () => void | Promise<unknown>;
+  onAddMarkdownDocument: () => void;
   onCreateGroup: () => void;
   onDirectionChange: (direction: GraphDirection) => void;
   onEdgeRoutingChange: (edgeRouting: EdgeRouting) => void;
@@ -116,6 +117,7 @@ export function EditorFloatingChrome({
   onOpenWorkspacePanel,
   onAddNode,
   onAddImageNode,
+  onAddMarkdownDocument,
   onCreateGroup,
   onDirectionChange,
   onEdgeRoutingChange,
@@ -230,6 +232,7 @@ export function EditorFloatingChrome({
           onOpenChange={onSecondaryActionsOpenChange}
           onAddNode={onAddNode}
           onAddImageNode={() => void onAddImageNode()}
+          onAddMarkdownDocument={onAddMarkdownDocument}
           onCreateGroup={onCreateGroup}
           onSaveAs={() => void onSaveAs()}
           onDirectionChange={onDirectionChange}

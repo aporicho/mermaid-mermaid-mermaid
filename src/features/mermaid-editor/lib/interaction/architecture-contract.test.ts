@@ -508,6 +508,7 @@ describe("interaction architecture contract", () => {
   it("keeps Mermaid image nodes rendered as pure rectangular image surfaces", () => {
     const nodeLayer = readProjectFile("src/features/mermaid-editor/components/konva-canvas/node-layer.tsx");
     const nodeImage = readProjectFile("src/features/mermaid-editor/components/konva-canvas/node-image.tsx");
+    const markdownCard = readProjectFile("src/features/mermaid-editor/components/konva-canvas/markdown-document-card.tsx");
     const nodeGeometry = readProjectFile("src/features/mermaid-editor/lib/node-geometry.ts");
 
     expect(nodeGeometry).toContain("if (asset) return buildImageNodeGeometry(node, asset);");
@@ -529,6 +530,7 @@ describe("interaction architecture contract", () => {
     expect(nodeLayer).toContain("cornerRadius={0}");
     expect(nodeLayer).toContain("imageInteractionFrameVisible");
     expect(nodeLayer).toContain("!isImageNode && !isLinkCardNode && normalizeNodeAction");
+    expect(markdownCard).not.toContain("<Group listening={false}>");
   });
 
   it("keeps Konva runtime controllers outside the KonvaCanvas shell file", () => {

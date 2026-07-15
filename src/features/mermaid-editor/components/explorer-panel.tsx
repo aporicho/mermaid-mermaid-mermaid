@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { EmptyPage, Folder, NavArrowDown, NavArrowRight, Refresh as RefreshCw, Text, Xmark } from "iconoir-react/regular";
 
@@ -25,6 +25,7 @@ export function ExplorerPanel({
   onCloseProject,
   onOpenProjectFile,
   onOpenProjectMarkdownWindow,
+  onMarkdownDocumentPointerDrag,
   windowState,
   onWindowStateChange,
   onCollapse
@@ -39,6 +40,7 @@ export function ExplorerPanel({
   onCloseProject: () => void;
   onOpenProjectFile: (file: ProjectFileEntry) => void;
   onOpenProjectMarkdownWindow: (file: ProjectFileEntry) => void;
+  onMarkdownDocumentPointerDrag: (file: ProjectFileEntry, point: { x: number; y: number }, phase: "move" | "drop" | "cancel") => void;
   windowState: FloatingPanelWindowState;
   onWindowStateChange: (state: FloatingPanelWindowState) => void;
   onCollapse: () => void;
@@ -145,6 +147,7 @@ export function ExplorerPanel({
                   onToggleDirectory={toggleDirectory}
                   onOpenProjectFile={onOpenProjectFile}
                   onOpenProjectMarkdownWindow={onOpenProjectMarkdownWindow}
+                  onMarkdownDocumentPointerDrag={onMarkdownDocumentPointerDrag}
                   onOpenFileContextMenu={openFileContextMenu}
                 />
               ))}
@@ -204,6 +207,7 @@ function ProjectTreeRow({
   onToggleDirectory,
   onOpenProjectFile,
   onOpenProjectMarkdownWindow,
+  onMarkdownDocumentPointerDrag,
   onOpenFileContextMenu
 }: {
   node: ProjectTreeNode;
@@ -213,9 +217,12 @@ function ProjectTreeRow({
   onToggleDirectory: (id: string) => void;
   onOpenProjectFile: (file: ProjectFileEntry) => void;
   onOpenProjectMarkdownWindow: (file: ProjectFileEntry) => void;
+  onMarkdownDocumentPointerDrag: (file: ProjectFileEntry, point: { x: number; y: number }, phase: "move" | "drop" | "cancel") => void;
   onOpenFileContextMenu: (file: ProjectFileEntry, event: ReactMouseEvent) => void;
 }) {
   const paddingLeft = 8 + depth * 16;
+  const pointerDragRef = useRef<{ pointerId: number; startX: number; startY: number; dragging: boolean } | null>(null);
+  const suppressClickRef = useRef(false);
 
   if (node.kind === "directory") {
     const expanded = expandedIds.has(node.id);
@@ -246,6 +253,7 @@ function ProjectTreeRow({
                 onToggleDirectory={onToggleDirectory}
                 onOpenProjectFile={onOpenProjectFile}
                 onOpenProjectMarkdownWindow={onOpenProjectMarkdownWindow}
+                onMarkdownDocumentPointerDrag={onMarkdownDocumentPointerDrag}
                 onOpenFileContextMenu={onOpenFileContextMenu}
               />
             ))
@@ -254,16 +262,62 @@ function ProjectTreeRow({
     );
   }
 
-  const active = isProjectFileActive(node.file, currentFileRef);
+  const file = node.file;
+  const active = isProjectFileActive(file, currentFileRef);
+  const markdownFile = isSupportedMarkdownFilePath(file.path);
+
+  function startMarkdownDocumentPointerDrag(event: ReactPointerEvent<HTMLButtonElement>) {
+    if (!markdownFile || event.button !== 0) return;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    pointerDragRef.current = { pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, dragging: false };
+  }
+
+  function moveMarkdownDocumentPointerDrag(event: ReactPointerEvent<HTMLButtonElement>) {
+    const drag = pointerDragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    if (!drag.dragging && Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY) < 6) return;
+    drag.dragging = true;
+    event.preventDefault();
+    onMarkdownDocumentPointerDrag(file, { x: event.clientX, y: event.clientY }, "move");
+  }
+
+  function finishMarkdownDocumentPointerDrag(event: ReactPointerEvent<HTMLButtonElement>) {
+    const drag = pointerDragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    pointerDragRef.current = null;
+    if (!drag.dragging) return;
+    event.preventDefault();
+    suppressClickRef.current = true;
+    onMarkdownDocumentPointerDrag(file, { x: event.clientX, y: event.clientY }, "drop");
+  }
+
+  function cancelMarkdownDocumentPointerDrag(event: ReactPointerEvent<HTMLButtonElement>) {
+    const drag = pointerDragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    pointerDragRef.current = null;
+    if (drag.dragging) onMarkdownDocumentPointerDrag(file, { x: event.clientX, y: event.clientY }, "cancel");
+  }
+
   return (
     <Button
       type="button"
       variant={active ? "secondary" : "ghost"}
-      className={cn(EDITOR_CHROME_CLASSES.treeRow, "gap-2")}
+      className={cn(EDITOR_CHROME_CLASSES.treeRow, "gap-2", markdownFile && "cursor-grab active:cursor-grabbing")}
       style={{ paddingLeft }}
-      title={node.file.path}
-      onClick={() => onOpenProjectFile(node.file)}
-      onContextMenu={(event) => onOpenFileContextMenu(node.file, event)}
+      title={file.path}
+      onPointerDown={startMarkdownDocumentPointerDrag}
+      onPointerMove={moveMarkdownDocumentPointerDrag}
+      onPointerUp={finishMarkdownDocumentPointerDrag}
+      onPointerCancel={cancelMarkdownDocumentPointerDrag}
+      onClick={(event) => {
+        if (suppressClickRef.current) {
+          suppressClickRef.current = false;
+          event.preventDefault();
+          return;
+        }
+        onOpenProjectFile(file);
+      }}
+      onContextMenu={(event) => onOpenFileContextMenu(file, event)}
     >
       <EmptyPage className="size-4 shrink-0" />
       <span className="min-w-0 flex-1 truncate text-xs">{node.name}</span>
@@ -331,4 +385,3 @@ function ProjectFileContextMenu({
   if (typeof document === "undefined") return menuElement;
   return createPortal(menuElement, document.body);
 }
-

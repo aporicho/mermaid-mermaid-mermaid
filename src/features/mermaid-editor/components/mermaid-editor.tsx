@@ -17,6 +17,9 @@ import { useEditorRecentActions } from "@/features/mermaid-editor/components/mer
 import { useEditorThemeModel } from "@/features/mermaid-editor/components/mermaid-editor/use-editor-theme-model";
 import { useEditorWorkspacePanelActions } from "@/features/mermaid-editor/components/mermaid-editor/use-editor-workspace-panel-actions";
 import { useEditorWindowActions } from "@/features/mermaid-editor/components/mermaid-editor/use-editor-window-actions";
+import { useMarkdownDocumentPreviews } from "@/features/mermaid-editor/components/mermaid-editor/use-markdown-document-previews";
+import { useMarkdownDocumentActions } from "@/features/mermaid-editor/components/mermaid-editor/use-markdown-document-actions";
+import { createMarkdownDocumentDropHandlers } from "@/features/mermaid-editor/components/mermaid-editor/markdown-document-drop";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { loadInitialState } from "@/features/mermaid-editor/lib/editor-state";
 import { createEditorRuntime } from "@/features/mermaid-editor/lib/editor-runtime";
@@ -97,6 +100,11 @@ export function MermaidEditor() {
     isCanvasEditable,
     canvasViewTooltip
   } = useEditorDocumentModel({ initial, runtime });
+  const {
+    previewByNodeId: markdownDocumentPreviewByNodeId,
+    requestPreview: requestMarkdownDocumentPreview,
+    updatePreviewFromText: updateMarkdownDocumentPreviewFromText
+  } = useMarkdownDocumentPreviews({ runtime, fileRef, projectWorkspace });
   const {
     status,
     setStatus,
@@ -348,13 +356,32 @@ export function MermaidEditor() {
     recordRecentAction
   });
 
+  const markdownDocuments = useMarkdownDocumentActions({
+    runtime,
+    graph,
+    viewport,
+    canvasLiveState,
+    projectWorkspace,
+    applyEditorCommand,
+    refreshProjectWorkspace,
+    setStatus,
+    showFileWorkflowError,
+    updatePreviewFromText: updateMarkdownDocumentPreviewFromText
+  });
+  const markdownDocumentDrop = createMarkdownDocumentDropHandlers({
+    isCanvasEditable, workspaceView, viewport, workspaceSurfaceRef, projectWorkspace,
+    addProjectMarkdownFile: markdownDocuments.addProjectMarkdownFile,
+    setStatus, setFileDropFeedback, usesRuntimeFileDrops: runtime.kind === "desktop",
+    external: { enter: updateBrowserFileDragFeedback, over: updateBrowserFileDragFeedback, leave: handleBrowserFileDragLeave,
+      drop: handleBrowserFileDrop, runtime: handleRuntimeFileDropRequest }
+  });
   const { startDesktopWindowDragHandle, toggleDesktopWindowMaximizeHandle } = useEditorDesktopEvents({
     runtime,
     lastWindowFocusAtRef,
     isDirtyRef,
     currentDocumentRef,
     openRuntimeFileRequest,
-    handleRuntimeFileDropRequest,
+    handleRuntimeFileDropRequest: markdownDocumentDrop.runtime,
     prepareWindowClose,
     applyLoadedDocument,
     applyStoredEditorState,
@@ -395,7 +422,8 @@ export function MermaidEditor() {
     openRuntimeFileRequest,
     openInspectorPanel: () => openWorkspacePanel("inspector"),
     applyEditorCommand,
-    recordRecentAction
+    recordRecentAction,
+    onMarkdownFileSaved: updateMarkdownDocumentPreviewFromText
   });
 
   useEditorAiCommands({
@@ -493,17 +521,16 @@ export function MermaidEditor() {
   });
 
   const nodeActionEditorNode = nodeActionEditor ? graph.nodes.find((node) => node.id === nodeActionEditor.nodeId) : undefined;
-
   return (
     <EditorMotionProvider value={resolvedMotion}>
     <TooltipProvider delayDuration={180}>
       <input ref={fileInputRef} type="file" accept=".mmd,.mermaid,.md,.markdown,.canvas.json,text/plain,application/json" className="hidden" onChange={openFallbackFile} />
       <main
         className="relative h-screen overflow-hidden bg-background"
-        onDragEnter={updateBrowserFileDragFeedback}
-        onDragOver={updateBrowserFileDragFeedback}
-        onDragLeave={handleBrowserFileDragLeave}
-        onDrop={handleBrowserFileDrop}
+        onDragEnter={markdownDocumentDrop.enter}
+        onDragOver={markdownDocumentDrop.over}
+        onDragLeave={markdownDocumentDrop.leave}
+        onDrop={markdownDocumentDrop.drop}
       >
         <h1 className="sr-only">Mermaid Canvas Editor</h1>
         <MotionPresence
@@ -531,6 +558,7 @@ export function MermaidEditor() {
             mermaidEdgeRoutes={mermaidEdgeRoutes}
             layoutMode={layoutMode}
             imageDisplaySrcBySrc={imageDisplaySrcBySrc}
+            markdownDocumentPreviewByNodeId={markdownDocumentPreviewByNodeId}
             visualTokens={compiledTheme.canvasVisualTokens}
             geometryTokens={compiledTheme.geometry}
             motion={resolvedMotion}
@@ -548,6 +576,7 @@ export function MermaidEditor() {
             onEditNodeAction={editCanvasNodeAction}
             onPointerWorldChange={recordCanvasPointerWorld}
             onLiveStateChange={updateCanvasLiveState}
+            onRequestMarkdownDocumentPreview={requestMarkdownDocumentPreview}
           />
         </div>
         </MotionPresence>
@@ -577,7 +606,7 @@ export function MermaidEditor() {
           refreshProjectWorkspace={refreshProjectWorkspace}
           closeProjectWorkspace={closeProjectWorkspace}
           openProjectFile={openProjectFile}
-          openProjectMarkdownWindow={openProjectMarkdownWindow}
+          openProjectMarkdownWindow={openProjectMarkdownWindow} onMarkdownDocumentPointerDrag={markdownDocumentDrop.pointer}
           applyEditorCommand={applyEditorCommand}
           executeCanvasNodeAction={executeCanvasNodeAction}
           editCanvasNodeAction={editCanvasNodeAction}
@@ -629,6 +658,7 @@ export function MermaidEditor() {
           onOpenWorkspacePanel={openWorkspacePanel}
           onAddNode={addNode}
           onAddImageNode={addImageNode}
+          onAddMarkdownDocument={markdownDocuments.openDialog}
           onCreateGroup={() => createGroupFromSelection()}
           onDirectionChange={updateDirection}
           onEdgeRoutingChange={updateEdgeRouting}
@@ -645,6 +675,7 @@ export function MermaidEditor() {
           fileWorkflowError={fileWorkflowError}
           unsavedPrompt={unsavedPrompt}
           nodeActionEditorNode={nodeActionEditorNode}
+          markdownDocumentDialog={markdownDocuments.dialogProps}
           projectFiles={projectFiles}
           status={status}
           statusMessages={preferences.statusMessages}

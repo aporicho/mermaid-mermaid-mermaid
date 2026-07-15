@@ -51,6 +51,7 @@ type EditorWorkspacePanelsProps = {
   closeProjectWorkspace: () => void | Promise<unknown>;
   openProjectFile: (file: ProjectFileEntry) => void | Promise<unknown>;
   openProjectMarkdownWindow: (file: ProjectFileEntry) => void | Promise<unknown>;
+  onMarkdownDocumentPointerDrag: (file: ProjectFileEntry, point: { x: number; y: number }, phase: "move" | "drop" | "cancel") => void;
   applyEditorCommand: (command: EditorCommand) => void;
   executeCanvasNodeAction: (node: CanvasNode) => void | Promise<unknown>;
   editCanvasNodeAction: (node: CanvasNode) => void;
@@ -87,6 +88,7 @@ export function EditorWorkspacePanels({
   closeProjectWorkspace,
   openProjectFile,
   openProjectMarkdownWindow,
+  onMarkdownDocumentPointerDrag,
   applyEditorCommand,
   executeCanvasNodeAction,
   editCanvasNodeAction,
@@ -124,6 +126,7 @@ export function EditorWorkspacePanels({
           onCloseProject={() => void closeProjectWorkspace()}
           onOpenProjectFile={(file) => void openProjectFile(file)}
           onOpenProjectMarkdownWindow={(file) => void openProjectMarkdownWindow(file)}
+          onMarkdownDocumentPointerDrag={onMarkdownDocumentPointerDrag}
           windowState={workspacePanelWindowState("explorer")}
           onWindowStateChange={(state) => setWorkspacePanelWindowState("explorer", state)}
           onCollapse={() => closeWorkspacePanel("explorer")}

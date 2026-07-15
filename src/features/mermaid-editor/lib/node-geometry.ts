@@ -5,6 +5,11 @@ import { flowchartPortPoints, isEllipseLikeFlowchartShape, opticalWeightScaleFor
 import { DEFAULT_FLOWCHART_NODE_SHAPE, isEqualAspectFlowchartShape, normalizeFlowchartShape, type FlowchartNodeShape } from "@/features/mermaid-editor/lib/flowchart-shapes";
 import { normalizeImageAsset } from "@/features/mermaid-editor/lib/node-assets";
 import { LINK_CARD_NODE_WIDTH, linkCardNodeHeight, normalizeCanvasNodePreview } from "@/features/mermaid-editor/lib/node-preview";
+import {
+  isMarkdownDocumentNode,
+  MARKDOWN_DOCUMENT_NODE_HEIGHT,
+  MARKDOWN_DOCUMENT_NODE_WIDTH
+} from "@/features/mermaid-editor/lib/markdown-document";
 
 export type NodeAnchorKey = string;
 
@@ -94,6 +99,8 @@ export function defaultNodeGeometrySpec(measureText: (value: string) => number =
 }
 
 export function buildNodeGeometry(node: CanvasNode, spec: NodeGeometrySpec): NodeGeometry {
+  if (isMarkdownDocumentNode(node)) return buildMarkdownDocumentNodeGeometry(node);
+
   const preview = normalizeCanvasNodePreview(node.preview);
   if (preview) return buildLinkCardNodeGeometry(node);
 
@@ -131,6 +138,37 @@ export function buildNodeGeometry(node: CanvasNode, spec: NodeGeometrySpec): Nod
     anchorsWorld,
     alignmentRect: { id: node.id, ...frame },
     routedRect: { id: node.id, ...frame, shape }
+  };
+}
+
+function buildMarkdownDocumentNodeGeometry(node: CanvasNode): NodeGeometry {
+  const frame = {
+    x: node.x,
+    y: node.y,
+    width: MARKDOWN_DOCUMENT_NODE_WIDTH,
+    height: MARKDOWN_DOCUMENT_NODE_HEIGHT
+  };
+  const textBox = {
+    x: 60,
+    y: 12,
+    width: frame.width - 72,
+    height: 22
+  };
+  const anchorsLocal = localAnchorPoints(DEFAULT_FLOWCHART_NODE_SHAPE, frame.width, frame.height);
+  const anchorsWorld = anchorsLocal.map((anchor) => ({
+    ...anchor,
+    x: frame.x + anchor.x,
+    y: frame.y + anchor.y
+  }));
+
+  return {
+    id: node.id,
+    frame,
+    textBox,
+    anchorsLocal,
+    anchorsWorld,
+    alignmentRect: { id: node.id, ...frame },
+    routedRect: { id: node.id, ...frame, shape: DEFAULT_FLOWCHART_NODE_SHAPE }
   };
 }
 

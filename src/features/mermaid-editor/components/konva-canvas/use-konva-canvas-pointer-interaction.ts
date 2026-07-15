@@ -147,6 +147,12 @@ export function useKonvaCanvasPointerInteraction({
       return;
     }
 
+    if (effect.type === "nodeAction.open") {
+      const node = graph.nodes.find((item) => item.id === effect.nodeId);
+      if (node) model.stageProps.onOpenNodeAction?.(node);
+      return;
+    }
+
     if (effect.type === "drag.startNode") {
       const node = graph.nodes.find((item) => item.id === effect.nodeId);
       if (node) startNodeDrag(node);

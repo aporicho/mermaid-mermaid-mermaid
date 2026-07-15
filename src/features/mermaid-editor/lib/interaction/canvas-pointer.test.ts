@@ -135,6 +135,31 @@ describe("canvas pointer interaction adapter", () => {
     ]);
   });
 
+  it("opens Markdown document nodes on double-click instead of starting inline text edit", () => {
+    const markdownGraph: MermaidGraph = {
+      ...graph,
+      nodes: graph.nodes.map((node) => node.id === "A"
+        ? { ...node, action: { kind: "file", path: "docs/spec.md", openMode: "app-window" } }
+        : node)
+    };
+    const markdownContext = buildInteractionContext({
+      graph: markdownGraph,
+      selection: { nodeIds: [], edgeIds: [], subgraphIds: [] },
+      viewport,
+      viewFilters: DEFAULT_VIEW_FILTERS,
+      mode: "select"
+    });
+    const result = resolveCanvasPointerDoubleClick(pointer({ phase: "double-click", hit: { kind: "node", id: "A" } }), markdownContext);
+
+    expect(result.editorCommands).toEqual([
+      { type: "selection.set", selection: { nodeIds: ["A"], edgeIds: [], subgraphIds: [], primaryId: "A" }, source: "pointer" }
+    ]);
+    expect(result.localEffects).toEqual([
+      { type: "blankClick.invalidate" },
+      { type: "nodeAction.open", nodeId: "A" }
+    ]);
+  });
+
   it("turns double-click on a subgraph title into selection plus local inline edit", () => {
     const result = resolveCanvasPointerDoubleClick(pointer({ phase: "double-click", hit: { kind: "subgraphTitle", id: "Group" } }), context());
 

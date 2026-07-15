@@ -50,6 +50,11 @@ export type RuntimeSaveFileResult =
       status: "cancelled";
     };
 
+export type RuntimeCreateProjectDocumentResult =
+  | { status: "created"; file: RuntimeFileRef; text: string }
+  | { status: "exists"; file: RuntimeFileRef }
+  | { status: "unsupported"; message: string };
+
 export type RuntimeFileOpenRequest = {
   name: string;
   path: string;
@@ -197,6 +202,7 @@ export type EditorRuntime = {
     documentKind: DocumentKind
   ) => Promise<RuntimeSaveFileResult>;
   saveFileAs: (documentText: string, suggestedName: string, documentKind: DocumentKind) => Promise<RuntimeSaveFileResult>;
+  createProjectDocument: (request: { rootPath: string; fileName: string; documentKind: DocumentKind; text: string }) => Promise<RuntimeCreateProjectDocumentResult>;
   pickImageAsset: (file: RuntimeFileRef | null) => Promise<RuntimeImageAssetResult>;
   importImageAssetPath: (file: RuntimeFileRef | null, path: string) => Promise<RuntimeImageAssetResult>;
   importImageAssetFile: (file: RuntimeFileRef | null, image: File) => Promise<RuntimeImageAssetResult>;

@@ -1,8 +1,7 @@
-const { app, BrowserWindow, WebContentsView, dialog, ipcMain, net, protocol, shell } = require("electron");
+const { app, BrowserWindow, Menu, WebContentsView, dialog, ipcMain, net, protocol, shell } = require("electron");
 const fsp = require("node:fs/promises");
 const path = require("node:path");
 const { pathToFileURL } = require("node:url");
-
 const {
   ASSET_PROTOCOL,
   assetUrlToFilePath,
@@ -14,8 +13,8 @@ const {
 } = require("./image-assets.cjs");
 const { createAiBridge } = require("./ai-bridge.cjs");
 const { resolveLinkPreview } = require("./link-preview.cjs");
+const { createProjectDocument } = require("./project-documents.cjs");
 const { createTerminalManager } = require("./terminal.cjs");
-
 const BROWSER_TOOL_WINDOW_KIND = "browser-tool";
 const BROWSER_TOOL_WINDOW_PARAM = "mmmWindow";
 const DEV_SERVER_URL = process.env.MMM_ELECTRON_DEV_SERVER_URL || "";
@@ -49,7 +48,6 @@ const terminalManager = createTerminalManager({
 });
 const hasSingleInstanceLock = app.requestSingleInstanceLock();
 let mainWindow = null;
-
 protocol.registerSchemesAsPrivileged([
   {
     scheme: ASSET_PROTOCOL,
@@ -81,6 +79,7 @@ if (!hasSingleInstanceLock) {
   });
 
   app.whenReady().then(async () => {
+    Menu.setApplicationMenu(null);
     registerAssetProtocol();
     registerIpc();
     await aiBridge.start();
@@ -226,6 +225,7 @@ function registerIpc() {
   ipcMain.handle("mmm:file:open-path", (_event, filePath) => openFilePath(filePath));
   ipcMain.handle("mmm:file:save", (_event, request) => saveFilePath(request?.path, request?.text));
   ipcMain.handle("mmm:file:save-as", (event, request) => saveFileDialog(BrowserWindow.fromWebContents(event.sender), request?.suggestedName, request?.text));
+  ipcMain.handle("mmm:project:create-document", (_event, request) => createProjectDocument(request));
   ipcMain.handle("mmm:image:pick", (event, documentPath) => pickImageAssetDialog(BrowserWindow.fromWebContents(event.sender), documentPath));
   ipcMain.handle("mmm:image:import-path", (_event, request) => importImageAssetPath(request?.documentPath, request?.imagePath));
   ipcMain.handle("mmm:image:import-bytes", (_event, request) => importImageAssetBytes(request?.documentPath, request?.fileName, request?.bytes));

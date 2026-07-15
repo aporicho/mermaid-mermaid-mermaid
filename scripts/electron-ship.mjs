@@ -9,6 +9,7 @@ import {
   mkdirSync,
   readFileSync,
   readdirSync,
+  renameSync,
   rmSync,
   statSync,
   writeFileSync
@@ -224,9 +225,15 @@ function installLinux(artifacts) {
   if (appImage) {
     const appDir = path.join(homeDir(), ".local", "share", APP_SLUG);
     const installedAppImage = path.join(appDir, `${APP_SLUG}.AppImage`);
+    const temporaryAppImage = `${installedAppImage}.tmp-${process.pid}`;
     mkdirSync(appDir, { recursive: true });
-    copyFileSync(appImage.path, installedAppImage);
-    chmodSync(installedAppImage, 0o755);
+    try {
+      copyFileSync(appImage.path, temporaryAppImage);
+      chmodSync(temporaryAppImage, 0o755);
+      renameSync(temporaryAppImage, installedAppImage);
+    } finally {
+      rmSync(temporaryAppImage, { force: true });
+    }
     installLinuxDesktopEntry(installedAppImage);
     log(`Installed AppImage to ${installedAppImage}`);
     return installedAppImage;
@@ -261,22 +268,26 @@ function installLinuxDesktopEntry(executablePath) {
     copyFileSync(LINUX_ICON_SOURCE, iconFile);
   }
 
-  writeFileSync(desktopFile, linuxDesktopEntry(executablePath), "utf8");
+  writeFileSync(desktopFile, linuxDesktopEntry(executablePath, iconFile), "utf8");
   chmodSync(desktopFile, 0o644);
-  updateDesktopDatabase(applicationsDir);
+  refreshLinuxDesktopIntegration(applicationsDir);
 }
 
-function linuxDesktopEntry(executablePath) {
+function linuxDesktopEntry(executablePath, iconPath) {
   return [
     "[Desktop Entry]",
     `Name=${desktopString(APP_NAME)}`,
+    "Name[zh_CN]=Mermaid 画布编辑器",
     `Comment=${desktopString(APP_DESCRIPTION)}`,
+    "Comment[zh_CN]=Mermaid、Markdown 和无限画布桌面编辑器。",
     `Exec=${desktopExecPath(executablePath)} %U`,
     "Terminal=false",
     "Type=Application",
-    `Icon=${APP_SLUG}`,
+    `Icon=${desktopString(iconPath)}`,
     "Categories=Development;",
+    "Keywords=Mermaid;Markdown;Canvas;Diagram;画布;图表;",
     `StartupWMClass=${APP_SLUG}`,
+    "StartupNotify=true",
     "MimeType=text/markdown;text/vnd.mermaid;",
     ""
   ].join("\n");
@@ -290,15 +301,24 @@ function desktopExecPath(value) {
   return `"${String(value).replaceAll("\\", "\\\\").replaceAll('"', '\\"')}"`;
 }
 
-function updateDesktopDatabase(applicationsDir) {
-  const result = spawnSync("update-desktop-database", [applicationsDir], {
-    cwd: PROJECT_DIR,
-    env: process.env,
-    stdio: "ignore"
-  });
+function refreshLinuxDesktopIntegration(applicationsDir) {
+  const iconThemeDir = path.join(homeDir(), ".local", "share", "icons", "hicolor");
+  const refreshCommands = [
+    ["update-desktop-database", [applicationsDir]],
+    ["gtk-update-icon-cache", ["--force", "--ignore-theme-index", iconThemeDir]],
+    ["xdg-desktop-menu", ["forceupdate", "--mode", "user"]]
+  ];
 
-  if (result.error || result.status !== 0) {
-    warn("Desktop database refresh was skipped or failed; the launcher entry may appear after the desktop environment refreshes.");
+  for (const [command, args] of refreshCommands) {
+    const result = spawnSync(command, args, {
+      cwd: PROJECT_DIR,
+      env: process.env,
+      stdio: "ignore"
+    });
+
+    if (result.error || result.status !== 0) {
+      warn(`${command} was unavailable or failed; the application launcher may need to be reopened.`);
+    }
   }
 }
 

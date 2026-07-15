@@ -1,5 +1,6 @@
 import type { EmbeddedBrowserLogicalRect } from "@/features/mermaid-editor/lib/embedded-browser-rect";
 import type { BrowserToolWindowRequest } from "@/features/mermaid-editor/lib/browser-tool-window";
+import type { DocumentKind } from "@/features/mermaid-editor/lib/document-kind";
 import type { AiApplyResult, AiEditorCommand } from "@/features/mermaid-editor/lib/ai-command-types";
 import type { AiEditorContext } from "@/features/mermaid-editor/lib/ai-context";
 import type {
@@ -43,6 +44,10 @@ export type ElectronSavedFile = {
   path: string;
 };
 
+export type ElectronCreateProjectDocumentResult =
+  | { status: "created"; file: ElectronSavedFile; text: string }
+  | { status: "exists"; file: ElectronSavedFile };
+
 export type ElectronImageAsset = {
   src: string;
   displaySrc: string;
@@ -63,6 +68,12 @@ export type ElectronBridge = {
   openFilePath: (path: string) => Promise<ElectronOpenedFile>;
   saveFile: (path: string, text: string) => Promise<ElectronSavedFile>;
   saveFileAs: (suggestedName: string, text: string) => Promise<ElectronSavedFile | null>;
+  createProjectDocument: (request: {
+    rootPath: string;
+    fileName: string;
+    documentKind: DocumentKind;
+    text: string;
+  }) => Promise<ElectronCreateProjectDocumentResult>;
   pickImageAsset: (documentPath: string | null) => Promise<ElectronImageAsset | null>;
   importImageAssetPath: (documentPath: string, imagePath: string) => Promise<ElectronImageAsset>;
   importImageAssetBytes: (documentPath: string, fileName: string, bytes: number[]) => Promise<ElectronImageAsset>;

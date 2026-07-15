@@ -3,6 +3,7 @@ import {
   ColorWheel,
   Expand as Maximize2,
   Eye,
+  EmptyPage,
   FloppyDiskArrowOut,
   FrameSimple,
   MoreHoriz,
@@ -44,6 +45,7 @@ export function SecondaryActionsMenu({
   onOpenChange,
   onAddNode,
   onAddImageNode,
+  onAddMarkdownDocument,
   onCreateGroup,
   onSaveAs,
   onDirectionChange,
@@ -65,6 +67,7 @@ export function SecondaryActionsMenu({
   onOpenChange: (open: boolean) => void;
   onAddNode: () => void;
   onAddImageNode: () => void;
+  onAddMarkdownDocument: () => void;
   onCreateGroup: () => void;
   onSaveAs: () => void;
   onDirectionChange: (direction: GraphDirection) => void;
@@ -121,6 +124,16 @@ export function SecondaryActionsMenu({
           >
             <FrameSimple className="size-4" />
             添加图片节点
+          </Button>
+          <Button
+            data-floating-action-item
+            variant="ghost"
+            className={cn(EDITOR_CHROME_CLASSES.menuRow, "disabled:opacity-40")}
+            onClick={() => runAndClose(onAddMarkdownDocument)}
+            disabled={!editable}
+          >
+            <EmptyPage className="size-4" />
+            添加 Markdown 文档
           </Button>
           <Button
             data-floating-action-item

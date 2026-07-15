@@ -77,6 +77,17 @@ export function createElectronRuntime(): EditorRuntime {
         file: { name: ensureRuntimeDocumentFileName(saved.name, documentKind), path: saved.path }
       };
     },
+    async createProjectDocument(request) {
+      const result = await bridge.createProjectDocument(request);
+      if (result.status === "exists") {
+        return { status: "exists", file: result.file };
+      }
+      return {
+        status: "created",
+        file: result.file,
+        text: result.text
+      };
+    },
     async pickImageAsset(file) {
       if (!file?.path) return { status: "needs-document" };
       const asset = await bridge.pickImageAsset(file.path);

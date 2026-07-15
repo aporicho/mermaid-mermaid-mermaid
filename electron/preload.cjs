@@ -46,6 +46,9 @@ contextBridge.exposeInMainWorld("mmmElectron", {
   saveFileAs(suggestedName, text) {
     return ipcRenderer.invoke("mmm:file:save-as", { suggestedName, text });
   },
+  createProjectDocument(request) {
+    return ipcRenderer.invoke("mmm:project:create-document", request);
+  },
   pickImageAsset(documentPath) {
     return ipcRenderer.invoke("mmm:image:pick", documentPath);
   },

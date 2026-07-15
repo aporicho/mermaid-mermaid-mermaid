@@ -64,6 +64,7 @@ type UseEditorWindowActionsArgs = {
   openInspectorPanel: () => void;
   applyEditorCommand: (command: EditorCommand) => void;
   recordRecentAction: (type: string, target?: AiRecentAction["target"], summary?: string) => void;
+  onMarkdownFileSaved?: (path: string, text: string) => void;
 };
 
 export function useEditorWindowActions({
@@ -82,7 +83,8 @@ export function useEditorWindowActions({
   openRuntimeFileRequest,
   openInspectorPanel,
   applyEditorCommand,
-  recordRecentAction
+  recordRecentAction,
+  onMarkdownFileSaved
 }: UseEditorWindowActionsArgs) {
   async function openProjectMarkdownWindow(file: ProjectFileEntry) {
     if (!isSupportedMarkdownFilePath(file.path)) return;
@@ -145,6 +147,7 @@ export function useEditorWindowActions({
         )
       );
       setRecentFiles((current) => upsertRecentFile(current, result.file));
+      if (result.file.path) onMarkdownFileSaved?.(result.file.path, targetWindow.value);
       setStatus(`已保存 ${savedTitle}。`);
     } catch (error) {
       showFileWorkflowError(error, "保存 Markdown 窗口失败。");

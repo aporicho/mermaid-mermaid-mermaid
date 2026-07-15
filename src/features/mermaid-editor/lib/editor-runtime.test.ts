@@ -19,6 +19,11 @@ function electronBridge(): ElectronBridge {
     openFilePath: vi.fn(() => Promise.resolve({ name: "diagram.mmd", path: "/tmp/diagram.mmd", text: "flowchart TD" })),
     saveFile: vi.fn(() => Promise.resolve({ name: "diagram.mmd", path: "/tmp/diagram.mmd" })),
     saveFileAs: vi.fn(() => Promise.resolve({ name: "diagram.mmd", path: "/tmp/diagram.mmd" })),
+    createProjectDocument: vi.fn(() => Promise.resolve({
+      status: "created" as const,
+      file: { name: "notes.md", path: "/tmp/notes.md" },
+      text: "# notes\n"
+    })),
     pickImageAsset: vi.fn(() => Promise.resolve(null)),
     importImageAssetPath: vi.fn(() => Promise.resolve({ src: "assets/demo.png", displaySrc: "mmm-asset://local/?path=%2Ftmp%2Fdemo.png", path: "/tmp/demo.png" })),
     importImageAssetBytes: vi.fn(() => Promise.resolve({ src: "assets/demo.png", displaySrc: "mmm-asset://local/?path=%2Ftmp%2Fdemo.png", path: "/tmp/demo.png" })),

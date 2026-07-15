@@ -114,6 +114,12 @@ export function createWebRuntime(): EditorRuntime {
         file: { name: ensureRuntimeDocumentFileName(handle.name || normalizedName, documentKind), handle }
       };
     },
+    async createProjectDocument() {
+      return {
+        status: "unsupported",
+        message: "网页版无法在项目文件夹中创建 Markdown 文档，请使用 Electron 桌面版。"
+      };
+    },
     async pickImageAsset() {
       return {
         status: "unsupported",

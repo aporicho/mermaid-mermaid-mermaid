@@ -69,12 +69,14 @@ export function useKonvaCanvasModel({
   mermaidEdgeRoutes,
   layoutMode,
   imageDisplaySrcBySrc,
+  markdownDocumentPreviewByNodeId = {},
   visualTokens = CANVAS_VISUAL_TOKENS,
   geometryTokens,
   motion: motionProp,
   onEditorCommand,
   onOpenNodeAction,
   onEditNodeAction,
+  onRequestMarkdownDocumentPreview,
   onPointerWorldChange,
   onLiveStateChange
 }: UseKonvaCanvasModelArgs) {
@@ -300,6 +302,7 @@ export function useKonvaCanvasModel({
     edgeLabelThemeTokens,
     runtimeCreateScale: runtimeMotion.canvas.createScale,
     imageDisplaySrcBySrc,
+    markdownDocumentPreviewByNodeId,
     alignmentGuides: dragMembership.alignmentGuides,
     hoveredNodeId,
     hoveredSubgraphId,
@@ -341,6 +344,7 @@ export function useKonvaCanvasModel({
     onEndDrag: dragMembership.finishKonvaDrag,
     onOpenNodeAction,
     onEditNodeAction,
+    onRequestMarkdownDocumentPreview,
     onInlineEditChange: setInlineEdit,
     onInlineEditCommit: commitInlineEdit
   };

@@ -6,6 +6,7 @@ import type { InlineEdit } from "@/features/mermaid-editor/components/konva-canv
 import { CanvasNodeActionBadge } from "@/features/mermaid-editor/components/konva-canvas/node-action-ui";
 import { CanvasNodeImage } from "@/features/mermaid-editor/components/konva-canvas/node-image";
 import { CanvasNodeLinkCard } from "@/features/mermaid-editor/components/konva-canvas/node-link-card";
+import { MarkdownDocumentCard } from "@/features/mermaid-editor/components/konva-canvas/markdown-document-card";
 import { CanvasNodeShape } from "@/features/mermaid-editor/components/konva-canvas/node-shapes";
 import { scaleLocalPointFromCenter } from "@/features/mermaid-editor/components/konva-canvas/render-utils";
 import type { CanvasNodeMotionVisual } from "@/features/mermaid-editor/components/konva-canvas/types";
@@ -26,6 +27,7 @@ import type { CanvasNode, EditorMode, Selection } from "@/features/mermaid-edito
 import { normalizeNodeAction } from "@/features/mermaid-editor/lib/node-actions";
 import { normalizeImageAsset } from "@/features/mermaid-editor/lib/node-assets";
 import { normalizeCanvasNodePreview } from "@/features/mermaid-editor/lib/node-preview";
+import { isMarkdownDocumentNode, type MarkdownDocumentPreview } from "@/features/mermaid-editor/lib/markdown-document";
 import type { NodeGeometryTokens } from "@/features/mermaid-editor/lib/node-geometry";
 import { buildNodeGeometry } from "@/features/mermaid-editor/lib/node-geometry";
 import type { ViewFilters } from "@/features/mermaid-editor/lib/view-filters";
@@ -52,6 +54,7 @@ type KonvaNodeLayerProps = {
   nodeMotion: Record<string, CanvasNodeMotionVisual>;
   nodeProximityScale: Record<string, number>;
   imageDisplaySrcBySrc: Record<string, string>;
+  markdownDocumentPreviewByNodeId: Record<string, MarkdownDocumentPreview>;
   runtimeCreateScale: number;
   visualTokens: CanvasVisualTokens;
   nodeThemeTokens: NodeGeometryTokens;
@@ -63,6 +66,7 @@ type KonvaNodeLayerProps = {
   onNodeContextMenu: (event: KonvaEventObject<PointerEvent | MouseEvent>, node: CanvasNode) => void;
   onNodeAnchorPointerDown: (event: KonvaEventObject<MouseEvent>, hit: HitTarget, world: CanvasPoint) => void;
   onOpenNodeAction?: (node: CanvasNode) => void;
+  onRequestMarkdownDocumentPreview?: (node: CanvasNode) => void;
 };
 
 export function KonvaNodeLayer({
@@ -85,6 +89,7 @@ export function KonvaNodeLayer({
   nodeMotion,
   nodeProximityScale,
   imageDisplaySrcBySrc,
+  markdownDocumentPreviewByNodeId,
   runtimeCreateScale,
   visualTokens,
   nodeThemeTokens,
@@ -95,7 +100,8 @@ export function KonvaNodeLayer({
   onCanvasDoubleClick,
   onNodeContextMenu,
   onNodeAnchorPointerDown,
-  onOpenNodeAction
+  onOpenNodeAction,
+  onRequestMarkdownDocumentPreview
 }: KonvaNodeLayerProps) {
   if (!viewFilters.nodes) return null;
 
@@ -122,7 +128,10 @@ export function KonvaNodeLayer({
         const linkPreview = normalizeCanvasNodePreview(node.preview);
         const imageAsset = normalizeImageAsset(node.asset);
         const isLinkCardNode = Boolean(linkPreview);
-        const isImageNode = Boolean(imageAsset) && !isLinkCardNode;
+        const isMarkdownDocument = isMarkdownDocumentNode(node);
+        const isImageNode = Boolean(imageAsset) && !isLinkCardNode && !isMarkdownDocument;
+        const isStandardNode = !isImageNode && !isLinkCardNode ? !isMarkdownDocument : false;
+        const nodeAction = !isImageNode && !isLinkCardNode && normalizeNodeAction(node.action);
         const imageDisplaySrc = imageAsset ? imageDisplaySrcBySrc[imageAsset.src] || imageAsset.src : undefined;
         const previewCoverSrc = linkPreview?.cover?.src ? imageDisplaySrcBySrc[linkPreview.cover.src] || linkPreview.cover.src : undefined;
         const nodeVisualTransform = centerScaleTransform(geometry.frame);
@@ -161,14 +170,16 @@ export function KonvaNodeLayer({
               scaleY={visualScale}
             >
               {!isImageNode && !isLinkCardNode ? (
-                <CanvasNodeShape
-                  node={node}
-                  width={geometry.frame.width}
-                  height={geometry.frame.height}
-                  stroke={nodeVisual.stroke}
-                  strokeWidth={nodeStrokeWidth}
-                  visualTokens={visualTokens}
-                />
+                !isMarkdownDocument ? (
+                  <CanvasNodeShape
+                    node={node}
+                    width={geometry.frame.width}
+                    height={geometry.frame.height}
+                    stroke={nodeVisual.stroke}
+                    strokeWidth={nodeStrokeWidth}
+                    visualTokens={visualTokens}
+                  />
+                ) : null
               ) : null}
               {isImageNode ? (
                 <Rect
@@ -211,7 +222,20 @@ export function KonvaNodeLayer({
                   onOpen={() => onOpenNodeAction?.(node)}
                 />
               ) : null}
-              {!isImageNode && !isLinkCardNode ? (
+              {isMarkdownDocument ? (
+                <MarkdownDocumentCard
+                  node={node}
+                  width={geometry.frame.width}
+                  height={geometry.frame.height}
+                  stroke={nodeVisual.stroke}
+                  strokeWidth={nodeStrokeWidth}
+                  textFill={nodeVisual.textFill}
+                  visualTokens={visualTokens}
+                  preview={markdownDocumentPreviewByNodeId[node.id]}
+                  onRequestPreview={onRequestMarkdownDocumentPreview}
+                />
+              ) : null}
+              {isStandardNode ? (
                 <Text
                   x={geometry.textBox.x}
                   y={geometry.textBox.y}
@@ -230,9 +254,9 @@ export function KonvaNodeLayer({
                   visible={viewFilters.nodeLabels && !(inlineEdit?.type === "node" && inlineEdit.id === node.id)}
                 />
               ) : null}
-              {!isImageNode && !isLinkCardNode && normalizeNodeAction(node.action) ? (
+              {!isMarkdownDocument && nodeAction ? (
                 <CanvasNodeActionBadge
-                  actionKind={node.action?.kind || "url"}
+                  actionKind={nodeAction.kind}
                   x={Math.max(8, geometry.frame.width - 24)}
                   y={6}
                   visualTokens={visualTokens}
@@ -285,7 +309,8 @@ export function KonvaNodeLayer({
         const linkPreview = normalizeCanvasNodePreview(node.preview);
         const imageAsset = normalizeImageAsset(node.asset);
         const isLinkCardNode = Boolean(linkPreview);
-        const isImageNode = Boolean(imageAsset) && !isLinkCardNode;
+        const isMarkdownDocument = isMarkdownDocumentNode(node);
+        const isImageNode = Boolean(imageAsset) && !isLinkCardNode && !isMarkdownDocument;
         const imageDisplaySrc = imageAsset ? imageDisplaySrcBySrc[imageAsset.src] || imageAsset.src : undefined;
         const previewCoverSrc = linkPreview?.cover?.src ? imageDisplaySrcBySrc[linkPreview.cover.src] || linkPreview.cover.src : undefined;
         const nodeVisualTransform = centerScaleTransform(geometry.frame);
@@ -306,7 +331,7 @@ export function KonvaNodeLayer({
               scaleX={motionVisual.scale}
               scaleY={motionVisual.scale}
             >
-              {!isImageNode && !isLinkCardNode ? (
+              {!isImageNode && !isLinkCardNode && !isMarkdownDocument ? (
                 <CanvasNodeShape
                   node={node}
                   width={geometry.frame.width}
@@ -340,7 +365,19 @@ export function KonvaNodeLayer({
                   visualTokens={visualTokens}
                 />
               ) : null}
-              {!isImageNode && !isLinkCardNode ? (
+              {isMarkdownDocument ? (
+                <MarkdownDocumentCard
+                  node={node}
+                  width={geometry.frame.width}
+                  height={geometry.frame.height}
+                  stroke={visualTokens.colors.accent}
+                  strokeWidth={visualTokens.node.strokeWidth + motionVisual.highlight * visualTokens.node.emphasizedStrokeWidth}
+                  textFill={visualTokens.colors.nodeText}
+                  visualTokens={visualTokens}
+                  preview={markdownDocumentPreviewByNodeId[node.id]}
+                />
+              ) : null}
+              {!isImageNode && !isLinkCardNode && !isMarkdownDocument ? (
                 <Text
                   x={geometry.textBox.x}
                   y={geometry.textBox.y}

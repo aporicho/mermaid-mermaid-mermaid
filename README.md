@@ -5,6 +5,7 @@
 ## 核心能力
 
 - 在无限画布上编辑 Mermaid flowchart。
+- 把项目内 Markdown 文件作为带正文摘要的文档卡片放入 Mermaid 画布，并在文档卡片之间建立普通 Mermaid 连线。
 - 在 Mermaid 源码、内部图模型和 `%% canvas-layout:` 布局注释之间保持同步。
 - 对非 flowchart 的 Mermaid 图提供只渲染模式。
 - 使用 Milkdown/Crepe 阅读和编辑 Markdown 文件。
@@ -12,11 +13,30 @@
 - 在 `canvas-layout` 注释里保存节点位置、节点颜色、连线路由、视口和文件级主题。
 - 支持打开、保存、另存为、下载兜底、撤销、重做、复制、粘贴、节点编辑、连线编辑、创建连接和端点重连。
 - 桌面端支持项目文件夹浏览，递归展示 `.mmd` / `.mermaid` / `.md` / `.markdown` / `.canvas.json` 文件，并可在多个项目文档之间切换。
+- Electron 桌面端可从项目树拖入 Markdown 文档卡片，或从画布菜单关联已有文档、在项目根目录安全新建文档；双击卡片在浮动 Markdown 窗口中打开。
 - Mermaid 支持无限画布、渲染视图和源码视图；Markdown 支持 Markdown 视图和源码视图；Canvas 支持独立无限白板画布。
 - 桌面端支持底部悬浮终端面板，终端在当前项目目录或当前文件目录中启动，并可在可用的受控 shell 之间切换。
 - 应用主题会同时作用于 CSS 变量、Konva/Pixi 画布 token、Mermaid `themeVariables` 和终端 ANSI 16 色。
 
 ## 编译安装使用
+
+### Arch Linux 开发环境一行安装
+
+在项目仓库根目录执行：
+
+```bash
+bash scripts/install-arch.sh
+```
+
+也可以直接获取仓库中的脚本并在当前工作区执行：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/aporicho/mermaid-mermaid-mermaid/main/scripts/install-arch.sh | bash
+```
+
+脚本不会克隆、拉取或清理源码，也不会自行调用 `sudo`。如果缺少 Arch 系统包，它会打印一条精确的 `sudo pacman -S --needed ...` 命令并退出；执行提示的命令后重新运行安装脚本即可。
+
+依赖就绪后，脚本会使用 Node.js 24 和锁文件安装 npm 依赖，依次运行 lint、测试、类型检查和生产构建，再生成、安装并启动当前源码对应的 Electron 桌面应用。源码仍保留在当前工作区，可继续使用 `npm run dev` 或 `npm run desktop:dev` 开发。
 
 安装依赖：
 
@@ -132,6 +152,14 @@ npm run windows:run
 - MacBook 触控板双指滚动用于平移无限画布和渲染视图。
 - Safari 捏合手势或 Cmd/Ctrl + 滚轮会围绕指针缩放。
 - 当输入设备没有横向滚动量时，Shift + 滚轮转为水平平移。
+
+## Markdown 文档卡片
+
+- Markdown 文档卡片使用现有 Mermaid 节点和 `click ... href` 语法持久化，不改变标准 Mermaid 文件结构。
+- 卡片标题、项目相对路径和已保存正文的首个有效段落显示在无限画布中；摘要只作为运行时预览，不写入 Mermaid 源码。
+- 同一画布中每个 Markdown 文件只保留一个卡片；重复添加会定位已有卡片。
+- 文档卡片之间的边只属于当前 Mermaid 图，不会修改 Markdown 正文或 frontmatter。
+- 文件缺失时保留卡片和连线，并显示失效状态。
 
 ## 质量检查
 

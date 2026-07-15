@@ -25,6 +25,7 @@ import type { RuntimeEditorMotion } from "@/features/mermaid-editor/lib/editor-m
 import type { EditorCommand } from "@/features/mermaid-editor/lib/interaction/commands";
 import type { ViewFilters } from "@/features/mermaid-editor/lib/view-filters";
 import type { WorkspaceView } from "@/features/mermaid-editor/lib/workspace-view";
+import type { MarkdownDocumentPreview } from "@/features/mermaid-editor/lib/markdown-document";
 
 const KonvaCanvas = lazy(() => import("@/features/mermaid-editor/components/konva-canvas").then((mod) => ({ default: mod.KonvaCanvas })));
 
@@ -46,6 +47,7 @@ type EditorWorkspaceSurfaceProps = {
   mermaidEdgeRoutes: DagreEdgeRoute[];
   layoutMode: LayoutMode;
   imageDisplaySrcBySrc: Record<string, string>;
+  markdownDocumentPreviewByNodeId: Record<string, MarkdownDocumentPreview>;
   visualTokens: CanvasVisualTokens;
   geometryTokens: EditorThemeGeometryTokens;
   motion: RuntimeEditorMotion;
@@ -63,6 +65,7 @@ type EditorWorkspaceSurfaceProps = {
   onEditNodeAction: (node: CanvasNode) => void;
   onPointerWorldChange: (point: { x: number; y: number }) => void;
   onLiveStateChange: (state: CanvasLiveState) => void;
+  onRequestMarkdownDocumentPreview: (node: CanvasNode) => void;
 };
 
 export function EditorWorkspaceSurface({
@@ -83,6 +86,7 @@ export function EditorWorkspaceSurface({
   mermaidEdgeRoutes,
   layoutMode,
   imageDisplaySrcBySrc,
+  markdownDocumentPreviewByNodeId,
   visualTokens,
   geometryTokens,
   motion,
@@ -99,7 +103,8 @@ export function EditorWorkspaceSurface({
   onOpenNodeAction,
   onEditNodeAction,
   onPointerWorldChange,
-  onLiveStateChange
+  onLiveStateChange,
+  onRequestMarkdownDocumentPreview
 }: EditorWorkspaceSurfaceProps) {
   if (documentKind === "canvas") {
     return (
@@ -127,6 +132,7 @@ export function EditorWorkspaceSurface({
           mermaidEdgeRoutes={mermaidEdgeRoutes}
           layoutMode={layoutMode}
           imageDisplaySrcBySrc={imageDisplaySrcBySrc}
+          markdownDocumentPreviewByNodeId={markdownDocumentPreviewByNodeId}
           visualTokens={visualTokens}
           geometryTokens={geometryTokens}
           motion={motion}
@@ -135,6 +141,7 @@ export function EditorWorkspaceSurface({
           onEditNodeAction={onEditNodeAction}
           onPointerWorldChange={onPointerWorldChange}
           onLiveStateChange={onLiveStateChange}
+          onRequestMarkdownDocumentPreview={onRequestMarkdownDocumentPreview}
         />
       </Suspense>
     );

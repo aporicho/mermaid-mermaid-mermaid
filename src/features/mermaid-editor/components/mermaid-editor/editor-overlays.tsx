@@ -1,4 +1,4 @@
-import { Suspense, lazy } from "react";
+import { Suspense, lazy, type ComponentProps } from "react";
 
 import {
   FileDropFeedbackBadge,
@@ -8,6 +8,7 @@ import {
 } from "@/features/mermaid-editor/components/file-workflow-feedback";
 import type { UnsavedPromptState } from "@/features/mermaid-editor/components/mermaid-editor/use-editor-file-workflow";
 import { NodeActionEditorDialog } from "@/features/mermaid-editor/components/node-action-editor-dialog";
+import { MarkdownDocumentDialog } from "@/features/mermaid-editor/components/markdown-document-dialog";
 import type { UnsavedPromptChoice } from "@/features/mermaid-editor/lib/desktop-close-workflow";
 import type { CanvasNode, CanvasNodeAction } from "@/features/mermaid-editor/lib/editor-types";
 import type { EditorTheme, EditorThemeId } from "@/features/mermaid-editor/lib/editor-theme";
@@ -22,6 +23,7 @@ type EditorOverlaysProps = {
   fileWorkflowError: FileWorkflowError | null;
   unsavedPrompt: UnsavedPromptState | null;
   nodeActionEditorNode?: CanvasNode;
+  markdownDocumentDialog?: ComponentProps<typeof MarkdownDocumentDialog>;
   projectFiles: ProjectFileEntry[];
   status: string;
   statusMessages: boolean;
@@ -44,6 +46,7 @@ export function EditorOverlays({
   fileWorkflowError,
   unsavedPrompt,
   nodeActionEditorNode,
+  markdownDocumentDialog,
   projectFiles,
   status,
   statusMessages,
@@ -74,6 +77,7 @@ export function EditorOverlays({
           onTestOpen={onExecuteNodeActionDraft}
         />
       ) : null}
+      {markdownDocumentDialog ? <MarkdownDocumentDialog {...markdownDocumentDialog} /> : null}
       {statusMessages && status ? (
         <div
           className="pointer-events-none fixed bottom-3 left-1/2 -translate-x-1/2 rounded-md border bg-card/95 px-3 py-2 text-xs text-muted-foreground backdrop-blur"

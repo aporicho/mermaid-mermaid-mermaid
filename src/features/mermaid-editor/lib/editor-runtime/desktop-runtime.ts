@@ -165,6 +165,7 @@ export function createDesktopRuntime(): EditorRuntime {
         file: { name: saved.name, path: saved.path }
       };
     },
+  async createProjectDocument() { return { status: "unsupported", message: "旧 Tauri 桌面壳暂不支持从画布新建项目文档，请使用 Electron 桌面版。" }; },
     async pickImageAsset(file) {
       if (!file?.path) return { status: "needs-document" };
       const asset = await tauriInvoke<DesktopImageAsset | null>("pick_image_asset", { documentPath: file.path });
