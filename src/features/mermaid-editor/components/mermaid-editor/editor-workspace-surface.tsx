@@ -49,6 +49,7 @@ type EditorWorkspaceSurfaceProps = {
   imageDisplaySrcBySrc: Record<string, string>;
   markdownDocumentPreviewByNodeId: Record<string, MarkdownDocumentPreview>;
   markdownSpellcheckEnabled: boolean;
+  markdownContentWidth: number;
   visualTokens: CanvasVisualTokens;
   geometryTokens: EditorThemeGeometryTokens;
   motion: RuntimeEditorMotion;
@@ -89,6 +90,7 @@ export function EditorWorkspaceSurface({
   imageDisplaySrcBySrc,
   markdownDocumentPreviewByNodeId,
   markdownSpellcheckEnabled,
+  markdownContentWidth,
   visualTokens,
   geometryTokens,
   motion,
@@ -155,6 +157,7 @@ export function EditorWorkspaceSurface({
         key={`${fileRef?.path || fileName}:markdown`}
         value={source}
         spellCheck={markdownSpellcheckEnabled}
+        contentWidth={markdownContentWidth}
         onChange={onMarkdownChange}
       />
     );

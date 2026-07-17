@@ -1,4 +1,5 @@
 import type { EditorTheme } from "./types";
+import type { DeepPartial } from "./markdown-theme";
 
 export type ThemeMode = "light" | "dark";
 
@@ -22,7 +23,7 @@ export type EditorThemeFileDefinition = {
   mode?: ThemeMode;
   order?: number;
   source?: ThemeSourceInfo;
-  theme?: Partial<Omit<EditorTheme, "version" | "id" | "name" | "description">>;
+  theme?: DeepPartial<Omit<EditorTheme, "version" | "id" | "name" | "description">>;
 };
 
 export type KittyThemePalette = {

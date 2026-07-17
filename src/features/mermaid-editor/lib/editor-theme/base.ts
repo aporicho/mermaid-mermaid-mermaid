@@ -3,27 +3,50 @@ import { CANVAS_VISUAL_TOKENS } from "@/features/mermaid-editor/lib/canvas-visua
 import { DEFAULT_EDGE_LABEL_GEOMETRY_TOKENS } from "@/features/mermaid-editor/lib/edge-label-geometry";
 import { DEFAULT_NODE_GEOMETRY_TOKENS } from "@/features/mermaid-editor/lib/node-geometry";
 import { SUBGRAPH_GEOMETRY_TOKENS } from "@/features/mermaid-editor/lib/subgraph-geometry";
+import { createDefaultMarkdownTheme, mergeMarkdownTheme, type DeepPartial } from "./markdown-theme";
 import { DEFAULT_EDITOR_MOTION, MERMAID_FONT_FAMILY, MONO_FONT_FAMILY, type EditorMotionTokens, type EditorTheme } from "./types";
 
-export type EditorThemeOverrides = Pick<EditorTheme, "id" | "name" | "description"> & Partial<Omit<EditorTheme, "version" | "id" | "name" | "description">>;
+export type EditorThemeOverrides = Pick<EditorTheme, "id" | "name" | "description"> &
+  DeepPartial<Omit<EditorTheme, "version" | "id" | "name" | "description">>;
+
+const BASE_UI: EditorTheme["ui"] = {
+  background: "#f8f3ec",
+  foreground: "#18130f",
+  icon: "#66584d",
+  card: "#fcf8f2",
+  popover: "#fcf8f2",
+  primary: "#ff4050",
+  secondary: "#eee8df",
+  muted: "#f0ebe4",
+  mutedForeground: "#6b625a",
+  accent: "#ffe7ea",
+  accentForeground: "#b91f31",
+  destructive: "#b91f31",
+  border: "#b8ada0"
+};
+
+const BASE_FONT: EditorTheme["font"] = {
+  familySans: MERMAID_FONT_FAMILY,
+  familyMono: MONO_FONT_FAMILY,
+  sizeUiXs: 12,
+  sizeUiSm: 14,
+  sizeNode: DEFAULT_NODE_GEOMETRY_TOKENS.fontSize,
+  sizeEdgeLabel: DEFAULT_EDGE_LABEL_GEOMETRY_TOKENS.fontSize,
+  sizeSource: 13,
+  sizeTerminal: 13,
+  weightRegular: 400,
+  weightMedium: 500,
+  weightBold: DEFAULT_NODE_GEOMETRY_TOKENS.fontWeight,
+  lineHeightNode: DEFAULT_NODE_GEOMETRY_TOKENS.lineHeight,
+  lineHeightEdgeLabel: DEFAULT_EDGE_LABEL_GEOMETRY_TOKENS.lineHeight,
+  lineHeightSource: 30,
+  lineHeightTerminal: 20,
+  letterSpacing: 0
+};
 
 export const EDITOR_THEME_BASE: Omit<EditorTheme, "id" | "name" | "description" | "baseThemeId"> = {
-  version: 4,
-  ui: {
-    background: "#f8f3ec",
-    foreground: "#18130f",
-    icon: "#66584d",
-    card: "#fcf8f2",
-    popover: "#fcf8f2",
-    primary: "#ff4050",
-    secondary: "#eee8df",
-    muted: "#f0ebe4",
-    mutedForeground: "#6b625a",
-    accent: "#ffe7ea",
-    accentForeground: "#b91f31",
-    destructive: "#b91f31",
-    border: "#b8ada0"
-  },
+  version: 5,
+  ui: BASE_UI,
   canvas: {
     surface: "#fbf6ef",
     nodeStroke: "#2a251f",
@@ -41,6 +64,7 @@ export const EDITOR_THEME_BASE: Omit<EditorTheme, "id" | "name" | "description" 
     background: "#f8f3ec",
     gridDot: "#18130f"
   },
+  markdown: createDefaultMarkdownTheme({ ui: BASE_UI, font: BASE_FONT }),
   ansi: {
     black: "#2a251f",
     red: "#b91f31",
@@ -67,24 +91,7 @@ export const EDITOR_THEME_BASE: Omit<EditorTheme, "id" | "name" | "description" 
     selectionBackground: "#ffe7ea",
     selectionForeground: "#18130f"
   },
-  font: {
-    familySans: MERMAID_FONT_FAMILY,
-    familyMono: MONO_FONT_FAMILY,
-    sizeUiXs: 12,
-    sizeUiSm: 14,
-    sizeNode: DEFAULT_NODE_GEOMETRY_TOKENS.fontSize,
-    sizeEdgeLabel: DEFAULT_EDGE_LABEL_GEOMETRY_TOKENS.fontSize,
-    sizeSource: 13,
-    sizeTerminal: 13,
-    weightRegular: 400,
-    weightMedium: 500,
-    weightBold: DEFAULT_NODE_GEOMETRY_TOKENS.fontWeight,
-    lineHeightNode: DEFAULT_NODE_GEOMETRY_TOKENS.lineHeight,
-    lineHeightEdgeLabel: DEFAULT_EDGE_LABEL_GEOMETRY_TOKENS.lineHeight,
-    lineHeightSource: 30,
-    lineHeightTerminal: 20,
-    letterSpacing: 0
-  },
+  font: BASE_FONT,
   space: {
     panelPadding: 16,
     panelHeaderHeight: 52,
@@ -182,20 +189,25 @@ export const EDITOR_THEME_BASE: Omit<EditorTheme, "id" | "name" | "description" 
 };
 
 export function createEditorTheme(overrides: EditorThemeOverrides): EditorTheme {
+  const ui = { ...EDITOR_THEME_BASE.ui, ...overrides.ui };
+  const font = { ...EDITOR_THEME_BASE.font, ...overrides.font };
+  const markdown = mergeMarkdownTheme(createDefaultMarkdownTheme({ ui, font }), overrides.markdown);
+
   return {
     ...EDITOR_THEME_BASE,
     ...overrides,
-    version: 4,
+    version: 5,
     id: overrides.id,
     name: overrides.name,
     description: overrides.description,
-    ui: { ...EDITOR_THEME_BASE.ui, ...overrides.ui },
+    ui,
     canvas: { ...EDITOR_THEME_BASE.canvas, ...overrides.canvas },
     source: { ...EDITOR_THEME_BASE.source, ...overrides.source },
     render: { ...EDITOR_THEME_BASE.render, ...overrides.render },
+    markdown,
     ansi: { ...EDITOR_THEME_BASE.ansi, ...overrides.ansi },
     terminal: { ...EDITOR_THEME_BASE.terminal, ...overrides.terminal },
-    font: { ...EDITOR_THEME_BASE.font, ...overrides.font },
+    font,
     space: { ...EDITOR_THEME_BASE.space, ...overrides.space },
     radius: { ...EDITOR_THEME_BASE.radius, ...overrides.radius },
     stroke: { ...EDITOR_THEME_BASE.stroke, ...overrides.stroke },
@@ -208,7 +220,7 @@ export function createEditorTheme(overrides: EditorThemeOverrides): EditorTheme 
   };
 }
 
-function mergeMotionTokens(fallback: EditorMotionTokens, overrides: Partial<EditorMotionTokens> | undefined): EditorMotionTokens {
+function mergeMotionTokens(fallback: EditorMotionTokens, overrides: DeepPartial<EditorMotionTokens> | undefined): EditorMotionTokens {
   return {
     duration: { ...fallback.duration, ...overrides?.duration },
     ease: { ...fallback.ease, ...overrides?.ease },

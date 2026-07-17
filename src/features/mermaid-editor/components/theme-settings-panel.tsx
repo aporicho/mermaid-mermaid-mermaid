@@ -4,15 +4,19 @@ import { ColorWheel, Terminal } from "iconoir-react/regular";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { MarkdownThemeSettings } from "@/features/mermaid-editor/components/markdown-theme-settings";
 import {
   BUILT_IN_EDITOR_THEME_CATALOG,
   BUILT_IN_EDITOR_THEMES,
   compileEditorTheme,
+  createDefaultMarkdownTheme,
   DEFAULT_EDITOR_THEME,
   type EditorTheme,
   type EditorThemeId,
   isBuiltInThemeId,
   isHexColor,
+  mergeMarkdownTheme,
+  normalizeMarkdownTheme,
   themeModeLabel
 } from "@/features/mermaid-editor/lib/editor-theme";
 import { OVERLAY_Z_INDEX } from "@/lib/overlay-layers";
@@ -20,6 +24,16 @@ import { OVERLAY_Z_INDEX } from "@/lib/overlay-layers";
 type NumberKeys<T> = {
   [K in keyof T]: T[K] extends number ? K : never;
 }[keyof T];
+
+type ThemeSettingsSection = "overview" | "markdown" | "canvas" | "terminal" | "advanced";
+
+const themeSettingsSections = [
+  ["overview", "概览"],
+  ["markdown", "Markdown"],
+  ["canvas", "画布"],
+  ["terminal", "终端"],
+  ["advanced", "高级"]
+] as const satisfies readonly (readonly [ThemeSettingsSection, string])[];
 
 const ansiColorRows = [
   ["black", "red", "green", "yellow", "blue", "magenta", "cyan", "white"],
@@ -64,6 +78,7 @@ export function ThemeSettingsPanel({
   onSave: () => void;
 }) {
   const [themeQuery, setThemeQuery] = useState("");
+  const [activeSection, setActiveSection] = useState<ThemeSettingsSection>("overview");
 
   function selectTheme(value: string) {
     const nextThemeId = normalizeThemeId(value);
@@ -100,6 +115,14 @@ export function ThemeSettingsPanel({
 
   function updateAnsiColor(key: keyof EditorTheme["ansi"], value: string) {
     updateCustomTheme((theme) => ({ ...theme, ansi: { ...theme.ansi, [key]: value } }));
+  }
+
+  function updateMarkdown(markdown: EditorTheme["markdown"]) {
+    updateCustomTheme((theme) => ({ ...theme, markdown: normalizeMarkdownTheme(markdown, theme.markdown) }));
+  }
+
+  function resetMarkdown() {
+    updateCustomTheme((theme) => ({ ...theme, markdown: createDefaultMarkdownTheme(theme) }));
   }
 
   function resetTerminalColors() {
@@ -181,8 +204,22 @@ export function ThemeSettingsPanel({
         </header>
 
         <div className="min-h-0 overflow-y-auto p-4">
+          <nav className="sticky -top-4 z-10 mb-4 grid grid-cols-5 gap-1 border-b bg-card py-3" aria-label="主题设置分类">
+            {themeSettingsSections.map(([section, label]) => (
+              <button
+                key={section}
+                type="button"
+                className={`h-8 rounded-md px-1 text-xs transition-colors ${
+                  activeSection === section ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                }`}
+                onClick={() => setActiveSection(section)}
+              >
+                {label}
+              </button>
+            ))}
+          </nav>
           <div className="grid gap-5">
-            <div className="grid gap-2">
+            <div className={activeSection === "overview" ? "grid gap-2" : "hidden"}>
               <Label>预设</Label>
               <Input value={themeQuery} placeholder={`搜索 ${BUILT_IN_EDITOR_THEMES.length} 个主题`} onChange={(event) => setThemeQuery(event.target.value)} />
               <div className="max-h-72 overflow-y-auto rounded-md border bg-background">
@@ -196,8 +233,8 @@ export function ThemeSettingsPanel({
                     onClick={() => selectTheme(entry.id)}
                   >
                     <span className="flex shrink-0 overflow-hidden rounded-sm border">
-                      {entry.swatches.map((color) => (
-                        <span key={color} className="h-6 w-5" style={{ backgroundColor: color }} />
+                      {entry.swatches.map((color, index) => (
+                        <span key={`${color}-${index}`} className="h-6 w-5" style={{ backgroundColor: color }} />
                       ))}
                     </span>
                     <span className="min-w-0 flex-1">
@@ -233,9 +270,9 @@ export function ThemeSettingsPanel({
               </div>
             </div>
 
-            <ThemePreview theme={activeTheme} />
+            {activeSection === "overview" ? <ThemePreview theme={activeTheme} /> : null}
 
-            <div className="grid gap-3">
+            <div className={activeSection === "advanced" ? "grid gap-3" : "hidden"}>
               <div className="flex items-center justify-between gap-3">
                 <h3 className="text-xs font-medium text-muted-foreground">动效</h3>
                 <Button variant="ghost" className="h-8 px-2" onClick={resetMotion}>
@@ -261,7 +298,7 @@ export function ThemeSettingsPanel({
               <ThemeNumberField label="靠近时长" value={activeTheme.motion.canvas.proximityDuration} min={0} max={0.8} step={0.01} onChange={(value) => updateMotionCanvasNumber("proximityDuration", value)} />
             </div>
 
-            <div className="grid gap-3">
+            <div className={activeSection === "overview" ? "grid gap-3" : "hidden"}>
               <h3 className="text-xs font-medium text-muted-foreground">界面</h3>
               <ThemeColorField label="背景" value={activeTheme.ui.background} onChange={(value) => updateUiColor("background", value)} />
               <ThemeColorField label="文字" value={activeTheme.ui.foreground} onChange={(value) => updateUiColor("foreground", value)} />
@@ -278,7 +315,11 @@ export function ThemeSettingsPanel({
               <ThemeColorField label="危险" value={activeTheme.ui.destructive} onChange={(value) => updateUiColor("destructive", value)} />
             </div>
 
-            <div className="grid gap-3">
+            {activeSection === "markdown" ? (
+              <MarkdownThemeSettings markdown={activeTheme.markdown} onChange={updateMarkdown} onReset={resetMarkdown} />
+            ) : null}
+
+            <div className={activeSection === "canvas" ? "grid gap-3" : "hidden"}>
               <h3 className="text-xs font-medium text-muted-foreground">画布颜色</h3>
               <ThemeColorField label="表面" value={activeTheme.canvas.surface} onChange={(value) => updateCanvasColor("surface", value)} />
               <ThemeColorField label="节点描边" value={activeTheme.canvas.nodeStroke} onChange={(value) => updateCanvasColor("nodeStroke", value)} />
@@ -290,14 +331,14 @@ export function ThemeSettingsPanel({
               <ThemeColorField label="无效预览" value={activeTheme.canvas.previewInvalid} onChange={(value) => updateCanvasColor("previewInvalid", value)} />
             </div>
 
-            <div className="grid gap-3">
+            <div className={activeSection === "advanced" ? "grid gap-3" : "hidden"}>
               <h3 className="text-xs font-medium text-muted-foreground">源码与渲染</h3>
               <ThemeColorField label="行分隔" value={activeTheme.source.line} onChange={(value) => updateSourceColor("line", value)} />
               <ThemeColorField label="渲染背景" value={activeTheme.render.background} onChange={(value) => updateRenderColor("background", value)} />
               <ThemeColorField label="渲染网格" value={activeTheme.render.gridDot} onChange={(value) => updateRenderColor("gridDot", value)} />
             </div>
 
-            <div className="grid gap-3">
+            <div className={activeSection === "terminal" ? "grid gap-3" : "hidden"}>
               <div className="flex items-center justify-between gap-3">
                 <h3 className="text-xs font-medium text-muted-foreground">终端</h3>
                 <Button variant="ghost" className="h-8 px-2" onClick={resetTerminalColors}>
@@ -315,7 +356,7 @@ export function ThemeSettingsPanel({
               <ThemeNumberField label="行高" value={activeTheme.font.lineHeightTerminal} min={14} max={32} step={1} onChange={(value) => updateFontNumber("lineHeightTerminal", value)} />
             </div>
 
-            <div className="grid gap-3">
+            <div className={activeSection === "terminal" ? "grid gap-3" : "hidden"}>
               <div className="flex items-center justify-between gap-3">
                 <h3 className="text-xs font-medium text-muted-foreground">ANSI 16 色</h3>
                 <Button variant="ghost" className="h-8 px-2" onClick={resetAnsiColors}>
@@ -333,7 +374,7 @@ export function ThemeSettingsPanel({
               </div>
             </div>
 
-            <div className="grid gap-3">
+            <div className={activeSection === "canvas" ? "grid gap-3" : "hidden"}>
               <h3 className="text-xs font-medium text-muted-foreground">节点</h3>
               <ThemeNumberField label="字号" value={activeTheme.font.sizeNode} min={10} max={28} step={1} onChange={(value) => updateFontNumber("sizeNode", value)} />
               <ThemeNumberField label="行高" value={activeTheme.font.lineHeightNode} min={12} max={42} step={1} onChange={(value) => updateFontNumber("lineHeightNode", value)} />
@@ -346,7 +387,7 @@ export function ThemeSettingsPanel({
               <ThemeNumberField label="多边形圆角" value={activeTheme.radius.polygonCorner} min={0} max={24} step={1} onChange={(value) => updateRadiusNumber("polygonCorner", value)} />
             </div>
 
-            <div className="grid gap-3">
+            <div className={activeSection === "canvas" ? "grid gap-3" : "hidden"}>
               <h3 className="text-xs font-medium text-muted-foreground">连线标签</h3>
               <ThemeNumberField label="字号" value={activeTheme.edgeLabel.fontSize} min={9} max={24} step={1} onChange={(value) => updateEdgeLabelNumber("fontSize", value)} />
               <ThemeNumberField label="行高" value={activeTheme.edgeLabel.lineHeight} min={10} max={36} step={1} onChange={(value) => updateEdgeLabelNumber("lineHeight", value)} />
@@ -357,7 +398,7 @@ export function ThemeSettingsPanel({
               <ThemeNumberField label="标签圆角" value={activeTheme.radius.edgeLabel} min={0} max={24} step={1} onChange={(value) => updateRadiusNumber("edgeLabel", value)} />
             </div>
 
-            <div className="grid gap-3">
+            <div className={activeSection === "canvas" ? "grid gap-3" : "hidden"}>
               <h3 className="text-xs font-medium text-muted-foreground">分组</h3>
               <ThemeNumberField label="标题字号" value={activeTheme.subgraph.titleFontSize} min={9} max={24} step={1} onChange={(value) => updateSubgraphNumber("titleFontSize", value)} />
               <ThemeNumberField label="标题高度" value={activeTheme.subgraph.titleHeight} min={18} max={56} step={1} onChange={(value) => updateSubgraphNumber("titleHeight", value)} />
@@ -369,7 +410,7 @@ export function ThemeSettingsPanel({
               <ThemeNumberField label="填充透明" value={activeTheme.subgraph.fillOpacity} min={0} max={1} step={0.01} onChange={(value) => updateSubgraphNumber("fillOpacity", value)} />
             </div>
 
-            <div className="grid gap-3">
+            <div className={activeSection === "canvas" ? "grid gap-3" : "hidden"}>
               <h3 className="text-xs font-medium text-muted-foreground">线与交互</h3>
               <ThemeNumberField label="节点线宽" value={activeTheme.stroke.node} min={0.5} max={8} step={0.5} onChange={(value) => updateStrokeNumber("node", value)} />
               <ThemeNumberField label="节点强调" value={activeTheme.stroke.nodeEmphasized} min={0.5} max={10} step={0.5} onChange={(value) => updateStrokeNumber("nodeEmphasized", value)} />
@@ -384,7 +425,7 @@ export function ThemeSettingsPanel({
               <ThemeNumberField label="箭头宽度" value={activeTheme.canvasInteraction.pointerWidth} min={0} max={32} step={1} onChange={(value) => updateCanvasInteractionNumber("pointerWidth", value)} />
             </div>
 
-            <div className="grid gap-3">
+            <div className={activeSection === "canvas" ? "grid gap-3" : "hidden"}>
               <h3 className="text-xs font-medium text-muted-foreground">网格</h3>
               <ThemeNumberField label="小格步长" value={activeTheme.space.gridMinorStep} min={8} max={80} step={1} onChange={(value) => updateSpaceNumber("gridMinorStep", value)} />
               <ThemeNumberField label="主格倍率" value={activeTheme.space.gridMajorEvery} min={2} max={12} step={1} onChange={(value) => updateSpaceNumber("gridMajorEvery", value)} />
@@ -394,7 +435,7 @@ export function ThemeSettingsPanel({
               <ThemeNumberField label="点数上限" value={activeTheme.canvasInteraction.gridMaxDots} min={800} max={20000} step={100} onChange={(value) => updateCanvasInteractionNumber("gridMaxDots", value)} />
             </div>
 
-            {themeDiagnostics.length ? (
+            {activeSection === "advanced" && themeDiagnostics.length ? (
               <div className="grid gap-2 rounded-md border border-destructive/30 bg-background/60 p-3">
                 <h3 className="text-xs font-medium text-destructive">主题诊断</h3>
                 {themeDiagnostics.map((diagnostic) => (
@@ -565,7 +606,7 @@ function ThemePreview({ theme }: { theme: EditorTheme }) {
 
 function toCustomTheme(theme: EditorTheme): EditorTheme {
   return {
-    version: 4,
+    version: 5,
     id: "custom",
     name: theme.id === "custom" ? theme.name : "自定义主题",
     description: theme.description,
@@ -574,6 +615,7 @@ function toCustomTheme(theme: EditorTheme): EditorTheme {
     canvas: { ...theme.canvas },
     source: { ...theme.source },
     render: { ...theme.render },
+    markdown: mergeMarkdownTheme(theme.markdown, theme.markdown),
     ansi: { ...theme.ansi },
     terminal: { ...theme.terminal },
     font: { ...theme.font },

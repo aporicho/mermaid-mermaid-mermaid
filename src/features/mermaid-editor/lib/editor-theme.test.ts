@@ -114,7 +114,101 @@ describe("editor theme", () => {
     expect(variables["--source-line"]).toBeDefined();
     expect(variables["--terminal-background"]).toBeDefined();
     expect(variables["--ansi-bright-red"]).toBeDefined();
+    expect(variables["--markdown-body-color"]).toBe(DEFAULT_EDITOR_THEME.markdown.body.color);
+    expect(variables["--markdown-h1-font-size"]).toBe(`${DEFAULT_EDITOR_THEME.markdown.heading.h1.fontSize}px`);
+    expect(variables["--markdown-code-block-background"]).toBe(DEFAULT_EDITOR_THEME.markdown.codeBlock.background);
+    expect(variables["--markdown-table-border"]).toBe(DEFAULT_EDITOR_THEME.markdown.table.borderColor);
     expect(variables["--primary-foreground"]).toBe(variables["--background"]);
+  });
+
+  it("derives Markdown defaults from each built-in theme palette", () => {
+    const dracula = resolveEditorTheme("kitty-kovidgoyal-dracula", null);
+
+    expect(dracula.version).toBe(5);
+    expect(dracula.markdown.body.color).toBe(dracula.ui.foreground);
+    expect(dracula.markdown.heading.h1.color).toBe(dracula.ui.foreground);
+    expect(dracula.markdown.link.color).toBe(dracula.ui.primary);
+    expect(dracula.markdown.codeBlock.background).toBe(dracula.ui.card);
+    expect(dracula.markdown.font.familyCode).toBe(dracula.font.familyMono);
+    expect(dracula.markdown.body.color).not.toBe(DEFAULT_EDITOR_THEME.markdown.body.color);
+  });
+
+  it("migrates old custom themes to Markdown tokens derived from their normalized colors and fonts", () => {
+    const theme = normalizeEditorTheme({
+      version: 4,
+      ui: {
+        foreground: "#f0f0f0",
+        primary: "#44aaff",
+        card: "#202020",
+        muted: "#303030",
+        mutedForeground: "#aaaaaa",
+        accentForeground: "#88ccff",
+        destructive: "#ff6677",
+        border: "#505050"
+      },
+      font: {
+        familySans: "Example Sans",
+        familyMono: "Example Mono"
+      }
+    });
+
+    expect(theme.version).toBe(5);
+    expect(theme.markdown.body.color).toBe("#f0f0f0");
+    expect(theme.markdown.link.color).toBe("#44aaff");
+    expect(theme.markdown.codeBlock.background).toBe("#202020");
+    expect(theme.markdown.inlineCode.background).toBe("#303030");
+    expect(theme.markdown.font.familyBody).toBe("Example Sans");
+    expect(theme.markdown.font.familyHeading).toBe("Example Sans");
+    expect(theme.markdown.font.familyCode).toBe("Example Mono");
+  });
+
+  it("normalizes complete Markdown style tokens", () => {
+    const theme = normalizeEditorTheme({
+      markdown: {
+        body: {
+          color: "#123456",
+          fontSize: 99,
+          lineHeight: 36,
+          paragraphSpacing: -4
+        },
+        heading: {
+          h1: {
+            color: "#654321",
+            fontSize: 64,
+            fontWeight: 875,
+            marginTop: 120
+          }
+        },
+        quote: {
+          borderWidth: 20,
+          radius: 12
+        },
+        table: {
+          borderColor: "#abcdef",
+          cellPaddingX: 24
+        },
+        image: {
+          borderWidth: 3,
+          radius: 18
+        }
+      }
+    });
+
+    expect(theme.markdown.body.color).toBe("#123456");
+    expect(theme.markdown.body.fontSize).toBe(32);
+    expect(theme.markdown.body.lineHeight).toBe(36);
+    expect(theme.markdown.body.paragraphSpacing).toBe(0);
+    expect(theme.markdown.heading.h1.color).toBe("#654321");
+    expect(theme.markdown.heading.h1.fontSize).toBe(64);
+    expect(theme.markdown.heading.h1.fontWeight).toBe(875);
+    expect(theme.markdown.heading.h1.marginTop).toBe(96);
+    expect(theme.markdown.heading.h2).toEqual(DEFAULT_EDITOR_THEME.markdown.heading.h2);
+    expect(theme.markdown.quote.borderWidth).toBe(12);
+    expect(theme.markdown.quote.radius).toBe(12);
+    expect(theme.markdown.table.borderColor).toBe("#abcdef");
+    expect(theme.markdown.table.cellPaddingX).toBe(24);
+    expect(theme.markdown.image.borderWidth).toBe(3);
+    expect(theme.markdown.image.radius).toBe(18);
   });
 
   it("maps custom colors to canvas and Mermaid render tokens", () => {
@@ -204,7 +298,7 @@ describe("editor theme", () => {
 
     const terminalTheme = themeToTerminalTheme(theme);
 
-    expect(theme.version).toBe(4);
+    expect(theme.version).toBe(5);
     expect(theme.ansi.green).toBe("#00aa66");
     expect(theme.ansi.brightGreen).toBe(DEFAULT_EDITOR_THEME.ansi.brightGreen);
     expect(theme.terminal.background).toBe("#101010");
@@ -245,7 +339,7 @@ describe("editor theme", () => {
     });
     const compiled = compileEditorTheme(theme);
 
-    expect(theme.version).toBe(4);
+    expect(theme.version).toBe(5);
     expect(theme.motion.duration.fast).toBe(0.12);
     expect(theme.motion.duration.layout).toBe(1.6);
     expect(theme.motion.ease.standard).toBe("power1.out");

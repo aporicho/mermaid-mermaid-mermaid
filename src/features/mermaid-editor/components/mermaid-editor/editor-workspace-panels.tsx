@@ -42,6 +42,7 @@ type EditorWorkspacePanelsProps = {
   terminalTheme: XtermThemeTokens;
   detachedMarkdownWindows: DetachedMarkdownWindow[];
   markdownSpellcheckEnabled: boolean;
+  markdownContentWidth: number;
   bringWorkspacePanelToFront: (panelId: WorkspaceFloatingPanelId) => void;
   workspacePanelStackPosition: (panelId: WorkspaceFloatingPanelId) => number;
   workspacePanelWindowState: (panelId: WorkspaceFloatingPanelId) => FloatingPanelWindowState;
@@ -80,6 +81,7 @@ export function EditorWorkspacePanels({
   terminalTheme,
   detachedMarkdownWindows,
   markdownSpellcheckEnabled,
+  markdownContentWidth,
   bringWorkspacePanelToFront,
   workspacePanelStackPosition,
   workspacePanelWindowState,
@@ -203,6 +205,7 @@ export function EditorWorkspacePanels({
       <DetachedWorkspaceWindows
         markdownWindows={detachedMarkdownWindows}
         markdownSpellcheckEnabled={markdownSpellcheckEnabled}
+        markdownContentWidth={markdownContentWidth}
         activePanel={activeWorkspacePanel}
         bringPanelToFront={bringWorkspacePanelToFront}
         panelStackPosition={workspacePanelStackPosition}

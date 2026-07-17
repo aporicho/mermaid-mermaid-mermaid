@@ -244,6 +244,45 @@ describe("editor command transaction", () => {
     expect(edgeResult.state.selection.edgeIds).toEqual(["A_B"]);
   });
 
+  it("arranges nodes as one graph commit while preserving selection", () => {
+    const result = applyEditorCommandTransaction(
+      { ...state, selection: { nodeIds: ["A", "B"], edgeIds: [], subgraphIds: [] } },
+      {
+        type: "graph.arrangeNodes",
+        operation: "align-left",
+        positions: { A: { x: 100, y: 100 }, B: { x: 100, y: 100 } },
+        source: "menu"
+      }
+    );
+
+    expect(result.state.graph.nodes.map(({ id, x, y }) => ({ id, x, y }))).toEqual([
+      { id: "A", x: 100, y: 100 },
+      { id: "B", x: 100, y: 100 }
+    ]);
+    expect(result.state.selection).toEqual({ nodeIds: ["A", "B"], edgeIds: [], subgraphIds: [] });
+    expect(result.effect).toMatchObject({
+      history: "push",
+      sourceSync: "commit",
+      status: "已将所选节点左对齐。"
+    });
+  });
+
+  it("does not create a graph commit when arrangement positions are unchanged", () => {
+    const result = applyEditorCommandTransaction(state, {
+      type: "graph.arrangeNodes",
+      operation: "align-left",
+      positions: { A: { x: 100, y: 100 } },
+      source: "menu"
+    });
+
+    expect(result.state).toBe(state);
+    expect(result.effect).toEqual({
+      history: "none",
+      sourceSync: "none",
+      status: "所选节点已经左对齐。"
+    });
+  });
+
   it("renames and updates inspector-editable entities", () => {
     const renamedNode = applyEditorCommandTransaction(state, {
       type: "graph.renameNode",

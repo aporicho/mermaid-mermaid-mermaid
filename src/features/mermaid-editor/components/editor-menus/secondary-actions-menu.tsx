@@ -20,12 +20,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import {
-  PreferenceToggle,
-  directions,
-  edgeRoutingOptions,
-  layoutModeOptions
-} from "@/features/mermaid-editor/components/editor-menus/shared";
+import { PreferenceToggle, directions, edgeRoutingOptions, layoutModeOptions } from "@/features/mermaid-editor/components/editor-menus/shared";
+import { MarkdownContentWidthPreference } from "@/features/mermaid-editor/components/editor-menus/markdown-content-width-preference";
 import { FloatingIconButton, FloatingPanel } from "@/features/mermaid-editor/components/floating-chrome";
 import { APP_LOGOS, appLogoById, normalizeAppLogoId } from "@/features/mermaid-editor/lib/app-logo";
 import type { DocumentKind } from "@/features/mermaid-editor/lib/document-kind";
@@ -293,6 +289,7 @@ export function SecondaryActionsMenu({
                 )
               }
             />
+            <MarkdownContentWidthPreference preferences={preferences} onChange={updatePreference} />
           </div>
           <Button data-floating-action-item variant="ghost" className={EDITOR_CHROME_CLASSES.menuRow} onClick={() => runAndClose(onOpenThemeSettings)}>
             <ColorWheel className="size-4" />

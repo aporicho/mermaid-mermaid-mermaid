@@ -31,6 +31,7 @@ import {
   type ViewFilters
 } from "@/features/mermaid-editor/lib/view-filters";
 import type { EditorCommand } from "@/features/mermaid-editor/lib/interaction/commands";
+import { nodeArrangementLabel } from "@/features/mermaid-editor/lib/node-arrangement";
 
 export type EditorTransactionState = {
   graph: MermaidGraph;
@@ -311,6 +312,29 @@ export function applyEditorCommandTransaction(state: EditorTransactionState, com
         selection: selectOnlyEdge(command.edgeId)
       },
       command.message || "已更新连线文本。"
+    );
+  }
+
+  if (command.type === "graph.arrangeNodes") {
+    const label = nodeArrangementLabel(command.operation);
+    const changed = state.graph.nodes.some((node) => {
+      const position = command.positions[node.id];
+      return position && (position.x !== node.x || position.y !== node.y);
+    });
+    if (!changed) {
+      return {
+        state,
+        effect: {
+          history: "none",
+          sourceSync: "none",
+          status: `所选节点已经${label}。`
+        }
+      };
+    }
+
+    return commitGraphState(
+      { ...state, graph: setNodePositions(state.graph, command.positions) },
+      `已将所选节点${label}。`
     );
   }
 

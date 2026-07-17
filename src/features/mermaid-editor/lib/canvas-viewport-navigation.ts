@@ -35,8 +35,8 @@ export type CanvasWheelNavigationResult =
   | { kind: "zoom"; viewport: ViewportState }
   | { kind: "ignored" };
 
-export const CANVAS_MIN_SCALE = 0.28;
-export const CANVAS_MAX_SCALE = 2.4;
+export const CANVAS_MIN_SCALE = 0.05;
+export const CANVAS_MAX_SCALE = 8;
 
 const WHEEL_LINE_DELTA_PX = 16;
 const WHEEL_ZOOM_SENSITIVITY = 0.0015;

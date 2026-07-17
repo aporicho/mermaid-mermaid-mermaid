@@ -3,6 +3,9 @@ import type { CanvasVisualTokens } from "@/features/mermaid-editor/lib/canvas-vi
 import type { EdgeLabelGeometryTokens } from "@/features/mermaid-editor/lib/edge-label-geometry";
 import type { NodeGeometryTokens } from "@/features/mermaid-editor/lib/node-geometry";
 import type { SubgraphGeometryTokens } from "@/features/mermaid-editor/lib/subgraph-geometry";
+import type { MarkdownThemeTokens } from "./markdown-types";
+
+export type { MarkdownHeadingTokens, MarkdownThemeTokens } from "./markdown-types";
 
 export const MERMAID_FONT_FAMILY = "Noto Sans SC Variable, Noto Sans SC, PingFang SC, Microsoft YaHei UI, Microsoft YaHei, system-ui, sans-serif";
 export const MONO_FONT_FAMILY = "Maple Mono, SF Mono, Cascadia Code, JetBrains Mono, Noto Sans SC Variable, ui-monospace, monospace";
@@ -86,7 +89,7 @@ export type XtermThemeTokens = TerminalColorTokens &
   };
 
 export type EditorTheme = {
-  version: 4;
+  version: 5;
   id: EditorThemeId;
   name: string;
   description: string;
@@ -123,6 +126,7 @@ export type EditorTheme = {
     background: string;
     gridDot: string;
   };
+  markdown: MarkdownThemeTokens;
   ansi: AnsiColorTokens;
   terminal: TerminalColorTokens;
   font: {

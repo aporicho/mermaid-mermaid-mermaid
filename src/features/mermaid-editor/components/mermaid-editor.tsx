@@ -556,7 +556,7 @@ export function MermaidEditor() {
             layoutMode={layoutMode}
             imageDisplaySrcBySrc={imageDisplaySrcBySrc}
             markdownDocumentPreviewByNodeId={markdownDocumentPreviewByNodeId}
-            markdownSpellcheckEnabled={preferences.markdownSpellcheckEnabled}
+            markdownSpellcheckEnabled={preferences.markdownSpellcheckEnabled} markdownContentWidth={preferences.markdownContentWidth}
             visualTokens={compiledTheme.canvasVisualTokens}
             geometryTokens={compiledTheme.geometry}
             motion={resolvedMotion}
@@ -595,7 +595,7 @@ export function MermaidEditor() {
           activeTheme={activeTheme}
           terminalTheme={compiledTheme.terminalTheme}
           detachedMarkdownWindows={detachedMarkdownWindows}
-          markdownSpellcheckEnabled={preferences.markdownSpellcheckEnabled}
+          markdownSpellcheckEnabled={preferences.markdownSpellcheckEnabled} markdownContentWidth={preferences.markdownContentWidth}
           bringWorkspacePanelToFront={bringWorkspacePanelToFront}
           workspacePanelStackPosition={workspacePanelStackPosition}
           workspacePanelWindowState={workspacePanelWindowState}

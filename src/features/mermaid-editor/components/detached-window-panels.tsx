@@ -14,6 +14,7 @@ export function MarkdownWindowPanel({
   value,
   dirty,
   spellCheck,
+  contentWidth,
   windowState,
   onWindowStateChange,
   onClose,
@@ -25,6 +26,7 @@ export function MarkdownWindowPanel({
   value: string;
   dirty: boolean;
   spellCheck: boolean;
+  contentWidth: number;
   windowState: FloatingPanelWindowState;
   onWindowStateChange: (state: FloatingPanelWindowState) => void;
   onClose: () => void;
@@ -67,6 +69,7 @@ export function MarkdownWindowPanel({
         key={`${title}:markdown-window`}
         value={value}
         spellCheck={spellCheck}
+        contentWidth={contentWidth}
         onChange={onChange}
         className="markdown-editor-panel--window bg-background/95"
       />

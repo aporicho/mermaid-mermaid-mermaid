@@ -85,6 +85,16 @@ export function useKonvaRenderModel({
     [renderedGraph, renderedNodeGeometries, subgraphThemeTokens]
   );
   const nodeGeometryById = useMemo(() => new Map(renderedNodeGeometries.map((geometry) => [geometry.id, geometry])), [renderedNodeGeometries]);
+  const selectedNodeRects = useMemo(
+    () =>
+      graph.nodes.flatMap((node) => {
+        if (!selectedNodeIds.has(node.id)) return [];
+        const geometry = nodeGeometryById.get(node.id);
+        if (!geometry) return [];
+        return [{ ...geometry.alignmentRect, x: node.x, y: node.y }];
+      }),
+    [graph.nodes, nodeGeometryById, selectedNodeIds]
+  );
   const subgraphGeometryById = useMemo(() => new Map(renderedSubgraphGeometries.map((geometry) => [geometry.id, geometry])), [renderedSubgraphGeometries]);
   const routedNodeRects = useMemo(() => renderedNodeGeometries.map((geometry) => geometry.routedRect), [renderedNodeGeometries]);
   const routedEntityRects = useMemo(
@@ -289,6 +299,7 @@ export function useKonvaRenderModel({
     renderedNodeGeometries,
     renderedSubgraphGeometries,
     nodeGeometryById,
+    selectedNodeRects,
     subgraphGeometryById,
     routedEntityRects,
     visibleEdges,

@@ -1,6 +1,7 @@
 import { DEFAULT_EDITOR_THEME, getBuiltInEditorTheme, isBuiltInThemeId } from "./presets";
 import type { EditorMotionTokens, EditorTheme } from "./types";
 import { isHexColor } from "./color";
+import { createDefaultMarkdownTheme, normalizeMarkdownTheme } from "./markdown-theme";
 
 export function resolveEditorTheme(themeId: string | undefined, customTheme: unknown): EditorTheme {
   if (themeId === "custom") return normalizeEditorTheme(customTheme, { ...DEFAULT_EDITOR_THEME, id: "custom", name: "自定义主题" });
@@ -10,20 +11,24 @@ export function resolveEditorTheme(themeId: string | undefined, customTheme: unk
 export function normalizeEditorTheme(value: unknown, fallback: EditorTheme = DEFAULT_EDITOR_THEME): EditorTheme {
   if (!value || typeof value !== "object") return fallback;
   const raw = value as Partial<EditorTheme> & Record<string, unknown>;
+  const ui = normalizeColorGroup(raw.ui, fallback.ui);
+  const font = normalizeFontGroup(raw.font, fallback.font);
+  const markdownFallback = createDefaultMarkdownTheme({ ui, font });
 
   return {
-    version: 4,
+    version: 5,
     id: "custom",
     name: typeof raw.name === "string" && raw.name.trim() ? raw.name : fallback.name,
     description: typeof raw.description === "string" ? raw.description : fallback.description,
     baseThemeId: normalizeBaseThemeId(raw.baseThemeId, fallback.baseThemeId),
-    ui: normalizeColorGroup(raw.ui, fallback.ui),
+    ui,
     canvas: normalizeColorGroup(raw.canvas, fallback.canvas),
     source: normalizeColorGroup(raw.source, fallback.source),
     render: normalizeColorGroup(raw.render, fallback.render),
+    markdown: normalizeMarkdownTheme(raw.markdown, markdownFallback),
     ansi: normalizeColorGroup(raw.ansi, fallback.ansi),
     terminal: normalizeColorGroup(raw.terminal, fallback.terminal),
-    font: normalizeFontGroup(raw.font, fallback.font),
+    font,
     space: normalizeNumberGroup(raw.space, fallback.space, numberRanges.space),
     radius: normalizeNumberGroup(raw.radius, fallback.radius, numberRanges.radius),
     stroke: normalizeStrokeGroup(raw.stroke, fallback.stroke),

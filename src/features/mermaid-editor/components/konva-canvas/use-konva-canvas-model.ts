@@ -34,6 +34,7 @@ import {
   SUBGRAPH_GEOMETRY_TOKENS,
   type SubgraphGeometryTokens
 } from "@/features/mermaid-editor/lib/subgraph-geometry";
+import { arrangeNodeRects, type NodeArrangementOperation } from "@/features/mermaid-editor/lib/node-arrangement";
 
 type UseKonvaCanvasModelArgs = KonvaCanvasProps & {
   mermaidEdgeRoutes: NonNullable<KonvaCanvasProps["mermaidEdgeRoutes"]>;
@@ -282,6 +283,15 @@ export function useKonvaCanvasModel({
   const activeScale = viewportController.currentViewport().scale;
   const cursorClassName = interactionCursor(mode, interactionState, panningRequested, hoveredHitTarget);
 
+  function arrangeSelectedNodes(operation: NodeArrangementOperation) {
+    onEditorCommand({
+      type: "graph.arrangeNodes",
+      operation,
+      positions: arrangeNodeRects(renderModel.selectedNodeRects, operation),
+      source: "menu"
+    });
+  }
+
   const stageProps: KonvaCanvasModelStageProps = {
     containerRef,
     stageRef,
@@ -309,6 +319,7 @@ export function useKonvaCanvasModel({
     hoveredEdgeId,
     hoveredHitTarget,
     selectedSubgraphIds: renderModel.selectedSubgraphIds,
+    selectedNodeRects: renderModel.selectedNodeRects,
     scopedSubgraphGeometries: renderModel.scopedSubgraphGeometries,
     scopedVisibleEdges: renderModel.scopedVisibleEdges,
     scopedRenderedNodes: renderModel.scopedRenderedNodes,
@@ -342,6 +353,7 @@ export function useKonvaCanvasModel({
     onMoveNode: dragMembership.moveSelectedNodes,
     onMoveSubgraph: dragMembership.moveSelectedSubgraphs,
     onEndDrag: dragMembership.finishKonvaDrag,
+    onArrangeNodes: arrangeSelectedNodes,
     onOpenNodeAction,
     onEditNodeAction,
     onRequestMarkdownDocumentPreview,

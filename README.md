@@ -8,7 +8,7 @@
 - 把项目内 Markdown 文件作为带正文摘要的文档卡片放入 Mermaid 画布，并在文档卡片之间建立普通 Mermaid 连线。
 - 在 Mermaid 源码、内部图模型和 `%% canvas-layout:` 布局注释之间保持同步。
 - 对非 flowchart 的 Mermaid 图提供只渲染模式。
-- 使用 Milkdown/Crepe 阅读和编辑 Markdown 文件。
+- 使用 Milkdown/Crepe 阅读和编辑 Markdown 文件；内容宽度可独立设置，正文、六级标题、链接、列表、引用、代码、表格、分隔线和图片样式可随主题配置。
 - 使用 `.canvas.json` 保存非 Mermaid 无限白板画布，并用 PixiJS 渲染形状、文本、图片和连线。
 - 在 `canvas-layout` 注释里保存节点位置、节点颜色、连线路由、视口和文件级主题。
 - 支持打开、保存、另存为、下载兜底、撤销、重做、复制、粘贴、节点编辑、连线编辑、创建连接和端点重连。

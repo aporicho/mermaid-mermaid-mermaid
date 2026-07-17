@@ -20,6 +20,7 @@ import type {
 } from "@/features/mermaid-editor/lib/editor-types";
 import type { ViewFilters } from "@/features/mermaid-editor/lib/view-filters";
 import type { InteractionIntent } from "@/features/mermaid-editor/lib/interaction/intent";
+import type { NodeArrangementOperation, NodePositions } from "@/features/mermaid-editor/lib/node-arrangement";
 
 export type EditorCommandSource = "pointer" | "wheel" | "gesture" | "keyboard" | "menu" | "api";
 export type UiCommandSource = Extract<EditorCommandSource, "keyboard" | "menu" | "api">;
@@ -89,6 +90,12 @@ export type EditorCommand =
   | { type: "graph.updateSubgraphs"; subgraphIds: string[]; patch: CanvasSubgraphBatchPatch; message?: string; source: GraphCommandSource }
   | { type: "graph.updateNodeLabel"; nodeId: string; label: string; message?: string; source: GraphCommandSource }
   | { type: "graph.updateEdgeLabel"; edgeId: string; label: string; message?: string; source: GraphCommandSource }
+  | {
+      type: "graph.arrangeNodes";
+      operation: NodeArrangementOperation;
+      positions: NodePositions;
+      source: Extract<EditorCommandSource, "menu" | "api">;
+    }
   | { type: "graph.draftNodePositions"; positions: Record<string, { x: number; y: number }>; message?: string; syncSource?: boolean; source: Extract<EditorCommandSource, "pointer" | "api"> }
   | { type: "graph.commitDragMembership"; graph: MermaidGraph; message?: string; source: Extract<EditorCommandSource, "pointer" | "api"> }
   | { type: "edgeRouting.set"; edgeRouting: EdgeRouting; source: UiCommandSource }

@@ -10,6 +10,7 @@ import type {
   XtermThemeTokens
 } from "./types";
 import { ansiToCssVariables, contrastRatio, hexToHslTriplet, hexToRgbCsv, hexToRgba } from "./color";
+import { markdownToCssVariables } from "./markdown-css-variables";
 
 export function compileEditorTheme(theme: EditorTheme): CompiledEditorTheme {
   return {
@@ -65,6 +66,7 @@ export function themeToCssVariables(theme: EditorTheme): Record<string, string> 
     "--theme-source-line-height": `${theme.font.lineHeightSource}px`,
     "--theme-terminal-font-size": `${theme.font.sizeTerminal}px`,
     "--theme-terminal-line-height": `${theme.font.lineHeightTerminal}px`,
+    ...markdownToCssVariables(theme),
     ...motionToCssVariables(theme.motion)
   };
 }
@@ -233,6 +235,15 @@ export function themeToTerminalTheme(theme: EditorTheme): XtermThemeTokens {
 function themeDiagnostics(theme: EditorTheme): ThemeDiagnostic[] {
   const diagnostics: ThemeDiagnostic[] = [];
   addContrastDiagnostic(diagnostics, "APP_TEXT_CONTRAST", "应用文字与背景对比度不足。", theme.ui.foreground, theme.ui.background, theme.diagnostics.minTextContrast);
+  addContrastDiagnostic(diagnostics, "MARKDOWN_TEXT_CONTRAST", "Markdown 正文与背景对比度不足。", theme.markdown.body.color, theme.ui.background, theme.diagnostics.minTextContrast);
+  addContrastDiagnostic(
+    diagnostics,
+    "MARKDOWN_CODE_CONTRAST",
+    "Markdown 代码块文字与背景对比度不足。",
+    theme.markdown.codeBlock.textColor,
+    theme.markdown.codeBlock.background,
+    theme.diagnostics.minTextContrast
+  );
   addContrastDiagnostic(diagnostics, "CANVAS_NODE_TEXT_CONTRAST", "节点文字与节点表面对比度不足。", theme.canvas.nodeText, theme.canvas.surface, theme.diagnostics.minTextContrast);
   addContrastDiagnostic(diagnostics, "TERMINAL_TEXT_CONTRAST", "终端文字与终端背景对比度不足。", theme.terminal.foreground, theme.terminal.background, theme.diagnostics.minTextContrast);
   addContrastDiagnostic(diagnostics, "TERMINAL_CURSOR_CONTRAST", "终端光标与终端背景对比度偏低。", theme.terminal.cursor, theme.terminal.background, theme.diagnostics.minFocusContrast);

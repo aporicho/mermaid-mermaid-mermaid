@@ -8,11 +8,15 @@ import { KonvaEdgeLayer, KonvaEdgeOverlayLayer } from "@/features/mermaid-editor
 import { InlineEditOverlays, type InlineEdit, type InlineEditStyle } from "@/features/mermaid-editor/components/konva-canvas/inline-edit-overlays";
 import { KonvaNodeLayer } from "@/features/mermaid-editor/components/konva-canvas/node-layer";
 import { NodeActionTooltip, NodeContextMenu } from "@/features/mermaid-editor/components/konva-canvas/node-action-ui";
+import {
+  SelectionArrangementToolbar,
+  shouldShowSelectionArrangementToolbar
+} from "@/features/mermaid-editor/components/konva-canvas/selection-arrangement-toolbar";
 import { KonvaSubgraphLayer } from "@/features/mermaid-editor/components/konva-canvas/subgraph-layer";
 import type { CanvasEdgeMotionVisual, CanvasNodeMotionVisual } from "@/features/mermaid-editor/components/konva-canvas/types";
 import type { useKonvaNodeEditorLayout } from "@/features/mermaid-editor/components/konva-canvas/use-konva-inline-edit-session";
 import type { useKonvaRenderModel } from "@/features/mermaid-editor/components/konva-canvas/use-konva-render-model";
-import type { AlignmentGuide } from "@/features/mermaid-editor/lib/alignment-guides";
+import type { AlignmentGuide, AlignmentRect } from "@/features/mermaid-editor/lib/alignment-guides";
 import type { CanvasGridSpec } from "@/features/mermaid-editor/lib/canvas-grid";
 import type { CanvasPoint, HitTarget, InteractionState } from "@/features/mermaid-editor/lib/canvas-interaction";
 import type { CanvasProximityScales } from "@/features/mermaid-editor/lib/canvas-motion";
@@ -22,6 +26,7 @@ import type { CanvasNode, EditorMode, MermaidGraph, Selection, ViewportState } f
 import { normalizeNodeAction } from "@/features/mermaid-editor/lib/node-actions";
 import type { NodeGeometryTokens } from "@/features/mermaid-editor/lib/node-geometry";
 import type { MarkdownDocumentPreview } from "@/features/mermaid-editor/lib/markdown-document";
+import type { NodeArrangementOperation } from "@/features/mermaid-editor/lib/node-arrangement";
 import type { ViewFilters } from "@/features/mermaid-editor/lib/view-filters";
 import { cn } from "@/lib/utils";
 
@@ -54,6 +59,7 @@ export type KonvaCanvasStageProps = {
   hoveredEdgeId: string | null;
   hoveredHitTarget: HitTarget;
   selectedSubgraphIds: RenderModel["selectedSubgraphIds"];
+  selectedNodeRects: AlignmentRect[];
   scopedSubgraphGeometries: RenderModel["scopedSubgraphGeometries"];
   scopedVisibleEdges: RenderModel["scopedVisibleEdges"];
   scopedRenderedNodes: RenderModel["scopedRenderedNodes"];
@@ -98,6 +104,7 @@ export type KonvaCanvasStageProps = {
   onMoveNode: (node: CanvasNode, target: Konva.Node) => void;
   onMoveSubgraph: (subgraphId: string, target: Konva.Node) => void;
   onEndDrag: () => void;
+  onArrangeNodes: (operation: NodeArrangementOperation) => void;
   onNodeContextMenu: (event: KonvaEventObject<PointerEvent | MouseEvent>, node: CanvasNode) => void;
   onCloseNodeContextMenu: () => void;
   onOpenNodeAction?: (node: CanvasNode) => void;
@@ -134,6 +141,7 @@ export function KonvaCanvasStage({
   hoveredEdgeId,
   hoveredHitTarget,
   selectedSubgraphIds,
+  selectedNodeRects,
   scopedSubgraphGeometries,
   scopedVisibleEdges,
   scopedRenderedNodes,
@@ -178,6 +186,7 @@ export function KonvaCanvasStage({
   onMoveNode,
   onMoveSubgraph,
   onEndDrag,
+  onArrangeNodes,
   onNodeContextMenu,
   onCloseNodeContextMenu,
   onOpenNodeAction,
@@ -189,6 +198,14 @@ export function KonvaCanvasStage({
   const hoveredActionNode = hoveredNodeId ? graph.nodes.find((node) => node.id === hoveredNodeId) : undefined;
   const hoveredAction = normalizeNodeAction(hoveredActionNode?.action);
   const hoveredActionGeometry = hoveredActionNode ? nodeGeometryById.get(hoveredActionNode.id) : undefined;
+  const showArrangementToolbar = shouldShowSelectionArrangementToolbar({
+    selectedNodeCount: selectedNodeRects.length,
+    mode,
+    manualLayout: dragEnabled,
+    interactionKind: interactionState.kind,
+    inlineEditing: Boolean(inlineEdit),
+    contextMenuOpen: Boolean(nodeContextMenu)
+  });
 
   return (
     <section className="relative h-full min-h-0 bg-card">
@@ -314,6 +331,14 @@ export function KonvaCanvasStage({
             {alignmentGuides.length ? <AlignmentGuideOverlay guides={alignmentGuides} visualTokens={visualTokens} /> : null}
           </Layer>
         </Stage>
+        {showArrangementToolbar ? (
+          <SelectionArrangementToolbar
+            rects={selectedNodeRects}
+            viewport={viewport}
+            canvasSize={dimensions}
+            onArrange={onArrangeNodes}
+          />
+        ) : null}
         {nodeContextMenu ? (
           <NodeContextMenu
             menu={nodeContextMenu}

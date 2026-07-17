@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type CSSProperties } from "react";
 import { Crepe } from "@milkdown/crepe";
 import { EditorStatus, editorViewCtx } from "@milkdown/kit/core";
 import { TextSelection } from "@milkdown/kit/prose/state";
@@ -14,10 +14,11 @@ type MarkdownPanelProps = {
   className?: string;
   readOnly?: boolean;
   spellCheck: boolean;
+  contentWidth: number;
   onChange: (value: string) => void;
 };
 
-export function MarkdownPanel({ value, className, readOnly = false, spellCheck, onChange }: MarkdownPanelProps) {
+export function MarkdownPanel({ value, className, readOnly = false, spellCheck, contentWidth, onChange }: MarkdownPanelProps) {
   const panelRef = useRef<HTMLElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const crepeRef = useRef<Crepe | null>(null);
@@ -160,6 +161,7 @@ export function MarkdownPanel({ value, className, readOnly = false, spellCheck, 
       data-floating-panel-drag-exclude
       data-window-drag-exclude
       className={cn("markdown-editor-panel relative z-0 h-full min-h-0 overflow-auto bg-background", className)}
+      style={{ "--markdown-content-width": `${contentWidth}px` } as CSSProperties}
     >
       <div ref={rootRef} className="min-h-full" />
     </section>

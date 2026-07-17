@@ -102,13 +102,13 @@ describe("MarkdownPanel", () => {
     vi.useRealTimers();
   });
 
-  function renderPanel(spellCheck = false) {
+  function renderPanel(spellCheck = false, contentWidth = 880) {
     container = document.createElement("div");
     document.body.appendChild(container);
     root = createRoot(container);
 
     act(() => {
-      root?.render(createElement(MarkdownPanel, { value: "# Hello", spellCheck, onChange: vi.fn() }));
+      root?.render(createElement(MarkdownPanel, { value: "# Hello", spellCheck, contentWidth, onChange: vi.fn() }));
     });
 
     const panel = container.querySelector(".markdown-editor-panel");
@@ -124,10 +124,24 @@ describe("MarkdownPanel", () => {
     expect(milkdownMock.create).toHaveBeenCalledTimes(1);
 
     act(() => {
-      root?.render(createElement(MarkdownPanel, { value: "# Hello", spellCheck: true, onChange: vi.fn() }));
+      root?.render(createElement(MarkdownPanel, { value: "# Hello", spellCheck: true, contentWidth: 880, onChange: vi.fn() }));
     });
 
     expect(milkdownMock.view?.dom.getAttribute("spellcheck")).toBe("true");
+    expect(milkdownMock.create).toHaveBeenCalledTimes(1);
+  });
+
+  it("applies and updates the configured content width without recreating Milkdown", () => {
+    const panel = renderPanel(false, 960);
+
+    expect(panel.style.getPropertyValue("--markdown-content-width")).toBe("960px");
+    expect(milkdownMock.create).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      root?.render(createElement(MarkdownPanel, { value: "# Hello", spellCheck: false, contentWidth: 1280, onChange: vi.fn() }));
+    });
+
+    expect(panel.style.getPropertyValue("--markdown-content-width")).toBe("1280px");
     expect(milkdownMock.create).toHaveBeenCalledTimes(1);
   });
 

@@ -677,15 +677,24 @@ describe("interaction architecture contract", () => {
     const presets = readProjectFile("src/features/mermaid-editor/lib/editor-theme/presets.ts");
     const normalize = readProjectFile("src/features/mermaid-editor/lib/editor-theme/normalize.ts");
     const compile = readProjectFile("src/features/mermaid-editor/lib/editor-theme/compile.ts");
+    const markdown = readProjectFile("src/features/mermaid-editor/lib/editor-theme/markdown-theme.ts");
     const color = readProjectFile("src/features/mermaid-editor/lib/editor-theme/color.ts");
+    const styles = readProjectFile("src/styles/globals.css");
 
     expect(barrel).toContain("export * from \"./editor-theme/types\"");
+    expect(barrel).toContain("export * from \"./editor-theme/markdown-theme\"");
     expect(barrel).toContain("export * from \"./editor-theme/presets\"");
     expect(barrel).toContain("export * from \"./editor-theme/normalize\"");
     expect(barrel).toContain("export * from \"./editor-theme/compile\"");
     expect(presets).toContain("DEFAULT_EDITOR_THEME");
     expect(normalize).toContain("normalizeEditorTheme");
     expect(compile).toContain("themeToCssVariables");
+    expect(compile).toContain("markdownToCssVariables");
+    expect(markdown).toContain("createDefaultMarkdownTheme");
+    expect(markdown).toContain("normalizeMarkdownTheme");
+    expect(styles).toContain("--markdown-h1-font-size");
+    expect(styles).toContain(".markdown-editor-panel .milkdown .milkdown-table-block");
+    expect(styles).toContain(".markdown-editor-panel .milkdown .milkdown-code-block");
     expect(color).toContain("function hexToRgb");
     expect(barrel).not.toContain("DEFAULT_EDITOR_THEME: EditorTheme");
     expect(barrel).not.toContain("function normalizeEditorTheme");

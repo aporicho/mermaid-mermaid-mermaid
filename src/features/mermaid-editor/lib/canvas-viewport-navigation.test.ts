@@ -134,6 +134,8 @@ describe("canvas viewport navigation", () => {
   });
 
   it("clamps zoom scale to supported bounds", () => {
+    expect(CANVAS_MIN_SCALE).toBe(0.05);
+    expect(CANVAS_MAX_SCALE).toBe(8);
     expect(zoomViewportAtPoint({ ...viewport, scale: 2.3 }, pointer, 100).scale).toBe(CANVAS_MAX_SCALE);
     expect(zoomViewportAtPoint({ ...viewport, scale: 0.3 }, pointer, 0.01).scale).toBe(CANVAS_MIN_SCALE);
   });
