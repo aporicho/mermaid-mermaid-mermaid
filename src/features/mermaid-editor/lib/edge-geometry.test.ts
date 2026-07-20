@@ -86,11 +86,17 @@ describe("computeEdgePath", () => {
   it("uses side-normal anchors for horizontal bezier edges", () => {
     const geometry = edgePath("bezier");
 
-    expect(geometry.points).toHaveLength(50);
+    expect(geometry.points).toHaveLength(242);
     expectPointClose(pointAt(geometry.points, 0), { x: 106, y: 25 });
     expectPointClose(lastPoint(geometry.points), { x: 210, y: 25 });
     expectPointClose(geometry.endTangent, { x: 1, y: 0 });
     expectFinitePoints(geometry.points);
+  });
+
+  it("uses the configured curve sampling resolution", () => {
+    const geometry = computeEdgePath(baseEdge, defaultNodes(), "bezier", { curveSegments: 36 });
+
+    expect(geometry?.points).toHaveLength(74);
   });
 
   it("uses pinned endpoint anchors when an edge selects node ports", () => {
@@ -207,7 +213,7 @@ describe("computeEdgePath", () => {
       { id: "b", x: 0, y: 180, width: 100, height: 50 }
     ]);
 
-    expect(geometry.points).toHaveLength(50);
+    expect(geometry.points).toHaveLength(242);
     expectPointClose(pointAt(geometry.points, 0), { x: 50, y: 56 });
     expectPointClose(lastPoint(geometry.points), { x: 50, y: 170 });
     expectPointClose(geometry.endTangent, { x: 0, y: 1 });
@@ -463,7 +469,7 @@ describe("computeEdgeDraftPath", () => {
     const draft = computeEdgeDraftPath(defaultNodes()[0], { kind: "point", point: { x: 260, y: 90 } }, "bezier");
     const middle = pointAt(draft.points, Math.floor(draft.points.length / 4));
 
-    expect(draft.points).toHaveLength(50);
+    expect(draft.points).toHaveLength(242);
     expectPointClose(pointAt(draft.points, 0), { x: 106, y: 25 });
     expectPointClose(lastPoint(draft.points), { x: 260, y: 90 });
     expect(middle.x).toBeGreaterThan(draft.start.x);

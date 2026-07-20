@@ -20,6 +20,7 @@ describe("editor theme", () => {
 
     expect(ids).toContain("warm-paper");
     expect(ids).toContain("minimal-mono");
+    expect(ids).toContain("rational-minimal");
     expect(ids).toContain("kitty-dexpota-dracula");
     expect(ids).toContain("kitty-kovidgoyal-dracula");
     expect(new Set(ids).size).toBe(ids.length);
@@ -44,6 +45,61 @@ describe("editor theme", () => {
     expect(theme.ui.accent).toBe("#eeeeee");
     expect(appGrayscaleColors.every(isGrayscaleHexColor)).toBe(true);
     expect(terminalPaletteColors.some((color) => !isGrayscaleHexColor(color))).toBe(true);
+    expect(compiled.diagnostics).toEqual([]);
+  });
+
+  it("loads rational minimal theme with strict grayscale and square geometry", () => {
+    const theme = resolveEditorTheme("rational-minimal", null);
+    const compiled = compileEditorTheme(theme);
+    const markdownRadii = [
+      theme.markdown.quote.radius,
+      theme.markdown.inlineCode.radius,
+      theme.markdown.codeBlock.radius,
+      theme.markdown.table.radius,
+      theme.markdown.image.radius
+    ];
+
+    expect(theme.name).toBe("理性极简");
+    expect(collectHexColors(theme).every(isGrayscaleHexColor)).toBe(true);
+    expect(theme.canvasAppearance).toEqual({ nodeFillSaturation: 0, nodeFillLuminanceSteps: 2, previewShadowOpacity: 0 });
+    expect(Object.values(theme.radius)).toEqual([0, 0, 0, 0, 0, 0, 0, 0]);
+    expect(markdownRadii).toEqual([0, 0, 0, 0, 0]);
+    expect(theme.stroke.node).toBe(0);
+    expect(theme.stroke.nodeEmphasized).toBe(1);
+    expect(theme.stroke.edge).toBe(1);
+    expect(theme.stroke.edgeThick).toBe(2);
+    expect(theme.stroke.overlay).toBe(0.5);
+    expect(theme.stroke.subgraphDash).toEqual([]);
+    expect(compiled.cssVariables["--radius"]).toBe("0px");
+    expect(compiled.cssVariables["--theme-canvas-node-fill-saturation"]).toBe("0");
+    expect(compiled.cssVariables["--theme-canvas-node-fill-luminance-steps"]).toBe("2");
+    expect(compiled.cssVariables["--theme-canvas-preview-shadow-opacity"]).toBe("0");
+    expect([
+      compiled.cssVariables["--theme-radius-app"],
+      compiled.cssVariables["--theme-radius-control-sm"],
+      compiled.cssVariables["--theme-radius-control-md"],
+      compiled.cssVariables["--theme-radius-control-lg"],
+      compiled.cssVariables["--theme-radius-canvas-node"],
+      compiled.cssVariables["--theme-radius-edge-label"],
+      compiled.cssVariables["--theme-radius-polygon-corner"],
+      compiled.cssVariables["--theme-radius-subgraph-title"]
+    ]).toEqual(Array(8).fill("0px"));
+    expect(compiled.canvasVisualTokens.node.cornerRadius).toBe(0);
+    expect(compiled.canvasVisualTokens.node.strokeWidth).toBe(0);
+    expect(compiled.canvasVisualTokens.node.emphasizedStrokeWidth).toBe(1);
+    expect(compiled.canvasVisualTokens.node.fillSaturation).toBe(0);
+    expect(compiled.canvasVisualTokens.node.fillLuminanceSteps).toBe(2);
+    expect(compiled.canvasVisualTokens.node.previewShadowOpacity).toBe(0);
+    expect(compiled.canvasVisualTokens.edge.strokeWidth).toBe(1);
+    expect(compiled.canvasVisualTokens.edge.thickStrokeWidth).toBe(2);
+    expect(compiled.canvasVisualTokens.edge.pointerLength).toBe(8);
+    expect(compiled.canvasVisualTokens.edge.pointerWidth).toBe(7);
+    expect(compiled.canvasVisualTokens.edge.curveSegments).toBe(120);
+    expect(compiled.canvasVisualTokens.overlay.strokeWidth).toBe(0.5);
+    expect(compiled.canvasVisualTokens.overlay.subgraphDash).toEqual([]);
+    expect(compiled.canvasVisualTokens.edge.labelCornerRadius).toBe(0);
+    expect(compiled.canvasVisualTokens.shape.polygonCornerRadius).toBe(0);
+    expect(compiled.canvasVisualTokens.subgraph.titleCornerRadius).toBe(0);
     expect(compiled.diagnostics).toEqual([]);
   });
 
@@ -387,4 +443,10 @@ describe("editor theme", () => {
 function isGrayscaleHexColor(value: string) {
   const match = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(value);
   return !!match && match[1].toLowerCase() === match[2].toLowerCase() && match[2].toLowerCase() === match[3].toLowerCase();
+}
+
+function collectHexColors(value: unknown): string[] {
+  if (typeof value === "string") return /^#[0-9a-f]{6}$/i.test(value) ? [value] : [];
+  if (!value || typeof value !== "object") return [];
+  return Object.values(value).flatMap(collectHexColors);
 }

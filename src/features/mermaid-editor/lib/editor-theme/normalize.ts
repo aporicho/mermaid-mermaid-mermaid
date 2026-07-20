@@ -23,6 +23,7 @@ export function normalizeEditorTheme(value: unknown, fallback: EditorTheme = DEF
     baseThemeId: normalizeBaseThemeId(raw.baseThemeId, fallback.baseThemeId),
     ui,
     canvas: normalizeColorGroup(raw.canvas, fallback.canvas),
+    canvasAppearance: normalizeNumberGroup(raw.canvasAppearance, fallback.canvasAppearance, numberRanges.canvasAppearance),
     source: normalizeColorGroup(raw.source, fallback.source),
     render: normalizeColorGroup(raw.render, fallback.render),
     markdown: normalizeMarkdownTheme(raw.markdown, markdownFallback),
@@ -90,8 +91,8 @@ function normalizeNumberGroup<T extends Record<string, number>>(raw: unknown, fa
 function normalizeStrokeGroup(raw: unknown, fallback: EditorTheme["stroke"]): EditorTheme["stroke"] {
   const source = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
   return {
-    node: numberValue(source.node, fallback.node, 0.5, 8),
-    nodeEmphasized: numberValue(source.nodeEmphasized, fallback.nodeEmphasized, 0.5, 10),
+    node: numberValue(source.node, fallback.node, 0, 8),
+    nodeEmphasized: numberValue(source.nodeEmphasized, fallback.nodeEmphasized, 0, 10),
     edge: numberValue(source.edge, fallback.edge, 0.5, 10),
     edgeThick: numberValue(source.edgeThick, fallback.edgeThick, 1, 14),
     edgeDotted: dashValue(source.edgeDotted, fallback.edgeDotted),
@@ -158,7 +159,9 @@ function numberValue(value: unknown, fallback: number, min: number, max: number)
 }
 
 function dashValue(value: unknown, fallback: readonly number[]) {
-  if (!Array.isArray(value) || value.length < 2 || value.length > 6) return [...fallback];
+  if (!Array.isArray(value) || value.length > 6) return [...fallback];
+  if (value.length === 0) return [];
+  if (value.length < 2) return [...fallback];
   const numbers = value.map((item) => (typeof item === "number" && Number.isFinite(item) ? item : NaN));
   return numbers.every((item) => item >= 0 && item <= 48) ? numbers : [...fallback];
 }
@@ -197,6 +200,7 @@ const numberRanges = {
     pointerLength: [0, 32],
     pointerWidth: [0, 32],
     parallelEdgeSpacing: [0, 48],
+    edgeCurveSegments: [12, 240],
     endpointMarkerRadius: [2, 12],
     gridMinorAlpha: [0, 1],
     gridMajorAlpha: [0, 1],
@@ -207,6 +211,11 @@ const numberRanges = {
     gridMinorRadiusPx: [0.2, 3],
     gridMajorRadiusPx: [0.2, 4],
     gridSuperRadiusPx: [0.2, 5]
+  },
+  canvasAppearance: {
+    nodeFillSaturation: [0, 1],
+    nodeFillLuminanceSteps: [2, 256],
+    previewShadowOpacity: [0, 1]
   },
   subgraph: {
     paddingX: [8, 96],
@@ -265,6 +274,7 @@ const numberRanges = {
 } as const satisfies {
   space: Record<keyof EditorTheme["space"], [number, number]>;
   radius: Record<keyof EditorTheme["radius"], [number, number]>;
+  canvasAppearance: Record<keyof EditorTheme["canvasAppearance"], [number, number]>;
   canvasInteraction: Record<keyof EditorTheme["canvasInteraction"], [number, number]>;
   subgraph: Record<keyof EditorTheme["subgraph"], [number, number]>;
   edgeLabel: Record<keyof EditorTheme["edgeLabel"], [number, number]>;

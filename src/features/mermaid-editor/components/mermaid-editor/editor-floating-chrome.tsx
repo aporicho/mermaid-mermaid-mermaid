@@ -14,7 +14,7 @@ import type { EditorRuntime } from "@/features/mermaid-editor/lib/editor-runtime
 import type { EditableKind, EdgeRouting, EditorMode, GraphDirection, LayoutMode } from "@/features/mermaid-editor/lib/editor-types";
 import type { EditorPreferences } from "@/features/mermaid-editor/lib/editor-preferences";
 import type { RecentFileEntry } from "@/features/mermaid-editor/lib/file-workflow";
-import type { StaticWorkspacePanelId } from "@/features/mermaid-editor/lib/workspace-panels";
+import type { ChromeWorkspacePanelId } from "@/features/mermaid-editor/lib/workspace-panels";
 import type { WorkspaceView } from "@/features/mermaid-editor/lib/workspace-view";
 import type { ViewFilters } from "@/features/mermaid-editor/lib/view-filters";
 
@@ -58,7 +58,7 @@ type EditorFloatingChromeProps = {
   onWorkspaceViewChange: (view: WorkspaceView) => void;
   onViewFiltersChange: (filters: ViewFilters, message: string) => void;
   onResetViewFilters: () => void;
-  onOpenWorkspacePanel: (panelId: StaticWorkspacePanelId) => void;
+  onOpenWorkspacePanel: (panelId: ChromeWorkspacePanelId) => void;
   onAddNode: () => void;
   onAddImageNode: () => void | Promise<unknown>;
   onAddMarkdownDocument: () => void;

@@ -56,10 +56,10 @@ export function CanvasNodeLinkCard({
         fill={visualTokens.colors.surface}
         stroke={stroke}
         strokeWidth={strokeWidth}
-        cornerRadius={8}
-        shadowColor="rgba(15,23,42,0.16)"
+        cornerRadius={visualTokens.node.cornerRadius}
+        shadowColor={visualTokens.colors.nodeStroke}
         shadowBlur={10}
-        shadowOpacity={0.22}
+        shadowOpacity={visualTokens.node.previewShadowOpacity}
         shadowOffsetY={4}
       />
       <Rect
@@ -67,8 +67,8 @@ export function CanvasNodeLinkCard({
         y={inset}
         width={coverWidth}
         height={coverHeight}
-        fill={normalized.status === "ready" ? "#f8fafc" : "#fff1f2"}
-        cornerRadius={6}
+        fill={visualTokens.colors.selectionFill}
+        cornerRadius={visualTokens.shape.fallbackCornerRadius}
         listening={false}
       />
       {showCoverPlaceholder ? (
@@ -83,7 +83,7 @@ export function CanvasNodeLinkCard({
           fontSize={22}
           fontStyle="800"
           fontFamily="system-ui, sans-serif"
-          fill="#e11d48"
+          fill={visualTokens.colors.accent}
           listening={false}
         />
       ) : null}
@@ -92,7 +92,17 @@ export function CanvasNodeLinkCard({
           <CanvasNodeImage src={coverSrc} x={coverImage.x} y={coverImage.y} width={coverImage.width} height={coverImage.height} onLoadStatusChange={setCoverLoadStatus} />
         </Group>
       ) : null}
-      <Rect x={inset} y={inset} width={coverWidth} height={coverHeight} fillEnabled={false} stroke="rgba(15,23,42,0.08)" strokeWidth={1} cornerRadius={6} listening={false} />
+      <Rect
+        x={inset}
+        y={inset}
+        width={coverWidth}
+        height={coverHeight}
+        fillEnabled={false}
+        stroke={visualTokens.colors.labelStroke}
+        strokeWidth={visualTokens.node.strokeWidth}
+        cornerRadius={visualTokens.shape.fallbackCornerRadius}
+        listening={false}
+      />
       <Text
         x={12}
         y={providerY}
@@ -102,7 +112,7 @@ export function CanvasNodeLinkCard({
         fontSize={11}
         fontStyle="700"
         fontFamily="system-ui, sans-serif"
-        fill="#e11d48"
+        fill={visualTokens.colors.accent}
         listening={false}
       />
       <Text

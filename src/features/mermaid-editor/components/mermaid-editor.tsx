@@ -113,7 +113,6 @@ export function MermaidEditor() {
     setUnsavedPrompt,
     secondaryActionsOpen,
     viewFiltersOpen,
-    themeSettingsOpen,
     nodeActionEditor,
     setNodeActionEditor,
     fileDropFeedback,
@@ -121,8 +120,6 @@ export function MermaidEditor() {
     updateFileMenuOpen,
     updateViewFiltersOpen,
     updateSecondaryActionsOpen,
-    openThemeSettingsOverlay,
-    closeThemeSettingsOverlay,
     closeFloatingOverlays: closeFloatingOverlayState
   } = useEditorOverlayState({ globalDomOverlayActive });
   const {
@@ -130,6 +127,9 @@ export function MermaidEditor() {
     setThemeId,
     customTheme,
     setCustomTheme,
+    editingThemeId,
+    editingCustomTheme,
+    themeDraftDirty,
     preferences,
     setPreferences,
     activeTheme,
@@ -138,11 +138,12 @@ export function MermaidEditor() {
     beginThemeSettings,
     updatePreferences,
     previewTheme,
-    cancelThemeSettings: cancelThemeSettingsDraft,
+    discardThemeSettings,
     saveThemeSettings: saveThemeSettingsDraft
   } = useEditorThemeModel({ initial, setStatus });
   const [draftPersistenceReady, setDraftPersistenceReady] = useState(runtime.kind !== "desktop");
   const [terminalOpen, setTerminalOpen] = useState(false);
+  const [themeSettingsOpen, setThemeSettingsOpen] = useState(false);
   const [detachedMarkdownWindows, setDetachedMarkdownWindows] = useState<DetachedMarkdownWindow[]>([]);
   const {
     activeWorkspacePanel,
@@ -155,6 +156,7 @@ export function MermaidEditor() {
     leftCollapsed,
     rightCollapsed,
     terminalOpen,
+    themeSettingsOpen,
     documentKind,
     detachedMarkdownWindows
   });
@@ -252,15 +254,18 @@ export function MermaidEditor() {
   });
 
   function openThemeSettings() {
-    beginThemeSettings(); openThemeSettingsOverlay();
+    beginThemeSettings();
+    setThemeSettingsOpen(true);
+    bringWorkspacePanelToFront("theme");
   }
 
-  function cancelThemeSettings() {
-    cancelThemeSettingsDraft(); closeThemeSettingsOverlay();
+  function hideThemeSettings() {
+    setWorkspacePanelWindowState("theme", "normal");
+    setThemeSettingsOpen(false);
   }
 
   function saveThemeSettings() {
-    saveThemeSettingsDraft(); closeThemeSettingsOverlay();
+    saveThemeSettingsDraft();
   }
 
   const {
@@ -494,9 +499,7 @@ export function MermaidEditor() {
     preferences
   });
 
-  function closeFloatingOverlays() {
-    return closeFloatingOverlayState({ onCancelThemeSettings: cancelThemeSettingsDraft });
-  }
+  const closeFloatingOverlays = closeFloatingOverlayState;
 
   useEditorKeyboardShortcuts({
     graph,
@@ -583,7 +586,7 @@ export function MermaidEditor() {
           documentKind={documentKind}
           leftCollapsed={leftCollapsed}
           rightCollapsed={rightCollapsed}
-          terminalOpen={terminalOpen}
+          terminalOpen={terminalOpen} themeSettingsOpen={themeSettingsOpen}
           activeWorkspacePanel={activeWorkspacePanel}
           graph={graph}
           selection={selection}
@@ -592,7 +595,7 @@ export function MermaidEditor() {
           projectBusy={projectBusy}
           fileRef={fileRef}
           terminalCwd={terminalCwd}
-          activeTheme={activeTheme}
+          activeTheme={activeTheme} editingThemeId={editingThemeId} editingCustomTheme={editingCustomTheme} themeDraftDirty={themeDraftDirty}
           terminalTheme={compiledTheme.terminalTheme}
           detachedMarkdownWindows={detachedMarkdownWindows}
           markdownSpellcheckEnabled={preferences.markdownSpellcheckEnabled} markdownContentWidth={preferences.markdownContentWidth}
@@ -601,6 +604,8 @@ export function MermaidEditor() {
           workspacePanelWindowState={workspacePanelWindowState}
           setWorkspacePanelWindowState={setWorkspacePanelWindowState}
           closeWorkspacePanel={closeWorkspacePanel}
+          hideThemeSettings={hideThemeSettings} discardThemeSettings={discardThemeSettings}
+          applyThemeSettings={saveThemeSettings} previewTheme={previewTheme}
           openProjectFolder={openProjectFolder}
           refreshProjectWorkspace={refreshProjectWorkspace}
           closeProjectWorkspace={closeProjectWorkspace}
@@ -678,18 +683,11 @@ export function MermaidEditor() {
           projectFiles={projectFiles}
           status={status}
           statusMessages={preferences.statusMessages}
-          themeSettingsOpen={themeSettingsOpen}
-          themeId={themeId}
-          customTheme={customTheme}
-          activeTheme={activeTheme}
           onCloseFileWorkflowError={() => setFileWorkflowError(null)}
           onResolveUnsavedPrompt={resolveUnsavedPrompt}
           onCloseNodeActionEditor={() => setNodeActionEditor(null)}
           onSaveCanvasNodeAction={saveCanvasNodeAction}
           onExecuteNodeActionDraft={executeNodeActionDraft}
-          onPreviewTheme={previewTheme}
-          onCancelThemeSettings={cancelThemeSettings}
-          onSaveThemeSettings={saveThemeSettings}
         />
       </main>
     </TooltipProvider>

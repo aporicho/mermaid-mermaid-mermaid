@@ -57,6 +57,11 @@ export const EDITOR_THEME_BASE: Omit<EditorTheme, "id" | "name" | "description" 
     connectionInvalid: "#9b5a50",
     previewInvalid: "#9f9286"
   },
+  canvasAppearance: {
+    nodeFillSaturation: 1,
+    nodeFillLuminanceSteps: 256,
+    previewShadowOpacity: 0.22
+  },
   source: {
     line: "#d7ccc0"
   },
@@ -146,6 +151,7 @@ export const EDITOR_THEME_BASE: Omit<EditorTheme, "id" | "name" | "description" 
     pointerLength: CANVAS_VISUAL_TOKENS.edge.pointerLength,
     pointerWidth: CANVAS_VISUAL_TOKENS.edge.pointerWidth,
     parallelEdgeSpacing: CANVAS_VISUAL_TOKENS.edge.parallelSpacing,
+    edgeCurveSegments: CANVAS_VISUAL_TOKENS.edge.curveSegments,
     endpointMarkerRadius: CANVAS_VISUAL_TOKENS.edge.endpointMarkerRadius,
     gridMinorAlpha: DEFAULT_CANVAS_GRID.minorAlpha,
     gridMajorAlpha: DEFAULT_CANVAS_GRID.majorAlpha,
@@ -202,6 +208,7 @@ export function createEditorTheme(overrides: EditorThemeOverrides): EditorTheme 
     description: overrides.description,
     ui,
     canvas: { ...EDITOR_THEME_BASE.canvas, ...overrides.canvas },
+    canvasAppearance: { ...EDITOR_THEME_BASE.canvasAppearance, ...overrides.canvasAppearance },
     source: { ...EDITOR_THEME_BASE.source, ...overrides.source },
     render: { ...EDITOR_THEME_BASE.render, ...overrides.render },
     markdown,

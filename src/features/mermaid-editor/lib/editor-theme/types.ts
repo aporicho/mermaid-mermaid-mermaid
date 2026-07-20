@@ -119,6 +119,11 @@ export type EditorTheme = {
     connectionInvalid: string;
     previewInvalid: string;
   };
+  canvasAppearance: {
+    nodeFillSaturation: number;
+    nodeFillLuminanceSteps: number;
+    previewShadowOpacity: number;
+  };
   source: {
     line: string;
   };
@@ -201,6 +206,7 @@ export type EditorTheme = {
     pointerLength: number;
     pointerWidth: number;
     parallelEdgeSpacing: number;
+    edgeCurveSegments: number;
     endpointMarkerRadius: number;
     gridMinorAlpha: number;
     gridMajorAlpha: number;

@@ -1,3 +1,4 @@
+import { Suspense, lazy } from "react";
 import { Xmark } from "iconoir-react/regular";
 
 import { ExplorerPanel } from "@/features/mermaid-editor/components/explorer-panel";
@@ -10,7 +11,7 @@ import type { DocumentKind } from "@/features/mermaid-editor/lib/document-kind";
 import { EDITOR_CHROME_CLASSES } from "@/features/mermaid-editor/lib/editor-chrome";
 import type { EditorRuntime, RuntimeFileRef } from "@/features/mermaid-editor/lib/editor-runtime";
 import type { CanvasNode, MermaidGraph, Selection } from "@/features/mermaid-editor/lib/editor-types";
-import type { EditorTheme, XtermThemeTokens } from "@/features/mermaid-editor/lib/editor-theme";
+import type { EditorTheme, EditorThemeId, XtermThemeTokens } from "@/features/mermaid-editor/lib/editor-theme";
 import type { FloatingPanelWindowState } from "@/features/mermaid-editor/lib/floating-chrome";
 import type { EditorCommand } from "@/features/mermaid-editor/lib/interaction/commands";
 import type { ProjectFileEntry, ProjectWorkspace } from "@/features/mermaid-editor/lib/project-workspace";
@@ -19,10 +20,12 @@ import {
   WORKSPACE_PANEL_MIN_SIZES,
   type DetachedMarkdownWindow,
   type MarkdownWindowPanelId,
-  type StaticWorkspacePanelId,
+  type ChromeWorkspacePanelId,
   type WorkspaceFloatingPanelId
 } from "@/features/mermaid-editor/lib/workspace-panels";
 import { cn } from "@/lib/utils";
+
+const ThemeSettingsPanel = lazy(() => import("@/features/mermaid-editor/components/theme-settings-panel").then((mod) => ({ default: mod.ThemeSettingsPanel })));
 
 type EditorWorkspacePanelsProps = {
   runtime: EditorRuntime;
@@ -30,6 +33,7 @@ type EditorWorkspacePanelsProps = {
   leftCollapsed: boolean;
   rightCollapsed: boolean;
   terminalOpen: boolean;
+  themeSettingsOpen: boolean;
   activeWorkspacePanel: WorkspaceFloatingPanelId | null;
   graph: MermaidGraph;
   selection: Selection;
@@ -39,6 +43,9 @@ type EditorWorkspacePanelsProps = {
   fileRef: RuntimeFileRef | null;
   terminalCwd?: string;
   activeTheme: EditorTheme;
+  editingThemeId: EditorThemeId;
+  editingCustomTheme: EditorTheme | null;
+  themeDraftDirty: boolean;
   terminalTheme: XtermThemeTokens;
   detachedMarkdownWindows: DetachedMarkdownWindow[];
   markdownSpellcheckEnabled: boolean;
@@ -47,7 +54,11 @@ type EditorWorkspacePanelsProps = {
   workspacePanelStackPosition: (panelId: WorkspaceFloatingPanelId) => number;
   workspacePanelWindowState: (panelId: WorkspaceFloatingPanelId) => FloatingPanelWindowState;
   setWorkspacePanelWindowState: (panelId: WorkspaceFloatingPanelId, state: FloatingPanelWindowState) => void;
-  closeWorkspacePanel: (panelId: StaticWorkspacePanelId) => void;
+  closeWorkspacePanel: (panelId: ChromeWorkspacePanelId) => void;
+  hideThemeSettings: () => void;
+  discardThemeSettings: () => void;
+  applyThemeSettings: () => void;
+  previewTheme: (themeId: EditorThemeId, customTheme: EditorTheme | null) => void;
   openProjectFolder: () => void | Promise<unknown>;
   refreshProjectWorkspace: () => void | Promise<unknown>;
   closeProjectWorkspace: () => void | Promise<unknown>;
@@ -69,6 +80,7 @@ export function EditorWorkspacePanels({
   leftCollapsed,
   rightCollapsed,
   terminalOpen,
+  themeSettingsOpen,
   activeWorkspacePanel,
   graph,
   selection,
@@ -78,6 +90,9 @@ export function EditorWorkspacePanels({
   fileRef,
   terminalCwd,
   activeTheme,
+  editingThemeId,
+  editingCustomTheme,
+  themeDraftDirty,
   terminalTheme,
   detachedMarkdownWindows,
   markdownSpellcheckEnabled,
@@ -87,6 +102,10 @@ export function EditorWorkspacePanels({
   workspacePanelWindowState,
   setWorkspacePanelWindowState,
   closeWorkspacePanel,
+  hideThemeSettings,
+  discardThemeSettings,
+  applyThemeSettings,
+  previewTheme,
   openProjectFolder,
   refreshProjectWorkspace,
   closeProjectWorkspace,
@@ -166,6 +185,44 @@ export function EditorWorkspacePanels({
             onEditNodeAction={editCanvasNodeAction}
           />
         </div>
+      </FloatingPanel>
+      <FloatingPanel
+        open={themeSettingsOpen}
+        placement="right-panel"
+        kind="workspace"
+        dismissMode="explicit"
+        panelId="theme"
+        active={activeWorkspacePanel === "theme"}
+        stackIndex={workspacePanelStackPosition("theme")}
+        onFocusPanel={() => bringWorkspacePanelToFront("theme")}
+        resetDragOnOpen={false}
+        defaultSize={WORKSPACE_PANEL_DEFAULT_SIZES.theme}
+        minSize={WORKSPACE_PANEL_MIN_SIZES.theme}
+        windowState={workspacePanelWindowState("theme")}
+        onWindowStateChange={(state) => setWorkspacePanelWindowState("theme", state)}
+        className="grid h-full w-full min-h-0 overflow-hidden bg-card"
+      >
+        <Suspense fallback={null}>
+          <ThemeSettingsPanel
+            themeId={editingThemeId}
+            customTheme={editingCustomTheme}
+            activeTheme={activeTheme}
+            hasDraft={themeDraftDirty}
+            onPreview={previewTheme}
+            onDiscard={discardThemeSettings}
+            onApply={applyThemeSettings}
+            windowControls={
+              <WorkspacePanelControls
+                windowState={workspacePanelWindowState("theme")}
+                onWindowStateChange={(state) => setWorkspacePanelWindowState("theme", state)}
+                onClose={hideThemeSettings}
+                closeLabel="隐藏主题面板"
+                closeTooltipSide="left"
+                closeIcon={<Xmark />}
+              />
+            }
+          />
+        </Suspense>
       </FloatingPanel>
       <FloatingPanel
         open={terminalOpen}

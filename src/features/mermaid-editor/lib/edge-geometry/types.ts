@@ -39,9 +39,11 @@ export type EdgeLaneAssignment = {
 };
 export type EdgeRoutingOptions = {
   lane?: EdgeLaneAssignment;
+  curveSegments?: number;
 };
 export type EdgePathMapOptions = {
   laneSpacing?: number;
+  curveSegments?: number;
 };
 
 export type FinalEdgeGeometryMapInput = {
@@ -72,10 +74,10 @@ export type ShapePort = {
 
 export const SOURCE_GAP = 6;
 export const TARGET_GAP = 10;
-export const CUBIC_SEGMENTS = 24;
+export const CUBIC_SEGMENTS = 120;
 export const ORTHOGONAL_STUB = 28;
 export const ORTHOGONAL_CORNER_RADIUS = 14;
-export const ORTHOGONAL_CORNER_SEGMENTS = 5;
+export const ORTHOGONAL_CORNER_SEGMENTS = 25;
 export const EPSILON = 0.001;
 export const DEFAULT_PARALLEL_EDGE_SPACING = 18;
 

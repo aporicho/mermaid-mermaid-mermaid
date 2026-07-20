@@ -1,5 +1,5 @@
 import type { FloatingPanelWindowState } from "@/features/mermaid-editor/lib/floating-chrome";
-import type { StaticWorkspacePanelId, WorkspaceFloatingPanelId } from "@/features/mermaid-editor/lib/workspace-panels";
+import type { ChromeWorkspacePanelId, WorkspaceFloatingPanelId } from "@/features/mermaid-editor/lib/workspace-panels";
 
 type UseEditorWorkspacePanelActionsArgs = {
   bringWorkspacePanelToFront: (panelId: WorkspaceFloatingPanelId) => void;
@@ -16,14 +16,14 @@ export function useEditorWorkspacePanelActions({
   setRightCollapsed,
   setTerminalOpen
 }: UseEditorWorkspacePanelActionsArgs) {
-  function openWorkspacePanel(panelId: StaticWorkspacePanelId) {
+  function openWorkspacePanel(panelId: ChromeWorkspacePanelId) {
     bringWorkspacePanelToFront(panelId);
     if (panelId === "explorer") setLeftCollapsed(false);
     if (panelId === "inspector") setRightCollapsed(false);
     if (panelId === "terminal") setTerminalOpen(true);
   }
 
-  function closeWorkspacePanel(panelId: StaticWorkspacePanelId) {
+  function closeWorkspacePanel(panelId: ChromeWorkspacePanelId) {
     setWorkspacePanelWindowState(panelId, "normal");
     if (panelId === "explorer") setLeftCollapsed(true);
     if (panelId === "inspector") setRightCollapsed(true);

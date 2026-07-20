@@ -58,19 +58,21 @@ export function computeEdgePathFromRectMap(edge: CanvasEdge, rectById: Map<strin
   const from = rectById.get(edge.from);
   const to = rectById.get(edge.to);
   if (!from || !to) return null;
+  const curveSegments = normalizeCurveSegments(options.curveSegments);
 
-  if (from.id === to.id) return edgeRouting === "mermaid" ? routeMermaidSelfLoop(from, options.lane) : routeSelfLoop(from, options.lane);
+  if (from.id === to.id) return edgeRouting === "mermaid" ? routeMermaidSelfLoop(from, options.lane) : routeSelfLoop(from, options.lane, curveSegments);
 
-  return routeBetweenRects(from, to, edgeRouting, options.lane, edge);
+  return routeBetweenRects(from, to, edgeRouting, options.lane, edge, curveSegments);
 }
 
-export function computeEdgeDraftPath(source: RoutedNodeRect, target: EdgeDraftTarget, edgeRouting: EdgeRouting): EdgePathGeometry {
+export function computeEdgeDraftPath(source: RoutedNodeRect, target: EdgeDraftTarget, edgeRouting: EdgeRouting, options: Pick<EdgeRoutingOptions, "curveSegments"> = {}): EdgePathGeometry {
+  const curveSegments = normalizeCurveSegments(options.curveSegments);
   if (target.kind === "node") {
-    if (source.id === target.rect.id) return computeEdgeDraftPath(source, { kind: "point", point: rectCenter(target.rect) }, edgeRouting);
-    return routeBetweenRects(source, target.rect, edgeRouting);
+    if (source.id === target.rect.id) return computeEdgeDraftPath(source, { kind: "point", point: rectCenter(target.rect) }, edgeRouting, { curveSegments });
+    return routeBetweenRects(source, target.rect, edgeRouting, undefined, undefined, curveSegments);
   }
 
-  return routeToPoint(source, target.point, edgeRouting);
+  return routeToPoint(source, target.point, edgeRouting, curveSegments);
 }
 
 export function computeEdgeRetargetPath(
@@ -78,23 +80,25 @@ export function computeEdgeRetargetPath(
   nodes: RoutedNodeRect[],
   side: EdgeRetargetSide,
   target: EdgeDraftTarget,
-  edgeRouting: EdgeRouting
+  edgeRouting: EdgeRouting,
+  options: Pick<EdgeRoutingOptions, "curveSegments"> = {}
 ): EdgePathGeometry | null {
   const fixedNodeId = side === "from" ? edge.to : edge.from;
   const fixed = nodes.find((node) => node.id === fixedNodeId);
   if (!fixed) return null;
+  const curveSegments = normalizeCurveSegments(options.curveSegments);
 
   if (side === "to") {
-    if (target.kind === "node" && target.rect.id === fixed.id) return routeSelfLoop(fixed);
-    return computeEdgeDraftPath(fixed, target, edgeRouting);
+    if (target.kind === "node" && target.rect.id === fixed.id) return routeSelfLoop(fixed, undefined, curveSegments);
+    return computeEdgeDraftPath(fixed, target, edgeRouting, { curveSegments });
   }
 
   if (target.kind === "node") {
-    if (target.rect.id === fixed.id) return routeSelfLoop(fixed);
-    return routeBetweenRects(target.rect, fixed, edgeRouting);
+    if (target.rect.id === fixed.id) return routeSelfLoop(fixed, undefined, curveSegments);
+    return routeBetweenRects(target.rect, fixed, edgeRouting, undefined, undefined, curveSegments);
   }
 
-  return routeFromPointToRect(target.point, fixed, edgeRouting);
+  return routeFromPointToRect(target.point, fixed, edgeRouting, curveSegments);
 }
 
 export function remapEdgePathGeometry(route: EdgePathGeometry, fallback: EdgePathGeometry): EdgePathGeometry {
@@ -132,30 +136,30 @@ export function remapEdgePathGeometry(route: EdgePathGeometry, fallback: EdgePat
   return buildGeometry(transformed, fallback.start, fallback.end, fallback.endTangent, basisLine(transformed) || undefined);
 }
 
-function routeBetweenRects(from: RoutedNodeRect, to: RoutedNodeRect, edgeRouting: EdgeRouting, lane?: EdgeLaneAssignment, edge?: Pick<CanvasEdge, "fromAnchor" | "toAnchor">): EdgePathGeometry {
+function routeBetweenRects(from: RoutedNodeRect, to: RoutedNodeRect, edgeRouting: EdgeRouting, lane?: EdgeLaneAssignment, edge?: Pick<CanvasEdge, "fromAnchor" | "toAnchor">, curveSegments = CUBIC_SEGMENTS): EdgePathGeometry {
   const preset = routingPresets[edgeRouting];
   const anchors = computeAnchorsForPreset(from, to, preset, lane, edge);
 
-  if (preset.pathKind === "cubic-bezier") return routeCubicBezier(anchors);
-  if (preset.pathKind === "rounded-orthogonal") return routeRoundedOrthogonal(anchors);
+  if (preset.pathKind === "cubic-bezier") return routeCubicBezier(anchors, curveSegments);
+  if (preset.pathKind === "rounded-orthogonal") return routeRoundedOrthogonal(anchors, curveSegments);
   if (preset.pathKind === "basis-spline") return routeBasisSpline(anchors);
 
   return buildGeometry([anchors.start, anchors.end], anchors.start, anchors.end, anchors.endTangent);
 }
 
-function routeToPoint(from: RoutedNodeRect, point: Point, edgeRouting: EdgeRouting): EdgePathGeometry {
+function routeToPoint(from: RoutedNodeRect, point: Point, edgeRouting: EdgeRouting, curveSegments = CUBIC_SEGMENTS): EdgePathGeometry {
   const preset = routingPresets[edgeRouting];
   const anchors = computePointAnchorsForPreset(from, point, preset);
 
-  if (preset.pathKind === "cubic-bezier") return routeCubicBezier(anchors);
-  if (preset.pathKind === "rounded-orthogonal") return routeRoundedOrthogonal(anchors);
+  if (preset.pathKind === "cubic-bezier") return routeCubicBezier(anchors, curveSegments);
+  if (preset.pathKind === "rounded-orthogonal") return routeRoundedOrthogonal(anchors, curveSegments);
   if (preset.pathKind === "basis-spline") return routeBasisSpline(anchors);
 
   return buildGeometry([anchors.start, anchors.end], anchors.start, anchors.end, anchors.endTangent);
 }
 
-function routeFromPointToRect(point: Point, to: RoutedNodeRect, edgeRouting: EdgeRouting): EdgePathGeometry {
-  const reversed = routeToPoint(to, point, edgeRouting);
+function routeFromPointToRect(point: Point, to: RoutedNodeRect, edgeRouting: EdgeRouting, curveSegments = CUBIC_SEGMENTS): EdgePathGeometry {
+  const reversed = routeToPoint(to, point, edgeRouting, curveSegments);
   const points = unflattenPoints(reversed.points).reverse();
 
   return buildGeometry(points, reversed.end, reversed.start, multiply(reversed.endTangent, -1));
@@ -249,23 +253,23 @@ function computeFixedPortPointAnchors(from: RoutedNodeRect, point: Point): EdgeA
   };
 }
 
-function routeCubicBezier(anchors: EdgeAnchors): EdgePathGeometry {
+function routeCubicBezier(anchors: EdgeAnchors, curveSegments = CUBIC_SEGMENTS): EdgePathGeometry {
   const distanceValue = Math.hypot(anchors.end.x - anchors.start.x, anchors.end.y - anchors.start.y);
   const controlDistance = clamp(distanceValue * 0.42, 48, 180);
   const control1 = add(anchors.start, multiply(anchors.sourceTangent, controlDistance));
   const control2 = add(anchors.end, multiply(anchors.endTangent, -controlDistance));
-  const sampled = sampleCubic(anchors.start, control1, control2, anchors.end, CUBIC_SEGMENTS);
+  const sampled = sampleCubic(anchors.start, control1, control2, anchors.end, curveSegments);
 
   return buildGeometry(sampled, anchors.start, anchors.end, anchors.endTangent);
 }
 
-function routeRoundedOrthogonal(anchors: EdgeAnchors): EdgePathGeometry {
+function routeRoundedOrthogonal(anchors: EdgeAnchors, curveSegments = CUBIC_SEGMENTS): EdgePathGeometry {
   const exit = add(anchors.start, multiply(anchors.sourceTangent, ORTHOGONAL_STUB));
   const entry = add(anchors.end, multiply(anchors.endTangent, -ORTHOGONAL_STUB));
   const bridge = orthogonalBridgePoints(exit, entry, anchors.sourceTangent, anchors.endTangent);
   const raw = dedupePoints([anchors.start, exit, ...bridge, entry, anchors.end]);
 
-  return buildGeometry(roundPolylineCorners(raw, ORTHOGONAL_CORNER_RADIUS), anchors.start, anchors.end, anchors.endTangent);
+  return buildGeometry(roundPolylineCorners(raw, ORTHOGONAL_CORNER_RADIUS, orthogonalCornerSegments(curveSegments)), anchors.start, anchors.end, anchors.endTangent);
 }
 
 function routeBasisSpline(anchors: EdgeAnchors): EdgePathGeometry {
@@ -302,7 +306,7 @@ function orthogonalBridgePoints(start: Point, end: Point, startTangent: Point, e
   return [{ x: start.x, y: end.y }];
 }
 
-function roundPolylineCorners(points: Point[], radius: number): Point[] {
+function roundPolylineCorners(points: Point[], radius: number, cornerSegments = ORTHOGONAL_CORNER_SEGMENTS): Point[] {
   if (points.length < 3) return points;
 
   const rounded: Point[] = [points[0]];
@@ -324,8 +328,8 @@ function roundPolylineCorners(points: Point[], radius: number): Point[] {
     const after = add(current, multiply(normalize({ x: next.x - current.x, y: next.y - current.y }, { x: 0, y: 0 }), turnRadius));
     rounded.push(before);
 
-    for (let segment = 1; segment <= ORTHOGONAL_CORNER_SEGMENTS; segment += 1) {
-      const t = segment / ORTHOGONAL_CORNER_SEGMENTS;
+    for (let segment = 1; segment <= cornerSegments; segment += 1) {
+      const t = segment / cornerSegments;
       rounded.push(sampleQuadratic(before, current, after, t));
     }
   }
@@ -334,7 +338,7 @@ function roundPolylineCorners(points: Point[], radius: number): Point[] {
   return dedupePoints(rounded);
 }
 
-function routeSelfLoop(node: RoutedNodeRect, lane?: EdgeLaneAssignment): EdgePathGeometry {
+function routeSelfLoop(node: RoutedNodeRect, lane?: EdgeLaneAssignment, curveSegments = CUBIC_SEGMENTS): EdgePathGeometry {
   const right = node.x + node.width;
   const laneOffset = lane?.laneOffset ?? 0;
   const spread = Math.abs(laneOffset);
@@ -348,7 +352,7 @@ function routeSelfLoop(node: RoutedNodeRect, lane?: EdgeLaneAssignment): EdgePat
   const control2 = { x: controlX, y: lowerY };
   const endTangent = normalize({ x: end.x - control2.x, y: end.y - control2.y }, { x: -1, y: 0 });
 
-  return buildGeometry(sampleCubic(start, control1, control2, end, CUBIC_SEGMENTS), start, end, endTangent);
+  return buildGeometry(sampleCubic(start, control1, control2, end, curveSegments), start, end, endTangent);
 }
 
 function routeMermaidSelfLoop(node: RoutedNodeRect, lane?: EdgeLaneAssignment): EdgePathGeometry {
@@ -367,6 +371,15 @@ function routeMermaidSelfLoop(node: RoutedNodeRect, lane?: EdgeLaneAssignment): 
   const endTangent = normalize({ x: end.x - control2.x, y: end.y - control2.y }, { x: -1, y: 0 });
 
   return buildGeometry(points, start, end, endTangent, basisLine(points) || undefined);
+}
+
+function normalizeCurveSegments(value: number | undefined) {
+  if (typeof value !== "number" || !Number.isFinite(value)) return CUBIC_SEGMENTS;
+  return Math.round(clamp(value, 12, 240));
+}
+
+function orthogonalCornerSegments(curveSegments: number) {
+  return Math.max(2, Math.round((curveSegments * ORTHOGONAL_CORNER_SEGMENTS) / CUBIC_SEGMENTS));
 }
 
 function buildGeometry(points: Point[], start: Point, end: Point, endTangent: Point, pathData?: string): EdgePathGeometry {

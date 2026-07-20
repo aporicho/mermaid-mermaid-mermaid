@@ -1,0 +1,116 @@
+{
+  "kind": "editor",
+  "id": "rational-minimal",
+  "name": "理性极简",
+  "description": "严格黑白灰、直角几何与低装饰密度，强调秩序、信息和克制。",
+  "mode": "light",
+  "order": 40,
+  "source": {
+    "id": "local",
+    "name": "内置"
+  },
+  "theme": {
+    "ui": {
+      "background": "#f4f4f4",
+      "foreground": "#0a0a0a",
+      "icon": "#4a4a4a",
+      "card": "#ffffff",
+      "popover": "#ffffff",
+      "primary": "#000000",
+      "secondary": "#e6e6e6",
+      "muted": "#eeeeee",
+      "mutedForeground": "#5a5a5a",
+      "accent": "#dcdcdc",
+      "accentForeground": "#000000",
+      "destructive": "#222222",
+      "border": "#a8a8a8"
+    },
+    "canvas": {
+      "surface": "#ffffff",
+      "nodeStroke": "#111111",
+      "nodeText": "#000000",
+      "edge": "#1a1a1a",
+      "edgeText": "#111111",
+      "labelStroke": "#a8a8a8",
+      "connectionInvalid": "#333333",
+      "previewInvalid": "#666666"
+    },
+    "canvasAppearance": {
+      "nodeFillSaturation": 0,
+      "nodeFillLuminanceSteps": 2,
+      "previewShadowOpacity": 0
+    },
+    "source": {
+      "line": "#d6d6d6"
+    },
+    "render": {
+      "background": "#f4f4f4",
+      "gridDot": "#000000"
+    },
+    "markdown": {
+      "quote": {
+        "radius": 0
+      },
+      "inlineCode": {
+        "radius": 0
+      },
+      "codeBlock": {
+        "radius": 0
+      },
+      "table": {
+        "radius": 0
+      },
+      "image": {
+        "radius": 0
+      }
+    },
+    "ansi": {
+      "black": "#000000",
+      "red": "#242424",
+      "green": "#363636",
+      "yellow": "#484848",
+      "blue": "#181818",
+      "magenta": "#545454",
+      "cyan": "#606060",
+      "white": "#767676",
+      "brightBlack": "#707070",
+      "brightRed": "#303030",
+      "brightGreen": "#424242",
+      "brightYellow": "#565656",
+      "brightBlue": "#202020",
+      "brightMagenta": "#686868",
+      "brightCyan": "#7a7a7a",
+      "brightWhite": "#555555"
+    },
+    "terminal": {
+      "background": "#ffffff",
+      "foreground": "#111111",
+      "cursor": "#000000",
+      "cursorAccent": "#ffffff",
+      "selectionBackground": "#d8d8d8",
+      "selectionForeground": "#000000"
+    },
+    "radius": {
+      "app": 0,
+      "controlSm": 0,
+      "controlMd": 0,
+      "controlLg": 0,
+      "canvasNode": 0,
+      "edgeLabel": 0,
+      "polygonCorner": 0,
+      "subgraphTitle": 0
+    },
+    "stroke": {
+      "node": 0,
+      "nodeEmphasized": 1,
+      "edge": 1,
+      "edgeThick": 2,
+      "overlay": 0.5,
+      "subgraphDash": []
+    },
+    "canvasInteraction": {
+      "pointerLength": 8,
+      "pointerWidth": 7
+    }
+  }
+}

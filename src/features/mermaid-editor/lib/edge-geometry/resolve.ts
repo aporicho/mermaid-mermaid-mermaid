@@ -14,7 +14,10 @@ export function computeEdgePathMap(edges: CanvasEdge[], nodes: RoutedNodeRect[],
   const geometryById = new Map<string, EdgePathGeometry>();
 
   for (const edge of edges) {
-    const geometry = computeEdgePathFromRectMap(edge, rectById, edgeRouting, { lane: lanes.get(edge.id) });
+    const geometry = computeEdgePathFromRectMap(edge, rectById, edgeRouting, {
+      lane: lanes.get(edge.id),
+      curveSegments: options.curveSegments
+    });
     if (geometry) geometryById.set(edge.id, geometry);
   }
 

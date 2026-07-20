@@ -5,10 +5,6 @@ import type { FileWorkflowError } from "@/features/mermaid-editor/lib/file-workf
 
 import type { UnsavedPromptState } from "./use-editor-file-workflow";
 
-type CloseFloatingOverlayOptions = {
-  onCancelThemeSettings?: () => void;
-};
-
 type UseEditorOverlayStateArgs = {
   globalDomOverlayActive: boolean;
 };
@@ -20,7 +16,6 @@ export function useEditorOverlayState({ globalDomOverlayActive }: UseEditorOverl
   const [unsavedPrompt, setUnsavedPrompt] = useState<UnsavedPromptState | null>(null);
   const [secondaryActionsOpen, setSecondaryActionsOpen] = useState(false);
   const [viewFiltersOpen, setViewFiltersOpen] = useState(false);
-  const [themeSettingsOpen, setThemeSettingsOpen] = useState(false);
   const [nodeActionEditor, setNodeActionEditor] = useState<{ nodeId: string } | null>(null);
   const [fileDropFeedback, setFileDropFeedback] = useState<FileDropFeedback | null>(null);
 
@@ -29,7 +24,6 @@ export function useEditorOverlayState({ globalDomOverlayActive }: UseEditorOverl
     fileMenuOpen ||
     viewFiltersOpen ||
     secondaryActionsOpen ||
-    themeSettingsOpen ||
     Boolean(nodeActionEditor) ||
     Boolean(fileWorkflowError) ||
     Boolean(unsavedPrompt);
@@ -61,18 +55,7 @@ export function useEditorOverlayState({ globalDomOverlayActive }: UseEditorOverl
     setViewFiltersOpen(false);
   }, []);
 
-  const openThemeSettingsOverlay = useCallback(() => {
-    setThemeSettingsOpen(true);
-    setFileMenuOpen(false);
-    setViewFiltersOpen(false);
-    setSecondaryActionsOpen(false);
-  }, []);
-
-  const closeThemeSettingsOverlay = useCallback(() => {
-    setThemeSettingsOpen(false);
-  }, []);
-
-  const closeFloatingOverlays = useCallback((options: CloseFloatingOverlayOptions = {}) => {
+  const closeFloatingOverlays = useCallback(() => {
     let closed = false;
     if (fileMenuOpen) {
       setFileMenuOpen(false);
@@ -86,13 +69,8 @@ export function useEditorOverlayState({ globalDomOverlayActive }: UseEditorOverl
       setSecondaryActionsOpen(false);
       closed = true;
     }
-    if (themeSettingsOpen) {
-      options.onCancelThemeSettings?.();
-      setThemeSettingsOpen(false);
-      closed = true;
-    }
     return closed;
-  }, [fileMenuOpen, secondaryActionsOpen, themeSettingsOpen, viewFiltersOpen]);
+  }, [fileMenuOpen, secondaryActionsOpen, viewFiltersOpen]);
 
   return {
     status,
@@ -105,7 +83,6 @@ export function useEditorOverlayState({ globalDomOverlayActive }: UseEditorOverl
     setUnsavedPrompt,
     secondaryActionsOpen,
     viewFiltersOpen,
-    themeSettingsOpen,
     nodeActionEditor,
     setNodeActionEditor,
     fileDropFeedback,
@@ -114,8 +91,6 @@ export function useEditorOverlayState({ globalDomOverlayActive }: UseEditorOverl
     updateFileMenuOpen,
     updateViewFiltersOpen,
     updateSecondaryActionsOpen,
-    openThemeSettingsOverlay,
-    closeThemeSettingsOverlay,
     closeFloatingOverlays
   };
 }

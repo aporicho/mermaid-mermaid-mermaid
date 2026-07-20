@@ -21,6 +21,7 @@ import { centerScaleTransform } from "@/features/mermaid-editor/lib/canvas-motio
 import {
   getAnchorVisualState,
   getNodeVisualState,
+  resolveCanvasNodeTextFill,
   type CanvasVisualTokens
 } from "@/features/mermaid-editor/lib/canvas-visual-state";
 import type { CanvasNode, EditorMode, Selection } from "@/features/mermaid-editor/lib/editor-types";
@@ -138,6 +139,7 @@ export function KonvaNodeLayer({
         const proximityScale = nodeProximityScale[node.id] ?? 1;
         const visualScale = (motionVisual?.scale ?? 1) * proximityScale;
         const nodeStrokeWidth = nodeVisual.strokeWidth + (motionVisual?.highlight ?? 0) * visualTokens.node.emphasizedStrokeWidth;
+        const nodeTextFill = resolveCanvasNodeTextFill(node.fill, nodeVisual.textFill, visualTokens);
 
         return (
           <Group
@@ -249,7 +251,7 @@ export function KonvaNodeLayer({
                   fontFamily={nodeThemeTokens.fontFamily}
                   lineHeight={nodeThemeTokens.lineHeight / nodeThemeTokens.fontSize}
                   wrap="word"
-                  fill={nodeVisual.textFill}
+                  fill={nodeTextFill}
                   ellipsis
                   visible={viewFilters.nodeLabels && !(inlineEdit?.type === "node" && inlineEdit.id === node.id)}
                 />
@@ -314,6 +316,7 @@ export function KonvaNodeLayer({
         const imageDisplaySrc = imageAsset ? imageDisplaySrcBySrc[imageAsset.src] || imageAsset.src : undefined;
         const previewCoverSrc = linkPreview?.cover?.src ? imageDisplaySrcBySrc[linkPreview.cover.src] || linkPreview.cover.src : undefined;
         const nodeVisualTransform = centerScaleTransform(geometry.frame);
+        const nodeTextFill = resolveCanvasNodeTextFill(node.fill, visualTokens.colors.nodeText, visualTokens);
 
         return (
           <Group
@@ -391,7 +394,7 @@ export function KonvaNodeLayer({
                   fontFamily={nodeThemeTokens.fontFamily}
                   lineHeight={nodeThemeTokens.lineHeight / nodeThemeTokens.fontSize}
                   wrap="word"
-                  fill={visualTokens.colors.nodeText}
+                  fill={nodeTextFill}
                   ellipsis
                   visible={viewFilters.nodeLabels}
                 />

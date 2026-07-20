@@ -53,7 +53,7 @@ export function MarkdownDocumentCard({
         height={38}
         fill={error ? visualTokens.colors.previewInvalid : visualTokens.colors.accent}
         opacity={error ? 0.2 : 0.12}
-        cornerRadius={10}
+        cornerRadius={visualTokens.shape.fallbackCornerRadius}
       />
       <Text
         x={12}

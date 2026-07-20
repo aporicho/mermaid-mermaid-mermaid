@@ -53,9 +53,11 @@ const config: Config = {
         }
       },
       borderRadius: {
-        lg: "var(--radius)",
-        md: "calc(var(--radius) - 2px)",
-        sm: "calc(var(--radius) - 4px)"
+        DEFAULT: "var(--theme-radius-control-sm)",
+        sm: "var(--theme-radius-control-sm)",
+        md: "var(--theme-radius-control-md)",
+        lg: "var(--theme-radius-control-lg)",
+        xl: "var(--theme-radius-app)"
       }
     }
   },

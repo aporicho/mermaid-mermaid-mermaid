@@ -7,7 +7,9 @@ import {
   getConnectionDraftVisualState,
   getEdgeEndpointVisualState,
   getEdgeVisualState,
-  getNodeVisualState
+  getNodeVisualState,
+  resolveCanvasNodeFill,
+  resolveCanvasNodeTextFill
 } from "@/features/mermaid-editor/lib/canvas-visual-state";
 import { idleInteraction, type InteractionState } from "@/features/mermaid-editor/lib/canvas-interaction";
 import type { CanvasEdge, Selection } from "@/features/mermaid-editor/lib/editor-types";
@@ -161,5 +163,30 @@ describe("canvas visual state", () => {
   it("uses dashed center guides and solid edge guides", () => {
     expect(getAlignmentGuideVisualState("center").dash).toEqual([6, 5]);
     expect(getAlignmentGuideVisualState("edge").dash).toBeUndefined();
+  });
+
+  it("applies the theme saturation to document node fills", () => {
+    const grayscaleTokens = {
+      ...CANVAS_VISUAL_TOKENS,
+      node: { ...CANVAS_VISUAL_TOKENS.node, fillSaturation: 0 }
+    };
+
+    expect(resolveCanvasNodeFill("#ff4050", grayscaleTokens)).toBe("#6a6a6a");
+    expect(resolveCanvasNodeFill("#abc", grayscaleTokens)).toBe("#b9b9b9");
+    expect(resolveCanvasNodeFill("rgb(255, 64, 80)", grayscaleTokens)).toBe("rgb(255, 64, 80)");
+    expect(resolveCanvasNodeFill("#ff4050")).toBe("#ff4050");
+  });
+
+  it("quantizes node fills to pure black and white with readable text", () => {
+    const binaryTokens = {
+      ...CANVAS_VISUAL_TOKENS,
+      colors: { ...CANVAS_VISUAL_TOKENS.colors, nodeText: "#000000", surface: "#ffffff" },
+      node: { ...CANVAS_VISUAL_TOKENS.node, fillSaturation: 0, fillLuminanceSteps: 2 }
+    };
+
+    expect(resolveCanvasNodeFill("#ff4050", binaryTokens)).toBe("#000000");
+    expect(resolveCanvasNodeFill("#abc", binaryTokens)).toBe("#ffffff");
+    expect(resolveCanvasNodeTextFill("#ff4050", "#000000", binaryTokens)).toBe("#ffffff");
+    expect(resolveCanvasNodeTextFill("#abc", "#000000", binaryTokens)).toBe("#000000");
   });
 });

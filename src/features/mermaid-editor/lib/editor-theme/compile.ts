@@ -60,6 +60,17 @@ export function themeToCssVariables(theme: EditorTheme): Record<string, string> 
     "--terminal-selection-foreground": hexToHslTriplet(theme.terminal.selectionForeground),
     ...ansiToCssVariables(theme.ansi),
     "--radius": `${theme.radius.app}px`,
+    "--theme-radius-app": `${theme.radius.app}px`,
+    "--theme-radius-control-sm": `${theme.radius.controlSm}px`,
+    "--theme-radius-control-md": `${theme.radius.controlMd}px`,
+    "--theme-radius-control-lg": `${theme.radius.controlLg}px`,
+    "--theme-radius-canvas-node": `${theme.radius.canvasNode}px`,
+    "--theme-radius-edge-label": `${theme.radius.edgeLabel}px`,
+    "--theme-radius-polygon-corner": `${theme.radius.polygonCorner}px`,
+    "--theme-radius-subgraph-title": `${theme.radius.subgraphTitle}px`,
+    "--theme-canvas-node-fill-saturation": `${theme.canvasAppearance.nodeFillSaturation}`,
+    "--theme-canvas-node-fill-luminance-steps": `${theme.canvasAppearance.nodeFillLuminanceSteps}`,
+    "--theme-canvas-preview-shadow-opacity": `${theme.canvasAppearance.previewShadowOpacity}`,
     "--theme-panel-padding": `${theme.space.panelPadding}px`,
     "--theme-panel-header-height": `${theme.space.panelHeaderHeight}px`,
     "--theme-panel-footer-height": `${theme.space.panelFooterHeight}px`,
@@ -98,7 +109,10 @@ export function themeToCanvasVisualTokens(theme: EditorTheme): CanvasVisualToken
     node: {
       cornerRadius: theme.radius.canvasNode,
       strokeWidth: theme.stroke.node,
-      emphasizedStrokeWidth: theme.stroke.nodeEmphasized
+      emphasizedStrokeWidth: theme.stroke.nodeEmphasized,
+      fillSaturation: theme.canvasAppearance.nodeFillSaturation,
+      fillLuminanceSteps: theme.canvasAppearance.nodeFillLuminanceSteps,
+      previewShadowOpacity: theme.canvasAppearance.previewShadowOpacity
     },
     anchor: {
       radius: theme.canvasInteraction.anchorRadius,
@@ -114,6 +128,7 @@ export function themeToCanvasVisualTokens(theme: EditorTheme): CanvasVisualToken
       pointerLength: theme.canvasInteraction.pointerLength,
       pointerWidth: theme.canvasInteraction.pointerWidth,
       parallelSpacing: theme.canvasInteraction.parallelEdgeSpacing,
+      curveSegments: theme.canvasInteraction.edgeCurveSegments,
       labelCornerRadius: theme.radius.edgeLabel,
       endpointMarkerRadius: theme.canvasInteraction.endpointMarkerRadius
     },

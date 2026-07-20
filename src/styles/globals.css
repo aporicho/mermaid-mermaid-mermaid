@@ -55,6 +55,17 @@
     --theme-terminal-font-size: 13px;
     --theme-terminal-line-height: 20px;
     --radius: 0.5rem;
+    --theme-radius-app: 8px;
+    --theme-radius-control-sm: 4px;
+    --theme-radius-control-md: 6px;
+    --theme-radius-control-lg: 8px;
+    --theme-radius-canvas-node: 6px;
+    --theme-radius-edge-label: 4px;
+    --theme-radius-polygon-corner: 6px;
+    --theme-radius-subgraph-title: 4px;
+    --theme-canvas-node-fill-saturation: 1;
+    --theme-canvas-node-fill-luminance-steps: 256;
+    --theme-canvas-preview-shadow-opacity: 0.22;
   }
 
   * {

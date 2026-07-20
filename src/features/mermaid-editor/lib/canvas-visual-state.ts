@@ -66,6 +66,9 @@ export type CanvasVisualTokens = {
     cornerRadius: number;
     strokeWidth: number;
     emphasizedStrokeWidth: number;
+    fillSaturation: number;
+    fillLuminanceSteps: number;
+    previewShadowOpacity: number;
   };
   anchor: {
     radius: number;
@@ -81,6 +84,7 @@ export type CanvasVisualTokens = {
     pointerLength: number;
     pointerWidth: number;
     parallelSpacing: number;
+    curveSegments: number;
     labelCornerRadius: number;
     endpointMarkerRadius: number;
   };
@@ -128,7 +132,10 @@ export const CANVAS_VISUAL_TOKENS: CanvasVisualTokens = {
   node: {
     cornerRadius: 14,
     strokeWidth: 1,
-    emphasizedStrokeWidth: 1.5
+    emphasizedStrokeWidth: 1.5,
+    fillSaturation: 1,
+    fillLuminanceSteps: 256,
+    previewShadowOpacity: 0.22
   },
   anchor: {
     radius: 6,
@@ -144,6 +151,7 @@ export const CANVAS_VISUAL_TOKENS: CanvasVisualTokens = {
     pointerLength: 10,
     pointerWidth: 10,
     parallelSpacing: 18,
+    curveSegments: 120,
     labelCornerRadius: 8,
     endpointMarkerRadius: 4.5
   },
@@ -170,6 +178,73 @@ export const CANVAS_VISUAL_TOKENS: CanvasVisualTokens = {
     anchorCornerOpacity: 0.65
   }
 };
+
+export function resolveCanvasNodeFill(fill: string, visualTokens: CanvasVisualTokens = CANVAS_VISUAL_TOKENS) {
+  const saturation = Math.min(1, Math.max(0, visualTokens.node.fillSaturation));
+  const luminanceSteps = Math.round(Math.min(256, Math.max(2, visualTokens.node.fillLuminanceSteps)));
+  if (saturation === 1 && luminanceSteps === 256) return fill;
+
+  const rgb = parseHexColor(fill);
+  if (!rgb) return fill;
+  const gray = Math.round(rgb.r * 0.2126 + rgb.g * 0.7152 + rgb.b * 0.0722);
+  const luminanceStep = 255 / (luminanceSteps - 1);
+  const quantizedGray = Math.round(gray / luminanceStep) * luminanceStep;
+  return rgbToHex({
+    r: quantizedGray + (rgb.r - gray) * saturation,
+    g: quantizedGray + (rgb.g - gray) * saturation,
+    b: quantizedGray + (rgb.b - gray) * saturation
+  });
+}
+
+export function resolveCanvasNodeTextFill(fill: string, preferredTextFill: string, visualTokens: CanvasVisualTokens = CANVAS_VISUAL_TOKENS) {
+  if (visualTokens.node.fillLuminanceSteps >= 256) return preferredTextFill;
+
+  const resolvedFill = parseHexColor(resolveCanvasNodeFill(fill, visualTokens));
+  const preferred = parseHexColor(preferredTextFill);
+  const alternate = parseHexColor(visualTokens.colors.surface);
+  if (!resolvedFill || !preferred || !alternate) return preferredTextFill;
+
+  return colorContrast(resolvedFill, alternate) > colorContrast(resolvedFill, preferred) ? visualTokens.colors.surface : preferredTextFill;
+}
+
+function parseHexColor(value: string) {
+  const short = /^#([0-9a-f])([0-9a-f])([0-9a-f])$/i.exec(value);
+  if (short) {
+    return {
+      r: Number.parseInt(short[1] + short[1], 16),
+      g: Number.parseInt(short[2] + short[2], 16),
+      b: Number.parseInt(short[3] + short[3], 16)
+    };
+  }
+
+  const full = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(value);
+  if (!full) return null;
+  return {
+    r: Number.parseInt(full[1], 16),
+    g: Number.parseInt(full[2], 16),
+    b: Number.parseInt(full[3], 16)
+  };
+}
+
+function rgbToHex(rgb: { r: number; g: number; b: number }) {
+  return `#${[rgb.r, rgb.g, rgb.b]
+    .map((channel) => Math.round(Math.min(255, Math.max(0, channel))).toString(16).padStart(2, "0"))
+    .join("")}`;
+}
+
+function colorContrast(a: { r: number; g: number; b: number }, b: { r: number; g: number; b: number }) {
+  const lighter = Math.max(relativeLuminance(a), relativeLuminance(b));
+  const darker = Math.min(relativeLuminance(a), relativeLuminance(b));
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
+function relativeLuminance(rgb: { r: number; g: number; b: number }) {
+  const [r, g, b] = [rgb.r, rgb.g, rgb.b].map((channel) => {
+    const value = channel / 255;
+    return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+  });
+  return r * 0.2126 + g * 0.7152 + b * 0.0722;
+}
 
 export function getNodeVisualState(input: {
   nodeId: string;

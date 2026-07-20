@@ -1,4 +1,4 @@
-import { Suspense, lazy, type ComponentProps } from "react";
+import type { ComponentProps } from "react";
 
 import {
   FileDropFeedbackBadge,
@@ -11,12 +11,9 @@ import { NodeActionEditorDialog } from "@/features/mermaid-editor/components/nod
 import { MarkdownDocumentDialog } from "@/features/mermaid-editor/components/markdown-document-dialog";
 import type { UnsavedPromptChoice } from "@/features/mermaid-editor/lib/desktop-close-workflow";
 import type { CanvasNode, CanvasNodeAction } from "@/features/mermaid-editor/lib/editor-types";
-import type { EditorTheme, EditorThemeId } from "@/features/mermaid-editor/lib/editor-theme";
 import type { FileWorkflowError } from "@/features/mermaid-editor/lib/file-workflow";
 import type { ProjectFileEntry } from "@/features/mermaid-editor/lib/project-workspace";
 import { OVERLAY_Z_INDEX } from "@/lib/overlay-layers";
-
-const ThemeSettingsPanel = lazy(() => import("@/features/mermaid-editor/components/theme-settings-panel").then((mod) => ({ default: mod.ThemeSettingsPanel })));
 
 type EditorOverlaysProps = {
   fileDropFeedback: FileDropFeedback | null;
@@ -27,18 +24,11 @@ type EditorOverlaysProps = {
   projectFiles: ProjectFileEntry[];
   status: string;
   statusMessages: boolean;
-  themeSettingsOpen: boolean;
-  themeId: EditorThemeId;
-  customTheme: EditorTheme | null;
-  activeTheme: EditorTheme;
   onCloseFileWorkflowError: () => void;
   onResolveUnsavedPrompt: (choice: UnsavedPromptChoice) => void;
   onCloseNodeActionEditor: () => void;
   onSaveCanvasNodeAction: (nodeId: string, action: CanvasNodeAction | undefined) => void;
   onExecuteNodeActionDraft: (action: CanvasNodeAction) => void;
-  onPreviewTheme: (themeId: EditorThemeId, customTheme: EditorTheme | null) => void;
-  onCancelThemeSettings: () => void;
-  onSaveThemeSettings: () => void;
 };
 
 export function EditorOverlays({
@@ -50,18 +40,11 @@ export function EditorOverlays({
   projectFiles,
   status,
   statusMessages,
-  themeSettingsOpen,
-  themeId,
-  customTheme,
-  activeTheme,
   onCloseFileWorkflowError,
   onResolveUnsavedPrompt,
   onCloseNodeActionEditor,
   onSaveCanvasNodeAction,
-  onExecuteNodeActionDraft,
-  onPreviewTheme,
-  onCancelThemeSettings,
-  onSaveThemeSettings
+  onExecuteNodeActionDraft
 }: EditorOverlaysProps) {
   return (
     <>
@@ -85,18 +68,6 @@ export function EditorOverlays({
         >
           {status}
         </div>
-      ) : null}
-      {themeSettingsOpen ? (
-        <Suspense fallback={null}>
-          <ThemeSettingsPanel
-            themeId={themeId}
-            customTheme={customTheme}
-            activeTheme={activeTheme}
-            onPreview={onPreviewTheme}
-            onCancel={onCancelThemeSettings}
-            onSave={onSaveThemeSettings}
-          />
-        </Suspense>
       ) : null}
     </>
   );

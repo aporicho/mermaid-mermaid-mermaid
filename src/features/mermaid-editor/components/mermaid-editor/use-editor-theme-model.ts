@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
+import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from "react";
 
 import { appLogoById } from "@/features/mermaid-editor/lib/app-logo";
 import { loadInitialState } from "@/features/mermaid-editor/lib/editor-state";
@@ -20,12 +20,15 @@ type UseEditorThemeModelArgs = {
 };
 
 export function useEditorThemeModel({ initial, setStatus }: UseEditorThemeModelArgs) {
-  const themeEditBaseRef = useRef<{ themeId: EditorThemeId; customTheme: EditorTheme | null } | null>(null);
   const [themeId, setThemeId] = useState<EditorThemeId>(initial.themeId);
   const [customTheme, setCustomTheme] = useState<EditorTheme | null>(initial.customTheme);
+  const [themeDraft, setThemeDraft] = useState<{ themeId: EditorThemeId; customTheme: EditorTheme | null } | null>(null);
   const [preferences, setPreferences] = useState<EditorPreferences>(initial.preferences);
 
-  const activeTheme = useMemo(() => resolveEditorTheme(themeId, customTheme), [customTheme, themeId]);
+  const editingThemeId = themeDraft?.themeId ?? themeId;
+  const editingCustomTheme = themeDraft?.customTheme ?? customTheme;
+  const themeDraftDirty = Boolean(themeDraft && (themeDraft.themeId !== themeId || !sameCustomTheme(themeDraft.customTheme, customTheme)));
+  const activeTheme = useMemo(() => resolveEditorTheme(editingThemeId, editingCustomTheme), [editingCustomTheme, editingThemeId]);
   const compiledTheme = useMemo(() => compileEditorTheme(activeTheme), [activeTheme]);
   const resolvedMotion = useResolvedEditorMotion(compiledTheme.motion);
   const activeAppLogo = useMemo(() => appLogoById(preferences.appLogo), [preferences.appLogo]);
@@ -46,7 +49,7 @@ export function useEditorThemeModel({ initial, setStatus }: UseEditorThemeModelA
   }, [activeTheme]);
 
   function beginThemeSettings() {
-    themeEditBaseRef.current = { themeId, customTheme };
+    setThemeDraft((current) => current ?? { themeId, customTheme });
   }
 
   function updatePreferences(nextPreferences: EditorPreferences, message?: string) {
@@ -59,21 +62,18 @@ export function useEditorThemeModel({ initial, setStatus }: UseEditorThemeModelA
   }
 
   function previewTheme(nextThemeId: EditorThemeId, nextCustomTheme: EditorTheme | null) {
-    setThemeId(nextThemeId);
-    setCustomTheme(nextCustomTheme);
+    setThemeDraft({ themeId: nextThemeId, customTheme: nextCustomTheme });
   }
 
-  function cancelThemeSettings() {
-    const base = themeEditBaseRef.current;
-    if (base) {
-      setThemeId(base.themeId);
-      setCustomTheme(base.customTheme);
-    }
-    themeEditBaseRef.current = null;
+  function discardThemeSettings() {
+    setThemeDraft(null);
   }
 
   function saveThemeSettings() {
-    themeEditBaseRef.current = null;
+    if (!themeDraftDirty || !themeDraft) return;
+    setThemeId(themeDraft.themeId);
+    setCustomTheme(themeDraft.customTheme);
+    setThemeDraft(null);
     setStatus("主题偏好已保存。");
   }
 
@@ -82,6 +82,9 @@ export function useEditorThemeModel({ initial, setStatus }: UseEditorThemeModelA
     setThemeId,
     customTheme,
     setCustomTheme,
+    editingThemeId,
+    editingCustomTheme,
+    themeDraftDirty,
     preferences,
     setPreferences,
     activeTheme,
@@ -91,7 +94,13 @@ export function useEditorThemeModel({ initial, setStatus }: UseEditorThemeModelA
     beginThemeSettings,
     updatePreferences,
     previewTheme,
-    cancelThemeSettings,
+    discardThemeSettings,
     saveThemeSettings
   };
+}
+
+function sameCustomTheme(left: EditorTheme | null, right: EditorTheme | null) {
+  if (left === right) return true;
+  if (!left || !right) return false;
+  return JSON.stringify(left) === JSON.stringify(right);
 }

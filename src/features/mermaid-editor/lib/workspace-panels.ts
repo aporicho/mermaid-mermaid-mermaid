@@ -8,7 +8,8 @@ import {
   type FloatingPanelWindowState
 } from "@/features/mermaid-editor/lib/floating-chrome";
 
-export type StaticWorkspacePanelId = "explorer" | "inspector" | "terminal";
+export type StaticWorkspacePanelId = "explorer" | "inspector" | "terminal" | "theme";
+export type ChromeWorkspacePanelId = Exclude<StaticWorkspacePanelId, "theme">;
 export type MarkdownWindowPanelId = `markdown:${string}`;
 export type BrowserWindowPanelId = `browser:${string}`;
 export type WorkspaceFloatingPanelId = StaticWorkspacePanelId | MarkdownWindowPanelId;
@@ -21,17 +22,19 @@ export type DetachedMarkdownWindow = {
   savedValue: string;
 };
 
-const DEFAULT_WORKSPACE_PANEL_STACK: WorkspaceFloatingPanelId[] = ["explorer", "inspector", "terminal"];
+const DEFAULT_WORKSPACE_PANEL_STACK: WorkspaceFloatingPanelId[] = ["explorer", "inspector", "terminal", "theme"];
 const DEFAULT_WORKSPACE_PANEL_WINDOW_STATES: Record<StaticWorkspacePanelId, FloatingPanelWindowState> = {
   explorer: "normal",
   inspector: "normal",
-  terminal: "normal"
+  terminal: "normal",
+  theme: "normal"
 };
 
 export const WORKSPACE_PANEL_DEFAULT_SIZES: Record<StaticWorkspacePanelId | "markdown", { width: number; height: number }> = {
   explorer: { width: 360, height: 640 },
   inspector: { width: 360, height: 640 },
   terminal: { width: 860, height: 320 },
+  theme: { width: 620, height: 720 },
   markdown: { width: 760, height: 640 }
 };
 
@@ -39,6 +42,7 @@ export const WORKSPACE_PANEL_MIN_SIZES: Record<StaticWorkspacePanelId | "markdow
   explorer: { width: 320, height: 220 },
   inspector: { width: 320, height: 220 },
   terminal: { width: 560, height: 260 },
+  theme: { width: 480, height: 360 },
   markdown: { width: 420, height: 300 }
 };
 
@@ -50,12 +54,14 @@ export function useWorkspacePanels({
   leftCollapsed,
   rightCollapsed,
   terminalOpen,
+  themeSettingsOpen,
   documentKind,
   detachedMarkdownWindows
 }: {
   leftCollapsed: boolean;
   rightCollapsed: boolean;
   terminalOpen: boolean;
+  themeSettingsOpen: boolean;
   documentKind: DocumentKind;
   detachedMarkdownWindows: DetachedMarkdownWindow[];
 }) {
@@ -69,9 +75,10 @@ export function useWorkspacePanels({
     if (!leftCollapsed) panelIds.push("explorer");
     if (!rightCollapsed && documentKind === "mermaid") panelIds.push("inspector");
     if (terminalOpen) panelIds.push("terminal");
+    if (themeSettingsOpen) panelIds.push("theme");
     panelIds.push(...detachedMarkdownWindows.map((window) => window.id));
     return panelIds;
-  }, [detachedMarkdownWindows, documentKind, leftCollapsed, rightCollapsed, terminalOpen]);
+  }, [detachedMarkdownWindows, documentKind, leftCollapsed, rightCollapsed, terminalOpen, themeSettingsOpen]);
 
   const activeWorkspacePanel = useMemo(() => {
     for (let index = workspacePanelStack.length - 1; index >= 0; index -= 1) {

@@ -3,7 +3,7 @@ import { Ellipse, Line, Path, Rect } from "react-konva";
 import type { CanvasNode } from "@/features/mermaid-editor/lib/editor-types";
 import { flattenShapePoints, flowchartPolygonPoints } from "@/features/mermaid-editor/lib/flowchart-shape-geometry";
 import { DEFAULT_FLOWCHART_NODE_SHAPE, normalizeFlowchartShape } from "@/features/mermaid-editor/lib/flowchart-shapes";
-import { CANVAS_VISUAL_TOKENS, type CanvasVisualTokens } from "@/features/mermaid-editor/lib/canvas-visual-state";
+import { CANVAS_VISUAL_TOKENS, resolveCanvasNodeFill, type CanvasVisualTokens } from "@/features/mermaid-editor/lib/canvas-visual-state";
 
 export function CanvasNodeShape({
   node,
@@ -20,10 +20,11 @@ export function CanvasNodeShape({
   strokeWidth: number;
   visualTokens: CanvasVisualTokens;
 }) {
-  const fill = node.fill;
+  const fill = resolveCanvasNodeFill(node.fill, visualTokens);
   const shape = normalizeFlowchartShape(node.shape) || DEFAULT_FLOWCHART_NODE_SHAPE;
   const common = { fill, stroke, strokeWidth };
   const polygonPoints = flowchartPolygonPoints(shape, { x: 0, y: 0, width, height });
+  const cornerRadius = visualTokens.shape.fallbackCornerRadius;
 
   if (shape === "text") return null;
   if (shape === "circle" || shape === "sm-circ" || shape === "f-circ") return <Ellipse x={width / 2} y={height / 2} radiusX={width / 2} radiusY={height / 2} {...common} />;
@@ -34,16 +35,16 @@ export function CanvasNodeShape({
   if (shape === "cyl") return <CylinderShape width={width} height={height} stroke={stroke} strokeWidth={strokeWidth} fill={fill} lined={false} horizontal={false} />;
   if (shape === "lin-cyl") return <CylinderShape width={width} height={height} stroke={stroke} strokeWidth={strokeWidth} fill={fill} lined horizontal={false} />;
   if (shape === "h-cyl") return <CylinderShape width={width} height={height} stroke={stroke} strokeWidth={strokeWidth} fill={fill} lined={false} horizontal />;
-  if (shape === "datastore") return <DataStoreShape width={width} height={height} stroke={stroke} strokeWidth={strokeWidth} fill={fill} />;
+  if (shape === "datastore") return <DataStoreShape width={width} height={height} stroke={stroke} strokeWidth={strokeWidth} fill={fill} cornerRadius={cornerRadius} />;
   if (shape === "doc" || shape === "lin-doc" || shape === "tag-doc" || shape === "flag") return <DocumentShape width={width} height={height} stroke={stroke} strokeWidth={strokeWidth} fill={fill} lined={shape === "lin-doc"} tagged={shape === "tag-doc"} flag={shape === "flag"} />;
-  if (shape === "docs") return <StackedShape width={width} height={height} stroke={stroke} strokeWidth={strokeWidth} fill={fill} kind="document" />;
-  if (shape === "st-rect") return <StackedShape width={width} height={height} stroke={stroke} strokeWidth={strokeWidth} fill={fill} kind="rect" />;
-  if (shape === "lin-rect" || shape === "div-rect" || shape === "win-pane") return <LinedRectShape width={width} height={height} stroke={stroke} strokeWidth={strokeWidth} fill={fill} mode={shape} />;
-  if (shape === "tag-rect") return <TaggedRectShape width={width} height={height} stroke={stroke} strokeWidth={strokeWidth} fill={fill} />;
+  if (shape === "docs") return <StackedShape width={width} height={height} stroke={stroke} strokeWidth={strokeWidth} fill={fill} kind="document" cornerRadius={cornerRadius} />;
+  if (shape === "st-rect") return <StackedShape width={width} height={height} stroke={stroke} strokeWidth={strokeWidth} fill={fill} kind="rect" cornerRadius={cornerRadius} />;
+  if (shape === "lin-rect" || shape === "div-rect" || shape === "win-pane") return <LinedRectShape width={width} height={height} stroke={stroke} strokeWidth={strokeWidth} fill={fill} mode={shape} cornerRadius={cornerRadius} />;
+  if (shape === "tag-rect") return <TaggedRectShape width={width} height={height} stroke={stroke} strokeWidth={strokeWidth} fill={fill} cornerRadius={cornerRadius} />;
   if (shape === "curv-trap") return <Path data={curvedTrapezoidPath(width, height)} {...common} />;
   if (shape === "delay") return <Path data={delayPath(width, height)} {...common} />;
-  if (shape === "brace" || shape === "brace-r" || shape === "braces") return <BraceShape width={width} height={height} stroke={stroke} strokeWidth={strokeWidth} fill={fill} mode={shape} />;
-  if (shape === "fr-rect") return <SubroutineShape width={width} height={height} stroke={stroke} strokeWidth={strokeWidth} fill={fill} />;
+  if (shape === "brace" || shape === "brace-r" || shape === "braces") return <BraceShape width={width} height={height} stroke={stroke} strokeWidth={strokeWidth} fill={fill} mode={shape} cornerRadius={cornerRadius} />;
+  if (shape === "fr-rect") return <SubroutineShape width={width} height={height} stroke={stroke} strokeWidth={strokeWidth} fill={fill} cornerRadius={cornerRadius} />;
   if (shape === "rounded") return <Rect width={width} height={height} cornerRadius={visualTokens.node.cornerRadius} {...common} />;
   if (shape === "stadium") return <Rect width={width} height={height} cornerRadius={height / 2} {...common} />;
 
@@ -143,11 +144,11 @@ function CircleVariant({
   );
 }
 
-function SubroutineShape({ width, height, stroke, strokeWidth, fill }: { width: number; height: number; stroke: string; strokeWidth: number; fill: string }) {
+function SubroutineShape({ width, height, stroke, strokeWidth, fill, cornerRadius }: { width: number; height: number; stroke: string; strokeWidth: number; fill: string; cornerRadius: number }) {
   const inset = Math.min(18, Math.max(10, width * 0.12));
   return (
     <>
-      <Rect width={width} height={height} cornerRadius={4} fill={fill} stroke={stroke} strokeWidth={strokeWidth} />
+      <Rect width={width} height={height} cornerRadius={cornerRadius} fill={fill} stroke={stroke} strokeWidth={strokeWidth} />
       <Line points={[inset, 0, inset, height]} stroke={stroke} strokeWidth={strokeWidth} listening={false} />
       <Line points={[width - inset, 0, width - inset, height]} stroke={stroke} strokeWidth={strokeWidth} listening={false} />
     </>
@@ -191,10 +192,10 @@ function CylinderShape({
   );
 }
 
-function DataStoreShape({ width, height, stroke, strokeWidth, fill }: { width: number; height: number; stroke: string; strokeWidth: number; fill: string }) {
+function DataStoreShape({ width, height, stroke, strokeWidth, fill, cornerRadius }: { width: number; height: number; stroke: string; strokeWidth: number; fill: string; cornerRadius: number }) {
   return (
     <>
-      <Rect width={width} height={height} cornerRadius={4} fill={fill} stroke={stroke} strokeWidth={strokeWidth} />
+      <Rect width={width} height={height} cornerRadius={cornerRadius} fill={fill} stroke={stroke} strokeWidth={strokeWidth} />
       <Line points={[0, height * 0.22, width, height * 0.22]} stroke={stroke} strokeWidth={strokeWidth} listening={false} />
       <Line points={[0, height * 0.78, width, height * 0.78]} stroke={stroke} strokeWidth={strokeWidth} listening={false} />
     </>
@@ -239,25 +240,25 @@ function DocumentShape({
   );
 }
 
-function StackedShape({ width, height, stroke, strokeWidth, fill, kind }: { width: number; height: number; stroke: string; strokeWidth: number; fill: string; kind: "rect" | "document" }) {
+function StackedShape({ width, height, stroke, strokeWidth, fill, kind, cornerRadius }: { width: number; height: number; stroke: string; strokeWidth: number; fill: string; kind: "rect" | "document"; cornerRadius: number }) {
   const offset = 7;
   return (
     <>
-      <Rect x={offset * 2} y={0} width={width - offset * 2} height={height - offset * 2} cornerRadius={4} fill={fill} stroke={stroke} strokeWidth={strokeWidth} opacity={0.7} />
-      <Rect x={offset} y={offset} width={width - offset * 2} height={height - offset * 2} cornerRadius={4} fill={fill} stroke={stroke} strokeWidth={strokeWidth} opacity={0.85} />
+      <Rect x={offset * 2} y={0} width={width - offset * 2} height={height - offset * 2} cornerRadius={cornerRadius} fill={fill} stroke={stroke} strokeWidth={strokeWidth} opacity={0.7} />
+      <Rect x={offset} y={offset} width={width - offset * 2} height={height - offset * 2} cornerRadius={cornerRadius} fill={fill} stroke={stroke} strokeWidth={strokeWidth} opacity={0.85} />
       {kind === "document" ? (
         <DocumentShape width={width - offset * 2} height={height - offset * 2} stroke={stroke} strokeWidth={strokeWidth} fill={fill} />
       ) : (
-        <Rect y={offset * 2} width={width - offset * 2} height={height - offset * 2} cornerRadius={4} fill={fill} stroke={stroke} strokeWidth={strokeWidth} />
+        <Rect y={offset * 2} width={width - offset * 2} height={height - offset * 2} cornerRadius={cornerRadius} fill={fill} stroke={stroke} strokeWidth={strokeWidth} />
       )}
     </>
   );
 }
 
-function LinedRectShape({ width, height, stroke, strokeWidth, fill, mode }: { width: number; height: number; stroke: string; strokeWidth: number; fill: string; mode: "lin-rect" | "div-rect" | "win-pane" }) {
+function LinedRectShape({ width, height, stroke, strokeWidth, fill, mode, cornerRadius }: { width: number; height: number; stroke: string; strokeWidth: number; fill: string; mode: "lin-rect" | "div-rect" | "win-pane"; cornerRadius: number }) {
   return (
     <>
-      <Rect width={width} height={height} cornerRadius={4} fill={fill} stroke={stroke} strokeWidth={strokeWidth} />
+      <Rect width={width} height={height} cornerRadius={cornerRadius} fill={fill} stroke={stroke} strokeWidth={strokeWidth} />
       {mode === "lin-rect" ? <Line points={[0, height * 0.28, width, height * 0.28]} stroke={stroke} strokeWidth={strokeWidth} listening={false} /> : null}
       {mode === "div-rect" ? <Line points={[0, height * 0.5, width, height * 0.5]} stroke={stroke} strokeWidth={strokeWidth} listening={false} /> : null}
       {mode === "win-pane" ? (
@@ -270,22 +271,22 @@ function LinedRectShape({ width, height, stroke, strokeWidth, fill, mode }: { wi
   );
 }
 
-function TaggedRectShape({ width, height, stroke, strokeWidth, fill }: { width: number; height: number; stroke: string; strokeWidth: number; fill: string }) {
+function TaggedRectShape({ width, height, stroke, strokeWidth, fill, cornerRadius }: { width: number; height: number; stroke: string; strokeWidth: number; fill: string; cornerRadius: number }) {
   const tag = Math.min(18, width * 0.18);
   return (
     <>
-      <Rect width={width} height={height} cornerRadius={4} fill={fill} stroke={stroke} strokeWidth={strokeWidth} />
+      <Rect width={width} height={height} cornerRadius={cornerRadius} fill={fill} stroke={stroke} strokeWidth={strokeWidth} />
       <Line points={[width - tag, 0, width - tag, tag, width, tag]} stroke={stroke} strokeWidth={strokeWidth} listening={false} />
     </>
   );
 }
 
-function BraceShape({ width, height, stroke, strokeWidth, fill, mode }: { width: number; height: number; stroke: string; strokeWidth: number; fill: string; mode: "brace" | "brace-r" | "braces" }) {
+function BraceShape({ width, height, stroke, strokeWidth, fill, mode, cornerRadius }: { width: number; height: number; stroke: string; strokeWidth: number; fill: string; mode: "brace" | "brace-r" | "braces"; cornerRadius: number }) {
   const left = `M${width * 0.32},0 C${width * 0.08},0 ${width * 0.18},${height * 0.35} ${width * 0.02},${height * 0.5} C${width * 0.18},${height * 0.65} ${width * 0.08},${height} ${width * 0.32},${height}`;
   const right = `M${width * 0.68},0 C${width * 0.92},0 ${width * 0.82},${height * 0.35} ${width * 0.98},${height * 0.5} C${width * 0.82},${height * 0.65} ${width * 0.92},${height} ${width * 0.68},${height}`;
   return (
     <>
-      <Rect width={width} height={height} cornerRadius={4} fill={fill} opacity={0.28} listening={false} />
+      <Rect width={width} height={height} cornerRadius={cornerRadius} fill={fill} opacity={0.28} listening={false} />
       {mode !== "brace-r" ? <Path data={left} stroke={stroke} strokeWidth={strokeWidth} /> : null}
       {mode !== "brace" ? <Path data={right} stroke={stroke} strokeWidth={strokeWidth} /> : null}
     </>

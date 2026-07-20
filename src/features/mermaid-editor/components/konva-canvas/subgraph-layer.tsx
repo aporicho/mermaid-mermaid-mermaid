@@ -128,7 +128,7 @@ export function KonvaSubgraphLayer({
                 height={geometry.frame.height}
                 cornerRadius={visualTokens.node.cornerRadius}
                 stroke={stroke}
-                strokeWidth={selected || connectionTarget || connectionInvalid ? visualTokens.node.emphasizedStrokeWidth : visualTokens.node.strokeWidth}
+                strokeWidth={selected || connectionTarget || connectionInvalid ? visualTokens.node.emphasizedStrokeWidth : visualTokens.overlay.strokeWidth}
                 dash={[...visualTokens.overlay.subgraphDash]}
                 fillEnabled={false}
               />

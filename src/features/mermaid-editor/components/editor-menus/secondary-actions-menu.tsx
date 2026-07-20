@@ -233,7 +233,7 @@ export function SecondaryActionsMenu({
                 }}
               >
                 <SelectTrigger className="h-8 gap-2">
-                  <img className="size-4 shrink-0 rounded-[4px] object-cover" src={appLogoById(preferences.appLogo).href} alt="" aria-hidden />
+                  <img className="size-4 shrink-0 rounded-sm object-cover" src={appLogoById(preferences.appLogo).href} alt="" aria-hidden />
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
