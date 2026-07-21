@@ -6,6 +6,7 @@ import { useWorkspacePanelHeader } from "@/features/mermaid-editor/components/fl
 import type { FloatingPanelWindowState } from "@/features/mermaid-editor/lib/floating-chrome";
 
 export function WorkspacePanelControls({
+  leadingActions,
   windowState,
   onWindowStateChange,
   onClose,
@@ -13,6 +14,7 @@ export function WorkspacePanelControls({
   closeTooltipSide,
   closeIcon
 }: {
+  leadingActions?: ReactNode;
   windowState: FloatingPanelWindowState;
   onWindowStateChange: (state: FloatingPanelWindowState) => void;
   onClose: () => void;
@@ -25,6 +27,7 @@ export function WorkspacePanelControls({
 
   return (
     <div className="flex shrink-0 items-center gap-1" data-floating-panel-drag-exclude>
+      {leadingActions}
       {workspaceHeader ? (
         <EditorIconButton
           context="panel"

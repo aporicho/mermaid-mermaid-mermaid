@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { act, createElement } from "react";
+import { act, createElement, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -63,7 +63,11 @@ describe("FloatingPanel", () => {
     return { panel, surface };
   }
 
-  function renderWorkspaceHeaderPanel({ open = true, titlebarAutoHide = true }: { open?: boolean; titlebarAutoHide?: boolean } = {}) {
+  function renderWorkspaceHeaderPanel({
+    open = true,
+    titlebarAutoHide = true,
+    leadingActions
+  }: { open?: boolean; titlebarAutoHide?: boolean; leadingActions?: ReactNode } = {}) {
     createContainer();
 
     function render(next: { open: boolean; titlebarAutoHide: boolean }) {
@@ -85,6 +89,7 @@ describe("FloatingPanel", () => {
                   title="测试面板"
                   actions={
                     <WorkspacePanelControls
+                      leadingActions={leadingActions}
                       windowState="normal"
                       onWindowStateChange={() => undefined}
                       onClose={() => undefined}
@@ -197,6 +202,29 @@ describe("FloatingPanel", () => {
     act(() => panel.content().focus());
     advanceHeaderDelay();
     expect(panel.header().dataset.workspacePanelHeaderState).toBe("hidden");
+  });
+
+  it("keeps leading actions in the same drag-excluded control group as the window controls", () => {
+    const panel = renderWorkspaceHeaderPanel({
+      leadingActions: <button type="button" data-testid="leading-action">前置操作</button>
+    });
+    const leadingAction = requiredElement<HTMLButtonElement>("[data-testid='leading-action']");
+    const pinButton = panel.titlebarButton("固定标题栏");
+    const maximizeButton = panel.titlebarButton("最大化");
+    const closeButton = panel.titlebarButton("关闭测试面板");
+    const controlGroup = leadingAction.parentElement;
+
+    expect(controlGroup).not.toBeNull();
+    expect(controlGroup?.hasAttribute("data-floating-panel-drag-exclude")).toBe(true);
+    expect(pinButton.parentElement).toBe(controlGroup);
+    expect(maximizeButton.parentElement).toBe(controlGroup);
+    expect(closeButton.parentElement).toBe(controlGroup);
+    expect(Array.from(controlGroup?.children ?? [])).toEqual([
+      leadingAction,
+      pinButton,
+      maximizeButton,
+      closeButton
+    ]);
   });
 
   it("keeps the titlebar visible while dragging from the top hot zone", () => {

@@ -64,7 +64,6 @@ type EditorWorkspacePanelsProps = {
   previewTheme: (themeId: EditorThemeId, customTheme: EditorTheme | null) => void;
   openProjectFolder: () => void | Promise<unknown>;
   refreshProjectWorkspace: () => void | Promise<unknown>;
-  closeProjectWorkspace: () => void | Promise<unknown>;
   openProjectFile: (file: ProjectFileEntry) => void | Promise<unknown>;
   openProjectMarkdownWindow: (file: ProjectFileEntry) => void | Promise<unknown>;
   onMarkdownDocumentPointerDrag: (file: ProjectFileEntry, point: { x: number; y: number }, phase: "move" | "drop" | "cancel") => void;
@@ -105,7 +104,6 @@ export function EditorWorkspacePanels({
   previewTheme,
   openProjectFolder,
   refreshProjectWorkspace,
-  closeProjectWorkspace,
   openProjectFile,
   openProjectMarkdownWindow,
   onMarkdownDocumentPointerDrag,
@@ -146,7 +144,6 @@ export function EditorWorkspacePanels({
           projectBusy={projectBusy}
           onOpenProject={() => void openProjectFolder()}
           onRefreshProject={() => void refreshProjectWorkspace()}
-          onCloseProject={() => void closeProjectWorkspace()}
           onOpenProjectFile={(file) => void openProjectFile(file)}
           onOpenProjectMarkdownWindow={(file) => void openProjectMarkdownWindow(file)}
           onMarkdownDocumentPointerDrag={onMarkdownDocumentPointerDrag}

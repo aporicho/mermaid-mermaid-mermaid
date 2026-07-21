@@ -288,7 +288,6 @@ export function MermaidEditor() {
     openRuntimeFileRequest,
     openProjectFolder,
     refreshProjectWorkspace,
-    closeProjectWorkspace,
     updateBrowserFileDragFeedback,
     handleBrowserFileDragLeave,
     handleBrowserFileDrop,
@@ -610,7 +609,7 @@ export function MermaidEditor() {
           hideThemeSettings={hideThemeSettings} discardThemeSettings={discardThemeSettings}
           applyThemeSettings={saveThemeSettings} previewTheme={previewTheme}
           openProjectFolder={openProjectFolder} refreshProjectWorkspace={refreshProjectWorkspace}
-          closeProjectWorkspace={closeProjectWorkspace} openProjectFile={openProjectFile}
+          openProjectFile={openProjectFile}
           openProjectMarkdownWindow={openProjectMarkdownWindow} onMarkdownDocumentPointerDrag={markdownDocumentDrop.pointer}
           applyEditorCommand={applyEditorCommand}
           executeCanvasNodeAction={executeCanvasNodeAction}

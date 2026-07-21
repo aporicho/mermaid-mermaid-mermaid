@@ -15,8 +15,6 @@ import {
   EmptyPage,
   Folder,
   MediaImage,
-  NavArrowDown,
-  NavArrowRight,
   Refresh as RefreshCw,
   Text,
   Xmark
@@ -30,7 +28,9 @@ import {
   EditorMenuSurface,
   EditorPanelHeader,
   EditorTree,
+  EditorTreeDisclosure,
   EditorTreeGroup,
+  EditorTreeItem,
   EditorTreeRow
 } from "@/features/mermaid-editor/components/editor-ui";
 import { WorkspacePanelControls } from "@/features/mermaid-editor/components/workspace-panel-controls";
@@ -66,7 +66,6 @@ export function ExplorerPanel({
   onTreeStateChange,
   onOpenProject,
   onRefreshProject,
-  onCloseProject,
   onOpenProjectFile,
   onOpenProjectMarkdownWindow,
   onMarkdownDocumentPointerDrag,
@@ -84,7 +83,6 @@ export function ExplorerPanel({
   onTreeStateChange: (state: Omit<ExplorerWorkspaceTreeState, "rootPath" | "updatedAt">) => void;
   onOpenProject: () => void;
   onRefreshProject: () => void;
-  onCloseProject: () => void;
   onOpenProjectFile: (file: ProjectFileEntry) => void;
   onOpenProjectMarkdownWindow: (file: ProjectFileEntry) => void;
   onMarkdownDocumentPointerDrag: (file: ProjectFileEntry, point: { x: number; y: number }, phase: "move" | "drop" | "cancel") => void;
@@ -208,6 +206,18 @@ export function ExplorerPanel({
         title="资源管理器"
         className="cursor-grab active:cursor-grabbing"
         actions={<WorkspacePanelControls
+          leadingActions={
+            <>
+              <EditorIconButton context="panel" label="打开文件夹" tooltipSide="right" disabled={!projectAvailable || projectBusy} onClick={onOpenProject}>
+                <Folder />
+              </EditorIconButton>
+              {projectWorkspace ? (
+                <EditorIconButton context="panel" label="刷新文件夹" tooltipSide="right" disabled={projectBusy} onClick={onRefreshProject}>
+                  <RefreshCw className={cn(projectBusy && "animate-spin")} />
+                </EditorIconButton>
+              ) : null}
+            </>
+          }
           windowState={windowState}
           onWindowStateChange={onWindowStateChange}
           onClose={onCollapse}
@@ -217,22 +227,12 @@ export function ExplorerPanel({
         />}
       />
 
-      <div className="flex min-h-[var(--ui-control-height-sm)] items-center justify-end gap-1 border-b px-2 py-1">
-        <EditorIconButton context="panel" label="打开文件夹" tooltipSide="right" disabled={!projectAvailable || projectBusy} onClick={onOpenProject}><Folder /></EditorIconButton>
-        {projectWorkspace ? (
-          <>
-            <EditorIconButton context="panel" label="刷新文件夹" tooltipSide="right" disabled={projectBusy} onClick={onRefreshProject}><RefreshCw className={cn(projectBusy && "animate-spin")} /></EditorIconButton>
-            <EditorIconButton context="panel" label="关闭文件夹" tooltipSide="right" disabled={projectBusy} onClick={onCloseProject}><Xmark /></EditorIconButton>
-          </>
-        ) : null}
-      </div>
-
       <div className="min-h-0 flex-1 overflow-y-auto px-1 py-1.5">
         {!projectWorkspace ? (
           <WorkspaceFolderEmptyState projectAvailable={projectAvailable} projectBusy={projectBusy} onOpenProject={onOpenProject} />
         ) : (
           <EditorTree ref={treeRef} aria-label={`${projectWorkspace.rootName} 资源树`}>
-            <div role="none" className="grid min-w-0">
+            <EditorTreeItem root>
               <EditorTreeRow
                 data-tree-item-id={rootItemId}
                 aria-level={1}
@@ -243,7 +243,7 @@ export function ExplorerPanel({
                 onKeyDown={(event) => handleTreeKeyDown(event, { id: rootItemId, kind: "root", expanded: rootExpanded })}
                 onClick={() => updateExpansion(!rootExpanded, expandedDirectoryPaths)}
               >
-                {rootExpanded ? <NavArrowDown className="size-4 shrink-0" /> : <NavArrowRight className="size-4 shrink-0" />}
+                <EditorTreeDisclosure expanded={rootExpanded} />
                 <Folder className="size-4 shrink-0" />
                 <span className="min-w-0 flex-1 truncate text-xs font-medium">{projectWorkspace.rootName}</span>
               </EditorTreeRow>
@@ -271,7 +271,7 @@ export function ExplorerPanel({
                   )) : <EditorEmptyState className="border-0" title="此文件夹为空" />}
                 </EditorTreeGroup>
               ) : null}
-            </div>
+            </EditorTreeItem>
             {projectWorkspace.resourcesTruncated ? (
               <div role="status" className="px-3 py-2 text-xs text-muted-foreground">资源较多，仅显示前 10,000 项。</div>
             ) : null}
@@ -345,9 +345,8 @@ function ProjectTreeNodeRow({
   if (node.kind === "directory") {
     const expanded = expandedDirectoryPaths.has(node.relativePath);
     return (
-      <div role="none" className="grid min-w-0">
+      <EditorTreeItem>
         <EditorTreeRow
-          branch
           data-tree-item-id={node.id}
           aria-level={level}
           aria-expanded={expanded}
@@ -357,7 +356,7 @@ function ProjectTreeNodeRow({
           onKeyDown={(event) => onTreeKeyDown(event, { id: node.id, kind: "directory", expanded, relativePath: node.relativePath, parentPath })}
           onClick={() => onToggleDirectory(node.relativePath)}
         >
-          {expanded ? <NavArrowDown className="size-4 shrink-0" /> : <NavArrowRight className="size-4 shrink-0" />}
+          <EditorTreeDisclosure expanded={expanded} />
           <Folder className="size-4 shrink-0" />
           <span className="min-w-0 flex-1 truncate text-xs">{node.name}</span>
         </EditorTreeRow>
@@ -385,7 +384,7 @@ function ProjectTreeNodeRow({
             ))}
           </EditorTreeGroup>
         ) : null}
-      </div>
+      </EditorTreeItem>
     );
   }
 
@@ -473,38 +472,39 @@ function ProjectFileRow({
   }
 
   return (
-    <EditorTreeRow
-      ref={(element) => { if (active) activeRowRef.current = element; }}
-      branch
-      active={active}
-      data-tree-item-id={node.id}
-      data-resource-supported={Boolean(file)}
-      aria-level={level}
-      aria-selected={active}
-      tabIndex={focused ? 0 : -1}
-      className={cn(markdownFile && "cursor-grab active:cursor-grabbing", !file && "text-muted-foreground")}
-      title={file ? node.resource.path : `${node.resource.path}\n当前文件类型暂不支持打开`}
-      onFocus={() => onFocusItem(node.id)}
-      onKeyDown={(event) => onTreeKeyDown(event, { id: node.id, kind: "file", parentPath })}
-      onPointerDown={startMarkdownDocumentPointerDrag}
-      onPointerMove={moveMarkdownDocumentPointerDrag}
-      onPointerUp={finishMarkdownDocumentPointerDrag}
-      onPointerCancel={cancelMarkdownDocumentPointerDrag}
-      onClick={(event) => {
-        if (suppressClickRef.current) {
-          suppressClickRef.current = false;
-          event.preventDefault();
-          return;
-        }
-        if (file) onOpenProjectFile(file);
-        else onUnsupportedResource(node.resource);
-      }}
-      onContextMenu={file ? (event) => onOpenFileContextMenu(file, event) : undefined}
-    >
-      <span className="size-4 shrink-0" aria-hidden />
-      <ProjectResourceIcon resource={node.resource} />
-      <span className="min-w-0 flex-1 truncate text-xs">{node.name}</span>
-    </EditorTreeRow>
+    <EditorTreeItem>
+      <EditorTreeRow
+        ref={(element) => { if (active) activeRowRef.current = element; }}
+        active={active}
+        data-tree-item-id={node.id}
+        data-resource-supported={Boolean(file)}
+        aria-level={level}
+        aria-selected={active}
+        tabIndex={focused ? 0 : -1}
+        className={cn(markdownFile && "cursor-grab active:cursor-grabbing", !file && "text-muted-foreground")}
+        title={file ? node.resource.path : `${node.resource.path}\n当前文件类型暂不支持打开`}
+        onFocus={() => onFocusItem(node.id)}
+        onKeyDown={(event) => onTreeKeyDown(event, { id: node.id, kind: "file", parentPath })}
+        onPointerDown={startMarkdownDocumentPointerDrag}
+        onPointerMove={moveMarkdownDocumentPointerDrag}
+        onPointerUp={finishMarkdownDocumentPointerDrag}
+        onPointerCancel={cancelMarkdownDocumentPointerDrag}
+        onClick={(event) => {
+          if (suppressClickRef.current) {
+            suppressClickRef.current = false;
+            event.preventDefault();
+            return;
+          }
+          if (file) onOpenProjectFile(file);
+          else onUnsupportedResource(node.resource);
+        }}
+        onContextMenu={file ? (event) => onOpenFileContextMenu(file, event) : undefined}
+      >
+        <EditorTreeDisclosure />
+        <ProjectResourceIcon resource={node.resource} />
+        <span className="min-w-0 flex-1 truncate text-xs">{node.name}</span>
+      </EditorTreeRow>
+    </EditorTreeItem>
   );
 }
 

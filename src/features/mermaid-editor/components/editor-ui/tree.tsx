@@ -1,4 +1,5 @@
 import { forwardRef, type ButtonHTMLAttributes, type HTMLAttributes } from "react";
+import { NavArrowRight } from "iconoir-react/regular";
 
 import { cn } from "@/lib/utils";
 
@@ -6,15 +7,36 @@ export const EditorTree = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivEleme
   { className, ...props },
   ref
 ) {
-  return <div ref={ref} role="tree" className={cn("grid min-w-0", className)} {...props} />;
-});
-
-export function EditorTreeGroup({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      role="group"
+      ref={ref}
+      role="tree"
       className={cn(
-        "ml-4 grid min-w-0 border-l-[length:var(--ui-divider-width)] border-border/55",
+        "grid min-w-0 overflow-x-hidden [--editor-tree-branch:0.375rem] [--editor-tree-indent:1.25rem] [--editor-tree-rail:-0.375rem] [--editor-tree-row-center:calc(var(--ui-control-height-sm)/2)]",
+        className
+      )}
+      {...props}
+    />
+  );
+});
+
+export type EditorTreeItemProps = HTMLAttributes<HTMLDivElement> & {
+  root?: boolean;
+};
+
+export function EditorTreeItem({ root = false, className, ...props }: EditorTreeItemProps) {
+  return (
+    <div
+      role="none"
+      data-editor-tree-item
+      data-tree-root={root || undefined}
+      className={cn(
+        "relative grid min-w-0",
+        !root && [
+          "before:pointer-events-none before:absolute before:bottom-0 before:left-[var(--editor-tree-rail)] before:top-0 before:z-10 before:border-l-[length:var(--ui-divider-width)] before:border-border/55",
+          "after:pointer-events-none after:absolute after:left-[var(--editor-tree-rail)] after:top-[var(--editor-tree-row-center)] after:z-10 after:w-[var(--editor-tree-branch)] after:border-t-[length:var(--ui-divider-width)] after:border-border/55",
+          "last:before:bottom-auto last:before:h-[var(--editor-tree-row-center)]"
+        ],
         className
       )}
       {...props}
@@ -22,13 +44,49 @@ export function EditorTreeGroup({ className, ...props }: HTMLAttributes<HTMLDivE
   );
 }
 
+export function EditorTreeGroup({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
+  return (
+    <div
+      role="group"
+      className={cn("grid min-w-0 pl-[var(--editor-tree-indent)]", className)}
+      {...props}
+    />
+  );
+}
+
+export type EditorTreeDisclosureProps = Omit<HTMLAttributes<HTMLSpanElement>, "children"> & {
+  /** Omit for leaves so they retain the same fixed disclosure slot. */
+  expanded?: boolean;
+};
+
+export function EditorTreeDisclosure({ expanded, className, ...props }: EditorTreeDisclosureProps) {
+  const expandable = typeof expanded === "boolean";
+
+  return (
+    <span
+      aria-hidden="true"
+      data-tree-disclosure={expandable ? (expanded ? "expanded" : "collapsed") : "leaf"}
+      className={cn("grid size-4 shrink-0 place-items-center opacity-75", className)}
+      {...props}
+    >
+      {expandable ? (
+        <NavArrowRight
+          className={cn(
+            "size-3 transition-transform duration-150 motion-reduce:transition-none",
+            expanded && "rotate-90"
+          )}
+        />
+      ) : null}
+    </span>
+  );
+}
+
 export type EditorTreeRowProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   active?: boolean;
-  branch?: boolean;
 };
 
 export const EditorTreeRow = forwardRef<HTMLButtonElement, EditorTreeRowProps>(function EditorTreeRow(
-  { active = false, branch = false, className, children, ...props },
+  { active = false, className, children, ...props },
   ref
 ) {
   return (
@@ -37,10 +95,8 @@ export const EditorTreeRow = forwardRef<HTMLButtonElement, EditorTreeRowProps>(f
       type="button"
       role="treeitem"
       className={cn(
-        "relative flex min-h-[var(--ui-control-height-sm)] w-full min-w-0 items-center justify-start gap-1.5 border-0 bg-transparent py-1 pr-2 text-left text-foreground outline-none transition-colors hover:bg-accent/55 focus-visible:bg-accent/70 disabled:pointer-events-none disabled:opacity-[var(--ui-disabled-opacity)] [&_svg]:text-icon",
-        active && "bg-accent text-accent-foreground",
-        branch && "ml-0 before:absolute before:left-0 before:top-1/2 before:w-2 before:border-t-[length:var(--ui-divider-width)] before:border-border/55",
-        branch ? "pl-2" : "pl-1.5",
+        "relative z-0 flex min-h-[var(--ui-control-height-sm)] w-full min-w-0 isolate items-center justify-start gap-1.5 border-0 bg-transparent py-1 pl-1.5 pr-2 text-left text-foreground outline-none transition-colors before:pointer-events-none before:absolute before:inset-y-0 before:-left-[100vw] before:right-0 before:-z-10 before:bg-transparent before:transition-colors hover:before:bg-accent/55 focus-visible:before:bg-accent/70 disabled:pointer-events-none disabled:opacity-[var(--ui-disabled-opacity)] [&_svg]:text-icon",
+        active && "text-accent-foreground before:bg-accent",
         className
       )}
       {...props}
