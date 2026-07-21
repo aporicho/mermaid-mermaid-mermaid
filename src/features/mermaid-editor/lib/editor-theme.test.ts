@@ -52,28 +52,40 @@ describe("editor theme", () => {
     const theme = resolveEditorTheme("rational-minimal", null);
     const compiled = compileEditorTheme(theme);
     const markdownRadii = [
-      theme.markdown.quote.radius,
+      theme.markdown.blockquote.radius,
       theme.markdown.inlineCode.radius,
       theme.markdown.codeBlock.radius,
       theme.markdown.table.radius,
-      theme.markdown.image.radius
+      theme.markdown.image.radius,
+      theme.markdown.list.task.checkboxRadius
     ];
 
     expect(theme.name).toBe("理性极简");
     expect(collectHexColors(theme).every(isGrayscaleHexColor)).toBe(true);
     expect(theme.canvasAppearance).toEqual({ nodeFillSaturation: 0, nodeFillLuminanceSteps: 2, previewShadowOpacity: 0 });
     expect(Object.values(theme.radius)).toEqual([0, 0, 0, 0, 0, 0, 0, 0]);
-    expect(markdownRadii).toEqual([0, 0, 0, 0, 0]);
+    expect(markdownRadii).toEqual([0, 0, 0, 0, 0, 0]);
     expect(theme.stroke.node).toBe(0);
     expect(theme.stroke.nodeEmphasized).toBe(1);
     expect(theme.stroke.edge).toBe(1);
     expect(theme.stroke.edgeThick).toBe(2);
     expect(theme.stroke.overlay).toBe(0.5);
     expect(theme.stroke.subgraphDash).toEqual([]);
+    expect(theme.chrome).toEqual({
+      borderWidth: 0.5,
+      dividerWidth: 0.5,
+      focusRingWidth: 1,
+      surfaceOpacity: 1,
+      backdropBlur: 0,
+      shadowOpacity: 0
+    });
     expect(compiled.cssVariables["--radius"]).toBe("0px");
     expect(compiled.cssVariables["--theme-canvas-node-fill-saturation"]).toBe("0");
     expect(compiled.cssVariables["--theme-canvas-node-fill-luminance-steps"]).toBe("2");
     expect(compiled.cssVariables["--theme-canvas-preview-shadow-opacity"]).toBe("0");
+    expect(compiled.cssVariables["--ui-border-width"]).toBe("0.5px");
+    expect(compiled.cssVariables["--ui-backdrop-blur"]).toBe("0px");
+    expect(compiled.cssVariables["--ui-shadow-opacity"]).toBe("0");
     expect([
       compiled.cssVariables["--theme-radius-app"],
       compiled.cssVariables["--theme-radius-control-sm"],
@@ -173,25 +185,28 @@ describe("editor theme", () => {
     expect(variables["--markdown-body-color"]).toBe(DEFAULT_EDITOR_THEME.markdown.body.color);
     expect(variables["--markdown-h1-font-size"]).toBe(`${DEFAULT_EDITOR_THEME.markdown.heading.h1.fontSize}px`);
     expect(variables["--markdown-code-block-background"]).toBe(DEFAULT_EDITOR_THEME.markdown.codeBlock.background);
-    expect(variables["--markdown-table-border"]).toBe(DEFAULT_EDITOR_THEME.markdown.table.borderColor);
+    expect(variables["--markdown-table-border-color"]).toBe(DEFAULT_EDITOR_THEME.markdown.table.borderColor);
     expect(variables["--primary-foreground"]).toBe(variables["--background"]);
+    expect(variables["--ui-border-width"]).toBe(`${DEFAULT_EDITOR_THEME.chrome.borderWidth}px`);
+    expect(variables["--ui-control-height-md"]).toBe(`${DEFAULT_EDITOR_THEME.icon.buttonHeightMd}px`);
   });
 
   it("derives Markdown defaults from each built-in theme palette", () => {
     const dracula = resolveEditorTheme("kitty-kovidgoyal-dracula", null);
 
-    expect(dracula.version).toBe(5);
+    expect(dracula.version).toBe(8);
     expect(dracula.markdown.body.color).toBe(dracula.ui.foreground);
     expect(dracula.markdown.heading.h1.color).toBe(dracula.ui.foreground);
     expect(dracula.markdown.link.color).toBe(dracula.ui.primary);
     expect(dracula.markdown.codeBlock.background).toBe(dracula.ui.card);
-    expect(dracula.markdown.font.familyCode).toBe(dracula.font.familyMono);
+    expect(dracula.markdown.codeBlock.fontFamily).toBe(dracula.font.familyMono);
     expect(dracula.markdown.body.color).not.toBe(DEFAULT_EDITOR_THEME.markdown.body.color);
+    expectNoLegacyMarkdownFields(dracula);
   });
 
-  it("migrates old custom themes to Markdown tokens derived from their normalized colors and fonts", () => {
+  it.each([4, 5, 6, 7])("migrates v%s themes into a clean v8 Markdown shape", (version) => {
     const theme = normalizeEditorTheme({
-      version: 4,
+      version,
       ui: {
         foreground: "#f0f0f0",
         primary: "#44aaff",
@@ -208,18 +223,204 @@ describe("editor theme", () => {
       }
     });
 
-    expect(theme.version).toBe(5);
-    expect(theme.markdown.body.color).toBe("#f0f0f0");
+    expect(theme.version).toBe(8);
+    expect(theme.markdown.body).toMatchObject({ color: "#f0f0f0", fontFamily: "Example Sans" });
     expect(theme.markdown.link.color).toBe("#44aaff");
-    expect(theme.markdown.codeBlock.background).toBe("#202020");
-    expect(theme.markdown.inlineCode.background).toBe("#303030");
-    expect(theme.markdown.font.familyBody).toBe("Example Sans");
-    expect(theme.markdown.font.familyHeading).toBe("Example Sans");
-    expect(theme.markdown.font.familyCode).toBe("Example Mono");
+    expect(theme.markdown.codeBlock).toMatchObject({ background: "#202020", fontFamily: "Example Mono" });
+    expect(theme.markdown.inlineCode).toMatchObject({ background: "#303030", fontFamily: "Example Mono" });
+    expect(theme.markdown.heading.h1.fontFamily).toBe("Example Sans");
+    expectNoLegacyMarkdownFields(theme);
+  });
+
+  it("migrates v5 typography into independent v6 roles", () => {
+    const theme = normalizeEditorTheme({
+      version: 5,
+      font: {
+        familySans: "Legacy Sans, sans-serif",
+        familyMono: "Legacy Mono, monospace",
+        sizeNode: 19,
+        sizeSource: 15,
+        lineHeightSource: 32
+      }
+    });
+
+    expect(theme.version).toBe(8);
+    expect(theme.typography.canvas.node).toMatchObject({ family: "Legacy Sans, sans-serif", fontSize: 19 });
+    expect(theme.typography.source.editor).toMatchObject({ family: "Legacy Mono, monospace", fontSize: 15, lineHeight: 32 });
+    expect(theme.typography.terminal.content.family).toBe("Legacy Mono, monospace");
+    expect(theme.typography.linkCard.title.family).toBe("Legacy Sans, sans-serif");
+  });
+
+  it("updates one typography role without coupling its neighbors", () => {
+    const theme = normalizeEditorTheme({
+      typography: {
+        linkCard: {
+          title: {
+            family: '"Example Display", sans-serif',
+            fontSize: 17,
+            fontWeight: 600,
+            lineHeight: 23,
+            letterSpacing: 0.4
+          }
+        }
+      }
+    });
+    const compiled = compileEditorTheme(theme);
+
+    expect(theme.typography.linkCard.title).toEqual({
+      family: '"Example Display", sans-serif',
+      fontSize: 17,
+      fontWeight: 600,
+      lineHeight: 23,
+      letterSpacing: 0.4
+    });
+    expect(theme.typography.linkCard.titleEditor).toEqual(DEFAULT_EDITOR_THEME.typography.linkCard.titleEditor);
+    expect(theme.typography.canvas.node).toEqual(DEFAULT_EDITOR_THEME.typography.canvas.node);
+    expect(compiled.cssVariables["--type-link-card-title-family"]).toBe('"Example Display", sans-serif');
+    expect(compiled.cssVariables["--type-link-card-title-size"]).toBe("17px");
+  });
+
+  it("gives v8 element tokens precedence and never emits compatibility copies", () => {
+    const theme = normalizeEditorTheme({
+      version: 8,
+      markdown: {
+        body: {
+          fontFamily: '"Editorial Sans", sans-serif',
+          fontSize: 18,
+          fontWeight: 450,
+          lineHeight: 29,
+          letterSpacing: 0.2,
+          color: "#123456"
+        },
+        typography: {
+          body: {
+            family: "Embedded Legacy Sans",
+            fontSize: 13,
+            fontWeight: 300,
+            lineHeight: 19,
+            letterSpacing: 0
+          }
+        }
+      },
+      typography: {
+        markdown: {
+          body: {
+            family: "Legacy Markdown Sans",
+            fontSize: 12,
+            fontWeight: 300,
+            lineHeight: 18,
+            letterSpacing: 0
+          }
+        }
+      }
+    });
+    const variables = themeToCssVariables(theme);
+
+    expect(theme.markdown.body).toMatchObject({
+      fontFamily: '"Editorial Sans", sans-serif',
+      fontSize: 18,
+      fontWeight: 450,
+      lineHeight: 29,
+      letterSpacing: 0.2,
+      color: "#123456"
+    });
+    expect(variables["--markdown-body-font-size"]).toBe("18px");
+    expect(variables["--markdown-font-body"]).toBe('"Editorial Sans", sans-serif');
+    expectNoLegacyMarkdownFields(theme);
+  });
+
+  it("migrates v7 typography with embedded Markdown roles taking precedence", () => {
+    const theme = normalizeEditorTheme({
+      version: 7,
+      markdown: {
+        font: { familyCode: '"Oldest Code", monospace' },
+        codeBlock: { fontSize: 13, lineHeight: 19 },
+        typography: {
+          codeBlock: {
+            family: '"Embedded Code", monospace',
+            fontSize: 16,
+            fontWeight: 600,
+            lineHeight: 25,
+            letterSpacing: 0.2
+          }
+        }
+      },
+      typography: {
+        markdown: {
+          codeBlock: {
+            family: '"Global Legacy Code", monospace',
+            fontSize: 15,
+            fontWeight: 500,
+            lineHeight: 24,
+            letterSpacing: 0.1
+          }
+        }
+      }
+    });
+
+    expect(theme.markdown.codeBlock).toMatchObject({
+      fontFamily: '"Embedded Code", monospace',
+      fontSize: 16,
+      fontWeight: 600,
+      lineHeight: 25,
+      letterSpacing: 0.2
+    });
+    expectNoLegacyMarkdownFields(theme);
+  });
+
+  it.each([4, 5, 6, 7])("applies v8 precedence per Markdown element when migrating mixed v%s fields", (version) => {
+    const theme = normalizeEditorTheme({
+      version,
+      markdown: {
+        body: {
+          fontFamily: '"Canonical Body", sans-serif',
+          fontSize: 21,
+          color: "#123456"
+        },
+        heading: {
+          h1: {
+            fontSize: 63,
+            color: "#654321"
+          }
+        },
+        typography: {
+          body: {
+            family: '"Embedded Body", sans-serif',
+            fontSize: 13,
+            fontWeight: 300,
+            lineHeight: 19,
+            letterSpacing: 0
+          },
+          h1: {
+            family: '"Embedded Heading", serif',
+            fontSize: 35,
+            fontWeight: 600,
+            lineHeight: 43,
+            letterSpacing: 0.4
+          }
+        }
+      }
+    });
+
+    expect(theme.markdown.body).toMatchObject({
+      fontFamily: '"Canonical Body", sans-serif',
+      fontSize: 21,
+      color: "#123456"
+    });
+    expect(theme.markdown.heading.h1).toMatchObject({
+      fontFamily: '"Embedded Heading", serif',
+      fontSize: 35,
+      fontWeight: 600,
+      lineHeight: 43,
+      letterSpacing: 0.4,
+      color: "#654321"
+    });
+    expectNoLegacyMarkdownFields(theme);
   });
 
   it("normalizes complete Markdown style tokens", () => {
     const theme = normalizeEditorTheme({
+      version: 8,
       markdown: {
         body: {
           color: "#123456",
@@ -235,9 +436,19 @@ describe("editor theme", () => {
             marginTop: 120
           }
         },
-        quote: {
+        blockquote: {
           borderWidth: 20,
           radius: 12
+        },
+        strikethrough: {
+          decorationThickness: 99
+        },
+        list: {
+          task: {
+            checkboxSize: 99,
+            checkboxBorderWidth: -2,
+            checkboxRadius: 99
+          }
         },
         table: {
           borderColor: "#abcdef",
@@ -251,7 +462,7 @@ describe("editor theme", () => {
     });
 
     expect(theme.markdown.body.color).toBe("#123456");
-    expect(theme.markdown.body.fontSize).toBe(32);
+    expect(theme.markdown.body.fontSize).toBe(96);
     expect(theme.markdown.body.lineHeight).toBe(36);
     expect(theme.markdown.body.paragraphSpacing).toBe(0);
     expect(theme.markdown.heading.h1.color).toBe("#654321");
@@ -259,8 +470,12 @@ describe("editor theme", () => {
     expect(theme.markdown.heading.h1.fontWeight).toBe(875);
     expect(theme.markdown.heading.h1.marginTop).toBe(96);
     expect(theme.markdown.heading.h2).toEqual(DEFAULT_EDITOR_THEME.markdown.heading.h2);
-    expect(theme.markdown.quote.borderWidth).toBe(12);
-    expect(theme.markdown.quote.radius).toBe(12);
+    expect(theme.markdown.blockquote.borderWidth).toBe(12);
+    expect(theme.markdown.blockquote.radius).toBe(12);
+    expect(theme.markdown.strikethrough.decorationThickness).toBe(6);
+    expect(theme.markdown.list.task.checkboxSize).toBe(32);
+    expect(theme.markdown.list.task.checkboxBorderWidth).toBe(0);
+    expect(theme.markdown.list.task.checkboxRadius).toBe(12);
     expect(theme.markdown.table.borderColor).toBe("#abcdef");
     expect(theme.markdown.table.cellPaddingX).toBe(24);
     expect(theme.markdown.image.borderWidth).toBe(3);
@@ -354,7 +569,7 @@ describe("editor theme", () => {
 
     const terminalTheme = themeToTerminalTheme(theme);
 
-    expect(theme.version).toBe(5);
+    expect(theme.version).toBe(8);
     expect(theme.ansi.green).toBe("#00aa66");
     expect(theme.ansi.brightGreen).toBe(DEFAULT_EDITOR_THEME.ansi.brightGreen);
     expect(theme.terminal.background).toBe("#101010");
@@ -395,7 +610,7 @@ describe("editor theme", () => {
     });
     const compiled = compileEditorTheme(theme);
 
-    expect(theme.version).toBe(5);
+    expect(theme.version).toBe(8);
     expect(theme.motion.duration.fast).toBe(0.12);
     expect(theme.motion.duration.layout).toBe(1.6);
     expect(theme.motion.ease.standard).toBe("power1.out");
@@ -411,6 +626,29 @@ describe("editor theme", () => {
     expect(compiled.cssVariables["--motion-canvas-proximity-radius"]).toBe("600px");
     expect(compiled.cssVariables["--motion-canvas-proximity-scale"]).toBe("1.32");
     expect(compiled.motion.duration.base).toBe(DEFAULT_EDITOR_THEME.motion.duration.base);
+  });
+
+  it("normalizes application chrome tokens into v8", () => {
+    const theme = normalizeEditorTheme({
+      chrome: {
+        borderWidth: 9,
+        dividerWidth: -2,
+        focusRingWidth: 2,
+        surfaceOpacity: 0.2,
+        backdropBlur: 18,
+        shadowOpacity: 0.8
+      }
+    });
+
+    expect(theme.version).toBe(8);
+    expect(theme.chrome).toEqual({
+      borderWidth: 3,
+      dividerWidth: 0,
+      focusRingWidth: 2,
+      surfaceOpacity: 0.6,
+      backdropBlur: 18,
+      shadowOpacity: 0.5
+    });
   });
 
   it("compiles every runtime adapter from one theme snapshot", () => {
@@ -449,4 +687,16 @@ function collectHexColors(value: unknown): string[] {
   if (typeof value === "string") return /^#[0-9a-f]{6}$/i.test(value) ? [value] : [];
   if (!value || typeof value !== "object") return [];
   return Object.values(value).flatMap(collectHexColors);
+}
+
+function expectNoLegacyMarkdownFields(theme: unknown) {
+  const source = theme as {
+    markdown: Record<string, unknown>;
+    typography: Record<string, unknown>;
+  };
+
+  expect(source.markdown).not.toHaveProperty("typography");
+  expect(source.markdown).not.toHaveProperty("font");
+  expect(source.markdown).not.toHaveProperty("quote");
+  expect(source.typography).not.toHaveProperty("markdown");
 }

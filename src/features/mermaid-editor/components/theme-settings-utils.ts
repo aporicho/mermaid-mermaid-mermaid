@@ -1,13 +1,14 @@
 import {
+  cloneEditorTypography,
+  cloneMarkdownTheme,
   DEFAULT_EDITOR_THEME,
   getBuiltInEditorTheme,
-  mergeMarkdownTheme,
   type EditorTheme
 } from "@/features/mermaid-editor/lib/editor-theme";
 
 export function toCustomTheme(theme: EditorTheme): EditorTheme {
   return {
-    version: 5,
+    version: 8,
     id: "custom",
     name: theme.id === "custom" ? theme.name : "自定义主题",
     description: theme.description,
@@ -15,11 +16,13 @@ export function toCustomTheme(theme: EditorTheme): EditorTheme {
     ui: { ...theme.ui },
     canvas: { ...theme.canvas },
     canvasAppearance: { ...theme.canvasAppearance },
+    chrome: { ...theme.chrome },
     source: { ...theme.source },
     render: { ...theme.render },
-    markdown: mergeMarkdownTheme(theme.markdown, theme.markdown),
+    markdown: cloneMarkdownTheme(theme.markdown),
     ansi: { ...theme.ansi },
     terminal: { ...theme.terminal },
+    typography: cloneEditorTypography(theme.typography),
     font: { ...theme.font },
     space: { ...theme.space },
     radius: { ...theme.radius },

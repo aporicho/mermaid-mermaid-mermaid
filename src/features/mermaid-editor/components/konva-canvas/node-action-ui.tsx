@@ -1,31 +1,35 @@
-import { useCallback, useEffect } from "react";
+import { useCallback } from "react";
 import { createPortal } from "react-dom";
 import { Circle, Group, Text } from "react-konva";
 
+import { EditorMenuItem, EditorMenuSurface } from "@/features/mermaid-editor/components/editor-ui";
 import type { CanvasVisualTokens } from "@/features/mermaid-editor/lib/canvas-visual-state";
 import type { CanvasNode, CanvasNodeAction, ViewportState } from "@/features/mermaid-editor/lib/editor-types";
 import type { NodeGeometry } from "@/features/mermaid-editor/lib/node-geometry";
 import {
   nodeActionDisplayTooltip,
-  nodeActionLabel,
   nodeActionOpenLabel,
   nodeActionTarget,
   normalizeNodeAction
 } from "@/features/mermaid-editor/lib/node-actions";
 import { useDismissableFloatingMenu } from "@/features/mermaid-editor/lib/use-dismissable-floating-menu";
-import { OVERLAY_Z_INDEX, setGlobalOverlayActivity } from "@/lib/overlay-layers";
+import { OVERLAY_Z_INDEX } from "@/lib/overlay-layers";
+import { useOverlayRegistration } from "@/lib/use-overlay-registration";
+import type { TypographyRoleTokens } from "@/features/mermaid-editor/lib/editor-theme";
 
 export function CanvasNodeActionBadge({
   actionKind,
   x,
   y,
   visualTokens,
+  typography,
   onOpen
 }: {
   actionKind: "url" | "file";
   x: number;
   y: number;
   visualTokens: CanvasVisualTokens;
+  typography: TypographyRoleTokens;
   onOpen?: () => void;
 }) {
   const size = 18;
@@ -61,9 +65,11 @@ export function CanvasNodeActionBadge({
         text={actionKind === "url" ? "↗" : "F"}
         align="center"
         verticalAlign="middle"
-        fontSize={actionKind === "url" ? 13 : 10}
-        fontStyle="700"
-        fontFamily="system-ui, sans-serif"
+        fontSize={typography.fontSize}
+        fontStyle={String(typography.fontWeight)}
+        fontFamily={typography.family}
+        lineHeight={typography.lineHeight / typography.fontSize}
+        letterSpacing={typography.letterSpacing}
         fill={visualTokens.colors.accent}
       />
     </Group>
@@ -90,14 +96,11 @@ export function NodeActionTooltip({
 
   return (
     <div
-      className="pointer-events-none absolute grid w-[280px] gap-1 rounded-md border bg-popover/95 px-3 py-2 text-xs text-popover-foreground shadow-lg backdrop-blur"
+      className="editor-ui-popover type-interface-status pointer-events-none absolute grid w-[280px] gap-1 px-3 py-2 text-popover-foreground"
       style={{ left, top, zIndex: OVERLAY_Z_INDEX.tooltip }}
       data-editor-floating-menu-ignore
     >
-      <div className="flex min-w-0 items-center justify-between gap-2">
-        <span className="font-medium">{nodeActionLabel(action)}</span>
-        <span className="truncate text-muted-foreground">{nodeActionDisplayTooltip(action)}</span>
-      </div>
+      <div className="truncate font-medium">{nodeActionDisplayTooltip(action)}</div>
       <div className="truncate text-muted-foreground" title={target}>
         {target}
       </div>
@@ -128,10 +131,7 @@ export function NodeContextMenu({
     onOpenChange: handleOpenChange
   });
 
-  useEffect(() => {
-    setGlobalOverlayActivity(overlayToken, true);
-    return () => setGlobalOverlayActivity(overlayToken, false);
-  }, [overlayToken]);
+  useOverlayRegistration(overlayToken, Boolean(node));
 
   if (!node) return null;
 
@@ -144,38 +144,33 @@ export function NodeContextMenu({
   const top = Math.max(8, Math.min(menu.y, viewportHeight - height - 8));
 
   const menuElement = (
-    <div
+    <EditorMenuSurface
       ref={menuRef}
-      className="fixed w-[220px] rounded-md border bg-card/95 p-1 text-sm text-foreground shadow-xl"
+      className="editor-ui-popover fixed w-[220px] p-1 text-foreground"
       style={{ left, top, zIndex: OVERLAY_Z_INDEX.contextMenu }}
       onPointerDown={(event) => event.stopPropagation()}
       onClick={(event) => event.stopPropagation()}
       data-floating-panel-drag-exclude
       data-editor-floating-menu-ignore
     >
-      <button
+      <EditorMenuItem
         type="button"
-        className="flex h-8 w-full min-w-0 items-center justify-between gap-2 rounded px-2 text-left hover:bg-muted disabled:cursor-not-allowed disabled:opacity-45"
+        label={nodeActionOpenLabel(action)}
         disabled={!action}
         onClick={() => {
           if (node) onOpenNodeAction?.(node);
           onClose();
         }}
-      >
-        <span className="truncate">{nodeActionOpenLabel(action)}</span>
-        {action ? <span className="shrink-0 text-xs text-muted-foreground">{nodeActionLabel(action)}</span> : null}
-      </button>
-      <button
+      />
+      <EditorMenuItem
         type="button"
-        className="flex h-8 w-full min-w-0 items-center rounded px-2 text-left hover:bg-muted"
+        label={action ? "编辑链接" : "添加链接"}
         onClick={() => {
           onEditNodeAction?.(node);
           onClose();
         }}
-      >
-        {action ? "编辑链接" : "添加链接"}
-      </button>
-    </div>
+      />
+    </EditorMenuSurface>
   );
 
   if (typeof document === "undefined") return menuElement;

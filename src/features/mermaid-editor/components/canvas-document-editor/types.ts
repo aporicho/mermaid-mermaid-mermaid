@@ -21,6 +21,7 @@ export type CanvasDocumentInlineEditStyle = {
   lineHeight: number;
   textAlign: "left" | "center";
   fontWeight: number;
+  letterSpacing: number;
   color: string;
   verticalAlign: "top" | "middle";
   borderRadius?: number;

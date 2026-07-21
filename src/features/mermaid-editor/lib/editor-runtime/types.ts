@@ -10,6 +10,8 @@ export type { RuntimeLinkPreviewRequest, RuntimeLinkPreviewResult } from "@/feat
 
 export type EditorDraftState = Record<string, unknown>;
 
+export type RuntimeSystemFont = { family: string; monospace: boolean };
+
 export type BrowserWritableFile = {
   write: (data: string) => Promise<void>;
   close: () => Promise<void>;
@@ -192,6 +194,7 @@ export type EditorRuntime = {
   openBrowserToolWindow: (request: BrowserToolWindowRequest) => Promise<RuntimeBrowserToolWindowResult>;
   loadDraft: () => EditorDraftState | null;
   loadSavedState: () => Promise<EditorDraftState | null>;
+  listSystemFonts: () => Promise<RuntimeSystemFont[]>;
   saveDraft: (draft: EditorDraftState) => Promise<void>;
   openFile: () => Promise<RuntimeOpenFileResult>;
   openFilePath: (path: string) => Promise<RuntimeOpenFileResult>;

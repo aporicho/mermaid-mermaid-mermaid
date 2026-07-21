@@ -46,7 +46,6 @@ type AiNextCommandResponse = {
   command?: AiEditorCommand;
   diagnostics?: EditorDiagnostic[];
 };
-
 export function createDesktopRuntime(): EditorRuntime {
   return {
     kind: "desktop",
@@ -79,6 +78,7 @@ export function createDesktopRuntime(): EditorRuntime {
         if (canClose) await windowRef.destroy();
       });
     },
+    async listSystemFonts() { return []; },
     async createEmbeddedBrowser(request) {
       return createDesktopEmbeddedBrowser(request);
     },

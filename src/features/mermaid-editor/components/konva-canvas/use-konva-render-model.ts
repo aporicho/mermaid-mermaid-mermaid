@@ -38,6 +38,7 @@ type UseKonvaRenderModelArgs = {
   nodeMotion: Record<string, CanvasNodeMotionVisual>;
   nodeProximityScale: CanvasProximityScales;
   nodeThemeTokens: NodeGeometryTokens;
+  fontRevision: number;
   edgeLabelThemeTokens: EdgeLabelGeometryTokens;
   subgraphThemeTokens: SubgraphGeometryTokens;
   visualTokens: CanvasVisualTokens;
@@ -61,14 +62,15 @@ export function useKonvaRenderModel({
   nodeMotion,
   nodeProximityScale,
   nodeThemeTokens,
+  fontRevision,
   edgeLabelThemeTokens,
   subgraphThemeTokens,
   visualTokens
 }: UseKonvaRenderModelArgs) {
   const selectedNodeIds = useMemo(() => new Set(selection.nodeIds), [selection.nodeIds]);
   const selectedSubgraphIds = useMemo(() => new Set(selection.subgraphIds || []), [selection.subgraphIds]);
-  const geometrySpec = useMemo(() => nodeGeometrySpec(nodeThemeTokens), [nodeThemeTokens]);
-  const edgeLabelSpec = useMemo(() => edgeLabelGeometrySpec(edgeLabelThemeTokens), [edgeLabelThemeTokens]);
+  const geometrySpec = useMemo(() => { void fontRevision; return nodeGeometrySpec(nodeThemeTokens); }, [fontRevision, nodeThemeTokens]);
+  const edgeLabelSpec = useMemo(() => { void fontRevision; return edgeLabelGeometrySpec(edgeLabelThemeTokens); }, [edgeLabelThemeTokens, fontRevision]);
   const renderedNodes = useMemo(
     () =>
       mergeCanvasNodePreviewPositions(graph.nodes, dragPreviewPositions).map((node) => {

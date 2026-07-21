@@ -28,6 +28,7 @@ export type {
   RuntimeOpenFileResult,
   RuntimeProjectFolderResult,
   RuntimeSaveFileResult,
+  RuntimeSystemFont,
   RuntimeTerminalDataEvent,
   RuntimeTerminalExitEvent,
   RuntimeTerminalOpenResult,

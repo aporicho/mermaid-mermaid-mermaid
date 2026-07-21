@@ -4,6 +4,7 @@ import { Group, Rect, Text } from "react-konva";
 import type { CanvasVisualTokens } from "@/features/mermaid-editor/lib/canvas-visual-state";
 import type { CanvasNode } from "@/features/mermaid-editor/lib/editor-types";
 import { markdownDocumentAction, type MarkdownDocumentPreview } from "@/features/mermaid-editor/lib/markdown-document";
+import type { EditorTypographyTokens } from "@/features/mermaid-editor/lib/editor-theme";
 
 export function MarkdownDocumentCard({
   node,
@@ -13,6 +14,7 @@ export function MarkdownDocumentCard({
   strokeWidth,
   textFill,
   visualTokens,
+  typography,
   preview,
   onRequestPreview
 }: {
@@ -23,6 +25,7 @@ export function MarkdownDocumentCard({
   strokeWidth: number;
   textFill: string;
   visualTokens: CanvasVisualTokens;
+  typography: EditorTypographyTokens["markdownCard"];
   preview?: MarkdownDocumentPreview;
   onRequestPreview?: (node: CanvasNode) => void;
 }) {
@@ -63,9 +66,11 @@ export function MarkdownDocumentCard({
         text="MD"
         align="center"
         verticalAlign="middle"
-        fontSize={12}
-        fontStyle="700"
-        fontFamily="system-ui, sans-serif"
+        fontSize={typography.badge.fontSize}
+        fontStyle={String(typography.badge.fontWeight)}
+        fontFamily={typography.badge.family}
+        lineHeight={typography.badge.lineHeight / typography.badge.fontSize}
+        letterSpacing={typography.badge.letterSpacing}
         fill={error ? visualTokens.colors.previewInvalid : visualTokens.colors.accent}
       />
       <Text
@@ -74,9 +79,11 @@ export function MarkdownDocumentCard({
         width={width - 72}
         height={22}
         text={node.label || "Markdown 文档"}
-        fontSize={16}
-        fontStyle="700"
-        fontFamily="system-ui, sans-serif"
+        fontSize={typography.title.fontSize}
+        fontStyle={String(typography.title.fontWeight)}
+        fontFamily={typography.title.family}
+        lineHeight={typography.title.lineHeight / typography.title.fontSize}
+        letterSpacing={typography.title.letterSpacing}
         fill={textFill}
         ellipsis
       />
@@ -86,8 +93,11 @@ export function MarkdownDocumentCard({
         width={width - 72}
         height={18}
         text={path}
-        fontSize={10}
-        fontFamily="system-ui, sans-serif"
+        fontSize={typography.path.fontSize}
+        fontStyle={String(typography.path.fontWeight)}
+        fontFamily={typography.path.family}
+        lineHeight={typography.path.lineHeight / typography.path.fontSize}
+        letterSpacing={typography.path.letterSpacing}
         fill={error ? visualTokens.colors.previewInvalid : textFill}
         opacity={0.62}
         ellipsis
@@ -99,9 +109,11 @@ export function MarkdownDocumentCard({
         width={width - 24}
         height={height - 84}
         text={excerpt}
-        fontSize={12}
-        lineHeight={1.45}
-        fontFamily="system-ui, sans-serif"
+        fontSize={typography.excerpt.fontSize}
+        fontStyle={String(typography.excerpt.fontWeight)}
+        lineHeight={typography.excerpt.lineHeight / typography.excerpt.fontSize}
+        fontFamily={typography.excerpt.family}
+        letterSpacing={typography.excerpt.letterSpacing}
         fill={error ? visualTokens.colors.previewInvalid : textFill}
         opacity={preview?.status === "ready" ? 0.74 : 0.56}
         wrap="word"

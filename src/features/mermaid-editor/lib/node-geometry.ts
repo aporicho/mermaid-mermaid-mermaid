@@ -48,6 +48,7 @@ export type NodeGeometryTokens = {
   maxLines: number;
   fontFamily: string;
   fontWeight: number;
+  letterSpacing: number;
 };
 
 export type NodeGeometry = {
@@ -70,7 +71,8 @@ export const DEFAULT_NODE_GEOMETRY_TOKENS: NodeGeometryTokens = {
   lineHeight: 18,
   maxLines: 12,
   fontFamily: "'Noto Sans SC Variable', 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei UI', system-ui, sans-serif",
-  fontWeight: 700
+  fontWeight: 700,
+  letterSpacing: 0
 };
 
 let defaultTextMeasureCanvas: HTMLCanvasElement | null = null;
@@ -83,7 +85,7 @@ export function measureDefaultNodeTextWidth(value: string, tokens: NodeGeometryT
   if (!context) return value.length * tokens.fontSize * 0.58;
 
   context.font = `${tokens.fontWeight} ${tokens.fontSize}px ${tokens.fontFamily}`;
-  return context.measureText(value).width;
+  return context.measureText(value).width + Math.max(0, Array.from(value).length - 1) * tokens.letterSpacing;
 }
 
 export function defaultNodeGeometrySpec(measureText: (value: string) => number = measureDefaultNodeTextWidth, tokens: NodeGeometryTokens = DEFAULT_NODE_GEOMETRY_TOKENS): NodeGeometrySpec {

@@ -2,7 +2,18 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { NavArrowDown, Refresh } from "iconoir-react/regular";
 
 import { Button } from "@/components/ui/button";
-import { isHexColor } from "@/features/mermaid-editor/lib/editor-theme";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectSeparator,
+  SelectTrigger,
+  SelectValue
+} from "@/components/ui/select";
+import { isHexColor, MERMAID_FONT_FAMILY, MONO_FONT_FAMILY } from "@/features/mermaid-editor/lib/editor-theme";
+import { EditorIconButton } from "@/features/mermaid-editor/components/editor-ui";
 import { cn } from "@/lib/utils";
 
 import { themeTokenLabel, themeTokenNumberSpec, type ThemeTokenGroupDefinition } from "./theme-settings-schema";
@@ -31,47 +42,38 @@ export function ThemeSettingsGroup({
   const advancedEntries = definition.commonKeys ? entries.filter(([key]) => !definition.commonKeys?.includes(key)) : [];
 
   return (
-    <section className="overflow-hidden rounded-md border bg-background/45" data-theme-settings-group={definition.id}>
-      <header className="flex items-start justify-between gap-3 border-b px-3 py-3">
-        <div className="min-w-0">
-          <h3 className="text-sm font-medium text-foreground">{definition.title}</h3>
-          <p className="mt-0.5 text-xs leading-5 text-muted-foreground">{definition.description}</p>
-        </div>
-        <Button
-          size="icon"
-          variant="ghost"
-          className="size-7 shrink-0 text-icon hover:text-icon"
+    <section className="editor-ui-surface overflow-hidden bg-background/45" data-theme-settings-group={definition.id}>
+      <header className="editor-ui-panel-header flex items-start justify-between gap-3 py-3">
+        <h3 className="type-interface-heading min-w-0 truncate text-foreground" title={definition.description}>{definition.title}</h3>
+        <EditorIconButton
+          context="inline"
+          label={`重置${definition.title}`}
           onClick={onReset}
           disabled={resetDisabled}
-          aria-label={`重置${definition.title}`}
-          title={`重置${definition.title}`}
         >
-          <Refresh className="size-3.5" />
-        </Button>
+          <Refresh />
+        </EditorIconButton>
       </header>
-      <div className="grid gap-3 p-3">
+      <div className="editor-ui-panel-body grid gap-3">
         {commonEntries.map(([key, fieldValue]) => (
           <ThemeSettingsField key={key} path={[...definition.path, key]} value={fieldValue} onChange={(nextValue) => onChange(key, nextValue)} />
         ))}
         {advancedEntries.length ? (
-          <div className="border-t pt-2">
-            <button
-              type="button"
-              className="flex h-8 w-full items-center justify-between text-xs text-muted-foreground hover:text-foreground"
-              onClick={() => setAdvancedOpen((open) => !open)}
-              aria-expanded={advancedOpen}
-            >
-              <span>高级选项 · {advancedEntries.length}</span>
-              <NavArrowDown className={cn("size-3.5 transition-transform", advancedOpen && "rotate-180")} />
-            </button>
-            {advancedOpen ? (
+          <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen} className="border-t pt-2">
+            <CollapsibleTrigger asChild>
+              <Button type="button" variant="ghost" className="w-full justify-between text-muted-foreground" aria-label={`${advancedOpen ? "收起" : "展开"}${definition.title}高级选项`}>
+                <span>高级</span>
+                <NavArrowDown className={cn("transition-transform", advancedOpen && "rotate-180")} />
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
               <div className="grid gap-3 pt-2">
                 {advancedEntries.map(([key, fieldValue]) => (
                   <ThemeSettingsField key={key} path={[...definition.path, key]} value={fieldValue} onChange={(nextValue) => onChange(key, nextValue)} />
                 ))}
               </div>
-            ) : null}
-          </div>
+            </CollapsibleContent>
+          </Collapsible>
         ) : null}
       </div>
     </section>
@@ -85,6 +87,9 @@ function ThemeSettingsField({ path, value, onChange }: { path: readonly string[]
 
   if (typeof value === "string" && isHexColor(value)) {
     return <ColorField label={label} path={fieldPath} value={value} onChange={onChange} />;
+  }
+  if (typeof value === "string" && isFontFamilyKey(key)) {
+    return <FontFamilyField label={label} path={fieldPath} fontKey={key} value={value} onChange={onChange} />;
   }
   if (typeof value === "string") {
     return <TextField label={label} path={fieldPath} value={value} onChange={onChange} />;
@@ -101,6 +106,88 @@ function FieldFrame({ label, path, children }: { label: string; path: string; ch
       <span className="text-xs text-muted-foreground">{label}</span>
       {children}
     </div>
+  );
+}
+
+function FontFamilyField({
+  label,
+  path,
+  fontKey,
+  value,
+  onChange
+}: {
+  label: string;
+  path: string;
+  fontKey: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const options = fontOptionsForKey(fontKey);
+  const knownOption = options.find((option) => option.value === value);
+  const [customOpen, setCustomOpen] = useState(!knownOption);
+  const [draft, setDraft] = useState(value);
+
+  useEffect(() => {
+    setDraft(value);
+    setCustomOpen(!options.some((option) => option.value === value));
+  }, [options, value]);
+
+  function commitCustom() {
+    const normalized = draft.trim();
+    if (!normalized) {
+      setDraft(value);
+      return;
+    }
+    onChange(normalized);
+  }
+
+  return (
+    <FieldFrame label={label} path={path}>
+      <div className="grid gap-2">
+        <Select
+          value={customOpen ? CUSTOM_FONT_OPTION_VALUE : knownOption?.value ?? CUSTOM_FONT_OPTION_VALUE}
+          onValueChange={(nextValue) => {
+            if (nextValue === CUSTOM_FONT_OPTION_VALUE) {
+              setCustomOpen(true);
+              return;
+            }
+            setCustomOpen(false);
+            onChange(nextValue);
+          }}
+        >
+          <SelectTrigger className="h-8 px-2 text-xs" style={{ fontFamily: value }} aria-label={label}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent className="max-h-[320px]">
+            {options.map((option) => (
+              <SelectItem key={option.value} value={option.value} style={{ fontFamily: option.value }}>
+                {option.label}
+              </SelectItem>
+            ))}
+            <SelectSeparator />
+            <SelectItem value={CUSTOM_FONT_OPTION_VALUE}>
+              {knownOption ? "自定义字体…" : `自定义 · ${primaryFontName(value)}`}
+            </SelectItem>
+          </SelectContent>
+        </Select>
+        {customOpen ? (
+          <Input
+            type="text"
+            value={draft}
+            spellCheck={false}
+            className="type-interface-technical min-w-0"
+            style={{ fontFamily: value }}
+            onChange={(event) => setDraft(event.target.value)}
+            onBlur={commitCustom}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") event.currentTarget.blur();
+            }}
+            aria-label={`自定义${label}`}
+            placeholder="输入 CSS 字体栈"
+          />
+        ) : null}
+      </div>
+    </FieldFrame>
   );
 }
 
@@ -124,15 +211,15 @@ function ColorField({ label, path, value, onChange }: { label: string; path: str
         <input
           type="color"
           value={value}
-          className="h-8 w-8 cursor-pointer rounded-sm border bg-background p-1"
+          className="h-8 w-8 cursor-pointer rounded-[var(--theme-radius-control-sm)] border bg-background p-1"
           onChange={(event) => commit(event.target.value)}
           aria-label={`${label}色板`}
         />
-        <input
+        <Input
           type="text"
           value={draft}
           spellCheck={false}
-          className="h-8 min-w-0 rounded-md border bg-background px-2 font-mono text-xs text-foreground"
+          className="type-interface-technical min-w-0"
           onChange={(event) => setDraft(event.target.value)}
           onBlur={(event) => commit(event.target.value)}
           onKeyDown={(event) => {
@@ -160,11 +247,11 @@ function TextField({ label, path, value, onChange }: { label: string; path: stri
 
   return (
     <FieldFrame label={label} path={path}>
-      <input
+      <Input
         type="text"
         value={draft}
         spellCheck={false}
-        className="h-8 min-w-0 rounded-md border bg-background px-2 font-mono text-xs text-foreground"
+        className="type-interface-technical min-w-0"
         onChange={(event) => setDraft(event.target.value)}
         onBlur={commit}
         onKeyDown={(event) => {
@@ -199,13 +286,13 @@ function NumberField({ label, path, value, onChange }: { label: string; path: re
           aria-label={`${label}滑杆`}
         />
         <label className="relative">
-          <input
+          <Input
             type="number"
             value={displayValue}
             min={spec.min}
             max={spec.max}
             step={spec.step}
-            className={cn("h-8 w-full rounded-md border bg-background px-2 font-mono text-xs text-foreground", spec.unit && "pr-7")}
+            className={cn("type-interface-technical w-full", spec.unit && "pr-7")}
             onChange={(event) => update(Number(event.target.value))}
             aria-label={label}
           />
@@ -236,12 +323,12 @@ function DashField({ label, path, value, onChange }: { label: string; path: stri
 
   return (
     <FieldFrame label={label} path={path}>
-      <input
+      <Input
         type="text"
         value={draft}
         placeholder="留空为实线；例如 4, 3"
         spellCheck={false}
-        className="h-8 min-w-0 rounded-md border bg-background px-2 font-mono text-xs text-foreground"
+        className="type-interface-technical min-w-0"
         onChange={(event) => setDraft(event.target.value)}
         onBlur={commit}
         onKeyDown={(event) => {
@@ -255,4 +342,55 @@ function DashField({ label, path, value, onChange }: { label: string; path: stri
 
 function isThemeTokenValue(value: unknown): value is ThemeTokenValue {
   return typeof value === "string" || typeof value === "number" || (Array.isArray(value) && value.every((item) => typeof item === "number"));
+}
+
+type FontOption = { label: string; value: string };
+
+const CUSTOM_FONT_OPTION_VALUE = "__custom_font_family__";
+const SYSTEM_SANS_FONT = "system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif";
+const CJK_SANS_FONT = "PingFang SC, Microsoft YaHei UI, Microsoft YaHei, Noto Sans CJK SC, sans-serif";
+const SOURCE_HAN_SANS_FONT = "Source Han Sans SC, Noto Sans CJK SC, Noto Sans SC, sans-serif";
+const CJK_SERIF_FONT = "Noto Serif SC, Source Han Serif SC, Songti SC, STSong, SimSun, serif";
+const SYSTEM_SERIF_FONT = "Iowan Old Style, Palatino Linotype, Georgia, Noto Serif SC, serif";
+const SYSTEM_MONO_FONT = "ui-monospace, SFMono-Regular, Cascadia Code, Roboto Mono, Consolas, monospace";
+const JETBRAINS_MONO_FONT = "JetBrains Mono, Maple Mono, Noto Sans SC Variable, ui-monospace, monospace";
+const CASCADIA_MONO_FONT = "Cascadia Code, Maple Mono, Noto Sans SC Variable, ui-monospace, monospace";
+const FIRA_MONO_FONT = "Fira Code, Maple Mono, Noto Sans SC Variable, ui-monospace, monospace";
+const SOURCE_CODE_MONO_FONT = "Source Code Pro, Maple Mono, Noto Sans SC Variable, ui-monospace, monospace";
+
+const SANS_FONT_OPTIONS: readonly FontOption[] = [
+  { label: "Noto Sans SC · 内置", value: MERMAID_FONT_FAMILY },
+  { label: "系统无衬线", value: SYSTEM_SANS_FONT },
+  { label: "中文无衬线", value: CJK_SANS_FONT },
+  { label: "思源黑体", value: SOURCE_HAN_SANS_FONT }
+];
+
+const SERIF_FONT_OPTIONS: readonly FontOption[] = [
+  { label: "中文宋体", value: CJK_SERIF_FONT },
+  { label: "系统衬线", value: SYSTEM_SERIF_FONT }
+];
+
+const MONO_FONT_OPTIONS: readonly FontOption[] = [
+  { label: "Maple Mono · 内置", value: MONO_FONT_FAMILY },
+  { label: "系统等宽", value: SYSTEM_MONO_FONT },
+  { label: "JetBrains Mono", value: JETBRAINS_MONO_FONT },
+  { label: "Cascadia Code", value: CASCADIA_MONO_FONT },
+  { label: "Fira Code", value: FIRA_MONO_FONT },
+  { label: "Source Code Pro", value: SOURCE_CODE_MONO_FONT }
+];
+
+const MARKDOWN_TEXT_FONT_OPTIONS: readonly FontOption[] = [...SANS_FONT_OPTIONS, ...SERIF_FONT_OPTIONS];
+
+function isFontFamilyKey(key: string) {
+  return key === "familySans" || key === "familyMono" || key === "familyBody" || key === "familyHeading" || key === "familyCode";
+}
+
+function fontOptionsForKey(key: string) {
+  if (key === "familyMono" || key === "familyCode") return MONO_FONT_OPTIONS;
+  if (key === "familyBody" || key === "familyHeading") return MARKDOWN_TEXT_FONT_OPTIONS;
+  return SANS_FONT_OPTIONS;
+}
+
+function primaryFontName(value: string) {
+  return value.split(",", 1)[0]?.trim().replace(/^['"]|['"]$/g, "") || "未命名字体";
 }

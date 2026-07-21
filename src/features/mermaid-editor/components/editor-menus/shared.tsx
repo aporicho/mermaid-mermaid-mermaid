@@ -1,8 +1,7 @@
 import type { ReactNode } from "react";
 import { Eye, EyeClosed, Text } from "iconoir-react/regular";
 
-import { Button } from "@/components/ui/button";
-import { EDITOR_CHROME_CLASSES } from "@/features/mermaid-editor/lib/editor-chrome";
+import { EditorMenuItem } from "@/features/mermaid-editor/components/editor-ui";
 import type { EdgeRouting, EdgeStyle, FlowchartArrowType, GraphDirection, LayoutMode } from "@/features/mermaid-editor/lib/editor-types";
 import { cn } from "@/lib/utils";
 
@@ -36,24 +35,15 @@ export const arrowTypeFilterLabels: Record<FlowchartArrowType, string> = {
 
 export function FilterToggle({ active, label, icon, compact = false, onClick }: { active: boolean; label: string; icon?: ReactNode; compact?: boolean; onClick: () => void }) {
   return (
-    <Button
+    <EditorMenuItem
       data-floating-action-item
       type="button"
-      variant="ghost"
-      className={cn(
-        EDITOR_CHROME_CLASSES.menuRow,
-        compact ? "gap-2 text-xs" : "",
-        !active ? "text-muted-foreground" : ""
-      )}
+      className={cn(compact && "type-interface-status", !active && "text-muted-foreground")}
+      icon={<><span className={cn("flex size-4 shrink-0 items-center justify-center", active ? "text-icon" : "text-muted-foreground")}>{active ? <Eye /> : <EyeClosed />}</span>{icon}</>}
+      label={label}
       aria-pressed={active}
       onClick={onClick}
-    >
-      <span className={cn("flex size-4 shrink-0 items-center justify-center", active ? "text-icon" : "text-muted-foreground")}>
-        {active ? <Eye className="size-4" /> : <EyeClosed className="size-4" />}
-      </span>
-      {icon}
-      <span className="truncate">{label}</span>
-    </Button>
+    />
   );
 }
 
@@ -63,19 +53,14 @@ export function LabelIcon() {
 
 export function PreferenceToggle({ active, label, icon, onClick }: { active: boolean; label: string; icon: ReactNode; onClick: () => void }) {
   return (
-    <Button
+    <EditorMenuItem
       data-floating-action-item
       type="button"
-      variant="ghost"
-      className={cn(EDITOR_CHROME_CLASSES.menuRow, "gap-2", !active && "text-muted-foreground")}
+      className={cn(!active && "text-muted-foreground")}
+      icon={<><span className={cn("flex size-4 shrink-0 items-center justify-center", active ? "text-icon" : "text-muted-foreground")}>{active ? <Eye /> : <EyeClosed />}</span>{icon}</>}
+      label={label}
       aria-pressed={active}
       onClick={onClick}
-    >
-      <span className={cn("flex size-4 shrink-0 items-center justify-center", active ? "text-icon" : "text-muted-foreground")}>
-        {active ? <Eye className="size-4" /> : <EyeClosed className="size-4" />}
-      </span>
-      {icon}
-      <span className="truncate">{label}</span>
-    </Button>
+    />
   );
 }

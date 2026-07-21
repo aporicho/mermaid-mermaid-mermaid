@@ -1,7 +1,7 @@
 import type { CanvasPoint } from "@/features/mermaid-editor/lib/canvas-interaction";
 import type { DagreEdgeRoute } from "@/features/mermaid-editor/lib/canvas-auto-layout";
 import type { CanvasVisualTokens } from "@/features/mermaid-editor/lib/canvas-visual-state";
-import type { EditorThemeGeometryTokens } from "@/features/mermaid-editor/lib/editor-theme";
+import type { EditorThemeGeometryTokens, EditorTypographyTokens } from "@/features/mermaid-editor/lib/editor-theme";
 import type { RuntimeEditorMotion } from "@/features/mermaid-editor/lib/editor-motion";
 import type { CanvasNode, EdgeRouting, EditorMode, LayoutMode, MermaidGraph, Selection, ViewportState } from "@/features/mermaid-editor/lib/editor-types";
 import type { EditorCommand } from "@/features/mermaid-editor/lib/interaction/commands";
@@ -63,6 +63,8 @@ export type KonvaCanvasProps = {
   markdownDocumentPreviewByNodeId?: Record<string, MarkdownDocumentPreview>;
   visualTokens?: CanvasVisualTokens;
   geometryTokens?: EditorThemeGeometryTokens;
+  typography?: EditorTypographyTokens;
+  fontRevision?: number;
   motion?: RuntimeEditorMotion;
   onEditorCommand: (command: EditorCommand) => void;
   onOpenNodeAction?: (node: CanvasNode) => void;

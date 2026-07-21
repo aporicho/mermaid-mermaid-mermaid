@@ -2,6 +2,7 @@ import { DEFAULT_EDITOR_THEME, getBuiltInEditorTheme, isBuiltInThemeId } from ".
 import type { EditorMotionTokens, EditorTheme } from "./types";
 import { isHexColor } from "./color";
 import { createDefaultMarkdownTheme, normalizeMarkdownTheme } from "./markdown-theme";
+import { normalizeEditorTypography } from "./typography";
 
 export function resolveEditorTheme(themeId: string | undefined, customTheme: unknown): EditorTheme {
   if (themeId === "custom") return normalizeEditorTheme(customTheme, { ...DEFAULT_EDITOR_THEME, id: "custom", name: "自定义主题" });
@@ -14,9 +15,21 @@ export function normalizeEditorTheme(value: unknown, fallback: EditorTheme = DEF
   const ui = normalizeColorGroup(raw.ui, fallback.ui);
   const font = normalizeFontGroup(raw.font, fallback.font);
   const markdownFallback = createDefaultMarkdownTheme({ ui, font });
+  const legacyTypography = raw.typography && typeof raw.typography === "object"
+    ? (raw.typography as Record<string, unknown>).markdown
+    : undefined;
+  const markdown = normalizeMarkdownTheme(raw.markdown, markdownFallback, {
+    legacyTypography,
+    sourceVersion: raw.version
+  });
+  const typography = normalizeEditorTypography(raw.typography, fallback.typography, {
+    font: raw.font,
+    subgraph: raw.subgraph,
+    edgeLabel: raw.edgeLabel
+  });
 
   return {
-    version: 5,
+    version: 8,
     id: "custom",
     name: typeof raw.name === "string" && raw.name.trim() ? raw.name : fallback.name,
     description: typeof raw.description === "string" ? raw.description : fallback.description,
@@ -24,11 +37,13 @@ export function normalizeEditorTheme(value: unknown, fallback: EditorTheme = DEF
     ui,
     canvas: normalizeColorGroup(raw.canvas, fallback.canvas),
     canvasAppearance: normalizeNumberGroup(raw.canvasAppearance, fallback.canvasAppearance, numberRanges.canvasAppearance),
+    chrome: normalizeNumberGroup(raw.chrome, fallback.chrome, numberRanges.chrome),
     source: normalizeColorGroup(raw.source, fallback.source),
     render: normalizeColorGroup(raw.render, fallback.render),
-    markdown: normalizeMarkdownTheme(raw.markdown, markdownFallback),
+    markdown,
     ansi: normalizeColorGroup(raw.ansi, fallback.ansi),
     terminal: normalizeColorGroup(raw.terminal, fallback.terminal),
+    typography,
     font,
     space: normalizeNumberGroup(raw.space, fallback.space, numberRanges.space),
     radius: normalizeNumberGroup(raw.radius, fallback.radius, numberRanges.radius),
@@ -167,6 +182,14 @@ function dashValue(value: unknown, fallback: readonly number[]) {
 }
 
 const numberRanges = {
+  chrome: {
+    borderWidth: [0, 3],
+    dividerWidth: [0, 3],
+    focusRingWidth: [0, 4],
+    surfaceOpacity: [0.6, 1],
+    backdropBlur: [0, 32],
+    shadowOpacity: [0, 0.5]
+  },
   space: {
     panelPadding: [8, 32],
     panelHeaderHeight: [40, 72],
@@ -272,6 +295,7 @@ const numberRanges = {
     minSelectionContrast: [1, 7]
   }
 } as const satisfies {
+  chrome: Record<keyof EditorTheme["chrome"], [number, number]>;
   space: Record<keyof EditorTheme["space"], [number, number]>;
   radius: Record<keyof EditorTheme["radius"], [number, number]>;
   canvasAppearance: Record<keyof EditorTheme["canvasAppearance"], [number, number]>;

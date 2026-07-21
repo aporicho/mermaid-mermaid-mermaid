@@ -17,11 +17,11 @@ import {
   type CanvasDocumentDimensions
 } from "@/features/mermaid-editor/lib/canvas-document-rendering";
 import type { StandardCanvasInteractionState } from "@/features/mermaid-editor/lib/canvas-interaction-standard";
+import type { EditorTypographyTokens, TypographyRoleTokens } from "@/features/mermaid-editor/lib/editor-theme";
 
 import {
   DEFAULT_TEXT_COLOR,
   IMAGE_BORDER_COLOR,
-  PIXI_TEXT_FONT_FAMILY,
   SELECTED_COLOR,
   SURFACE_COLOR
 } from "./constants";
@@ -36,7 +36,9 @@ export function syncPixiScene(
   connectorStartId: string | null,
   imageDisplaySrcBySrc: Record<string, string>,
   interactionState: StandardCanvasInteractionState,
-  inlineEdit: CanvasDocumentInlineEdit | null
+  inlineEdit: CanvasDocumentInlineEdit | null,
+  typography: EditorTypographyTokens["canvasDocument"],
+  fontRevision: number
 ) {
   if (pixi.disposed) return;
   const visibleElements = canvasDocumentVisibleElements(document, dimensions, selectedIds, connectorStartId);
@@ -55,7 +57,7 @@ export function syncPixiScene(
 
   for (const element of visibleElements) {
     const view = getPixiElementView(pixi, element);
-    syncElementView(pixi, view, element, elementsById, selected, connectorStartId, imageDisplaySrcBySrc[element.type === "image" ? element.src : ""], document.viewport.scale, inlineEdit);
+    syncElementView(pixi, view, element, elementsById, selected, connectorStartId, imageDisplaySrcBySrc[element.type === "image" ? element.src : ""], document.viewport.scale, inlineEdit, typography, fontRevision);
     if (element.type === "connector") pixi.connectors.addChild(view.container);
     else pixi.objects.addChild(view.container);
   }
@@ -122,11 +124,14 @@ function syncElementView(
   connectorStartId: string | null,
   displaySrc: string | undefined,
   viewportScale: number,
-  inlineEdit: CanvasDocumentInlineEdit | null
+  inlineEdit: CanvasDocumentInlineEdit | null,
+  typography: EditorTypographyTokens["canvasDocument"],
+  fontRevision: number
 ) {
   const selectedOrConnecting = selected.has(element.id) || connectorStartId === element.id;
   const editingText = (inlineEdit?.type === "item" && inlineEdit.id === element.id) || (inlineEdit?.type === "connection" && inlineEdit.id === element.id);
-  const signature = elementSignature(element, elementsById, selectedOrConnecting, displaySrc, viewportScale, editingText);
+  const role = typographyRoleForElement(element, typography);
+  const signature = elementSignature(element, elementsById, selectedOrConnecting, displaySrc, viewportScale, editingText, role, fontRevision);
   if (view.signature === signature) return;
   view.signature = signature;
   view.body.clear();
@@ -145,7 +150,7 @@ function syncElementView(
         x: element.width / 2,
         y: element.height / 2,
         width: Math.max(1, element.width - 24),
-        fontSize: 14,
+        typography: role,
         fill: DEFAULT_TEXT_COLOR,
         anchor: 0.5,
         align: "center",
@@ -166,7 +171,7 @@ function syncElementView(
         x: 22,
         y: 22,
         width: Math.max(1, element.width - 44),
-        fontSize: 16,
+        typography: role,
         fill: DEFAULT_TEXT_COLOR,
         anchor: { x: 0, y: 0 },
         align: "left",
@@ -187,7 +192,7 @@ function syncElementView(
         x: 0,
         y: element.height / 2,
         width: Math.max(1, element.width),
-        fontSize: element.fontSize,
+        typography: role,
         fill: element.fill,
         anchor: { x: 0, y: 0.5 },
         align: "left",
@@ -206,7 +211,7 @@ function syncElementView(
     return;
   }
 
-  drawConnector(view, element, elementsById, selected.has(element.id), viewportScale, editingText);
+  drawConnector(view, element, elementsById, selected.has(element.id), viewportScale, editingText, role);
 }
 
 function elementSignature(
@@ -215,15 +220,17 @@ function elementSignature(
   selectedOrConnecting: boolean,
   displaySrc: string | undefined,
   viewportScale: number,
-  editingText: boolean
+  editingText: boolean,
+  typography: TypographyRoleTokens,
+  fontRevision: number
 ) {
   const textResolution = canvasTextResolution(viewportScale);
   if (element.type === "connector") {
     const from = canvasDocumentEndpointPoint(element.from, elementsById);
     const to = canvasDocumentEndpointPoint(element.to, elementsById);
-    return JSON.stringify({ ...element, fromPoint: from, toPoint: to, selectedOrConnecting, textResolution, editingText });
+    return JSON.stringify({ ...element, fromPoint: from, toPoint: to, selectedOrConnecting, textResolution, editingText, typography, fontRevision });
   }
-  return JSON.stringify({ ...element, selectedOrConnecting, displaySrc, textResolution, editingText });
+  return JSON.stringify({ ...element, selectedOrConnecting, displaySrc, textResolution, editingText, typography, fontRevision });
 }
 
 function drawShape(graphics: Graphics, element: CanvasShapeElement, selectedOrConnecting: boolean) {
@@ -273,7 +280,7 @@ function drawImageFrame(graphics: Graphics, element: CanvasImageElement, selecte
   graphics.roundRect(0, 0, element.width, element.height, 6).stroke({ color: stroke, width: 1.5 });
 }
 
-function drawConnector(view: PixiElementView, element: CanvasConnectorElement, elementsById: Map<string, CanvasDocumentElement>, selected: boolean, viewportScale: number, editingText: boolean) {
+function drawConnector(view: PixiElementView, element: CanvasConnectorElement, elementsById: Map<string, CanvasDocumentElement>, selected: boolean, viewportScale: number, editingText: boolean, typography: TypographyRoleTokens) {
   const from = canvasDocumentEndpointPoint(element.from, elementsById);
   const to = canvasDocumentEndpointPoint(element.to, elementsById);
   const color = parsePixiColor(selected ? SELECTED_COLOR : element.stroke, 0x2f2a25);
@@ -289,7 +296,7 @@ function drawConnector(view: PixiElementView, element: CanvasConnectorElement, e
       x: (from.x + to.x) / 2,
       y: (from.y + to.y) / 2 - 8,
       width: 180,
-      fontSize: 12,
+      typography,
       fill: DEFAULT_TEXT_COLOR,
       anchor: 0.5,
       align: "center",
@@ -374,7 +381,7 @@ function syncTextDisplay(
     x: number;
     y: number;
     width: number;
-    fontSize: number;
+    typography: TypographyRoleTokens;
     fill: string;
     anchor: number | { x: number; y: number };
     align: "left" | "center";
@@ -392,13 +399,15 @@ function syncTextDisplay(
   removeTextDisplay(view);
 
   const style = {
-    fontFamily: PIXI_TEXT_FONT_FAMILY,
-    fontSize: options.fontSize,
+    fontFamily: options.typography.family,
+    fontSize: options.typography.fontSize,
+    fontWeight: pixiFontWeight(options.typography.fontWeight),
+    letterSpacing: options.typography.letterSpacing,
     fill: parsePixiColor(options.fill, 0x2f2a25),
     align: options.align,
     wordWrap: true,
     wordWrapWidth: options.width,
-    lineHeight: Math.round(options.fontSize * 1.25)
+    lineHeight: options.typography.lineHeight
   };
   const display = new PixiText({
     text,
@@ -416,6 +425,17 @@ function syncTextDisplay(
   view.text = display;
   view.textKey = key;
   view.container.addChild(display);
+}
+
+function typographyRoleForElement(element: CanvasDocumentElement, typography: EditorTypographyTokens["canvasDocument"]) {
+  if (element.type === "shape") return typography.shape;
+  if (element.type === "card") return typography.card;
+  if (element.type === "text") return typography.freeText;
+  return typography.connector;
+}
+
+function pixiFontWeight(value: number): "100" | "200" | "300" | "400" | "500" | "600" | "700" | "800" | "900" {
+  return String(Math.min(900, Math.max(100, Math.round(value / 100) * 100))) as "100" | "200" | "300" | "400" | "500" | "600" | "700" | "800" | "900";
 }
 
 function removeTextDisplay(view: PixiElementView) {

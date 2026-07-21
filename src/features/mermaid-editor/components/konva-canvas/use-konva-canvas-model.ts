@@ -30,6 +30,7 @@ import { CANVAS_VISUAL_TOKENS } from "@/features/mermaid-editor/lib/canvas-visua
 import { DEFAULT_EDGE_LABEL_GEOMETRY_TOKENS } from "@/features/mermaid-editor/lib/edge-label-geometry";
 import { resolveRuntimeEditorMotion } from "@/features/mermaid-editor/lib/editor-motion";
 import { DEFAULT_NODE_GEOMETRY_TOKENS } from "@/features/mermaid-editor/lib/node-geometry";
+import { createDefaultEditorTypography } from "@/features/mermaid-editor/lib/editor-theme";
 import {
   SUBGRAPH_GEOMETRY_TOKENS,
   type SubgraphGeometryTokens
@@ -41,6 +42,8 @@ type UseKonvaCanvasModelArgs = KonvaCanvasProps & {
   imageDisplaySrcBySrc: NonNullable<KonvaCanvasProps["imageDisplaySrcBySrc"]>;
   visualTokens: NonNullable<KonvaCanvasProps["visualTokens"]>;
 };
+
+const DEFAULT_KONVA_TYPOGRAPHY = createDefaultEditorTypography();
 
 type KonvaCanvasModelStageProps = Omit<
   KonvaCanvasStageProps,
@@ -73,6 +76,8 @@ export function useKonvaCanvasModel({
   markdownDocumentPreviewByNodeId = {},
   visualTokens = CANVAS_VISUAL_TOKENS,
   geometryTokens,
+  typography = DEFAULT_KONVA_TYPOGRAPHY,
+  fontRevision = 0,
   motion: motionProp,
   onEditorCommand,
   onOpenNodeAction,
@@ -165,6 +170,7 @@ export function useKonvaCanvasModel({
     nodeMotion,
     nodeProximityScale: proximity.nodeProximityScale,
     nodeThemeTokens,
+    fontRevision,
     edgeLabelThemeTokens,
     subgraphThemeTokens,
     visualTokens
@@ -310,6 +316,7 @@ export function useKonvaCanvasModel({
     gridSpec: gridThemeTokens,
     nodeThemeTokens,
     edgeLabelThemeTokens,
+    typography,
     runtimeCreateScale: runtimeMotion.canvas.createScale,
     imageDisplaySrcBySrc,
     markdownDocumentPreviewByNodeId,

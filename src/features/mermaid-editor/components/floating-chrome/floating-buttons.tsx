@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 
-import { Button, type ButtonProps } from "@/components/ui/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import type { ButtonProps } from "@/components/ui/button";
+import { EditorIconButton } from "@/features/mermaid-editor/components/editor-ui";
 import { EDITOR_CHROME_CLASSES } from "@/features/mermaid-editor/lib/editor-chrome";
 import { cn } from "@/lib/utils";
 
@@ -43,32 +43,19 @@ export function FloatingIconButton({
   children: ReactNode;
 }) {
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Button
-          size="icon"
-          variant={active ? "default" : "outline"}
-          className={cn(
-            EDITOR_CHROME_CLASSES.floatingIconButton,
-            active ? EDITOR_CHROME_CLASSES.floatingIconActive : EDITOR_CHROME_CLASSES.floatingIconInactive,
-            danger && EDITOR_CHROME_CLASSES.floatingIconDanger,
-            dirty && "border-primary/45 text-primary hover:text-primary",
-            className
-          )}
-          aria-label={label}
-          data-floating-chrome-button
-          {...buttonProps}
-        >
-          {children}
-          {dirty ? <span className="absolute right-1 top-1 size-2 rounded-full bg-primary" aria-hidden /> : null}
-          {badgeCount && badgeCount > 0 ? (
-            <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] leading-none text-background">
-              {badgeCount}
-            </span>
-          ) : null}
-        </Button>
-      </TooltipTrigger>
-      <TooltipContent side={tooltipSide}>{label}</TooltipContent>
-    </Tooltip>
+    <EditorIconButton
+      context="floating"
+      tone={danger ? "danger" : active ? "active" : "neutral"}
+      pressed={active}
+      label={label}
+      tooltipSide={tooltipSide}
+      dirty={dirty}
+      badgeCount={badgeCount}
+      className={cn(EDITOR_CHROME_CLASSES.floatingIconButton, !active && !danger && EDITOR_CHROME_CLASSES.floatingIconInactive, className)}
+      data-floating-chrome-button
+      {...buttonProps}
+    >
+      {children}
+    </EditorIconButton>
   );
 }

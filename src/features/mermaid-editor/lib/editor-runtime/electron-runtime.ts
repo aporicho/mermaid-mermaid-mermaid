@@ -41,6 +41,9 @@ export function createElectronRuntime(): EditorRuntime {
     async loadSavedState() {
       return bridge.readAppState();
     },
+    async listSystemFonts() {
+      return bridge.listSystemFonts();
+    },
     async saveDraft(draft) {
       await bridge.writeAppState(draft);
     },

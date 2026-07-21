@@ -17,10 +17,10 @@ import type { EditableKind, EditorMode } from "@/features/mermaid-editor/lib/edi
 import { workspaceViewsForDocument, type WorkspaceView } from "@/features/mermaid-editor/lib/workspace-view";
 
 const workspaceViewLabels: Record<WorkspaceView, string> = {
-  canvas: "无限画布",
-  render: "渲染视图",
-  source: "源码视图",
-  markdown: "Markdown 视图"
+  canvas: "画布",
+  render: "预览",
+  source: "源码",
+  markdown: "Markdown"
 };
 
 export function WorkspaceViewCluster({
@@ -64,7 +64,7 @@ export function ToolModeCluster({ mode, onChange }: { mode: EditorMode; onChange
   return (
     <FloatingButtonCluster>
       <FloatingIconButton
-        label="选择模式"
+        label="选择"
         tooltipSide="top"
         active={mode === "select"}
         aria-pressed={mode === "select"}
@@ -73,7 +73,7 @@ export function ToolModeCluster({ mode, onChange }: { mode: EditorMode; onChange
         <SquareDashedMousePointer />
       </FloatingIconButton>
       <FloatingIconButton
-        label="连接模式"
+        label="连接"
         tooltipSide="top"
         active={mode === "connect"}
         aria-pressed={mode === "connect"}

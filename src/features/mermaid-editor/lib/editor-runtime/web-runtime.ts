@@ -57,6 +57,9 @@ export function createWebRuntime(): EditorRuntime {
     async loadSavedState() {
       return this.loadDraft();
     },
+    async listSystemFonts() {
+      return [];
+    },
     async saveDraft(draft) {
       if (typeof window === "undefined") return;
       window.localStorage.setItem(EDITOR_DRAFT_STORAGE_KEY, JSON.stringify(draft));

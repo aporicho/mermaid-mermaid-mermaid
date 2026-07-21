@@ -40,6 +40,14 @@
       "nodeFillLuminanceSteps": 2,
       "previewShadowOpacity": 0
     },
+    "chrome": {
+      "borderWidth": 0.5,
+      "dividerWidth": 0.5,
+      "focusRingWidth": 1,
+      "surfaceOpacity": 1,
+      "backdropBlur": 0,
+      "shadowOpacity": 0
+    },
     "source": {
       "line": "#d6d6d6"
     },
@@ -48,8 +56,13 @@
       "gridDot": "#000000"
     },
     "markdown": {
-      "quote": {
+      "blockquote": {
         "radius": 0
+      },
+      "list": {
+        "task": {
+          "checkboxRadius": 0
+        }
       },
       "inlineCode": {
         "radius": 0

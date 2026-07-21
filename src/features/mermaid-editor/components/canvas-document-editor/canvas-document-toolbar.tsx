@@ -1,10 +1,8 @@
 import type { ReactNode } from "react";
 import { CreditCard, FrameSimple, Link, Maximize, Plus, Text as TextIcon, Xmark } from "iconoir-react/regular";
 
-import { Button } from "@/components/ui/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { EditorIconButton, EditorToolbar } from "@/features/mermaid-editor/components/editor-ui";
 import type { CanvasShapeKind } from "@/features/mermaid-editor/lib/canvas-document";
-import { cn } from "@/lib/utils";
 
 const SHAPE_OPTIONS: { shape: CanvasShapeKind; label: string }[] = [
   { shape: "rect", label: "矩形" },
@@ -37,7 +35,7 @@ export function CanvasDocumentToolbar({
   onResetViewport
 }: CanvasDocumentToolbarProps) {
   return (
-    <div className="absolute left-[76px] top-4 z-20 flex items-center gap-1 rounded-md border bg-card/95 p-1 shadow-sm backdrop-blur">
+    <EditorToolbar className="absolute left-[76px] top-4 z-20">
       {SHAPE_OPTIONS.map((option) => (
         <ToolbarButton key={option.shape} label={`添加${option.label}`} onClick={() => onAddShape(option.shape)}>
           <Plus className="size-4" />
@@ -61,7 +59,7 @@ export function CanvasDocumentToolbar({
       <ToolbarButton label="重置视图" onClick={onResetViewport}>
         <Maximize className="size-4" />
       </ToolbarButton>
-    </div>
+    </EditorToolbar>
   );
 }
 
@@ -79,21 +77,15 @@ function ToolbarButton({
   children: ReactNode;
 }) {
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Button
-          type="button"
-          size="icon"
-          variant={active ? "default" : "ghost"}
-          className={cn("size-8", active ? "text-background hover:text-background" : "text-icon hover:text-icon")}
-          disabled={disabled}
-          aria-label={label}
-          onClick={onClick}
-        >
-          {children}
-        </Button>
-      </TooltipTrigger>
-      <TooltipContent side="bottom">{label}</TooltipContent>
-    </Tooltip>
+    <EditorIconButton
+      type="button"
+      context="toolbar"
+      label={label}
+      pressed={active}
+      disabled={disabled}
+      onClick={onClick}
+    >
+      {children}
+    </EditorIconButton>
   );
 }

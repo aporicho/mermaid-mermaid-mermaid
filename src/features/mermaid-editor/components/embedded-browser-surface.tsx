@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { OpenNewWindow, Refresh as RefreshCw, WarningTriangle } from "iconoir-react/regular";
 
 import { Button } from "@/components/ui/button";
+import { EditorNotice } from "@/features/mermaid-editor/components/editor-ui";
 import { disposeRuntimeEmbeddedBrowserHandle } from "@/features/mermaid-editor/components/mermaid-editor/use-editor-embedded-browser-handles";
 import { embeddedBrowserLogicalRect, embeddedBrowserRectKey } from "@/features/mermaid-editor/lib/embedded-browser-rect";
 import type { EditorRuntime, RuntimeEmbeddedBrowserHandle } from "@/features/mermaid-editor/lib/editor-runtime";
@@ -182,7 +183,7 @@ export function EmbeddedBrowserSurface({
       {nativeState === "unavailable" || nativeState === "error" ? (
         <EmbeddedBrowserUnavailable
           url={url}
-          reason={nativeState === "unavailable" ? "应用内浏览器需要桌面版 WebView2。" : "WebView2 内置浏览器创建失败。"}
+          reason={nativeState === "unavailable" ? "需要桌面版 WebView2" : "内置浏览器创建失败"}
           detail={nativeError}
           onRetry={onReload}
           onOpenExternal={() => {
@@ -214,20 +215,18 @@ function EmbeddedBrowserUnavailable({
 }) {
   return (
     <div className="flex h-full min-h-0 items-center justify-center bg-background p-4">
-      <div className="w-full max-w-md rounded-md border bg-card/95 p-4 text-sm shadow-sm">
-        <div className="flex items-start gap-3">
-          <WarningTriangle className="mt-0.5 size-5 shrink-0 text-destructive" />
-          <div className="min-w-0 space-y-3">
-            <div>
-              <div className="font-medium text-foreground">WebView2 内置浏览器不可用</div>
-              <div className="mt-1 text-muted-foreground">{reason}</div>
-            </div>
+      <EditorNotice
+        tone="danger"
+        className="w-full max-w-md"
+        icon={<WarningTriangle className="editor-ui-icon mt-0.5 shrink-0 text-destructive" />}
+        title={reason}
+        description={<div className="mt-1 space-y-3">
             {detail ? (
-              <div className="max-h-24 overflow-auto rounded-md border border-destructive/20 bg-destructive/5 px-2 py-1 font-mono text-xs text-destructive">
+              <div className="type-interface-technical max-h-24 overflow-auto border border-destructive/20 bg-destructive/5 px-2 py-1 text-destructive">
                 {detail}
               </div>
             ) : null}
-            <div className="truncate rounded-md border bg-muted/30 px-2 py-1 font-mono text-xs text-muted-foreground" title={url}>
+            <div className="type-interface-technical truncate border bg-muted/30 px-2 py-1 text-muted-foreground" title={url}>
               {url}
             </div>
             <div className="flex flex-wrap gap-2">
@@ -240,9 +239,8 @@ function EmbeddedBrowserUnavailable({
                 系统浏览器打开
               </Button>
             </div>
-          </div>
-        </div>
-      </div>
+          </div>}
+      />
     </div>
   );
 }

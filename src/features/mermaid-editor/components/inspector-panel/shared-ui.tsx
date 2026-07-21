@@ -1,6 +1,7 @@
 import { Label } from "@/components/ui/label";
 import { SelectItem } from "@/components/ui/select";
 import { MIXED_VALUE } from "@/features/mermaid-editor/components/inspector-panel/constants";
+import { EditorEmptyState } from "@/features/mermaid-editor/components/editor-ui";
 import { palette } from "@/features/mermaid-editor/lib/mermaid-graph";
 import { cn } from "@/lib/utils";
 
@@ -17,8 +18,8 @@ export function ColorGrid({ activeFill, mixed = false, onPick }: { activeFill: s
             key={color}
             type="button"
             aria-label={`选择颜色 ${color}`}
-            className={cn("h-8 rounded-md border-2", activeFill === color ? "border-foreground" : "border-border")}
-            style={{ backgroundColor: color }}
+            className={cn("h-8 rounded-[var(--theme-radius-control-sm)]", activeFill === color ? "border-foreground" : "border-border")}
+            style={{ backgroundColor: color, borderWidth: activeFill === color ? "max(2px, var(--ui-border-width))" : "var(--ui-border-width)" }}
             onClick={() => onPick(color)}
           />
         ))}
@@ -28,11 +29,7 @@ export function ColorGrid({ activeFill, mixed = false, onPick }: { activeFill: s
 }
 
 export function EmptyInspector() {
-  return (
-    <div className="text-sm leading-6 text-muted-foreground">
-      <p>选择节点、组或连线后，可以编辑文本、颜色和连接关系。</p>
-    </div>
-  );
+  return <EditorEmptyState title="尚未选择对象" />;
 }
 
 export function MixedSelectItem({ mixed }: { mixed: boolean }) {

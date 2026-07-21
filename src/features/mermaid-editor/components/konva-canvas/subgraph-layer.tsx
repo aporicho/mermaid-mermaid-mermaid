@@ -12,8 +12,8 @@ import {
   subgraphTitleHitId
 } from "@/features/mermaid-editor/lib/canvas-hit-target";
 import type { EditorMode, MermaidGraph } from "@/features/mermaid-editor/lib/editor-types";
-import type { NodeGeometryTokens } from "@/features/mermaid-editor/lib/node-geometry";
 import type { CanvasVisualTokens } from "@/features/mermaid-editor/lib/canvas-visual-state";
+import type { TypographyRoleTokens } from "@/features/mermaid-editor/lib/editor-theme";
 
 type RenderModel = ReturnType<typeof useKonvaRenderModel>;
 type RenderedSubgraphGeometry = RenderModel["scopedSubgraphGeometries"][number];
@@ -34,7 +34,7 @@ type KonvaSubgraphLayerProps = {
   connectionPreview: RenderModel["connectionPreview"];
   retargetPreview: RenderModel["retargetPreview"];
   visualTokens: CanvasVisualTokens;
-  nodeThemeTokens: NodeGeometryTokens;
+  typography: TypographyRoleTokens;
   onStartSubgraphDrag: (subgraphId: string) => void;
   onMoveSubgraph: (subgraphId: string, target: Konva.Node) => void;
   onEndDrag: () => void;
@@ -58,7 +58,7 @@ export function KonvaSubgraphLayer({
   connectionPreview,
   retargetPreview,
   visualTokens,
-  nodeThemeTokens,
+  typography,
   onStartSubgraphDrag,
   onMoveSubgraph,
   onEndDrag,
@@ -154,9 +154,11 @@ export function KonvaSubgraphLayer({
                 align="left"
                 verticalAlign="middle"
                 text={subgraph.title || subgraph.id}
-                fontSize={visualTokens.subgraph.titleFontSize}
-                fontStyle={visualTokens.subgraph.titleFontWeight}
-                fontFamily={nodeThemeTokens.fontFamily}
+                fontSize={typography.fontSize}
+                fontStyle={String(typography.fontWeight)}
+                fontFamily={typography.family}
+                lineHeight={typography.lineHeight / typography.fontSize}
+                letterSpacing={typography.letterSpacing}
                 fill={visualTokens.colors.nodeText}
                 ellipsis
                 listening={false}

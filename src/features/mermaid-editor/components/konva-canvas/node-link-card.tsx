@@ -6,6 +6,7 @@ import { CanvasNodeImage, type CanvasNodeImageLoadStatus } from "@/features/merm
 import type { CanvasVisualTokens } from "@/features/mermaid-editor/lib/canvas-visual-state";
 import type { CanvasNode, CanvasNodePreview } from "@/features/mermaid-editor/lib/editor-types";
 import { LINK_CARD_INSET, linkCardCoverHeight, normalizeCanvasNodePreview } from "@/features/mermaid-editor/lib/node-preview";
+import type { EditorTypographyTokens, TypographyRoleTokens } from "@/features/mermaid-editor/lib/editor-theme";
 
 export function CanvasNodeLinkCard({
   node,
@@ -16,6 +17,8 @@ export function CanvasNodeLinkCard({
   stroke,
   strokeWidth,
   visualTokens,
+  typography,
+  actionTypography,
   onOpen
 }: {
   node: CanvasNode;
@@ -26,6 +29,8 @@ export function CanvasNodeLinkCard({
   stroke: string;
   strokeWidth: number;
   visualTokens: CanvasVisualTokens;
+  typography: EditorTypographyTokens["linkCard"];
+  actionTypography: TypographyRoleTokens;
   onOpen?: () => void;
 }) {
   const normalized = normalizeCanvasNodePreview(preview);
@@ -80,9 +85,11 @@ export function CanvasNodeLinkCard({
           text="小红书"
           align="center"
           verticalAlign="middle"
-          fontSize={22}
-          fontStyle="800"
-          fontFamily="system-ui, sans-serif"
+          fontSize={typography.brand.fontSize}
+          fontStyle={String(typography.brand.fontWeight)}
+          fontFamily={typography.brand.family}
+          lineHeight={typography.brand.lineHeight / typography.brand.fontSize}
+          letterSpacing={typography.brand.letterSpacing}
           fill={visualTokens.colors.accent}
           listening={false}
         />
@@ -109,9 +116,11 @@ export function CanvasNodeLinkCard({
         width={width - 24}
         height={16}
         text={normalized.provider}
-        fontSize={11}
-        fontStyle="700"
-        fontFamily="system-ui, sans-serif"
+        fontSize={typography.provider.fontSize}
+        fontStyle={String(typography.provider.fontWeight)}
+        fontFamily={typography.provider.family}
+        lineHeight={typography.provider.lineHeight / typography.provider.fontSize}
+        letterSpacing={typography.provider.letterSpacing}
         fill={visualTokens.colors.accent}
         listening={false}
       />
@@ -121,16 +130,17 @@ export function CanvasNodeLinkCard({
         width={width - 24}
         height={44}
         text={title}
-        fontSize={13}
-        fontStyle="700"
-        fontFamily="'Noto Sans SC Variable', 'Noto Sans SC', system-ui, sans-serif"
-        lineHeight={1.25}
+        fontSize={typography.title.fontSize}
+        fontStyle={String(typography.title.fontWeight)}
+        fontFamily={typography.title.family}
+        lineHeight={typography.title.lineHeight / typography.title.fontSize}
+        letterSpacing={typography.title.letterSpacing}
         wrap="word"
         ellipsis
         fill={visualTokens.colors.nodeText}
         listening={false}
       />
-      <CanvasNodeActionBadge actionKind="url" x={width - 30} y={10} visualTokens={visualTokens} onOpen={onOpen} />
+      <CanvasNodeActionBadge actionKind="url" x={width - 30} y={10} visualTokens={visualTokens} typography={actionTypography} onOpen={onOpen} />
     </Group>
   );
 }

@@ -20,7 +20,7 @@ export type SelectionBox = {
 
 const PROXIMITY_SCALE_EPSILON = 0.001;
 
-export function measureTextWidth(value: string, tokens: { fontSize: number; fontFamily: string; fontWeight: number }) {
+export function measureTextWidth(value: string, tokens: { fontSize: number; fontFamily: string; fontWeight: number; letterSpacing: number }) {
   if (typeof document === "undefined") return value.length * tokens.fontSize * 0.58;
 
   textMeasureCanvas ??= document.createElement("canvas");
@@ -28,7 +28,7 @@ export function measureTextWidth(value: string, tokens: { fontSize: number; font
   if (!context) return value.length * tokens.fontSize * 0.58;
 
   context.font = `${tokens.fontWeight} ${tokens.fontSize}px ${tokens.fontFamily}`;
-  return context.measureText(value).width;
+  return context.measureText(value).width + Math.max(0, Array.from(value).length - 1) * tokens.letterSpacing;
 }
 
 export function measureNodeTextWidth(value: string, tokens: NodeGeometryTokens) {

@@ -1,4 +1,4 @@
-export type ThemeSettingsCategoryId = "library" | "interface" | "canvas" | "markdown" | "terminal" | "motion" | "diagnostics";
+export type ThemeSettingsCategoryId = "library" | "interface" | "typography" | "canvas" | "markdown" | "terminal" | "motion" | "diagnostics";
 
 export type ThemeTokenGroupDefinition = {
   id: string;
@@ -13,8 +13,9 @@ export type ThemeTokenGroupDefinition = {
 export const THEME_SETTINGS_CATEGORIES = [
   { id: "library", label: "主题库", description: "选择预设或从当前外观开始定制" },
   { id: "interface", label: "界面", description: "应用框架、字体、密度与控件" },
+  { id: "typography", label: "排版", description: "界面、画布、卡片、源码和终端的文字角色" },
   { id: "canvas", label: "画布", description: "节点、连线、分组、网格与交互" },
-  { id: "markdown", label: "Markdown", description: "正文、标题、代码与富文本元素" },
+  { id: "markdown", label: "Markdown", description: "集中设置全部 Markdown 排版、色彩、间距和富文本外观" },
   { id: "terminal", label: "终端", description: "终端基础色和 ANSI 调色板" },
   { id: "motion", label: "动效", description: "时长、缓动、位移与画布反馈" },
   { id: "diagnostics", label: "诊断", description: "可读性阈值与主题问题" }
@@ -22,7 +23,7 @@ export const THEME_SETTINGS_CATEGORIES = [
 
 export const THEME_TOKEN_GROUPS: readonly ThemeTokenGroupDefinition[] = [
   group("ui", "interface", "基础色彩", "界面表面、文字、强调色和状态色。", ["ui"], ["background", "foreground", "card", "primary", "muted", "border"]),
-  group("font", "interface", "字体与字重", "应用、画布、源码和终端使用的字体指标。", ["font"], ["familySans", "familyMono", "sizeUiSm", "sizeNode", "sizeSource", "sizeTerminal"]),
+  group("chrome", "interface", "表面与层次", "界面边线、焦点、透明度、模糊和阴影。", ["chrome"]),
   group("space", "interface", "密度与间距", "面板、控件、节点和网格的尺寸节奏。", ["space"], ["panelPadding", "controlGap", "controlPaddingX", "controlPaddingY", "iconButtonSize", "nodePaddingX", "nodePaddingY"]),
   group("radius", "interface", "圆角", "应用、控件、节点和标签的圆角。", ["radius"]),
   group("icon", "interface", "控件与图标", "Iconoir 图标尺寸、描边和按钮高度。", ["icon"], ["sizeSm", "sizeButton", "strokeWidth"], ["family"]),
@@ -33,23 +34,8 @@ export const THEME_TOKEN_GROUPS: readonly ThemeTokenGroupDefinition[] = [
   group("render-surface", "canvas", "渲染表面", "导出及渲染视图使用的背景和网格。", ["render"]),
   group("stroke", "canvas", "描边与虚线", "节点、连线、选择框、引导线和分组描边。", ["stroke"], ["node", "nodeEmphasized", "edge", "edgeThick", "overlay", "anchor"]),
   group("canvas-interaction", "canvas", "连线与交互", "锚点、箭头、曲线精度、命中区域和网格细节。", ["canvasInteraction"], ["anchorRadius", "endpointRadius", "edgeHitStrokeWidth", "pointerLength", "pointerWidth", "parallelEdgeSpacing", "edgeCurveSegments"]),
-  group("subgraph", "canvas", "分组", "分组容器、标题、内边距和最小尺寸。", ["subgraph"], ["paddingX", "paddingTop", "paddingBottom", "titleHeight", "titleFontSize", "titleFontWeight", "minWidth", "minHeight", "fillOpacity"]),
-  group("edge-label", "canvas", "连线标签", "标签宽度、字号、行高和内边距。", ["edgeLabel"]),
-
-  group("markdown-font", "markdown", "字体", "Markdown 正文、标题和代码字体。", ["markdown", "font"]),
-  group("markdown-body", "markdown", "正文", "正文颜色、字号、行高和段落节奏。", ["markdown", "body"], ["color", "fontSize", "lineHeight", "fontWeight", "paragraphSpacing"]),
-  ...(["h1", "h2", "h3", "h4", "h5", "h6"] as const).map((level, index) =>
-    group(`markdown-${level}`, "markdown", `${["一", "二", "三", "四", "五", "六"][index]}级标题`, "标题颜色、层级尺寸和上下间距。", ["markdown", "heading", level], ["color", "fontSize", "lineHeight", "fontWeight"])
-  ),
-  group("markdown-link", "markdown", "链接", "链接颜色和下划线。", ["markdown", "link"]),
-  group("markdown-emphasis", "markdown", "强调", "强调文字的颜色和字重。", ["markdown", "emphasis"]),
-  group("markdown-list", "markdown", "列表", "列表标记、缩进和条目间距。", ["markdown", "list"]),
-  group("markdown-quote", "markdown", "引用", "引用文字、背景、边线和空间。", ["markdown", "quote"], ["textColor", "borderColor", "background", "borderWidth"]),
-  group("markdown-inline-code", "markdown", "行内代码", "行内代码颜色、字号和盒模型。", ["markdown", "inlineCode"], ["textColor", "background", "fontSize"]),
-  group("markdown-code-block", "markdown", "代码块", "代码块颜色、字体和空间。", ["markdown", "codeBlock"], ["textColor", "background", "fontSize", "lineHeight"]),
-  group("markdown-table", "markdown", "表格", "表格文字、边框、表头和交替行。", ["markdown", "table"], ["textColor", "borderColor", "headerBackground", "alternateBackground"]),
-  group("markdown-divider", "markdown", "分隔线", "分隔线颜色、粗细和间距。", ["markdown", "divider"]),
-  group("markdown-image", "markdown", "图片", "图片边框、圆角和上下间距。", ["markdown", "image"]),
+  group("subgraph", "canvas", "分组", "分组容器、标题、内边距和最小尺寸。", ["subgraph"], ["paddingX", "paddingTop", "paddingBottom", "titleHeight", "minWidth", "minHeight", "fillOpacity"], ["titleFontSize", "titleFontWeight"]),
+  group("edge-label", "canvas", "连线标签", "标签宽度和内边距；排版在独立排版页设置。", ["edgeLabel"], ["minChars", "maxChars", "paddingX", "height"], ["fontSize", "lineHeight"]),
 
   group("terminal", "terminal", "基础色彩", "终端背景、文字、光标和选区。", ["terminal"]),
   group("ansi", "terminal", "ANSI 16 色", "标准色与高亮色调色板。", ["ansi"]),
@@ -100,6 +86,12 @@ const TOKEN_LABELS: Record<string, string> = {
   nodeFillSaturation: "节点填色饱和度",
   nodeFillLuminanceSteps: "节点明度阶数",
   previewShadowOpacity: "预览阴影透明度",
+  borderWidth: "界面边框宽度",
+  dividerWidth: "分隔线宽度",
+  focusRingWidth: "焦点环宽度",
+  surfaceOpacity: "浮层表面透明度",
+  backdropBlur: "背景模糊",
+  shadowOpacity: "界面阴影透明度",
   line: "源码分隔线",
   gridDot: "渲染网格点",
   familySans: "无衬线字体",
@@ -210,7 +202,6 @@ const TOKEN_LABELS: Record<string, string> = {
   textColor: "文字颜色",
   borderColor: "边线颜色",
   marginY: "上下间距",
-  borderWidth: "边线宽度",
   radius: "圆角",
   headerBackground: "表头背景",
   alternateBackground: "交替行背景",

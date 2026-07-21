@@ -8,7 +8,6 @@ export const SELECTED_COLOR = "#e85d5d";
 export const SURFACE_COLOR = "#fbf6ef";
 export const IMAGE_BORDER_COLOR = "#d8cfc3";
 export const GRID_COLOR = 0x4b4137;
-export const PIXI_TEXT_FONT_FAMILY = "Noto Sans SC, Arial, sans-serif";
 export const VIEWPORT_COMMIT_DELAY_MS = 80;
 export const MIN_RENDERER_RESOLUTION = 2;
 export const MAX_RENDERER_RESOLUTION = 3;

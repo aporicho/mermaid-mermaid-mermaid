@@ -27,8 +27,10 @@ import { normalizeNodeAction } from "@/features/mermaid-editor/lib/node-actions"
 import type { NodeGeometryTokens } from "@/features/mermaid-editor/lib/node-geometry";
 import type { MarkdownDocumentPreview } from "@/features/mermaid-editor/lib/markdown-document";
 import type { NodeArrangementOperation } from "@/features/mermaid-editor/lib/node-arrangement";
+import type { EditorTypographyTokens } from "@/features/mermaid-editor/lib/editor-theme";
 import type { ViewFilters } from "@/features/mermaid-editor/lib/view-filters";
 import { cn } from "@/lib/utils";
+import { resolveNodeEditorTypography } from "./resolve-node-editor-typography";
 
 type RenderModel = ReturnType<typeof useKonvaRenderModel>;
 
@@ -50,6 +52,7 @@ export type KonvaCanvasStageProps = {
   gridSpec: CanvasGridSpec;
   nodeThemeTokens: NodeGeometryTokens;
   edgeLabelThemeTokens: EdgeLabelGeometryTokens;
+  typography: EditorTypographyTokens;
   runtimeCreateScale: number;
   imageDisplaySrcBySrc: Record<string, string>;
   markdownDocumentPreviewByNodeId: Record<string, MarkdownDocumentPreview>;
@@ -132,6 +135,7 @@ export function KonvaCanvasStage({
   gridSpec,
   nodeThemeTokens,
   edgeLabelThemeTokens,
+  typography,
   runtimeCreateScale,
   imageDisplaySrcBySrc,
   markdownDocumentPreviewByNodeId,
@@ -195,6 +199,7 @@ export function KonvaCanvasStage({
   onInlineEditChange,
   onInlineEditCommit
 }: KonvaCanvasStageProps) {
+  const nodeEditorTypography = resolveNodeEditorTypography(graph, inlineEdit, typography);
   const hoveredActionNode = hoveredNodeId ? graph.nodes.find((node) => node.id === hoveredNodeId) : undefined;
   const hoveredAction = normalizeNodeAction(hoveredActionNode?.action);
   const hoveredActionGeometry = hoveredActionNode ? nodeGeometryById.get(hoveredActionNode.id) : undefined;
@@ -249,7 +254,7 @@ export function KonvaCanvasStage({
                 connectionPreview={connectionPreview}
                 retargetPreview={retargetPreview}
                 visualTokens={visualTokens}
-                nodeThemeTokens={nodeThemeTokens}
+                typography={typography.canvas.subgraphTitle}
                 onStartSubgraphDrag={onStartSubgraphDrag}
                 onMoveSubgraph={onMoveSubgraph}
                 onEndDrag={onEndDrag}
@@ -303,6 +308,7 @@ export function KonvaCanvasStage({
               runtimeCreateScale={runtimeCreateScale}
               visualTokens={visualTokens}
               nodeThemeTokens={nodeThemeTokens}
+              typography={typography}
               onStartNodeDrag={onStartNodeDrag}
               onMoveNode={onMoveNode}
               onEndDrag={onEndDrag}
@@ -359,8 +365,9 @@ export function KonvaCanvasStage({
           nodeEditorLayout={nodeEditorLayout}
           nodeEditorRef={nodeEditorRef}
           nodeEditorMeasureRef={nodeEditorMeasureRef}
-          nodeThemeTokens={nodeThemeTokens}
           edgeLabelThemeTokens={edgeLabelThemeTokens}
+          typography={typography.canvas}
+          nodeEditorTypography={nodeEditorTypography}
           visualTokens={visualTokens}
           viewFilters={viewFilters}
           onChange={onInlineEditChange}

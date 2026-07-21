@@ -32,6 +32,7 @@ import { isMarkdownDocumentNode, type MarkdownDocumentPreview } from "@/features
 import type { NodeGeometryTokens } from "@/features/mermaid-editor/lib/node-geometry";
 import { buildNodeGeometry } from "@/features/mermaid-editor/lib/node-geometry";
 import type { ViewFilters } from "@/features/mermaid-editor/lib/view-filters";
+import type { EditorTypographyTokens } from "@/features/mermaid-editor/lib/editor-theme";
 
 type RenderModel = ReturnType<typeof useKonvaRenderModel>;
 
@@ -59,6 +60,7 @@ type KonvaNodeLayerProps = {
   runtimeCreateScale: number;
   visualTokens: CanvasVisualTokens;
   nodeThemeTokens: NodeGeometryTokens;
+  typography: EditorTypographyTokens;
   onStartNodeDrag: (nodeId: string) => void;
   onMoveNode: (node: CanvasNode, target: Konva.Node) => void;
   onEndDrag: () => void;
@@ -94,6 +96,7 @@ export function KonvaNodeLayer({
   runtimeCreateScale,
   visualTokens,
   nodeThemeTokens,
+  typography,
   onStartNodeDrag,
   onMoveNode,
   onEndDrag,
@@ -221,6 +224,8 @@ export function KonvaNodeLayer({
                   stroke={nodeVisual.stroke}
                   strokeWidth={nodeStrokeWidth}
                   visualTokens={visualTokens}
+                  typography={typography.linkCard}
+                  actionTypography={typography.canvas.actionBadge}
                   onOpen={() => onOpenNodeAction?.(node)}
                 />
               ) : null}
@@ -233,6 +238,7 @@ export function KonvaNodeLayer({
                   strokeWidth={nodeStrokeWidth}
                   textFill={nodeVisual.textFill}
                   visualTokens={visualTokens}
+                  typography={typography.markdownCard}
                   preview={markdownDocumentPreviewByNodeId[node.id]}
                   onRequestPreview={onRequestMarkdownDocumentPreview}
                 />
@@ -250,6 +256,7 @@ export function KonvaNodeLayer({
                   fontStyle={String(nodeThemeTokens.fontWeight)}
                   fontFamily={nodeThemeTokens.fontFamily}
                   lineHeight={nodeThemeTokens.lineHeight / nodeThemeTokens.fontSize}
+                  letterSpacing={nodeThemeTokens.letterSpacing}
                   wrap="word"
                   fill={nodeTextFill}
                   ellipsis
@@ -262,6 +269,7 @@ export function KonvaNodeLayer({
                   x={Math.max(8, geometry.frame.width - 24)}
                   y={6}
                   visualTokens={visualTokens}
+                  typography={typography.canvas.actionBadge}
                   onOpen={() => onOpenNodeAction?.(node)}
                 />
               ) : null}
@@ -366,6 +374,8 @@ export function KonvaNodeLayer({
                   stroke={visualTokens.colors.accent}
                   strokeWidth={visualTokens.node.strokeWidth + motionVisual.highlight * visualTokens.node.emphasizedStrokeWidth}
                   visualTokens={visualTokens}
+                  typography={typography.linkCard}
+                  actionTypography={typography.canvas.actionBadge}
                 />
               ) : null}
               {isMarkdownDocument ? (
@@ -377,6 +387,7 @@ export function KonvaNodeLayer({
                   strokeWidth={visualTokens.node.strokeWidth + motionVisual.highlight * visualTokens.node.emphasizedStrokeWidth}
                   textFill={visualTokens.colors.nodeText}
                   visualTokens={visualTokens}
+                  typography={typography.markdownCard}
                   preview={markdownDocumentPreviewByNodeId[node.id]}
                 />
               ) : null}
@@ -393,6 +404,7 @@ export function KonvaNodeLayer({
                   fontStyle={String(nodeThemeTokens.fontWeight)}
                   fontFamily={nodeThemeTokens.fontFamily}
                   lineHeight={nodeThemeTokens.lineHeight / nodeThemeTokens.fontSize}
+                  letterSpacing={nodeThemeTokens.letterSpacing}
                   wrap="word"
                   fill={nodeTextFill}
                   ellipsis

@@ -17,19 +17,17 @@ import {
   Translate
 } from "iconoir-react/regular";
 
-import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { EditorMenuItem, EditorMenuSurface } from "@/features/mermaid-editor/components/editor-ui";
 import { PreferenceToggle, directions, edgeRoutingOptions, layoutModeOptions } from "@/features/mermaid-editor/components/editor-menus/shared";
 import { MarkdownContentWidthPreference } from "@/features/mermaid-editor/components/editor-menus/markdown-content-width-preference";
 import { FloatingIconButton, FloatingPanel } from "@/features/mermaid-editor/components/floating-chrome";
 import { APP_LOGOS, appLogoById, normalizeAppLogoId } from "@/features/mermaid-editor/lib/app-logo";
 import type { DocumentKind } from "@/features/mermaid-editor/lib/document-kind";
-import { EDITOR_CHROME_CLASSES } from "@/features/mermaid-editor/lib/editor-chrome";
 import type { EdgeRouting, GraphDirection, LayoutMode } from "@/features/mermaid-editor/lib/editor-types";
 import type { EditorPreferences } from "@/features/mermaid-editor/lib/editor-preferences";
 import { useDismissableFloatingMenu } from "@/features/mermaid-editor/lib/use-dismissable-floating-menu";
-import { cn } from "@/lib/utils";
 
 export function SecondaryActionsMenu({
   open,
@@ -101,51 +99,36 @@ export function SecondaryActionsMenu({
         dismissMode="outside"
         className="max-h-[min(720px,calc(100vh-112px))] w-64 overflow-y-auto"
       >
-        <div className="grid gap-0.5">
-          <Button
+        <EditorMenuSurface>
+          <EditorMenuItem
             data-floating-action-item
-            variant="ghost"
-            className={cn(EDITOR_CHROME_CLASSES.menuRow, "disabled:opacity-40")}
+            icon={<Plus />}
+            label="添加节点"
             onClick={() => runAndClose(onAddNode)}
             disabled={!editable}
-          >
-            <Plus className="size-4" />
-            新增节点
-          </Button>
-          <Button
+          />
+          <EditorMenuItem
             data-floating-action-item
-            variant="ghost"
-            className={cn(EDITOR_CHROME_CLASSES.menuRow, "disabled:opacity-40")}
+            icon={<FrameSimple />}
+            label="添加图片"
             onClick={() => runAndClose(onAddImageNode)}
             disabled={!editable}
-          >
-            <FrameSimple className="size-4" />
-            添加图片节点
-          </Button>
-          <Button
+          />
+          <EditorMenuItem
             data-floating-action-item
-            variant="ghost"
-            className={cn(EDITOR_CHROME_CLASSES.menuRow, "disabled:opacity-40")}
+            icon={<EmptyPage />}
+            label="添加 Markdown"
             onClick={() => runAndClose(onAddMarkdownDocument)}
             disabled={!editable}
-          >
-            <EmptyPage className="size-4" />
-            添加 Markdown 文档
-          </Button>
-          <Button
+          />
+          <EditorMenuItem
             data-floating-action-item
-            variant="ghost"
-            className={cn(EDITOR_CHROME_CLASSES.menuRow, "disabled:opacity-40")}
+            icon={<SquareDashedMousePointer />}
+            label="成组"
             onClick={() => runAndClose(onCreateGroup)}
             disabled={!editable}
-          >
-            <SquareDashedMousePointer className="size-4" />
-            选中内容成组
-          </Button>
-          <Button data-floating-action-item variant="ghost" className={EDITOR_CHROME_CLASSES.menuRow} onClick={() => runAndClose(onSaveAs)}>
-            <FloppyDiskArrowOut className="size-4" />
-            另存为
-          </Button>
+          />
+          <EditorMenuItem data-floating-action-item icon={<FloppyDiskArrowOut />} label="另存为" onClick={() => runAndClose(onSaveAs)} />
           <Separator className="my-1" />
           <div data-floating-action-item className="grid gap-2 px-2 py-2">
             <span className="text-xs text-muted-foreground">方向</span>
@@ -156,7 +139,7 @@ export function SecondaryActionsMenu({
               }}
               disabled={!editable}
             >
-              <SelectTrigger className="h-8">
+              <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -181,7 +164,7 @@ export function SecondaryActionsMenu({
               }}
               disabled={!editable}
             >
-              <SelectTrigger className="h-8">
+              <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -206,7 +189,7 @@ export function SecondaryActionsMenu({
               }}
               disabled={!editable}
             >
-              <SelectTrigger className="h-8">
+              <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -222,17 +205,17 @@ export function SecondaryActionsMenu({
           <div data-floating-action-item className="grid gap-0.5 px-1 py-1">
             <span className="flex items-center gap-2 px-1 py-1 text-xs text-muted-foreground">
               <Eye className="size-4 text-icon" />
-              应用设置
+              设置
             </span>
             <div className="grid gap-2 px-1 py-1">
-              <span className="text-xs text-muted-foreground">应用 LOGO</span>
+              <span className="text-xs text-muted-foreground">图标</span>
               <Select
                 value={preferences.appLogo}
                 onValueChange={(value) => {
                   updatePreference({ ...preferences, appLogo: normalizeAppLogoId(value) }, "应用 LOGO 已切换。");
                 }}
               >
-                <SelectTrigger className="h-8 gap-2">
+                <SelectTrigger className="gap-2">
                   <img className="size-4 shrink-0 rounded-sm object-cover" src={appLogoById(preferences.appLogo).href} alt="" aria-hidden />
                   <SelectValue />
                 </SelectTrigger>
@@ -248,7 +231,7 @@ export function SecondaryActionsMenu({
             <PreferenceToggle
               active={preferences.startWithPanelsCollapsed}
               icon={<PanelLeftOpen className="size-4" />}
-              label="启动时收起侧栏"
+              label="启动收起侧栏"
               onClick={() =>
                 updatePreference(
                   { ...preferences, startWithPanelsCollapsed: !preferences.startWithPanelsCollapsed },
@@ -259,7 +242,7 @@ export function SecondaryActionsMenu({
             <PreferenceToggle
               active={preferences.statusMessages}
               icon={<Text className="size-4" />}
-              label="底部操作消息"
+              label="操作消息"
               onClick={() =>
                 updatePreference(
                   { ...preferences, statusMessages: !preferences.statusMessages },
@@ -270,7 +253,7 @@ export function SecondaryActionsMenu({
             <PreferenceToggle
               active={preferences.restoreLastFile}
               icon={<ClockRotateRight className="size-4" />}
-              label="启动时恢复上次文件"
+              label="恢复上次文件"
               onClick={() =>
                 updatePreference(
                   { ...preferences, restoreLastFile: !preferences.restoreLastFile },
@@ -281,7 +264,7 @@ export function SecondaryActionsMenu({
             <PreferenceToggle
               active={preferences.markdownSpellcheckEnabled}
               icon={<Translate className="size-4" />}
-              label="Markdown 拼写检查"
+              label="拼写检查"
               onClick={() =>
                 updatePreference(
                   { ...preferences, markdownSpellcheckEnabled: !preferences.markdownSpellcheckEnabled },
@@ -291,35 +274,23 @@ export function SecondaryActionsMenu({
             />
             <MarkdownContentWidthPreference preferences={preferences} onChange={updatePreference} />
           </div>
-          <Button data-floating-action-item variant="ghost" className={EDITOR_CHROME_CLASSES.menuRow} onClick={() => runAndClose(onOpenThemeSettings)}>
-            <ColorWheel className="size-4" />
-            主题
-          </Button>
-          <Button data-floating-action-item variant="ghost" className={cn(EDITOR_CHROME_CLASSES.menuRow, "disabled:opacity-40")} disabled={documentKind !== "mermaid"} onClick={() => runAndClose(onRefreshSource)}>
-            <RefreshCw className="size-4" />
-            从源码刷新
-          </Button>
-          <Button
+          <EditorMenuItem data-floating-action-item icon={<ColorWheel />} label="主题" onClick={() => runAndClose(onOpenThemeSettings)} />
+          <EditorMenuItem data-floating-action-item icon={<RefreshCw />} label="刷新画布" disabled={documentKind !== "mermaid"} onClick={() => runAndClose(onRefreshSource)} />
+          <EditorMenuItem
             data-floating-action-item
-            variant="ghost"
-            className={cn(EDITOR_CHROME_CLASSES.menuRow, "disabled:opacity-40")}
+            icon={<PositionAlign />}
+            label="自动布局"
             onClick={() => runAndClose(onSyncAutoLayout)}
             disabled={!editable}
-          >
-            <PositionAlign className="size-4" />
-            立即自动布局
-          </Button>
-          <Button
+          />
+          <EditorMenuItem
             data-floating-action-item
-            variant="ghost"
-            className={cn(EDITOR_CHROME_CLASSES.menuRow, "disabled:opacity-40")}
+            icon={<Maximize2 />}
+            label="重置视图"
             onClick={() => runAndClose(onResetView)}
             disabled={!editable && !isCanvasDocument}
-          >
-            <Maximize2 className="size-4" />
-            重置画布视图
-          </Button>
-        </div>
+          />
+        </EditorMenuSurface>
       </FloatingPanel>
     </div>
   );

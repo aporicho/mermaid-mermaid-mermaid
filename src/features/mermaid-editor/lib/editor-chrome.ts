@@ -19,19 +19,19 @@ export const EDITOR_CHROME_TOKENS = {
 
 export const EDITOR_CHROME_CLASSES = {
   floatingIconButton:
-    "relative size-12 rounded-full shadow-sm backdrop-blur [&_svg]:size-4",
+    "relative size-12 rounded-[var(--theme-radius-control-lg)] [backdrop-filter:blur(var(--ui-backdrop-blur))] [&_svg]:[height:var(--ui-icon-size-button)] [&_svg]:[width:var(--ui-icon-size-button)]",
   floatingIconInactive:
-    "border bg-card/95 text-icon hover:text-icon",
+    "border bg-card/[var(--ui-surface-opacity)] text-icon hover:text-foreground",
   floatingIconActive:
     "text-background hover:text-background",
   floatingIconDanger:
     "hover:bg-destructive/10 hover:text-destructive",
-  floatingButtonCluster: "flex items-center gap-2",
-  panelIconButton: "size-8 text-icon hover:text-icon [&_svg]:size-4",
-  menuRow: "h-8 justify-start px-2 text-foreground [&_svg]:text-icon [&_svg]:size-4",
-  treeRow: "h-8 justify-start px-2 text-left text-foreground [&_svg]:text-icon",
+  floatingButtonCluster: "flex items-center gap-[var(--ui-control-gap)]",
+  panelIconButton: "editor-ui-icon-button text-icon hover:text-foreground",
+  menuRow: "min-h-[var(--ui-control-height-sm)] h-auto justify-start px-[var(--ui-control-padding-x)] py-[var(--ui-control-padding-y)] text-foreground [&_svg]:text-icon",
+  treeRow: "min-h-[var(--ui-control-height-sm)] h-auto justify-start px-[var(--ui-control-padding-x)] py-[var(--ui-control-padding-y)] text-left text-foreground [&_svg]:text-icon",
   sidePanel:
-    "grid min-h-0 overflow-hidden rounded-lg"
+    "editor-ui-panel grid min-h-0 overflow-hidden"
 } as const;
 
 export type FloatingChromePlacement =

@@ -13,6 +13,7 @@ import type { EditorRuntime, RuntimeFileRef } from "@/features/mermaid-editor/li
 import type { CanvasNode, MermaidGraph, Selection } from "@/features/mermaid-editor/lib/editor-types";
 import type { EditorTheme, EditorThemeId, XtermThemeTokens } from "@/features/mermaid-editor/lib/editor-theme";
 import type { FloatingPanelWindowState } from "@/features/mermaid-editor/lib/floating-chrome";
+import type { ExplorerWorkspaceTreeState } from "@/features/mermaid-editor/lib/explorer-tree-state";
 import type { EditorCommand } from "@/features/mermaid-editor/lib/interaction/commands";
 import type { ProjectFileEntry, ProjectWorkspace } from "@/features/mermaid-editor/lib/project-workspace";
 import {
@@ -39,6 +40,8 @@ type EditorWorkspacePanelsProps = {
   selection: Selection;
   projectWorkspace: ProjectWorkspace | null;
   projectFiles: ProjectFileEntry[];
+  explorerTreeState: ExplorerWorkspaceTreeState | null;
+  onExplorerTreeStateChange: (state: Omit<ExplorerWorkspaceTreeState, "rootPath" | "updatedAt">) => void;
   projectBusy: boolean;
   fileRef: RuntimeFileRef | null;
   terminalCwd?: string;
@@ -75,18 +78,13 @@ type EditorWorkspacePanelsProps = {
 };
 
 export function EditorWorkspacePanels({
-  runtime,
-  documentKind,
-  leftCollapsed,
-  rightCollapsed,
-  terminalOpen,
-  themeSettingsOpen,
-  activeWorkspacePanel,
-  graph,
-  selection,
-  projectWorkspace,
-  projectFiles,
-  projectBusy,
+  runtime, documentKind,
+  leftCollapsed, rightCollapsed,
+  terminalOpen, themeSettingsOpen,
+  activeWorkspacePanel, graph,
+  selection, projectWorkspace,
+  projectFiles, explorerTreeState,
+  onExplorerTreeStateChange, projectBusy,
   fileRef,
   terminalCwd,
   activeTheme,
@@ -142,6 +140,8 @@ export function EditorWorkspacePanels({
           runtimeKind={runtime.kind}
           projectWorkspace={projectWorkspace}
           projectFiles={projectFiles}
+          treeState={explorerTreeState}
+          onTreeStateChange={onExplorerTreeStateChange}
           currentFileRef={fileRef}
           projectBusy={projectBusy}
           onOpenProject={() => void openProjectFolder()}
@@ -150,6 +150,7 @@ export function EditorWorkspacePanels({
           onOpenProjectFile={(file) => void openProjectFile(file)}
           onOpenProjectMarkdownWindow={(file) => void openProjectMarkdownWindow(file)}
           onMarkdownDocumentPointerDrag={onMarkdownDocumentPointerDrag}
+          onStatus={onStatus}
           windowState={workspacePanelWindowState("explorer")}
           onWindowStateChange={(state) => setWorkspacePanelWindowState("explorer", state)}
           onCollapse={() => closeWorkspacePanel("explorer")}
@@ -204,6 +205,7 @@ export function EditorWorkspacePanels({
       >
         <Suspense fallback={null}>
           <ThemeSettingsPanel
+            runtime={runtime}
             themeId={editingThemeId}
             customTheme={editingCustomTheme}
             activeTheme={activeTheme}

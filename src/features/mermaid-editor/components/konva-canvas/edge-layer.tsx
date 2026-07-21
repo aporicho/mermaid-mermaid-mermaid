@@ -182,6 +182,7 @@ export function KonvaEdgeLayer({
                   text={edgeLabelSingleLineText(edgeLabel)}
                   fontSize={edgeLabelThemeTokens.fontSize}
                   fontFamily={edgeLabelThemeTokens.fontFamily}
+                  letterSpacing={edgeLabelThemeTokens.letterSpacing}
                   lineHeight={edgeLabelThemeTokens.lineHeight / edgeLabelThemeTokens.fontSize}
                   wrap="none"
                   fill={edgeVisual.labelTextFill}

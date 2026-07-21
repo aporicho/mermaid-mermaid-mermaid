@@ -110,9 +110,8 @@ export function FloatingPanel({
             kind !== "workspace" && "will-change-transform",
             floatingPanelSurfaceClass[kind],
             panel.framePanel && "h-full w-full",
-            kind === "workspace" && "shadow-lg",
-            kind === "workspace" && active && "border-foreground/20 shadow-xl ring-1 ring-foreground/10",
-            kind === "workspace" && !active && "border-border/80 shadow-sm",
+            kind === "workspace" && active && "border-foreground/20",
+            kind === "workspace" && !active && "border-border/80",
             open ? "pointer-events-auto" : "pointer-events-none",
             className
           )}

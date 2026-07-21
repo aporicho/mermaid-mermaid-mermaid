@@ -29,6 +29,11 @@ import {
 } from "@/features/mermaid-editor/lib/editor-theme";
 import { DEFAULT_EDITOR_PREFERENCES, normalizeEditorPreferences, type EditorPreferences } from "@/features/mermaid-editor/lib/editor-preferences";
 import { shouldCollapseExplorerOnStartup } from "@/features/mermaid-editor/lib/explorer-state";
+import {
+  EMPTY_EXPLORER_TREE_STATE,
+  normalizeExplorerTreeState,
+  type StoredExplorerTreeState
+} from "@/features/mermaid-editor/lib/explorer-tree-state";
 import { normalizeRecentFiles, type RecentFileEntry } from "@/features/mermaid-editor/lib/file-workflow";
 import { buildMermaidDocument, loadMermaidDocument } from "@/features/mermaid-editor/lib/mermaid-document";
 import { initialMermaidSource, parseMermaid, serializeMermaid } from "@/features/mermaid-editor/lib/mermaid-graph";
@@ -60,6 +65,7 @@ export type StoredEditor = {
   fileRef?: RuntimeFileRef | null;
   recentFiles?: RecentFileEntry[];
   projectWorkspace?: ProjectWorkspace | null;
+  explorerTreeState?: StoredExplorerTreeState;
   lastSavedDocument?: string;
   themeId?: EditorThemeId;
   customTheme?: EditorTheme | null;
@@ -150,6 +156,7 @@ export function loadInitialState() {
       fileRef: null,
       recentFiles: [] as RecentFileEntry[],
       projectWorkspace: null,
+      explorerTreeState: EMPTY_EXPLORER_TREE_STATE,
       lastSavedDocument: "",
       themeId: DEFAULT_EDITOR_THEME.id,
       customTheme: null,
@@ -160,6 +167,7 @@ export function loadInitialState() {
   try {
     const stored = createEditorRuntime().loadDraft() as StoredEditor | null;
     if (!stored) throw new Error("No saved editor state");
+    const explorerTreeState = normalizeExplorerTreeState(stored.explorerTreeState);
     const storedDocumentKind = normalizeStoredDocumentKind(stored.documentKind, stored.fileName, stored.fileRef?.path);
     if (storedDocumentKind === "markdown") {
       const preferences = normalizeEditorPreferences(stored.preferences);
@@ -196,6 +204,7 @@ export function loadInitialState() {
         fileRef: stored.fileRef || null,
         recentFiles,
         projectWorkspace,
+        explorerTreeState,
         lastSavedDocument: stored.lastSavedDocument || "",
         themeId,
         customTheme,
@@ -237,6 +246,7 @@ export function loadInitialState() {
         fileRef: stored.fileRef || null,
         recentFiles,
         projectWorkspace,
+        explorerTreeState,
         lastSavedDocument: stored.lastSavedDocument || "",
         themeId: normalizeThemeId(stored.themeId),
         customTheme: stored.customTheme ? normalizeEditorTheme(stored.customTheme) : null,
@@ -287,6 +297,7 @@ export function loadInitialState() {
       fileRef: stored.fileRef || null,
       recentFiles,
       projectWorkspace,
+      explorerTreeState,
       lastSavedDocument: stored.lastSavedDocument || "",
       themeId,
       customTheme,
@@ -311,6 +322,7 @@ export function loadInitialState() {
       fileRef: null,
       recentFiles: [] as RecentFileEntry[],
       projectWorkspace: null,
+      explorerTreeState: EMPTY_EXPLORER_TREE_STATE,
       lastSavedDocument: "",
       themeId: DEFAULT_EDITOR_THEME.id,
       customTheme: null,

@@ -10,6 +10,7 @@ import type { CanvasDocument } from "@/features/mermaid-editor/lib/canvas-docume
 import type { CanvasDocumentDimensions } from "@/features/mermaid-editor/lib/canvas-document-rendering";
 import type { StandardCanvasInteractionState } from "@/features/mermaid-editor/lib/canvas-interaction-standard";
 import type { EditorRuntime, RuntimeFileRef } from "@/features/mermaid-editor/lib/editor-runtime";
+import type { EditorTypographyTokens } from "@/features/mermaid-editor/lib/editor-theme";
 
 type CurrentRef<T> = {
   current: T;
@@ -24,6 +25,8 @@ type UseCanvasDocumentSceneArgs = {
   connectorStartIdRef: CurrentRef<string | null>;
   interactionStateRef: CurrentRef<StandardCanvasInteractionState>;
   inlineEditRef: CurrentRef<CanvasDocumentInlineEdit | null>;
+  typography: EditorTypographyTokens["canvasDocument"];
+  fontRevision: number;
   onStatus?: (status: string) => void;
 };
 
@@ -36,6 +39,8 @@ export function useCanvasDocumentScene({
   connectorStartIdRef,
   interactionStateRef,
   inlineEditRef,
+  typography,
+  fontRevision,
   onStatus
 }: UseCanvasDocumentSceneArgs) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -50,7 +55,7 @@ export function useCanvasDocumentScene({
   renderCurrentSceneRef.current = () => {
     const pixi = pixiRef.current;
     if (!pixi) return;
-    syncPixiScene(pixi, documentRef.current, dimensionsRef.current, selectedIdsRef.current, connectorStartIdRef.current, imageDisplaySrcBySrcRef.current, interactionStateRef.current, inlineEditRef.current);
+    syncPixiScene(pixi, documentRef.current, dimensionsRef.current, selectedIdsRef.current, connectorStartIdRef.current, imageDisplaySrcBySrcRef.current, interactionStateRef.current, inlineEditRef.current, typography, fontRevision);
   };
 
   renderViewportOnlyRef.current = () => {
@@ -74,6 +79,10 @@ export function useCanvasDocumentScene({
     imageDisplaySrcBySrcRef.current = imageDisplaySrcBySrc;
     renderCurrentSceneRef.current();
   }, [imageDisplaySrcBySrc]);
+
+  useEffect(() => {
+    renderCurrentSceneRef.current();
+  }, [fontRevision, typography]);
 
   useEffect(() => {
     let disposed = false;

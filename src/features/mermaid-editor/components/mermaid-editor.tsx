@@ -11,6 +11,7 @@ import { EditorWorkspaceSurface } from "@/features/mermaid-editor/components/mer
 import { EditorWorkspacePanels } from "@/features/mermaid-editor/components/mermaid-editor/editor-workspace-panels";
 import { useEditorDocumentModel } from "@/features/mermaid-editor/components/mermaid-editor/use-editor-document-model";
 import { useEditorFileWorkflow } from "@/features/mermaid-editor/components/mermaid-editor/use-editor-file-workflow";
+import { useEditorExplorerTreeModel } from "@/features/mermaid-editor/components/mermaid-editor/use-editor-explorer-tree-model";
 import { useEditorKeyboardShortcuts } from "@/features/mermaid-editor/components/mermaid-editor/use-editor-keyboard-shortcuts";
 import { useEditorOverlayState, useUnsavedPromptEscape } from "@/features/mermaid-editor/components/mermaid-editor/use-editor-overlay-state";
 import { useEditorRecentActions } from "@/features/mermaid-editor/components/mermaid-editor/use-editor-recent-actions";
@@ -97,6 +98,7 @@ export function MermaidEditor() {
     isCanvasEditable,
     canvasViewTooltip
   } = useEditorDocumentModel({ initial, runtime });
+  const { explorerTreeState, setExplorerTreeState, activeExplorerTreeState, updateExplorerTreeState } = useEditorExplorerTreeModel({ initialState: initial.explorerTreeState, projectWorkspace });
   const {
     previewByNodeId: markdownDocumentPreviewByNodeId,
     requestPreview: requestMarkdownDocumentPreview,
@@ -134,6 +136,7 @@ export function MermaidEditor() {
     setPreferences,
     activeTheme,
     compiledTheme,
+    fontRevision,
     resolvedMotion,
     beginThemeSettings,
     updatePreferences,
@@ -315,6 +318,7 @@ export function MermaidEditor() {
     fileRef,
     recentFiles,
     projectWorkspace,
+    explorerTreeState,
     lastSavedDocument,
     themeId,
     customTheme,
@@ -342,6 +346,7 @@ export function MermaidEditor() {
     setFileRef,
     setRecentFiles,
     setProjectWorkspace,
+    setExplorerTreeState,
     setProjectBusy,
     setLastSavedDocument,
     setFileMenuOpen,
@@ -392,6 +397,7 @@ export function MermaidEditor() {
     setPreferences,
     setRecentFiles,
     setProjectWorkspace,
+    setExplorerTreeState,
     setProjectBusy,
     setFileName,
     setFileRef,
@@ -493,6 +499,7 @@ export function MermaidEditor() {
     fileRef,
     recentFiles,
     projectWorkspace,
+    explorerTreeState,
     lastSavedDocument,
     themeId,
     customTheme,
@@ -562,6 +569,8 @@ export function MermaidEditor() {
             markdownSpellcheckEnabled={preferences.markdownSpellcheckEnabled} markdownContentWidth={preferences.markdownContentWidth}
             visualTokens={compiledTheme.canvasVisualTokens}
             geometryTokens={compiledTheme.geometry}
+            typography={compiledTheme.typography}
+            fontRevision={fontRevision}
             motion={resolvedMotion}
             source={source}
             previewSource={previewSource}
@@ -582,20 +591,16 @@ export function MermaidEditor() {
         </div>
         </MotionPresence>
         <EditorWorkspacePanels
-          runtime={runtime}
-          documentKind={documentKind}
-          leftCollapsed={leftCollapsed}
-          rightCollapsed={rightCollapsed}
+          runtime={runtime} documentKind={documentKind}
+          leftCollapsed={leftCollapsed} rightCollapsed={rightCollapsed}
           terminalOpen={terminalOpen} themeSettingsOpen={themeSettingsOpen}
           activeWorkspacePanel={activeWorkspacePanel}
-          graph={graph}
-          selection={selection}
-          projectWorkspace={projectWorkspace}
-          projectFiles={projectFiles}
-          projectBusy={projectBusy}
-          fileRef={fileRef}
-          terminalCwd={terminalCwd}
-          activeTheme={activeTheme} editingThemeId={editingThemeId} editingCustomTheme={editingCustomTheme} themeDraftDirty={themeDraftDirty}
+          graph={graph} selection={selection}
+          projectWorkspace={projectWorkspace} projectFiles={projectFiles}
+          explorerTreeState={activeExplorerTreeState} onExplorerTreeStateChange={updateExplorerTreeState}
+          projectBusy={projectBusy} fileRef={fileRef}
+          terminalCwd={terminalCwd} activeTheme={activeTheme} editingThemeId={editingThemeId}
+          editingCustomTheme={editingCustomTheme} themeDraftDirty={themeDraftDirty}
           terminalTheme={compiledTheme.terminalTheme}
           detachedMarkdownWindows={detachedMarkdownWindows}
           markdownSpellcheckEnabled={preferences.markdownSpellcheckEnabled} markdownContentWidth={preferences.markdownContentWidth}
@@ -606,10 +611,8 @@ export function MermaidEditor() {
           closeWorkspacePanel={closeWorkspacePanel}
           hideThemeSettings={hideThemeSettings} discardThemeSettings={discardThemeSettings}
           applyThemeSettings={saveThemeSettings} previewTheme={previewTheme}
-          openProjectFolder={openProjectFolder}
-          refreshProjectWorkspace={refreshProjectWorkspace}
-          closeProjectWorkspace={closeProjectWorkspace}
-          openProjectFile={openProjectFile}
+          openProjectFolder={openProjectFolder} refreshProjectWorkspace={refreshProjectWorkspace}
+          closeProjectWorkspace={closeProjectWorkspace} openProjectFile={openProjectFile}
           openProjectMarkdownWindow={openProjectMarkdownWindow} onMarkdownDocumentPointerDrag={markdownDocumentDrop.pointer}
           applyEditorCommand={applyEditorCommand}
           executeCanvasNodeAction={executeCanvasNodeAction}

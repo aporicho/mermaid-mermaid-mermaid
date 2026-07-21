@@ -1,4 +1,4 @@
-import { DEFAULT_TEXT_COLOR, PIXI_TEXT_FONT_FAMILY } from "@/features/mermaid-editor/components/canvas-document-editor/constants";
+import { DEFAULT_TEXT_COLOR } from "@/features/mermaid-editor/components/canvas-document-editor/constants";
 import type {
   CanvasDocumentInlineEdit,
   CanvasDocumentInlineEditStyle,
@@ -6,15 +6,18 @@ import type {
 } from "@/features/mermaid-editor/components/canvas-document-editor/types";
 import type { CanvasDocument } from "@/features/mermaid-editor/lib/canvas-document";
 import { canvasDocumentEndpointPoint } from "@/features/mermaid-editor/lib/canvas-document-rendering";
+import type { EditorTypographyTokens, TypographyRoleTokens } from "@/features/mermaid-editor/lib/editor-theme";
 
 export function resolveCanvasDocumentInlineEditStyle({
   document,
   inlineEdit,
-  screenFromWorld
+  screenFromWorld,
+  typography
 }: {
   document: CanvasDocument;
   inlineEdit: CanvasDocumentInlineEdit | null;
   screenFromWorld: (point: Point) => Point;
+  typography: EditorTypographyTokens["canvasDocument"];
 }): CanvasDocumentInlineEditStyle | null {
   if (!inlineEdit) return null;
   const element = document.elements.find((item) => item.id === inlineEdit.id);
@@ -26,55 +29,49 @@ export function resolveCanvasDocumentInlineEditStyle({
       const insetX = 12;
       const insetY = 12;
       const screen = screenFromWorld({ x: element.x + insetX, y: element.y + insetY });
-      return {
+      return typographyStyle({
         left: screen.x,
         top: screen.y,
         width: Math.max(1, element.width - insetX * 2) * scale,
         height: Math.max(1, element.height - insetY * 2) * scale,
-        fontFamily: PIXI_TEXT_FONT_FAMILY,
-        fontSize: 14 * scale,
-        lineHeight: Math.round(14 * 1.25 * scale),
+        typography: typography.shapeEditor,
+        scale,
         textAlign: "center",
-        fontWeight: 400,
         color: DEFAULT_TEXT_COLOR,
         verticalAlign: "middle"
-      };
+      });
     }
 
     if (element.type === "card") {
       const insetX = 22;
       const insetY = 22;
       const screen = screenFromWorld({ x: element.x + insetX, y: element.y + insetY });
-      return {
+      return typographyStyle({
         left: screen.x,
         top: screen.y,
         width: Math.max(1, element.width - insetX * 2) * scale,
         height: Math.max(1, element.height - insetY * 2) * scale,
-        fontFamily: PIXI_TEXT_FONT_FAMILY,
-        fontSize: 16 * scale,
-        lineHeight: Math.round(16 * 1.3 * scale),
+        typography: typography.cardEditor,
+        scale,
         textAlign: "left",
-        fontWeight: 400,
         color: DEFAULT_TEXT_COLOR,
         verticalAlign: "top"
-      };
+      });
     }
 
     if (element.type === "text") {
       const screen = screenFromWorld({ x: element.x, y: element.y });
-      return {
+      return typographyStyle({
         left: screen.x,
         top: screen.y,
         width: Math.max(1, element.width) * scale,
         height: Math.max(1, element.height) * scale,
-        fontFamily: PIXI_TEXT_FONT_FAMILY,
-        fontSize: element.fontSize * scale,
-        lineHeight: Math.round(element.fontSize * 1.25 * scale),
+        typography: typography.freeTextEditor,
+        scale,
         textAlign: "left",
-        fontWeight: 400,
         color: element.fill,
         verticalAlign: "top"
-      };
+      });
     }
 
     return null;
@@ -87,19 +84,28 @@ export function resolveCanvasDocumentInlineEditStyle({
   const center = screenFromWorld({ x: (from.x + to.x) / 2, y: (from.y + to.y) / 2 - 8 });
   const width = 180 * scale;
   const height = 28 * scale;
-  return {
+  return typographyStyle({
     left: center.x - width / 2,
     top: center.y - height / 2,
     width,
     height,
-    fontFamily: PIXI_TEXT_FONT_FAMILY,
-    fontSize: 12 * scale,
-    lineHeight: Math.round(12 * 1.25 * scale),
+    typography: typography.connectorEditor,
+    scale,
     textAlign: "center",
-    fontWeight: 400,
     color: DEFAULT_TEXT_COLOR,
     verticalAlign: "middle",
     borderRadius: 4 * scale,
     paddingX: 8 * scale
+  });
+}
+
+function typographyStyle({ typography, scale, ...style }: Omit<CanvasDocumentInlineEditStyle, "fontFamily" | "fontSize" | "fontWeight" | "lineHeight" | "letterSpacing"> & { typography: TypographyRoleTokens; scale: number }): CanvasDocumentInlineEditStyle {
+  return {
+    ...style,
+    fontFamily: typography.family,
+    fontSize: typography.fontSize * scale,
+    fontWeight: typography.fontWeight,
+    lineHeight: typography.lineHeight * scale,
+    letterSpacing: typography.letterSpacing * scale
   };
 }

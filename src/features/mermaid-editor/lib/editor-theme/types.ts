@@ -4,8 +4,23 @@ import type { EdgeLabelGeometryTokens } from "@/features/mermaid-editor/lib/edge
 import type { NodeGeometryTokens } from "@/features/mermaid-editor/lib/node-geometry";
 import type { SubgraphGeometryTokens } from "@/features/mermaid-editor/lib/subgraph-geometry";
 import type { MarkdownThemeTokens } from "./markdown-types";
+import type { EditorTypographyTokens } from "./typography-types";
 
-export type { MarkdownHeadingTokens, MarkdownThemeTokens } from "./markdown-types";
+export type {
+  MarkdownBlockquoteTokens,
+  MarkdownBodyTokens,
+  MarkdownCodeBlockTokens,
+  MarkdownHeadingTokens,
+  MarkdownInlineCodeTokens,
+  MarkdownLinkTokens,
+  MarkdownListTokens,
+  MarkdownStrikethroughTokens,
+  MarkdownTableTokens,
+  MarkdownTaskListTokens,
+  MarkdownTextTokens,
+  MarkdownThemeTokens
+} from "./markdown-types";
+export type { EditorTypographyTokens, TypographyRoleTokens } from "./typography-types";
 
 export const MERMAID_FONT_FAMILY = "Noto Sans SC Variable, Noto Sans SC, PingFang SC, Microsoft YaHei UI, Microsoft YaHei, system-ui, sans-serif";
 export const MONO_FONT_FAMILY = "Maple Mono, SF Mono, Cascadia Code, JetBrains Mono, Noto Sans SC Variable, ui-monospace, monospace";
@@ -89,7 +104,7 @@ export type XtermThemeTokens = TerminalColorTokens &
   };
 
 export type EditorTheme = {
-  version: 5;
+  version: 8;
   id: EditorThemeId;
   name: string;
   description: string;
@@ -124,6 +139,14 @@ export type EditorTheme = {
     nodeFillLuminanceSteps: number;
     previewShadowOpacity: number;
   };
+  chrome: {
+    borderWidth: number;
+    dividerWidth: number;
+    focusRingWidth: number;
+    surfaceOpacity: number;
+    backdropBlur: number;
+    shadowOpacity: number;
+  };
   source: {
     line: string;
   };
@@ -134,6 +157,8 @@ export type EditorTheme = {
   markdown: MarkdownThemeTokens;
   ansi: AnsiColorTokens;
   terminal: TerminalColorTokens;
+  typography: EditorTypographyTokens;
+  /** @deprecated v5 compatibility input. New code must consume typography. */
   font: {
     familySans: string;
     familyMono: string;
@@ -264,6 +289,7 @@ export type CompiledEditorTheme = {
   canvasVisualTokens: CanvasVisualTokens;
   mermaidThemeVariables: MermaidThemeVariables;
   terminalTheme: XtermThemeTokens;
+  typography: EditorTypographyTokens;
   motion: EditorMotionTokens;
   geometry: EditorThemeGeometryTokens;
   diagnostics: ThemeDiagnostic[];

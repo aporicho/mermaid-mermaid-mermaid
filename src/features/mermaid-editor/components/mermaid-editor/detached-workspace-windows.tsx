@@ -54,7 +54,7 @@ export function DetachedWorkspaceWindows({
           minSize={WORKSPACE_PANEL_MIN_SIZES.markdown}
           windowState={panelWindowState(markdownWindow.id)}
           onWindowStateChange={(state) => setPanelWindowState(markdownWindow.id, state)}
-          className="relative h-full w-full min-h-0 overflow-hidden rounded-lg"
+          className="relative h-full w-full min-h-0 overflow-hidden rounded-[var(--theme-radius-app)]"
         >
           <MarkdownWindowPanel
             title={markdownWindow.title}

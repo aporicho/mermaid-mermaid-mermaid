@@ -14,6 +14,7 @@ function electronBridge(): ElectronBridge {
     runWindowAction: vi.fn(() => Promise.resolve()),
     onDesktopWindowCloseRequest: vi.fn(() => () => undefined),
     readAppState: vi.fn(() => Promise.resolve(null)),
+    listSystemFonts: vi.fn(() => Promise.resolve([])),
     writeAppState: vi.fn(() => Promise.resolve()),
     openFile: vi.fn(() => Promise.resolve(null)),
     openFilePath: vi.fn(() => Promise.resolve({ name: "diagram.mmd", path: "/tmp/diagram.mmd", text: "flowchart TD" })),

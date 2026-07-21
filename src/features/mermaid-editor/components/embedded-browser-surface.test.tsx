@@ -166,4 +166,17 @@ describe("EmbeddedBrowserSurface", () => {
     expect(onStatus).toHaveBeenCalledWith(expect.stringContaining("webview create failed"));
     expect(onBrowserError).toHaveBeenCalledWith("https://example.com", "webview create failed");
   });
+
+  it("shows one concise unavailable heading while keeping the target URL", async () => {
+    const runtime = createRuntime(vi.fn(async (): Promise<RuntimeEmbeddedBrowserResult> => ({
+      status: "unsupported",
+      message: "应用内浏览器需要桌面版 WebView2。"
+    })));
+
+    await renderSurface({ runtime });
+
+    expect(container?.textContent).toContain("需要桌面版 WebView2");
+    expect(container?.textContent).toContain("https://example.com");
+    expect(container?.textContent).not.toContain("WebView2 内置浏览器不可用");
+  });
 });

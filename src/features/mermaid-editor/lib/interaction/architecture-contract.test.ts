@@ -646,6 +646,30 @@ describe("interaction architecture contract", () => {
     expect(barrel).not.toContain("function FloatingIconButton");
   });
 
+  it("keeps application chrome behind the editor UI semantic layer", () => {
+    const barrel = readProjectFile("src/features/mermaid-editor/components/editor-ui/index.ts");
+    const styles = readProjectFile("src/styles/globals.css");
+    const floatingButtons = readProjectFile("src/features/mermaid-editor/components/floating-chrome/floating-buttons.tsx");
+    const arrangementToolbar = readProjectFile("src/features/mermaid-editor/components/konva-canvas/selection-arrangement-toolbar.tsx");
+    const nodeDialog = readProjectFile("src/features/mermaid-editor/components/node-action-editor-dialog.tsx");
+    const markdownDialog = readProjectFile("src/features/mermaid-editor/components/markdown-document-dialog.tsx");
+    const imageDialog = readProjectFile("src/features/mermaid-editor/components/canvas-document-editor/image-url-dialog.tsx");
+    const unsavedDialog = readProjectFile("src/features/mermaid-editor/components/file-workflow-feedback.tsx");
+
+    for (const moduleName of ["dialog", "feedback", "field", "icon-button", "list", "menu", "panel", "toolbar"]) {
+      expect(barrel).toContain(`export * from "./${moduleName}"`);
+    }
+    for (const className of ["editor-ui-control", "editor-ui-popover", "editor-ui-panel", "editor-ui-dialog", "editor-ui-toolbar"]) {
+      expect(styles).toContain(`.${className}`);
+    }
+    expect(floatingButtons).toContain("EditorIconButton");
+    expect(arrangementToolbar).toContain("EditorToolbar");
+    for (const dialog of [nodeDialog, markdownDialog, imageDialog, unsavedDialog]) {
+      expect(dialog).toContain("EditorDialog");
+      expect(dialog).not.toContain('className="fixed inset-0');
+    }
+  });
+
   it("keeps Mermaid graph parsing behind focused graph modules", () => {
     const barrel = readProjectFile("src/features/mermaid-editor/lib/mermaid-graph.ts");
     const parser = readProjectFile("src/features/mermaid-editor/lib/mermaid-graph/parser.ts");

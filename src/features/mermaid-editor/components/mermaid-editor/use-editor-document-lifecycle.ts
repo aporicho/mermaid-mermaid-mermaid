@@ -38,6 +38,7 @@ import {
   type RecentFileEntry
 } from "@/features/mermaid-editor/lib/file-workflow";
 import { shouldCollapseExplorerOnStartup } from "@/features/mermaid-editor/lib/explorer-state";
+import { normalizeExplorerTreeState, type StoredExplorerTreeState } from "@/features/mermaid-editor/lib/explorer-tree-state";
 import { documentKindFromPath, type DocumentKind } from "@/features/mermaid-editor/lib/document-kind";
 import { normalizeProjectWorkspace, type ProjectWorkspace } from "@/features/mermaid-editor/lib/project-workspace";
 import type {
@@ -81,6 +82,7 @@ type UseEditorDocumentLifecycleArgs = {
   setFileRef: StateSetter<RuntimeFileRef | null>;
   setRecentFiles: StateSetter<RecentFileEntry[]>;
   setProjectWorkspace: StateSetter<ProjectWorkspace | null>;
+  setExplorerTreeState: StateSetter<StoredExplorerTreeState>;
   setLastSavedDocument: StateSetter<string>;
   setFileWorkflowError: StateSetter<FileWorkflowError | null>;
   setThemeId: StateSetter<EditorThemeId>;
@@ -117,6 +119,7 @@ export function useEditorDocumentLifecycle({
   setFileRef,
   setRecentFiles,
   setProjectWorkspace,
+  setExplorerTreeState,
   setLastSavedDocument,
   setFileWorkflowError,
   setThemeId,
@@ -266,6 +269,7 @@ export function useEditorDocumentLifecycle({
       setFileRef(stored.fileRef || null);
       setRecentFiles(nextRecentFiles);
       setProjectWorkspace(nextProjectWorkspace);
+      setExplorerTreeState(normalizeExplorerTreeState(stored.explorerTreeState));
       setLastSavedDocument(stored.lastSavedDocument || "");
       isDirtyRef.current = !stored.lastSavedDocument || nextSource !== stored.lastSavedDocument;
       setThemeId(normalizeThemeId(stored.themeId));
@@ -318,6 +322,7 @@ export function useEditorDocumentLifecycle({
       setFileRef(stored.fileRef || null);
       setRecentFiles(nextRecentFiles);
       setProjectWorkspace(nextProjectWorkspace);
+      setExplorerTreeState(normalizeExplorerTreeState(stored.explorerTreeState));
       setLastSavedDocument(stored.lastSavedDocument || "");
       isDirtyRef.current = !stored.lastSavedDocument || nextSource !== stored.lastSavedDocument;
       setThemeId(normalizeThemeId(stored.themeId));
@@ -379,6 +384,7 @@ export function useEditorDocumentLifecycle({
     setFileRef(stored.fileRef || null);
     setRecentFiles(nextRecentFiles);
     setProjectWorkspace(nextProjectWorkspace);
+    setExplorerTreeState(normalizeExplorerTreeState(stored.explorerTreeState));
     setLastSavedDocument(stored.lastSavedDocument || "");
     isDirtyRef.current = !stored.lastSavedDocument || currentStoredDocument !== stored.lastSavedDocument;
     setThemeId(nextThemeId);

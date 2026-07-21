@@ -2,6 +2,38 @@
 @tailwind components;
 @tailwind utilities;
 
+@font-face {
+  font-family: "上图东观体";
+  src: url("/fonts/shangtu-dongguan-light.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 300;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "上图东观体";
+  src: url("/fonts/shangtu-dongguan-regular.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "上图东观体";
+  src: url("/fonts/shangtu-dongguan-bold.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "方正屏显雅宋简体";
+  src: url("/fonts/fz-pingxian-yasong.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
 @layer base {
   :root {
     --font-sans: "Noto Sans SC Variable", "Noto Sans SC", "PingFang SC", "Microsoft YaHei UI", "Microsoft YaHei", system-ui, sans-serif;
@@ -66,10 +98,68 @@
     --theme-canvas-node-fill-saturation: 1;
     --theme-canvas-node-fill-luminance-steps: 256;
     --theme-canvas-preview-shadow-opacity: 0.22;
+    --ui-border-width: 1px;
+    --ui-divider-width: 1px;
+    --ui-focus-ring-width: 1px;
+    --ui-surface-opacity: 0.96;
+    --ui-backdrop-blur: 8px;
+    --ui-shadow-opacity: 0.16;
+    --ui-control-gap: 8px;
+    --ui-control-padding-x: 12px;
+    --ui-control-padding-y: 8px;
+    --ui-control-height-sm: 32px;
+    --ui-control-height-md: 40px;
+    --ui-icon-button-size: 32px;
+    --ui-icon-size-sm: 16px;
+    --ui-icon-size-button: 16px;
+    --ui-icon-stroke-width: 2.2;
   }
 
   * {
     @apply border-border;
+    scrollbar-color: transparent transparent;
+    scrollbar-width: thin;
+  }
+
+  *::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  *::-webkit-scrollbar-track,
+  *::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    min-width: 36px;
+    min-height: 36px;
+    border: 3px solid transparent;
+    border-radius: var(--theme-radius-control-sm);
+    background-color: transparent;
+    background-clip: padding-box;
+    transition: background-color 160ms ease;
+  }
+
+  *.scrollbar-active {
+    scrollbar-color: hsl(var(--muted-foreground) / 0.3) transparent;
+  }
+
+  *.scrollbar-active::-webkit-scrollbar-thumb {
+    background-color: hsl(var(--muted-foreground) / 0.3);
+  }
+
+  *.scrollbar-active::-webkit-scrollbar-thumb:hover {
+    border-width: 2px;
+    background-color: hsl(var(--muted-foreground) / 0.48);
+  }
+
+  *.scrollbar-active::-webkit-scrollbar-thumb:active {
+    background-color: hsl(var(--foreground) / 0.62);
+  }
+
+  *::-webkit-scrollbar-button {
+    display: none;
   }
 
   html,
@@ -78,8 +168,204 @@
     height: 100%;
   }
 
+  body :is(
+    input,
+    textarea,
+    [contenteditable="true"],
+    .ProseMirror,
+    .monaco-editor,
+    .xterm,
+    [data-selectable-text]
+  ) {
+    -webkit-user-select: text;
+    user-select: text;
+  }
+
   body {
     @apply overflow-hidden bg-background font-sans text-foreground antialiased;
+    -webkit-user-select: none;
+    font-family: var(--type-interface-body-family, var(--font-sans));
+    font-size: var(--type-interface-body-size, 14px);
+    font-weight: var(--type-interface-body-weight, 400);
+    line-height: var(--type-interface-body-line-height, 20px);
+    letter-spacing: var(--type-interface-body-letter-spacing, 0);
+    user-select: none;
+  }
+}
+
+.type-interface-control {
+  font-family: var(--type-interface-control-family, var(--font-sans));
+  font-size: var(--type-interface-control-size, 13px);
+  font-weight: var(--type-interface-control-weight, 500);
+  line-height: var(--type-interface-control-line-height, 18px);
+  letter-spacing: var(--type-interface-control-letter-spacing, 0);
+}
+
+.type-interface-menu {
+  font-family: var(--type-interface-menu-family, var(--font-sans));
+  font-size: var(--type-interface-menu-size, 12px);
+  font-weight: var(--type-interface-menu-weight, 400);
+  line-height: var(--type-interface-menu-line-height, 18px);
+  letter-spacing: var(--type-interface-menu-letter-spacing, 0);
+}
+
+.type-interface-tooltip {
+  font-family: var(--type-interface-tooltip-family, var(--font-sans));
+  font-size: var(--type-interface-tooltip-size, 12px);
+  font-weight: var(--type-interface-tooltip-weight, 400);
+  line-height: var(--type-interface-tooltip-line-height, 18px);
+  letter-spacing: var(--type-interface-tooltip-letter-spacing, 0);
+}
+
+.type-interface-heading {
+  font-family: var(--type-interface-heading-family, var(--font-sans));
+  font-size: var(--type-interface-heading-size, 14px);
+  font-weight: var(--type-interface-heading-weight, 500);
+  line-height: var(--type-interface-heading-line-height, 20px);
+  letter-spacing: var(--type-interface-heading-letter-spacing, 0);
+}
+
+.type-interface-navigation {
+  font-family: var(--type-interface-navigation-family, var(--font-sans));
+  font-size: var(--type-interface-navigation-size, 12px);
+  font-weight: var(--type-interface-navigation-weight, 500);
+  line-height: var(--type-interface-navigation-line-height, 18px);
+  letter-spacing: var(--type-interface-navigation-letter-spacing, 0);
+}
+
+.type-interface-metadata {
+  font-family: var(--type-interface-metadata-family, var(--font-sans));
+  font-size: var(--type-interface-metadata-size, 12px);
+  font-weight: var(--type-interface-metadata-weight, 400);
+  line-height: var(--type-interface-metadata-line-height, 18px);
+  letter-spacing: var(--type-interface-metadata-letter-spacing, 0);
+}
+
+.type-interface-status {
+  font-family: var(--type-interface-status-family, var(--font-sans));
+  font-size: var(--type-interface-status-size, 12px);
+  font-weight: var(--type-interface-status-weight, 400);
+  line-height: var(--type-interface-status-line-height, 18px);
+  letter-spacing: var(--type-interface-status-letter-spacing, 0);
+}
+
+.type-interface-technical {
+  font-family: var(--type-interface-technical-family, var(--font-mono));
+  font-size: var(--type-interface-technical-size, 12px);
+  font-weight: var(--type-interface-technical-weight, 400);
+  line-height: var(--type-interface-technical-line-height, 18px);
+  letter-spacing: var(--type-interface-technical-letter-spacing, 0);
+}
+
+@layer components {
+  .editor-ui-control {
+    min-height: var(--ui-control-height-md);
+    border-width: var(--ui-border-width);
+    border-radius: var(--theme-radius-control-md);
+    padding-inline: var(--ui-control-padding-x);
+    padding-block: var(--ui-control-padding-y);
+  }
+
+  .editor-ui-control-sm {
+    min-height: var(--ui-control-height-sm);
+    border-radius: var(--theme-radius-control-sm);
+    padding-inline: calc(var(--ui-control-padding-x) * 0.75);
+  }
+
+  .editor-ui-icon-button {
+    width: var(--ui-icon-button-size);
+    height: var(--ui-icon-button-size);
+    min-height: var(--ui-icon-button-size);
+    padding: 0;
+  }
+
+  .editor-ui-icon-button > svg,
+  .editor-ui-icon {
+    width: var(--ui-icon-size-button);
+    height: var(--ui-icon-size-button);
+    stroke-width: var(--ui-icon-stroke-width);
+  }
+
+  .editor-ui-surface {
+    border-width: var(--ui-border-width);
+    border-radius: var(--theme-radius-control-lg);
+    background-color: hsl(var(--card) / var(--ui-surface-opacity));
+    backdrop-filter: blur(var(--ui-backdrop-blur));
+  }
+
+  .editor-ui-popover {
+    border-width: var(--ui-border-width);
+    border-radius: var(--theme-radius-control-md);
+    background-color: hsl(var(--popover) / var(--ui-surface-opacity));
+    backdrop-filter: blur(var(--ui-backdrop-blur));
+    box-shadow: 0 8px 24px hsl(var(--foreground) / calc(var(--ui-shadow-opacity) * 0.7));
+  }
+
+  .editor-ui-panel {
+    border-width: var(--ui-border-width);
+    border-radius: var(--theme-radius-app);
+    background-color: hsl(var(--card) / var(--ui-surface-opacity));
+    backdrop-filter: blur(var(--ui-backdrop-blur));
+    box-shadow: 0 12px 36px hsl(var(--foreground) / var(--ui-shadow-opacity));
+  }
+
+  .editor-ui-dialog {
+    border-width: var(--ui-border-width);
+    border-radius: var(--theme-radius-control-lg);
+    background-color: hsl(var(--card));
+    box-shadow: 0 18px 60px hsl(var(--foreground) / calc(var(--ui-shadow-opacity) * 1.25));
+  }
+
+  .editor-ui-divider {
+    border-color: hsl(var(--border));
+    border-width: 0;
+    border-top-width: var(--ui-divider-width);
+  }
+
+  .editor-ui-focus {
+    outline: none;
+  }
+
+  .editor-ui-focus:focus-visible {
+    box-shadow: 0 0 0 var(--ui-focus-ring-width) hsl(var(--ring));
+  }
+
+  .editor-ui-panel-header {
+    min-height: var(--theme-panel-header-height);
+    padding-inline: var(--theme-panel-padding);
+    border-bottom-width: var(--ui-divider-width);
+  }
+
+  .editor-ui-panel-body {
+    padding: var(--theme-panel-padding);
+  }
+
+  .editor-ui-panel-footer {
+    min-height: var(--theme-panel-footer-height);
+    padding-inline: var(--theme-panel-padding);
+    border-top-width: var(--ui-divider-width);
+  }
+
+  .editor-ui-toolbar {
+    display: flex;
+    align-items: center;
+    gap: calc(var(--ui-control-gap) * 0.5);
+    border-width: var(--ui-border-width);
+    border-radius: var(--theme-radius-control-md);
+    padding: calc(var(--ui-control-gap) * 0.5);
+    background-color: hsl(var(--card) / var(--ui-surface-opacity));
+    backdrop-filter: blur(var(--ui-backdrop-blur));
+    box-shadow: 0 6px 20px hsl(var(--foreground) / calc(var(--ui-shadow-opacity) * 0.7));
+  }
+}
+
+@layer utilities {
+  .scrollbar-hidden {
+    scrollbar-width: none;
+  }
+
+  .scrollbar-hidden::-webkit-scrollbar {
+    display: none;
   }
 }
 
@@ -90,8 +376,29 @@
 }
 
 .source-grid {
+  font-family: var(--type-source-editor-family, var(--font-mono));
+  font-size: var(--type-source-editor-size, 13px);
+  font-weight: var(--type-source-editor-weight, 400);
+  line-height: var(--type-source-editor-line-height, var(--theme-source-line-height));
+  letter-spacing: var(--type-source-editor-letter-spacing, 0);
   background:
-    linear-gradient(hsl(var(--card)) calc(var(--theme-source-line-height) - 1px), hsl(var(--source-line) / 0.56) var(--theme-source-line-height)) 0 0 / 100% var(--theme-source-line-height);
+    linear-gradient(hsl(var(--card)) calc(var(--type-source-editor-line-height, var(--theme-source-line-height)) - 1px), hsl(var(--source-line) / 0.56) var(--type-source-editor-line-height, var(--theme-source-line-height))) 0 0 / 100% var(--type-source-editor-line-height, var(--theme-source-line-height));
+}
+
+.diagnostic-summary {
+  font-family: var(--type-source-diagnostic-summary-family, var(--font-mono));
+  font-size: var(--type-source-diagnostic-summary-size, 12px);
+  font-weight: var(--type-source-diagnostic-summary-weight, 400);
+  line-height: var(--type-source-diagnostic-summary-line-height, 20px);
+  letter-spacing: var(--type-source-diagnostic-summary-letter-spacing, 0);
+}
+
+.diagnostic-raw {
+  font-family: var(--type-source-diagnostic-raw-family, var(--font-mono));
+  font-size: var(--type-source-diagnostic-raw-size, 12px);
+  font-weight: var(--type-source-diagnostic-raw-weight, 400);
+  line-height: var(--type-source-diagnostic-raw-line-height, 20px);
+  letter-spacing: var(--type-source-diagnostic-raw-letter-spacing, 0);
 }
 
 .terminal-panel .xterm {
@@ -99,9 +406,41 @@
   padding: 4px;
 }
 
+.terminal-heading {
+  font-family: var(--type-terminal-heading-family, var(--font-sans));
+  font-size: var(--type-terminal-heading-size, 12px);
+  font-weight: var(--type-terminal-heading-weight, 500);
+  line-height: var(--type-terminal-heading-line-height, 16px);
+  letter-spacing: var(--type-terminal-heading-letter-spacing, 0);
+}
+
+.terminal-path {
+  font-family: var(--type-terminal-path-family, var(--font-mono));
+  font-size: var(--type-terminal-path-size, 11px);
+  font-weight: var(--type-terminal-path-weight, 400);
+  line-height: var(--type-terminal-path-line-height, 16px);
+  letter-spacing: var(--type-terminal-path-letter-spacing, 0);
+}
+
 .terminal-panel .xterm .xterm-viewport {
   background-color: hsl(var(--terminal-background)) !important;
+  scrollbar-color: transparent transparent;
+}
+
+.terminal-panel .xterm .xterm-viewport::-webkit-scrollbar-thumb {
+  background-color: transparent;
+}
+
+.terminal-panel .xterm .xterm-viewport.scrollbar-active {
   scrollbar-color: hsl(var(--terminal-foreground) / 0.24) transparent;
+}
+
+.terminal-panel .xterm .xterm-viewport.scrollbar-active::-webkit-scrollbar-thumb {
+  background-color: hsl(var(--terminal-foreground) / 0.24);
+}
+
+.terminal-panel .xterm .xterm-viewport.scrollbar-active::-webkit-scrollbar-thumb:hover {
+  background-color: hsl(var(--terminal-foreground) / 0.44);
 }
 
 .terminal-panel .xterm .xterm-screen {
@@ -120,7 +459,7 @@
   --crepe-color-primary: var(--markdown-link-color);
   --crepe-color-secondary: hsl(var(--secondary));
   --crepe-color-on-secondary: hsl(var(--secondary-foreground));
-  --crepe-color-inline-code: var(--markdown-inline-code-text);
+  --crepe-color-inline-code: var(--markdown-inline-code-color);
   --crepe-color-error: hsl(var(--destructive));
   --crepe-color-hover: hsl(var(--muted));
   --crepe-color-selected: hsl(var(--accent));
@@ -158,7 +497,7 @@
   margin: 0 auto;
   outline: none;
   color: var(--markdown-body-color);
-  font-family: var(--markdown-font-body);
+  font-family: var(--markdown-body-font-family);
   font-size: var(--markdown-body-font-size);
   font-weight: var(--markdown-body-font-weight);
   line-height: var(--markdown-body-line-height);
@@ -178,12 +517,12 @@
 
 .markdown-editor-panel .milkdown .ProseMirror :is(h1, h2, h3, h4, h5, h6) {
   padding: 0;
-  font-family: var(--markdown-font-heading);
 }
 
 .markdown-editor-panel .milkdown .ProseMirror h1 {
   margin: var(--markdown-h1-margin-top) 0 var(--markdown-h1-margin-bottom);
   color: var(--markdown-h1-color);
+  font-family: var(--markdown-h1-font-family);
   font-size: var(--markdown-h1-font-size);
   font-weight: var(--markdown-h1-font-weight);
   line-height: var(--markdown-h1-line-height);
@@ -193,6 +532,7 @@
 .markdown-editor-panel .milkdown .ProseMirror h2 {
   margin: var(--markdown-h2-margin-top) 0 var(--markdown-h2-margin-bottom);
   color: var(--markdown-h2-color);
+  font-family: var(--markdown-h2-font-family);
   font-size: var(--markdown-h2-font-size);
   font-weight: var(--markdown-h2-font-weight);
   line-height: var(--markdown-h2-line-height);
@@ -202,6 +542,7 @@
 .markdown-editor-panel .milkdown .ProseMirror h3 {
   margin: var(--markdown-h3-margin-top) 0 var(--markdown-h3-margin-bottom);
   color: var(--markdown-h3-color);
+  font-family: var(--markdown-h3-font-family);
   font-size: var(--markdown-h3-font-size);
   font-weight: var(--markdown-h3-font-weight);
   line-height: var(--markdown-h3-line-height);
@@ -211,6 +552,7 @@
 .markdown-editor-panel .milkdown .ProseMirror h4 {
   margin: var(--markdown-h4-margin-top) 0 var(--markdown-h4-margin-bottom);
   color: var(--markdown-h4-color);
+  font-family: var(--markdown-h4-font-family);
   font-size: var(--markdown-h4-font-size);
   font-weight: var(--markdown-h4-font-weight);
   line-height: var(--markdown-h4-line-height);
@@ -220,6 +562,7 @@
 .markdown-editor-panel .milkdown .ProseMirror h5 {
   margin: var(--markdown-h5-margin-top) 0 var(--markdown-h5-margin-bottom);
   color: var(--markdown-h5-color);
+  font-family: var(--markdown-h5-font-family);
   font-size: var(--markdown-h5-font-size);
   font-weight: var(--markdown-h5-font-weight);
   line-height: var(--markdown-h5-line-height);
@@ -229,6 +572,7 @@
 .markdown-editor-panel .milkdown .ProseMirror h6 {
   margin: var(--markdown-h6-margin-top) 0 var(--markdown-h6-margin-bottom);
   color: var(--markdown-h6-color);
+  font-family: var(--markdown-h6-font-family);
   font-size: var(--markdown-h6-font-size);
   font-weight: var(--markdown-h6-font-weight);
   line-height: var(--markdown-h6-line-height);
@@ -237,6 +581,11 @@
 
 .markdown-editor-panel .milkdown .ProseMirror a {
   color: var(--markdown-link-color);
+  font-family: var(--markdown-link-font-family);
+  font-size: var(--markdown-link-font-size);
+  font-weight: var(--markdown-link-font-weight);
+  line-height: var(--markdown-link-line-height);
+  letter-spacing: var(--markdown-link-letter-spacing);
   text-decoration-line: underline;
   text-decoration-thickness: var(--markdown-link-underline-thickness);
   text-underline-offset: var(--markdown-link-underline-offset);
@@ -246,45 +595,159 @@
   color: var(--markdown-link-hover-color);
 }
 
-.markdown-editor-panel .milkdown .ProseMirror :is(em, strong) {
+.markdown-editor-panel .milkdown .ProseMirror em {
   color: var(--markdown-emphasis-color);
+  font-family: var(--markdown-emphasis-font-family);
+  font-size: var(--markdown-emphasis-font-size);
+  font-weight: var(--markdown-emphasis-font-weight);
+  line-height: var(--markdown-emphasis-line-height);
+  letter-spacing: var(--markdown-emphasis-letter-spacing);
 }
 
 .markdown-editor-panel .milkdown .ProseMirror strong {
-  font-weight: var(--markdown-strong-weight);
+  color: var(--markdown-strong-color);
+  font-family: var(--markdown-strong-font-family);
+  font-size: var(--markdown-strong-font-size);
+  font-weight: var(--markdown-strong-font-weight);
+  line-height: var(--markdown-strong-line-height);
+  letter-spacing: var(--markdown-strong-letter-spacing);
 }
 
-.markdown-editor-panel .milkdown .ProseMirror :is(ul, ol) {
-  margin: var(--markdown-list-block-spacing) 0;
-  padding-left: var(--markdown-list-indent);
+.markdown-editor-panel .milkdown .ProseMirror :is(del, s) {
+  color: var(--markdown-strikethrough-color);
+  font-family: var(--markdown-strikethrough-font-family);
+  font-size: var(--markdown-strikethrough-font-size);
+  font-weight: var(--markdown-strikethrough-font-weight);
+  line-height: var(--markdown-strikethrough-line-height);
+  letter-spacing: var(--markdown-strikethrough-letter-spacing);
+  text-decoration-color: var(--markdown-strikethrough-decoration-color);
+  text-decoration-thickness: var(--markdown-strikethrough-decoration-thickness);
 }
 
-.markdown-editor-panel .milkdown .ProseMirror li {
-  margin-block: var(--markdown-list-item-spacing);
+.markdown-editor-panel .milkdown .ProseMirror ul {
+  margin: var(--markdown-unordered-list-block-spacing) 0;
+  padding-left: var(--markdown-unordered-list-indent);
+  color: var(--markdown-unordered-list-color);
+  font-family: var(--markdown-unordered-list-font-family);
+  font-size: var(--markdown-unordered-list-font-size);
+  font-weight: var(--markdown-unordered-list-font-weight);
+  line-height: var(--markdown-unordered-list-line-height);
+  letter-spacing: var(--markdown-unordered-list-letter-spacing);
 }
 
-.markdown-editor-panel .milkdown .ProseMirror li::marker,
-.markdown-editor-panel .milkdown .milkdown-list-item-block li .label-wrapper,
-.markdown-editor-panel .milkdown .milkdown-list-item-block li .label-wrapper svg {
-  color: var(--markdown-list-marker-color);
-  fill: var(--markdown-list-marker-color);
+.markdown-editor-panel .milkdown .ProseMirror ol {
+  margin: var(--markdown-ordered-list-block-spacing) 0;
+  padding-left: var(--markdown-ordered-list-indent);
+  color: var(--markdown-ordered-list-color);
+  font-family: var(--markdown-ordered-list-font-family);
+  font-size: var(--markdown-ordered-list-font-size);
+  font-weight: var(--markdown-ordered-list-font-weight);
+  line-height: var(--markdown-ordered-list-line-height);
+  letter-spacing: var(--markdown-ordered-list-letter-spacing);
+}
+
+.markdown-editor-panel .milkdown .ProseMirror ul > li,
+.markdown-editor-panel .milkdown .ProseMirror ul > .milkdown-list-item-block > .list-item {
+  margin-block: var(--markdown-unordered-list-item-spacing);
+}
+
+.markdown-editor-panel .milkdown .ProseMirror ol > li,
+.markdown-editor-panel .milkdown .ProseMirror ol > .milkdown-list-item-block > .list-item {
+  margin-block: var(--markdown-ordered-list-item-spacing);
+}
+
+.markdown-editor-panel .milkdown .ProseMirror ul:has(> li[data-item-type="task"]),
+.markdown-editor-panel .milkdown .ProseMirror ul:has(> .milkdown-list-item-block > .list-item > .label-wrapper :is(.checked, .unchecked)) {
+  margin: var(--markdown-task-list-block-spacing) 0;
+  padding-left: var(--markdown-task-list-indent);
+}
+
+.markdown-editor-panel .milkdown .ProseMirror ul > li::marker,
+.markdown-editor-panel .milkdown .milkdown-list-item-block li .label-wrapper .bullet,
+.markdown-editor-panel .milkdown .milkdown-list-item-block li .label-wrapper .bullet svg {
+  color: var(--markdown-unordered-list-marker-color);
+  fill: var(--markdown-unordered-list-marker-color);
+}
+
+.markdown-editor-panel .milkdown .ProseMirror ol > li::marker,
+.markdown-editor-panel .milkdown .milkdown-list-item-block li .label-wrapper .ordered {
+  color: var(--markdown-ordered-list-marker-color);
+  fill: var(--markdown-ordered-list-marker-color);
+}
+
+.markdown-editor-panel .milkdown .ProseMirror li[data-item-type="task"],
+.markdown-editor-panel .milkdown .milkdown-list-item-block li:has(.label-wrapper .checked),
+.markdown-editor-panel .milkdown .milkdown-list-item-block li:has(.label-wrapper .unchecked) {
+  margin-block: var(--markdown-task-list-item-spacing);
+  color: var(--markdown-task-list-color);
+  font-family: var(--markdown-task-list-font-family);
+  font-size: var(--markdown-task-list-font-size);
+  font-weight: var(--markdown-task-list-font-weight);
+  line-height: var(--markdown-task-list-line-height);
+  letter-spacing: var(--markdown-task-list-letter-spacing);
+}
+
+.markdown-editor-panel .milkdown .ProseMirror :is(li, th, td) p {
+  color: inherit;
+}
+
+.markdown-editor-panel .milkdown .milkdown-list-item-block li:has(> .label-wrapper :is(.checked, .unchecked)) > .label-wrapper {
+  width: max(24px, var(--markdown-task-list-checkbox-size));
+  flex: 0 0 max(24px, var(--markdown-task-list-checkbox-size));
+}
+
+.markdown-editor-panel .milkdown .milkdown-list-item-block li .label-wrapper :is(.checked, .unchecked) {
+  position: relative;
+  width: var(--markdown-task-list-checkbox-size);
+  height: var(--markdown-task-list-checkbox-size);
+  padding: 0;
+  flex: none;
+  overflow: hidden;
+  border: var(--markdown-task-list-checkbox-border-width) solid var(--markdown-task-list-checkbox-border-color);
+  border-radius: var(--markdown-task-list-checkbox-radius);
+  background: var(--markdown-task-list-checkbox-background);
+}
+
+.markdown-editor-panel .milkdown .milkdown-list-item-block li .label-wrapper :is(.checked, .unchecked) svg {
+  display: none;
+}
+
+.markdown-editor-panel .milkdown .milkdown-list-item-block li .label-wrapper .checked {
+  background: var(--markdown-task-list-checkbox-checked-background);
+}
+
+.markdown-editor-panel .milkdown .milkdown-list-item-block li .label-wrapper .checked::after {
+  position: absolute;
+  top: 45%;
+  left: 50%;
+  width: calc(var(--markdown-task-list-checkbox-size) * 0.25);
+  height: calc(var(--markdown-task-list-checkbox-size) * 0.45);
+  content: "";
+  border: solid var(--markdown-task-list-checkbox-check-color);
+  border-width: 0 max(1px, calc(var(--markdown-task-list-checkbox-size) / 8)) max(1px, calc(var(--markdown-task-list-checkbox-size) / 8)) 0;
+  transform: translate(-50%, -58%) rotate(45deg);
 }
 
 .markdown-editor-panel .milkdown .ProseMirror blockquote {
   box-sizing: border-box;
-  margin: var(--markdown-quote-margin-y) 0;
-  padding: var(--markdown-quote-padding-y) var(--markdown-quote-padding-x);
-  border-radius: var(--markdown-quote-radius);
-  background: var(--markdown-quote-background);
-  color: var(--markdown-quote-text);
+  margin: var(--markdown-blockquote-margin-y) 0;
+  padding: var(--markdown-blockquote-padding-y) var(--markdown-blockquote-padding-x);
+  border-radius: var(--markdown-blockquote-radius);
+  background: var(--markdown-blockquote-background);
+  color: var(--markdown-blockquote-color);
+  font-family: var(--markdown-blockquote-font-family);
+  font-size: var(--markdown-blockquote-font-size);
+  font-weight: var(--markdown-blockquote-font-weight);
+  line-height: var(--markdown-blockquote-line-height);
+  letter-spacing: var(--markdown-blockquote-letter-spacing);
 }
 
 .markdown-editor-panel .milkdown .ProseMirror blockquote::before {
   top: 0;
   bottom: 0;
-  width: var(--markdown-quote-border-width);
-  border-radius: var(--markdown-quote-radius) 0 0 var(--markdown-quote-radius);
-  background: var(--markdown-quote-border);
+  width: var(--markdown-blockquote-border-width);
+  border-radius: var(--markdown-blockquote-radius) 0 0 var(--markdown-blockquote-radius);
+  background: var(--markdown-blockquote-border-color);
 }
 
 .markdown-editor-panel .milkdown .ProseMirror blockquote p {
@@ -296,10 +759,12 @@
   padding: var(--markdown-inline-code-padding-y) var(--markdown-inline-code-padding-x);
   border-radius: var(--markdown-inline-code-radius);
   background: var(--markdown-inline-code-background);
-  color: var(--markdown-inline-code-text);
-  font-family: var(--markdown-font-code);
+  color: var(--markdown-inline-code-color);
+  font-family: var(--markdown-inline-code-font-family);
   font-size: var(--markdown-inline-code-font-size);
   line-height: var(--markdown-inline-code-line-height);
+  font-weight: var(--markdown-inline-code-font-weight);
+  letter-spacing: var(--markdown-inline-code-letter-spacing);
 }
 
 .markdown-editor-panel .milkdown .ProseMirror pre,
@@ -308,10 +773,12 @@
   padding: var(--markdown-code-block-padding-y) var(--markdown-code-block-padding-x);
   border-radius: var(--markdown-code-block-radius);
   background: var(--markdown-code-block-background);
-  color: var(--markdown-code-block-text);
-  font-family: var(--markdown-font-code);
+  color: var(--markdown-code-block-color);
+  font-family: var(--markdown-code-block-font-family);
   font-size: var(--markdown-code-block-font-size);
   line-height: var(--markdown-code-block-line-height);
+  font-weight: var(--markdown-code-block-font-weight);
+  letter-spacing: var(--markdown-code-block-letter-spacing);
 }
 
 .markdown-editor-panel .milkdown .ProseMirror pre code {
@@ -321,31 +788,38 @@
 
 .markdown-editor-panel .milkdown .milkdown-code-block :is(.cm-editor, .cm-scroller, .cm-gutters) {
   background: var(--markdown-code-block-background);
-  color: var(--markdown-code-block-text);
-  font-family: var(--markdown-font-code);
+  color: var(--markdown-code-block-color);
+  font-family: var(--markdown-code-block-font-family);
   font-size: var(--markdown-code-block-font-size);
   line-height: var(--markdown-code-block-line-height);
+  font-weight: var(--markdown-code-block-font-weight);
+  letter-spacing: var(--markdown-code-block-letter-spacing);
 }
 
 .markdown-editor-panel .milkdown .milkdown-table-block {
   margin: var(--markdown-table-margin-y) 0;
-  color: var(--markdown-table-text);
+  color: var(--markdown-table-color);
+  font-family: var(--markdown-table-font-family);
+  font-size: var(--markdown-table-font-size);
+  font-weight: var(--markdown-table-font-weight);
+  line-height: var(--markdown-table-line-height);
+  letter-spacing: var(--markdown-table-letter-spacing);
 }
 
 .markdown-editor-panel .milkdown .milkdown-table-block table {
   overflow: hidden;
-  border: var(--markdown-table-border-width) solid var(--markdown-table-border);
+  border: var(--markdown-table-border-width) solid var(--markdown-table-border-color);
   border-collapse: separate;
   border-spacing: 0;
   border-radius: var(--markdown-table-radius);
-  color: var(--markdown-table-text);
+  color: var(--markdown-table-color);
 }
 
 .markdown-editor-panel .milkdown .milkdown-table-block :is(th, td) {
   padding: var(--markdown-table-cell-padding-y) var(--markdown-table-cell-padding-x);
   border-width: 0 var(--markdown-table-border-width) var(--markdown-table-border-width) 0;
   border-style: solid;
-  border-color: var(--markdown-table-border);
+  border-color: var(--markdown-table-border-color);
 }
 
 .markdown-editor-panel .milkdown .milkdown-table-block tr > :last-child {
@@ -379,7 +853,7 @@
 
 .markdown-editor-panel .milkdown .ProseMirror img,
 .markdown-editor-panel .milkdown .milkdown-image-block > .image-wrapper img {
-  border: var(--markdown-image-border-width) solid var(--markdown-image-border);
+  border: var(--markdown-image-border-width) solid var(--markdown-image-border-color);
   border-radius: var(--markdown-image-radius);
 }
 
@@ -402,10 +876,8 @@
   overflow: visible;
 }
 
-.mermaid-render svg text,
-.mermaid-render svg foreignObject,
-.mermaid-render svg foreignObject * {
-  font-family: var(--font-sans) !important;
+.mermaid-render svg {
+  font-family: var(--type-mermaid-general-family);
 }
 
 .mermaid-render svg foreignObject {

@@ -9,6 +9,7 @@ import {
 import type { UnsavedPromptState } from "@/features/mermaid-editor/components/mermaid-editor/use-editor-file-workflow";
 import { NodeActionEditorDialog } from "@/features/mermaid-editor/components/node-action-editor-dialog";
 import { MarkdownDocumentDialog } from "@/features/mermaid-editor/components/markdown-document-dialog";
+import { EditorStatusBadge } from "@/features/mermaid-editor/components/editor-ui";
 import type { UnsavedPromptChoice } from "@/features/mermaid-editor/lib/desktop-close-workflow";
 import type { CanvasNode, CanvasNodeAction } from "@/features/mermaid-editor/lib/editor-types";
 import type { FileWorkflowError } from "@/features/mermaid-editor/lib/file-workflow";
@@ -62,12 +63,12 @@ export function EditorOverlays({
       ) : null}
       {markdownDocumentDialog ? <MarkdownDocumentDialog {...markdownDocumentDialog} /> : null}
       {statusMessages && status ? (
-        <div
-          className="pointer-events-none fixed bottom-3 left-1/2 -translate-x-1/2 rounded-md border bg-card/95 px-3 py-2 text-xs text-muted-foreground backdrop-blur"
+        <EditorStatusBadge
+          className="editor-ui-surface pointer-events-none fixed bottom-3 left-1/2 -translate-x-1/2 px-3 py-2 text-muted-foreground"
           style={{ zIndex: OVERLAY_Z_INDEX.statusToast }}
         >
           {status}
-        </div>
+        </EditorStatusBadge>
       ) : null}
     </>
   );

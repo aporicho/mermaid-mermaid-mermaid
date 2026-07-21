@@ -15,6 +15,8 @@ const { createAiBridge } = require("./ai-bridge.cjs");
 const { resolveLinkPreview } = require("./link-preview.cjs");
 const { createProjectDocument } = require("./project-documents.cjs");
 const { createTerminalManager } = require("./terminal.cjs");
+const { listSystemFonts } = require("./system-fonts.cjs");
+const { scanProjectFolder: scanProjectFolderSnapshot } = require("./project-workspace.cjs");
 const BROWSER_TOOL_WINDOW_KIND = "browser-tool";
 const BROWSER_TOOL_WINDOW_PARAM = "mmmWindow";
 const DEV_SERVER_URL = process.env.MMM_ELECTRON_DEV_SERVER_URL || "";
@@ -22,8 +24,6 @@ const PROJECT_DIR = path.resolve(__dirname, "..");
 const DIST_INDEX = path.join(PROJECT_DIR, "dist", "index.html");
 const PRELOAD_PATH = path.join(__dirname, "preload.cjs");
 const CLOSE_REQUEST_TIMEOUT_MS = 3000;
-const PROJECT_FILE_LIMIT = 500;
-
 const DOCUMENT_FILTERS = [
   {
     name: "Project Documents",
@@ -31,7 +31,6 @@ const DOCUMENT_FILTERS = [
   }
 ];
 const IMAGE_FILTERS = [{ name: "Images", extensions: ["png", "jpg", "jpeg", "webp", "gif", "svg"] }];
-
 const embeddedBrowsers = new Map();
 const forceCloseWindowIds = new Set();
 const pendingCloseWindowIds = new Set(), pendingCloseTimers = new Map();
@@ -220,6 +219,7 @@ function registerIpc() {
   });
 
   ipcMain.handle("mmm:app-state:read", readAppState);
+  ipcMain.handle("mmm:fonts:list", listSystemFonts);
   ipcMain.handle("mmm:app-state:write", (_event, state) => writeAppState(state));
   ipcMain.handle("mmm:file:open", (event) => openFileDialog(BrowserWindow.fromWebContents(event.sender)));
   ipcMain.handle("mmm:file:open-path", (_event, filePath) => openFilePath(filePath));
@@ -363,65 +363,7 @@ async function openProjectFolderDialog(owner) {
 }
 
 async function scanProjectFolder(rootPath) {
-  const root = await fsp.realpath(rootPath);
-  const files = [];
-  const state = { truncated: false };
-  await collectProjectFiles(root, root, files, state);
-  files.sort((left, right) => left.relativePath.toLowerCase().localeCompare(right.relativePath.toLowerCase()));
-  return {
-    rootName: path.basename(root) || root,
-    rootPath: root,
-    files,
-    scannedAt: Date.now(),
-    truncated: state.truncated
-  };
-}
-
-async function collectProjectFiles(root, directory, files, state) {
-  if (files.length >= PROJECT_FILE_LIMIT) {
-    state.truncated = true;
-    return;
-  }
-
-  let entries = [];
-  try {
-    entries = await fsp.readdir(directory, { withFileTypes: true });
-  } catch (error) {
-    if (directory === root) throw readableError(error);
-    return;
-  }
-  entries.sort((left, right) => left.name.localeCompare(right.name));
-
-  for (const entry of entries) {
-    if (files.length >= PROJECT_FILE_LIMIT) {
-      state.truncated = true;
-      return;
-    }
-
-    const fullPath = path.join(directory, entry.name);
-    if (entry.isDirectory()) {
-      if (!shouldSkipProjectDirectory(entry.name)) await collectProjectFiles(root, fullPath, files, state);
-      continue;
-    }
-    if (!entry.isFile() || !isSupportedDocumentPath(fullPath)) continue;
-
-    let modifiedAt;
-    try {
-      modifiedAt = (await fsp.stat(fullPath)).mtimeMs;
-    } catch {
-      modifiedAt = undefined;
-    }
-    files.push({
-      name: path.basename(fullPath),
-      path: fullPath,
-      relativePath: path.relative(root, fullPath).split(path.sep).join("/"),
-      modifiedAt
-    });
-  }
-}
-
-function shouldSkipProjectDirectory(name) {
-  return new Set([".git", ".hg", ".svn", "node_modules", "dist", "build", ".vite", ".next", "target", "dist-electron"]).has(name.toLowerCase());
+  return scanProjectFolderSnapshot(rootPath);
 }
 
 function attachWindowCloseGuard(window) {

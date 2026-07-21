@@ -5,6 +5,7 @@ import { normalizeEditorPreferences, type EditorPreferences } from "@/features/m
 import type { EditorRuntime, RuntimeFileDropRequest, RuntimeFileOpenRequest, RuntimeFileRef } from "@/features/mermaid-editor/lib/editor-runtime";
 import { normalizeRecentFiles, type RecentFileEntry } from "@/features/mermaid-editor/lib/file-workflow";
 import { normalizeProjectWorkspace, type ProjectWorkspace } from "@/features/mermaid-editor/lib/project-workspace";
+import { normalizeExplorerTreeState, type StoredExplorerTreeState } from "@/features/mermaid-editor/lib/explorer-tree-state";
 
 import type { FileOpenSource } from "./use-editor-file-workflow";
 
@@ -26,6 +27,7 @@ type UseEditorDesktopEventsArgs = {
   setPreferences: StateSetter<EditorPreferences>;
   setRecentFiles: StateSetter<RecentFileEntry[]>;
   setProjectWorkspace: StateSetter<ProjectWorkspace | null>;
+  setExplorerTreeState: StateSetter<StoredExplorerTreeState>;
   setProjectBusy: StateSetter<boolean>;
   setFileName: StateSetter<string>;
   setFileRef: StateSetter<RuntimeFileRef | null>;
@@ -49,6 +51,7 @@ export function useEditorDesktopEvents({
   setPreferences,
   setRecentFiles,
   setProjectWorkspace,
+  setExplorerTreeState,
   setProjectBusy,
   setFileName,
   setFileRef,
@@ -135,6 +138,7 @@ export function useEditorDesktopEvents({
         setPreferences(storedPreferences);
         setRecentFiles(normalizeRecentFiles(stored.recentFiles));
         setProjectWorkspace(storedProjectWorkspace);
+        setExplorerTreeState(normalizeExplorerTreeState(stored.explorerTreeState));
         if (storedProjectWorkspace) void refreshRestoredProjectWorkspace(storedProjectWorkspace.rootPath);
         if (!storedPreferences.restoreLastFile) {
           setFileName(FALLBACK_FILE_NAME);
@@ -233,6 +237,7 @@ export function useEditorDesktopEvents({
     setPreferences,
     setProjectBusy,
     setProjectWorkspace,
+    setExplorerTreeState,
     setRecentFiles,
     setStatus,
     showFileWorkflowError

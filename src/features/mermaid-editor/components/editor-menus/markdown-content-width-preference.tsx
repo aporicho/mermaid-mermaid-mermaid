@@ -16,8 +16,8 @@ export function MarkdownContentWidthPreference({
   return (
     <div data-floating-action-item className="grid gap-2 px-2 py-2">
       <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
-        <span>Markdown 正文宽度</span>
-        <span className="font-mono text-foreground">{preferences.markdownContentWidth}px</span>
+        <span>正文宽度</span>
+        <span className="type-interface-technical text-foreground">{preferences.markdownContentWidth}px</span>
       </div>
       <input
         type="range"
@@ -35,10 +35,6 @@ export function MarkdownContentWidthPreference({
           );
         }}
       />
-      <div className="flex justify-between text-[10px] text-muted-foreground">
-        <span>{MARKDOWN_CONTENT_WIDTH_MIN}px</span>
-        <span>{MARKDOWN_CONTENT_WIDTH_MAX}px</span>
-      </div>
     </div>
   );
 }

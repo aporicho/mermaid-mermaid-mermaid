@@ -10,10 +10,9 @@ import {
 } from "react";
 import { Copy, Maximize, OpenNewWindow, Refresh as RefreshCw, Substract, WebWindow, Xmark } from "iconoir-react/regular";
 
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { EditorIconButton } from "@/features/mermaid-editor/components/editor-ui";
 import { EmbeddedBrowserSurface } from "@/features/mermaid-editor/components/embedded-browser-surface";
-import { EDITOR_CHROME_CLASSES } from "@/features/mermaid-editor/lib/editor-chrome";
 import { createEditorRuntime } from "@/features/mermaid-editor/lib/editor-runtime";
 import {
   browserToolWindowLabel,
@@ -22,7 +21,6 @@ import {
   type BrowserToolWindowRequest
 } from "@/features/mermaid-editor/lib/browser-tool-window";
 import type { BrowserWindowPanelId } from "@/features/mermaid-editor/lib/workspace-panels";
-import { cn } from "@/lib/utils";
 
 type BrowserToolWindowProps = {
   request: BrowserToolWindowRequest;
@@ -94,9 +92,9 @@ export function BrowserToolWindow({ request }: BrowserToolWindowProps) {
   }
 
   return (
-    <section className="grid h-screen min-h-0 grid-rows-[44px_minmax(0,1fr)] overflow-hidden border bg-background text-foreground">
+    <section className="grid h-screen min-h-0 grid-rows-[auto_minmax(0,1fr)] overflow-hidden border bg-background text-foreground">
       <header
-        className="flex min-w-0 cursor-grab items-center gap-2 border-b bg-card/95 px-2 active:cursor-grabbing"
+        className="editor-ui-panel-header flex min-w-0 cursor-grab items-center gap-2 bg-card/[var(--ui-surface-opacity)] active:cursor-grabbing"
         style={electronDragStyle}
         onPointerDown={startWindowDrag}
         onDoubleClick={toggleMaximize}
@@ -105,15 +103,15 @@ export function BrowserToolWindow({ request }: BrowserToolWindowProps) {
           <WebWindow className="size-4 shrink-0 text-icon" />
           <div className="hidden min-w-[128px] max-w-[220px] sm:block">
             <div className="truncate text-sm font-medium">{pageTitle}</div>
-            <div className="truncate text-[11px] leading-4 text-muted-foreground" aria-live="polite">
-              {status || request.sourceLabel || "MMM Browser"}
+            <div className={status ? "truncate text-[11px] leading-4 text-muted-foreground" : "sr-only"} aria-live="polite">
+              {status}
             </div>
           </div>
         </div>
         <form className="flex min-w-0 flex-1 items-center gap-1.5" data-browser-window-drag-exclude style={electronNoDragStyle} onSubmit={submitAddress}>
           <Input
             value={address}
-            className="h-8 min-w-0 flex-1 rounded-md bg-background/95 px-2 text-sm"
+            className="min-w-0 flex-1 bg-background/95"
             spellCheck={false}
             onChange={(event) => setAddress(event.target.value)}
           />
@@ -171,17 +169,15 @@ function BrowserToolButton({
   children: ReactNode;
 }) {
   return (
-    <Button
+    <EditorIconButton
       type="button"
-      size="icon"
-      variant="ghost"
-      className={cn(EDITOR_CHROME_CLASSES.panelIconButton, danger ? EDITOR_CHROME_CLASSES.floatingIconDanger : "")}
-      title={label}
-      aria-label={label}
+      context="panel"
+      tone={danger ? "danger" : "neutral"}
+      label={label}
       onClick={onClick}
     >
       {children}
-    </Button>
+    </EditorIconButton>
   );
 }
 

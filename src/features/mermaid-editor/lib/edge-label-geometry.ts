@@ -25,6 +25,7 @@ export type EdgeLabelGeometryTokens = {
   lineHeight: number;
   fontFamily: string;
   fontWeight: number;
+  letterSpacing: number;
 };
 
 export const DEFAULT_EDGE_LABEL_GEOMETRY_TOKENS: EdgeLabelGeometryTokens = {
@@ -35,7 +36,8 @@ export const DEFAULT_EDGE_LABEL_GEOMETRY_TOKENS: EdgeLabelGeometryTokens = {
   fontSize: 13,
   lineHeight: 18,
   fontFamily: "'Noto Sans SC Variable', 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei UI', system-ui, sans-serif",
-  fontWeight: 400
+  fontWeight: 400,
+  letterSpacing: 0
 };
 
 export type EdgeLabelGeometry = {

@@ -20,7 +20,7 @@ import type {
   Selection,
   ViewportState
 } from "@/features/mermaid-editor/lib/editor-types";
-import type { EditorThemeGeometryTokens, MermaidThemeVariables } from "@/features/mermaid-editor/lib/editor-theme";
+import type { EditorThemeGeometryTokens, EditorTypographyTokens, MermaidThemeVariables } from "@/features/mermaid-editor/lib/editor-theme";
 import type { RuntimeEditorMotion } from "@/features/mermaid-editor/lib/editor-motion";
 import type { EditorCommand } from "@/features/mermaid-editor/lib/interaction/commands";
 import type { ViewFilters } from "@/features/mermaid-editor/lib/view-filters";
@@ -52,6 +52,8 @@ type EditorWorkspaceSurfaceProps = {
   markdownContentWidth: number;
   visualTokens: CanvasVisualTokens;
   geometryTokens: EditorThemeGeometryTokens;
+  typography: EditorTypographyTokens;
+  fontRevision: number;
   motion: RuntimeEditorMotion;
   source: string;
   previewSource: string;
@@ -93,6 +95,8 @@ export function EditorWorkspaceSurface({
   markdownContentWidth,
   visualTokens,
   geometryTokens,
+  typography,
+  fontRevision,
   motion,
   source,
   previewSource,
@@ -116,6 +120,8 @@ export function EditorWorkspaceSurface({
         document={canvasDocument}
         fileRef={fileRef}
         runtime={runtime}
+        typography={typography.canvasDocument}
+        fontRevision={fontRevision}
         onChange={onCanvasDocumentChange}
         onStatus={onStatus}
       />
@@ -139,6 +145,8 @@ export function EditorWorkspaceSurface({
           markdownDocumentPreviewByNodeId={markdownDocumentPreviewByNodeId}
           visualTokens={visualTokens}
           geometryTokens={geometryTokens}
+          typography={typography}
+          fontRevision={fontRevision}
           motion={motion}
           onEditorCommand={onEditorCommand}
           onOpenNodeAction={onOpenNodeAction}
@@ -183,6 +191,7 @@ export function EditorWorkspaceSurface({
       framed={false}
       diagnostics={diagnostics}
       mermaidThemeVariables={mermaidThemeVariables}
+      mermaidTypography={typography.mermaid}
       onEditorCommand={isCanvasEditable ? onEditorCommand : undefined}
     />
   );

@@ -11,6 +11,7 @@ import type {
   RuntimeFileOpenRequest,
   RuntimeLinkPreviewRequest,
   RuntimeLinkPreviewResult,
+  RuntimeSystemFont,
   RuntimeTerminalDataEvent,
   RuntimeTerminalExitEvent,
   RuntimeTerminalOpenResult,
@@ -63,6 +64,7 @@ export type ElectronBridge = {
   runWindowAction: (action: RuntimeDesktopWindowAction) => Promise<void>;
   onDesktopWindowCloseRequest: (handler: () => boolean | Promise<boolean>) => () => void;
   readAppState: () => Promise<EditorDraftState | null>;
+  listSystemFonts: () => Promise<RuntimeSystemFont[]>;
   writeAppState: (state: EditorDraftState) => Promise<void>;
   openFile: () => Promise<ElectronOpenedFile | null>;
   openFilePath: (path: string) => Promise<ElectronOpenedFile>;

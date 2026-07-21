@@ -11,6 +11,7 @@ import type {
 } from "./types";
 import { ansiToCssVariables, contrastRatio, hexToHslTriplet, hexToRgbCsv, hexToRgba } from "./color";
 import { markdownToCssVariables } from "./markdown-css-variables";
+import { typographyToCssVariables } from "./typography";
 
 export function compileEditorTheme(theme: EditorTheme): CompiledEditorTheme {
   return {
@@ -19,6 +20,7 @@ export function compileEditorTheme(theme: EditorTheme): CompiledEditorTheme {
     canvasVisualTokens: themeToCanvasVisualTokens(theme),
     mermaidThemeVariables: themeToMermaidThemeVariables(theme),
     terminalTheme: themeToTerminalTheme(theme),
+    typography: theme.typography,
     motion: theme.motion,
     geometry: themeToGeometryTokens(theme),
     diagnostics: themeDiagnostics(theme)
@@ -27,8 +29,7 @@ export function compileEditorTheme(theme: EditorTheme): CompiledEditorTheme {
 
 export function themeToCssVariables(theme: EditorTheme): Record<string, string> {
   return {
-    "--font-sans": theme.font.familySans,
-    "--font-mono": theme.font.familyMono,
+    ...typographyToCssVariables(theme.typography),
     "--background": hexToHslTriplet(theme.ui.background),
     "--foreground": hexToHslTriplet(theme.ui.foreground),
     "--icon": hexToHslTriplet(theme.ui.icon),
@@ -71,12 +72,27 @@ export function themeToCssVariables(theme: EditorTheme): Record<string, string> 
     "--theme-canvas-node-fill-saturation": `${theme.canvasAppearance.nodeFillSaturation}`,
     "--theme-canvas-node-fill-luminance-steps": `${theme.canvasAppearance.nodeFillLuminanceSteps}`,
     "--theme-canvas-preview-shadow-opacity": `${theme.canvasAppearance.previewShadowOpacity}`,
+    "--ui-border-width": `${theme.chrome.borderWidth}px`,
+    "--ui-divider-width": `${theme.chrome.dividerWidth}px`,
+    "--ui-focus-ring-width": `${theme.chrome.focusRingWidth}px`,
+    "--ui-surface-opacity": `${theme.chrome.surfaceOpacity}`,
+    "--ui-backdrop-blur": `${theme.chrome.backdropBlur}px`,
+    "--ui-shadow-opacity": `${theme.chrome.shadowOpacity}`,
     "--theme-panel-padding": `${theme.space.panelPadding}px`,
     "--theme-panel-header-height": `${theme.space.panelHeaderHeight}px`,
     "--theme-panel-footer-height": `${theme.space.panelFooterHeight}px`,
-    "--theme-source-line-height": `${theme.font.lineHeightSource}px`,
-    "--theme-terminal-font-size": `${theme.font.sizeTerminal}px`,
-    "--theme-terminal-line-height": `${theme.font.lineHeightTerminal}px`,
+    "--ui-control-gap": `${theme.space.controlGap}px`,
+    "--ui-control-padding-x": `${theme.space.controlPaddingX}px`,
+    "--ui-control-padding-y": `${theme.space.controlPaddingY}px`,
+    "--ui-control-height-sm": `${theme.icon.buttonHeightSm}px`,
+    "--ui-control-height-md": `${theme.icon.buttonHeightMd}px`,
+    "--ui-icon-button-size": `${theme.space.iconButtonSize}px`,
+    "--ui-icon-size-sm": `${theme.icon.sizeSm}px`,
+    "--ui-icon-size-button": `${theme.icon.sizeButton}px`,
+    "--ui-icon-stroke-width": `${theme.icon.strokeWidth}`,
+    "--theme-source-line-height": `${theme.typography.source.editor.lineHeight}px`,
+    "--theme-terminal-font-size": `${theme.typography.terminal.content.fontSize}px`,
+    "--theme-terminal-line-height": `${theme.typography.terminal.content.lineHeight}px`,
     ...markdownToCssVariables(theme),
     ...motionToCssVariables(theme.motion)
   };
@@ -148,8 +164,8 @@ export function themeToCanvasVisualTokens(theme: EditorTheme): CanvasVisualToken
       fillOpacity: theme.subgraph.fillOpacity,
       titleCornerRadius: theme.radius.subgraphTitle,
       titleInsetX: theme.subgraph.titlePaddingX,
-      titleFontSize: theme.subgraph.titleFontSize,
-      titleFontWeight: String(theme.subgraph.titleFontWeight),
+      titleFontSize: theme.typography.canvas.subgraphTitle.fontSize,
+      titleFontWeight: String(theme.typography.canvas.subgraphTitle.fontWeight),
       titleStrokeWidth: theme.stroke.node,
       anchorCornerScale: CANVAS_VISUAL_TOKENS.subgraph.anchorCornerScale,
       anchorCornerOpacity: CANVAS_VISUAL_TOKENS.subgraph.anchorCornerOpacity
@@ -158,27 +174,31 @@ export function themeToCanvasVisualTokens(theme: EditorTheme): CanvasVisualToken
 }
 
 export function themeToGeometryTokens(theme: EditorTheme): EditorThemeGeometryTokens {
+  const nodeTypography = theme.typography.canvas.node;
+  const edgeTypography = theme.typography.canvas.edgeLabel;
   return {
     node: {
       minChars: theme.space.nodeMinChars,
       maxChars: theme.space.nodeMaxChars,
       paddingX: theme.space.nodePaddingX,
       paddingY: theme.space.nodePaddingY,
-      fontSize: theme.font.sizeNode,
-      lineHeight: theme.font.lineHeightNode,
+      fontSize: nodeTypography.fontSize,
+      lineHeight: nodeTypography.lineHeight,
       maxLines: theme.space.nodeMaxLines,
-      fontFamily: theme.font.familySans,
-      fontWeight: theme.font.weightBold
+      fontFamily: nodeTypography.family,
+      fontWeight: nodeTypography.fontWeight,
+      letterSpacing: nodeTypography.letterSpacing
     },
     edgeLabel: {
       minChars: theme.edgeLabel.minChars,
       maxChars: theme.edgeLabel.maxChars,
       paddingX: theme.edgeLabel.paddingX,
       height: theme.edgeLabel.height,
-      fontSize: theme.edgeLabel.fontSize,
-      lineHeight: theme.edgeLabel.lineHeight,
-      fontFamily: theme.font.familySans,
-      fontWeight: theme.font.weightRegular
+      fontSize: edgeTypography.fontSize,
+      lineHeight: edgeTypography.lineHeight,
+      fontFamily: edgeTypography.family,
+      fontWeight: edgeTypography.fontWeight,
+      letterSpacing: edgeTypography.letterSpacing
     },
     subgraph: {
       paddingX: theme.subgraph.paddingX,
@@ -226,7 +246,7 @@ export function themeToMermaidThemeVariables(theme: EditorTheme): MermaidThemeVa
     clusterBkg: theme.ui.secondary,
     clusterBorder: theme.ui.border,
     nodeBorder: theme.canvas.nodeStroke,
-    fontFamily: theme.font.familySans
+    fontFamily: theme.typography.mermaid.general.family
   };
 }
 
@@ -255,7 +275,7 @@ function themeDiagnostics(theme: EditorTheme): ThemeDiagnostic[] {
     diagnostics,
     "MARKDOWN_CODE_CONTRAST",
     "Markdown 代码块文字与背景对比度不足。",
-    theme.markdown.codeBlock.textColor,
+    theme.markdown.codeBlock.color,
     theme.markdown.codeBlock.background,
     theme.diagnostics.minTextContrast
   );

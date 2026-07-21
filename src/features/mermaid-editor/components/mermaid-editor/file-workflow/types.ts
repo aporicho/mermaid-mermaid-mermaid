@@ -9,6 +9,7 @@ import type { RuntimeFileOpenRequest, RuntimeFileRef, EditorRuntime } from "@/fe
 import type { FileWorkflowError, RecentFileEntry } from "@/features/mermaid-editor/lib/file-workflow";
 import type { DocumentKind } from "@/features/mermaid-editor/lib/document-kind";
 import type { ProjectWorkspace } from "@/features/mermaid-editor/lib/project-workspace";
+import type { StoredExplorerTreeState } from "@/features/mermaid-editor/lib/explorer-tree-state";
 import type {
   DiagramType,
   EdgeRouting,
@@ -64,6 +65,7 @@ export type UseEditorFileWorkflowArgs = {
   fileRef: RuntimeFileRef | null;
   recentFiles: RecentFileEntry[];
   projectWorkspace: ProjectWorkspace | null;
+  explorerTreeState: StoredExplorerTreeState;
   lastSavedDocument: string;
   themeId: EditorThemeId;
   customTheme: EditorTheme | null;
@@ -91,6 +93,7 @@ export type UseEditorFileWorkflowArgs = {
   setFileRef: StateSetter<RuntimeFileRef | null>;
   setRecentFiles: StateSetter<RecentFileEntry[]>;
   setProjectWorkspace: StateSetter<ProjectWorkspace | null>;
+  setExplorerTreeState: StateSetter<StoredExplorerTreeState>;
   setProjectBusy: StateSetter<boolean>;
   setLastSavedDocument: StateSetter<string>;
   setFileMenuOpen: StateSetter<boolean>;

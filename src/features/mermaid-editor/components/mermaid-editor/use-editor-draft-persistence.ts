@@ -33,6 +33,8 @@ import type { EditorTheme, EditorThemeId } from "@/features/mermaid-editor/lib/e
 import type { RecentFileEntry } from "@/features/mermaid-editor/lib/file-workflow";
 import type { DocumentKind } from "@/features/mermaid-editor/lib/document-kind";
 import type { ProjectWorkspace } from "@/features/mermaid-editor/lib/project-workspace";
+import { projectWorkspaceForStorage } from "@/features/mermaid-editor/lib/project-workspace";
+import type { StoredExplorerTreeState } from "@/features/mermaid-editor/lib/explorer-tree-state";
 import type { ViewFilters } from "@/features/mermaid-editor/lib/view-filters";
 import { workspaceViewForDocument, type WorkspaceView } from "@/features/mermaid-editor/lib/workspace-view";
 import { cleanCloseDocument } from "@/features/mermaid-editor/lib/desktop-close-workflow";
@@ -54,6 +56,7 @@ export type UseEditorDraftPersistenceArgs = {
   fileRef: RuntimeFileRef | null;
   recentFiles: RecentFileEntry[];
   projectWorkspace: ProjectWorkspace | null;
+  explorerTreeState: StoredExplorerTreeState;
   lastSavedDocument: string;
   themeId: EditorThemeId;
   customTheme: EditorTheme | null;
@@ -77,6 +80,7 @@ export function useEditorDraftPersistence({
   fileRef,
   recentFiles,
   projectWorkspace,
+  explorerTreeState,
   lastSavedDocument,
   themeId,
   customTheme,
@@ -110,7 +114,8 @@ export function useEditorDraftPersistence({
       fileName: overrides.fileName ?? fileName,
       fileRef: serializableRuntimeFileRef(draftFileRef ?? null),
       recentFiles: overrides.recentFiles ?? recentFiles,
-      projectWorkspace: draftProjectWorkspace ?? null,
+      projectWorkspace: projectWorkspaceForStorage(draftProjectWorkspace ?? null),
+      explorerTreeState,
       lastSavedDocument: overrides.lastSavedDocument ?? lastSavedDocument,
       themeId: draftThemeId,
       customTheme: draftCustomTheme ?? null,

@@ -4,6 +4,7 @@ import { DEFAULT_EDGE_LABEL_GEOMETRY_TOKENS } from "@/features/mermaid-editor/li
 import { DEFAULT_NODE_GEOMETRY_TOKENS } from "@/features/mermaid-editor/lib/node-geometry";
 import { SUBGRAPH_GEOMETRY_TOKENS } from "@/features/mermaid-editor/lib/subgraph-geometry";
 import { createDefaultMarkdownTheme, mergeMarkdownTheme, type DeepPartial } from "./markdown-theme";
+import { createDefaultEditorTypography, mergeEditorTypography } from "./typography";
 import { DEFAULT_EDITOR_MOTION, MERMAID_FONT_FAMILY, MONO_FONT_FAMILY, type EditorMotionTokens, type EditorTheme } from "./types";
 
 export type EditorThemeOverrides = Pick<EditorTheme, "id" | "name" | "description"> &
@@ -44,8 +45,11 @@ const BASE_FONT: EditorTheme["font"] = {
   letterSpacing: 0
 };
 
+const BASE_MARKDOWN = createDefaultMarkdownTheme({ ui: BASE_UI, font: BASE_FONT });
+const BASE_TYPOGRAPHY = createDefaultEditorTypography();
+
 export const EDITOR_THEME_BASE: Omit<EditorTheme, "id" | "name" | "description" | "baseThemeId"> = {
-  version: 5,
+  version: 8,
   ui: BASE_UI,
   canvas: {
     surface: "#fbf6ef",
@@ -62,6 +66,14 @@ export const EDITOR_THEME_BASE: Omit<EditorTheme, "id" | "name" | "description" 
     nodeFillLuminanceSteps: 256,
     previewShadowOpacity: 0.22
   },
+  chrome: {
+    borderWidth: 1,
+    dividerWidth: 1,
+    focusRingWidth: 1,
+    surfaceOpacity: 0.96,
+    backdropBlur: 8,
+    shadowOpacity: 0.16
+  },
   source: {
     line: "#d7ccc0"
   },
@@ -69,7 +81,7 @@ export const EDITOR_THEME_BASE: Omit<EditorTheme, "id" | "name" | "description" 
     background: "#f8f3ec",
     gridDot: "#18130f"
   },
-  markdown: createDefaultMarkdownTheme({ ui: BASE_UI, font: BASE_FONT }),
+  markdown: BASE_MARKDOWN,
   ansi: {
     black: "#2a251f",
     red: "#b91f31",
@@ -96,6 +108,7 @@ export const EDITOR_THEME_BASE: Omit<EditorTheme, "id" | "name" | "description" 
     selectionBackground: "#ffe7ea",
     selectionForeground: "#18130f"
   },
+  typography: BASE_TYPOGRAPHY,
   font: BASE_FONT,
   space: {
     panelPadding: 16,
@@ -198,22 +211,25 @@ export function createEditorTheme(overrides: EditorThemeOverrides): EditorTheme 
   const ui = { ...EDITOR_THEME_BASE.ui, ...overrides.ui };
   const font = { ...EDITOR_THEME_BASE.font, ...overrides.font };
   const markdown = mergeMarkdownTheme(createDefaultMarkdownTheme({ ui, font }), overrides.markdown);
+  const typography = mergeEditorTypography(EDITOR_THEME_BASE.typography, overrides.typography);
 
   return {
     ...EDITOR_THEME_BASE,
     ...overrides,
-    version: 5,
+    version: 8,
     id: overrides.id,
     name: overrides.name,
     description: overrides.description,
     ui,
     canvas: { ...EDITOR_THEME_BASE.canvas, ...overrides.canvas },
     canvasAppearance: { ...EDITOR_THEME_BASE.canvasAppearance, ...overrides.canvasAppearance },
+    chrome: { ...EDITOR_THEME_BASE.chrome, ...overrides.chrome },
     source: { ...EDITOR_THEME_BASE.source, ...overrides.source },
     render: { ...EDITOR_THEME_BASE.render, ...overrides.render },
     markdown,
     ansi: { ...EDITOR_THEME_BASE.ansi, ...overrides.ansi },
     terminal: { ...EDITOR_THEME_BASE.terminal, ...overrides.terminal },
+    typography,
     font,
     space: { ...EDITOR_THEME_BASE.space, ...overrides.space },
     radius: { ...EDITOR_THEME_BASE.radius, ...overrides.radius },

@@ -29,6 +29,7 @@ import type {
 import { DEFAULT_EDGE_ROUTING, DEFAULT_LAYOUT_MODE } from "@/features/mermaid-editor/lib/editor-types";
 import type { EditorTheme, EditorThemeId } from "@/features/mermaid-editor/lib/editor-theme";
 import type { ProjectWorkspace } from "@/features/mermaid-editor/lib/project-workspace";
+import { EMPTY_EXPLORER_TREE_STATE, type StoredExplorerTreeState } from "@/features/mermaid-editor/lib/explorer-tree-state";
 import { DEFAULT_VIEW_FILTERS, type ViewFilters } from "@/features/mermaid-editor/lib/view-filters";
 import type { WorkspaceView } from "@/features/mermaid-editor/lib/workspace-view";
 
@@ -53,6 +54,7 @@ type LifecycleState = {
   fileRef: RuntimeFileRef | null;
   recentFiles: RecentFileEntry[];
   projectWorkspace: ProjectWorkspace | null;
+  explorerTreeState: StoredExplorerTreeState;
   lastSavedDocument: string;
   fileWorkflowError: FileWorkflowError | null;
   themeId: EditorThemeId;
@@ -83,6 +85,7 @@ function createLifecycleHarness() {
     fileRef: null,
     recentFiles: [],
     projectWorkspace: null,
+    explorerTreeState: EMPTY_EXPLORER_TREE_STATE,
     lastSavedDocument: "",
     fileWorkflowError: null,
     themeId: "warm-paper",
@@ -126,6 +129,7 @@ function createLifecycleHarness() {
     setFileRef: setState("fileRef"),
     setRecentFiles: setState("recentFiles"),
     setProjectWorkspace: setState("projectWorkspace"),
+    setExplorerTreeState: setState("explorerTreeState"),
     setLastSavedDocument: setState("lastSavedDocument"),
     setFileWorkflowError: setState("fileWorkflowError"),
     setThemeId: setState("themeId"),

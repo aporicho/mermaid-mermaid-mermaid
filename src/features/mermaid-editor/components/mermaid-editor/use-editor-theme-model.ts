@@ -11,6 +11,7 @@ import {
 } from "@/features/mermaid-editor/lib/editor-theme";
 import type { EditorPreferences } from "@/features/mermaid-editor/lib/editor-preferences";
 import { useResolvedEditorMotion } from "@/features/mermaid-editor/lib/use-gsap-motion";
+import { useThemeFontRevision } from "@/features/mermaid-editor/lib/use-theme-font-revision";
 
 type InitialEditorState = ReturnType<typeof loadInitialState>;
 
@@ -31,6 +32,7 @@ export function useEditorThemeModel({ initial, setStatus }: UseEditorThemeModelA
   const activeTheme = useMemo(() => resolveEditorTheme(editingThemeId, editingCustomTheme), [editingCustomTheme, editingThemeId]);
   const compiledTheme = useMemo(() => compileEditorTheme(activeTheme), [activeTheme]);
   const resolvedMotion = useResolvedEditorMotion(compiledTheme.motion);
+  const fontRevision = useThemeFontRevision(activeTheme.typography);
   const activeAppLogo = useMemo(() => appLogoById(preferences.appLogo), [preferences.appLogo]);
 
   useEffect(() => {
@@ -89,6 +91,7 @@ export function useEditorThemeModel({ initial, setStatus }: UseEditorThemeModelA
     setPreferences,
     activeTheme,
     compiledTheme,
+    fontRevision,
     resolvedMotion,
     activeAppLogo,
     beginThemeSettings,

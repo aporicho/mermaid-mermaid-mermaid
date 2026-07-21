@@ -31,6 +31,9 @@ contextBridge.exposeInMainWorld("mmmElectron", {
   readAppState() {
     return ipcRenderer.invoke("mmm:app-state:read");
   },
+  listSystemFonts() {
+    return ipcRenderer.invoke("mmm:fonts:list");
+  },
   writeAppState(state) {
     return ipcRenderer.invoke("mmm:app-state:write", state);
   },
