@@ -21,7 +21,7 @@
       },
       "heading": {
         "h1": {
-          "fontFamily": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+          "fontFamily": "\"方正屏显雅宋简体\", \"Songti SC\", \"Noto Serif SC\", serif",
           "fontSize": 24,
           "fontWeight": 700,
           "lineHeight": 27.2,
@@ -30,7 +30,7 @@
           "marginBottom": 8
         },
         "h2": {
-          "fontFamily": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+          "fontFamily": "\"方正屏显雅宋简体\", \"Songti SC\", \"Noto Serif SC\", serif",
           "fontSize": 20,
           "fontWeight": 700,
           "lineHeight": 26.4,
@@ -39,7 +39,7 @@
           "marginBottom": 8
         },
         "h3": {
-          "fontFamily": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+          "fontFamily": "\"方正屏显雅宋简体\", \"Songti SC\", \"Noto Serif SC\", serif",
           "fontSize": 18.4,
           "fontWeight": 700,
           "lineHeight": 24,
@@ -48,7 +48,7 @@
           "marginBottom": 4
         },
         "h4": {
-          "fontFamily": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+          "fontFamily": "\"方正屏显雅宋简体\", \"Songti SC\", \"Noto Serif SC\", serif",
           "fontSize": 16,
           "fontWeight": 700,
           "lineHeight": 24,
@@ -57,7 +57,7 @@
           "marginBottom": 4
         },
         "h5": {
-          "fontFamily": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+          "fontFamily": "\"方正屏显雅宋简体\", \"Songti SC\", \"Noto Serif SC\", serif",
           "fontSize": 14,
           "fontWeight": 600,
           "lineHeight": 20,
@@ -66,7 +66,7 @@
           "marginBottom": 4
         },
         "h6": {
-          "fontFamily": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+          "fontFamily": "\"方正屏显雅宋简体\", \"Songti SC\", \"Noto Serif SC\", serif",
           "fontSize": 14,
           "fontWeight": 600,
           "lineHeight": 20,
@@ -198,7 +198,7 @@
         "badge": { "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif" },
         "title": { "family": "\"方正屏显雅宋简体\", \"Songti SC\", \"Noto Serif SC\", serif" },
         "path": { "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif" },
-        "excerpt": { "family": "\"方正屏显雅宋简体\", \"Songti SC\", \"Noto Serif SC\", serif" },
+        "excerpt": { "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif" },
         "titleEditor": { "family": "\"方正屏显雅宋简体\", \"Songti SC\", \"Noto Serif SC\", serif" }
       },
       "mermaid": {

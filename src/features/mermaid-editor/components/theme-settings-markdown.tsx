@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Refresh } from "iconoir-react/regular";
 
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { EditorIconButton, EditorSearchField } from "@/features/mermaid-editor/components/editor-ui";
 import { FontFamilyCombobox } from "@/features/mermaid-editor/components/theme-settings-typography";
 import type { RuntimeSystemFont } from "@/features/mermaid-editor/lib/editor-runtime";
@@ -148,12 +149,29 @@ function MarkdownTokenField({ definition, value, fonts, loading, error, monospac
       <span className="type-interface-metadata text-muted-foreground">{definition.label}</span>
       {definition.kind === "font" ? (
         <FontFamilyCombobox value={String(value)} fonts={fonts} loading={loading} error={error} monospacePreferred={monospacePreferred} onChange={onChange} />
+      ) : definition.kind === "css-border-style" ? (
+        <CssBorderStyleField label={definition.label} value={String(value)} onChange={onChange} />
       ) : definition.kind === "color" ? (
         <MarkdownColorField label={definition.label} value={String(value)} onChange={onChange} />
       ) : (
         <MarkdownNumberField definition={definition} value={Number(value)} onChange={onChange} />
       )}
     </div>
+  );
+}
+
+function CssBorderStyleField({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
+  return (
+    <Select value={value} onValueChange={onChange}>
+      <SelectTrigger className="h-8" aria-label={label}><SelectValue /></SelectTrigger>
+      <SelectContent>
+        <SelectItem value="none">无</SelectItem>
+        <SelectItem value="solid">实线</SelectItem>
+        <SelectItem value="dashed">虚线</SelectItem>
+        <SelectItem value="dotted">点线</SelectItem>
+        <SelectItem value="double">双线</SelectItem>
+      </SelectContent>
+    </Select>
   );
 }
 

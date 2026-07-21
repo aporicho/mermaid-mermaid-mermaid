@@ -1,7 +1,11 @@
-import type { EditorTheme, EditorTypographyTokens, TypographyRoleTokens } from "./types";
+import type { EditorTypographyTokens, TypographyRoleTokens } from "./types";
 import { MERMAID_FONT_FAMILY, MONO_FONT_FAMILY } from "./types";
 
-type LegacyTypographySource = Partial<Pick<EditorTheme, "font" | "subgraph" | "edgeLabel">>;
+type LegacyTypographySource = {
+  font?: Record<string, unknown>;
+  subgraph?: Record<string, unknown>;
+  edgeLabel?: Record<string, unknown>;
+};
 
 const sans = (fontSize: number, fontWeight = 400, lineHeight = Math.round(fontSize * 1.45), letterSpacing = 0): TypographyRoleTokens => ({
   family: MERMAID_FONT_FAMILY,
@@ -138,18 +142,18 @@ function migrateLegacyTypography(fallback: EditorTypographyTokens, legacy: Legac
       if (path[0] === "source" || path[0] === "terminal" || path.join(".") === "interface.technical") role.family = monoFamily;
       else role.family = sansFamily;
     });
-    patchRole(next.interface.body, { fontSize: font.sizeUiSm, letterSpacing: font.letterSpacing });
-    patchRole(next.canvas.node, { family: sansFamily, fontSize: font.sizeNode, fontWeight: font.weightBold, lineHeight: font.lineHeightNode, letterSpacing: font.letterSpacing });
+    patchRole(next.interface.body, { fontSize: optionalNumber(font.sizeUiSm), letterSpacing: optionalNumber(font.letterSpacing) });
+    patchRole(next.canvas.node, { family: sansFamily, fontSize: optionalNumber(font.sizeNode), fontWeight: optionalNumber(font.weightBold), lineHeight: optionalNumber(font.lineHeightNode), letterSpacing: optionalNumber(font.letterSpacing) });
     patchRole(next.canvas.nodeEditor, next.canvas.node);
-    patchRole(next.canvas.edgeLabel, { family: sansFamily, fontSize: font.sizeEdgeLabel, fontWeight: font.weightRegular, lineHeight: font.lineHeightEdgeLabel, letterSpacing: font.letterSpacing });
+    patchRole(next.canvas.edgeLabel, { family: sansFamily, fontSize: optionalNumber(font.sizeEdgeLabel), fontWeight: optionalNumber(font.weightRegular), lineHeight: optionalNumber(font.lineHeightEdgeLabel), letterSpacing: optionalNumber(font.letterSpacing) });
     patchRole(next.canvas.edgeEditor, next.canvas.edgeLabel);
-    patchRole(next.source.editor, { family: monoFamily, fontSize: font.sizeSource, fontWeight: font.weightRegular, lineHeight: font.lineHeightSource, letterSpacing: font.letterSpacing });
-    patchRole(next.terminal.content, { family: monoFamily, fontSize: font.sizeTerminal, fontWeight: font.weightRegular, lineHeight: font.lineHeightTerminal, letterSpacing: font.letterSpacing });
+    patchRole(next.source.editor, { family: monoFamily, fontSize: optionalNumber(font.sizeSource), fontWeight: optionalNumber(font.weightRegular), lineHeight: optionalNumber(font.lineHeightSource), letterSpacing: optionalNumber(font.letterSpacing) });
+    patchRole(next.terminal.content, { family: monoFamily, fontSize: optionalNumber(font.sizeTerminal), fontWeight: optionalNumber(font.weightRegular), lineHeight: optionalNumber(font.lineHeightTerminal), letterSpacing: optionalNumber(font.letterSpacing) });
   }
   if (legacy.subgraph) {
-    patchRole(next.canvas.subgraphTitle, { fontSize: legacy.subgraph.titleFontSize, fontWeight: legacy.subgraph.titleFontWeight });
+    patchRole(next.canvas.subgraphTitle, { fontSize: optionalNumber(legacy.subgraph.titleFontSize), fontWeight: optionalNumber(legacy.subgraph.titleFontWeight) });
   }
-  if (legacy.edgeLabel) patchRole(next.canvas.edgeLabel, { fontSize: legacy.edgeLabel.fontSize, lineHeight: legacy.edgeLabel.lineHeight });
+  if (legacy.edgeLabel) patchRole(next.canvas.edgeLabel, { fontSize: optionalNumber(legacy.edgeLabel.fontSize), lineHeight: optionalNumber(legacy.edgeLabel.lineHeight) });
   return next;
 }
 
@@ -191,6 +195,10 @@ function stringValue(value: unknown, fallback: string) {
 
 function numberValue(value: unknown, fallback: number, min: number, max: number) {
   return typeof value === "number" && Number.isFinite(value) ? Math.min(max, Math.max(min, value)) : fallback;
+}
+
+function optionalNumber(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
 }
 
 function kebabCase(value: string) {

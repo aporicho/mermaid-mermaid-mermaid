@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { THEME_TOKEN_GROUPS } from "@/features/mermaid-editor/components/theme-settings-schema";
-import { themeValueAtPath } from "@/features/mermaid-editor/components/theme-settings-utils";
+import { APPEARANCE_TOKEN_DEFINITIONS } from "@/features/mermaid-editor/components/theme-settings-schema";
 import {
   createDefaultMarkdownTokens,
   DEFAULT_EDITOR_THEME,
@@ -11,20 +10,15 @@ import {
 
 describe("theme settings schema", () => {
   it("exposes every editable visual and interaction token", () => {
-    const exposed = new Set(
-      THEME_TOKEN_GROUPS.flatMap((group) => {
-        const value = themeValueAtPath(DEFAULT_EDITOR_THEME, group.path) as Record<string, unknown>;
-        return Object.keys(value)
-          .filter((key) => !group.hiddenKeys?.includes(key))
-          .map((key) => [...group.path, key].join("."));
-      })
-    );
-    for (const path of flattenLeafPaths(DEFAULT_EDITOR_THEME.typography, ["typography"])) exposed.add(path);
-    for (const definition of MARKDOWN_TOKEN_DEFINITIONS) exposed.add(["markdown", ...definition.path].join("."));
-    const excluded = new Set(["version", "id", "name", "description", "baseThemeId", "icon.family"]);
-    const expected = flattenLeafPaths(DEFAULT_EDITOR_THEME).filter((path) => !excluded.has(path) && !isLegacyTypographyPath(path));
+    const paths = APPEARANCE_TOKEN_DEFINITIONS.map((definition) => definition.path.join("."));
+    const expected = flattenLeafPaths(DEFAULT_EDITOR_THEME).filter((path) => path !== "baseThemeId");
 
-    expect([...exposed].sort()).toEqual(expected.sort());
+    expect(new Set(paths).size).toBe(paths.length);
+    expect(paths.sort()).toEqual(expected.sort());
+    expect(APPEARANCE_TOKEN_DEFINITIONS.every((definition) => definition.label && definition.groupId && definition.consumer && definition.control.kind)).toBe(true);
+    expect(APPEARANCE_TOKEN_DEFINITIONS.filter((definition) => !/[\u3400-\u9fff]/u.test(definition.label)).map((definition) => definition.path.join("."))).toEqual([]);
+    expect(APPEARANCE_TOKEN_DEFINITIONS.some((definition) => definition.path.join(".") === "typography.interface.body.family" && definition.category === "interface")).toBe(true);
+    expect(APPEARANCE_TOKEN_DEFINITIONS.some((definition) => definition.path.join(".") === "typography.linkCard.title.family" && definition.category === "specialNode")).toBe(true);
   });
 
   it("defines every canonical Markdown token exactly once under its element", () => {
@@ -35,11 +29,15 @@ describe("theme settings schema", () => {
     expect(paths.sort()).toEqual(flattenLeafPaths(DEFAULT_EDITOR_THEME.markdown).sort());
     for (const element of MARKDOWN_ELEMENT_DEFINITIONS) {
       const elementPath = element.path.join(".");
-      if (element.id === "divider" || element.id === "image") continue;
+      if (element.id === "layout" || element.id === "divider" || element.id === "image") continue;
       for (const field of textFields) expect(paths).toContain(`${elementPath}.${field}`);
     }
     expect(MARKDOWN_TOKEN_DEFINITIONS.every((definition) => definition.defaultSource.length > 0)).toBe(true);
     expect(flattenLeafPaths(createDefaultMarkdownTokens(DEFAULT_EDITOR_THEME)).sort()).toEqual(paths.sort());
+    expect(paths).toContain("blockquote.borderStyle");
+    expect(paths).toContain("table.borderStyle");
+    expect(paths).toContain("image.borderStyle");
+    expect(paths).toContain("list.task.checkboxBorderStyle");
   });
 
   it("does not expose legacy Markdown typography containers", () => {
@@ -48,18 +46,13 @@ describe("theme settings schema", () => {
       typography: Record<string, unknown>;
     };
 
-    expect(DEFAULT_EDITOR_THEME.version).toBe(9);
+    expect(DEFAULT_EDITOR_THEME.version).toBe(11);
     expect(theme.markdown).not.toHaveProperty("typography");
     expect(theme.markdown).not.toHaveProperty("font");
     expect(theme.markdown).not.toHaveProperty("quote");
     expect(theme.typography).not.toHaveProperty("markdown");
   });
 });
-
-function isLegacyTypographyPath(path: string) {
-  if (path.startsWith("font.")) return true;
-  return path === "subgraph.titleFontSize" || path === "subgraph.titleFontWeight" || path === "edgeLabel.fontSize" || path === "edgeLabel.lineHeight";
-}
 
 function flattenLeafPaths(value: unknown, prefix: readonly string[] = []): string[] {
   if (Array.isArray(value) || !value || typeof value !== "object") return [prefix.join(".")];

@@ -8,6 +8,8 @@ import type { CanvasVisualTokens } from "@/features/mermaid-editor/lib/canvas-vi
 import type { CanvasNode, CanvasNodePreview } from "@/features/mermaid-editor/lib/editor-types";
 import { normalizeCanvasNodePreview, themedLinkCardLayout } from "@/features/mermaid-editor/lib/node-preview";
 import type { EditorTypographyTokens, SpecialNodeThemeTokens, TypographyRoleTokens } from "@/features/mermaid-editor/lib/editor-theme";
+import { resolveSpecialNodeBorder, specialNodeBorderDash } from "@/features/mermaid-editor/lib/editor-theme/special-node-theme";
+import type { SpecialNodeVisualState } from "@/features/mermaid-editor/lib/editor-theme/special-node-types";
 
 export function CanvasNodeLinkCard({
   node,
@@ -21,6 +23,7 @@ export function CanvasNodeLinkCard({
   typography,
   actionTypography,
   specialNode,
+  visualState,
   onOpen
 }: {
   node: CanvasNode;
@@ -28,12 +31,13 @@ export function CanvasNodeLinkCard({
   width: number;
   height: number;
   coverSrc?: string;
-  stroke: string;
-  strokeWidth: number;
+  stroke?: string;
+  strokeWidth?: number;
   visualTokens: CanvasVisualTokens;
   typography: EditorTypographyTokens["linkCard"];
   actionTypography: TypographyRoleTokens;
   specialNode: SpecialNodeThemeTokens;
+  visualState?: SpecialNodeVisualState;
   onOpen?: () => void;
 }) {
   const normalized = normalizeCanvasNodePreview(preview);
@@ -57,20 +61,28 @@ export function CanvasNodeLinkCard({
   const contentWidth = Math.max(0, width - specialNode.linkCard.contentPaddingX * 2);
   const showCoverPlaceholder = !coverSrc || coverLoadStatus !== "loaded";
   const showCoverImage = Boolean(coverSrc && coverLoadStatus !== "error");
+  const surface = specialNode.linkCard.surface;
+  const surfaceBorder = visualState
+    ? resolveSpecialNodeBorder(surface, specialNode.linkCard.state, visualState)
+    : { ...surface.border, color: stroke ?? surface.border.color, width: strokeWidth ?? surface.border.width };
+  const coverBorder = specialNode.linkCard.coverBorder;
 
   return (
     <Group>
       <Rect
         width={width}
         height={height}
-        fill={specialNode.common.background}
-        stroke={stroke}
-        strokeWidth={strokeWidth}
-        cornerRadius={specialNode.common.radius}
-        shadowColor={specialNode.common.shadowColor}
-        shadowBlur={specialNode.common.shadowBlur}
-        shadowOpacity={specialNode.common.shadowOpacity}
-        shadowOffsetY={specialNode.common.shadowOffsetY}
+        fill={surface.background}
+        stroke={surfaceBorder.color}
+        strokeWidth={surfaceBorder.width}
+        strokeEnabled={surfaceBorder.style !== "none" && surfaceBorder.width > 0}
+        dash={specialNodeBorderDash(surfaceBorder)}
+        cornerRadius={surface.radius}
+        shadowColor={surface.shadow.color}
+        shadowBlur={surface.shadow.blur}
+        shadowOpacity={surface.shadow.opacity}
+        shadowOffsetX={surface.shadow.offsetX}
+        shadowOffsetY={surface.shadow.offsetY}
       />
       <Rect
         x={inset}
@@ -110,8 +122,10 @@ export function CanvasNodeLinkCard({
         width={coverWidth}
         height={coverHeight}
         fillEnabled={false}
-        stroke={specialNode.linkCard.coverBorderColor}
-        strokeWidth={specialNode.linkCard.coverBorderWidth}
+        stroke={coverBorder.color}
+        strokeWidth={coverBorder.width}
+        strokeEnabled={coverBorder.style !== "none" && coverBorder.width > 0}
+        dash={specialNodeBorderDash(coverBorder)}
         cornerRadius={specialNode.linkCard.coverRadius}
         listening={false}
       />
@@ -142,7 +156,7 @@ export function CanvasNodeLinkCard({
         letterSpacing={typography.title.letterSpacing}
         wrap="word"
         ellipsis
-        fill={specialNode.common.textColor}
+        fill={specialNode.shared.textColor}
         listening={false}
       />
       <CanvasNodeActionBadge actionKind="url" x={width - 30} y={10} visualTokens={visualTokens} typography={actionTypography} onOpen={onOpen} />

@@ -15,36 +15,52 @@ import {
 import { isHexColor, MERMAID_FONT_FAMILY, MONO_FONT_FAMILY } from "@/features/mermaid-editor/lib/editor-theme";
 import { cn } from "@/lib/utils";
 
-import { themeTokenLabel, themeTokenNumberSpec, type ThemeTokenGroupDefinition } from "./theme-settings-schema";
+import {
+  appearanceTokenDefinition,
+  themeTokenLabel,
+  themeTokenNumberSpec,
+  type AppearanceTokenControlKind,
+  type ThemeTokenGroupDefinition
+} from "./theme-settings-schema";
 import { ThemeSettingsCollapsible } from "./theme-settings-collapsible";
 
 type ThemeTokenValue = string | number | readonly number[];
+type ThemeTokenTree = ThemeTokenValue | { readonly [key: string]: ThemeTokenTree };
 
 export function ThemeSettingsGroup({
   definition,
   value,
   onChange,
   onReset,
+  query = "",
   resetDisabled = false
 }: {
   definition: ThemeTokenGroupDefinition;
-  value: Record<string, ThemeTokenValue>;
-  onChange: (key: string, value: ThemeTokenValue) => void;
+  value: Record<string, ThemeTokenTree>;
+  onChange: (path: readonly string[], value: ThemeTokenValue) => void;
   onReset: () => void;
+  query?: string;
   resetDisabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [advancedOpen, setAdvancedOpen] = useState(false);
-  const entries = useMemo(
-    () => Object.entries(value).filter(([key, fieldValue]) => !definition.hiddenKeys?.includes(key) && isThemeTokenValue(fieldValue)),
-    [definition.hiddenKeys, value]
-  );
-  const commonEntries = definition.commonKeys ? entries.filter(([key]) => definition.commonKeys?.includes(key)) : entries;
-  const advancedEntries = definition.commonKeys ? entries.filter(([key]) => !definition.commonKeys?.includes(key)) : [];
+  const normalizedQuery = query.trim().toLocaleLowerCase();
+  const entries = useMemo(() => flattenFields(value).filter(({ path }) => {
+    if (definition.hiddenKeys?.includes(path[0] || "")) return false;
+    if (path.at(-1) === "customDash" && customDashStyle(value, path) !== "custom") return false;
+    if (!normalizedQuery) return true;
+    const fullPath = [...definition.path, ...path];
+    const metadata = appearanceTokenDefinition(fullPath);
+    return `${metadata?.label ?? themeTokenLabel(path.at(-1) || "")} ${fullPath.join(".")}`.toLocaleLowerCase().includes(normalizedQuery);
+  }), [definition.hiddenKeys, definition.path, normalizedQuery, value]);
+  const commonEntries = entries.filter(({ path }) => appearanceTokenDefinition([...definition.path, ...path])?.level !== "advanced");
+  const advancedEntries = entries.filter(({ path }) => appearanceTokenDefinition([...definition.path, ...path])?.level === "advanced");
+
+  if (!entries.length) return null;
 
   return (
     <ThemeSettingsCollapsible
-      open={open}
+      open={normalizedQuery ? true : open}
       onOpenChange={setOpen}
       title={definition.title}
       description={definition.description}
@@ -54,11 +70,11 @@ export function ThemeSettingsGroup({
       groupId={definition.id}
     >
       <div className="editor-ui-panel-body grid gap-3">
-        {commonEntries.map(([key, fieldValue]) => (
-          <ThemeSettingsField key={key} path={[...definition.path, key]} value={fieldValue} onChange={(nextValue) => onChange(key, nextValue)} />
+        {commonEntries.map(({ path, value: fieldValue }) => (
+          <ThemeSettingsField key={path.join(".")} path={[...definition.path, ...path]} value={fieldValue} onChange={(nextValue) => onChange(path, nextValue)} />
         ))}
         {advancedEntries.length ? (
-          <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen} className="border-t pt-2">
+          <Collapsible open={normalizedQuery ? true : advancedOpen} onOpenChange={setAdvancedOpen} className="border-t pt-2">
             <CollapsibleTrigger asChild>
               <Button type="button" variant="ghost" className="w-full justify-between text-muted-foreground" aria-label={`${advancedOpen ? "收起" : "展开"}${definition.title}高级选项`}>
                 <span>高级</span>
@@ -67,8 +83,8 @@ export function ThemeSettingsGroup({
             </CollapsibleTrigger>
             <CollapsibleContent>
               <div className="grid gap-3 pt-2">
-                {advancedEntries.map(([key, fieldValue]) => (
-                  <ThemeSettingsField key={key} path={[...definition.path, key]} value={fieldValue} onChange={(nextValue) => onChange(key, nextValue)} />
+                {advancedEntries.map(({ path, value: fieldValue }) => (
+                  <ThemeSettingsField key={path.join(".")} path={[...definition.path, ...path]} value={fieldValue} onChange={(nextValue) => onChange(path, nextValue)} />
                 ))}
               </div>
             </CollapsibleContent>
@@ -81,13 +97,18 @@ export function ThemeSettingsGroup({
 
 function ThemeSettingsField({ path, value, onChange }: { path: readonly string[]; value: ThemeTokenValue; onChange: (value: ThemeTokenValue) => void }) {
   const key = path.at(-1) || "";
-  const label = themeTokenLabel(key);
+  const definition = appearanceTokenDefinition(path);
+  const label = definition?.label ?? themeTokenLabel(key);
   const fieldPath = path.join(".");
+  const control = definition?.control.kind ?? inferredStringControl(path, value);
 
-  if (typeof value === "string" && isHexColor(value)) {
+  if (control === "css-border-style" || control === "canvas-stroke-style") {
+    return <BorderStyleField label={label} path={fieldPath} value={String(value)} kind={control} onChange={onChange} />;
+  }
+  if (typeof value === "string" && (control === "color" || isHexColor(value))) {
     return <ColorField label={label} path={fieldPath} value={value} onChange={onChange} />;
   }
-  if (typeof value === "string" && isFontFamilyKey(key)) {
+  if (typeof value === "string" && (control === "font" || isFontFamilyKey(key))) {
     return <FontFamilyField label={label} path={fieldPath} fontKey={key} value={value} onChange={onChange} />;
   }
   if (typeof value === "string") {
@@ -97,6 +118,13 @@ function ThemeSettingsField({ path, value, onChange }: { path: readonly string[]
     return <NumberField label={label} path={path} value={value} onChange={onChange} />;
   }
   return <DashField label={label} path={fieldPath} value={value} onChange={onChange} />;
+}
+
+function inferredStringControl(path: readonly string[], value: ThemeTokenValue): AppearanceTokenControlKind | undefined {
+  if (typeof value !== "string") return undefined;
+  const key = path.at(-1) || "";
+  if (key === "borderStyle" || key === "style" || key.endsWith("Style")) return path[0] === "interface" ? "css-border-style" : "canvas-stroke-style";
+  return undefined;
 }
 
 function FieldFrame({ label, path, children }: { label: string; path: string; children: ReactNode }) {
@@ -262,6 +290,32 @@ function TextField({ label, path, value, onChange }: { label: string; path: stri
   );
 }
 
+function BorderStyleField({
+  label,
+  path,
+  value,
+  kind,
+  onChange
+}: {
+  label: string;
+  path: string;
+  value: string;
+  kind: Extract<AppearanceTokenControlKind, "css-border-style" | "canvas-stroke-style">;
+  onChange: (value: string) => void;
+}) {
+  const options = kind === "css-border-style"
+    ? [["none", "无"], ["solid", "实线"], ["dashed", "虚线"], ["dotted", "点线"], ["double", "双线"]]
+    : [["none", "无"], ["solid", "实线"], ["dashed", "虚线"], ["dotted", "点线"], ["dash-dot", "点划线"], ["custom", "自定义"]];
+  return (
+    <FieldFrame label={label} path={path}>
+      <Select value={value} onValueChange={onChange}>
+        <SelectTrigger className="h-8" aria-label={label}><SelectValue /></SelectTrigger>
+        <SelectContent>{options.map(([optionValue, optionLabel]) => <SelectItem key={optionValue} value={optionValue}>{optionLabel}</SelectItem>)}</SelectContent>
+      </Select>
+    </FieldFrame>
+  );
+}
+
 function NumberField({ label, path, value, onChange }: { label: string; path: readonly string[]; value: number; onChange: (value: number) => void }) {
   const spec = themeTokenNumberSpec(path, value);
   const displayValue = Number.isInteger(value) ? value : Number(value.toFixed(3));
@@ -341,6 +395,28 @@ function DashField({ label, path, value, onChange }: { label: string; path: stri
 
 function isThemeTokenValue(value: unknown): value is ThemeTokenValue {
   return typeof value === "string" || typeof value === "number" || (Array.isArray(value) && value.every((item) => typeof item === "number"));
+}
+
+function flattenFields(value: Record<string, ThemeTokenTree>, prefix: readonly string[] = []): { path: readonly string[]; value: ThemeTokenValue }[] {
+  return Object.entries(value).flatMap(([key, child]) => {
+    const path = [...prefix, key];
+    return isThemeTokenValue(child) ? [{ path, value: child }] : flattenFields(child, path);
+  });
+}
+
+function customDashStyle(value: Record<string, ThemeTokenTree>, path: readonly string[]) {
+  const parent = path.slice(0, -1).reduce<ThemeTokenTree>((current, key) => {
+    return isThemeTokenObject(current) ? current[key] : {};
+  }, value);
+  if (!isThemeTokenObject(parent)) return undefined;
+  for (const key of ["borderStyle", "style", "strokeStyle", "centerStyle"]) {
+    if (typeof parent[key] === "string") return parent[key];
+  }
+  return undefined;
+}
+
+function isThemeTokenObject(value: ThemeTokenTree): value is { readonly [key: string]: ThemeTokenTree } {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
 type FontOption = { label: string; value: string };

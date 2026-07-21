@@ -127,7 +127,7 @@ export function useKonvaCanvasPointerInteraction({
     }
 
     if (effect.type === "graph.resolveAddNodeAt") {
-      const newNode = { id: "", label: "新节点", x: 0, y: 0, fill: visualTokens.colors.surface };
+      const newNode = { id: "", label: "新节点", x: 0, y: 0, fill: visualTokens.surface.background };
       const newNodeFrame = buildNodeGeometry(newNode, geometrySpec).frame;
       const parent = subgraphAtPoint(renderedSubgraphGeometries, effect.point);
       onEditorCommand({

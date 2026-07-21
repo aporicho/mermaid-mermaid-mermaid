@@ -1,9 +1,13 @@
 import { useCallback } from "react";
 import { createPortal } from "react-dom";
-import { Circle, Group, Text } from "react-konva";
+import { Group, Rect, Text } from "react-konva";
 
 import { EditorMenuItem, EditorMenuSurface } from "@/features/mermaid-editor/components/editor-ui";
-import type { CanvasVisualTokens } from "@/features/mermaid-editor/lib/canvas-visual-state";
+import {
+  canvasStrokeDash,
+  canvasStrokeEnabled,
+  type CanvasVisualTokens
+} from "@/features/mermaid-editor/lib/canvas-visual-state";
 import type { CanvasNode, CanvasNodeAction, ViewportState } from "@/features/mermaid-editor/lib/editor-types";
 import type { NodeGeometry } from "@/features/mermaid-editor/lib/node-geometry";
 import {
@@ -33,12 +37,14 @@ export function CanvasNodeActionBadge({
   typography: TypographyRoleTokens;
   onOpen?: () => void;
 }) {
-  const size = 18;
+  const badge = visualTokens.actionBadge;
+  const size = badge.size;
 
   return (
     <Group
       x={x}
       y={y}
+      opacity={badge.opacity}
       onMouseDown={(event) => {
         event.cancelBubble = true;
       }}
@@ -51,14 +57,15 @@ export function CanvasNodeActionBadge({
         onOpen?.();
       }}
     >
-      <Circle
-        x={size / 2}
-        y={size / 2}
-        radius={size / 2}
-        fill={visualTokens.colors.surface}
-        stroke={visualTokens.colors.accent}
-        strokeWidth={1.5}
-        opacity={0.96}
+      <Rect
+        width={size}
+        height={size}
+        cornerRadius={badge.radius}
+        fill={badge.background}
+        stroke={badge.borderColor}
+        strokeWidth={badge.borderWidth}
+        strokeEnabled={canvasStrokeEnabled(badge.borderStyle)}
+        dash={canvasStrokeDash(badge.borderStyle, badge.customDash)}
       />
       <Text
         width={size}
@@ -71,7 +78,7 @@ export function CanvasNodeActionBadge({
         fontFamily={typography.family}
         lineHeight={typography.lineHeight / typography.fontSize}
         letterSpacing={typography.letterSpacing}
-        fill={visualTokens.colors.accent}
+        fill={badge.foreground}
       />
     </Group>
   );

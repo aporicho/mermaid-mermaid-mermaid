@@ -130,9 +130,10 @@ export function InlineEditOverlays({
           top: editStyle.top,
           width: editStyle.width,
           height: editStyle.height,
-          borderColor: tableTokens.selectedCellStroke,
-          borderWidth: tableTokens.selectedCellStrokeWidth,
-          backgroundColor: tableTokens.background,
+          borderColor: tableTokens.selectedCellBorder.color,
+          borderWidth: tableTokens.selectedCellBorder.width,
+          borderStyle: inlineCanvasBorderStyle(tableTokens.selectedCellBorder.style),
+          backgroundColor: tableTokens.surface.background,
           paddingLeft: tableTokens.cellPaddingX * activeScale,
           paddingRight: tableTokens.cellPaddingX * activeScale,
           paddingTop: tableTokens.cellPaddingY * activeScale,
@@ -184,14 +185,14 @@ export function InlineEditOverlays({
           top: editStyle.top,
           width: editStyle.width,
           height: editStyle.height,
-          borderRadius: visualTokens.subgraph.titleCornerRadius * activeScale,
+          borderRadius: visualTokens.group.title.radius * activeScale,
           fontFamily: typography.subgraphTitle.family,
           fontSize: typography.subgraphTitle.fontSize * activeScale,
           fontWeight: typography.subgraphTitle.fontWeight,
           letterSpacing: `${typography.subgraphTitle.letterSpacing * activeScale}px`,
           lineHeight: `${editStyle.height}px`,
-          paddingLeft: visualTokens.subgraph.titleInsetX * activeScale,
-          paddingRight: visualTokens.subgraph.titleInsetX * activeScale
+          paddingLeft: visualTokens.group.title.paddingX * activeScale,
+          paddingRight: visualTokens.group.title.paddingX * activeScale
         }}
         onChange={(event) => onChange({ ...inlineEdit, value: event.target.value })}
         onBlur={() => onCommit(true)}
@@ -214,7 +215,7 @@ export function InlineEditOverlays({
           top: editStyle.top,
           width: editStyle.width,
           height: editStyle.height,
-          borderRadius: visualTokens.edge.labelCornerRadius * activeScale,
+          borderRadius: visualTokens.edgeLabel.radius * activeScale,
           fontFamily: typography.edgeEditor.family,
           fontSize: typography.edgeEditor.fontSize * activeScale,
           fontWeight: typography.edgeEditor.fontWeight,
@@ -234,4 +235,9 @@ export function InlineEditOverlays({
   }
 
   return null;
+}
+
+function inlineCanvasBorderStyle(style: "none" | "solid" | "dashed" | "dotted" | "dash-dot" | "custom") {
+  if (style === "none" || style === "dashed" || style === "dotted") return style;
+  return "solid";
 }

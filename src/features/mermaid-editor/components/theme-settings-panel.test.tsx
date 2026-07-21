@@ -55,7 +55,7 @@ describe("ThemeSettingsPanel", () => {
     clickButton("正文与段落");
     expect(container?.querySelector('[data-theme-token-path="markdown.body.fontFamily"]')).not.toBeNull();
 
-    clickButton("排版");
+    clickButton("界面");
     clickButton("界面基础");
     expect(container?.textContent).not.toContain("每个角色的字体、字号、字重、行高和字距完全独立");
     expect(container?.textContent).not.toContain("应用正文、控件、导航、菜单和技术信息");
@@ -89,7 +89,7 @@ describe("ThemeSettingsPanel", () => {
     expect(onPreview).toHaveBeenCalledWith(
       "custom",
       expect.objectContaining({
-        version: 9,
+        version: 11,
         markdown: expect.objectContaining({
           heading: expect.objectContaining({ h1: DEFAULT_EDITOR_THEME.markdown.heading.h1 })
         })
@@ -100,18 +100,48 @@ describe("ThemeSettingsPanel", () => {
   it("keeps lower-level canvas tokens in an expandable advanced section", () => {
     renderPanel();
     clickButton("画布");
-    clickButton("普通节点");
-    clickButton("连线与交互");
+    clickButton("网格");
 
-    const interactionGroup = container?.querySelector('[data-theme-settings-group="canvas-interaction"]');
+    const interactionGroup = container?.querySelector('[data-theme-settings-group="canvas-grid"]');
     expect(interactionGroup?.textContent).not.toContain("小格显示缩放");
-    const advancedButton = interactionGroup?.querySelector<HTMLButtonElement>('[aria-label="展开连线与交互高级选项"]');
+    const advancedButton = interactionGroup?.querySelector<HTMLButtonElement>('[aria-label="展开网格高级选项"]');
     act(() => advancedButton?.click());
     expect(interactionGroup?.textContent).toContain("小格显示缩放");
-    expect(interactionGroup?.querySelector('[data-theme-token-path="canvasInteraction.gridMinorVisibleScale"]')).not.toBeNull();
+    expect(interactionGroup?.querySelector('[data-theme-token-path="canvas.grid.minorVisibleScale"]')).not.toBeNull();
   });
 
-  it("keeps general typography separate and renders Markdown element font controls", () => {
+  it("searches localized labels and token paths while expanding only matching groups", () => {
+    renderPanel();
+    clickButton("画布");
+    const search = container?.querySelector<HTMLInputElement>('[aria-label="搜索外观 token"]');
+    changeInput(search, "canvas.ordinaryNode.radius");
+
+    expect(container?.querySelector('[data-theme-settings-group="canvas-node"] button[aria-expanded="true"]')).not.toBeNull();
+    expect(container?.querySelector('[data-theme-token-path="canvas.ordinaryNode.radius"]')).not.toBeNull();
+    expect(container?.querySelector('[data-theme-settings-group="canvas-edge"]')).toBeNull();
+  });
+
+  it("renders semantic border style selects and hides custom dash until it is selected", () => {
+    renderPanel();
+    clickButton("画布");
+    clickButton("普通节点");
+
+    expect(container?.querySelector('[data-theme-token-path="canvas.ordinaryNode.borderStyle"] [role="combobox"]')).not.toBeNull();
+    expect(container?.querySelector('[data-theme-token-path="canvas.ordinaryNode.customDash"]')).toBeNull();
+
+    const customTheme = toCustomTheme(DEFAULT_EDITOR_THEME);
+    customTheme.canvas.ordinaryNode.borderStyle = "custom";
+    customTheme.canvas.ordinaryNode.customDash = [6, 3];
+    renderPanel({ themeId: "custom", customTheme, activeTheme: customTheme });
+    expect(container?.querySelector('[data-theme-token-path="canvas.ordinaryNode.customDash"]')).not.toBeNull();
+
+    clickButton("Markdown");
+    clickButton("块级语义");
+    clickButton("引用");
+    expect(container?.querySelector('[data-theme-token-path="markdown.blockquote.borderStyle"] [role="combobox"]')).not.toBeNull();
+  });
+
+  it("embeds typography in its owning object and renders Markdown element font controls", () => {
     const customTheme = {
       ...toCustomTheme(DEFAULT_EDITOR_THEME),
       typography: {
@@ -124,8 +154,9 @@ describe("ThemeSettingsPanel", () => {
     };
     renderPanel({ themeId: "custom", customTheme, activeTheme: customTheme });
 
-    clickButton("排版");
-    expect(container?.querySelector('[aria-label="搜索排版角色"]')).not.toBeNull();
+    expect([...(container?.querySelectorAll("nav button") ?? [])].some((button) => button.textContent === "排版")).toBe(false);
+    clickButton("界面");
+    expect(container?.querySelector('[aria-label="搜索外观 token"]')).not.toBeNull();
     clickButton("界面基础");
     const bodyRole = container?.querySelector('[data-typography-group="interface"] [data-typography-role="body"]');
     expect(bodyRole?.querySelector('[role="combobox"]')?.textContent).toContain("Example Sans");
@@ -151,22 +182,19 @@ describe("ThemeSettingsPanel", () => {
     expect(expandedStates('[data-theme-settings-group] > header > button[aria-expanded]')).not.toContain("true");
 
     clickButton("画布");
-    expect(expandedStates('[data-theme-settings-section] > header > button[aria-expanded]')).toEqual(["false", "false"]);
-    clickButton("普通节点");
-    expect(container?.querySelector('[data-theme-settings-section="ordinary"] > header > button')?.getAttribute("aria-expanded")).toBe("true");
-    expect(expandedStates('[data-theme-settings-section="ordinary"] [data-theme-settings-group] > header > button[aria-expanded]')).not.toContain("true");
+    expect(expandedStates('[data-theme-settings-group] > header > button[aria-expanded]')).not.toContain("true");
 
     clickButton("Markdown");
     expect(expandedStates('[data-markdown-category] > section > header > button[aria-expanded]')).not.toContain("true");
 
-    clickButton("排版");
+    clickButton("特殊节点");
     expect(expandedStates('[data-typography-group] > header > button[aria-expanded]')).not.toContain("true");
   });
 
   it("keeps reset actions disabled until a built-in theme becomes a custom draft", () => {
     renderPanel();
 
-    clickButton("排版");
+    clickButton("界面");
     clickButton("界面基础");
     expect(container?.querySelector<HTMLButtonElement>('[aria-label="重置界面基础"]')?.disabled).toBe(true);
     expect(container?.querySelector<HTMLButtonElement>('[aria-label="重置正文"]')?.disabled).toBe(true);

@@ -21,7 +21,7 @@ export const EDITOR_CHROME_CLASSES = {
   floatingIconButton:
     "relative size-12 rounded-[var(--theme-radius-control-lg)] [backdrop-filter:blur(var(--ui-backdrop-blur))] [&_svg]:[height:var(--ui-icon-size-button)] [&_svg]:[width:var(--ui-icon-size-button)]",
   floatingIconInactive:
-    "border bg-card/[var(--ui-surface-opacity)] text-icon hover:text-foreground",
+    "bg-card/[var(--ui-surface-opacity)] text-icon hover:bg-accent hover:text-foreground",
   floatingIconActive:
     "text-background hover:text-background",
   floatingIconDanger:

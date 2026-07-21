@@ -12,7 +12,12 @@ import {
   subgraphTitleHitId
 } from "@/features/mermaid-editor/lib/canvas-hit-target";
 import type { EditorMode, MermaidGraph } from "@/features/mermaid-editor/lib/editor-types";
-import type { CanvasVisualTokens } from "@/features/mermaid-editor/lib/canvas-visual-state";
+import {
+  canvasStrokeDash,
+  canvasStrokeEnabled,
+  getGroupVisualState,
+  type CanvasVisualTokens
+} from "@/features/mermaid-editor/lib/canvas-visual-state";
 import type { TypographyRoleTokens } from "@/features/mermaid-editor/lib/editor-theme";
 
 type RenderModel = ReturnType<typeof useKonvaRenderModel>;
@@ -80,13 +85,9 @@ export function KonvaSubgraphLayer({
           const connectionInvalid = connectionInvalidSubgraphId === geometry.id;
           const connectionAnchorTarget = subgraphConnectionAnchorTarget(geometry.id, connectionPreview, retargetPreview);
           const connectionAnchorsVisible = subgraphConnectionAnchorsVisible(geometry.id, connectionPreview, retargetPreview);
-          const stroke = connectionInvalid
-            ? visualTokens.colors.connectionInvalid
-            : connectionTarget || selected
-              ? visualTokens.colors.accent
-              : hovered
-                ? visualTokens.colors.accentHover
-                : visualTokens.colors.labelStroke;
+          const groupVisual = getGroupVisualState({ hovered, selected, connectionTarget, connectionInvalid, visualTokens });
+          const group = visualTokens.group;
+          const title = group.title;
           const anchorVisible =
             mode === "select" &&
             !inlineEdit &&
@@ -118,18 +119,25 @@ export function KonvaSubgraphLayer({
               <Rect
                 width={geometry.frame.width}
                 height={geometry.frame.height}
-                cornerRadius={visualTokens.node.cornerRadius}
-                fill={visualTokens.colors.surface}
-                opacity={visualTokens.subgraph.fillOpacity}
+                cornerRadius={group.radius}
+                fill={groupVisual.fill}
+                opacity={groupVisual.fillOpacity}
+                shadowColor={groupVisual.shadow.color}
+                shadowBlur={groupVisual.shadow.blur}
+                shadowOpacity={groupVisual.shadow.opacity}
+                shadowOffsetX={groupVisual.shadow.offsetX}
+                shadowOffsetY={groupVisual.shadow.offsetY}
+                shadowEnabled={groupVisual.shadow.opacity > 0}
                 listening={false}
               />
               <Rect
                 width={geometry.frame.width}
                 height={geometry.frame.height}
-                cornerRadius={visualTokens.node.cornerRadius}
-                stroke={stroke}
-                strokeWidth={selected || connectionTarget || connectionInvalid ? visualTokens.node.emphasizedStrokeWidth : visualTokens.overlay.strokeWidth}
-                dash={[...visualTokens.overlay.subgraphDash]}
+                cornerRadius={group.radius}
+                stroke={groupVisual.stroke}
+                strokeWidth={groupVisual.strokeWidth}
+                strokeEnabled={groupVisual.strokeEnabled}
+                dash={groupVisual.dash}
                 fillEnabled={false}
               />
               <Rect
@@ -139,17 +147,25 @@ export function KonvaSubgraphLayer({
                 y={geometry.titleBox.y - geometry.frame.y}
                 width={geometry.titleBox.width}
                 height={geometry.titleBox.height}
-                cornerRadius={visualTokens.subgraph.titleCornerRadius}
-                fill={visualTokens.colors.surface}
-                stroke={stroke}
-                strokeWidth={visualTokens.subgraph.titleStrokeWidth}
+                cornerRadius={title.radius}
+                fill={title.background}
+                stroke={title.borderColor}
+                strokeWidth={title.borderWidth}
+                strokeEnabled={canvasStrokeEnabled(title.borderStyle)}
+                dash={canvasStrokeDash(title.borderStyle, title.customDash)}
+                shadowColor={title.shadow.color}
+                shadowBlur={title.shadow.blur}
+                shadowOpacity={title.shadow.opacity}
+                shadowOffsetX={title.shadow.offsetX}
+                shadowOffsetY={title.shadow.offsetY}
+                shadowEnabled={title.shadow.opacity > 0}
                 onClick={(event) => onCanvasClick(event, { kind: "subgraphTitle", id: geometry.id })}
                 onDblClick={(event) => onCanvasDoubleClick(event, { kind: "subgraphTitle", id: geometry.id })}
               />
               <Text
-                x={geometry.titleBox.x - geometry.frame.x + visualTokens.subgraph.titleInsetX}
+                x={geometry.titleBox.x - geometry.frame.x + title.paddingX}
                 y={geometry.titleBox.y - geometry.frame.y}
-                width={Math.max(1, geometry.titleBox.width - visualTokens.subgraph.titleInsetX * 2)}
+                width={Math.max(1, geometry.titleBox.width - title.paddingX * 2)}
                 height={geometry.titleBox.height}
                 align="left"
                 verticalAlign="middle"
@@ -159,7 +175,7 @@ export function KonvaSubgraphLayer({
                 fontFamily={typography.family}
                 lineHeight={typography.lineHeight / typography.fontSize}
                 letterSpacing={typography.letterSpacing}
-                fill={visualTokens.colors.nodeText}
+                fill={title.textColor}
                 ellipsis
                 listening={false}
                 visible={!isEditingSubgraphTitle}
@@ -214,13 +230,13 @@ function SubgraphAnchorHandle({
         );
       }}
     >
-      <Circle radius={visualTokens.anchor.radius} fill="rgba(0,0,0,0.001)" strokeEnabled={false} />
+      <Circle radius={visualTokens.overlay.anchor.radius} fill="rgba(0,0,0,0.001)" strokeEnabled={false} />
       <Circle
-        radius={anchor.kind === "corner" ? visualTokens.anchor.radius * visualTokens.subgraph.anchorCornerScale : visualTokens.anchor.radius}
-        fill={anchor.key === connectionAnchorTarget ? visualTokens.colors.connection : visualTokens.colors.accent}
-        stroke={visualTokens.colors.anchorStroke}
-        strokeWidth={visualTokens.anchor.strokeWidth}
-        opacity={anchor.kind === "corner" ? visualTokens.subgraph.anchorCornerOpacity : 1}
+        radius={anchor.kind === "corner" ? visualTokens.overlay.anchor.radius * visualTokens.group.anchorCornerScale : visualTokens.overlay.anchor.radius}
+        fill={anchor.key === connectionAnchorTarget ? visualTokens.overlay.anchor.targetColor : visualTokens.overlay.anchor.fillColor}
+        stroke={visualTokens.overlay.anchor.strokeColor}
+        strokeWidth={visualTokens.overlay.anchor.strokeWidth}
+        opacity={anchor.kind === "corner" ? visualTokens.group.anchorCornerOpacity : 1}
         listening={false}
       />
     </Group>

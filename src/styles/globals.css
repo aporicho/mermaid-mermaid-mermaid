@@ -99,11 +99,20 @@
     --theme-canvas-node-fill-luminance-steps: 256;
     --theme-canvas-preview-shadow-opacity: 0.22;
     --ui-border-width: 1px;
+    --ui-border-style: solid;
     --ui-divider-width: 1px;
     --ui-focus-ring-width: 1px;
     --ui-surface-opacity: 0.96;
     --ui-backdrop-blur: 8px;
     --ui-shadow-opacity: 0.16;
+    --ui-hover-opacity: 0.9;
+    --ui-pressed-opacity: 0.82;
+    --ui-selected-opacity: 1;
+    --ui-disabled-opacity: 0.5;
+    --ui-shadow-popover: 0 8px 24px hsl(var(--foreground) / 0.112);
+    --ui-shadow-panel: 0 12px 36px hsl(var(--foreground) / 0.16);
+    --ui-shadow-dialog: 0 18px 60px hsl(var(--foreground) / 0.2);
+    --ui-shadow-toolbar: 0 6px 20px hsl(var(--foreground) / 0.112);
     --ui-control-gap: 8px;
     --ui-control-padding-x: 12px;
     --ui-control-padding-y: 8px;
@@ -113,6 +122,13 @@
     --ui-icon-size-sm: 16px;
     --ui-icon-size-button: 16px;
     --ui-icon-stroke-width: 2.2;
+    --ui-scrollbar-size: 10px;
+    --ui-scrollbar-min-thumb-length: 28px;
+    --ui-scrollbar-radius: 999px;
+    --ui-scrollbar-inset: 2px;
+    --ui-scrollbar-opacity: 0.3;
+    --ui-scrollbar-hover-opacity: 0.48;
+    --ui-scrollbar-active-opacity: 0.62;
   }
 
   * {
@@ -122,8 +138,8 @@
   }
 
   *::-webkit-scrollbar {
-    width: 10px;
-    height: 10px;
+    width: var(--ui-scrollbar-size);
+    height: var(--ui-scrollbar-size);
   }
 
   *::-webkit-scrollbar-track,
@@ -132,30 +148,30 @@
   }
 
   *::-webkit-scrollbar-thumb {
-    min-width: 36px;
-    min-height: 36px;
-    border: 3px solid transparent;
-    border-radius: var(--theme-radius-control-sm);
+    min-width: var(--ui-scrollbar-min-thumb-length);
+    min-height: var(--ui-scrollbar-min-thumb-length);
+    border: var(--ui-scrollbar-inset) solid transparent;
+    border-radius: var(--ui-scrollbar-radius);
     background-color: transparent;
     background-clip: padding-box;
     transition: background-color 160ms ease;
   }
 
   *.scrollbar-active {
-    scrollbar-color: hsl(var(--muted-foreground) / 0.3) transparent;
+    scrollbar-color: hsl(var(--muted-foreground) / var(--ui-scrollbar-opacity)) transparent;
   }
 
   *.scrollbar-active::-webkit-scrollbar-thumb {
-    background-color: hsl(var(--muted-foreground) / 0.3);
+    background-color: hsl(var(--muted-foreground) / var(--ui-scrollbar-opacity));
   }
 
   *.scrollbar-active::-webkit-scrollbar-thumb:hover {
-    border-width: 2px;
-    background-color: hsl(var(--muted-foreground) / 0.48);
+    border-width: calc(var(--ui-scrollbar-inset) * 0.67);
+    background-color: hsl(var(--muted-foreground) / var(--ui-scrollbar-hover-opacity));
   }
 
   *.scrollbar-active::-webkit-scrollbar-thumb:active {
-    background-color: hsl(var(--foreground) / 0.62);
+    background-color: hsl(var(--foreground) / var(--ui-scrollbar-active-opacity));
   }
 
   *::-webkit-scrollbar-button {
@@ -261,6 +277,7 @@
   .editor-ui-control {
     min-height: var(--ui-control-height-md);
     border-width: var(--ui-border-width);
+    border-style: var(--ui-border-style);
     border-radius: var(--theme-radius-control-md);
     padding-inline: var(--ui-control-padding-x);
     padding-block: var(--ui-control-padding-y);
@@ -288,6 +305,7 @@
 
   .editor-ui-surface {
     border-width: var(--ui-border-width);
+    border-style: var(--ui-border-style);
     border-radius: var(--theme-radius-control-lg);
     background-color: hsl(var(--card) / var(--ui-surface-opacity));
     backdrop-filter: blur(var(--ui-backdrop-blur));
@@ -295,25 +313,28 @@
 
   .editor-ui-popover {
     border-width: var(--ui-border-width);
+    border-style: var(--ui-border-style);
     border-radius: var(--theme-radius-control-md);
     background-color: hsl(var(--popover) / var(--ui-surface-opacity));
     backdrop-filter: blur(var(--ui-backdrop-blur));
-    box-shadow: 0 8px 24px hsl(var(--foreground) / calc(var(--ui-shadow-opacity) * 0.7));
+    box-shadow: var(--ui-shadow-popover);
   }
 
   .editor-ui-panel {
     border-width: var(--ui-border-width);
+    border-style: var(--ui-border-style);
     border-radius: var(--theme-radius-app);
     background-color: hsl(var(--card) / var(--ui-surface-opacity));
     backdrop-filter: blur(var(--ui-backdrop-blur));
-    box-shadow: 0 12px 36px hsl(var(--foreground) / var(--ui-shadow-opacity));
+    box-shadow: var(--ui-shadow-panel);
   }
 
   .editor-ui-dialog {
     border-width: var(--ui-border-width);
+    border-style: var(--ui-border-style);
     border-radius: var(--theme-radius-control-lg);
     background-color: hsl(var(--card));
-    box-shadow: 0 18px 60px hsl(var(--foreground) / calc(var(--ui-shadow-opacity) * 1.25));
+    box-shadow: var(--ui-shadow-dialog);
   }
 
   .editor-ui-divider {
@@ -350,12 +371,12 @@
     display: flex;
     align-items: center;
     gap: calc(var(--ui-control-gap) * 0.5);
-    border-width: var(--ui-border-width);
+    border-width: 0;
     border-radius: var(--theme-radius-control-md);
     padding: calc(var(--ui-control-gap) * 0.5);
     background-color: hsl(var(--card) / var(--ui-surface-opacity));
     backdrop-filter: blur(var(--ui-backdrop-blur));
-    box-shadow: 0 6px 20px hsl(var(--foreground) / calc(var(--ui-shadow-opacity) * 0.7));
+    box-shadow: var(--ui-shadow-toolbar);
   }
 }
 
@@ -432,15 +453,15 @@
 }
 
 .terminal-panel .xterm .xterm-viewport.scrollbar-active {
-  scrollbar-color: hsl(var(--terminal-foreground) / 0.24) transparent;
+  scrollbar-color: hsl(var(--terminal-foreground) / var(--ui-scrollbar-opacity)) transparent;
 }
 
 .terminal-panel .xterm .xterm-viewport.scrollbar-active::-webkit-scrollbar-thumb {
-  background-color: hsl(var(--terminal-foreground) / 0.24);
+  background-color: hsl(var(--terminal-foreground) / var(--ui-scrollbar-opacity));
 }
 
 .terminal-panel .xterm .xterm-viewport.scrollbar-active::-webkit-scrollbar-thumb:hover {
-  background-color: hsl(var(--terminal-foreground) / 0.44);
+  background-color: hsl(var(--terminal-foreground) / var(--ui-scrollbar-hover-opacity));
 }
 
 .terminal-panel .xterm .xterm-screen {
@@ -479,17 +500,13 @@
 
 .markdown-editor-panel .milkdown .editor {
   min-height: 100vh;
-  padding: 80px clamp(24px, 8vw, 120px);
+  padding: var(--markdown-layout-padding-y) var(--markdown-layout-padding-x);
   background: hsl(var(--background));
 }
 
 .markdown-editor-panel.markdown-editor-panel--window .milkdown,
 .markdown-editor-panel.markdown-editor-panel--window .milkdown .editor {
   min-height: 100%;
-}
-
-.markdown-editor-panel.markdown-editor-panel--window .milkdown .editor {
-  padding: 48px clamp(20px, 8%, 56px);
 }
 
 .markdown-editor-panel .milkdown .ProseMirror {
@@ -705,8 +722,8 @@
 }
 
 .markdown-editor-panel .milkdown .milkdown-list-item-block li:has(> .label-wrapper :is(.checked, .unchecked)) > .label-wrapper {
-  width: max(24px, var(--markdown-task-list-checkbox-size));
-  flex: 0 0 max(24px, var(--markdown-task-list-checkbox-size));
+  width: max(var(--markdown-task-checkbox-placeholder-width), var(--markdown-task-list-checkbox-size));
+  flex: 0 0 max(var(--markdown-task-checkbox-placeholder-width), var(--markdown-task-list-checkbox-size));
 }
 
 .markdown-editor-panel .milkdown .milkdown-list-item-block li .label-wrapper :is(.checked, .unchecked) {
@@ -716,7 +733,7 @@
   padding: 0;
   flex: none;
   overflow: hidden;
-  border: var(--markdown-task-list-checkbox-border-width) solid var(--markdown-task-list-checkbox-border-color);
+  border: var(--markdown-task-list-checkbox-border-width) var(--markdown-task-list-checkbox-border-style) var(--markdown-task-list-checkbox-border-color);
   border-radius: var(--markdown-task-list-checkbox-radius);
   background: var(--markdown-task-list-checkbox-background);
 }
@@ -745,6 +762,7 @@
   box-sizing: border-box;
   margin: var(--markdown-blockquote-margin-y) 0;
   padding: var(--markdown-blockquote-padding-y) var(--markdown-blockquote-padding-x);
+  border-left: var(--markdown-blockquote-border-width) var(--markdown-blockquote-border-style) var(--markdown-blockquote-border-color);
   border-radius: var(--markdown-blockquote-radius);
   background: var(--markdown-blockquote-background);
   color: var(--markdown-blockquote-color);
@@ -756,11 +774,7 @@
 }
 
 .markdown-editor-panel .milkdown .ProseMirror blockquote::before {
-  top: 0;
-  bottom: 0;
-  width: var(--markdown-blockquote-border-width);
-  border-radius: var(--markdown-blockquote-radius) 0 0 var(--markdown-blockquote-radius);
-  background: var(--markdown-blockquote-border-color);
+  display: none;
 }
 
 .markdown-editor-panel .milkdown .ProseMirror blockquote p {
@@ -821,7 +835,7 @@
 
 .markdown-editor-panel .milkdown .milkdown-table-block table {
   overflow: hidden;
-  border: var(--markdown-table-border-width) solid var(--markdown-table-border-color);
+  border: var(--markdown-table-border-width) var(--markdown-table-border-style) var(--markdown-table-border-color);
   border-collapse: separate;
   border-spacing: 0;
   border-radius: var(--markdown-table-radius);
@@ -832,7 +846,7 @@
 .markdown-editor-panel .milkdown .milkdown-table-block :is(th, td) {
   padding: var(--markdown-table-cell-padding-y) var(--markdown-table-cell-padding-x);
   border-width: 0 var(--markdown-table-border-width) var(--markdown-table-border-width) 0;
-  border-style: solid;
+  border-style: var(--markdown-table-border-style);
   border-color: var(--markdown-table-border-color);
 }
 
@@ -863,7 +877,7 @@
 
 .markdown-editor-panel .milkdown .ProseMirror img,
 .markdown-editor-panel .milkdown .milkdown-image-block > .image-wrapper img {
-  border: var(--markdown-image-border-width) solid var(--markdown-image-border-color);
+  border: var(--markdown-image-border-width) var(--markdown-image-border-style) var(--markdown-image-border-color);
   border-radius: var(--markdown-image-radius);
 }
 

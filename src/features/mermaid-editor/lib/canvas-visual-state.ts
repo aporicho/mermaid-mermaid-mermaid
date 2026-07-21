@@ -1,6 +1,7 @@
 import type { AlignmentGuide } from "@/features/mermaid-editor/lib/alignment-guides";
 import type { InteractionState } from "@/features/mermaid-editor/lib/canvas-interaction";
 import type { CanvasEdge, EditorMode, Selection } from "@/features/mermaid-editor/lib/editor-types";
+import type { CanvasStrokeStyle, CanvasThemeTokens, ShadowTokens } from "@/features/mermaid-editor/lib/editor-theme/appearance-types";
 
 export type InlineEditTarget = { type: "node" | "subgraph" | "edge" | "tableCell" | "tableHeader"; id: string } | null | undefined;
 
@@ -13,7 +14,10 @@ export type NodeVisualState = {
   kind: NodeVisualKind;
   stroke: string;
   strokeWidth: number;
+  strokeEnabled: boolean;
+  dash?: number[];
   textFill: string;
+  shadow: ShadowTokens;
 };
 
 export type EdgeVisualState = {
@@ -21,6 +25,7 @@ export type EdgeVisualState = {
   stroke: string;
   fill: string;
   strokeWidth: number;
+  strokeEnabled: boolean;
   dash?: number[];
   opacity?: number;
   labelFill: string;
@@ -45,143 +50,192 @@ export type EdgeEndpointVisualState = {
   strokeWidth: number;
 };
 
-export type CanvasVisualTokens = {
-  colors: {
-    accent: string;
-    accentHover: string;
-    connection: string;
-    connectionInvalid: string;
-    edge: string;
-    edgeText: string;
-    labelStroke: string;
-    nodeStroke: string;
-    nodeText: string;
-    surface: string;
-    selectionFill: string;
-    anchorStroke: string;
-    gridDotRgb: string;
-    previewInvalid: string;
-  };
-  node: {
-    cornerRadius: number;
-    strokeWidth: number;
-    emphasizedStrokeWidth: number;
-    fillSaturation: number;
-    fillLuminanceSteps: number;
-    previewShadowOpacity: number;
-  };
-  anchor: {
-    radius: number;
-    endpointRadius: number;
-    strokeWidth: number;
-  };
-  edge: {
-    hitStrokeWidth: number;
-    strokeWidth: number;
-    thickStrokeWidth: number;
-    dottedStrokeWidth: number;
-    dottedDash: readonly number[];
-    pointerLength: number;
-    pointerWidth: number;
-    parallelSpacing: number;
-    curveSegments: number;
-    labelCornerRadius: number;
-    endpointMarkerRadius: number;
-  };
-  overlay: {
-    strokeWidth: number;
-    selectionDash: readonly number[];
-    connectionDash: readonly number[];
-    centerGuideDash: readonly number[];
-    subgraphDash: readonly number[];
-  };
-  shape: {
-    polygonCornerRadius: number;
-    fallbackCornerRadius: number;
-    forkCornerRadius: number;
-  };
-  subgraph: {
-    fillOpacity: number;
-    titleCornerRadius: number;
-    titleInsetX: number;
-    titleFontSize: number;
-    titleFontWeight: string;
-    titleStrokeWidth: number;
-    anchorCornerScale: number;
-    anchorCornerOpacity: number;
-  };
+export type GroupVisualKind = "normal" | "hovered" | "selected" | "connectionTarget" | "connectionInvalid";
+
+export type GroupVisualState = {
+  kind: GroupVisualKind;
+  fill: string;
+  fillOpacity: number;
+  stroke: string;
+  strokeWidth: number;
+  strokeEnabled: boolean;
+  dash?: number[];
+  shadow: ShadowTokens;
 };
 
+export type CanvasVisualTokens = Omit<CanvasThemeTokens, "mermaidSvg">;
+
 export const CANVAS_VISUAL_TOKENS: CanvasVisualTokens = {
-  colors: {
-    accent: "#ff4050",
-    accentHover: "#d92f41",
-    connection: "#ff4050",
-    connectionInvalid: "#9b5a50",
-    edge: "#2a251f",
-    edgeText: "#1c1712",
-    labelStroke: "#b8ada0",
-    nodeStroke: "#2a251f",
-    nodeText: "#18130f",
-    surface: "#fbf6ef",
-    selectionFill: "rgba(255,64,80,0.08)",
-    anchorStroke: "#fbf6ef",
-    gridDotRgb: "34, 29, 24",
-    previewInvalid: "#9f9286"
+  surface: {
+    background: "#fbf6ef",
+    renderBackground: "#f8f3ec"
   },
-  node: {
-    cornerRadius: 14,
-    strokeWidth: 1,
-    emphasizedStrokeWidth: 1.5,
+  grid: {
+    color: "#18130f",
+    minorStep: 24,
+    majorEvery: 5,
+    minorAlpha: 0.18,
+    majorAlpha: 0.3,
+    superAlpha: 0.28,
+    minorRadiusPx: 0.85,
+    majorRadiusPx: 1.25,
+    superRadiusPx: 1.3,
+    minorVisibleScale: 0.72,
+    majorVisibleScale: 0.24,
+    maxDots: 5_200
+  },
+  ordinaryNode: {
+    textColor: "#18130f",
+    borderColor: "#2a251f",
+    hoverBorderColor: "#b91f31",
+    selectedBorderColor: "#ff4050",
+    invalidBorderColor: "#9b5a50",
+    borderWidth: 1,
+    emphasizedBorderWidth: 1.5,
+    highlightBorderBoost: 1,
+    borderStyle: "solid",
+    customDash: [],
     fillSaturation: 1,
     fillLuminanceSteps: 256,
-    previewShadowOpacity: 0.22
-  },
-  anchor: {
-    radius: 6,
-    endpointRadius: 7,
-    strokeWidth: 2
+    radius: 4,
+    roundedRadius: 14,
+    polygonRadius: 6,
+    forkRadius: 2,
+    shadow: { color: "#2a251f", blur: 0, opacity: 0, offsetX: 0, offsetY: 0 },
+    dragShadow: { color: "#2a251f", blur: 12, opacity: 0.22, offsetX: 0, offsetY: 4 },
+    paddingX: 14,
+    paddingY: 14,
+    minChars: 6,
+    maxChars: 24,
+    maxLines: 12
   },
   edge: {
-    hitStrokeWidth: 18,
-    strokeWidth: 2,
-    thickStrokeWidth: 4,
-    dottedStrokeWidth: 2,
+    color: "#2a251f",
+    textColor: "#1c1712",
+    hoverColor: "#b91f31",
+    selectedColor: "#ff4050",
+    invalidColor: "#9f9286",
+    width: 2,
+    thickWidth: 4,
+    dottedWidth: 2,
+    emphasizedWidth: 3,
+    highlightBorderBoost: 0,
+    style: "solid",
+    customDash: [],
     dottedDash: [1, 8],
+    invisibleOpacity: 0.32,
+    invalidPreviewOpacity: 0.48,
     pointerLength: 10,
     pointerWidth: 10,
+    endpointMarkerRadius: 4.5,
+    hitStrokeWidth: 18,
     parallelSpacing: 18,
-    curveSegments: 120,
-    labelCornerRadius: 8,
-    endpointMarkerRadius: 4.5
+    curveSegments: 120
   },
-  overlay: {
-    strokeWidth: 1,
-    selectionDash: [6, 5],
-    connectionDash: [8, 6],
-    centerGuideDash: [6, 5],
-    subgraphDash: [8, 6]
+  edgeLabel: {
+    background: "#fbf6ef",
+    textColor: "#1c1712",
+    borderColor: "#b8ada0",
+    hoverBorderColor: "#b91f31",
+    selectedBorderColor: "#ff4050",
+    borderWidth: 1,
+    borderStyle: "solid",
+    customDash: [],
+    radius: 8,
+    minChars: 4,
+    maxChars: 20,
+    paddingX: 10,
+    height: 28
   },
-  shape: {
-    polygonCornerRadius: 6,
-    fallbackCornerRadius: 4,
-    forkCornerRadius: 2
-  },
-  subgraph: {
-    fillOpacity: 0.34,
-    titleCornerRadius: 8,
-    titleInsetX: 10,
-    titleFontSize: 12,
-    titleFontWeight: "bold",
-    titleStrokeWidth: 1,
+  group: {
+    background: "#fbf6ef",
+    backgroundOpacity: 0.34,
+    borderColor: "#b8ada0",
+    hoverBorderColor: "#b91f31",
+    selectedBorderColor: "#ff4050",
+    invalidBorderColor: "#9b5a50",
+    borderWidth: 1,
+    emphasizedBorderWidth: 1.5,
+    borderStyle: "dashed",
+    customDash: [8, 6],
+    radius: 14,
+    shadow: { color: "#18130f", blur: 0, opacity: 0, offsetX: 0, offsetY: 0 },
+    paddingX: 36,
+    paddingTop: 54,
+    paddingBottom: 32,
+    minWidth: 220,
+    minHeight: 128,
+    fallbackGap: 48,
+    title: {
+      background: "#fbf6ef",
+      textColor: "#18130f",
+      borderColor: "#b8ada0",
+      borderWidth: 1,
+      borderStyle: "solid",
+      customDash: [],
+      radius: 8,
+      shadow: { color: "#18130f", blur: 0, opacity: 0, offsetX: 0, offsetY: 0 },
+      height: 28,
+      insetX: 14,
+      insetTop: 10,
+      paddingX: 10
+    },
     anchorCornerScale: 0.72,
     anchorCornerOpacity: 0.65
+  },
+  overlay: {
+    selection: {
+      fillColor: "#ff4050",
+      fillOpacity: 0.08,
+      strokeColor: "#ff4050",
+      strokeWidth: 1,
+      strokeStyle: "dashed",
+      customDash: [6, 5]
+    },
+    connectionDraft: {
+      validColor: "#ff4050",
+      invalidColor: "#9f9286",
+      invalidOpacity: 0.48,
+      strokeWidth: 2,
+      strokeStyle: "dashed",
+      customDash: [8, 6]
+    },
+    guide: {
+      centerColor: "#ff4050",
+      edgeColor: "#b91f31",
+      strokeWidth: 1,
+      centerStyle: "dashed",
+      customDash: [6, 5]
+    },
+    anchor: {
+      fillColor: "#ff4050",
+      targetColor: "#ff4050",
+      hoverColor: "#b91f31",
+      strokeColor: "#fbf6ef",
+      strokeWidth: 2,
+      radius: 6,
+      endpointRadius: 7,
+      activeRadiusBoost: 1
+    }
+  },
+  actionBadge: {
+    background: "#fbf6ef",
+    foreground: "#ff4050",
+    borderColor: "#ff4050",
+    borderWidth: 1.5,
+    borderStyle: "solid",
+    customDash: [],
+    radius: 9,
+    size: 18,
+    opacity: 0.96,
+    insetX: 10,
+    insetY: 10
   }
 };
 
 export function resolveCanvasNodeFill(fill: string, visualTokens: CanvasVisualTokens = CANVAS_VISUAL_TOKENS) {
-  const saturation = Math.min(1, Math.max(0, visualTokens.node.fillSaturation));
-  const luminanceSteps = Math.round(Math.min(256, Math.max(2, visualTokens.node.fillLuminanceSteps)));
+  const saturation = Math.min(1, Math.max(0, visualTokens.ordinaryNode.fillSaturation));
+  const luminanceSteps = Math.round(Math.min(256, Math.max(2, visualTokens.ordinaryNode.fillLuminanceSteps)));
   if (saturation === 1 && luminanceSteps === 256) return fill;
 
   const rgb = parseHexColor(fill);
@@ -197,14 +251,14 @@ export function resolveCanvasNodeFill(fill: string, visualTokens: CanvasVisualTo
 }
 
 export function resolveCanvasNodeTextFill(fill: string, preferredTextFill: string, visualTokens: CanvasVisualTokens = CANVAS_VISUAL_TOKENS) {
-  if (visualTokens.node.fillLuminanceSteps >= 256) return preferredTextFill;
+  if (visualTokens.ordinaryNode.fillLuminanceSteps >= 256) return preferredTextFill;
 
   const resolvedFill = parseHexColor(resolveCanvasNodeFill(fill, visualTokens));
   const preferred = parseHexColor(preferredTextFill);
-  const alternate = parseHexColor(visualTokens.colors.surface);
+  const alternate = parseHexColor(visualTokens.surface.background);
   if (!resolvedFill || !preferred || !alternate) return preferredTextFill;
 
-  return colorContrast(resolvedFill, alternate) > colorContrast(resolvedFill, preferred) ? visualTokens.colors.surface : preferredTextFill;
+  return colorContrast(resolvedFill, alternate) > colorContrast(resolvedFill, preferred) ? visualTokens.surface.background : preferredTextFill;
 }
 
 function parseHexColor(value: string) {
@@ -258,33 +312,40 @@ export function getNodeVisualState(input: {
 }): NodeVisualState {
   const visualTokens = input.visualTokens ?? CANVAS_VISUAL_TOKENS;
   const kind = getNodeVisualKind(input);
+  const node = visualTokens.ordinaryNode;
+  const base = {
+    strokeEnabled: canvasStrokeEnabled(node.borderStyle),
+    dash: canvasStrokeDash(node.borderStyle, node.customDash),
+    textFill: node.textColor,
+    shadow: kind === "dragging" ? node.dragShadow : node.shadow
+  };
 
   if (kind === "editing" || kind === "dragging" || kind === "selected") {
-    return emphasizedNode(kind, visualTokens.colors.accent, visualTokens);
+    return { ...base, kind, stroke: node.selectedBorderColor, strokeWidth: node.emphasizedBorderWidth };
   }
 
   if (kind === "connectionTarget") {
-    return emphasizedNode(kind, visualTokens.colors.connection, visualTokens);
+    return { ...base, kind, stroke: node.selectedBorderColor, strokeWidth: node.emphasizedBorderWidth };
   }
 
   if (kind === "connectionInvalid") {
-    return emphasizedNode(kind, visualTokens.colors.connectionInvalid, visualTokens);
+    return { ...base, kind, stroke: node.invalidBorderColor, strokeWidth: node.emphasizedBorderWidth };
   }
 
   if (kind === "hovered") {
     return {
+      ...base,
       kind,
-      stroke: visualTokens.colors.accentHover,
-      strokeWidth: visualTokens.node.strokeWidth,
-      textFill: visualTokens.colors.nodeText
+      stroke: node.hoverBorderColor,
+      strokeWidth: node.borderWidth
     };
   }
 
   return {
+    ...base,
     kind,
-    stroke: visualTokens.colors.nodeStroke,
-    strokeWidth: visualTokens.node.strokeWidth,
-    textFill: visualTokens.colors.nodeText
+    stroke: node.borderColor,
+    strokeWidth: node.borderWidth
   };
 }
 
@@ -299,24 +360,25 @@ export function getAnchorVisualState(input: {
 }): AnchorVisualState {
   const visualTokens = input.visualTokens ?? CANVAS_VISUAL_TOKENS;
   const kind = getAnchorVisualKind(input);
+  const anchor = visualTokens.overlay.anchor;
   const base = {
     kind,
     visible: kind !== "hidden",
-    radius: visualTokens.anchor.radius,
-    stroke: visualTokens.colors.anchorStroke,
-    strokeWidth: visualTokens.anchor.strokeWidth
+    radius: anchor.radius,
+    stroke: anchor.strokeColor,
+    strokeWidth: anchor.strokeWidth
   };
 
   if (kind === "active" || kind === "target") {
     return {
       ...base,
-      fill: visualTokens.colors.connection
+      fill: anchor.targetColor
     };
   }
 
   return {
     ...base,
-    fill: visualTokens.colors.accent
+    fill: anchor.fillColor
   };
 }
 
@@ -334,69 +396,129 @@ export function getEdgeVisualState(input: {
   const emphasized = kind === "selected" || kind === "editing";
   const hovered = kind === "hovered";
   const stroke = emphasized
-    ? visualTokens.colors.accent
+    ? visualTokens.edge.selectedColor
     : hovered
-      ? visualTokens.colors.accentHover
-      : visualTokens.colors.edge;
+      ? visualTokens.edge.hoverColor
+      : visualTokens.edge.color;
+  const labelStroke = emphasized
+    ? visualTokens.edgeLabel.selectedBorderColor
+    : hovered
+      ? visualTokens.edgeLabel.hoverBorderColor
+      : visualTokens.edgeLabel.borderColor;
 
   return {
     kind,
     stroke,
     fill: stroke,
-    strokeWidth: semantic.strokeWidth + (emphasized ? 1 : 0),
+    strokeWidth: emphasized ? visualTokens.edge.emphasizedWidth : semantic.strokeWidth,
+    strokeEnabled: semantic.strokeEnabled,
     dash: semantic.dash,
     opacity: semantic.opacity,
-    labelFill: visualTokens.colors.surface,
-    labelStroke: emphasized || hovered ? stroke : visualTokens.colors.labelStroke,
-    labelTextFill: emphasized || hovered ? visualTokens.colors.accent : visualTokens.colors.edgeText
+    labelFill: visualTokens.edgeLabel.background,
+    labelStroke,
+    labelTextFill: emphasized || hovered ? visualTokens.edgeLabel.textColor : visualTokens.edge.textColor
   };
 }
 
 export function getConnectionDraftVisualState(input: { valid?: boolean; edge?: CanvasEdge; visualTokens?: CanvasVisualTokens } = {}) {
   const visualTokens = input.visualTokens ?? CANVAS_VISUAL_TOKENS;
-  const semantic = input.edge ? edgeSemanticStyle(input.edge, visualTokens) : { strokeWidth: visualTokens.edge.strokeWidth, dash: visualTokens.overlay.connectionDash };
+  const draft = visualTokens.overlay.connectionDraft;
+  const semantic = input.edge
+    ? edgeSemanticStyle(input.edge, visualTokens)
+    : {
+        strokeWidth: draft.strokeWidth,
+        strokeEnabled: canvasStrokeEnabled(draft.strokeStyle),
+        dash: canvasStrokeDash(draft.strokeStyle, draft.customDash)
+      };
   const valid = input.valid ?? false;
-  const stroke = valid ? visualTokens.colors.connection : visualTokens.colors.previewInvalid;
+  const stroke = valid ? draft.validColor : input.edge ? visualTokens.edge.invalidColor : draft.invalidColor;
   const arrowType = input.edge?.style === "invisible" ? "none" : input.edge?.markerEnd || input.edge?.arrowType || "arrow";
 
   return {
     stroke,
     fill: stroke,
+    fillEnabled: semantic.strokeEnabled,
     strokeWidth: semantic.strokeWidth,
+    strokeEnabled: semantic.strokeEnabled,
     dash: semantic.dash ? [...semantic.dash] : undefined,
-    opacity: valid ? 1 : 0.48,
+    opacity: valid ? 1 : input.edge ? visualTokens.edge.invalidPreviewOpacity : draft.invalidOpacity,
     pointerLength: arrowType === "arrow" ? visualTokens.edge.pointerLength : 0,
     pointerWidth: arrowType === "arrow" ? visualTokens.edge.pointerWidth : 0
   };
 }
 
 export function getSelectionBoxVisualState(visualTokens: CanvasVisualTokens = CANVAS_VISUAL_TOKENS) {
+  const selection = visualTokens.overlay.selection;
   return {
-    fill: visualTokens.colors.selectionFill,
-    stroke: visualTokens.colors.accent,
-    strokeWidth: visualTokens.overlay.strokeWidth,
-    dash: [...visualTokens.overlay.selectionDash]
+    fill: colorWithOpacity(selection.fillColor, selection.fillOpacity),
+    fillEnabled: selection.fillOpacity > 0,
+    stroke: selection.strokeColor,
+    strokeWidth: selection.strokeWidth,
+    strokeEnabled: canvasStrokeEnabled(selection.strokeStyle),
+    dash: canvasStrokeDash(selection.strokeStyle, selection.customDash)
+  };
+}
+
+export function getGroupVisualState(input: {
+  hovered?: boolean;
+  selected?: boolean;
+  connectionTarget?: boolean;
+  connectionInvalid?: boolean;
+  visualTokens?: CanvasVisualTokens;
+} = {}): GroupVisualState {
+  const visualTokens = input.visualTokens ?? CANVAS_VISUAL_TOKENS;
+  const group = visualTokens.group;
+  const kind: GroupVisualKind = input.connectionInvalid
+    ? "connectionInvalid"
+    : input.connectionTarget
+      ? "connectionTarget"
+      : input.selected
+        ? "selected"
+        : input.hovered
+          ? "hovered"
+          : "normal";
+  const emphasized = kind === "selected" || kind === "connectionTarget" || kind === "connectionInvalid";
+  const stroke = kind === "connectionInvalid"
+    ? group.invalidBorderColor
+    : kind === "selected" || kind === "connectionTarget"
+      ? group.selectedBorderColor
+      : kind === "hovered"
+        ? group.hoverBorderColor
+        : group.borderColor;
+
+  return {
+    kind,
+    fill: group.background,
+    fillOpacity: group.backgroundOpacity,
+    stroke,
+    strokeWidth: emphasized ? group.emphasizedBorderWidth : group.borderWidth,
+    strokeEnabled: canvasStrokeEnabled(group.borderStyle),
+    dash: canvasStrokeDash(group.borderStyle, group.customDash),
+    shadow: group.shadow
   };
 }
 
 export function getAlignmentGuideVisualState(kind: AlignmentGuide["kind"], visualTokens: CanvasVisualTokens = CANVAS_VISUAL_TOKENS) {
+  const guide = visualTokens.overlay.guide;
   return {
-    stroke: kind === "center" ? visualTokens.colors.accent : visualTokens.colors.accentHover,
-    strokeWidth: visualTokens.overlay.strokeWidth,
-    dash: kind === "center" ? [...visualTokens.overlay.centerGuideDash] : undefined
+    stroke: kind === "center" ? guide.centerColor : guide.edgeColor,
+    strokeWidth: guide.strokeWidth,
+    strokeEnabled: kind !== "center" || canvasStrokeEnabled(guide.centerStyle),
+    dash: kind === "center" ? canvasStrokeDash(guide.centerStyle, guide.customDash) : undefined
   };
 }
 
 export function getEdgeEndpointVisualState(input: { hovered?: boolean; active?: boolean; visualTokens?: CanvasVisualTokens } = {}): EdgeEndpointVisualState {
   const visualTokens = input.visualTokens ?? CANVAS_VISUAL_TOKENS;
   const kind: EdgeEndpointVisualKind = input.active ? "active" : input.hovered ? "hovered" : "normal";
+  const anchor = visualTokens.overlay.anchor;
 
   return {
     kind,
-    radius: visualTokens.anchor.endpointRadius + (kind === "active" ? 1 : 0),
-    fill: kind === "active" ? visualTokens.colors.connection : kind === "hovered" ? visualTokens.colors.accentHover : visualTokens.colors.accent,
-    stroke: visualTokens.colors.anchorStroke,
-    strokeWidth: visualTokens.anchor.strokeWidth
+    radius: anchor.endpointRadius + (kind === "active" ? anchor.activeRadiusBoost : 0),
+    fill: kind === "active" ? anchor.targetColor : kind === "hovered" ? anchor.hoverColor : anchor.fillColor,
+    stroke: anchor.strokeColor,
+    strokeWidth: anchor.strokeWidth
   };
 }
 
@@ -464,19 +586,30 @@ function isConnectionTarget(nodeId: string, hoveredNodeId: string | null, intera
   return interactionState.kind === "connectingEdge" && interactionState.fromId !== nodeId && hoveredNodeId === nodeId;
 }
 
-function emphasizedNode(kind: NodeVisualKind, stroke: string, visualTokens: CanvasVisualTokens): NodeVisualState {
-  return {
-    kind,
-    stroke,
-    strokeWidth: visualTokens.node.emphasizedStrokeWidth,
-    textFill: visualTokens.colors.nodeText
-  };
+function edgeSemanticStyle(edge: CanvasEdge, visualTokens: CanvasVisualTokens = CANVAS_VISUAL_TOKENS) {
+  const strokeEnabled = canvasStrokeEnabled(visualTokens.edge.style);
+  const themedDash = canvasStrokeDash(visualTokens.edge.style, visualTokens.edge.customDash);
+  if (edge.style === "thick") return { strokeWidth: visualTokens.edge.thickWidth, strokeEnabled, dash: themedDash };
+  if (edge.style === "dotted") return { strokeWidth: visualTokens.edge.dottedWidth, strokeEnabled, dash: [...visualTokens.edge.dottedDash] };
+  if (edge.style === "invisible") return { strokeWidth: visualTokens.edge.width, strokeEnabled, dash: themedDash, opacity: visualTokens.edge.invisibleOpacity };
+  if (edge.animation && edge.animation !== "none") return { strokeWidth: visualTokens.edge.width, strokeEnabled, dash: [...visualTokens.edge.dottedDash] };
+  return { strokeWidth: visualTokens.edge.width, strokeEnabled, dash: themedDash };
 }
 
-function edgeSemanticStyle(edge: CanvasEdge, visualTokens: CanvasVisualTokens = CANVAS_VISUAL_TOKENS) {
-  if (edge.style === "thick") return { strokeWidth: visualTokens.edge.thickStrokeWidth, dash: undefined };
-  if (edge.style === "dotted") return { strokeWidth: visualTokens.edge.dottedStrokeWidth, dash: [...visualTokens.edge.dottedDash] };
-  if (edge.style === "invisible") return { strokeWidth: visualTokens.edge.strokeWidth, dash: [...visualTokens.overlay.connectionDash], opacity: 0.32 };
-  if (edge.animation && edge.animation !== "none") return { strokeWidth: visualTokens.edge.strokeWidth, dash: [...visualTokens.edge.dottedDash] };
-  return { strokeWidth: visualTokens.edge.strokeWidth, dash: undefined };
+export function canvasStrokeEnabled(style: CanvasStrokeStyle) {
+  return style !== "none";
+}
+
+export function canvasStrokeDash(style: CanvasStrokeStyle, customDash: readonly number[]): number[] | undefined {
+  if (style === "dashed") return [8, 6];
+  if (style === "dotted") return [1, 6];
+  if (style === "dash-dot") return [8, 5, 1, 5];
+  if (style === "custom") return [...customDash];
+  return undefined;
+}
+
+function colorWithOpacity(color: string, opacity: number) {
+  const rgb = parseHexColor(color);
+  if (!rgb) return color;
+  return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${Math.min(1, Math.max(0, opacity))})`;
 }

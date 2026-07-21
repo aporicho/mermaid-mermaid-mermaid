@@ -41,6 +41,15 @@ describe("Markdown style contract", () => {
     expect(rule).toContain("font-size: var(--markdown-inline-code-font-size)");
     expect(rule).toContain("line-height: var(--markdown-inline-code-line-height)");
   });
+
+  it("uses theme tokens for reading layout and every exposed Markdown border style", () => {
+    expect(cssRule(".markdown-editor-panel .milkdown .editor")).toContain("padding: var(--markdown-layout-padding-y) var(--markdown-layout-padding-x)");
+    expect(cssRule(".markdown-editor-panel .milkdown .ProseMirror blockquote")).toContain("var(--markdown-blockquote-border-style)");
+    expect(cssRule(".markdown-editor-panel .milkdown .milkdown-table-block table")).toContain("var(--markdown-table-border-style)");
+    expect(css).toContain("var(--markdown-image-border-width) var(--markdown-image-border-style) var(--markdown-image-border-color)");
+    expect(css).toContain("var(--markdown-task-list-checkbox-border-style)");
+    expect(css).toContain("var(--markdown-task-checkbox-placeholder-width)");
+  });
 });
 
 function cssRule(selector: string) {

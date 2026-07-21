@@ -1,4 +1,36 @@
-export type ThemeSettingsCategoryId = "library" | "interface" | "typography" | "canvas" | "markdown" | "terminal" | "motion" | "diagnostics";
+import {
+  DEFAULT_EDITOR_THEME,
+  MARKDOWN_ELEMENT_DEFINITIONS,
+  MARKDOWN_TOKEN_DEFINITIONS,
+  type EditorTheme,
+  type EditorTypographyTokens,
+  type MarkdownTokenFieldKind
+} from "@/features/mermaid-editor/lib/editor-theme";
+
+export type ThemeSettingsCategoryId = "library" | "interface" | "canvas" | "specialNode" | "markdown" | "source" | "terminal" | "motion" | "diagnostics";
+
+export type AppearanceTokenState = "editable" | "derived" | "fixed" | "legacy";
+export type AppearanceTokenLevel = "common" | "advanced";
+export type AppearanceTokenConsumer = "css" | "konva" | "mermaid-svg" | "terminal" | "motion" | "diagnostics" | "theme-registry";
+export type AppearanceTokenControlKind = "color" | "font" | "number" | "text" | "css-border-style" | "canvas-stroke-style" | "dash";
+
+export type AppearanceTokenDefinition = {
+  path: readonly string[];
+  label: string;
+  category: ThemeSettingsCategoryId;
+  groupId: string;
+  hierarchy: readonly string[];
+  state: AppearanceTokenState;
+  level: AppearanceTokenLevel;
+  consumer: AppearanceTokenConsumer;
+  control: {
+    kind: AppearanceTokenControlKind;
+    min?: number;
+    max?: number;
+    step?: number;
+    unit?: string;
+  };
+};
 
 export type ThemeTokenGroupDefinition = {
   id: string;
@@ -8,67 +40,175 @@ export type ThemeTokenGroupDefinition = {
   path: readonly string[];
   commonKeys?: readonly string[];
   hiddenKeys?: readonly string[];
-  section?: "ordinary" | "special";
+  level?: "common" | "advanced";
+  consumer: AppearanceTokenConsumer;
+  typographyGroup?: keyof EditorTypographyTokens;
 };
 
 export const THEME_SETTINGS_CATEGORIES = [
   { id: "library", label: "主题库", description: "选择预设或从当前外观开始定制" },
-  { id: "interface", label: "界面", description: "应用框架、字体、密度与控件" },
-  { id: "typography", label: "排版", description: "界面、画布、卡片、源码和终端的文字角色" },
+  { id: "interface", label: "界面", description: "应用框架、文字、密度与控件" },
   { id: "canvas", label: "画布", description: "节点、连线、分组、网格与交互" },
+  { id: "specialNode", label: "特殊节点", description: "链接、Markdown、图片和表格节点" },
   { id: "markdown", label: "Markdown", description: "集中设置全部 Markdown 排版、色彩、间距和富文本外观" },
+  { id: "source", label: "源码", description: "源码编辑器、分隔线和诊断文字" },
   { id: "terminal", label: "终端", description: "终端基础色和 ANSI 调色板" },
   { id: "motion", label: "动效", description: "时长、缓动、位移与画布反馈" },
   { id: "diagnostics", label: "诊断", description: "可读性阈值与主题问题" }
 ] as const satisfies readonly { id: ThemeSettingsCategoryId; label: string; description: string }[];
 
 export const THEME_TOKEN_GROUPS: readonly ThemeTokenGroupDefinition[] = [
-  group("ui", "interface", "基础色彩", "界面表面、文字、强调色和状态色。", ["ui"], ["background", "foreground", "card", "primary", "muted", "border"]),
-  group("chrome", "interface", "表面与层次", "界面边线、焦点、透明度、模糊和阴影。", ["chrome"]),
-  group("space", "interface", "密度与间距", "面板、控件、节点和网格的尺寸节奏。", ["space"], ["panelPadding", "controlGap", "controlPaddingX", "controlPaddingY", "iconButtonSize", "nodePaddingX", "nodePaddingY"]),
-  group("radius", "interface", "圆角", "应用、控件、节点和标签的圆角。", ["radius"]),
-  group("icon", "interface", "控件与图标", "Iconoir 图标尺寸、描边和按钮高度。", ["icon"], ["sizeSm", "sizeButton", "strokeWidth"], ["family"]),
+  group("interface-colors", "interface", "基础色彩", ["interface", "colors"], "css"),
+  group("interface-surface", "interface", "边框与焦点", ["interface", "surface"], "css"),
+  group("interface-state", "interface", "交互状态", ["interface", "state"], "css"),
+  group("interface-radius", "interface", "圆角", ["interface", "radius"], "css"),
+  group("interface-shadow", "interface", "阴影", ["interface", "shadow"], "css"),
+  group("interface-spacing", "interface", "间距与尺寸", ["interface", "spacing"], "css"),
+  group("interface-icon", "interface", "图标", ["interface", "icon"], "css", { hiddenKeys: ["family"] }),
+  group("interface-scrollbar", "interface", "滚动条", ["interface", "scrollbar"], "css"),
+  typographyGroup("typography-interface", "interface", "界面文字", "interface", "css"),
 
-  { ...group("canvas-colors", "canvas", "画布色彩", "画布、节点、连线和非法状态的颜色。", ["canvas"], ["surface", "nodeStroke", "nodeText", "edge", "edgeText", "labelStroke"]), section: "ordinary" },
-  { ...group("canvas-appearance", "canvas", "节点外观", "节点填色层级和拖动预览阴影。", ["canvasAppearance"]), section: "ordinary" },
-  { ...group("render", "canvas", "源码与渲染", "源码分隔线、渲染背景与网格点。", ["source"]), section: "ordinary" },
-  { ...group("render-surface", "canvas", "渲染表面", "导出及渲染视图使用的背景和网格。", ["render"]), section: "ordinary" },
-  { ...group("stroke", "canvas", "描边与虚线", "节点、连线、选择框、引导线和分组描边。", ["stroke"], ["node", "nodeEmphasized", "edge", "edgeThick", "overlay", "anchor"]), section: "ordinary" },
-  { ...group("canvas-interaction", "canvas", "连线与交互", "锚点、箭头、曲线精度、命中区域和网格细节。", ["canvasInteraction"], ["anchorRadius", "endpointRadius", "edgeHitStrokeWidth", "pointerLength", "pointerWidth", "parallelEdgeSpacing", "edgeCurveSegments"]), section: "ordinary" },
-  { ...group("subgraph", "canvas", "分组", "分组容器、标题、内边距和最小尺寸。", ["subgraph"], ["paddingX", "paddingTop", "paddingBottom", "titleHeight", "minWidth", "minHeight", "fillOpacity"], ["titleFontSize", "titleFontWeight"]), section: "ordinary" },
-  { ...group("edge-label", "canvas", "连线标签", "标签宽度和内边距；排版在独立排版页设置。", ["edgeLabel"], ["minChars", "maxChars", "paddingX", "height"], ["fontSize", "lineHeight"]), section: "ordinary" },
+  group("canvas-surface", "canvas", "画布表面", ["canvas", "surface"], "konva"),
+  group("canvas-grid", "canvas", "网格", ["canvas", "grid"], "konva", { level: "advanced" }),
+  group("canvas-node", "canvas", "普通节点", ["canvas", "ordinaryNode"], "konva"),
+  group("canvas-edge", "canvas", "连线与箭头", ["canvas", "edge"], "konva"),
+  group("canvas-edge-label", "canvas", "连线标签", ["canvas", "edgeLabel"], "konva"),
+  group("canvas-group", "canvas", "组", ["canvas", "group"], "konva"),
+  group("canvas-overlay", "canvas", "选择与辅助", ["canvas", "overlay"], "konva"),
+  group("canvas-action-badge", "canvas", "节点操作徽标", ["canvas", "actionBadge"], "konva"),
+  group("canvas-mermaid-svg", "canvas", "Mermaid SVG", ["canvas", "mermaidSvg"], "mermaid-svg"),
+  typographyGroup("typography-canvas", "canvas", "画布文字", "canvas", "konva"),
+  typographyGroup("typography-mermaid", "canvas", "Mermaid SVG 文字", "mermaid", "mermaid-svg"),
 
-  { ...group("special-node-common", "canvas", "通用外观", "特殊节点共用的表面、文字、边框、圆角与阴影。", ["specialNode", "common"], ["background", "textColor", "mutedTextColor", "accentColor", "borderColor", "borderWidth", "radius"]), section: "special" },
-  { ...group("special-node-link-card", "canvas", "链接卡片", "链接预览的封面、内容区域、间距和尺寸。", ["specialNode", "linkCard"], ["coverBackground", "coverBorderColor", "coverBorderWidth", "coverRadius", "providerColor", "brandColor"]), section: "special" },
-  { ...group("special-node-markdown-document", "canvas", "Markdown 文档", "Markdown 文档卡片的徽标、分隔线、状态和内容层级。", ["specialNode", "markdownDocument"], ["badgeBackground", "badgeColor", "separatorColor", "separatorWidth", "pathOpacity", "excerptOpacity"]), section: "special" },
-  { ...group("special-node-image", "canvas", "图片节点", "图片节点的静态表面与交互边框。", ["specialNode", "image"]), section: "special" },
-  { ...group("special-node-table", "canvas", "表格节点", "表格边框、分隔线、选中单元格和编辑尺寸。", ["specialNode", "table"], ["background", "borderColor", "borderWidth", "dividerColor", "dividerWidth", "selectedCellFill", "selectedCellStroke"]), section: "special" },
+  group("special-node-shared", "specialNode", "共享语义", ["specialNode", "shared"], "konva"),
+  group("special-node-link-card", "specialNode", "链接卡片", ["specialNode", "linkCard"], "konva"),
+  group("special-node-markdown-document", "specialNode", "Markdown 文档", ["specialNode", "markdownDocument"], "konva"),
+  group("special-node-image", "specialNode", "图片节点", ["specialNode", "image"], "konva"),
+  group("special-node-table", "specialNode", "CSV 表格", ["specialNode", "table"], "konva"),
+  typographyGroup("typography-link-card", "specialNode", "链接卡片文字", "linkCard", "konva"),
+  typographyGroup("typography-markdown-card", "specialNode", "Markdown 卡片文字", "markdownCard", "konva"),
+  typographyGroup("typography-table-node", "specialNode", "CSV 表格文字", "tableNode", "konva"),
 
-  group("terminal", "terminal", "基础色彩", "终端背景、文字、光标和选区。", ["terminal"]),
-  group("ansi", "terminal", "ANSI 16 色", "标准色与高亮色调色板。", ["ansi"]),
+  group("source-appearance", "source", "源码外观", ["source"], "css"),
+  typographyGroup("typography-source", "source", "源码与诊断文字", "source", "css"),
 
-  group("motion-duration", "motion", "持续时间", "界面反馈、面板和布局变化的时长。", ["motion", "duration"]),
-  group("motion-ease", "motion", "缓动曲线", "标准、强调、退出和线性缓动。", ["motion", "ease"]),
-  group("motion-distance", "motion", "位移距离", "控件、面板和视图进出场位移。", ["motion", "distance"]),
-  group("motion-stagger", "motion", "错峰", "按钮和列表项目依次出现的间隔。", ["motion", "stagger"]),
-  group("motion-canvas", "motion", "画布反馈", "创建、选中、高亮和靠近反馈。", ["motion", "canvas"], ["createScale", "selectedScale", "highlightDuration", "proximityRadiusPx", "proximityMaxScale", "proximityDuration"]),
+  group("terminal-colors", "terminal", "基础色彩", ["terminal"], "terminal"),
+  group("terminal-ansi", "terminal", "ANSI 16 色", ["ansi"], "terminal"),
+  typographyGroup("typography-terminal", "terminal", "终端文字", "terminal", "terminal"),
 
-  group("diagnostics", "diagnostics", "可读性阈值", "编译主题时使用的文字、焦点和选区对比度阈值。", ["diagnostics"])
+  group("motion-duration", "motion", "持续时间", ["motion", "duration"], "motion"),
+  group("motion-ease", "motion", "缓动曲线", ["motion", "ease"], "motion"),
+  group("motion-distance", "motion", "位移距离", ["motion", "distance"], "motion"),
+  group("motion-stagger", "motion", "错峰", ["motion", "stagger"], "motion"),
+  group("motion-canvas", "motion", "画布反馈", ["motion", "canvas"], "motion"),
+
+  group("diagnostics", "diagnostics", "可读性阈值", ["diagnostics"], "diagnostics")
 ];
 
 function group(
   id: string,
   category: ThemeTokenGroupDefinition["category"],
   title: string,
-  description: string,
   path: readonly string[],
-  commonKeys?: readonly string[],
-  hiddenKeys?: readonly string[]
+  consumer: AppearanceTokenConsumer,
+  options: Pick<ThemeTokenGroupDefinition, "level" | "hiddenKeys"> = {}
 ): ThemeTokenGroupDefinition {
-  return { id, category, title, description, path, commonKeys, hiddenKeys };
+  return { id, category, title, description: "", path, consumer, ...options };
+}
+
+function typographyGroup(
+  id: string,
+  category: ThemeTokenGroupDefinition["category"],
+  title: string,
+  typography: keyof EditorTypographyTokens,
+  consumer: AppearanceTokenConsumer
+): ThemeTokenGroupDefinition {
+  return { id, category, title, description: "", path: ["typography", typography], consumer, typographyGroup: typography };
 }
 
 const TOKEN_LABELS: Record<string, string> = {
+  cardForeground: "面板文字",
+  family: "字体",
+  size: "尺寸",
+  blur: "模糊半径",
+  popoverForeground: "浮层文字",
+  primaryForeground: "主强调文字",
+  secondaryForeground: "次级文字",
+  destructiveForeground: "危险状态文字",
+  input: "输入边框",
+  focusRing: "焦点环",
+  borderStyle: "边框样式",
+  style: "线条样式",
+  customDash: "自定义虚线",
+  hoverOpacity: "悬停透明度",
+  pressedOpacity: "按下透明度",
+  selectedOpacity: "选中透明度",
+  disabledOpacity: "禁用透明度",
+  offsetX: "横向偏移",
+  offsetY: "纵向偏移",
+  minThumbLength: "滑块最小长度",
+  opacity: "透明度",
+  activeOpacity: "活动透明度",
+  renderBackground: "渲染背景",
+  hoverBorderColor: "悬停边框",
+  selectedBorderColor: "选中边框",
+  invalidBorderColor: "非法状态边框",
+  emphasizedBorderWidth: "强调边框宽度",
+  highlightBorderBoost: "高亮附加线宽",
+  fillSaturation: "填色饱和度",
+  fillLuminanceSteps: "填色明度阶数",
+  roundedRadius: "圆角节点圆角",
+  polygonRadius: "多边形圆角",
+  forkRadius: "细长节点圆角",
+  dragShadow: "拖动阴影",
+  selectedColor: "选中颜色",
+  invalidColor: "非法颜色",
+  thickWidth: "粗线宽度",
+  dottedWidth: "点线宽度",
+  emphasizedWidth: "强调线宽",
+  dottedDash: "点线间隔",
+  invisibleOpacity: "隐藏透明度",
+  invalidPreviewOpacity: "非法预览透明度",
+  hitStrokeWidth: "命中宽度",
+  parallelSpacing: "平行连线间距",
+  curveSegments: "曲线采样段数",
+  backgroundOpacity: "背景透明度",
+  anchorCornerScale: "组锚点缩放",
+  anchorCornerOpacity: "组锚点透明度",
+  strokeColor: "描边颜色",
+  validColor: "有效颜色",
+  invalidOpacity: "非法状态透明度",
+  strokeStyle: "描边样式",
+  centerColor: "居中参考线",
+  edgeColor: "边缘参考线",
+  centerStyle: "居中参考线样式",
+  fillColor: "填充颜色",
+  targetColor: "目标颜色",
+  activeRadiusBoost: "活动半径增量",
+  insetX: "横向内缩",
+  insetY: "纵向内缩",
+  insetTop: "顶部内缩",
+  errorColor: "错误颜色",
+  editingBorderColor: "编辑态边框",
+  errorBorderColor: "错误态边框",
+  contentPadding: "内容内边距",
+  headerTextColor: "表头文字",
+  bodyTextColor: "表体文字",
+  hoverCellBackground: "单元格悬停背景",
+  selectedCellBackground: "选中单元格背景",
+  placeholderGap: "占位状态间距",
+  taskCheckboxPlaceholderWidth: "任务框占位宽度",
+  primaryColor: "主节点背景",
+  primaryTextColor: "主节点文字",
+  primaryBorderColor: "主节点边框",
+  secondaryColor: "次级节点背景",
+  secondaryTextColor: "次级节点文字",
+  tertiaryColor: "三级节点背景",
+  tertiaryTextColor: "三级节点文字",
+  lineColor: "图表连线",
+  edgeLabelBackground: "关系标签背景",
+  clusterBackground: "分组背景",
+  clusterBorderColor: "分组边框",
   background: "背景",
   foreground: "文字",
   icon: "图标颜色",
@@ -82,43 +222,11 @@ const TOKEN_LABELS: Record<string, string> = {
   accentForeground: "强调文字",
   destructive: "危险状态",
   border: "边框",
-  surface: "表面",
-  nodeStroke: "节点描边",
-  nodeText: "节点文字",
-  edge: "连线",
-  edgeText: "连线文字",
-  labelStroke: "标签描边",
-  connectionInvalid: "非法连接",
-  previewInvalid: "无效预览",
-  nodeFillSaturation: "节点填色饱和度",
-  nodeFillLuminanceSteps: "节点明度阶数",
-  previewShadowOpacity: "预览阴影透明度",
-  borderWidth: "界面边框宽度",
+  borderWidth: "边框宽度",
   dividerWidth: "分隔线宽度",
   focusRingWidth: "焦点环宽度",
-  surfaceOpacity: "浮层表面透明度",
   backdropBlur: "背景模糊",
-  shadowOpacity: "界面阴影透明度",
   line: "源码分隔线",
-  gridDot: "渲染网格点",
-  familySans: "无衬线字体",
-  familyMono: "等宽字体",
-  familyBody: "正文字体",
-  familyHeading: "标题字体",
-  familyCode: "代码字体",
-  sizeUiXs: "极小界面字号",
-  sizeUiSm: "界面字号",
-  sizeNode: "节点字号",
-  sizeEdgeLabel: "连线标签字号",
-  sizeSource: "源码字号",
-  sizeTerminal: "终端字号",
-  weightRegular: "常规字重",
-  weightMedium: "中等字重",
-  weightBold: "粗体字重",
-  lineHeightNode: "节点行高",
-  lineHeightEdgeLabel: "连线标签行高",
-  lineHeightSource: "源码行高",
-  lineHeightTerminal: "终端行高",
   letterSpacing: "字距",
   panelPadding: "面板内边距",
   panelHeaderHeight: "面板标题高度",
@@ -127,69 +235,31 @@ const TOKEN_LABELS: Record<string, string> = {
   controlPaddingX: "控件横向内边距",
   controlPaddingY: "控件纵向内边距",
   iconButtonSize: "图标按钮尺寸",
-  nodePaddingX: "节点横向内边距",
-  nodePaddingY: "节点纵向内边距",
-  nodeMinChars: "节点最小字符",
-  nodeMaxChars: "节点最大字符",
-  nodeMaxLines: "节点最大行数",
-  gridMinorStep: "小格步长",
-  gridMajorEvery: "主格倍率",
   app: "应用圆角",
   controlSm: "小控件圆角",
   controlMd: "中控件圆角",
   controlLg: "大控件圆角",
-  canvasNode: "节点圆角",
-  edgeLabel: "标签圆角",
-  polygonCorner: "多边形圆角",
-  subgraphTitle: "分组标题圆角",
-  node: "节点线宽",
-  nodeEmphasized: "节点强调线宽",
-  edgeThick: "粗连线宽",
-  edgeDotted: "点线间隔",
-  overlay: "覆盖线宽",
-  anchor: "锚点线宽",
-  selectionDash: "选择框虚线",
-  connectionDraftDash: "连接草稿虚线",
-  centerGuideDash: "居中引导虚线",
-  subgraphDash: "分组虚线",
   sizeSm: "小图标尺寸",
   sizeButton: "按钮图标尺寸",
   strokeWidth: "图标描边",
   buttonHeightSm: "小按钮高度",
   buttonHeightMd: "中按钮高度",
-  anchorRadius: "锚点半径",
   endpointRadius: "端点半径",
-  edgeHitStrokeWidth: "连线命中宽度",
   pointerLength: "箭头长度",
   pointerWidth: "箭头宽度",
-  parallelEdgeSpacing: "平行连线间距",
-  edgeCurveSegments: "曲线采样段数",
   endpointMarkerRadius: "端点标记半径",
-  gridMinorAlpha: "小格透明度",
-  gridMajorAlpha: "主格透明度",
-  gridSuperAlpha: "远景透明度",
-  gridMaxDots: "网格点上限",
-  gridMinorVisibleScale: "小格显示缩放",
-  gridMajorVisibleScale: "主格显示缩放",
-  gridMinorRadiusPx: "小格点半径",
-  gridMajorRadiusPx: "主格点半径",
-  gridSuperRadiusPx: "远景点半径",
   paddingX: "横向内边距",
   paddingY: "纵向内边距",
   paddingTop: "顶部内边距",
   paddingBottom: "底部内边距",
   titleHeight: "标题高度",
-  titleInsetX: "标题横向缩进",
-  titleInsetTop: "标题顶部缩进",
-  titlePaddingX: "标题横向内边距",
-  titleFontSize: "标题字号",
-  titleFontWeight: "标题字重",
   minWidth: "最小宽度",
   minHeight: "最小高度",
   fallbackGap: "回退间距",
   fillOpacity: "填充透明度",
   minChars: "最小字符",
   maxChars: "最大字符",
+  maxLines: "最大行数",
   height: "高度",
   fontSize: "字号",
   lineHeight: "行高",
@@ -252,6 +322,17 @@ const TOKEN_LABELS: Record<string, string> = {
   selectedScale: "选中缩放",
   highlightDuration: "高亮时长",
   maxAnimatedItems: "动画项目上限",
+  minorStep: "小格步长",
+  majorEvery: "主格倍率",
+  minorAlpha: "小格透明度",
+  majorAlpha: "主格透明度",
+  superAlpha: "远景透明度",
+  minorRadiusPx: "小格点半径",
+  majorRadiusPx: "主格点半径",
+  superRadiusPx: "远景点半径",
+  minorVisibleScale: "小格显示缩放",
+  majorVisibleScale: "主格显示缩放",
+  maxDots: "网格点上限",
   proximityRadiusPx: "靠近反馈半径",
   proximityMaxScale: "靠近最大缩放",
   proximityDuration: "靠近反馈时长",
@@ -348,25 +429,26 @@ export function themeTokenNumberSpec(path: readonly string[], value: number) {
 }
 
 const EXACT_THEME_NUMBER_SPECS: Record<string, { min: number; max: number; step: number; unit: string }> = {
-  "canvasAppearance.nodeFillSaturation": spec(0, 1, 0.05, ""),
-  "canvasAppearance.nodeFillLuminanceSteps": spec(2, 256, 1, ""),
-  "canvasAppearance.previewShadowOpacity": spec(0, 1, 0.01, ""),
-  "radius.app": spec(0, 16, 1),
-  "radius.controlSm": spec(0, 16, 1),
-  "radius.controlMd": spec(0, 20, 1),
-  "radius.controlLg": spec(0, 24, 1),
-  "radius.canvasNode": spec(0, 48, 1),
-  "radius.edgeLabel": spec(0, 24, 1),
-  "radius.polygonCorner": spec(0, 24, 1),
-  "radius.subgraphTitle": spec(0, 24, 1),
-  "canvasInteraction.parallelEdgeSpacing": spec(0, 48, 1),
-  "canvasInteraction.edgeCurveSegments": spec(12, 240, 1, "段"),
-  "canvasInteraction.gridMaxDots": spec(800, 20000, 100, ""),
-  "canvasInteraction.gridMinorVisibleScale": spec(0.1, 2, 0.05, "×"),
-  "canvasInteraction.gridMajorVisibleScale": spec(0.05, 1, 0.05, "×"),
-  "canvasInteraction.gridMinorRadiusPx": spec(0.2, 3, 0.1),
-  "canvasInteraction.gridMajorRadiusPx": spec(0.2, 4, 0.1),
-  "canvasInteraction.gridSuperRadiusPx": spec(0.2, 5, 0.1),
+  "interface.radius.app": spec(0, 16, 1),
+  "interface.radius.controlSm": spec(0, 16, 1),
+  "interface.radius.controlMd": spec(0, 20, 1),
+  "interface.radius.controlLg": spec(0, 24, 1),
+  "interface.surface.opacity": spec(0, 1, 0.01, ""),
+  "interface.surface.backdropBlur": spec(0, 48, 1),
+  "canvas.ordinaryNode.fillSaturation": spec(0, 1, 0.05, ""),
+  "canvas.ordinaryNode.fillLuminanceSteps": spec(2, 256, 1, ""),
+  "canvas.ordinaryNode.radius": spec(0, 48, 1),
+  "canvas.ordinaryNode.roundedRadius": spec(0, 48, 1),
+  "canvas.ordinaryNode.polygonRadius": spec(0, 24, 1),
+  "canvas.ordinaryNode.forkRadius": spec(0, 24, 1),
+  "canvas.edge.parallelSpacing": spec(0, 48, 1),
+  "canvas.edge.curveSegments": spec(12, 240, 1, "段"),
+  "canvas.grid.maxDots": spec(800, 20000, 100, ""),
+  "canvas.grid.minorVisibleScale": spec(0.1, 2, 0.05, "×"),
+  "canvas.grid.majorVisibleScale": spec(0.05, 1, 0.05, "×"),
+  "canvas.grid.minorRadiusPx": spec(0.2, 3, 0.1),
+  "canvas.grid.majorRadiusPx": spec(0.2, 4, 0.1),
+  "canvas.grid.superRadiusPx": spec(0.2, 5, 0.1),
   "motion.duration.fast": spec(0, 0.4, 0.01, "s"),
   "motion.duration.base": spec(0, 0.8, 0.01, "s"),
   "motion.duration.slow": spec(0, 1.2, 0.01, "s"),
@@ -388,3 +470,138 @@ const EXACT_THEME_NUMBER_SPECS: Record<string, { min: number; max: number; step:
 function spec(min: number, max: number, step: number, unit = "px") {
   return { min, max, step, unit };
 }
+
+const FIXED_THEME_METADATA: readonly AppearanceTokenDefinition[] = [
+  fixedToken("version", "主题版本"),
+  fixedToken("id", "主题标识"),
+  fixedToken("name", "主题名称"),
+  fixedToken("description", "主题说明")
+];
+
+const GROUP_TOKEN_DEFINITIONS = THEME_TOKEN_GROUPS.flatMap((definition) => {
+  const value = valueAtPath(DEFAULT_EDITOR_THEME, definition.path);
+  return flattenTokenLeaves(value).map(({ path, value: leafValue }) => {
+    const fullPath = [...definition.path, ...path];
+    const key = fullPath.at(-1) || "";
+    const hidden = definition.hiddenKeys?.includes(path[0] || "") ?? false;
+    return tokenDefinition({
+      path: fullPath,
+      label: themeTokenLabel(key),
+      category: definition.category,
+      groupId: definition.id,
+      hierarchy: [definition.category, definition.id, ...path.slice(0, -1)],
+      state: hidden ? "fixed" : "editable",
+      level: definition.level ?? technicalLevel(fullPath),
+      consumer: definition.consumer,
+      control: controlFor(fullPath, leafValue)
+    });
+  });
+});
+
+const MARKDOWN_APPEARANCE_TOKEN_DEFINITIONS = MARKDOWN_TOKEN_DEFINITIONS.map((definition) => {
+  const element = MARKDOWN_ELEMENT_DEFINITIONS.find((candidate) => candidate.path.every((part, index) => definition.path[index] === part));
+  const value = valueAtPath(DEFAULT_EDITOR_THEME.markdown, definition.path);
+  return tokenDefinition({
+    path: ["markdown", ...definition.path],
+    label: definition.label,
+    category: "markdown",
+    groupId: element?.id ?? "markdown",
+    hierarchy: ["markdown", element?.category ?? "base", element?.id ?? "markdown", definition.section],
+    state: "editable",
+    level: "common",
+    consumer: "css",
+    control: markdownControl(definition.kind, definition, value)
+  });
+});
+
+const FIXED_CANVAS_DOCUMENT_TYPOGRAPHY = flattenTokenLeaves(DEFAULT_EDITOR_THEME.typography.canvasDocument).map(({ path, value }) => {
+  const fullPath = ["typography", "canvasDocument", ...path];
+  return tokenDefinition({
+    path: fullPath,
+    label: themeTokenLabel(fullPath.at(-1) || ""),
+    category: "canvas",
+    groupId: "canvas-document-fixed",
+    hierarchy: ["canvas", "canvas-document-fixed", ...path.slice(0, -1)],
+    state: "fixed",
+    level: "advanced",
+    consumer: "konva",
+    control: controlFor(fullPath, value)
+  });
+});
+
+/**
+ * Every canonical v11 appearance leaf has exactly one registry entry. The panel,
+ * search and contract tests all consume this registry instead of maintaining
+ * separate path lists.
+ */
+export const APPEARANCE_TOKEN_DEFINITIONS: readonly AppearanceTokenDefinition[] = [
+  ...FIXED_THEME_METADATA,
+  ...GROUP_TOKEN_DEFINITIONS,
+  ...MARKDOWN_APPEARANCE_TOKEN_DEFINITIONS,
+  ...FIXED_CANVAS_DOCUMENT_TYPOGRAPHY
+];
+
+export function appearanceTokenDefinition(path: readonly string[]) {
+  const key = path.join(".");
+  return APPEARANCE_TOKEN_DEFINITIONS.find((definition) => definition.path.join(".") === key);
+}
+
+function fixedToken(key: "version" | "id" | "name" | "description", label: string): AppearanceTokenDefinition {
+  return tokenDefinition({
+    path: [key],
+    label,
+    category: "library",
+    groupId: "theme-metadata",
+    hierarchy: ["library", "theme-metadata"],
+    state: "fixed",
+    level: "advanced",
+    consumer: "theme-registry",
+    control: { kind: key === "version" ? "number" : "text" }
+  });
+}
+
+function tokenDefinition(definition: AppearanceTokenDefinition): AppearanceTokenDefinition {
+  return definition;
+}
+
+function markdownControl(
+  kind: MarkdownTokenFieldKind,
+  definition: { min?: number; max?: number; step?: number; unit?: string },
+  value: unknown
+): AppearanceTokenDefinition["control"] {
+  if (kind === "css-border-style") return { kind };
+  if (kind === "font" || kind === "color") return { kind };
+  const fallback = typeof value === "number" ? themeTokenNumberSpec([], value) : undefined;
+  return { kind: "number", min: definition.min ?? fallback?.min, max: definition.max ?? fallback?.max, step: definition.step ?? fallback?.step, unit: definition.unit ?? fallback?.unit };
+}
+
+function controlFor(path: readonly string[], value: unknown): AppearanceTokenDefinition["control"] {
+  const key = path.at(-1) || "";
+  if (Array.isArray(value)) return { kind: "dash" };
+  if (typeof value === "number") return { kind: "number", ...themeTokenNumberSpec(path, value) };
+  if (key === "family") return { kind: "font" };
+  if (key === "borderStyle" || key.endsWith("Style") || key === "style") {
+    return { kind: path[0] === "interface" ? "css-border-style" : "canvas-stroke-style" };
+  }
+  if (typeof value === "string" && /^#[0-9a-f]{6}$/i.test(value)) return { kind: "color" };
+  return { kind: "text" };
+}
+
+function technicalLevel(path: readonly string[]): AppearanceTokenLevel {
+  const key = path.at(-1) || "";
+  return /maxDots|VisibleScale|RadiusPx|curveSegments|hitStrokeWidth|parallelSpacing|maxAnimatedItems|proximity/.test(key) ? "advanced" : "common";
+}
+
+function flattenTokenLeaves(value: unknown, prefix: readonly string[] = []): { path: readonly string[]; value: unknown }[] {
+  if (value === undefined) return [];
+  if (Array.isArray(value) || value === null || typeof value !== "object") return [{ path: prefix, value }];
+  return Object.entries(value as Record<string, unknown>).flatMap(([key, child]) => flattenTokenLeaves(child, [...prefix, key]));
+}
+
+function valueAtPath(value: unknown, path: readonly string[]) {
+  return path.reduce<unknown>((current, key) => current && typeof current === "object" ? (current as Record<string, unknown>)[key] : undefined, value);
+}
+
+// Compile-time anchor: the registry is intentionally tied to the canonical theme shape.
+const _editorThemeShape: EditorTheme = DEFAULT_EDITOR_THEME;
+void _editorThemeShape;

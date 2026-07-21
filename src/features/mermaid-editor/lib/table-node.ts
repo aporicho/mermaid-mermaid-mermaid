@@ -61,16 +61,29 @@ export type TableNodeLayoutSpec = {
 export type TableCellNavigation = "down" | "next" | "previous";
 
 export const DEFAULT_TABLE_NODE_TOKENS: SpecialNodeTableTokens = {
-  background: "#ffffff",
-  borderColor: "#d4d4d4",
-  borderWidth: 1,
-  dividerColor: "#d4d4d4",
-  dividerWidth: 1,
-  selectedCellFill: "#f5f5f5",
-  selectedCellStroke: "#171717",
-  selectedCellStrokeWidth: 1,
+  surface: {
+    background: "#ffffff",
+    border: { color: "#d4d4d4", width: 1, style: "solid", customDash: [] },
+    radius: 0,
+    shadow: { color: "#171717", blur: 0, opacity: 0, offsetX: 0, offsetY: 0 }
+  },
+  state: {
+    hoverBorderColor: "#737373",
+    selectedBorderColor: "#171717",
+    errorBorderColor: "#dc2626",
+    editingBorderColor: "#171717",
+    emphasizedBorderWidth: 1.5
+  },
+  headerBackground: "#f5f5f5",
+  headerTextColor: "#171717",
+  bodyTextColor: "#171717",
+  hoverCellBackground: "#fafafa",
+  selectedCellBackground: "#f5f5f5",
+  selectedCellBorder: { color: "#171717", width: 1, style: "solid", customDash: [] },
+  grid: { color: "#d4d4d4", width: 1, style: "solid", customDash: [] },
   cellPaddingX: 10,
   cellPaddingY: 8,
+  placeholderGap: 4,
   minColumnWidth: 64,
   minRowHeight: 32,
   resizeHandleWidth: 8

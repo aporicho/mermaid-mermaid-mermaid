@@ -158,14 +158,8 @@ export function KonvaNodeLayer({
         const nodeVisualTransform = centerScaleTransform(geometry.frame);
         const proximityScale = nodeProximityScale[node.id] ?? 1;
         const visualScale = (motionVisual?.scale ?? 1) * proximityScale;
-        const nodeStrokeWidth = nodeVisual.strokeWidth + (motionVisual?.highlight ?? 0) * visualTokens.node.emphasizedStrokeWidth;
+        const nodeStrokeWidth = nodeVisual.strokeWidth + (motionVisual?.highlight ?? 0) * visualTokens.ordinaryNode.highlightBorderBoost;
         const nodeTextFill = resolveCanvasNodeTextFill(node.fill, nodeVisual.textFill, visualTokens);
-        const specialNodeStroke = nodeVisual.kind === "normal"
-          ? specialNodeTokens.common.borderColor
-          : nodeVisual.kind === "connectionTarget" || nodeVisual.kind === "connectionInvalid"
-            ? nodeVisual.stroke
-            : specialNodeTokens.common.accentColor;
-        const specialNodeStrokeWidth = nodeVisual.kind === "normal" ? specialNodeTokens.common.borderWidth : nodeStrokeWidth;
 
         return (
           <Group
@@ -202,8 +196,8 @@ export function KonvaNodeLayer({
                   node={node}
                   width={geometry.frame.width}
                   height={geometry.frame.height}
-                  stroke={nodeVisual.stroke}
                   strokeWidth={nodeStrokeWidth}
+                  visualState={nodeVisual}
                   visualTokens={visualTokens}
                 />
               ) : null}
@@ -214,6 +208,7 @@ export function KonvaNodeLayer({
                   height={geometry.imageBox.height}
                   specialNode={specialNodeTokens}
                   interacting={imageInteractionFrameVisible(nodeVisual.kind)}
+                  visualState={nodeVisual.kind}
                 />
               ) : null}
               {isTableNode && geometry.table ? (
@@ -225,6 +220,7 @@ export function KonvaNodeLayer({
                   typography={typography.tableNode.cell}
                   editing={inlineEdit?.type === "tableCell" ? { nodeId: inlineEdit.id, rowId: inlineEdit.rowId, columnId: inlineEdit.columnId } : null}
                   editingHeader={inlineEdit?.type === "tableHeader" ? { nodeId: inlineEdit.id, columnId: inlineEdit.columnId } : null}
+                  visualState={nodeVisual.kind}
                   interactive={tableInteractive}
                   onCellClick={(event, cell) => {
                     event.cancelBubble = true;
@@ -261,12 +257,11 @@ export function KonvaNodeLayer({
                   width={geometry.frame.width}
                   height={geometry.frame.height}
                   coverSrc={previewCoverSrc}
-                  stroke={specialNodeStroke}
-                  strokeWidth={specialNodeStrokeWidth}
                   visualTokens={visualTokens}
                   typography={typography.linkCard}
                   actionTypography={typography.canvas.actionBadge}
                   specialNode={specialNodeTokens}
+                  visualState={nodeVisual.kind}
                   onOpen={() => onOpenNodeAction?.(node)}
                 />
               ) : null}
@@ -275,10 +270,9 @@ export function KonvaNodeLayer({
                   node={node}
                   width={geometry.frame.width}
                   height={geometry.frame.height}
-                  stroke={specialNodeStroke}
-                  strokeWidth={specialNodeStrokeWidth}
                   typography={typography.markdownCard}
                   specialNode={specialNodeTokens}
+                  visualState={nodeVisual.kind}
                   preview={markdownDocumentPreviewByNodeId[node.id]}
                   onRequestPreview={onRequestMarkdownDocumentPreview}
                 />
@@ -306,8 +300,8 @@ export function KonvaNodeLayer({
               {!isMarkdownDocument && nodeAction ? (
                 <CanvasNodeActionBadge
                   actionKind={nodeAction.kind}
-                  x={Math.max(8, geometry.frame.width - 24)}
-                  y={6}
+                  x={Math.max(visualTokens.actionBadge.insetX, geometry.frame.width - visualTokens.actionBadge.size - visualTokens.actionBadge.insetX)}
+                  y={visualTokens.actionBadge.insetY}
                   visualTokens={visualTokens}
                   typography={typography.canvas.actionBadge}
                   onOpen={() => onOpenNodeAction?.(node)}
@@ -338,11 +332,11 @@ export function KonvaNodeLayer({
                     >
                       <Circle radius={anchorVisual.radius} fill="rgba(0,0,0,0.001)" strokeEnabled={false} />
                       <Circle
-                        radius={anchor.kind === "corner" ? anchorVisual.radius * visualTokens.subgraph.anchorCornerScale : anchorVisual.radius}
-                        fill={anchor.key === connectionAnchorTarget ? visualTokens.colors.connection : anchorVisual.fill}
+                        radius={anchor.kind === "corner" ? anchorVisual.radius * visualTokens.group.anchorCornerScale : anchorVisual.radius}
+                        fill={anchor.key === connectionAnchorTarget ? visualTokens.overlay.anchor.targetColor : anchorVisual.fill}
                         stroke={anchorVisual.stroke}
                         strokeWidth={anchorVisual.strokeWidth}
-                        opacity={anchor.kind === "corner" ? visualTokens.subgraph.anchorCornerOpacity : 1}
+                        opacity={anchor.kind === "corner" ? visualTokens.group.anchorCornerOpacity : 1}
                         listening={false}
                       />
                     </Group>
@@ -366,7 +360,17 @@ export function KonvaNodeLayer({
         const imageDisplaySrc = imageAsset ? imageDisplaySrcBySrc[imageAsset.src] || imageAsset.src : undefined;
         const previewCoverSrc = linkPreview?.cover?.src ? imageDisplaySrcBySrc[linkPreview.cover.src] || linkPreview.cover.src : undefined;
         const nodeVisualTransform = centerScaleTransform(geometry.frame);
-        const nodeTextFill = resolveCanvasNodeTextFill(node.fill, visualTokens.colors.nodeText, visualTokens);
+        const nodeVisual = getNodeVisualState({
+          nodeId: node.id,
+          selection,
+          hoveredNodeId,
+          interactionState,
+          connectionTargetNodeId,
+          connectionInvalidNodeId,
+          inlineEdit,
+          visualTokens
+        });
+        const nodeTextFill = resolveCanvasNodeTextFill(node.fill, visualTokens.ordinaryNode.textColor, visualTokens);
 
         return (
           <Group
@@ -389,11 +393,11 @@ export function KonvaNodeLayer({
                   node={node}
                   width={geometry.frame.width}
                   height={geometry.frame.height}
-                  stroke={visualTokens.colors.accent}
                   strokeWidth={
-                    visualTokens.node.strokeWidth +
-                    motionVisual.highlight * visualTokens.node.emphasizedStrokeWidth
+                    nodeVisual.strokeWidth +
+                    motionVisual.highlight * visualTokens.ordinaryNode.highlightBorderBoost
                   }
+                  visualState={nodeVisual}
                   visualTokens={visualTokens}
                 />
               ) : null}
@@ -404,6 +408,7 @@ export function KonvaNodeLayer({
                   height={geometry.imageBox.height}
                   specialNode={specialNodeTokens}
                   interacting={false}
+                  visualState={nodeVisual.kind}
                 />
               ) : null}
               {isTableNode && geometry.table ? (
@@ -415,6 +420,7 @@ export function KonvaNodeLayer({
                   typography={typography.tableNode.cell}
                   editing={null}
                   editingHeader={null}
+                  visualState={nodeVisual.kind}
                   interactive={false}
                 />
               ) : null}
@@ -434,12 +440,11 @@ export function KonvaNodeLayer({
                   width={geometry.frame.width}
                   height={geometry.frame.height}
                   coverSrc={previewCoverSrc}
-                  stroke={specialNodeTokens.common.borderColor}
-                  strokeWidth={specialNodeTokens.common.borderWidth}
                   visualTokens={visualTokens}
                   typography={typography.linkCard}
                   actionTypography={typography.canvas.actionBadge}
                   specialNode={specialNodeTokens}
+                  visualState={nodeVisual.kind}
                 />
               ) : null}
               {isMarkdownDocument ? (
@@ -447,10 +452,9 @@ export function KonvaNodeLayer({
                   node={node}
                   width={geometry.frame.width}
                   height={geometry.frame.height}
-                  stroke={specialNodeTokens.common.borderColor}
-                  strokeWidth={specialNodeTokens.common.borderWidth}
                   typography={typography.markdownCard}
                   specialNode={specialNodeTokens}
+                  visualState={nodeVisual.kind}
                   preview={markdownDocumentPreviewByNodeId[node.id]}
                 />
               ) : null}

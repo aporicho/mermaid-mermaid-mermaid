@@ -55,6 +55,8 @@ export function ThemeSettingsTypography({
   systemFonts,
   loading,
   error,
+  query: externalQuery,
+  showSearch = true,
   resetDisabled,
   onChangeRole,
   onResetRole,
@@ -65,6 +67,8 @@ export function ThemeSettingsTypography({
   systemFonts: RuntimeSystemFont[];
   loading: boolean;
   error: string | null;
+  query?: string;
+  showSearch?: boolean;
   resetDisabled: boolean;
   onChangeRole: (group: TypographyGroupKey, role: string, value: TypographyRoleTokens) => void;
   onResetRole: (group: TypographyGroupKey, role: string) => void;
@@ -72,19 +76,20 @@ export function ThemeSettingsTypography({
 }) {
   const [query, setQuery] = useState("");
   const [openGroups, setOpenGroups] = useState<Set<TypographyGroupKey>>(() => new Set());
-  const normalizedQuery = query.trim().toLocaleLowerCase();
+  const effectiveQuery = externalQuery ?? query;
+  const normalizedQuery = effectiveQuery.trim().toLocaleLowerCase();
 
   return (
     <div className="grid gap-4">
-      <EditorSearchField
-        value={query}
+      {showSearch ? <EditorSearchField
+        value={effectiveQuery}
         onChange={(event) => setQuery(event.target.value)}
-        placeholder="搜索排版…"
-        aria-label="搜索排版角色"
-      />
+        placeholder="搜索文字…"
+        aria-label="搜索文字角色"
+      /> : null}
       {TYPOGRAPHY_GROUPS.filter((definition) => !visibleGroups || visibleGroups.includes(definition.key)).map((definition) => {
         const roles = Object.entries(value[definition.key]) as [string, TypographyRoleTokens][];
-        const visibleRoles = normalizedQuery ? roles.filter(([key]) => `${ROLE_LABELS[key] || key} ${definition.title}`.toLocaleLowerCase().includes(normalizedQuery)) : roles;
+        const visibleRoles = normalizedQuery ? roles.filter(([key]) => `${ROLE_LABELS[key] || key} ${definition.title} typography.${definition.key}.${key}`.toLocaleLowerCase().includes(normalizedQuery)) : roles;
         if (!visibleRoles.length) return null;
         const open = normalizedQuery ? true : openGroups.has(definition.key);
         return (
@@ -178,7 +183,7 @@ export function FontFamilyCombobox({ value, fonts, loading, error, monospacePref
     <div className="grid gap-2">
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
-          <Button type="button" variant="outline" role="combobox" aria-expanded={open} className="w-full justify-between text-left" style={{ fontFamily: value }}>
+          <Button type="button" variant="outline" role="combobox" aria-expanded={open} className="w-full justify-between border border-input bg-background text-left" style={{ fontFamily: value }}>
             <span className="truncate">{familyName}</span>
             <NavArrowDown className="size-3.5 shrink-0 text-icon" />
           </Button>

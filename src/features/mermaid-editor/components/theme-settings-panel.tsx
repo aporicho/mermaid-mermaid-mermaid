@@ -8,6 +8,7 @@ import {
   EditorNotice,
   EditorPanelFooter,
   EditorPanelHeader,
+  EditorSearchField,
   EditorStatusBadge
 } from "@/features/mermaid-editor/components/editor-ui";
 import {
@@ -23,7 +24,6 @@ import { cn } from "@/lib/utils";
 import type { EditorRuntime, RuntimeSystemFont } from "@/features/mermaid-editor/lib/editor-runtime";
 
 import { ThemeSettingsGroup } from "./theme-settings-controls";
-import { ThemeSettingsCollapsible } from "./theme-settings-collapsible";
 import { ThemeSettingsLibrary } from "./theme-settings-library";
 import { ThemeSettingsMarkdown } from "./theme-settings-markdown";
 import { ThemeSettingsTypography } from "./theme-settings-typography";
@@ -64,6 +64,7 @@ export function ThemeSettingsPanel({
   windowControls: ReactNode;
 }) {
   const [activeCategory, setActiveCategory] = useState<ThemeSettingsCategoryId>("library");
+  const [query, setQuery] = useState("");
   const groups = useMemo(() => THEME_TOKEN_GROUPS.filter((group) => group.category === activeCategory), [activeCategory]);
   const diagnostics = useMemo(() => compileEditorTheme(activeTheme).diagnostics, [activeTheme]);
   const [systemFonts, setSystemFonts] = useState<RuntimeSystemFont[]>([]);
@@ -85,9 +86,9 @@ export function ThemeSettingsPanel({
     return () => { cancelled = true; };
   }, [runtime]);
 
-  function updateGroupField(definition: ThemeTokenGroupDefinition, key: string, value: ThemeTokenValue) {
+  function updateGroupField(definition: ThemeTokenGroupDefinition, path: readonly string[], value: ThemeTokenValue) {
     const custom = toCustomTheme(activeTheme);
-    onPreview("custom", normalizeEditorTheme(updateThemeValueAtPath(custom, [...definition.path, key], value), custom));
+    onPreview("custom", normalizeEditorTheme(updateThemeValueAtPath(custom, [...definition.path, ...path], value), custom));
   }
 
   function resetGroup(definition: ThemeTokenGroupDefinition) {
@@ -130,6 +131,24 @@ export function ThemeSettingsPanel({
   }
 
   function renderTokenGroup(definition: ThemeTokenGroupDefinition) {
+    if (definition.typographyGroup) {
+      return (
+        <ThemeSettingsTypography
+          key={definition.id}
+          value={activeTheme.typography}
+          visibleGroups={[definition.typographyGroup]}
+          systemFonts={systemFonts}
+          loading={fontsLoading}
+          error={fontsError}
+          query={query}
+          showSearch={false}
+          resetDisabled={activeTheme.id !== "custom"}
+          onChangeRole={updateTypographyRole}
+          onResetRole={(group, role) => resetTypographyPath(group, role)}
+          onResetGroup={(group) => resetTypographyPath(group)}
+        />
+      );
+    }
     const groupValue = themeValueAtPath(activeTheme, definition.path);
     if (!isThemeTokenGroup(groupValue)) return null;
     return (
@@ -137,7 +156,8 @@ export function ThemeSettingsPanel({
         key={definition.id}
         definition={definition}
         value={groupValue}
-        onChange={(key, value) => updateGroupField(definition, key, value)}
+        query={query}
+        onChange={(path, value) => updateGroupField(definition, path, value)}
         onReset={() => resetGroup(definition)}
         resetDisabled={activeTheme.id !== "custom"}
       />
@@ -162,7 +182,7 @@ export function ThemeSettingsPanel({
               title={entry.label}
               selected={entry.id === activeCategory}
               className={cn("type-interface-navigation", entry.id !== activeCategory && "text-muted-foreground")}
-              onClick={() => setActiveCategory(entry.id)}
+              onClick={() => { setActiveCategory(entry.id); setQuery(""); }}
             />
           ))}
           </EditorList>
@@ -171,18 +191,6 @@ export function ThemeSettingsPanel({
         <main className="min-h-0 overflow-y-auto p-4">
           {activeCategory === "library" ? (
             <ThemeSettingsLibrary themeId={themeId} customTheme={customTheme} activeTheme={activeTheme} onPreview={onPreview} />
-          ) : activeCategory === "typography" ? (
-            <ThemeSettingsTypography
-              value={activeTheme.typography}
-              visibleGroups={["interface", "canvas", "linkCard", "markdownCard", "tableNode", "mermaid", "canvasDocument", "source", "terminal"]}
-              systemFonts={systemFonts}
-              loading={fontsLoading}
-              error={fontsError}
-              resetDisabled={activeTheme.id !== "custom"}
-              onChangeRole={updateTypographyRole}
-              onResetRole={(group, role) => resetTypographyPath(group, role)}
-              onResetGroup={(group) => resetTypographyPath(group)}
-            />
           ) : (
             <div className="grid gap-4">
               {activeCategory === "markdown" ? (
@@ -198,11 +206,15 @@ export function ThemeSettingsPanel({
                   onResetAll={() => resetMarkdownPath([])}
                 />
               ) : null}
-              {activeCategory === "canvas" ? (["ordinary", "special"] as const).map((section) => (
-                <ThemeSettingsCanvasSection key={section} section={section}>
-                  {groups.filter((definition) => definition.section === section).map(renderTokenGroup)}
-                </ThemeSettingsCanvasSection>
-              )) : groups.map(renderTokenGroup)}
+              {activeCategory !== "markdown" ? (
+                <EditorSearchField
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder="搜索外观…"
+                  aria-label="搜索外观 token"
+                />
+              ) : null}
+              {groups.map(renderTokenGroup)}
               {activeCategory === "diagnostics" ? <ThemeDiagnostics diagnostics={diagnostics} /> : null}
             </div>
           )}
@@ -216,20 +228,6 @@ export function ThemeSettingsPanel({
         </div>
       </EditorPanelFooter>
     </div>
-  );
-}
-
-function ThemeSettingsCanvasSection({ section, children }: { section: "ordinary" | "special"; children: ReactNode }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <ThemeSettingsCollapsible
-      open={open}
-      onOpenChange={setOpen}
-      title={section === "special" ? "特殊节点" : "普通节点"}
-      settingsSection={section}
-    >
-      <div className="grid gap-3 p-3 pt-0">{children}</div>
-    </ThemeSettingsCollapsible>
   );
 }
 

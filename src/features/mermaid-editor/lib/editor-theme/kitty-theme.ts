@@ -58,42 +58,118 @@ export function editorThemeFromKittyDefinition(definition: KittyThemeFileDefinit
   const selectionBackground = palette.selectionBackground ?? accent;
   const selectionForeground = palette.selectionForeground ?? pickReadable([foreground, palette.background, "#ffffff", "#000000"], selectionBackground, 4.5);
   const cursor = palette.cursor ?? primary;
+  const nodeText = pickReadable([foreground, palette.color15, palette.color0], surface, 4.5);
+  const nodeBorder = pickReadable([palette.color8, foreground], surface, 3);
+  const edgeColor = pickReadable([palette.color8, foreground, primary], surface, 3);
+  const edgeText = pickReadable([foreground, palette.color7, palette.color0], surface, 4.5);
 
   return createEditorTheme({
     id: definition.id,
     name: definition.name,
     description: definition.description,
-    ui: {
-      background: palette.background,
-      foreground,
-      icon: mutedForeground,
-      card,
-      popover: card,
-      primary,
-      secondary,
-      muted: secondary,
-      mutedForeground,
-      accent,
-      accentForeground,
-      destructive,
-      border
+    interface: {
+      colors: {
+        background: palette.background,
+        foreground,
+        icon: mutedForeground,
+        card,
+        cardForeground: foreground,
+        popover: card,
+        popoverForeground: foreground,
+        primary,
+        primaryForeground: palette.background,
+        secondary,
+        secondaryForeground: foreground,
+        muted: secondary,
+        mutedForeground,
+        accent,
+        accentForeground,
+        destructive,
+        destructiveForeground: palette.background,
+        border,
+        input: border,
+        focusRing: primary
+      },
+      shadow: {
+        popover: { color: foreground },
+        panel: { color: foreground },
+        dialog: { color: foreground },
+        toolbar: { color: foreground }
+      }
     },
     canvas: {
-      surface,
-      nodeStroke: pickReadable([palette.color8, foreground], surface, 3),
-      nodeText: pickReadable([foreground, palette.color15, palette.color0], surface, 4.5),
-      edge: pickReadable([palette.color8, foreground, primary], surface, 3),
-      edgeText: pickReadable([foreground, palette.color7, palette.color0], surface, 4.5),
-      labelStroke: border,
-      connectionInvalid: destructive,
-      previewInvalid: mutedForeground
+      surface: { background: surface, renderBackground: palette.background },
+      grid: { color: pickReadable([mutedForeground, foreground], palette.background, 2) },
+      ordinaryNode: {
+        textColor: nodeText,
+        borderColor: nodeBorder,
+        hoverBorderColor: accentForeground,
+        selectedBorderColor: primary,
+        invalidBorderColor: destructive,
+        shadow: { color: nodeBorder },
+        dragShadow: { color: nodeBorder }
+      },
+      edge: {
+        color: edgeColor,
+        textColor: edgeText,
+        hoverColor: accentForeground,
+        selectedColor: primary,
+        invalidColor: destructive
+      },
+      edgeLabel: {
+        background: surface,
+        textColor: foreground,
+        borderColor: border,
+        hoverBorderColor: accentForeground,
+        selectedBorderColor: primary
+      },
+      group: {
+        background: surface,
+        borderColor: border,
+        hoverBorderColor: accentForeground,
+        selectedBorderColor: primary,
+        invalidBorderColor: destructive,
+        shadow: { color: nodeBorder },
+        title: {
+          background: surface,
+          textColor: nodeText,
+          borderColor: border,
+          shadow: { color: nodeBorder }
+        }
+      },
+      overlay: {
+        selection: { fillColor: primary, strokeColor: primary },
+        connectionDraft: { validColor: primary, invalidColor: destructive },
+        guide: { centerColor: primary, edgeColor: accentForeground },
+        anchor: {
+          fillColor: primary,
+          targetColor: primary,
+          hoverColor: accentForeground,
+          strokeColor: surface
+        }
+      },
+      actionBadge: {
+        background: surface,
+        foreground: primary,
+        borderColor: primary
+      },
+      mermaidSvg: {
+        primaryColor: surface,
+        primaryTextColor: nodeText,
+        primaryBorderColor: nodeBorder,
+        secondaryColor: accent,
+        secondaryTextColor: foreground,
+        tertiaryColor: secondary,
+        tertiaryTextColor: foreground,
+        lineColor: edgeColor,
+        textColor: foreground,
+        edgeLabelBackground: surface,
+        clusterBackground: secondary,
+        clusterBorderColor: border
+      }
     },
     source: {
       line: border
-    },
-    render: {
-      background: palette.background,
-      gridDot: pickReadable([mutedForeground, foreground], palette.background, 2)
     },
     ansi,
     terminal: {

@@ -16,7 +16,7 @@ const editorIconButtonVariants = cva("relative shrink-0", {
     },
     tone: {
       neutral: "text-icon hover:text-foreground",
-      active: "bg-primary text-background hover:bg-primary/90 hover:text-background",
+      active: "bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground",
       danger: "text-icon hover:bg-destructive/10 hover:text-destructive"
     }
   },
@@ -38,7 +38,7 @@ export function EditorIconButton({ label, tooltipSide = "bottom", context, tone,
         <Button
           size="icon"
           variant={pressed ? "default" : "ghost"}
-          className={cn(editorIconButtonVariants({ context, tone: resolvedTone }), dirty && "border-primary/45 text-primary", className)}
+          className={cn(editorIconButtonVariants({ context, tone: resolvedTone }), dirty && "text-primary", className)}
           aria-label={label}
           aria-pressed={pressed}
           {...props}

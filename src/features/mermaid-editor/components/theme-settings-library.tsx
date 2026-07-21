@@ -62,7 +62,7 @@ export function ThemeSettingsLibrary({
         <EditorListRow
           type="button"
           selected={themeId === "custom"}
-          icon={<span className="size-7 shrink-0 border" style={{ backgroundColor: activeTheme.ui.primary }} />}
+          icon={<span className="size-7 shrink-0 border" style={{ backgroundColor: activeTheme.interface.colors.primary }} />}
           title="自定义主题"
           aria-label="自定义主题，当前编辑副本"
           onClick={() => selectTheme("custom")}

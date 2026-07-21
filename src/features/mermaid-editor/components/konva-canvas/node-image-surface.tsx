@@ -3,44 +3,52 @@ import { Group, Rect } from "react-konva";
 
 import { CanvasNodeImage } from "@/features/mermaid-editor/components/konva-canvas/node-image";
 import type { SpecialNodeThemeTokens } from "@/features/mermaid-editor/lib/editor-theme";
+import { resolveSpecialNodeBorder, specialNodeBorderDash } from "@/features/mermaid-editor/lib/editor-theme/special-node-theme";
+import type { SpecialNodeVisualState } from "@/features/mermaid-editor/lib/editor-theme/special-node-types";
 
 export function CanvasNodeImageSurface({
   src,
   width,
   height,
   specialNode,
-  interacting
+  interacting,
+  visualState
 }: {
   src: string;
   width: number;
   height: number;
   specialNode: SpecialNodeThemeTokens;
   interacting: boolean;
+  visualState?: SpecialNodeVisualState;
 }) {
   const image = specialNode.image;
-  const common = specialNode.common;
+  const surface = image.surface;
+  const border = resolveSpecialNodeBorder(surface, image.state, visualState ?? (interacting ? "selected" : "normal"));
   return (
     <Group>
       <Rect
         width={width}
         height={height}
-        fill={image.background}
-        cornerRadius={image.radius}
-        shadowColor={common.shadowColor}
-        shadowBlur={common.shadowBlur}
-        shadowOpacity={common.shadowOpacity}
-        shadowOffsetY={common.shadowOffsetY}
+        fill={surface.background}
+        cornerRadius={surface.radius}
+        shadowColor={surface.shadow.color}
+        shadowBlur={surface.shadow.blur}
+        shadowOpacity={surface.shadow.opacity}
+        shadowOffsetX={surface.shadow.offsetX}
+        shadowOffsetY={surface.shadow.offsetY}
       />
-      <Group clipFunc={(context) => roundedRectClip(context, width, height, image.radius)}>
+      <Group clipFunc={(context) => roundedRectClip(context, width, height, surface.radius)}>
         <CanvasNodeImage src={src} x={0} y={0} width={width} height={height} />
       </Group>
       <Rect
         width={width}
         height={height}
         fillEnabled={false}
-        stroke={interacting ? image.interactionBorderColor : image.borderColor}
-        strokeWidth={interacting ? image.interactionBorderWidth : image.borderWidth}
-        cornerRadius={image.radius}
+        stroke={border.color}
+        strokeWidth={border.width}
+        strokeEnabled={border.style !== "none" && border.width > 0}
+        dash={specialNodeBorderDash(border)}
+        cornerRadius={surface.radius}
         listening={false}
       />
     </Group>

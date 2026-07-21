@@ -1,3 +1,5 @@
+import type { CssBorderStyle } from "./appearance-types";
+
 export type MarkdownTextTokens = {
   fontFamily: string;
   fontSize: number;
@@ -37,6 +39,7 @@ export type MarkdownListTokens = MarkdownTextTokens & {
 export type MarkdownTaskListTokens = Omit<MarkdownListTokens, "markerColor"> & {
   checkboxSize: number;
   checkboxBorderWidth: number;
+  checkboxBorderStyle: CssBorderStyle;
   checkboxBorderColor: string;
   checkboxBackground: string;
   checkboxCheckedBackground: string;
@@ -48,6 +51,7 @@ export type MarkdownBlockquoteTokens = MarkdownTextTokens & {
   background: string;
   borderColor: string;
   borderWidth: number;
+  borderStyle: CssBorderStyle;
   paddingX: number;
   paddingY: number;
   marginY: number;
@@ -72,11 +76,17 @@ export type MarkdownTableTokens = MarkdownTextTokens & {
   cellPaddingX: number;
   cellPaddingY: number;
   borderWidth: number;
+  borderStyle: CssBorderStyle;
   radius: number;
   marginY: number;
 };
 
 export type MarkdownThemeTokens = {
+  layout: {
+    paddingX: number;
+    paddingY: number;
+    taskCheckboxPlaceholderWidth: number;
+  };
   body: MarkdownBodyTokens;
   heading: {
     h1: MarkdownHeadingTokens;
@@ -107,6 +117,7 @@ export type MarkdownThemeTokens = {
   image: {
     borderColor: string;
     borderWidth: number;
+    borderStyle: CssBorderStyle;
     radius: number;
     marginY: number;
   };

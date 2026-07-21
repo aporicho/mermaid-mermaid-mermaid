@@ -4,6 +4,8 @@ import { Group, Rect, Text } from "react-konva";
 import type { CanvasNode } from "@/features/mermaid-editor/lib/editor-types";
 import { markdownDocumentAction, type MarkdownDocumentPreview } from "@/features/mermaid-editor/lib/markdown-document";
 import type { EditorTypographyTokens, SpecialNodeThemeTokens } from "@/features/mermaid-editor/lib/editor-theme";
+import { resolveSpecialNodeBorder, specialNodeBorderDash } from "@/features/mermaid-editor/lib/editor-theme/special-node-theme";
+import type { SpecialNodeVisualState } from "@/features/mermaid-editor/lib/editor-theme/special-node-types";
 
 export function MarkdownDocumentCard({
   node,
@@ -13,16 +15,18 @@ export function MarkdownDocumentCard({
   strokeWidth,
   typography,
   specialNode,
+  visualState,
   preview,
   onRequestPreview
 }: {
   node: CanvasNode;
   width: number;
   height: number;
-  stroke: string;
-  strokeWidth: number;
+  stroke?: string;
+  strokeWidth?: number;
   typography: EditorTypographyTokens["markdownCard"];
   specialNode: SpecialNodeThemeTokens;
+  visualState?: SpecialNodeVisualState;
   preview?: MarkdownDocumentPreview;
   onRequestPreview?: (node: CanvasNode) => void;
 }) {
@@ -36,7 +40,12 @@ export function MarkdownDocumentCard({
   const excerpt = previewText(preview);
   const error = preview?.status === "missing" || preview?.status === "error" || preview?.status === "unsupported";
   const tokens = specialNode.markdownDocument;
-  const common = specialNode.common;
+  const shared = specialNode.shared;
+  const surface = tokens.surface;
+  const resolvedVisualState = error ? "error" : visualState;
+  const surfaceBorder = resolvedVisualState
+    ? resolveSpecialNodeBorder(surface, tokens.state, resolvedVisualState)
+    : { ...surface.border, color: stroke ?? surface.border.color, width: strokeWidth ?? surface.border.width };
   const padding = tokens.contentPadding;
   const titleX = padding + tokens.badgeSize + tokens.titleGap;
   const headerTextWidth = Math.max(0, width - titleX - padding);
@@ -50,14 +59,17 @@ export function MarkdownDocumentCard({
       <Rect
         width={width}
         height={height}
-        fill={common.background}
-        stroke={stroke}
-        strokeWidth={strokeWidth}
-        cornerRadius={common.radius}
-        shadowColor={common.shadowColor}
-        shadowBlur={common.shadowBlur}
-        shadowOpacity={common.shadowOpacity}
-        shadowOffsetY={common.shadowOffsetY}
+        fill={surface.background}
+        stroke={surfaceBorder.color}
+        strokeWidth={surfaceBorder.width}
+        strokeEnabled={surfaceBorder.style !== "none" && surfaceBorder.width > 0}
+        dash={specialNodeBorderDash(surfaceBorder)}
+        cornerRadius={surface.radius}
+        shadowColor={surface.shadow.color}
+        shadowBlur={surface.shadow.blur}
+        shadowOpacity={surface.shadow.opacity}
+        shadowOffsetX={surface.shadow.offsetX}
+        shadowOffsetY={surface.shadow.offsetY}
       />
       <Rect
         x={padding}
@@ -94,7 +106,7 @@ export function MarkdownDocumentCard({
         fontFamily={typography.title.family}
         lineHeight={typography.title.lineHeight / typography.title.fontSize}
         letterSpacing={typography.title.letterSpacing}
-        fill={common.textColor}
+        fill={shared.textColor}
         ellipsis
       />
       <Text
@@ -108,7 +120,7 @@ export function MarkdownDocumentCard({
         fontFamily={typography.path.family}
         lineHeight={typography.path.lineHeight / typography.path.fontSize}
         letterSpacing={typography.path.letterSpacing}
-        fill={error ? tokens.badgeErrorColor : common.mutedTextColor}
+        fill={error ? tokens.badgeErrorColor : shared.mutedTextColor}
         opacity={tokens.pathOpacity}
         ellipsis
       />
@@ -124,7 +136,7 @@ export function MarkdownDocumentCard({
         lineHeight={typography.excerpt.lineHeight / typography.excerpt.fontSize}
         fontFamily={typography.excerpt.family}
         letterSpacing={typography.excerpt.letterSpacing}
-        fill={error ? tokens.badgeErrorColor : common.textColor}
+        fill={error ? tokens.badgeErrorColor : shared.textColor}
         opacity={preview?.status === "ready" ? tokens.excerptOpacity : tokens.placeholderOpacity}
         wrap="word"
         ellipsis

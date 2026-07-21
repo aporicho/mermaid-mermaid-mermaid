@@ -38,7 +38,7 @@ const SelectTrigger = React.forwardRef<
   <SelectPrimitive.Trigger
     ref={ref}
     className={cn(
-      "editor-ui-control editor-ui-focus type-interface-control flex w-full items-center justify-between border-input bg-background data-[placeholder]:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50 [&>span]:line-clamp-1",
+      "editor-ui-control editor-ui-focus type-interface-control flex w-full items-center justify-between border-input bg-background data-[placeholder]:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-[var(--ui-disabled-opacity)] [&>span]:line-clamp-1",
       className
     )}
     {...props}
@@ -140,7 +140,7 @@ const SelectItem = React.forwardRef<
   <SelectPrimitive.Item
     ref={ref}
     className={cn(
-      "editor-ui-focus type-interface-menu relative flex min-h-[var(--ui-control-height-sm)] w-full cursor-default select-none items-center rounded-[var(--theme-radius-control-sm)] py-1.5 pl-8 pr-2 outline-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+      "editor-ui-focus type-interface-menu relative flex min-h-[var(--ui-control-height-sm)] w-full cursor-default select-none items-center rounded-[var(--theme-radius-control-sm)] py-1.5 pl-8 pr-2 outline-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-[var(--ui-disabled-opacity)]",
       className
     )}
     {...props}

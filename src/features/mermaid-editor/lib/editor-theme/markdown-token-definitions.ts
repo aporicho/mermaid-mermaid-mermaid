@@ -1,12 +1,14 @@
-import type { EditorTheme, MarkdownThemeTokens } from "./types";
+import type { CssBorderStyle, MarkdownThemeTokens } from "./types";
+import type { InterfaceThemeTokens } from "./appearance-types";
+import type { EditorTypographyTokens } from "./typography-types";
 
-export type MarkdownTokenFieldKind = "color" | "font" | "number";
+export type MarkdownTokenFieldKind = "color" | "font" | "number" | "css-border-style";
 export type MarkdownTokenFieldSection = "typography" | "color" | "layout" | "border" | "state";
 export type MarkdownElementCategory = "base" | "heading" | "inline" | "block";
 
 export type MarkdownTokenDefault =
   | { kind: "literal"; value: string | number }
-  | { kind: "theme"; path: readonly ["ui" | "font", string] };
+  | { kind: "theme"; path: readonly string[] };
 
 export type MarkdownTokenDefinition = {
   path: readonly string[];
@@ -30,7 +32,10 @@ export type MarkdownElementDefinition = {
   monospace?: boolean;
 };
 
-type MarkdownDefaultThemeSource = Pick<EditorTheme, "ui" | "font">;
+export type MarkdownDefaultThemeSource = {
+  interface: Pick<InterfaceThemeTokens, "colors">;
+  typography: EditorTypographyTokens;
+};
 type TextDefaults = {
   fontFamily: MarkdownTokenDefault;
   fontSize: MarkdownTokenDefault;
@@ -48,6 +53,7 @@ export const MARKDOWN_ELEMENT_CATEGORIES = [
 ] as const;
 
 export const MARKDOWN_ELEMENT_DEFINITIONS: readonly MarkdownElementDefinition[] = [
+  element("layout", "base", "阅读区域", "阅读区域内边距和列表控件占位。", ["layout"]),
   element("body", "base", "正文与段落", "正文排版、颜色和段落间距。", ["body"]),
   ...(["h1", "h2", "h3", "h4", "h5", "h6"] as const).map((level, index) =>
     element(`heading-${level}`, "heading", `${["一", "二", "三", "四", "五", "六"][index]}级标题`, "标题排版、颜色和上下间距。", ["heading", level])
@@ -67,12 +73,12 @@ export const MARKDOWN_ELEMENT_DEFINITIONS: readonly MarkdownElementDefinition[] 
   element("image", "block", "图片", "图片边框、圆角和间距。", ["image"])
 ];
 
-const sansBody = (colorDefault = theme("ui.foreground"), weight = theme("font.weightRegular")): TextDefaults => ({
-  fontFamily: theme("font.familySans"),
+const sansBody = (colorDefault = theme("interface.colors.foreground"), weight = theme("typography.interface.body.fontWeight")): TextDefaults => ({
+  fontFamily: theme("typography.interface.body.family"),
   fontSize: literal(16),
   fontWeight: weight,
   lineHeight: literal(24),
-  letterSpacing: theme("font.letterSpacing"),
+  letterSpacing: theme("typography.interface.body.letterSpacing"),
   color: colorDefault
 });
 
@@ -84,20 +90,25 @@ const TEXT_DEFAULTS: Record<string, TextDefaults> = {
   "heading-h4": headingDefaults(28, 36, "weightMedium"),
   "heading-h5": headingDefaults(24, 32, "weightMedium"),
   "heading-h6": headingDefaults(18, 28, "weightBold"),
-  link: sansBody(theme("ui.primary")),
+  link: sansBody(theme("interface.colors.primary")),
   emphasis: sansBody(),
-  strong: sansBody(theme("ui.foreground"), theme("font.weightBold")),
+  strong: sansBody(theme("interface.colors.foreground"), theme("typography.interface.heading.fontWeight")),
   strikethrough: sansBody(),
-  "inline-code": codeDefaults(20, theme("ui.destructive")),
+  "inline-code": codeDefaults(20, theme("interface.colors.destructive")),
   "list-unordered": sansBody(),
   "list-ordered": sansBody(),
   "list-task": sansBody(),
-  blockquote: sansBody(theme("ui.mutedForeground")),
-  "code-block": codeDefaults(21, theme("ui.foreground")),
+  blockquote: sansBody(theme("interface.colors.mutedForeground")),
+  "code-block": codeDefaults(21, theme("interface.colors.foreground")),
   table: sansBody()
 };
 
 const EXTRA_FIELDS: Record<string, readonly MarkdownTokenDefinition[]> = {
+  layout: [
+    number("paddingX", "横向内边距", "layout", literal(56), 0, 160),
+    number("paddingY", "纵向内边距", "layout", literal(48), 0, 120),
+    number("taskCheckboxPlaceholderWidth", "任务框占位宽度", "layout", literal(24), 12, 56)
+  ],
   body: [number("paragraphSpacing", "段落间距", "layout", literal(8), 0, 48)],
   "heading-h1": headingSpacing(32, 8),
   "heading-h2": headingSpacing(28, 8),
@@ -106,16 +117,16 @@ const EXTRA_FIELDS: Record<string, readonly MarkdownTokenDefinition[]> = {
   "heading-h5": headingSpacing(16, 4),
   "heading-h6": headingSpacing(16, 4),
   link: [
-    color("hoverColor", "悬停颜色", "state", theme("ui.accentForeground")),
+    color("hoverColor", "悬停颜色", "state", theme("interface.colors.accentForeground")),
     number("underlineThickness", "下划线粗细", "border", literal(1), 0, 6, 0.5),
     number("underlineOffset", "下划线偏移", "layout", literal(2), 0, 12, 0.5)
   ],
   strikethrough: [
-    color("decorationColor", "删除线颜色", "color", theme("ui.mutedForeground")),
+    color("decorationColor", "删除线颜色", "color", theme("interface.colors.mutedForeground")),
     number("decorationThickness", "删除线粗细", "border", literal(1), 0, 6, 0.5)
   ],
   list: [
-    color("markerColor", "标记颜色", "color", theme("ui.mutedForeground")),
+    color("markerColor", "标记颜色", "color", theme("interface.colors.mutedForeground")),
     number("indent", "缩进", "layout", literal(16), 12, 80),
     number("itemSpacing", "条目间距", "layout", literal(4), 0, 32),
     number("blockSpacing", "列表块间距", "layout", literal(8), 0, 48)
@@ -123,52 +134,56 @@ const EXTRA_FIELDS: Record<string, readonly MarkdownTokenDefinition[]> = {
   task: [
     number("checkboxSize", "复选框尺寸", "layout", literal(16), 10, 32),
     number("checkboxBorderWidth", "复选框边框", "border", literal(1), 0, 4, 0.5),
-    color("checkboxBorderColor", "复选框边线", "color", theme("ui.border")),
-    color("checkboxBackground", "复选框背景", "color", theme("ui.background")),
-    color("checkboxCheckedBackground", "选中背景", "state", theme("ui.primary")),
-    color("checkboxCheckColor", "勾选标记", "state", theme("ui.background")),
+    borderStyle("checkboxBorderStyle", "复选框边框样式"),
+    color("checkboxBorderColor", "复选框边线", "color", theme("interface.colors.border")),
+    color("checkboxBackground", "复选框背景", "color", theme("interface.colors.background")),
+    color("checkboxCheckedBackground", "选中背景", "state", theme("interface.colors.primary")),
+    color("checkboxCheckColor", "勾选标记", "state", theme("interface.colors.background")),
     number("checkboxRadius", "复选框圆角", "border", literal(3), 0, 12)
   ],
   blockquote: [
-    color("background", "背景", "color", theme("ui.card")),
-    color("borderColor", "边线颜色", "color", theme("ui.primary")),
+    color("background", "背景", "color", theme("interface.colors.card")),
+    color("borderColor", "边线颜色", "color", theme("interface.colors.primary")),
     number("borderWidth", "边线宽度", "border", literal(4), 0, 12, 0.5),
+    borderStyle("borderStyle", "边线样式"),
     number("paddingX", "横向内边距", "layout", literal(20), 0, 64),
     number("paddingY", "纵向内边距", "layout", literal(8), 0, 48),
     number("marginY", "上下间距", "layout", literal(8), 0, 48),
     number("radius", "圆角", "border", literal(4), 0, 32)
   ],
   inlineCode: [
-    color("background", "背景", "color", theme("ui.muted")),
+    color("background", "背景", "color", theme("interface.colors.muted")),
     number("paddingX", "横向内边距", "layout", literal(3), 0, 16),
     number("paddingY", "纵向内边距", "layout", literal(1), 0, 12),
     number("radius", "圆角", "border", literal(4), 0, 20)
   ],
   codeBlock: [
-    color("background", "背景", "color", theme("ui.card")),
+    color("background", "背景", "color", theme("interface.colors.card")),
     number("paddingX", "横向内边距", "layout", literal(20), 0, 64),
     number("paddingY", "纵向内边距", "layout", literal(16), 0, 64),
     number("marginY", "上下间距", "layout", literal(8), 0, 48),
     number("radius", "圆角", "border", literal(6), 0, 32)
   ],
   table: [
-    color("borderColor", "边框颜色", "color", theme("ui.border")),
-    color("headerBackground", "表头背景", "color", theme("ui.muted")),
-    color("bodyBackground", "表体背景", "color", theme("ui.card")),
+    color("borderColor", "边框颜色", "color", theme("interface.colors.border")),
+    color("headerBackground", "表头背景", "color", theme("interface.colors.muted")),
+    color("bodyBackground", "表体背景", "color", theme("interface.colors.card")),
     number("cellPaddingX", "单元格横向内边距", "layout", literal(16), 0, 40),
     number("cellPaddingY", "单元格纵向内边距", "layout", literal(8), 0, 32),
     number("borderWidth", "边框宽度", "border", literal(1), 0, 6, 0.5),
+    borderStyle("borderStyle", "边框样式"),
     number("radius", "圆角", "border", literal(6), 0, 32),
     number("marginY", "上下间距", "layout", literal(8), 0, 48)
   ],
   divider: [
-    color("color", "颜色", "color", theme("ui.border")),
+    color("color", "颜色", "color", theme("interface.colors.border")),
     number("thickness", "粗细", "border", literal(1), 0, 8, 0.5),
     number("marginY", "上下间距", "layout", literal(16), 0, 64)
   ],
   image: [
-    color("borderColor", "边框颜色", "color", theme("ui.border")),
+    color("borderColor", "边框颜色", "color", theme("interface.colors.border")),
     number("borderWidth", "边框宽度", "border", literal(0), 0, 8, 0.5),
+    borderStyle("borderStyle", "边框样式"),
     number("radius", "圆角", "border", literal(8), 0, 48),
     number("marginY", "上下间距", "layout", literal(12), 0, 64)
   ]
@@ -177,7 +192,7 @@ const EXTRA_FIELDS: Record<string, readonly MarkdownTokenDefinition[]> = {
 export const MARKDOWN_TOKEN_DEFINITIONS: readonly MarkdownTokenDefinition[] = MARKDOWN_ELEMENT_DEFINITIONS.flatMap((elementDefinition) => {
   const path = elementDefinition.path;
   const leaf = path.at(-1) || "";
-  if (leaf === "divider" || leaf === "image") return withPath(path, EXTRA_FIELDS[leaf]);
+  if (leaf === "layout" || leaf === "divider" || leaf === "image") return withPath(path, EXTRA_FIELDS[leaf]);
   const extras = leaf === "unordered" || leaf === "ordered"
     ? EXTRA_FIELDS.list
     : leaf === "task"
@@ -196,8 +211,7 @@ export function createDefaultMarkdownTokens(source: MarkdownDefaultThemeSource):
 
 export function resolveMarkdownTokenDefault(value: MarkdownTokenDefault, source: MarkdownDefaultThemeSource): string | number {
   if (value.kind === "literal") return value.value;
-  const [group, key] = value.path;
-  return source[group][key as keyof (typeof source)[typeof group]] as string | number;
+  return value.path.reduce<unknown>((current, key) => (current as Record<string, unknown>)[key], source) as string | number;
 }
 
 export function markdownTokenDefinition(path: readonly string[]) {
@@ -211,20 +225,20 @@ function element(id: string, category: MarkdownElementCategory, title: string, d
 
 function headingDefaults(fontSize: number, lineHeight: number, weight: "weightRegular" | "weightMedium" | "weightBold"): TextDefaults {
   return {
-    fontFamily: theme("font.familySans"),
+    fontFamily: theme("typography.interface.heading.family"),
     fontSize: literal(fontSize),
-    fontWeight: theme(`font.${weight}`),
+    fontWeight: literal(weight === "weightRegular" ? 400 : weight === "weightMedium" ? 500 : 700),
     lineHeight: literal(lineHeight),
     letterSpacing: literal(0),
-    color: theme("ui.foreground")
+    color: theme("interface.colors.foreground")
   };
 }
 
 function codeDefaults(lineHeight: number, colorDefault: MarkdownTokenDefault): TextDefaults {
   return {
-    fontFamily: theme("font.familyMono"),
+    fontFamily: theme("typography.source.editor.family"),
     fontSize: literal(14),
-    fontWeight: theme("font.weightRegular"),
+    fontWeight: theme("typography.source.editor.fontWeight"),
     lineHeight: literal(lineHeight),
     letterSpacing: literal(0),
     color: colorDefault
@@ -283,6 +297,10 @@ function color(key: string, label: string, section: MarkdownTokenFieldSection, d
   return field(key, label, "color", section, defaultValue);
 }
 
+function borderStyle(key: string, label: string, value: CssBorderStyle = "solid"): MarkdownTokenDefinition {
+  return field(key, label, "css-border-style", "border", literal(value));
+}
+
 function number(
   key: string,
   label: string,
@@ -299,9 +317,8 @@ function literal(value: string | number): MarkdownTokenDefault {
   return { kind: "literal", value };
 }
 
-function theme(path: `ui.${string}` | `font.${string}`): MarkdownTokenDefault {
-  const [group, key] = path.split(".") as ["ui" | "font", string];
-  return { kind: "theme", path: [group, key] };
+function theme(path: `interface.colors.${string}` | `typography.${string}`): MarkdownTokenDefault {
+  return { kind: "theme", path: path.split(".") };
 }
 
 function defaultSource(value: MarkdownTokenDefault): string {

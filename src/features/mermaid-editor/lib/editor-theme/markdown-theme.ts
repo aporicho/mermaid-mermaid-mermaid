@@ -12,7 +12,7 @@ export type DeepPartial<T> = {
   [K in keyof T]?: T[K] extends readonly unknown[] ? T[K] : T[K] extends object ? DeepPartial<T[K]> : T[K];
 };
 
-type MarkdownThemeSource = Pick<EditorTheme, "ui" | "font">;
+type MarkdownThemeSource = Pick<EditorTheme, "interface" | "typography">;
 type LegacyTypographyRole = {
   family?: unknown;
   fontSize?: unknown;
@@ -21,8 +21,8 @@ type LegacyTypographyRole = {
   letterSpacing?: unknown;
 };
 
-export function createDefaultMarkdownTheme({ ui, font }: MarkdownThemeSource): MarkdownThemeTokens {
-  return createDefaultMarkdownTokens({ ui, font });
+export function createDefaultMarkdownTheme({ interface: interfaceTokens, typography }: MarkdownThemeSource): MarkdownThemeTokens {
+  return createDefaultMarkdownTokens({ interface: interfaceTokens, typography });
 }
 
 export function mergeMarkdownTheme(fallback: MarkdownThemeTokens, overrides: DeepPartial<MarkdownThemeTokens> | undefined): MarkdownThemeTokens {
@@ -85,6 +85,10 @@ function migrateLegacyMarkdown(source: Record<string, unknown>, legacyTypography
   const legacyList = legacyText({ ...fallback.list.unordered, ...body, ...listSource }, globalTypography.list, embeddedTypography.list);
 
   const migrated: MarkdownThemeTokens = {
+    layout: {
+      ...fallback.layout,
+      ...objectValue(source.layout)
+    },
     body: { ...fallback.body, ...body, paragraphSpacing: numberOr(bodySource.paragraphSpacing, fallback.body.paragraphSpacing) },
     heading,
     link: {
@@ -208,8 +212,13 @@ function startsWithPath(path: readonly string[], prefix: readonly string[]) {
 function normalizeTokenValue(raw: unknown, fallback: unknown, definition: MarkdownTokenDefinition): string | number {
   if (definition.kind === "color") return colorOr(raw, String(fallback));
   if (definition.kind === "font") return fontFamilyValue(raw, String(fallback));
+  if (definition.kind === "css-border-style") return cssBorderStyleOr(raw, String(fallback));
   const number = numberOr(raw, Number(fallback));
   return Math.min(definition.max ?? number, Math.max(definition.min ?? number, number));
+}
+
+function cssBorderStyleOr(value: unknown, fallback: string) {
+  return typeof value === "string" && ["none", "solid", "dashed", "dotted", "double"].includes(value) ? value : fallback;
 }
 
 function objectValue(value: unknown): Record<string, unknown> {

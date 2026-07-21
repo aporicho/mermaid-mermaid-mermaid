@@ -3,6 +3,9 @@ import type { EditorTheme, MarkdownTextTokens } from "./types";
 export function markdownToCssVariables(theme: EditorTheme): Record<string, string> {
   const markdown = theme.markdown;
   return {
+    "--markdown-layout-padding-x": px(markdown.layout.paddingX),
+    "--markdown-layout-padding-y": px(markdown.layout.paddingY),
+    "--markdown-task-checkbox-placeholder-width": px(markdown.layout.taskCheckboxPlaceholderWidth),
     "--markdown-font-body": markdown.body.fontFamily,
     "--markdown-font-heading": markdown.heading.h1.fontFamily,
     "--markdown-font-code": markdown.codeBlock.fontFamily,
@@ -28,6 +31,7 @@ export function markdownToCssVariables(theme: EditorTheme): Record<string, strin
     ...listVariables("task-list", markdown.list.task),
     "--markdown-task-list-checkbox-size": px(markdown.list.task.checkboxSize),
     "--markdown-task-list-checkbox-border-width": px(markdown.list.task.checkboxBorderWidth),
+    "--markdown-task-list-checkbox-border-style": markdown.list.task.checkboxBorderStyle,
     "--markdown-task-list-checkbox-border-color": markdown.list.task.checkboxBorderColor,
     "--markdown-task-list-checkbox-background": markdown.list.task.checkboxBackground,
     "--markdown-task-list-checkbox-checked-background": markdown.list.task.checkboxCheckedBackground,
@@ -37,6 +41,7 @@ export function markdownToCssVariables(theme: EditorTheme): Record<string, strin
     "--markdown-blockquote-background": markdown.blockquote.background,
     "--markdown-blockquote-border-color": markdown.blockquote.borderColor,
     "--markdown-blockquote-border-width": px(markdown.blockquote.borderWidth),
+    "--markdown-blockquote-border-style": markdown.blockquote.borderStyle,
     "--markdown-blockquote-padding-x": px(markdown.blockquote.paddingX),
     "--markdown-blockquote-padding-y": px(markdown.blockquote.paddingY),
     "--markdown-blockquote-margin-y": px(markdown.blockquote.marginY),
@@ -59,6 +64,7 @@ export function markdownToCssVariables(theme: EditorTheme): Record<string, strin
     "--markdown-table-cell-padding-x": px(markdown.table.cellPaddingX),
     "--markdown-table-cell-padding-y": px(markdown.table.cellPaddingY),
     "--markdown-table-border-width": px(markdown.table.borderWidth),
+    "--markdown-table-border-style": markdown.table.borderStyle,
     "--markdown-table-radius": px(markdown.table.radius),
     "--markdown-table-margin-y": px(markdown.table.marginY),
     "--markdown-divider-color": markdown.divider.color,
@@ -66,6 +72,7 @@ export function markdownToCssVariables(theme: EditorTheme): Record<string, strin
     "--markdown-divider-margin-y": px(markdown.divider.marginY),
     "--markdown-image-border-color": markdown.image.borderColor,
     "--markdown-image-border-width": px(markdown.image.borderWidth),
+    "--markdown-image-border-style": markdown.image.borderStyle,
     "--markdown-image-radius": px(markdown.image.radius),
     "--markdown-image-margin-y": px(markdown.image.marginY)
   };
