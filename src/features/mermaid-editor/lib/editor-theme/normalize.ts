@@ -3,6 +3,7 @@ import type { EditorMotionTokens, EditorTheme } from "./types";
 import { isHexColor } from "./color";
 import { createDefaultMarkdownTheme, normalizeMarkdownTheme } from "./markdown-theme";
 import { normalizeEditorTypography } from "./typography";
+import { createDefaultSpecialNodeTheme, normalizeSpecialNodeTheme } from "./special-node-theme";
 
 export function resolveEditorTheme(themeId: string | undefined, customTheme: unknown): EditorTheme {
   if (themeId === "custom") return normalizeEditorTheme(customTheme, { ...DEFAULT_EDITOR_THEME, id: "custom", name: "自定义主题" });
@@ -13,7 +14,12 @@ export function normalizeEditorTheme(value: unknown, fallback: EditorTheme = DEF
   if (!value || typeof value !== "object") return fallback;
   const raw = value as Partial<EditorTheme> & Record<string, unknown>;
   const ui = normalizeColorGroup(raw.ui, fallback.ui);
+  const canvas = normalizeColorGroup(raw.canvas, fallback.canvas);
+  const canvasAppearance = normalizeNumberGroup(raw.canvasAppearance, fallback.canvasAppearance, numberRanges.canvasAppearance);
+  const chrome = normalizeNumberGroup(raw.chrome, fallback.chrome, numberRanges.chrome);
   const font = normalizeFontGroup(raw.font, fallback.font);
+  const radius = normalizeNumberGroup(raw.radius, fallback.radius, numberRanges.radius);
+  const stroke = normalizeStrokeGroup(raw.stroke, fallback.stroke);
   const markdownFallback = createDefaultMarkdownTheme({ ui, font });
   const legacyTypography = raw.typography && typeof raw.typography === "object"
     ? (raw.typography as Record<string, unknown>).markdown
@@ -27,17 +33,20 @@ export function normalizeEditorTheme(value: unknown, fallback: EditorTheme = DEF
     subgraph: raw.subgraph,
     edgeLabel: raw.edgeLabel
   });
+  const specialNodeFallback = createDefaultSpecialNodeTheme({ ui, canvas, chrome, radius, stroke });
+  const specialNode = normalizeSpecialNodeTheme(raw.specialNode, specialNodeFallback);
 
   return {
-    version: 8,
+    version: 9,
     id: "custom",
     name: typeof raw.name === "string" && raw.name.trim() ? raw.name : fallback.name,
     description: typeof raw.description === "string" ? raw.description : fallback.description,
     baseThemeId: normalizeBaseThemeId(raw.baseThemeId, fallback.baseThemeId),
     ui,
-    canvas: normalizeColorGroup(raw.canvas, fallback.canvas),
-    canvasAppearance: normalizeNumberGroup(raw.canvasAppearance, fallback.canvasAppearance, numberRanges.canvasAppearance),
-    chrome: normalizeNumberGroup(raw.chrome, fallback.chrome, numberRanges.chrome),
+    canvas,
+    canvasAppearance,
+    specialNode,
+    chrome,
     source: normalizeColorGroup(raw.source, fallback.source),
     render: normalizeColorGroup(raw.render, fallback.render),
     markdown,
@@ -46,8 +55,8 @@ export function normalizeEditorTheme(value: unknown, fallback: EditorTheme = DEF
     typography,
     font,
     space: normalizeNumberGroup(raw.space, fallback.space, numberRanges.space),
-    radius: normalizeNumberGroup(raw.radius, fallback.radius, numberRanges.radius),
-    stroke: normalizeStrokeGroup(raw.stroke, fallback.stroke),
+    radius,
+    stroke,
     icon: normalizeIconGroup(raw.icon, fallback.icon),
     canvasInteraction: normalizeNumberGroup(raw.canvasInteraction, fallback.canvasInteraction, numberRanges.canvasInteraction),
     subgraph: normalizeNumberGroup(raw.subgraph, fallback.subgraph, numberRanges.subgraph),

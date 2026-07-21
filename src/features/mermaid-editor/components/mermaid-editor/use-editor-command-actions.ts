@@ -35,6 +35,7 @@ import { workspaceViewForDocument, type WorkspaceView } from "@/features/mermaid
 import { createImageAsset } from "@/features/mermaid-editor/lib/node-assets";
 import { gsap } from "@/features/mermaid-editor/lib/use-gsap-motion";
 import type { CanvasDocument } from "@/features/mermaid-editor/lib/canvas-document";
+import type { NodeGeometrySpec } from "@/features/mermaid-editor/lib/node-geometry";
 
 type StateSetter<T> = Dispatch<SetStateAction<T>>;
 
@@ -57,6 +58,7 @@ type UseEditorCommandActionsArgs = {
   editableKind: EditableKind;
   clipboard: ClipboardPayload | null;
   resolvedMotion: RuntimeEditorMotion;
+  nodeGeometrySpec: NodeGeometrySpec;
   sourceEditBaseRef: RefObject<EditorSnapshot | null>;
   sourceEditTimerRef: RefObject<number | null>;
   lastWindowFocusAtRef: RefObject<number>;
@@ -100,6 +102,7 @@ export function useEditorCommandActions(args: UseEditorCommandActionsArgs) {
     mode,
     editableKind,
     resolvedMotion,
+    nodeGeometrySpec,
     sourceEditBaseRef,
     sourceEditTimerRef,
     lastWindowFocusAtRef,
@@ -160,6 +163,7 @@ export function useEditorCommandActions(args: UseEditorCommandActionsArgs) {
     workspaceView,
     viewFilters,
     isCanvasEditable,
+    nodeGeometrySpec,
     sourceEditBaseRef,
     sourceEditTimerRef,
     setDocumentKind,

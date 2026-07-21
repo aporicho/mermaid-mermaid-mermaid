@@ -60,6 +60,7 @@ type EditorFloatingChromeProps = {
   onResetViewFilters: () => void;
   onOpenWorkspacePanel: (panelId: ChromeWorkspacePanelId) => void;
   onAddNode: () => void;
+  onAddTableNode: () => void;
   onAddImageNode: () => void | Promise<unknown>;
   onAddMarkdownDocument: () => void;
   onCreateGroup: () => void;
@@ -116,6 +117,7 @@ export function EditorFloatingChrome({
   onResetViewFilters,
   onOpenWorkspacePanel,
   onAddNode,
+  onAddTableNode,
   onAddImageNode,
   onAddMarkdownDocument,
   onCreateGroup,
@@ -231,6 +233,7 @@ export function EditorFloatingChrome({
           documentKind={documentKind}
           onOpenChange={onSecondaryActionsOpenChange}
           onAddNode={onAddNode}
+          onAddTableNode={onAddTableNode}
           onAddImageNode={() => void onAddImageNode()}
           onAddMarkdownDocument={onAddMarkdownDocument}
           onCreateGroup={onCreateGroup}

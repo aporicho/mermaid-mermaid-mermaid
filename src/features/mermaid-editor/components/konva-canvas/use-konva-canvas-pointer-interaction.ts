@@ -202,7 +202,7 @@ export function useKonvaCanvasPointerInteraction({
       hitTarget: hit,
       modifiers,
       gestureState: interactionState.kind,
-      editing: inlineEdit ? { kind: inlineEdit.type, id: inlineEdit.id, draftText: inlineEdit.value } : null
+      editing: inlineEdit ? { kind: inlineEdit.type === "tableCell" || inlineEdit.type === "tableHeader" ? "node" : inlineEdit.type, id: inlineEdit.id, draftText: inlineEdit.value } : null
     });
   }
 

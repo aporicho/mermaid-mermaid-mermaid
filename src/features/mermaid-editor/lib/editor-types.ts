@@ -31,7 +31,37 @@ export type CanvasNode = {
   asset?: CanvasNodeAsset;
   action?: CanvasNodeAction;
   preview?: CanvasNodePreview;
+  content?: CanvasNodeContent;
+  csvStatus?: "loading" | "error";
+  tablePresentation?: CanvasTablePresentation;
 };
+
+export type CanvasTableAlign = "left" | "center" | "right";
+
+export type CanvasTableColumn = {
+  id: string;
+  label: string;
+  width: number;
+  align: CanvasTableAlign;
+};
+
+export type CanvasTableRow = {
+  id: string;
+  cells: Record<string, string>;
+};
+
+export type CanvasTableContent = {
+  kind: "table";
+  version: 1;
+  columns: CanvasTableColumn[];
+  rows: CanvasTableRow[];
+};
+
+export type CanvasTablePresentation = {
+  columns: Array<Pick<CanvasTableColumn, "width" | "align">>;
+};
+
+export type CanvasNodeContent = CanvasTableContent;
 
 export type ImageLabelPosition = "top" | "bottom";
 
@@ -167,6 +197,7 @@ export type CanvasLayoutNode = {
   x: number;
   y: number;
   fill: string;
+  table?: CanvasTablePresentation;
 };
 
 export type CanvasLayoutEdge = {

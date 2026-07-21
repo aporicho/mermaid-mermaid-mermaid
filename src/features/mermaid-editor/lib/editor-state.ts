@@ -22,11 +22,14 @@ import {
 } from "@/features/mermaid-editor/lib/editor-types";
 import {
   DEFAULT_EDITOR_THEME,
+  compileEditorTheme,
   isBuiltInThemeId,
   normalizeEditorTheme,
+  resolveEditorTheme,
   type EditorTheme,
   type EditorThemeId
 } from "@/features/mermaid-editor/lib/editor-theme";
+import { themedNodeGeometrySpec } from "@/features/mermaid-editor/lib/node-geometry";
 import { DEFAULT_EDITOR_PREFERENCES, normalizeEditorPreferences, type EditorPreferences } from "@/features/mermaid-editor/lib/editor-preferences";
 import { shouldCollapseExplorerOnStartup } from "@/features/mermaid-editor/lib/explorer-state";
 import {
@@ -263,9 +266,11 @@ export function loadInitialState() {
     const viewport = stored.viewport || layout?.viewport || fallbackViewport;
     const edgeRouting = stored.edgeRouting || edgeRoutingFromLayout(layout);
     const layoutMode = stored.layoutMode || layoutModeFromLayout(layout);
-    const resolvedGraph = loaded.editableKind === "flowchart" && layoutMode === "auto" ? applyDagreAutoLayout(graph) : graph;
     const themeId = normalizeThemeId(stored.themeId);
     const customTheme = stored.customTheme ? normalizeEditorTheme(stored.customTheme) : null;
+    const resolvedGraph = loaded.editableKind === "flowchart" && layoutMode === "auto"
+      ? applyDagreAutoLayout(graph, { spec: nodeGeometrySpecForTheme(themeId, customTheme) })
+      : graph;
     const viewFilters = normalizeViewFilters(stored.viewFilters, { showGrid: stored.showGrid, showEdges: stored.showEdges });
     const preferences = normalizeEditorPreferences(stored.preferences);
     const projectWorkspace = normalizeProjectWorkspace(stored.projectWorkspace);
@@ -356,4 +361,9 @@ export function serializableRuntimeFileRef(file: RuntimeFileRef | null): Runtime
 
 export function normalizeThemeId(value: unknown): EditorThemeId {
   return isBuiltInThemeId(value) || value === "custom" ? value : DEFAULT_EDITOR_THEME.id;
+}
+
+export function nodeGeometrySpecForTheme(themeId: EditorThemeId, customTheme: EditorTheme | null) {
+  const compiled = compileEditorTheme(resolveEditorTheme(themeId, customTheme));
+  return themedNodeGeometrySpec(compiled.geometry.node, compiled.specialNode, compiled.typography.tableNode.cell);
 }

@@ -1,0 +1,396 @@
+{
+  "kind": "editor",
+  "id": "claude-cream",
+  "name": "Claude 奶油纸",
+  "description": "基于 Claude Cream 的中文字体适配：温暖纸面、无衬线正文、衬线标题、陶土强调和宽松阅读节奏。",
+  "mode": "light",
+  "order": 50,
+  "source": {
+    "id": "tttnny",
+    "name": "Claude Cream",
+    "repository": "https://github.com/tttnny/obsidian-claude-cream",
+    "path": "theme.css",
+    "url": "https://raw.githubusercontent.com/tttnny/obsidian-claude-cream/1d0a01625994174691f2cb69d0b28d0faf75f8d2/theme.css",
+    "commit": "1d0a01625994174691f2cb69d0b28d0faf75f8d2",
+    "license": "MIT",
+    "author": "lynn",
+    "upstream": "https://community.obsidian.md/themes/claude-cream"
+  },
+  "theme": {
+    "ui": {
+      "background": "#faf9f5",
+      "foreground": "#141413",
+      "icon": "#73726c",
+      "card": "#fcfbf8",
+      "popover": "#fcfbf8",
+      "primary": "#a94f2d",
+      "secondary": "#f5f4ed",
+      "muted": "#f0eee6",
+      "mutedForeground": "#3d3d3a",
+      "accent": "#e8e6dc",
+      "accentForeground": "#a94f2d",
+      "destructive": "#b45f51",
+      "border": "#e4e3df"
+    },
+    "canvas": {
+      "surface": "#fcfbf8",
+      "nodeStroke": "#b8b6ae",
+      "nodeText": "#141413",
+      "edge": "#73726c",
+      "edgeText": "#3d3d3a",
+      "labelStroke": "#e4e3df",
+      "connectionInvalid": "#b45f51",
+      "previewInvalid": "#8f8d85"
+    },
+    "canvasAppearance": {
+      "nodeFillSaturation": 0.18,
+      "nodeFillLuminanceSteps": 12,
+      "previewShadowOpacity": 0.08
+    },
+    "chrome": {
+      "borderWidth": 0.5,
+      "dividerWidth": 0.5,
+      "focusRingWidth": 1,
+      "surfaceOpacity": 0.98,
+      "backdropBlur": 10,
+      "shadowOpacity": 0.08
+    },
+    "source": {
+      "line": "#e4e3df"
+    },
+    "render": {
+      "background": "#faf9f5",
+      "gridDot": "#73726c"
+    },
+    "markdown": {
+      "body": {
+        "fontFamily": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "fontSize": 16,
+        "fontWeight": 400,
+        "lineHeight": 26.4,
+        "letterSpacing": 0,
+        "color": "#141413",
+        "paragraphSpacing": 12
+      },
+      "heading": {
+        "h1": {
+          "fontFamily": "\"上图东观体\", \"Noto Sans SC Variable\", \"Noto Sans SC\", system-ui, sans-serif",
+          "fontSize": 24,
+          "fontWeight": 700,
+          "lineHeight": 27.2,
+          "letterSpacing": 0,
+          "color": "#141413",
+          "marginTop": 24,
+          "marginBottom": 8
+        },
+        "h2": {
+          "fontFamily": "\"上图东观体\", \"Noto Sans SC Variable\", \"Noto Sans SC\", system-ui, sans-serif",
+          "fontSize": 20,
+          "fontWeight": 700,
+          "lineHeight": 26.4,
+          "letterSpacing": 0,
+          "color": "#141413",
+          "marginTop": 24,
+          "marginBottom": 8
+        },
+        "h3": {
+          "fontFamily": "\"上图东观体\", \"Noto Sans SC Variable\", \"Noto Sans SC\", system-ui, sans-serif",
+          "fontSize": 18.4,
+          "fontWeight": 700,
+          "lineHeight": 24,
+          "letterSpacing": 0,
+          "color": "#141413",
+          "marginTop": 20,
+          "marginBottom": 4
+        },
+        "h4": {
+          "fontFamily": "\"上图东观体\", \"Noto Sans SC Variable\", \"Noto Sans SC\", system-ui, sans-serif",
+          "fontSize": 16,
+          "fontWeight": 700,
+          "lineHeight": 24,
+          "letterSpacing": 0,
+          "color": "#141413",
+          "marginTop": 20,
+          "marginBottom": 4
+        },
+        "h5": {
+          "fontFamily": "\"上图东观体\", \"Noto Sans SC Variable\", \"Noto Sans SC\", system-ui, sans-serif",
+          "fontSize": 14,
+          "fontWeight": 600,
+          "lineHeight": 20,
+          "letterSpacing": 0,
+          "color": "#141413",
+          "marginTop": 20,
+          "marginBottom": 4
+        },
+        "h6": {
+          "fontFamily": "\"上图东观体\", \"Noto Sans SC Variable\", \"Noto Sans SC\", system-ui, sans-serif",
+          "fontSize": 14,
+          "fontWeight": 600,
+          "lineHeight": 20,
+          "letterSpacing": 0,
+          "color": "#141413",
+          "marginTop": 20,
+          "marginBottom": 4
+        }
+      },
+      "link": {
+        "fontFamily": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "fontSize": 16,
+        "fontWeight": 400,
+        "lineHeight": 26.4,
+        "letterSpacing": 0,
+        "color": "#d97757",
+        "hoverColor": "#a94f2d",
+        "underlineThickness": 0.5,
+        "underlineOffset": 4
+      },
+      "emphasis": {
+        "fontFamily": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "fontSize": 16,
+        "fontWeight": 400,
+        "lineHeight": 26.4,
+        "letterSpacing": 0,
+        "color": "#141413"
+      },
+      "strong": {
+        "fontFamily": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "fontSize": 16,
+        "fontWeight": 700,
+        "lineHeight": 26.4,
+        "letterSpacing": 0,
+        "color": "#141413"
+      },
+      "strikethrough": {
+        "fontFamily": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "fontSize": 16,
+        "fontWeight": 400,
+        "lineHeight": 26.4,
+        "letterSpacing": 0,
+        "color": "#73726c",
+        "decorationColor": "#73726c",
+        "decorationThickness": 0.5
+      },
+      "list": {
+        "unordered": {
+          "fontFamily": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+          "fontSize": 16,
+          "fontWeight": 400,
+          "lineHeight": 26.4,
+          "letterSpacing": 0,
+          "color": "#141413",
+          "markerColor": "#3d3d3a",
+          "indent": 16,
+          "itemSpacing": 4,
+          "blockSpacing": 12
+        },
+        "ordered": {
+          "fontFamily": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+          "fontSize": 16,
+          "fontWeight": 400,
+          "lineHeight": 26.4,
+          "letterSpacing": 0,
+          "color": "#141413",
+          "markerColor": "#3d3d3a",
+          "indent": 16,
+          "itemSpacing": 4,
+          "blockSpacing": 12
+        },
+        "task": {
+          "fontFamily": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+          "fontSize": 16,
+          "fontWeight": 400,
+          "lineHeight": 26.4,
+          "letterSpacing": 0,
+          "color": "#141413",
+          "indent": 16,
+          "itemSpacing": 4,
+          "blockSpacing": 12,
+          "checkboxSize": 13,
+          "checkboxBorderWidth": 1,
+          "checkboxBorderColor": "#d0cfce",
+          "checkboxBackground": "#f7f6f5",
+          "checkboxCheckedBackground": "#d0d0cf",
+          "checkboxCheckColor": "#faf9f5",
+          "checkboxRadius": 2
+        }
+      },
+      "blockquote": {
+        "fontFamily": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "fontSize": 16,
+        "fontWeight": 400,
+        "lineHeight": 26.4,
+        "letterSpacing": 0,
+        "color": "#3d3d3a",
+        "background": "#faf9f5",
+        "borderColor": "#e4e3df",
+        "borderWidth": 4,
+        "paddingX": 16,
+        "paddingY": 3.2,
+        "marginY": 12,
+        "radius": 0
+      },
+      "inlineCode": {
+        "fontFamily": "Maple Mono, SF Mono, Cascadia Code, JetBrains Mono, Noto Sans SC Variable, ui-monospace, monospace",
+        "fontSize": 14.4,
+        "fontWeight": 400,
+        "lineHeight": 20,
+        "letterSpacing": 0,
+        "color": "#8a2424",
+        "background": "#f1f0ec",
+        "paddingX": 4,
+        "paddingY": 1,
+        "radius": 4
+      },
+      "codeBlock": {
+        "fontFamily": "Maple Mono, SF Mono, Cascadia Code, JetBrains Mono, Noto Sans SC Variable, ui-monospace, monospace",
+        "fontSize": 14,
+        "fontWeight": 400,
+        "lineHeight": 22.75,
+        "letterSpacing": 0,
+        "color": "#141413",
+        "background": "#f1f0ec",
+        "paddingX": 16,
+        "paddingY": 16,
+        "marginY": 16,
+        "radius": 8
+      },
+      "table": {
+        "fontFamily": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "fontSize": 16,
+        "fontWeight": 400,
+        "lineHeight": 26.4,
+        "letterSpacing": 0,
+        "color": "#141413",
+        "borderColor": "#e4e3df",
+        "headerBackground": "#faf9f5",
+        "bodyBackground": "#faf9f5",
+        "cellPaddingX": 12,
+        "cellPaddingY": 9.6,
+        "borderWidth": 0.5,
+        "radius": 0,
+        "marginY": 20
+      },
+      "divider": {
+        "color": "#e4e3df",
+        "thickness": 0.5,
+        "marginY": 24
+      },
+      "image": {
+        "borderColor": "#e4e3df",
+        "borderWidth": 0,
+        "radius": 8,
+        "marginY": 12
+      }
+    },
+    "font": {
+      "familySans": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+      "familyMono": "Maple Mono, SF Mono, Cascadia Code, JetBrains Mono, Noto Sans SC Variable, ui-monospace, monospace"
+    },
+    "typography": {
+      "interface": {
+        "body": { "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif" },
+        "heading": { "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif" },
+        "control": { "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif" },
+        "navigation": { "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif" },
+        "menu": { "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif" },
+        "tooltip": { "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif" },
+        "metadata": { "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif" },
+        "status": { "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif" },
+        "technical": { "family": "Maple Mono, SF Mono, Cascadia Code, JetBrains Mono, Noto Sans SC Variable, ui-monospace, monospace" }
+      },
+      "canvas": {
+        "node": { "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif" },
+        "nodeEditor": { "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif" },
+        "edgeLabel": { "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif" },
+        "edgeEditor": { "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif" },
+        "subgraphTitle": { "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif" },
+        "actionBadge": { "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif" }
+      },
+      "linkCard": {
+        "brand": { "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif" },
+        "provider": { "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif" },
+        "title": { "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif" },
+        "titleEditor": { "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif" }
+      },
+      "markdownCard": {
+        "badge": { "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif" },
+        "title": { "family": "\"上图东观体\", \"Noto Sans SC Variable\", \"Noto Sans SC\", system-ui, sans-serif" },
+        "path": { "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif" },
+        "excerpt": { "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif" },
+        "titleEditor": { "family": "\"上图东观体\", \"Noto Sans SC Variable\", \"Noto Sans SC\", system-ui, sans-serif" }
+      },
+      "mermaid": {
+        "general": { "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif" },
+        "diagramTitle": { "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif" },
+        "primaryLabel": { "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif" },
+        "relationLabel": { "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif" },
+        "groupTitle": { "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif" },
+        "note": { "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif" }
+      },
+      "canvasDocument": {
+        "shape": { "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif" },
+        "shapeEditor": { "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif" },
+        "card": { "family": "\"上图东观体\", \"Noto Sans SC Variable\", \"Noto Sans SC\", system-ui, sans-serif" },
+        "cardEditor": { "family": "\"上图东观体\", \"Noto Sans SC Variable\", \"Noto Sans SC\", system-ui, sans-serif" },
+        "freeText": { "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif" },
+        "freeTextEditor": { "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif" },
+        "connector": { "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif" },
+        "connectorEditor": { "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif" }
+      },
+      "source": {
+        "editor": { "family": "Maple Mono, SF Mono, Cascadia Code, JetBrains Mono, Noto Sans SC Variable, ui-monospace, monospace" },
+        "diagnosticSummary": { "family": "Maple Mono, SF Mono, Cascadia Code, JetBrains Mono, Noto Sans SC Variable, ui-monospace, monospace" },
+        "diagnosticRaw": { "family": "Maple Mono, SF Mono, Cascadia Code, JetBrains Mono, Noto Sans SC Variable, ui-monospace, monospace" }
+      },
+      "terminal": {
+        "content": { "family": "Maple Mono, SF Mono, Cascadia Code, JetBrains Mono, Noto Sans SC Variable, ui-monospace, monospace" },
+        "heading": { "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif" },
+        "path": { "family": "Maple Mono, SF Mono, Cascadia Code, JetBrains Mono, Noto Sans SC Variable, ui-monospace, monospace" }
+      }
+    },
+    "radius": {
+      "app": 12,
+      "controlSm": 4,
+      "controlMd": 6,
+      "controlLg": 8,
+      "canvasNode": 8,
+      "edgeLabel": 4,
+      "polygonCorner": 6,
+      "subgraphTitle": 6
+    },
+    "stroke": {
+      "node": 1,
+      "nodeEmphasized": 1.5,
+      "edge": 1,
+      "edgeThick": 1.5,
+      "overlay": 1
+    },
+    "ansi": {
+      "black": "#141413",
+      "red": "#a94f2d",
+      "green": "#688a5d",
+      "yellow": "#ad7837",
+      "blue": "#4a6f91",
+      "magenta": "#8a5f7d",
+      "cyan": "#4f7d7a",
+      "white": "#686762",
+      "brightBlack": "#73726c",
+      "brightRed": "#d97757",
+      "brightGreen": "#7f9f73",
+      "brightYellow": "#c7924e",
+      "brightBlue": "#6485a3",
+      "brightMagenta": "#a27694",
+      "brightCyan": "#699591",
+      "brightWhite": "#3d3d3a"
+    },
+    "terminal": {
+      "background": "#fcfbf8",
+      "foreground": "#141413",
+      "cursor": "#a94f2d",
+      "cursorAccent": "#faf9f5",
+      "selectionBackground": "#f1d9d0",
+      "selectionForeground": "#141413"
+    }
+  }
+}

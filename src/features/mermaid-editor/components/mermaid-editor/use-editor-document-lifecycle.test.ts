@@ -27,7 +27,7 @@ import type {
   ViewportState
 } from "@/features/mermaid-editor/lib/editor-types";
 import { DEFAULT_EDGE_ROUTING, DEFAULT_LAYOUT_MODE } from "@/features/mermaid-editor/lib/editor-types";
-import type { EditorTheme, EditorThemeId } from "@/features/mermaid-editor/lib/editor-theme";
+import { DEFAULT_EDITOR_THEME, type EditorTheme, type EditorThemeId } from "@/features/mermaid-editor/lib/editor-theme";
 import type { ProjectWorkspace } from "@/features/mermaid-editor/lib/project-workspace";
 import { EMPTY_EXPLORER_TREE_STATE, type StoredExplorerTreeState } from "@/features/mermaid-editor/lib/explorer-tree-state";
 import { DEFAULT_VIEW_FILTERS, type ViewFilters } from "@/features/mermaid-editor/lib/view-filters";
@@ -131,6 +131,7 @@ function createLifecycleHarness() {
     setProjectWorkspace: setState("projectWorkspace"),
     setExplorerTreeState: setState("explorerTreeState"),
     setLastSavedDocument: setState("lastSavedDocument"),
+    beginDocumentSession: () => {},
     setFileWorkflowError: setState("fileWorkflowError"),
     setThemeId: setState("themeId"),
     setCustomTheme: setState("customTheme"),
@@ -180,6 +181,35 @@ flowchart LR
     expect(state.themeId).toBe("warm-paper");
     expect(state.customTheme).toBeNull();
     expect(state.lastSavedDocument).not.toContain('"theme"');
+  });
+
+  it("restores automatic layout with the stored theme geometry", () => {
+    const { lifecycle, state } = createLifecycleHarness();
+    const customTheme: EditorTheme = structuredClone(DEFAULT_EDITOR_THEME);
+    customTheme.id = "custom";
+    customTheme.name = "Large cards";
+    customTheme.specialNode.markdownDocument.height = 400;
+    const source = `flowchart TD
+  T[Notes]
+  B[Below]
+  T --> B
+  click T "notes.md" "Open notes"`;
+
+    lifecycle.applyStoredEditorState({
+      documentKind: "mermaid",
+      source,
+      viewport: { x: 160, y: 90, scale: 1 },
+      leftCollapsed: false,
+      rightCollapsed: false,
+      layoutMode: "auto",
+      themeId: "custom",
+      customTheme
+    });
+
+    const card = state.graph.nodes.find((node) => node.id === "T")!;
+    const below = state.graph.nodes.find((node) => node.id === "B")!;
+    expect(state.themeId).toBe("custom");
+    expect(below.y - card.y).toBeGreaterThan(500);
   });
 
   it("opens Markdown documents into the Markdown workspace", () => {

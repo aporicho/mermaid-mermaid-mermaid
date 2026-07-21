@@ -429,12 +429,14 @@ describe("interaction architecture contract", () => {
   it("keeps window and node action logic outside the MermaidEditor composition file", () => {
     const editor = readProjectFile("src/features/mermaid-editor/components/mermaid-editor.tsx");
     const actions = readProjectFile("src/features/mermaid-editor/components/mermaid-editor/use-editor-window-actions.ts");
+    const desktopEvents = readProjectFile("src/features/mermaid-editor/components/mermaid-editor/use-editor-desktop-events.ts");
     const browserSurface = readProjectFile("src/features/mermaid-editor/components/embedded-browser-surface.tsx");
 
     expect(editor).toContain("useEditorWindowActions");
     expect(editor).not.toContain("useEditorEmbeddedBrowserHandles");
     expect(actions).toContain("openBrowserToolWindow");
     expect(actions).not.toContain("closeEmbeddedBrowser(panelId)");
+    expect(desktopEvents).not.toContain("canCloseWindowRef.current || !isDirtyRef.current");
     expect(browserSurface).toContain("disposeRuntimeEmbeddedBrowserHandle");
     expect(editor).not.toContain("function openProjectMarkdownWindow(");
     expect(editor).not.toContain("function openBrowserWindow(");
@@ -505,9 +507,10 @@ describe("interaction architecture contract", () => {
     expect(canvas).not.toContain("exitingNodes.map");
   });
 
-  it("keeps Mermaid image nodes rendered as pure rectangular image surfaces", () => {
+  it("keeps Mermaid image nodes rendered as token-driven image surfaces", () => {
     const nodeLayer = readProjectFile("src/features/mermaid-editor/components/konva-canvas/node-layer.tsx");
     const nodeImage = readProjectFile("src/features/mermaid-editor/components/konva-canvas/node-image.tsx");
+    const nodeImageSurface = readProjectFile("src/features/mermaid-editor/components/konva-canvas/node-image-surface.tsx");
     const markdownCard = readProjectFile("src/features/mermaid-editor/components/konva-canvas/markdown-document-card.tsx");
     const nodeGeometry = readProjectFile("src/features/mermaid-editor/lib/node-geometry.ts");
 
@@ -523,13 +526,16 @@ describe("interaction architecture contract", () => {
     expect(nodeImage).not.toContain("cornerRadius");
     expect(nodeImage).not.toContain("dash=");
     expect(nodeImage).not.toContain("stroke");
-    expect(nodeLayer).toContain("!isImageNode && !isLinkCardNode ? (");
+    expect(nodeLayer).toContain("isStandardNode ? (");
+    expect(nodeLayer).toContain("isTableNode && geometry.table ? (");
     expect(nodeLayer).toContain("<CanvasNodeLinkCard");
     expect(nodeLayer).toContain("fill=\"rgba(0,0,0,0.001)\"");
     expect(nodeLayer).toContain("strokeEnabled={false}");
-    expect(nodeLayer).toContain("cornerRadius={0}");
+    expect(nodeLayer).toContain("<CanvasNodeImageSurface");
+    expect(nodeImageSurface).toContain("cornerRadius={image.radius}");
+    expect(nodeImageSurface).toContain("roundedRectClip");
     expect(nodeLayer).toContain("imageInteractionFrameVisible");
-    expect(nodeLayer).toContain("!isImageNode && !isLinkCardNode && normalizeNodeAction");
+    expect(nodeLayer).toContain("isStandardNode && normalizeNodeAction");
     expect(markdownCard).not.toContain("<Group listening={false}>");
   });
 
@@ -653,6 +659,8 @@ describe("interaction architecture contract", () => {
     const arrangementToolbar = readProjectFile("src/features/mermaid-editor/components/konva-canvas/selection-arrangement-toolbar.tsx");
     const nodeDialog = readProjectFile("src/features/mermaid-editor/components/node-action-editor-dialog.tsx");
     const markdownDialog = readProjectFile("src/features/mermaid-editor/components/markdown-document-dialog.tsx");
+    const csvDialog = readProjectFile("src/features/mermaid-editor/components/csv-table-dialog.tsx");
+    const projectDocumentDialog = readProjectFile("src/features/mermaid-editor/components/project-document-node-dialog.tsx");
     const imageDialog = readProjectFile("src/features/mermaid-editor/components/canvas-document-editor/image-url-dialog.tsx");
     const unsavedDialog = readProjectFile("src/features/mermaid-editor/components/file-workflow-feedback.tsx");
 
@@ -664,8 +672,12 @@ describe("interaction architecture contract", () => {
     }
     expect(floatingButtons).toContain("EditorIconButton");
     expect(arrangementToolbar).toContain("EditorToolbar");
-    for (const dialog of [nodeDialog, markdownDialog, imageDialog, unsavedDialog]) {
+    for (const dialog of [nodeDialog, projectDocumentDialog, imageDialog, unsavedDialog]) {
       expect(dialog).toContain("EditorDialog");
+      expect(dialog).not.toContain('className="fixed inset-0');
+    }
+    for (const dialog of [markdownDialog, csvDialog]) {
+      expect(dialog).toContain("ProjectDocumentNodeDialog");
       expect(dialog).not.toContain('className="fixed inset-0');
     }
   });

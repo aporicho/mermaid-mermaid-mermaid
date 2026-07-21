@@ -1,10 +1,9 @@
 import { useEffect } from "react";
 import { Group, Rect, Text } from "react-konva";
 
-import type { CanvasVisualTokens } from "@/features/mermaid-editor/lib/canvas-visual-state";
 import type { CanvasNode } from "@/features/mermaid-editor/lib/editor-types";
 import { markdownDocumentAction, type MarkdownDocumentPreview } from "@/features/mermaid-editor/lib/markdown-document";
-import type { EditorTypographyTokens } from "@/features/mermaid-editor/lib/editor-theme";
+import type { EditorTypographyTokens, SpecialNodeThemeTokens } from "@/features/mermaid-editor/lib/editor-theme";
 
 export function MarkdownDocumentCard({
   node,
@@ -12,9 +11,8 @@ export function MarkdownDocumentCard({
   height,
   stroke,
   strokeWidth,
-  textFill,
-  visualTokens,
   typography,
+  specialNode,
   preview,
   onRequestPreview
 }: {
@@ -23,9 +21,8 @@ export function MarkdownDocumentCard({
   height: number;
   stroke: string;
   strokeWidth: number;
-  textFill: string;
-  visualTokens: CanvasVisualTokens;
   typography: EditorTypographyTokens["markdownCard"];
+  specialNode: SpecialNodeThemeTokens;
   preview?: MarkdownDocumentPreview;
   onRequestPreview?: (node: CanvasNode) => void;
 }) {
@@ -38,31 +35,44 @@ export function MarkdownDocumentCard({
   const path = preview?.path || action?.path || "";
   const excerpt = previewText(preview);
   const error = preview?.status === "missing" || preview?.status === "error" || preview?.status === "unsupported";
+  const tokens = specialNode.markdownDocument;
+  const common = specialNode.common;
+  const padding = tokens.contentPadding;
+  const titleX = padding + tokens.badgeSize + tokens.titleGap;
+  const headerTextWidth = Math.max(0, width - titleX - padding);
+  const pathY = padding + typography.title.lineHeight + tokens.pathGap;
+  const headerBottom = Math.max(padding + tokens.badgeSize, pathY + typography.path.lineHeight);
+  const separatorY = headerBottom + tokens.excerptGap;
+  const excerptY = separatorY + tokens.separatorWidth + tokens.excerptGap;
 
   return (
     <Group>
       <Rect
         width={width}
         height={height}
-        fill={visualTokens.colors.surface}
+        fill={common.background}
         stroke={stroke}
         strokeWidth={strokeWidth}
-        cornerRadius={visualTokens.node.cornerRadius}
+        cornerRadius={common.radius}
+        shadowColor={common.shadowColor}
+        shadowBlur={common.shadowBlur}
+        shadowOpacity={common.shadowOpacity}
+        shadowOffsetY={common.shadowOffsetY}
       />
       <Rect
-        x={12}
-        y={12}
-        width={38}
-        height={38}
-        fill={error ? visualTokens.colors.previewInvalid : visualTokens.colors.accent}
-        opacity={error ? 0.2 : 0.12}
-        cornerRadius={visualTokens.shape.fallbackCornerRadius}
+        x={padding}
+        y={padding}
+        width={tokens.badgeSize}
+        height={tokens.badgeSize}
+        fill={error ? tokens.badgeErrorBackground : tokens.badgeBackground}
+        opacity={error ? tokens.badgeErrorOpacity : tokens.badgeOpacity}
+        cornerRadius={tokens.badgeRadius}
       />
       <Text
-        x={12}
-        y={12}
-        width={38}
-        height={38}
+        x={padding}
+        y={padding}
+        width={tokens.badgeSize}
+        height={tokens.badgeSize}
         text="MD"
         align="center"
         verticalAlign="middle"
@@ -71,12 +81,12 @@ export function MarkdownDocumentCard({
         fontFamily={typography.badge.family}
         lineHeight={typography.badge.lineHeight / typography.badge.fontSize}
         letterSpacing={typography.badge.letterSpacing}
-        fill={error ? visualTokens.colors.previewInvalid : visualTokens.colors.accent}
+        fill={error ? tokens.badgeErrorColor : tokens.badgeColor}
       />
       <Text
-        x={60}
-        y={12}
-        width={width - 72}
+        x={titleX}
+        y={padding}
+        width={headerTextWidth}
         height={22}
         text={node.label || "Markdown 文档"}
         fontSize={typography.title.fontSize}
@@ -84,13 +94,13 @@ export function MarkdownDocumentCard({
         fontFamily={typography.title.family}
         lineHeight={typography.title.lineHeight / typography.title.fontSize}
         letterSpacing={typography.title.letterSpacing}
-        fill={textFill}
+        fill={common.textColor}
         ellipsis
       />
       <Text
-        x={60}
-        y={35}
-        width={width - 72}
+        x={titleX}
+        y={pathY}
+        width={headerTextWidth}
         height={18}
         text={path}
         fontSize={typography.path.fontSize}
@@ -98,24 +108,24 @@ export function MarkdownDocumentCard({
         fontFamily={typography.path.family}
         lineHeight={typography.path.lineHeight / typography.path.fontSize}
         letterSpacing={typography.path.letterSpacing}
-        fill={error ? visualTokens.colors.previewInvalid : textFill}
-        opacity={0.62}
+        fill={error ? tokens.badgeErrorColor : common.mutedTextColor}
+        opacity={tokens.pathOpacity}
         ellipsis
       />
-      <Rect x={12} y={62} width={width - 24} height={1} fill={stroke} opacity={0.18} />
+      <Rect x={padding} y={separatorY} width={width - padding * 2} height={tokens.separatorWidth} fill={tokens.separatorColor} opacity={tokens.separatorOpacity} />
       <Text
-        x={12}
-        y={73}
-        width={width - 24}
-        height={height - 84}
+        x={padding}
+        y={excerptY}
+        width={width - padding * 2}
+        height={Math.max(0, height - excerptY - padding)}
         text={excerpt}
         fontSize={typography.excerpt.fontSize}
         fontStyle={String(typography.excerpt.fontWeight)}
         lineHeight={typography.excerpt.lineHeight / typography.excerpt.fontSize}
         fontFamily={typography.excerpt.family}
         letterSpacing={typography.excerpt.letterSpacing}
-        fill={error ? visualTokens.colors.previewInvalid : textFill}
-        opacity={preview?.status === "ready" ? 0.74 : 0.56}
+        fill={error ? tokens.badgeErrorColor : common.textColor}
+        opacity={preview?.status === "ready" ? tokens.excerptOpacity : tokens.placeholderOpacity}
         wrap="word"
         ellipsis
       />

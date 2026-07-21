@@ -35,6 +35,15 @@ export type {
   RuntimeTerminalSession,
   RuntimeTerminalShellOption
 } from "@/features/mermaid-editor/lib/editor-runtime/types";
+export type {
+  RuntimeCreateProjectTextFileResult,
+  RuntimeCsvFileOperations,
+  RuntimeCsvFileSnapshot,
+  RuntimeCsvFileTarget,
+  RuntimeReadCsvFileResult,
+  RuntimeWriteCsvFileResult
+} from "@/features/mermaid-editor/lib/editor-runtime/csv-file-types";
+export { MAX_RUNTIME_CSV_FILE_BYTES } from "@/features/mermaid-editor/lib/editor-runtime/csv-file-types";
 
 export function createEditorRuntime(): EditorRuntime {
   if (isElectronRuntime()) return createElectronRuntime();

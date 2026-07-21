@@ -22,6 +22,7 @@ import type {
 } from "@/features/mermaid-editor/lib/editor-runtime/types";
 import { runtimeFileRefFromPath } from "@/features/mermaid-editor/lib/file-workflow";
 import type { ProjectWorkspace } from "@/features/mermaid-editor/lib/project-workspace";
+import { createUnsupportedCsvFileOperations } from "@/features/mermaid-editor/lib/editor-runtime/unsupported-csv-file";
 
 type DesktopOpenedFile = {
   name: string;
@@ -29,7 +30,6 @@ type DesktopOpenedFile = {
   text: string;
 };
 type DesktopSavedFile = { name: string; path: string };
-
 type DesktopPendingFile = {
   name: string;
   path: string;
@@ -40,7 +40,6 @@ type DesktopImageAsset = {
   path: string;
   copied?: boolean;
 };
-
 type AiNextCommandResponse = {
   ok: boolean;
   command?: AiEditorCommand;
@@ -48,6 +47,7 @@ type AiNextCommandResponse = {
 };
 export function createDesktopRuntime(): EditorRuntime {
   return {
+    ...createUnsupportedCsvFileOperations("旧 Tauri 桌面壳"),
     kind: "desktop",
     host: "tauri",
     openExternalUrl(url) {

@@ -13,6 +13,7 @@ import {
   Refresh as RefreshCw,
   SidebarExpand as PanelLeftOpen,
   SquareCursor as SquareDashedMousePointer,
+  Table,
   Text,
   Translate
 } from "iconoir-react/regular";
@@ -39,6 +40,7 @@ export function SecondaryActionsMenu({
   documentKind,
   onOpenChange,
   onAddNode,
+  onAddTableNode,
   onAddImageNode,
   onAddMarkdownDocument,
   onCreateGroup,
@@ -61,6 +63,7 @@ export function SecondaryActionsMenu({
   documentKind: DocumentKind;
   onOpenChange: (open: boolean) => void;
   onAddNode: () => void;
+  onAddTableNode: () => void;
   onAddImageNode: () => void;
   onAddMarkdownDocument: () => void;
   onCreateGroup: () => void;
@@ -106,6 +109,13 @@ export function SecondaryActionsMenu({
             label="添加节点"
             onClick={() => runAndClose(onAddNode)}
             disabled={!editable}
+          />
+          <EditorMenuItem
+            data-floating-action-item
+            icon={<Table />}
+            label="添加 CSV 表格"
+            onClick={() => runAndClose(onAddTableNode)}
+            disabled={!editable || documentKind !== "mermaid"}
           />
           <EditorMenuItem
             data-floating-action-item

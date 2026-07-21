@@ -19,6 +19,8 @@ export type CanvasRenderScopeInlineEdit =
   | { type: "node"; id: string }
   | { type: "subgraph"; id: string }
   | { type: "edge"; id: string }
+  | { type: "tableCell"; id: string }
+  | { type: "tableHeader"; id: string }
   | null;
 
 export type ResolveCanvasRenderScopeInput = {
@@ -99,7 +101,7 @@ function addProtectedEntities(
   for (const id of input.selection.subgraphIds || []) entityIds.add(id);
   addIfPresent(entityIds, input.hoveredNodeId);
   addIfPresent(entityIds, input.hoveredSubgraphId);
-  if (input.inlineEdit?.type === "node") entityIds.add(input.inlineEdit.id);
+  if (input.inlineEdit?.type === "node" || input.inlineEdit?.type === "tableCell" || input.inlineEdit?.type === "tableHeader") entityIds.add(input.inlineEdit.id);
   if (input.inlineEdit?.type === "subgraph") entityIds.add(input.inlineEdit.id);
 
   const state = input.interactionState;

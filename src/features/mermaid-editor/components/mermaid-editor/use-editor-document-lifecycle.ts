@@ -15,6 +15,7 @@ import {
   createEmptyDocumentGraph,
   ensureEditorDocumentFileName,
   normalizeStoredDocumentKind,
+  nodeGeometrySpecForTheme,
   normalizeThemeId,
   type StoredEditor,
   type StoredEditorApplyResult,
@@ -56,11 +57,13 @@ import type { EditorTheme, EditorThemeId } from "@/features/mermaid-editor/lib/e
 import { normalizeEditorTheme } from "@/features/mermaid-editor/lib/editor-theme";
 import { DEFAULT_VIEW_FILTERS, normalizeViewFilters, type ViewFilters } from "@/features/mermaid-editor/lib/view-filters";
 import { workspaceViewForDocument, type WorkspaceView } from "@/features/mermaid-editor/lib/workspace-view";
+import type { NodeGeometrySpec } from "@/features/mermaid-editor/lib/node-geometry";
 
 type FileOpenSource = "picker" | "recent" | "project" | "drop" | "external" | "restore";
 type StateSetter<T> = Dispatch<SetStateAction<T>>;
 
 type UseEditorDocumentLifecycleArgs = {
+  nodeGeometrySpec?: NodeGeometrySpec;
   isDirtyRef: { current: boolean };
   setDocumentKind: StateSetter<DocumentKind>;
   setSource: StateSetter<string>;
@@ -84,6 +87,7 @@ type UseEditorDocumentLifecycleArgs = {
   setProjectWorkspace: StateSetter<ProjectWorkspace | null>;
   setExplorerTreeState: StateSetter<StoredExplorerTreeState>;
   setLastSavedDocument: StateSetter<string>;
+  beginDocumentSession: () => void;
   setFileWorkflowError: StateSetter<FileWorkflowError | null>;
   setThemeId: StateSetter<EditorThemeId>;
   setCustomTheme: StateSetter<EditorTheme | null>;
@@ -98,6 +102,7 @@ type UseEditorDocumentLifecycleArgs = {
 };
 
 export function useEditorDocumentLifecycle({
+  nodeGeometrySpec,
   isDirtyRef,
   setDocumentKind,
   setSource,
@@ -121,6 +126,7 @@ export function useEditorDocumentLifecycle({
   setProjectWorkspace,
   setExplorerTreeState,
   setLastSavedDocument,
+  beginDocumentSession,
   setFileWorkflowError,
   setThemeId,
   setCustomTheme,
@@ -146,6 +152,7 @@ export function useEditorDocumentLifecycle({
       }
       const savedDocument = serializeCanvasDocument(nextCanvasDocument);
 
+      beginDocumentSession();
       setDocumentKind("canvas");
       setSource(savedDocument);
       setCanvasDocument(nextCanvasDocument);
@@ -174,6 +181,7 @@ export function useEditorDocumentLifecycle({
     if (nextDocumentKind === "markdown") {
       const savedDocument = text;
 
+      beginDocumentSession();
       setDocumentKind("markdown");
       setSource(text);
       setCanvasDocument(createBlankCanvasDocument());
@@ -202,9 +210,10 @@ export function useEditorDocumentLifecycle({
     const loaded = loadMermaidDocument(text);
     const nextViewport = loaded.viewport || { x: 160, y: 90, scale: 1 };
     const nextLayoutMode = loaded.layoutMode;
-    const loadedGraph = loaded.editableKind === "flowchart" && nextLayoutMode === "auto" ? applyDagreAutoLayout(loaded.graph) : loaded.graph;
+    const loadedGraph = loaded.editableKind === "flowchart" && nextLayoutMode === "auto" ? applyDagreAutoLayout(loaded.graph, { spec: nodeGeometrySpec }) : loaded.graph;
     const savedDocument = buildMermaidDocument(loaded.source, loadedGraph, nextViewport, loaded.edgeRouting, nextLayoutMode);
 
+    beginDocumentSession();
     setDocumentKind("mermaid");
     setSource(loaded.source);
     setCanvasDocument(createBlankCanvasDocument());
@@ -231,6 +240,7 @@ export function useEditorDocumentLifecycle({
 
   function applyStoredEditorState(stored: StoredEditor): StoredEditorApplyResult {
     flushSourceHistory();
+    beginDocumentSession();
     const storedDocumentKind = normalizeStoredDocumentKind(stored.documentKind, stored.fileName, stored.fileRef?.path);
     if (storedDocumentKind === "canvas") {
       const nextPreferences = normalizeEditorPreferences(stored.preferences);
@@ -347,9 +357,11 @@ export function useEditorDocumentLifecycle({
     const nextViewport = stored.viewport || layout?.viewport || { x: 160, y: 90, scale: 1 };
     const nextEdgeRouting = stored.edgeRouting || edgeRoutingFromLayout(layout);
     const nextLayoutMode = stored.layoutMode || layoutModeFromLayout(layout);
-    const resolvedGraph = loaded.editableKind === "flowchart" && nextLayoutMode === "auto" ? applyDagreAutoLayout(nextGraph) : nextGraph;
     const nextThemeId = normalizeThemeId(stored.themeId);
     const nextCustomTheme = stored.customTheme ? normalizeEditorTheme(stored.customTheme) : null;
+    const resolvedGraph = loaded.editableKind === "flowchart" && nextLayoutMode === "auto"
+      ? applyDagreAutoLayout(nextGraph, { spec: nodeGeometrySpecForTheme(nextThemeId, nextCustomTheme) })
+      : nextGraph;
     const nextPreferences = normalizeEditorPreferences(stored.preferences);
     const nextViewFilters = normalizeViewFilters(stored.viewFilters, { showGrid: stored.showGrid, showEdges: stored.showEdges });
     const nextProjectWorkspace = normalizeProjectWorkspace(stored.projectWorkspace);
@@ -409,6 +421,7 @@ export function useEditorDocumentLifecycle({
     const nextSource = serializeMermaid(nextGraph);
     const nextViewport = { x: 160, y: 90, scale: 1 };
 
+    beginDocumentSession();
     setDocumentKind("mermaid");
     setSource(nextSource);
     setCanvasDocument(createBlankCanvasDocument());
@@ -455,6 +468,7 @@ export function useEditorDocumentLifecycle({
     flushSourceHistory();
     const nextGraph = createEmptyDocumentGraph();
 
+    beginDocumentSession();
     setDocumentKind("markdown");
     setSource(BLANK_MARKDOWN_SOURCE);
     setCanvasDocument(createBlankCanvasDocument());
@@ -502,6 +516,7 @@ export function useEditorDocumentLifecycle({
     const nextCanvasDocument = createBlankCanvasDocument();
     const nextSource = serializeCanvasDocument(nextCanvasDocument);
 
+    beginDocumentSession();
     setDocumentKind("canvas");
     setSource(nextSource);
     setCanvasDocument(nextCanvasDocument);

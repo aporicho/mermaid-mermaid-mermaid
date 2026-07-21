@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type Konva from "konva";
 import type { Dispatch, SetStateAction } from "react";
 
-import type { KonvaCanvasStageProps } from "@/features/mermaid-editor/components/konva-canvas/konva-canvas-stage";
+import type { KonvaCanvasModelStageProps } from "@/features/mermaid-editor/components/konva-canvas/konva-canvas-stage-types";
 import type { KonvaCanvasProps } from "@/features/mermaid-editor/components/konva-canvas/types";
 import { useContainerSize } from "@/features/mermaid-editor/components/konva-canvas/use-container-size";
 import { useKonvaDragDraft } from "@/features/mermaid-editor/components/konva-canvas/use-konva-drag-draft";
@@ -30,12 +30,13 @@ import { CANVAS_VISUAL_TOKENS } from "@/features/mermaid-editor/lib/canvas-visua
 import { DEFAULT_EDGE_LABEL_GEOMETRY_TOKENS } from "@/features/mermaid-editor/lib/edge-label-geometry";
 import { resolveRuntimeEditorMotion } from "@/features/mermaid-editor/lib/editor-motion";
 import { DEFAULT_NODE_GEOMETRY_TOKENS } from "@/features/mermaid-editor/lib/node-geometry";
-import { createDefaultEditorTypography } from "@/features/mermaid-editor/lib/editor-theme";
+import { createDefaultEditorTypography, DEFAULT_EDITOR_THEME } from "@/features/mermaid-editor/lib/editor-theme";
 import {
   SUBGRAPH_GEOMETRY_TOKENS,
   type SubgraphGeometryTokens
 } from "@/features/mermaid-editor/lib/subgraph-geometry";
 import { arrangeNodeRects, type NodeArrangementOperation } from "@/features/mermaid-editor/lib/node-arrangement";
+import { useKonvaTableInteraction } from "@/features/mermaid-editor/components/konva-canvas/use-konva-table-interaction";
 
 type UseKonvaCanvasModelArgs = KonvaCanvasProps & {
   mermaidEdgeRoutes: NonNullable<KonvaCanvasProps["mermaidEdgeRoutes"]>;
@@ -44,23 +45,6 @@ type UseKonvaCanvasModelArgs = KonvaCanvasProps & {
 };
 
 const DEFAULT_KONVA_TYPOGRAPHY = createDefaultEditorTypography();
-
-type KonvaCanvasModelStageProps = Omit<
-  KonvaCanvasStageProps,
-  | "nodeContextMenu"
-  | "onCanvasPointerDown"
-  | "onCanvasPointerMove"
-  | "onCanvasPointerUp"
-  | "onCanvasPointerLeave"
-  | "onCanvasPointerTracking"
-  | "onCanvasClick"
-  | "onCanvasTap"
-  | "onCanvasDoubleClick"
-  | "onStartNodeDrag"
-  | "onStartSubgraphDrag"
-  | "onNodeContextMenu"
-  | "onCloseNodeContextMenu"
->;
 
 export function useKonvaCanvasModel({
   graph,
@@ -77,6 +61,7 @@ export function useKonvaCanvasModel({
   visualTokens = CANVAS_VISUAL_TOKENS,
   geometryTokens,
   typography = DEFAULT_KONVA_TYPOGRAPHY,
+  specialNodeTokens: specialNodeTokensProp,
   fontRevision = 0,
   motion: motionProp,
   onEditorCommand,
@@ -115,6 +100,9 @@ export function useKonvaCanvasModel({
   const edgeLabelThemeTokens = geometryTokens?.edgeLabel ?? DEFAULT_EDGE_LABEL_GEOMETRY_TOKENS;
   const subgraphThemeTokens: SubgraphGeometryTokens = geometryTokens?.subgraph ?? SUBGRAPH_GEOMETRY_TOKENS;
   const gridThemeTokens: CanvasGridSpec = geometryTokens?.grid ?? DEFAULT_CANVAS_GRID;
+  const specialNodeTokens = specialNodeTokensProp ?? DEFAULT_EDITOR_THEME.specialNode;
+  const tableInteraction = useKonvaTableInteraction({ graph, selection, specialNodeTokens, onEditorCommand });
+  const { selectedTableCell, setSelectedTableCell } = tableInteraction;
   const inlineEditSession = useKonvaInlineEditSession({
     graph,
     selection,
@@ -123,7 +111,9 @@ export function useKonvaCanvasModel({
     setInteractionState,
     invalidateBlankClickIntent,
     resetInteraction,
-    onEditorCommand
+    onEditorCommand,
+    selectedTableCell,
+    setSelectedTableCell
   });
   const {
     inlineEdit,
@@ -170,6 +160,8 @@ export function useKonvaCanvasModel({
     nodeMotion,
     nodeProximityScale: proximity.nodeProximityScale,
     nodeThemeTokens,
+    specialNodeTokens,
+    tableTypography: typography.tableNode.cell,
     fontRevision,
     edgeLabelThemeTokens,
     subgraphThemeTokens,
@@ -254,7 +246,7 @@ export function useKonvaCanvasModel({
   useEffect(() => {
     onLiveStateChange?.({
       canvasSize: dimensions,
-      editing: inlineEdit ? { kind: inlineEdit.type, id: inlineEdit.id, draftText: inlineEdit.value } : null,
+      editing: inlineEdit ? { kind: inlineEdit.type === "tableCell" || inlineEdit.type === "tableHeader" ? "node" : inlineEdit.type, id: inlineEdit.id, draftText: inlineEdit.value } : null,
       interaction: interactionState.kind
     });
   }, [dimensions, inlineEdit, interactionState.kind, onLiveStateChange]);
@@ -315,6 +307,7 @@ export function useKonvaCanvasModel({
     visualTokens,
     gridSpec: gridThemeTokens,
     nodeThemeTokens,
+    specialNodeTokens,
     edgeLabelThemeTokens,
     typography,
     runtimeCreateScale: runtimeMotion.canvas.createScale,
@@ -356,6 +349,7 @@ export function useKonvaCanvasModel({
     nodeEditorLayout,
     nodeEditorRef,
     nodeEditorMeasureRef,
+    selectedTableCell,
     onWheel: viewportController.onWheel,
     onMoveNode: dragMembership.moveSelectedNodes,
     onMoveSubgraph: dragMembership.moveSelectedSubgraphs,
@@ -364,8 +358,14 @@ export function useKonvaCanvasModel({
     onOpenNodeAction,
     onEditNodeAction,
     onRequestMarkdownDocumentPreview,
+    onSelectTableCell: setSelectedTableCell,
+    onStartTableCellEdit: inlineEditSession.startTableCellEdit,
+    onStartTableHeaderEdit: inlineEditSession.startTableHeaderEdit,
+    onResizeTableColumn: tableInteraction.resizeColumn,
+    onTableCellOperation: tableInteraction.applyOperation,
     onInlineEditChange: setInlineEdit,
-    onInlineEditCommit: commitInlineEdit
+    onInlineEditCommit: commitInlineEdit,
+    onTablePaste: inlineEditSession.pasteTableCells
   };
 
   return {

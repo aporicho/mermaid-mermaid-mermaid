@@ -10,7 +10,7 @@ const require = createRequire(import.meta.url);
 const { scanProjectFolder } = require("./project-workspace.cjs") as {
   scanProjectFolder: (rootPath: string) => Promise<{
     files: { relativePath: string }[];
-    resources: { kind: "directory" | "file"; relativePath: string }[];
+    resources: { kind: "directory" | "file"; relativePath: string; modifiedAt?: number }[];
     resourcesTruncated: boolean;
   }>;
 };
@@ -29,6 +29,7 @@ describe("Electron project workspace scanner", () => {
     await mkdir(path.join(root, "node_modules", "ignored"), { recursive: true });
     await writeFile(path.join(root, "docs", "diagram.mmd"), "flowchart LR");
     await writeFile(path.join(root, "docs", "cover.png"), "not-an-image");
+    await writeFile(path.join(root, "docs", "people.csv"), "Name\nAlice");
     await writeFile(path.join(root, "node_modules", "ignored", "hidden.md"), "# hidden");
 
     const workspace = await scanProjectFolder(root);
@@ -38,7 +39,8 @@ describe("Electron project workspace scanner", () => {
       expect.objectContaining({ kind: "directory", relativePath: "docs" }),
       expect.objectContaining({ kind: "directory", relativePath: "docs/empty" }),
       expect.objectContaining({ kind: "file", relativePath: "docs/diagram.mmd" }),
-      expect.objectContaining({ kind: "file", relativePath: "docs/cover.png" })
+      expect.objectContaining({ kind: "file", relativePath: "docs/cover.png" }),
+      expect.objectContaining({ kind: "file", relativePath: "docs/people.csv", modifiedAt: expect.any(Number) })
     ]));
     expect(workspace.resources.some((entry) => entry.relativePath.includes("node_modules"))).toBe(false);
     expect(workspace.resourcesTruncated).toBe(false);

@@ -16,6 +16,7 @@ import { useDismissableFloatingMenu } from "@/features/mermaid-editor/lib/use-di
 import { OVERLAY_Z_INDEX } from "@/lib/overlay-layers";
 import { useOverlayRegistration } from "@/lib/use-overlay-registration";
 import type { TypographyRoleTokens } from "@/features/mermaid-editor/lib/editor-theme";
+import { isCsvTableDocumentNode } from "@/features/mermaid-editor/lib/csv-table-document";
 
 export function CanvasNodeActionBadge({
   actionKind,
@@ -136,6 +137,7 @@ export function NodeContextMenu({
   if (!node) return null;
 
   const action = normalizeNodeAction(node.action);
+  const csvTable = isCsvTableDocumentNode(node);
   const width = 220;
   const height = 80;
   const viewportWidth = typeof window === "undefined" ? menu.x + width + 16 : window.innerWidth;
@@ -153,7 +155,7 @@ export function NodeContextMenu({
       data-floating-panel-drag-exclude
       data-editor-floating-menu-ignore
     >
-      <EditorMenuItem
+      {csvTable ? <EditorMenuItem type="button" label="双击单元格进行编辑" disabled /> : <><EditorMenuItem
         type="button"
         label={nodeActionOpenLabel(action)}
         disabled={!action}
@@ -169,7 +171,7 @@ export function NodeContextMenu({
           onEditNodeAction?.(node);
           onClose();
         }}
-      />
+      /></>}
     </EditorMenuSurface>
   );
 

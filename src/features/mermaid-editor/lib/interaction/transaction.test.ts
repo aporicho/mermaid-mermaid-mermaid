@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { createDefaultCanvasTableContent } from "@/features/mermaid-editor/lib/canvas-table-content";
 import type { MermaidGraph } from "@/features/mermaid-editor/lib/editor-types";
 import { DEFAULT_VIEW_FILTERS } from "@/features/mermaid-editor/lib/view-filters";
 import { applyEditorCommandTransaction } from "@/features/mermaid-editor/lib/interaction/transaction";
@@ -349,6 +350,26 @@ describe("editor command transaction", () => {
     expect(renamedSubgraph.state.graph.subgraphs?.[0].id).toBe("Renamed");
     expect(updatedSubgraph.state.graph.subgraphs?.[0]).toMatchObject({ title: "Title", direction: "BT" });
     expect(batchUpdatedSubgraphs.state.graph.subgraphs?.[0]).toMatchObject({ direction: "RL", parentId: undefined });
+  });
+
+  it("does not commit a graph command whose normalized content is semantically unchanged", () => {
+    const table = createDefaultCanvasTableContent(1, 1);
+    const tableState = {
+      ...state,
+      graph: {
+        ...state.graph,
+        nodes: state.graph.nodes.map((node) => node.id === "A" ? { ...node, content: table } : node)
+      }
+    };
+    const result = applyEditorCommandTransaction(tableState, {
+      type: "graph.updateNode",
+      nodeId: "A",
+      patch: { content: structuredClone(table) },
+      source: "api"
+    });
+
+    expect(result.effect).toEqual({ history: "none", sourceSync: "none" });
+    expect(result.state.graph).toEqual(tableState.graph);
   });
 
   it("drafts node positions without history or source sync", () => {

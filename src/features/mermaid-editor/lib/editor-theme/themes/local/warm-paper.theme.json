@@ -9,5 +9,226 @@
     "id": "local",
     "name": "内置"
   },
-  "theme": {}
+  "theme": {
+    "markdown": {
+      "body": {
+        "fontFamily": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "fontSize": 16,
+        "fontWeight": 400,
+        "lineHeight": 26.4,
+        "letterSpacing": 0,
+        "paragraphSpacing": 12
+      },
+      "heading": {
+        "h1": {
+          "fontFamily": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+          "fontSize": 24,
+          "fontWeight": 700,
+          "lineHeight": 27.2,
+          "letterSpacing": 0,
+          "marginTop": 24,
+          "marginBottom": 8
+        },
+        "h2": {
+          "fontFamily": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+          "fontSize": 20,
+          "fontWeight": 700,
+          "lineHeight": 26.4,
+          "letterSpacing": 0,
+          "marginTop": 24,
+          "marginBottom": 8
+        },
+        "h3": {
+          "fontFamily": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+          "fontSize": 18.4,
+          "fontWeight": 700,
+          "lineHeight": 24,
+          "letterSpacing": 0,
+          "marginTop": 20,
+          "marginBottom": 4
+        },
+        "h4": {
+          "fontFamily": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+          "fontSize": 16,
+          "fontWeight": 700,
+          "lineHeight": 24,
+          "letterSpacing": 0,
+          "marginTop": 20,
+          "marginBottom": 4
+        },
+        "h5": {
+          "fontFamily": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+          "fontSize": 14,
+          "fontWeight": 600,
+          "lineHeight": 20,
+          "letterSpacing": 0,
+          "marginTop": 20,
+          "marginBottom": 4
+        },
+        "h6": {
+          "fontFamily": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+          "fontSize": 14,
+          "fontWeight": 600,
+          "lineHeight": 20,
+          "letterSpacing": 0,
+          "marginTop": 20,
+          "marginBottom": 4
+        }
+      },
+      "link": {
+        "fontFamily": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "fontSize": 16,
+        "fontWeight": 400,
+        "lineHeight": 26.4,
+        "letterSpacing": 0
+      },
+      "emphasis": {
+        "fontFamily": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "fontSize": 16,
+        "fontWeight": 400,
+        "lineHeight": 26.4,
+        "letterSpacing": 0
+      },
+      "strong": {
+        "fontFamily": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "fontSize": 16,
+        "fontWeight": 700,
+        "lineHeight": 26.4,
+        "letterSpacing": 0
+      },
+      "strikethrough": {
+        "fontFamily": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "fontSize": 16,
+        "fontWeight": 400,
+        "lineHeight": 26.4,
+        "letterSpacing": 0
+      },
+      "list": {
+        "unordered": {
+          "fontFamily": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+          "fontSize": 16,
+          "fontWeight": 400,
+          "lineHeight": 26.4,
+          "letterSpacing": 0,
+          "indent": 16,
+          "itemSpacing": 4,
+          "blockSpacing": 12
+        },
+        "ordered": {
+          "fontFamily": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+          "fontSize": 16,
+          "fontWeight": 400,
+          "lineHeight": 26.4,
+          "letterSpacing": 0,
+          "indent": 16,
+          "itemSpacing": 4,
+          "blockSpacing": 12
+        },
+        "task": {
+          "fontFamily": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+          "fontSize": 16,
+          "fontWeight": 400,
+          "lineHeight": 26.4,
+          "letterSpacing": 0,
+          "indent": 16,
+          "itemSpacing": 4,
+          "blockSpacing": 12
+        }
+      },
+      "blockquote": {
+        "fontFamily": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "fontSize": 16,
+        "fontWeight": 400,
+        "lineHeight": 26.4,
+        "letterSpacing": 0
+      },
+      "inlineCode": {
+        "fontFamily": "Maple Mono, SF Mono, Cascadia Code, JetBrains Mono, Noto Sans SC Variable, ui-monospace, monospace",
+        "fontSize": 14.4,
+        "fontWeight": 400,
+        "lineHeight": 20,
+        "letterSpacing": 0
+      },
+      "codeBlock": {
+        "fontFamily": "Maple Mono, SF Mono, Cascadia Code, JetBrains Mono, Noto Sans SC Variable, ui-monospace, monospace",
+        "fontSize": 14,
+        "fontWeight": 400,
+        "lineHeight": 22.75,
+        "letterSpacing": 0
+      },
+      "table": {
+        "fontFamily": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "fontSize": 16,
+        "fontWeight": 400,
+        "lineHeight": 26.4,
+        "letterSpacing": 0
+      }
+    },
+    "font": {
+      "familySans": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+      "familyMono": "Maple Mono, SF Mono, Cascadia Code, JetBrains Mono, Noto Sans SC Variable, ui-monospace, monospace"
+    },
+    "typography": {
+      "interface": {
+        "body": { "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif" },
+        "heading": { "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif" },
+        "control": { "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif" },
+        "navigation": { "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif" },
+        "menu": { "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif" },
+        "tooltip": { "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif" },
+        "metadata": { "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif" },
+        "status": { "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif" },
+        "technical": { "family": "Maple Mono, SF Mono, Cascadia Code, JetBrains Mono, Noto Sans SC Variable, ui-monospace, monospace" }
+      },
+      "canvas": {
+        "node": { "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif" },
+        "nodeEditor": { "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif" },
+        "edgeLabel": { "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif" },
+        "edgeEditor": { "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif" },
+        "subgraphTitle": { "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif" },
+        "actionBadge": { "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif" }
+      },
+      "linkCard": {
+        "brand": { "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif" },
+        "provider": { "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif" },
+        "title": { "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif" },
+        "titleEditor": { "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif" }
+      },
+      "markdownCard": {
+        "badge": { "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif" },
+        "title": { "family": "\"方正屏显雅宋简体\", \"Songti SC\", \"Noto Serif SC\", serif" },
+        "path": { "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif" },
+        "excerpt": { "family": "\"方正屏显雅宋简体\", \"Songti SC\", \"Noto Serif SC\", serif" },
+        "titleEditor": { "family": "\"方正屏显雅宋简体\", \"Songti SC\", \"Noto Serif SC\", serif" }
+      },
+      "mermaid": {
+        "general": { "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif" },
+        "diagramTitle": { "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif" },
+        "primaryLabel": { "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif" },
+        "relationLabel": { "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif" },
+        "groupTitle": { "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif" },
+        "note": { "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif" }
+      },
+      "canvasDocument": {
+        "shape": { "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif" },
+        "shapeEditor": { "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif" },
+        "card": { "family": "\"方正屏显雅宋简体\", \"Songti SC\", \"Noto Serif SC\", serif" },
+        "cardEditor": { "family": "\"方正屏显雅宋简体\", \"Songti SC\", \"Noto Serif SC\", serif" },
+        "freeText": { "family": "\"方正屏显雅宋简体\", \"Songti SC\", \"Noto Serif SC\", serif" },
+        "freeTextEditor": { "family": "\"方正屏显雅宋简体\", \"Songti SC\", \"Noto Serif SC\", serif" },
+        "connector": { "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif" },
+        "connectorEditor": { "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif" }
+      },
+      "source": {
+        "editor": { "family": "Maple Mono, SF Mono, Cascadia Code, JetBrains Mono, Noto Sans SC Variable, ui-monospace, monospace" },
+        "diagnosticSummary": { "family": "Maple Mono, SF Mono, Cascadia Code, JetBrains Mono, Noto Sans SC Variable, ui-monospace, monospace" },
+        "diagnosticRaw": { "family": "Maple Mono, SF Mono, Cascadia Code, JetBrains Mono, Noto Sans SC Variable, ui-monospace, monospace" }
+      },
+      "terminal": {
+        "content": { "family": "Maple Mono, SF Mono, Cascadia Code, JetBrains Mono, Noto Sans SC Variable, ui-monospace, monospace" },
+        "heading": { "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif" },
+        "path": { "family": "Maple Mono, SF Mono, Cascadia Code, JetBrains Mono, Noto Sans SC Variable, ui-monospace, monospace" }
+      }
+    }
+  }
 }

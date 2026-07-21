@@ -195,6 +195,38 @@ describe("mermaid graph parser", () => {
     expect(serialized).toContain('click A href "./docs/spec.md" "打开文档" _blank');
   });
 
+  it("round-trips CSV table references without embedding table data in Mermaid", () => {
+    const graph = parseMermaid(`flowchart LR
+  T[People]
+  click T href "data/people.csv" "编辑 CSV 表格"`);
+    const serialized = serializeMermaid(graph);
+
+    expect(graph.nodes.find((item) => item.id === "T")?.action).toEqual({
+      kind: "file",
+      path: "data/people.csv",
+      openMode: "app-window",
+      tooltip: "编辑 CSV 表格"
+    });
+    expect(serialized).toContain('click T href "data/people.csv" "编辑 CSV 表格" _blank');
+    expect(serialized).not.toContain("canvas-table");
+  });
+
+  it("retains loaded CSV content while reparsing the same file reference", () => {
+    const source = `flowchart LR
+  T[People]
+  click T href "data/people.csv" "编辑 CSV 表格"`;
+    const previous = parseMermaid(source);
+    previous.nodes[0].content = {
+      kind: "table",
+      version: 1,
+      columns: [{ id: "column-1", label: "Name", width: 160, align: "left" }],
+      rows: [{ id: "row-1", cells: { "column-1": "Alice" } }]
+    };
+
+    expect(parseMermaid(source.replace("People", "Team"), previous).nodes[0].content).toEqual(previous.nodes[0].content);
+    expect(parseMermaid(source.replace("people.csv", "other.csv"), previous).nodes[0].content).toBeUndefined();
+  });
+
   it("round-trips Mermaid flowchart edge markers, length, ids, animation, classes and styles", () => {
     const graph = parseMermaid(`flowchart LR
   A e1@<==>|sync| B

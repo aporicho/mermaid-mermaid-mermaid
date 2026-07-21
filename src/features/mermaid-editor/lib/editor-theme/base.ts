@@ -6,6 +6,7 @@ import { SUBGRAPH_GEOMETRY_TOKENS } from "@/features/mermaid-editor/lib/subgraph
 import { createDefaultMarkdownTheme, mergeMarkdownTheme, type DeepPartial } from "./markdown-theme";
 import { createDefaultEditorTypography, mergeEditorTypography } from "./typography";
 import { DEFAULT_EDITOR_MOTION, MERMAID_FONT_FAMILY, MONO_FONT_FAMILY, type EditorMotionTokens, type EditorTheme } from "./types";
+import { createDefaultSpecialNodeTheme, normalizeSpecialNodeTheme } from "./special-node-theme";
 
 export type EditorThemeOverrides = Pick<EditorTheme, "id" | "name" | "description"> &
   DeepPartial<Omit<EditorTheme, "version" | "id" | "name" | "description">>;
@@ -47,9 +48,27 @@ const BASE_FONT: EditorTheme["font"] = {
 
 const BASE_MARKDOWN = createDefaultMarkdownTheme({ ui: BASE_UI, font: BASE_FONT });
 const BASE_TYPOGRAPHY = createDefaultEditorTypography();
+const BASE_SPECIAL_NODE = createDefaultSpecialNodeTheme({
+  ui: BASE_UI,
+  canvas: {
+    nodeStroke: "#2a251f",
+    nodeText: "#18130f",
+    labelStroke: "#b8ada0",
+    connectionInvalid: "#9b5a50"
+  },
+  chrome: { shadowOpacity: 0.16 },
+  radius: {
+    canvasNode: CANVAS_VISUAL_TOKENS.node.cornerRadius,
+    controlSm: 4
+  },
+  stroke: {
+    node: CANVAS_VISUAL_TOKENS.node.strokeWidth,
+    overlay: CANVAS_VISUAL_TOKENS.overlay.strokeWidth
+  }
+});
 
 export const EDITOR_THEME_BASE: Omit<EditorTheme, "id" | "name" | "description" | "baseThemeId"> = {
-  version: 8,
+  version: 9,
   ui: BASE_UI,
   canvas: {
     surface: "#fbf6ef",
@@ -66,6 +85,7 @@ export const EDITOR_THEME_BASE: Omit<EditorTheme, "id" | "name" | "description" 
     nodeFillLuminanceSteps: 256,
     previewShadowOpacity: 0.22
   },
+  specialNode: BASE_SPECIAL_NODE,
   chrome: {
     borderWidth: 1,
     dividerWidth: 1,
@@ -209,21 +229,28 @@ export const EDITOR_THEME_BASE: Omit<EditorTheme, "id" | "name" | "description" 
 
 export function createEditorTheme(overrides: EditorThemeOverrides): EditorTheme {
   const ui = { ...EDITOR_THEME_BASE.ui, ...overrides.ui };
+  const canvas = { ...EDITOR_THEME_BASE.canvas, ...overrides.canvas };
+  const canvasAppearance = { ...EDITOR_THEME_BASE.canvasAppearance, ...overrides.canvasAppearance };
+  const chrome = { ...EDITOR_THEME_BASE.chrome, ...overrides.chrome };
   const font = { ...EDITOR_THEME_BASE.font, ...overrides.font };
+  const radius = { ...EDITOR_THEME_BASE.radius, ...overrides.radius };
+  const stroke = { ...EDITOR_THEME_BASE.stroke, ...overrides.stroke };
   const markdown = mergeMarkdownTheme(createDefaultMarkdownTheme({ ui, font }), overrides.markdown);
   const typography = mergeEditorTypography(EDITOR_THEME_BASE.typography, overrides.typography);
+  const specialNode = normalizeSpecialNodeTheme(overrides.specialNode, createDefaultSpecialNodeTheme({ ui, canvas, chrome, radius, stroke }));
 
   return {
     ...EDITOR_THEME_BASE,
     ...overrides,
-    version: 8,
+    version: 9,
     id: overrides.id,
     name: overrides.name,
     description: overrides.description,
     ui,
-    canvas: { ...EDITOR_THEME_BASE.canvas, ...overrides.canvas },
-    canvasAppearance: { ...EDITOR_THEME_BASE.canvasAppearance, ...overrides.canvasAppearance },
-    chrome: { ...EDITOR_THEME_BASE.chrome, ...overrides.chrome },
+    canvas,
+    canvasAppearance,
+    specialNode,
+    chrome,
     source: { ...EDITOR_THEME_BASE.source, ...overrides.source },
     render: { ...EDITOR_THEME_BASE.render, ...overrides.render },
     markdown,
@@ -232,8 +259,8 @@ export function createEditorTheme(overrides: EditorThemeOverrides): EditorTheme 
     typography,
     font,
     space: { ...EDITOR_THEME_BASE.space, ...overrides.space },
-    radius: { ...EDITOR_THEME_BASE.radius, ...overrides.radius },
-    stroke: { ...EDITOR_THEME_BASE.stroke, ...overrides.stroke },
+    radius,
+    stroke,
     icon: { ...EDITOR_THEME_BASE.icon, ...overrides.icon },
     canvasInteraction: { ...EDITOR_THEME_BASE.canvasInteraction, ...overrides.canvasInteraction },
     subgraph: { ...EDITOR_THEME_BASE.subgraph, ...overrides.subgraph },

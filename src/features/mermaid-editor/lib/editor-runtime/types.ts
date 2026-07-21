@@ -4,8 +4,8 @@ import type { BrowserToolWindowRequest } from "@/features/mermaid-editor/lib/bro
 import type { DocumentKind } from "@/features/mermaid-editor/lib/document-kind";
 import type { EmbeddedBrowserLogicalRect } from "@/features/mermaid-editor/lib/embedded-browser-rect";
 import type { RuntimeLinkPreviewRequest, RuntimeLinkPreviewResult } from "@/features/mermaid-editor/lib/editor-runtime/link-preview-types";
+import type { RuntimeCsvFileOperations } from "@/features/mermaid-editor/lib/editor-runtime/csv-file-types";
 import type { ProjectWorkspace } from "@/features/mermaid-editor/lib/project-workspace";
-
 export type { RuntimeLinkPreviewRequest, RuntimeLinkPreviewResult } from "@/features/mermaid-editor/lib/editor-runtime/link-preview-types";
 
 export type EditorDraftState = Record<string, unknown>;
@@ -177,7 +177,7 @@ export type RuntimeBrowserToolWindowResult =
 
 export type EditorRuntimeHost = "web" | "tauri" | "electron";
 
-export type EditorRuntime = {
+export type EditorRuntime = RuntimeCsvFileOperations & {
   kind: "web" | "desktop";
   host: EditorRuntimeHost;
   openExternalUrl: (url: string) => void;

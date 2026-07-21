@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { MotionPresence } from "@/features/mermaid-editor/components/floating-chrome";
 import { useEditorAiCommands } from "@/features/mermaid-editor/components/mermaid-editor/use-editor-ai-commands";
@@ -19,7 +19,7 @@ import { useEditorThemeModel } from "@/features/mermaid-editor/components/mermai
 import { useEditorWorkspacePanelActions } from "@/features/mermaid-editor/components/mermaid-editor/use-editor-workspace-panel-actions";
 import { useEditorWindowActions } from "@/features/mermaid-editor/components/mermaid-editor/use-editor-window-actions";
 import { useMarkdownDocumentPreviews } from "@/features/mermaid-editor/components/mermaid-editor/use-markdown-document-previews";
-import { useMarkdownDocumentActions } from "@/features/mermaid-editor/components/mermaid-editor/use-markdown-document-actions";
+import { useLinkedProjectDocuments } from "@/features/mermaid-editor/components/mermaid-editor/use-linked-project-documents";
 import { createMarkdownDocumentDropHandlers } from "@/features/mermaid-editor/components/mermaid-editor/markdown-document-drop";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { loadInitialState } from "@/features/mermaid-editor/lib/editor-state";
@@ -29,11 +29,13 @@ import { EditorMotionProvider } from "@/features/mermaid-editor/lib/use-gsap-mot
 import { useDisableNativeContextMenu } from "@/features/mermaid-editor/lib/native-context-menu";
 import { useWorkspacePanels, type DetachedMarkdownWindow } from "@/features/mermaid-editor/lib/workspace-panels";
 import { useGlobalOverlayActivity } from "@/lib/overlay-layers";
+import { useCanvasNodeGeometryModel } from "@/features/mermaid-editor/components/mermaid-editor/use-canvas-node-geometry-model";
+import { useCsvTableFileSync } from "@/features/mermaid-editor/components/mermaid-editor/use-csv-table-file-sync";
+import { normalizeFileWorkflowError } from "@/features/mermaid-editor/lib/file-workflow";
 
 export function MermaidEditor() {
   useDisableNativeContextMenu();
   const globalDomOverlayActive = useGlobalOverlayActivity();
-
   const runtime = useMemo(() => createEditorRuntime(), []);
   const initial = useMemo(loadInitialState, []);
   const {
@@ -87,12 +89,12 @@ export function MermaidEditor() {
     setProjectBusy,
     lastSavedDocument,
     setLastSavedDocument,
+    documentGenerationRef, beginDocumentSession,
     imageDisplaySrcBySrc,
     currentDocument,
     previewSource,
     hiddenViewFilters,
     projectFiles,
-    mermaidEdgeRoutes,
     terminalCwd,
     isDirty,
     isCanvasEditable,
@@ -144,6 +146,7 @@ export function MermaidEditor() {
     discardThemeSettings,
     saveThemeSettings: saveThemeSettingsDraft
   } = useEditorThemeModel({ initial, setStatus });
+  const { spec: canvasNodeGeometrySpec, routes: mermaidEdgeRoutes } = useCanvasNodeGeometryModel({ compiledTheme, fontRevision, edgeRouting, graph });
   const [draftPersistenceReady, setDraftPersistenceReady] = useState(runtime.kind !== "desktop");
   const [terminalOpen, setTerminalOpen] = useState(false);
   const [themeSettingsOpen, setThemeSettingsOpen] = useState(false);
@@ -179,12 +182,10 @@ export function MermaidEditor() {
   const isDirtyRef = useRef(false);
   const currentDocumentRef = useRef("");
   const isDesktopChrome = runtime.kind === "desktop";
-
   useEffect(() => {
     isDirtyRef.current = isDirty;
     currentDocumentRef.current = currentDocument;
   }, [currentDocument, isDirty]);
-
   const {
     canvasLiveState,
     updateCanvasLiveState,
@@ -232,6 +233,7 @@ export function MermaidEditor() {
     mode,
     editableKind,
     resolvedMotion,
+    nodeGeometrySpec: canvasNodeGeometrySpec,
     sourceEditBaseRef,
     sourceEditTimerRef,
     lastWindowFocusAtRef,
@@ -255,22 +257,22 @@ export function MermaidEditor() {
     setFileWorkflowError,
     recordRecentAction
   });
-
   function openThemeSettings() {
     beginThemeSettings();
     setThemeSettingsOpen(true);
     bringWorkspacePanelToFront("theme");
   }
-
   function hideThemeSettings() {
     setWorkspacePanelWindowState("theme", "normal");
     setThemeSettingsOpen(false);
   }
-
   function saveThemeSettings() {
     saveThemeSettingsDraft();
   }
-
+  const showCsvFileWorkflowError = useCallback((error: unknown, message = "CSV 文件操作失败。") => {
+    setFileWorkflowError(normalizeFileWorkflowError(error, message));
+  }, [setFileWorkflowError]);
+  const { flushPendingWrites: flushLinkedFileWrites, discardPendingWrites: discardLinkedFileWrites } = useCsvTableFileSync({ runtime, graph, setGraph, fileRef, projectWorkspace, documentGenerationRef, layoutMode, nodeGeometrySpec: canvasNodeGeometrySpec, showFileWorkflowError: showCsvFileWorkflowError });
   const {
     showFileWorkflowError,
     resolveUnsavedPrompt,
@@ -314,18 +316,18 @@ export function MermaidEditor() {
     rightCollapsed,
     workspaceView,
     viewFilters,
-    fileName,
-    fileRef,
+    fileName, fileRef,
     recentFiles,
     projectWorkspace,
     explorerTreeState,
-    lastSavedDocument,
+    lastSavedDocument, documentGenerationRef,
     themeId,
     customTheme,
     preferences,
     currentDocument,
     canvasLiveState,
     isCanvasEditable,
+    nodeGeometrySpec: canvasNodeGeometrySpec,
     setDocumentKind,
     setSource,
     setCanvasDocument,
@@ -348,7 +350,7 @@ export function MermaidEditor() {
     setProjectWorkspace,
     setExplorerTreeState,
     setProjectBusy,
-    setLastSavedDocument,
+    setLastSavedDocument, beginDocumentSession,
     setFileMenuOpen,
     setFileWorkflowError,
     setUnsavedPrompt,
@@ -358,22 +360,17 @@ export function MermaidEditor() {
     setStatus,
     setFileDropFeedback,
     flushSourceHistory,
+    flushLinkedFileWrites,
+    discardLinkedFileWrites,
     applyCanvasDocument,
     applyEditorCommand,
     recordRecentAction
   });
 
-  const markdownDocuments = useMarkdownDocumentActions({
-    runtime,
-    graph,
-    viewport,
-    canvasLiveState,
-    projectWorkspace,
-    applyEditorCommand,
-    refreshProjectWorkspace,
-    setStatus,
-    showFileWorkflowError,
-    updatePreviewFromText: updateMarkdownDocumentPreviewFromText
+  const { markdownDocuments, csvTables } = useLinkedProjectDocuments({
+    runtime, graph, viewport, canvasLiveState, projectWorkspace, applyEditorCommand,
+    refreshProjectWorkspace, setStatus, showFileWorkflowError,
+    updateMarkdownPreviewFromText: updateMarkdownDocumentPreviewFromText
   });
   const markdownDocumentDrop = createMarkdownDocumentDropHandlers({
     isCanvasEditable, workspaceView, viewport, workspaceSurfaceRef, projectWorkspace,
@@ -435,6 +432,7 @@ export function MermaidEditor() {
   });
 
   useEditorAiCommands({
+    nodeGeometrySpec: canvasNodeGeometrySpec,
     runtime,
     sourceEditBaseRef,
     isDirtyRef,
@@ -478,7 +476,6 @@ export function MermaidEditor() {
     setLastSavedDocument,
     setStatus
   });
-
   useUnsavedPromptEscape(unsavedPrompt, resolveUnsavedPrompt);
 
   useEditorDraftAutosave({
@@ -570,6 +567,7 @@ export function MermaidEditor() {
             visualTokens={compiledTheme.canvasVisualTokens}
             geometryTokens={compiledTheme.geometry}
             typography={compiledTheme.typography}
+            specialNodeTokens={compiledTheme.specialNode}
             fontRevision={fontRevision}
             motion={resolvedMotion}
             source={source}
@@ -664,6 +662,7 @@ export function MermaidEditor() {
           onResetViewFilters={resetViewFilters}
           onOpenWorkspacePanel={openWorkspacePanel}
           onAddNode={addNode}
+          onAddTableNode={csvTables.openDialog}
           onAddImageNode={addImageNode}
           onAddMarkdownDocument={markdownDocuments.openDialog}
           onCreateGroup={() => createGroupFromSelection()}
@@ -683,6 +682,7 @@ export function MermaidEditor() {
           unsavedPrompt={unsavedPrompt}
           nodeActionEditorNode={nodeActionEditorNode}
           markdownDocumentDialog={markdownDocuments.dialogProps}
+          csvTableDialog={csvTables.dialogProps}
           projectFiles={projectFiles}
           status={status}
           statusMessages={preferences.statusMessages}

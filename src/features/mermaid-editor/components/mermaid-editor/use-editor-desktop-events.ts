@@ -200,8 +200,7 @@ export function useEditorDesktopEvents({
       unlistenDrop = await runtime.listenForFileDrops((request) => fileDropRequestRef.current(request));
 
       unlistenClose = await runtime.listenForDesktopWindowCloseRequest(async () => {
-        if (canCloseWindowRef.current || !isDirtyRef.current) {
-          canCloseWindowRef.current = true;
+        if (canCloseWindowRef.current) {
           beforeCloseRef.current?.();
           return true;
         }

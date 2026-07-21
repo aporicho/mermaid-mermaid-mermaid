@@ -1,4 +1,5 @@
 import type { CanvasNodePreview } from "@/features/mermaid-editor/lib/editor-types";
+import type { SpecialNodeLinkCardTokens } from "@/features/mermaid-editor/lib/editor-theme";
 
 export const LINK_CARD_NODE_WIDTH = 220;
 export const LINK_CARD_NODE_HEIGHT = 292;
@@ -59,6 +60,25 @@ export function linkCardCoverHeight(preview: CanvasNodePreview | undefined) {
 
 export function linkCardNodeHeight(preview: CanvasNodePreview | undefined) {
   return linkCardCoverHeight(preview) + LINK_CARD_VERTICAL_CHROME_HEIGHT;
+}
+
+export function themedLinkCardLayout(preview: CanvasNodePreview | undefined, tokens: SpecialNodeLinkCardTokens) {
+  const width = tokens.width;
+  const coverWidth = Math.max(1, width - tokens.inset * 2);
+  const coverHeight = themedLinkCardCoverHeight(preview, coverWidth, tokens);
+  const providerY = tokens.inset + coverHeight + tokens.providerGap;
+  const providerHeight = 16;
+  const titleY = providerY + providerHeight + tokens.titleGap;
+  const verticalDelta = (tokens.inset - LINK_CARD_INSET) + (tokens.providerGap - 10) + (tokens.titleGap - 4) + (tokens.titleHeight - 44);
+  const height = coverHeight + LINK_CARD_VERTICAL_CHROME_HEIGHT + verticalDelta;
+  return { width, height, coverWidth, coverHeight, providerY, providerHeight, titleY };
+}
+
+function themedLinkCardCoverHeight(preview: CanvasNodePreview | undefined, coverWidth: number, tokens: SpecialNodeLinkCardTokens) {
+  const width = preview?.cover?.width;
+  const height = preview?.cover?.height;
+  if (!isPositiveFiniteNumber(width) || !isPositiveFiniteNumber(height)) return tokens.coverFallbackHeight;
+  return clamp(Math.round((coverWidth * height) / width), tokens.coverMinHeight, tokens.coverMaxHeight);
 }
 
 function normalizePreviewTitle(value: string) {

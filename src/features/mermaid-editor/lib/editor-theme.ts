@@ -2,6 +2,7 @@ export * from "./editor-theme/types";
 export * from "./editor-theme/theme-definition";
 export * from "./editor-theme/markdown-theme";
 export * from "./editor-theme/markdown-token-definitions";
+export * from "./editor-theme/special-node-theme";
 export * from "./editor-theme/typography";
 export * from "./editor-theme/presets";
 export * from "./editor-theme/normalize";

@@ -23,6 +23,7 @@ import { measurePerformance } from "@/features/mermaid-editor/lib/editor-perform
 import { upsertRecentFile, type RecentFileEntry } from "@/features/mermaid-editor/lib/file-workflow";
 import type { ViewFilters } from "@/features/mermaid-editor/lib/view-filters";
 import { workspaceViewForDocument, type WorkspaceView } from "@/features/mermaid-editor/lib/workspace-view";
+import type { NodeGeometrySpec } from "@/features/mermaid-editor/lib/node-geometry";
 
 type StateSetter<T> = Dispatch<SetStateAction<T>>;
 
@@ -33,6 +34,7 @@ type CanvasLiveState = {
 };
 
 type UseEditorAiCommandsArgs = {
+  nodeGeometrySpec: NodeGeometrySpec;
   runtime: EditorRuntime;
   sourceEditBaseRef: { current: EditorSnapshot | null };
   isDirtyRef: { current: boolean };
@@ -78,6 +80,7 @@ type UseEditorAiCommandsArgs = {
 };
 
 export function useEditorAiCommands({
+  nodeGeometrySpec,
   runtime,
   sourceEditBaseRef,
   isDirtyRef,
@@ -267,7 +270,7 @@ export function useEditorAiCommands({
       const nextLayoutMode = loaded.layoutMode;
       const nextGraph =
         loaded.editableKind === "flowchart" && nextLayoutMode === "auto"
-          ? measurePerformance("dagre-auto-layout", () => applyDagreAutoLayout(loaded.graph), {
+          ? measurePerformance("dagre-auto-layout", () => applyDagreAutoLayout(loaded.graph, { spec: nodeGeometrySpec }), {
               nodes: loaded.graph.nodes.length,
               edges: loaded.graph.edges.length,
               aiApply: true
@@ -339,6 +342,7 @@ export function useEditorAiCommands({
       flushSourceHistory,
       graph,
       isDirtyRef,
+      nodeGeometrySpec,
       postAiApplyResult,
       recordRecentAction,
       runtime,

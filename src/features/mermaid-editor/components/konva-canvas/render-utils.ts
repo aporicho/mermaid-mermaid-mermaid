@@ -6,8 +6,10 @@ import {
 } from "@/features/mermaid-editor/lib/edge-label-geometry";
 import {
   defaultNodeGeometrySpec,
+  themedNodeGeometrySpec,
   type NodeGeometryTokens
 } from "@/features/mermaid-editor/lib/node-geometry";
+import type { SpecialNodeThemeTokens, TypographyRoleTokens } from "@/features/mermaid-editor/lib/editor-theme";
 
 let textMeasureCanvas: HTMLCanvasElement | null = null;
 
@@ -39,7 +41,8 @@ export function measureEdgeLabelTextWidth(value: string, tokens: EdgeLabelGeomet
   return measureTextWidth(value, tokens);
 }
 
-export function nodeGeometrySpec(tokens: NodeGeometryTokens) {
+export function nodeGeometrySpec(tokens: NodeGeometryTokens, specialNode?: SpecialNodeThemeTokens, tableTypography?: TypographyRoleTokens) {
+  if (specialNode && tableTypography) return themedNodeGeometrySpec(tokens, specialNode, tableTypography);
   return defaultNodeGeometrySpec((value) => measureNodeTextWidth(value, tokens), tokens);
 }
 

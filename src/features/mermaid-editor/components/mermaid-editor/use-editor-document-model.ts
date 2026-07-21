@@ -1,6 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
-import { deriveDagreAutoLayoutResult } from "@/features/mermaid-editor/lib/canvas-auto-layout";
 import { serializeCanvasDocument, type CanvasDocument } from "@/features/mermaid-editor/lib/canvas-document";
 import { type DocumentKind } from "@/features/mermaid-editor/lib/document-kind";
 import { emptySelection } from "@/features/mermaid-editor/lib/editor-actions";
@@ -63,6 +62,11 @@ export function useEditorDocumentModel({ initial, runtime }: UseEditorDocumentMo
   const [projectBusy, setProjectBusy] = useState(false);
   const [lastSavedDocument, setLastSavedDocument] = useState(initial.lastSavedDocument);
   const [imageDisplaySrcBySrc, setImageDisplaySrcBySrc] = useState<Record<string, string>>({});
+  const documentGenerationRef = useRef(0);
+
+  function beginDocumentSession() {
+    documentGenerationRef.current += 1;
+  }
 
   const currentDocument = useMemo(
     () => {
@@ -81,10 +85,6 @@ export function useEditorDocumentModel({ initial, runtime }: UseEditorDocumentMo
   );
   const hiddenViewFilters = useMemo(() => hiddenFilterCount(viewFilters), [viewFilters]);
   const projectFiles = useMemo(() => projectWorkspace?.files || [], [projectWorkspace]);
-  const mermaidEdgeRoutes = useMemo(
-    () => (edgeRouting === "mermaid" ? deriveDagreAutoLayoutResult(graph).edgeRoutes : []),
-    [edgeRouting, graph]
-  );
   const terminalCwd = useMemo(() => projectWorkspace?.rootPath || parentDirectoryPath(fileRef?.path), [fileRef?.path, projectWorkspace?.rootPath]);
   const isDirty = !lastSavedDocument || currentDocument !== lastSavedDocument;
   const isCanvasEditable = documentKind === "mermaid" && editableKind === "flowchart";
@@ -172,12 +172,13 @@ export function useEditorDocumentModel({ initial, runtime }: UseEditorDocumentMo
     setProjectBusy,
     lastSavedDocument,
     setLastSavedDocument,
+    documentGenerationRef,
+    beginDocumentSession,
     imageDisplaySrcBySrc,
     currentDocument,
     previewSource,
     hiddenViewFilters,
     projectFiles,
-    mermaidEdgeRoutes,
     terminalCwd,
     isDirty,
     isCanvasEditable,

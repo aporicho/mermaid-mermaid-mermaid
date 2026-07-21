@@ -1,6 +1,7 @@
 import {
   cloneEditorTypography,
   cloneMarkdownTheme,
+  cloneSpecialNodeTheme,
   DEFAULT_EDITOR_THEME,
   getBuiltInEditorTheme,
   type EditorTheme
@@ -8,7 +9,7 @@ import {
 
 export function toCustomTheme(theme: EditorTheme): EditorTheme {
   return {
-    version: 8,
+    version: 9,
     id: "custom",
     name: theme.id === "custom" ? theme.name : "自定义主题",
     description: theme.description,
@@ -16,6 +17,7 @@ export function toCustomTheme(theme: EditorTheme): EditorTheme {
     ui: { ...theme.ui },
     canvas: { ...theme.canvas },
     canvasAppearance: { ...theme.canvasAppearance },
+    specialNode: cloneSpecialNodeTheme(theme.specialNode),
     chrome: { ...theme.chrome },
     source: { ...theme.source },
     render: { ...theme.render },

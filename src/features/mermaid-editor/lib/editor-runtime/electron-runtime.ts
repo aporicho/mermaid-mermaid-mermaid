@@ -9,6 +9,7 @@ import type {
   RuntimeEmbeddedBrowserResult
 } from "@/features/mermaid-editor/lib/editor-runtime/types";
 import type { ElectronImageAsset } from "@/features/mermaid-editor/lib/editor-runtime/electron-bridge";
+import { createElectronCsvFileOperations } from "@/features/mermaid-editor/lib/editor-runtime/electron-csv-file";
 
 export function createElectronRuntime(): EditorRuntime {
   const bridge = getElectronBridge();
@@ -18,6 +19,7 @@ export function createElectronRuntime(): EditorRuntime {
 
   return {
     ...fallback,
+    ...createElectronCsvFileOperations(bridge),
     kind: "desktop",
     host: "electron",
     openExternalUrl(url) {

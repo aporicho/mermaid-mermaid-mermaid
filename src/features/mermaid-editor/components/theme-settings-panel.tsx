@@ -23,6 +23,7 @@ import { cn } from "@/lib/utils";
 import type { EditorRuntime, RuntimeSystemFont } from "@/features/mermaid-editor/lib/editor-runtime";
 
 import { ThemeSettingsGroup } from "./theme-settings-controls";
+import { ThemeSettingsCollapsible } from "./theme-settings-collapsible";
 import { ThemeSettingsLibrary } from "./theme-settings-library";
 import { ThemeSettingsMarkdown } from "./theme-settings-markdown";
 import { ThemeSettingsTypography } from "./theme-settings-typography";
@@ -128,6 +129,21 @@ export function ThemeSettingsPanel({
     onPreview("custom", normalizeEditorTheme(next, next));
   }
 
+  function renderTokenGroup(definition: ThemeTokenGroupDefinition) {
+    const groupValue = themeValueAtPath(activeTheme, definition.path);
+    if (!isThemeTokenGroup(groupValue)) return null;
+    return (
+      <ThemeSettingsGroup
+        key={definition.id}
+        definition={definition}
+        value={groupValue}
+        onChange={(key, value) => updateGroupField(definition, key, value)}
+        onReset={() => resetGroup(definition)}
+        resetDisabled={activeTheme.id !== "custom"}
+      />
+    );
+  }
+
   return (
     <div className="grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)_auto]" data-theme-settings-panel>
       <EditorPanelHeader
@@ -158,10 +174,11 @@ export function ThemeSettingsPanel({
           ) : activeCategory === "typography" ? (
             <ThemeSettingsTypography
               value={activeTheme.typography}
-              visibleGroups={["interface", "canvas", "linkCard", "markdownCard", "mermaid", "canvasDocument", "source", "terminal"]}
+              visibleGroups={["interface", "canvas", "linkCard", "markdownCard", "tableNode", "mermaid", "canvasDocument", "source", "terminal"]}
               systemFonts={systemFonts}
               loading={fontsLoading}
               error={fontsError}
+              resetDisabled={activeTheme.id !== "custom"}
               onChangeRole={updateTypographyRole}
               onResetRole={(group, role) => resetTypographyPath(group, role)}
               onResetGroup={(group) => resetTypographyPath(group)}
@@ -181,20 +198,11 @@ export function ThemeSettingsPanel({
                   onResetAll={() => resetMarkdownPath([])}
                 />
               ) : null}
-              {groups.map((definition) => {
-                const groupValue = themeValueAtPath(activeTheme, definition.path);
-                if (!isThemeTokenGroup(groupValue)) return null;
-                return (
-                  <ThemeSettingsGroup
-                    key={definition.id}
-                    definition={definition}
-                    value={groupValue}
-                    onChange={(key, value) => updateGroupField(definition, key, value)}
-                    onReset={() => resetGroup(definition)}
-                    resetDisabled={activeTheme.id !== "custom"}
-                  />
-                );
-              })}
+              {activeCategory === "canvas" ? (["ordinary", "special"] as const).map((section) => (
+                <ThemeSettingsCanvasSection key={section} section={section}>
+                  {groups.filter((definition) => definition.section === section).map(renderTokenGroup)}
+                </ThemeSettingsCanvasSection>
+              )) : groups.map(renderTokenGroup)}
               {activeCategory === "diagnostics" ? <ThemeDiagnostics diagnostics={diagnostics} /> : null}
             </div>
           )}
@@ -208,6 +216,20 @@ export function ThemeSettingsPanel({
         </div>
       </EditorPanelFooter>
     </div>
+  );
+}
+
+function ThemeSettingsCanvasSection({ section, children }: { section: "ordinary" | "special"; children: ReactNode }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <ThemeSettingsCollapsible
+      open={open}
+      onOpenChange={setOpen}
+      title={section === "special" ? "特殊节点" : "普通节点"}
+      settingsSection={section}
+    >
+      <div className="grid gap-3 p-3 pt-0">{children}</div>
+    </ThemeSettingsCollapsible>
   );
 }
 

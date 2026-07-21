@@ -13,6 +13,7 @@ import type {
   MermaidGraph
 } from "@/features/mermaid-editor/lib/editor-types";
 import { DEFAULT_FLOWCHART_NODE_SHAPE } from "@/features/mermaid-editor/lib/flowchart-shapes";
+import { csvTableDocumentReferenceKey, isCsvTableFilePath } from "@/features/mermaid-editor/lib/csv-table-document";
 
 import { NODE_COLORS } from "./constants";
 import {
@@ -53,7 +54,6 @@ export function parseMermaid(source: string, previous?: MermaidGraph): MermaidGr
       frontmatter
     });
   }
-
   const nodes = new Map<string, CanvasNode>();
   const pendingEdges: PendingEdgeStatement[] = [];
   const pendingEdgeProperties: PendingEdgeProperty[] = [];
@@ -80,7 +80,8 @@ export function parseMermaid(source: string, previous?: MermaidGraph): MermaidGr
         fill: old?.fill || NODE_COLORS[index % NODE_COLORS.length],
         shape: shape || old?.shape || DEFAULT_FLOWCHART_NODE_SHAPE,
         ...(asset || old?.asset ? { asset: asset || old?.asset } : {}),
-        ...(preview || old?.preview ? { preview: preview || old?.preview } : {})
+        ...(preview || old?.preview ? { preview: preview || old?.preview } : {}),
+        ...(old?.tablePresentation ? { tablePresentation: old.tablePresentation } : {})
       });
     } else {
       const node = nodes.get(id)!;
@@ -204,7 +205,18 @@ export function parseMermaid(source: string, previous?: MermaidGraph): MermaidGr
 
   const graphNodes = [...nodes.values()].map((node) => {
     const action = pendingNodeActions.get(node.id)?.action;
-    return action ? { ...node, action } : node;
+    const previousNode = previous?.nodes.find((candidate) => candidate.id === node.id);
+    const content = action?.kind === "file"
+      && previousNode?.action?.kind === "file"
+      && isCsvTableFilePath(action.path)
+      && csvTableDocumentReferenceKey(action.path) === csvTableDocumentReferenceKey(previousNode.action.path)
+      ? previousNode.content
+      : undefined;
+    return {
+      ...node,
+      ...(action ? { action } : {}),
+      ...(content ? { content } : {})
+    };
   });
 
   return {

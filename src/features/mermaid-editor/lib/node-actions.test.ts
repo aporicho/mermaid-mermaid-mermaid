@@ -13,6 +13,7 @@ describe("node actions", () => {
   it("infers link kinds from pasted targets", () => {
     expect(inferNodeActionKindFromTarget("https://example.com")).toBe("url");
     expect(inferNodeActionKindFromTarget("./docs/spec.md")).toBe("file");
+    expect(inferNodeActionKindFromTarget("data/people.csv")).toBe("file");
     expect(inferNodeActionKindFromTarget("file:///C:/docs/spec.mmd")).toBe("file");
     expect(inferNodeActionKindFromTarget("mailto:team@example.com")).toBeUndefined();
   });

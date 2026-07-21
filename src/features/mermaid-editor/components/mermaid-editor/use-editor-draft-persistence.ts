@@ -38,6 +38,7 @@ import type { StoredExplorerTreeState } from "@/features/mermaid-editor/lib/expl
 import type { ViewFilters } from "@/features/mermaid-editor/lib/view-filters";
 import { workspaceViewForDocument, type WorkspaceView } from "@/features/mermaid-editor/lib/workspace-view";
 import { cleanCloseDocument } from "@/features/mermaid-editor/lib/desktop-close-workflow";
+import type { NodeGeometrySpec } from "@/features/mermaid-editor/lib/node-geometry";
 
 export type UseEditorDraftPersistenceArgs = {
   runtime: EditorRuntime;
@@ -48,6 +49,7 @@ export type UseEditorDraftPersistenceArgs = {
   viewport: ViewportState;
   edgeRouting: EdgeRouting;
   layoutMode: LayoutMode;
+  nodeGeometrySpec?: NodeGeometrySpec;
   leftCollapsed: boolean;
   rightCollapsed: boolean;
   workspaceView: WorkspaceView;
@@ -72,6 +74,7 @@ export function useEditorDraftPersistence({
   viewport,
   edgeRouting,
   layoutMode,
+  nodeGeometrySpec,
   leftCollapsed,
   rightCollapsed,
   workspaceView,
@@ -164,7 +167,7 @@ export function useEditorDraftPersistence({
     const loaded = loadMermaidDocument(cleanDocument);
     const nextViewport = loaded.viewport || { x: 160, y: 90, scale: 1 };
     const nextLayoutMode = loaded.layoutMode;
-    const nextGraph = loaded.editableKind === "flowchart" && nextLayoutMode === "auto" ? applyDagreAutoLayout(loaded.graph) : loaded.graph;
+    const nextGraph = loaded.editableKind === "flowchart" && nextLayoutMode === "auto" ? applyDagreAutoLayout(loaded.graph, { spec: nodeGeometrySpec }) : loaded.graph;
     const normalizedDocument = buildMermaidDocument(loaded.source, nextGraph, nextViewport, loaded.edgeRouting, nextLayoutMode);
     const keepCurrentFile = Boolean(lastSavedDocument?.trim());
 

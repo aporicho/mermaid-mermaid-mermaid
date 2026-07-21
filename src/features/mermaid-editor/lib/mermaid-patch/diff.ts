@@ -35,7 +35,11 @@ export function diffDocuments(before: MermaidDocument, after: MermaidDocument): 
     nodes: diffById(before.graph.nodes, after.graph.nodes, semanticNode),
     edges: diffById(before.graph.edges, after.graph.edges, semanticEdge),
     subgraphs: diffById(before.graph.subgraphs || [], after.graph.subgraphs || [], semanticSubgraph),
-    graph: diffRecord({ direction: before.graph.direction }, { direction: after.graph.direction }, "graph")
+    graph: diffRecord(
+      { direction: before.graph.direction, preservedStatements: before.graph.preservedStatements || [] },
+      { direction: after.graph.direction, preservedStatements: after.graph.preservedStatements || [] },
+      "graph"
+    )
   };
   const layoutChanges = {
     nodes: diffById(before.graph.nodes, after.graph.nodes, layoutNode),
@@ -88,11 +92,18 @@ function diffRecord(before: Record<string, unknown>, after: Record<string, unkno
 }
 
 function semanticNode(node: CanvasNode) {
-  return { id: node.id, label: node.label, shape: node.shape || "rect", asset: node.asset };
+  return {
+    id: node.id,
+    label: node.label,
+    shape: node.shape || "rect",
+    asset: node.asset,
+    action: node.action,
+    preview: node.preview
+  };
 }
 
 function layoutNode(node: CanvasNode) {
-  return { id: node.id, x: node.x, y: node.y, fill: node.fill };
+  return { id: node.id, x: node.x, y: node.y, fill: node.fill, tablePresentation: node.tablePresentation };
 }
 
 function semanticEdge(edge: CanvasEdge) {

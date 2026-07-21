@@ -21,6 +21,7 @@ export function compileEditorTheme(theme: EditorTheme): CompiledEditorTheme {
     mermaidThemeVariables: themeToMermaidThemeVariables(theme),
     terminalTheme: themeToTerminalTheme(theme),
     typography: theme.typography,
+    specialNode: theme.specialNode,
     motion: theme.motion,
     geometry: themeToGeometryTokens(theme),
     diagnostics: themeDiagnostics(theme)

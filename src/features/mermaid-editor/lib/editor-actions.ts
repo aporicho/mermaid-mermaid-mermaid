@@ -13,10 +13,12 @@ import type {
   ViewportState
 } from "@/features/mermaid-editor/lib/editor-types";
 import type { CanvasNodeAction } from "@/features/mermaid-editor/lib/editor-types";
+import { canvasTablePresentation, cloneCanvasNodeContent, normalizeCanvasNodeContent, sameCanvasNodeContent } from "@/features/mermaid-editor/lib/canvas-table-content";
 import { createImageAsset } from "@/features/mermaid-editor/lib/node-assets";
 import { inferNodeActionFromPlainText } from "@/features/mermaid-editor/lib/node-actions";
 import { normalizeCanvasNodePreview } from "@/features/mermaid-editor/lib/node-preview";
 import { createNode, nextCanvasNodeId, toSafeNodeId } from "@/features/mermaid-editor/lib/mermaid-graph";
+import { isCsvTableDocumentNode } from "@/features/mermaid-editor/lib/csv-table-document";
 
 export const emptySelection: Selection = { nodeIds: [], edgeIds: [], subgraphIds: [] };
 
@@ -66,6 +68,7 @@ export type AddCanvasNodeOptions = {
   label?: string;
   action?: CanvasNodeAction;
   preview?: CanvasNode["preview"];
+  content?: CanvasNode["content"];
 };
 
 export type AddCanvasNodeItem = AddCanvasNodeOptions & {
@@ -108,6 +111,56 @@ export function updateNodeLabel(graph: MermaidGraph, id: string, label: string):
     ...graph,
     nodes: graph.nodes.map((node) => (node.id === id ? applyNodeLabelPatch(node, label) : node))
   };
+}
+
+export function updateNode(
+  graph: MermaidGraph,
+  id: string,
+  patch: Partial<Pick<CanvasNode, "label" | "fill" | "shape" | "asset" | "action" | "preview" | "content" | "csvStatus">>
+): MermaidGraph {
+  let changed = false;
+  const nodes = graph.nodes.map((node) => {
+      if (node.id !== id) return node;
+      const normalizedContent = "content" in patch ? normalizeCanvasNodeContent(patch.content) : undefined;
+      const nextPresentation = normalizedContent ? canvasTablePresentation(normalizedContent) : undefined;
+      const contentPresentation = node.content?.kind === "table" ? canvasTablePresentation(node.content) : undefined;
+      const contentPatch = "content" in patch
+        ? patch.content == null
+          ? { content: undefined }
+          : normalizedContent
+            ? {
+                content: normalizedContent,
+                ...(contentPresentation && !sameTablePresentation(contentPresentation, nextPresentation) ? { tablePresentation: nextPresentation } : {})
+              }
+            : {}
+        : {};
+      const nodePatch = { ...patch };
+      delete nodePatch.content;
+      const nextNode = { ...node, ...nodePatch, ...contentPatch };
+      const resolvedNode = "label" in patch && !("action" in patch) ? applyNodeLabelPatch(nextNode, patch.label ?? node.label) : nextNode;
+      if (sameUpdatedNode(node, resolvedNode)) return node;
+      changed = true;
+      return resolvedNode;
+    });
+  return changed ? { ...graph, nodes } : graph;
+}
+
+function sameUpdatedNode(left: CanvasNode, right: CanvasNode) {
+  return left.label === right.label
+    && left.fill === right.fill
+    && left.shape === right.shape
+    && left.asset === right.asset
+    && left.action === right.action
+    && left.preview === right.preview
+    && left.csvStatus === right.csvStatus
+    && sameTablePresentation(left.tablePresentation, right.tablePresentation)
+    && sameCanvasNodeContent(left.content, right.content);
+}
+
+function sameTablePresentation(left: CanvasNode["tablePresentation"], right: CanvasNode["tablePresentation"]) {
+  if (left === right) return true;
+  if (!left || !right || left.columns.length !== right.columns.length) return false;
+  return left.columns.every((column, index) => column.width === right.columns[index]?.width && column.align === right.columns[index]?.align);
 }
 
 export function updateNodeFill(graph: MermaidGraph, ids: string[], fill: string): MermaidGraph {
@@ -184,11 +237,13 @@ function createNodeWithOptions(existingNodes: CanvasNode[], x: number, y: number
   const label = options.label ?? node.label;
   const action = options.action || inferNodeActionFromPlainText(label);
   const preview = normalizeCanvasNodePreview(options.preview);
+  const content = normalizeCanvasNodeContent(options.content);
   return {
     ...node,
     label,
     ...(action ? { action } : {}),
-    ...(preview ? { preview } : {})
+    ...(preview ? { preview } : {}),
+    ...(content ? { content } : {})
   };
 }
 
@@ -404,21 +459,37 @@ export function deleteSelection(graph: MermaidGraph, selection: Selection): Merm
 }
 
 export function copySelection(graph: MermaidGraph, selection: Selection): ClipboardPayload {
-  const nodeIds = new Set(selection.nodeIds);
+  const nodeIds = new Set(selection.nodeIds.filter((id) => {
+    const node = graph.nodes.find((candidate) => candidate.id === id);
+    return node && !isCsvTableDocumentNode(node);
+  }));
 
   return {
-    nodes: graph.nodes.filter((node) => nodeIds.has(node.id)),
+    nodes: graph.nodes
+      .filter((node) => nodeIds.has(node.id))
+      .map((node) => ({
+        ...node,
+        ...(node.content ? { content: cloneCanvasNodeContent(node.content) } : {})
+      })),
     edges: graph.edges.filter((edge) => nodeIds.has(edge.from) && nodeIds.has(edge.to))
   };
 }
 
 export function pasteClipboard(graph: MermaidGraph, payload: ClipboardPayload): { graph: MermaidGraph; selection: Selection } {
+  const payloadNodes = payload.nodes.filter((node) => !isCsvTableDocumentNode(node));
+  if (!payloadNodes.length) return { graph, selection: emptySelection };
   const existingIds = graph.nodes.map((node) => node.id);
   const idMap = new Map<string, string>();
-  const pastedNodes: CanvasNode[] = payload.nodes.map((node) => {
+  const pastedNodes: CanvasNode[] = payloadNodes.map((node) => {
     const nextId = toSafeNodeId(`${node.id}_copy`, [...existingIds, ...idMap.values()]);
     idMap.set(node.id, nextId);
-    return { ...node, id: nextId, x: node.x + 32, y: node.y + 32 };
+    return {
+      ...node,
+      id: nextId,
+      x: node.x + 32,
+      y: node.y + 32,
+      ...(node.content ? { content: cloneCanvasNodeContent(node.content) } : {})
+    };
   });
   const pastedEdges = payload.edges
     .filter((edge) => idMap.has(edge.from) && idMap.has(edge.to))

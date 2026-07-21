@@ -2,7 +2,6 @@ import { useMemo, useState } from "react";
 import { Check, NavArrowDown, Refresh } from "iconoir-react/regular";
 
 import { Button } from "@/components/ui/button";
-import { Collapsible, CollapsibleContent } from "@/components/ui/collapsible";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator } from "@/components/ui/command";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -13,6 +12,7 @@ import {
   type TypographyRoleTokens
 } from "@/features/mermaid-editor/lib/editor-theme";
 import { cn } from "@/lib/utils";
+import { ThemeSettingsCollapsible } from "./theme-settings-collapsible";
 
 type TypographyGroupKey = keyof EditorTypographyTokens;
 
@@ -21,6 +21,7 @@ const TYPOGRAPHY_GROUPS: readonly { key: TypographyGroupKey; title: string; desc
   { key: "canvas", title: "Mermaid 编辑画布", description: "节点、连线标签、组标题、操作徽标和编辑态。" },
   { key: "linkCard", title: "链接预览卡片", description: "品牌占位、平台名称、帖子标题和编辑态。" },
   { key: "markdownCard", title: "Markdown 文档卡片", description: "徽标、标题、路径、摘要和编辑态。" },
+  { key: "tableNode", title: "表格节点", description: "表格单元格及其编辑态。" },
   { key: "mermaid", title: "Mermaid SVG 渲染", description: "图表标题、节点、关系、分组和注释。" },
   { key: "canvasDocument", title: "独立画布文档", description: "形状、卡片、自由文本、连接线及其编辑态。" },
   { key: "source", title: "源码与诊断", description: "源码编辑器和两级诊断信息。" },
@@ -37,6 +38,7 @@ const ROLE_LABELS: Record<string, string> = {
   cardEditor: "卡片编辑态", freeText: "自由文本", freeTextEditor: "自由文本编辑态", connector: "连接线标签",
   connectorEditor: "连接线编辑态", editor: "源码编辑器", diagnosticSummary: "诊断摘要", diagnosticRaw: "诊断原始信息",
   content: "终端内容", h1: "一级标题", h2: "二级标题", h3: "三级标题", h4: "四级标题", h5: "五级标题", h6: "六级标题",
+  cell: "单元格", cellEditor: "单元格编辑态",
   link: "链接", emphasis: "强调", strong: "加粗", list: "列表", quote: "引用", inlineCode: "行内代码", codeBlock: "代码块", table: "表格"
 };
 
@@ -53,6 +55,7 @@ export function ThemeSettingsTypography({
   systemFonts,
   loading,
   error,
+  resetDisabled,
   onChangeRole,
   onResetRole,
   onResetGroup
@@ -62,12 +65,13 @@ export function ThemeSettingsTypography({
   systemFonts: RuntimeSystemFont[];
   loading: boolean;
   error: string | null;
+  resetDisabled: boolean;
   onChangeRole: (group: TypographyGroupKey, role: string, value: TypographyRoleTokens) => void;
   onResetRole: (group: TypographyGroupKey, role: string) => void;
   onResetGroup: (group: TypographyGroupKey) => void;
 }) {
   const [query, setQuery] = useState("");
-  const [openGroups, setOpenGroups] = useState<Set<TypographyGroupKey>>(() => new Set([visibleGroups?.[0] ?? "interface"]));
+  const [openGroups, setOpenGroups] = useState<Set<TypographyGroupKey>>(() => new Set());
   const normalizedQuery = query.trim().toLocaleLowerCase();
 
   return (
@@ -84,23 +88,17 @@ export function ThemeSettingsTypography({
         if (!visibleRoles.length) return null;
         const open = normalizedQuery ? true : openGroups.has(definition.key);
         return (
-          <Collapsible key={definition.key} open={open} onOpenChange={() => setOpenGroups((current) => toggleSetValue(current, definition.key))} asChild>
-          <section className="editor-ui-surface bg-background/45" data-typography-group={definition.key}>
-            <header className="editor-ui-panel-header flex items-start justify-between gap-3 py-3">
-              <button
-                type="button"
-                className="flex min-w-0 flex-1 items-start gap-2 text-left"
-                onClick={() => setOpenGroups((current) => toggleSetValue(current, definition.key))}
-                aria-expanded={open}
-              >
-                <NavArrowDown className={cn("mt-0.5 size-3.5 shrink-0 transition-transform", !open && "-rotate-90")} />
-                <span className="type-interface-heading min-w-0 truncate" title={definition.description}>{definition.title}</span>
-              </button>
-              <EditorIconButton context="inline" label={`重置${definition.title}`} onClick={() => onResetGroup(definition.key)}>
-                <Refresh />
-              </EditorIconButton>
-            </header>
-            <CollapsibleContent>
+          <ThemeSettingsCollapsible
+            key={definition.key}
+            open={open}
+            onOpenChange={() => setOpenGroups((current) => toggleSetValue(current, definition.key))}
+            title={definition.title}
+            description={definition.description}
+            resetLabel={`重置${definition.title}`}
+            resetDisabled={resetDisabled}
+            onReset={() => onResetGroup(definition.key)}
+            typographyGroup={definition.key}
+          >
               <div className="editor-ui-panel-body grid gap-3">
                 {visibleRoles.map(([roleKey, role]) => (
                   <TypographyRoleEditor
@@ -112,21 +110,20 @@ export function ThemeSettingsTypography({
                     loading={loading}
                     error={error}
                     monospacePreferred={isMonospaceRole(definition.key, roleKey)}
+                    resetDisabled={resetDisabled}
                     onChange={(next) => onChangeRole(definition.key, roleKey, next)}
                     onReset={() => onResetRole(definition.key, roleKey)}
                   />
                 ))}
               </div>
-            </CollapsibleContent>
-          </section>
-          </Collapsible>
+          </ThemeSettingsCollapsible>
         );
       })}
     </div>
   );
 }
 
-function TypographyRoleEditor({ roleKey, label, value, fonts, loading, error, monospacePreferred, onChange, onReset }: {
+function TypographyRoleEditor({ roleKey, label, value, fonts, loading, error, monospacePreferred, resetDisabled, onChange, onReset }: {
   roleKey: string;
   label: string;
   value: TypographyRoleTokens;
@@ -134,6 +131,7 @@ function TypographyRoleEditor({ roleKey, label, value, fonts, loading, error, mo
   loading: boolean;
   error: string | null;
   monospacePreferred: boolean;
+  resetDisabled: boolean;
   onChange: (value: TypographyRoleTokens) => void;
   onReset: () => void;
 }) {
@@ -141,7 +139,7 @@ function TypographyRoleEditor({ roleKey, label, value, fonts, loading, error, mo
     <article className="grid gap-2 border-l-2 border-border bg-card/45 p-3" data-typography-role={roleKey}>
       <div className="flex items-center justify-between gap-3">
         <div className="type-interface-heading min-w-0 truncate" style={{ fontFamily: value.family }}>{label}</div>
-        <EditorIconButton context="inline" label={`重置${label}`} onClick={onReset}>
+        <EditorIconButton context="inline" label={`重置${label}`} onClick={onReset} disabled={resetDisabled}>
           <Refresh />
         </EditorIconButton>
       </div>

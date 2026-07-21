@@ -30,6 +30,8 @@ export type CanvasPoint = StandardCanvasPoint;
 export type HitTarget =
   | { kind: "blank" }
   | { kind: "node"; id: string }
+  | { kind: "tableCell"; nodeId: string; rowId: string; columnId: string }
+  | { kind: "tableHeader"; nodeId: string; columnId: string }
   | { kind: "nodeAnchor"; nodeId: string; anchor: string }
   | { kind: "subgraph"; id: string }
   | { kind: "subgraphTitle"; id: string }
@@ -276,6 +278,8 @@ function toStandardSelection(selection: Selection): StandardCanvasSelection {
 function toStandardHitTarget(hit: HitTarget): StandardCanvasHitTarget {
   if (hit.kind === "blank") return hit;
   if (hit.kind === "node") return { kind: "item", id: hit.id };
+  if (hit.kind === "tableCell") return { kind: "item", id: hit.nodeId };
+  if (hit.kind === "tableHeader") return { kind: "item", id: hit.nodeId };
   if (hit.kind === "nodeAnchor") return { kind: "itemAnchor", itemId: hit.nodeId, anchor: hit.anchor };
   if (hit.kind === "subgraph") return { kind: "group", id: hit.id };
   if (hit.kind === "subgraphTitle") return { kind: "groupTitle", id: hit.id };

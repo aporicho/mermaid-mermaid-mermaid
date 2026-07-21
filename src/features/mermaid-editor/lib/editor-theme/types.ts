@@ -4,6 +4,7 @@ import type { EdgeLabelGeometryTokens } from "@/features/mermaid-editor/lib/edge
 import type { NodeGeometryTokens } from "@/features/mermaid-editor/lib/node-geometry";
 import type { SubgraphGeometryTokens } from "@/features/mermaid-editor/lib/subgraph-geometry";
 import type { MarkdownThemeTokens } from "./markdown-types";
+import type { SpecialNodeThemeTokens } from "./special-node-types";
 import type { EditorTypographyTokens } from "./typography-types";
 
 export type {
@@ -21,6 +22,7 @@ export type {
   MarkdownThemeTokens
 } from "./markdown-types";
 export type { EditorTypographyTokens, TypographyRoleTokens } from "./typography-types";
+export type { SpecialNodeCommonTokens, SpecialNodeImageTokens, SpecialNodeLinkCardTokens, SpecialNodeMarkdownDocumentTokens, SpecialNodeTableTokens, SpecialNodeThemeTokens } from "./special-node-types";
 
 export const MERMAID_FONT_FAMILY = "Noto Sans SC Variable, Noto Sans SC, PingFang SC, Microsoft YaHei UI, Microsoft YaHei, system-ui, sans-serif";
 export const MONO_FONT_FAMILY = "Maple Mono, SF Mono, Cascadia Code, JetBrains Mono, Noto Sans SC Variable, ui-monospace, monospace";
@@ -104,7 +106,7 @@ export type XtermThemeTokens = TerminalColorTokens &
   };
 
 export type EditorTheme = {
-  version: 8;
+  version: 9;
   id: EditorThemeId;
   name: string;
   description: string;
@@ -139,6 +141,7 @@ export type EditorTheme = {
     nodeFillLuminanceSteps: number;
     previewShadowOpacity: number;
   };
+  specialNode: SpecialNodeThemeTokens;
   chrome: {
     borderWidth: number;
     dividerWidth: number;
@@ -290,6 +293,7 @@ export type CompiledEditorTheme = {
   mermaidThemeVariables: MermaidThemeVariables;
   terminalTheme: XtermThemeTokens;
   typography: EditorTypographyTokens;
+  specialNode: SpecialNodeThemeTokens;
   motion: EditorMotionTokens;
   geometry: EditorThemeGeometryTokens;
   diagnostics: ThemeDiagnostic[];

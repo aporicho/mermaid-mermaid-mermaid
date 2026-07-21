@@ -19,6 +19,8 @@ type MockEditorView = {
     };
   };
   dispatch: (transaction: unknown) => void;
+  focus: () => void;
+  posAtCoords: (coords: { left: number; top: number }) => { inside: number; pos: number } | null;
 };
 
 const milkdownMock = vi.hoisted(() => ({
@@ -28,6 +30,11 @@ const milkdownMock = vi.hoisted(() => ({
   setReadonly: vi.fn(),
   setSelection: vi.fn((selection: unknown) => ({ selection })),
   view: undefined as MockEditorView | undefined
+}));
+
+const markdownBlockStyleMock = vi.hoisted(() => ({
+  convert: vi.fn(() => true),
+  get: vi.fn(() => "paragraph")
 }));
 
 vi.mock("@milkdown/crepe", () => ({
@@ -63,6 +70,11 @@ vi.mock("@milkdown/kit/prose/state", () => {
   return { TextSelection };
 });
 
+vi.mock("@/features/mermaid-editor/lib/markdown-block-style", () => ({
+  convertMarkdownBlock: markdownBlockStyleMock.convert,
+  getMarkdownBlockStyle: markdownBlockStyleMock.get
+}));
+
 describe("MarkdownPanel", () => {
   let container: HTMLDivElement | null = null;
   let root: Root | null = null;
@@ -82,7 +94,9 @@ describe("MarkdownPanel", () => {
           setSelection: milkdownMock.setSelection
         }
       },
-      dispatch: milkdownMock.dispatch
+      dispatch: milkdownMock.dispatch,
+      focus: vi.fn(),
+      posAtCoords: vi.fn(() => ({ inside: 5, pos: 6 }))
     };
   });
 
@@ -98,6 +112,8 @@ describe("MarkdownPanel", () => {
     milkdownMock.dispatch.mockClear();
     milkdownMock.setReadonly.mockClear();
     milkdownMock.setSelection.mockClear();
+    markdownBlockStyleMock.convert.mockClear();
+    markdownBlockStyleMock.get.mockClear();
     milkdownMock.view = undefined;
     vi.useRealTimers();
   });
@@ -153,6 +169,28 @@ describe("MarkdownPanel", () => {
     return handle;
   }
 
+  function appendInteractiveBlockHandle(panel: HTMLElement, visible = true) {
+    const handle = appendBlockHandle(panel);
+    handle.dataset.show = visible ? "true" : "false";
+    const addButton = document.createElement("div");
+    const dragButton = document.createElement("div");
+    addButton.className = "operation-item";
+    dragButton.className = "operation-item";
+    handle.append(addButton, dragButton);
+    vi.spyOn(handle, "getBoundingClientRect").mockReturnValue({
+      bottom: 124,
+      height: 24,
+      left: 40,
+      right: 64,
+      top: 100,
+      width: 24,
+      x: 40,
+      y: 100,
+      toJSON: () => ({})
+    });
+    return { addButton, dragButton, handle };
+  }
+
   function eventWithDataTransfer(type: string, dataTransfer: Partial<DataTransfer>) {
     const event = new Event(type, { bubbles: true, cancelable: true });
     Object.defineProperty(event, "dataTransfer", {
@@ -161,6 +199,10 @@ describe("MarkdownPanel", () => {
     });
 
     return event;
+  }
+
+  function getBlockStyleMenu() {
+    return document.querySelector('[role="menu"][aria-label="块样式"]');
   }
 
   it("clears Milkdown block drag state and selected node after drag end", () => {
@@ -218,5 +260,163 @@ describe("MarkdownPanel", () => {
 
     expect(dragOver.defaultPrevented).toBe(true);
     expect(dataTransfer.dropEffect).toBe("move");
+  });
+
+  it("opens a compact block style menu only from a click on the drag handle", () => {
+    const panel = renderPanel();
+    const { addButton, dragButton } = appendInteractiveBlockHandle(panel);
+
+    act(() => {
+      addButton.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    expect(getBlockStyleMenu()).toBeNull();
+
+    act(() => {
+      dragButton.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+      dragButton.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    const menu = getBlockStyleMenu();
+    expect(menu).not.toBeNull();
+    expect(menu?.classList.contains("select-none")).toBe(true);
+    expect(menu?.textContent).toContain("正文");
+    expect(menu?.textContent).toContain("H6");
+    expect(menu?.textContent).toContain("无序列表");
+    expect(menu?.textContent).toContain("有序列表");
+    expect(menu?.textContent).toContain("任务项");
+    expect(menu?.textContent).toContain("引用");
+    expect(menu?.textContent).toContain("代码块");
+    expect(markdownBlockStyleMock.get).toHaveBeenCalledWith(milkdownMock.view?.state, 5);
+  });
+
+  it("only exposes a visible style handle as a keyboard-accessible menu entry", async () => {
+    const panel = renderPanel();
+    const { dragButton, handle } = appendInteractiveBlockHandle(panel, false);
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(dragButton.getAttribute("role")).toBe("button");
+    expect(dragButton.getAttribute("aria-label")).toBe("块样式");
+    expect(dragButton.getAttribute("aria-hidden")).toBe("true");
+    expect(dragButton.tabIndex).toBe(-1);
+
+    act(() => {
+      dragButton.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, cancelable: true, key: "Enter" }));
+    });
+    expect(getBlockStyleMenu()).toBeNull();
+
+    await act(async () => {
+      handle.dataset.show = "true";
+      await Promise.resolve();
+    });
+
+    expect(dragButton.hasAttribute("aria-hidden")).toBe(false);
+    expect(dragButton.tabIndex).toBe(0);
+
+    act(() => {
+      dragButton.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, cancelable: true, key: "Enter" }));
+    });
+
+    expect(getBlockStyleMenu()).not.toBeNull();
+  });
+
+  it("keeps the style menu open and announces a rejected conversion", () => {
+    const panel = renderPanel();
+    const { dragButton } = appendInteractiveBlockHandle(panel);
+    markdownBlockStyleMock.convert.mockReturnValueOnce(false);
+
+    act(() => {
+      dragButton.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+      dragButton.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    const headingTwo = Array.from(document.querySelectorAll<HTMLElement>('[role="menuitem"]'))
+      .find((item) => item.textContent?.includes("H2"));
+    act(() => {
+      headingTwo?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(getBlockStyleMenu()).not.toBeNull();
+    expect(document.querySelector('[role="alert"]')?.textContent).toContain("未能应用，请重试");
+  });
+
+  it("keeps the style menu open and announces a conversion exception", () => {
+    const panel = renderPanel();
+    const { dragButton } = appendInteractiveBlockHandle(panel);
+    markdownBlockStyleMock.convert.mockImplementationOnce(() => {
+      throw new Error("conversion failed");
+    });
+
+    act(() => {
+      dragButton.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+      dragButton.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    const headingTwo = Array.from(document.querySelectorAll<HTMLElement>('[role="menuitem"]'))
+      .find((item) => item.textContent?.includes("H2"));
+    act(() => {
+      headingTwo?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(getBlockStyleMenu()).not.toBeNull();
+    expect(document.querySelector('[role="alert"]')?.textContent).toContain("未能应用，请重试");
+  });
+
+  it("runs the selected block style command at the block position", () => {
+    const panel = renderPanel();
+    const { dragButton } = appendInteractiveBlockHandle(panel);
+
+    act(() => {
+      dragButton.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+      dragButton.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    const headingTwo = Array.from(document.querySelectorAll<HTMLElement>('[role="menuitem"]'))
+      .find((item) => item.textContent?.includes("H2"));
+    expect(headingTwo).toBeDefined();
+
+    act(() => {
+      headingTwo?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(markdownBlockStyleMock.convert).toHaveBeenCalledWith(milkdownMock.view, 5, "heading-2");
+  });
+
+  it("resolves the clicked handle block even when the text cursor is in another block", () => {
+    const panel = renderPanel();
+    const { dragButton } = appendInteractiveBlockHandle(panel);
+    if (!milkdownMock.view) throw new Error("Expected editor view.");
+    milkdownMock.view.state.selection.from = 18;
+    milkdownMock.view.posAtCoords = vi.fn(() => ({ inside: 0, pos: 1 }));
+
+    act(() => {
+      dragButton.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+      dragButton.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    const quote = Array.from(document.querySelectorAll<HTMLElement>('[role="menuitem"]'))
+      .find((item) => item.textContent?.includes("引用"));
+    act(() => {
+      quote?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(markdownBlockStyleMock.get).toHaveBeenCalledWith(milkdownMock.view.state, 0);
+    expect(markdownBlockStyleMock.convert).toHaveBeenCalledWith(milkdownMock.view, 0, "blockquote");
+  });
+
+  it("does not open the style menu after the same handle gesture becomes a drag", () => {
+    const panel = renderPanel();
+    const { dragButton } = appendInteractiveBlockHandle(panel);
+
+    act(() => {
+      dragButton.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+      dragButton.dispatchEvent(new Event("dragstart", { bubbles: true, cancelable: true }));
+      dragButton.dispatchEvent(new Event("dragend", { bubbles: true, cancelable: true }));
+      dragButton.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(getBlockStyleMenu()).toBeNull();
   });
 });

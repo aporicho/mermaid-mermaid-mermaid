@@ -1,0 +1,51 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+
+import { describe, expect, it } from "vitest";
+
+const css = readFileSync(resolve(process.cwd(), "src/styles/globals.css"), "utf8");
+
+describe("Markdown style contract", () => {
+  it("uses one table body background instead of alternating rows", () => {
+    expect(css).toContain("background: var(--markdown-table-body-background)");
+    expect(css).not.toContain("tbody tr:nth-child(even)");
+    expect(css).not.toContain("--markdown-table-alternate-background");
+  });
+
+  it("applies inline typography tokens in body contexts while headings inherit their type scale", () => {
+    const linkRule = cssRule(".markdown-editor-panel .milkdown .ProseMirror a");
+    const emphasisRule = cssRule(".markdown-editor-panel .milkdown .ProseMirror em");
+    const strongRule = cssRule(".markdown-editor-panel .milkdown .ProseMirror strong");
+    const strikeRule = cssRule(".markdown-editor-panel .milkdown .ProseMirror :is(del, s)");
+
+    for (const rule of [linkRule, emphasisRule, strongRule, strikeRule]) {
+      expect(rule).not.toContain("font-family:");
+      expect(rule).not.toContain("font-size:");
+      expect(rule).not.toContain("line-height:");
+      expect(rule).not.toContain("letter-spacing:");
+    }
+    expect(strongRule).toContain("font-weight: var(--markdown-strong-font-weight)");
+
+    expect(cssRule('.markdown-editor-panel .milkdown .ProseMirror :where(p, li, td, th, blockquote) a:not(:is(h1, h2, h3, h4, h5, h6) a)')).toContain("font-family: var(--markdown-link-font-family)");
+    expect(cssRule('.markdown-editor-panel .milkdown .ProseMirror :where(p, li, td, th, blockquote) em:not(:is(h1, h2, h3, h4, h5, h6) em)')).toContain("font-size: var(--markdown-emphasis-font-size)");
+    expect(cssRule('.markdown-editor-panel .milkdown .ProseMirror :where(p, li, td, th, blockquote) strong:not(:is(h1, h2, h3, h4, h5, h6) strong)')).toContain("line-height: var(--markdown-strong-line-height)");
+    expect(cssRule('.markdown-editor-panel .milkdown .ProseMirror :where(p, li, td, th, blockquote) :is(del, s):not(:is(h1, h2, h3, h4, h5, h6) :is(del, s))')).toContain("letter-spacing: var(--markdown-strikethrough-letter-spacing)");
+  });
+
+  it("does not expose a fake task marker color beside the real checkbox tokens", () => {
+    expect(css).not.toContain("--markdown-task-list-marker-color");
+  });
+
+  it("applies the exposed inline code typography scale", () => {
+    const rule = cssRule(".markdown-editor-panel .milkdown .ProseMirror :not(pre) > code");
+    expect(rule).toContain("font-size: var(--markdown-inline-code-font-size)");
+    expect(rule).toContain("line-height: var(--markdown-inline-code-line-height)");
+  });
+});
+
+function cssRule(selector: string) {
+  const start = css.indexOf(`${selector} {`);
+  expect(start).toBeGreaterThanOrEqual(0);
+  const end = css.indexOf("}\n", start);
+  return css.slice(start, end + 1);
+}

@@ -1,13 +1,14 @@
-import { Circle, Group, Rect, Text } from "react-konva";
+import { Circle, Group, Text } from "react-konva";
 import type Konva from "konva";
 import type { KonvaEventObject } from "konva/lib/Node";
 
 import type { InlineEdit } from "@/features/mermaid-editor/components/konva-canvas/inline-edit-overlays";
 import { CanvasNodeActionBadge } from "@/features/mermaid-editor/components/konva-canvas/node-action-ui";
-import { CanvasNodeImage } from "@/features/mermaid-editor/components/konva-canvas/node-image";
+import { CanvasNodeImageSurface } from "@/features/mermaid-editor/components/konva-canvas/node-image-surface";
 import { CanvasNodeLinkCard } from "@/features/mermaid-editor/components/konva-canvas/node-link-card";
 import { MarkdownDocumentCard } from "@/features/mermaid-editor/components/konva-canvas/markdown-document-card";
 import { CanvasNodeShape } from "@/features/mermaid-editor/components/konva-canvas/node-shapes";
+import { CanvasTableNode, CanvasTableNodePlaceholder } from "@/features/mermaid-editor/components/konva-canvas/table-node";
 import { scaleLocalPointFromCenter } from "@/features/mermaid-editor/components/konva-canvas/render-utils";
 import type { CanvasNodeMotionVisual } from "@/features/mermaid-editor/components/konva-canvas/types";
 import type { useKonvaRenderModel } from "@/features/mermaid-editor/components/konva-canvas/use-konva-render-model";
@@ -28,11 +29,13 @@ import type { CanvasNode, EditorMode, Selection } from "@/features/mermaid-edito
 import { normalizeNodeAction } from "@/features/mermaid-editor/lib/node-actions";
 import { normalizeImageAsset } from "@/features/mermaid-editor/lib/node-assets";
 import { normalizeCanvasNodePreview } from "@/features/mermaid-editor/lib/node-preview";
-import { isMarkdownDocumentNode, type MarkdownDocumentPreview } from "@/features/mermaid-editor/lib/markdown-document";
+import type { MarkdownDocumentPreview } from "@/features/mermaid-editor/lib/markdown-document";
 import type { NodeGeometryTokens } from "@/features/mermaid-editor/lib/node-geometry";
 import { buildNodeGeometry } from "@/features/mermaid-editor/lib/node-geometry";
 import type { ViewFilters } from "@/features/mermaid-editor/lib/view-filters";
-import type { EditorTypographyTokens } from "@/features/mermaid-editor/lib/editor-theme";
+import type { EditorTypographyTokens, SpecialNodeThemeTokens } from "@/features/mermaid-editor/lib/editor-theme";
+import { resolveCanvasNodeKind } from "@/features/mermaid-editor/lib/canvas-node-kind";
+import type { TableCellSelection, TableHeaderSelection } from "@/features/mermaid-editor/lib/table-node";
 
 type RenderModel = ReturnType<typeof useKonvaRenderModel>;
 
@@ -61,6 +64,8 @@ type KonvaNodeLayerProps = {
   visualTokens: CanvasVisualTokens;
   nodeThemeTokens: NodeGeometryTokens;
   typography: EditorTypographyTokens;
+  specialNodeTokens: SpecialNodeThemeTokens;
+  selectedTableCell: TableCellSelection | null;
   onStartNodeDrag: (nodeId: string) => void;
   onMoveNode: (node: CanvasNode, target: Konva.Node) => void;
   onEndDrag: () => void;
@@ -70,6 +75,10 @@ type KonvaNodeLayerProps = {
   onNodeAnchorPointerDown: (event: KonvaEventObject<MouseEvent>, hit: HitTarget, world: CanvasPoint) => void;
   onOpenNodeAction?: (node: CanvasNode) => void;
   onRequestMarkdownDocumentPreview?: (node: CanvasNode) => void;
+  onSelectTableCell: (selection: TableCellSelection | null) => void;
+  onStartTableCellEdit: (selection: TableCellSelection) => void;
+  onStartTableHeaderEdit: (selection: TableHeaderSelection) => void;
+  onResizeTableColumn: (nodeId: string, columnId: string, width: number) => void;
 };
 
 export function KonvaNodeLayer({
@@ -97,6 +106,8 @@ export function KonvaNodeLayer({
   visualTokens,
   nodeThemeTokens,
   typography,
+  specialNodeTokens,
+  selectedTableCell,
   onStartNodeDrag,
   onMoveNode,
   onEndDrag,
@@ -105,7 +116,11 @@ export function KonvaNodeLayer({
   onNodeContextMenu,
   onNodeAnchorPointerDown,
   onOpenNodeAction,
-  onRequestMarkdownDocumentPreview
+  onRequestMarkdownDocumentPreview,
+  onSelectTableCell,
+  onStartTableCellEdit,
+  onStartTableHeaderEdit,
+  onResizeTableColumn
 }: KonvaNodeLayerProps) {
   if (!viewFilters.nodes) return null;
 
@@ -129,13 +144,15 @@ export function KonvaNodeLayer({
         const connectionAnchorTarget = nodeConnectionAnchorTarget(node.id, connectionPreview, retargetPreview);
         const connectionAnchorsVisible = nodeConnectionAnchorsVisible(node.id, connectionPreview, retargetPreview);
         const nodeAnchorsVisible = anchorVisual.visible || connectionAnchorsVisible;
-        const linkPreview = normalizeCanvasNodePreview(node.preview);
+        const nodeKind = resolveCanvasNodeKind(node);
+        const linkPreview = nodeKind === "link-card" ? normalizeCanvasNodePreview(node.preview) : undefined;
         const imageAsset = normalizeImageAsset(node.asset);
-        const isLinkCardNode = Boolean(linkPreview);
-        const isMarkdownDocument = isMarkdownDocumentNode(node);
-        const isImageNode = Boolean(imageAsset) && !isLinkCardNode && !isMarkdownDocument;
-        const isStandardNode = !isImageNode && !isLinkCardNode ? !isMarkdownDocument : false;
-        const nodeAction = !isImageNode && !isLinkCardNode && normalizeNodeAction(node.action);
+        const isMarkdownDocument = nodeKind === "markdown-document";
+        const isImageNode = nodeKind === "image";
+        const isTableNode = nodeKind === "table";
+        const tableInteractive = mode === "select" && !panningRequested && interactionState.kind === "idle" && !inlineEdit;
+        const isStandardNode = nodeKind === "standard";
+        const nodeAction = isStandardNode && normalizeNodeAction(node.action);
         const imageDisplaySrc = imageAsset ? imageDisplaySrcBySrc[imageAsset.src] || imageAsset.src : undefined;
         const previewCoverSrc = linkPreview?.cover?.src ? imageDisplaySrcBySrc[linkPreview.cover.src] || linkPreview.cover.src : undefined;
         const nodeVisualTransform = centerScaleTransform(geometry.frame);
@@ -143,6 +160,12 @@ export function KonvaNodeLayer({
         const visualScale = (motionVisual?.scale ?? 1) * proximityScale;
         const nodeStrokeWidth = nodeVisual.strokeWidth + (motionVisual?.highlight ?? 0) * visualTokens.node.emphasizedStrokeWidth;
         const nodeTextFill = resolveCanvasNodeTextFill(node.fill, nodeVisual.textFill, visualTokens);
+        const specialNodeStroke = nodeVisual.kind === "normal"
+          ? specialNodeTokens.common.borderColor
+          : nodeVisual.kind === "connectionTarget" || nodeVisual.kind === "connectionInvalid"
+            ? nodeVisual.stroke
+            : specialNodeTokens.common.accentColor;
+        const specialNodeStrokeWidth = nodeVisual.kind === "normal" ? specialNodeTokens.common.borderWidth : nodeStrokeWidth;
 
         return (
           <Group
@@ -174,44 +197,61 @@ export function KonvaNodeLayer({
               scaleX={visualScale}
               scaleY={visualScale}
             >
-              {!isImageNode && !isLinkCardNode ? (
-                !isMarkdownDocument ? (
-                  <CanvasNodeShape
-                    node={node}
-                    width={geometry.frame.width}
-                    height={geometry.frame.height}
-                    stroke={nodeVisual.stroke}
-                    strokeWidth={nodeStrokeWidth}
-                    visualTokens={visualTokens}
-                  />
-                ) : null
-              ) : null}
-              {isImageNode ? (
-                <Rect
+              {isStandardNode ? (
+                <CanvasNodeShape
+                  node={node}
                   width={geometry.frame.width}
                   height={geometry.frame.height}
-                  fill="rgba(0,0,0,0.001)"
-                  strokeEnabled={false}
+                  stroke={nodeVisual.stroke}
+                  strokeWidth={nodeStrokeWidth}
+                  visualTokens={visualTokens}
                 />
               ) : null}
               {isImageNode && imageDisplaySrc && geometry.imageBox ? (
-                <CanvasNodeImage
+                <CanvasNodeImageSurface
                   src={imageDisplaySrc}
-                  x={geometry.imageBox.x}
-                  y={geometry.imageBox.y}
                   width={geometry.imageBox.width}
                   height={geometry.imageBox.height}
+                  specialNode={specialNodeTokens}
+                  interacting={imageInteractionFrameVisible(nodeVisual.kind)}
                 />
               ) : null}
-              {isImageNode && imageInteractionFrameVisible(nodeVisual.kind) ? (
-                <Rect
+              {isTableNode && geometry.table ? (
+                <CanvasTableNode
+                  nodeId={node.id}
+                  layout={geometry.table}
+                  selectedCell={selectedTableCell?.nodeId === node.id ? selectedTableCell : null}
+                  specialNode={specialNodeTokens}
+                  typography={typography.tableNode.cell}
+                  editing={inlineEdit?.type === "tableCell" ? { nodeId: inlineEdit.id, rowId: inlineEdit.rowId, columnId: inlineEdit.columnId } : null}
+                  editingHeader={inlineEdit?.type === "tableHeader" ? { nodeId: inlineEdit.id, columnId: inlineEdit.columnId } : null}
+                  interactive={tableInteractive}
+                  onCellClick={(event, cell) => {
+                    event.cancelBubble = true;
+                    onSelectTableCell(cell);
+                    onCanvasClick(event, { kind: "tableCell", ...cell });
+                  }}
+                  onCellDoubleClick={(event, cell) => {
+                    event.cancelBubble = true;
+                    onSelectTableCell(cell);
+                    onCanvasClick(event, { kind: "tableCell", ...cell });
+                    onStartTableCellEdit(cell);
+                  }}
+                  onHeaderDoubleClick={(event, header) => {
+                    onCanvasClick(event, { kind: "tableHeader", ...header });
+                    onStartTableHeaderEdit(header);
+                  }}
+                  onResizeColumn={(columnId, width) => onResizeTableColumn(node.id, columnId, width)}
+                />
+              ) : null}
+              {isTableNode && !geometry.table ? (
+                <CanvasTableNodePlaceholder
                   width={geometry.frame.width}
                   height={geometry.frame.height}
-                  fillEnabled={false}
-                  stroke={nodeVisual.stroke}
-                  strokeWidth={nodeStrokeWidth}
-                  cornerRadius={0}
-                  listening={false}
+                  label={node.label}
+                  specialNode={specialNodeTokens}
+                  typography={typography.tableNode.cell}
+                  status={node.csvStatus === "error" ? "error" : "loading"}
                 />
               ) : null}
               {linkPreview ? (
@@ -221,11 +261,12 @@ export function KonvaNodeLayer({
                   width={geometry.frame.width}
                   height={geometry.frame.height}
                   coverSrc={previewCoverSrc}
-                  stroke={nodeVisual.stroke}
-                  strokeWidth={nodeStrokeWidth}
+                  stroke={specialNodeStroke}
+                  strokeWidth={specialNodeStrokeWidth}
                   visualTokens={visualTokens}
                   typography={typography.linkCard}
                   actionTypography={typography.canvas.actionBadge}
+                  specialNode={specialNodeTokens}
                   onOpen={() => onOpenNodeAction?.(node)}
                 />
               ) : null}
@@ -234,11 +275,10 @@ export function KonvaNodeLayer({
                   node={node}
                   width={geometry.frame.width}
                   height={geometry.frame.height}
-                  stroke={nodeVisual.stroke}
-                  strokeWidth={nodeStrokeWidth}
-                  textFill={nodeVisual.textFill}
-                  visualTokens={visualTokens}
+                  stroke={specialNodeStroke}
+                  strokeWidth={specialNodeStrokeWidth}
                   typography={typography.markdownCard}
+                  specialNode={specialNodeTokens}
                   preview={markdownDocumentPreviewByNodeId[node.id]}
                   onRequestPreview={onRequestMarkdownDocumentPreview}
                 />
@@ -316,11 +356,13 @@ export function KonvaNodeLayer({
       {exitingNodes.map((node) => {
         const geometry = buildNodeGeometry(node, geometrySpec);
         const motionVisual = nodeMotion[node.id] ?? { x: node.x, y: node.y, opacity: 0, scale: runtimeCreateScale, highlight: 0 };
-        const linkPreview = normalizeCanvasNodePreview(node.preview);
+        const nodeKind = resolveCanvasNodeKind(node);
+        const linkPreview = nodeKind === "link-card" ? normalizeCanvasNodePreview(node.preview) : undefined;
         const imageAsset = normalizeImageAsset(node.asset);
-        const isLinkCardNode = Boolean(linkPreview);
-        const isMarkdownDocument = isMarkdownDocumentNode(node);
-        const isImageNode = Boolean(imageAsset) && !isLinkCardNode && !isMarkdownDocument;
+        const isLinkCardNode = nodeKind === "link-card";
+        const isMarkdownDocument = nodeKind === "markdown-document";
+        const isImageNode = nodeKind === "image";
+        const isTableNode = nodeKind === "table";
         const imageDisplaySrc = imageAsset ? imageDisplaySrcBySrc[imageAsset.src] || imageAsset.src : undefined;
         const previewCoverSrc = linkPreview?.cover?.src ? imageDisplaySrcBySrc[linkPreview.cover.src] || linkPreview.cover.src : undefined;
         const nodeVisualTransform = centerScaleTransform(geometry.frame);
@@ -342,7 +384,7 @@ export function KonvaNodeLayer({
               scaleX={motionVisual.scale}
               scaleY={motionVisual.scale}
             >
-              {!isImageNode && !isLinkCardNode && !isMarkdownDocument ? (
+              {!isImageNode && !isLinkCardNode && !isMarkdownDocument && !isTableNode ? (
                 <CanvasNodeShape
                   node={node}
                   width={geometry.frame.width}
@@ -356,12 +398,33 @@ export function KonvaNodeLayer({
                 />
               ) : null}
               {isImageNode && imageDisplaySrc && geometry.imageBox ? (
-                <CanvasNodeImage
+                <CanvasNodeImageSurface
                   src={imageDisplaySrc}
-                  x={geometry.imageBox.x}
-                  y={geometry.imageBox.y}
                   width={geometry.imageBox.width}
                   height={geometry.imageBox.height}
+                  specialNode={specialNodeTokens}
+                  interacting={false}
+                />
+              ) : null}
+              {isTableNode && geometry.table ? (
+                <CanvasTableNode
+                  nodeId={node.id}
+                  layout={geometry.table}
+                  selectedCell={null}
+                  specialNode={specialNodeTokens}
+                  typography={typography.tableNode.cell}
+                  editing={null}
+                  editingHeader={null}
+                  interactive={false}
+                />
+              ) : null}
+              {isTableNode && !geometry.table ? (
+                <CanvasTableNodePlaceholder
+                  width={geometry.frame.width}
+                  height={geometry.frame.height}
+                  label={node.label}
+                  specialNode={specialNodeTokens}
+                  typography={typography.tableNode.cell}
                 />
               ) : null}
               {linkPreview ? (
@@ -371,11 +434,12 @@ export function KonvaNodeLayer({
                   width={geometry.frame.width}
                   height={geometry.frame.height}
                   coverSrc={previewCoverSrc}
-                  stroke={visualTokens.colors.accent}
-                  strokeWidth={visualTokens.node.strokeWidth + motionVisual.highlight * visualTokens.node.emphasizedStrokeWidth}
+                  stroke={specialNodeTokens.common.borderColor}
+                  strokeWidth={specialNodeTokens.common.borderWidth}
                   visualTokens={visualTokens}
                   typography={typography.linkCard}
                   actionTypography={typography.canvas.actionBadge}
+                  specialNode={specialNodeTokens}
                 />
               ) : null}
               {isMarkdownDocument ? (
@@ -383,15 +447,14 @@ export function KonvaNodeLayer({
                   node={node}
                   width={geometry.frame.width}
                   height={geometry.frame.height}
-                  stroke={visualTokens.colors.accent}
-                  strokeWidth={visualTokens.node.strokeWidth + motionVisual.highlight * visualTokens.node.emphasizedStrokeWidth}
-                  textFill={visualTokens.colors.nodeText}
-                  visualTokens={visualTokens}
+                  stroke={specialNodeTokens.common.borderColor}
+                  strokeWidth={specialNodeTokens.common.borderWidth}
                   typography={typography.markdownCard}
+                  specialNode={specialNodeTokens}
                   preview={markdownDocumentPreviewByNodeId[node.id]}
                 />
               ) : null}
-              {!isImageNode && !isLinkCardNode && !isMarkdownDocument ? (
+              {!isImageNode && !isLinkCardNode && !isMarkdownDocument && !isTableNode ? (
                 <Text
                   x={geometry.textBox.x}
                   y={geometry.textBox.y}

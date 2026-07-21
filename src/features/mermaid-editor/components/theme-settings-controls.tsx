@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { NavArrowDown, Refresh } from "iconoir-react/regular";
+import { NavArrowDown } from "iconoir-react/regular";
 
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -13,10 +13,10 @@ import {
   SelectValue
 } from "@/components/ui/select";
 import { isHexColor, MERMAID_FONT_FAMILY, MONO_FONT_FAMILY } from "@/features/mermaid-editor/lib/editor-theme";
-import { EditorIconButton } from "@/features/mermaid-editor/components/editor-ui";
 import { cn } from "@/lib/utils";
 
 import { themeTokenLabel, themeTokenNumberSpec, type ThemeTokenGroupDefinition } from "./theme-settings-schema";
+import { ThemeSettingsCollapsible } from "./theme-settings-collapsible";
 
 type ThemeTokenValue = string | number | readonly number[];
 
@@ -33,6 +33,7 @@ export function ThemeSettingsGroup({
   onReset: () => void;
   resetDisabled?: boolean;
 }) {
+  const [open, setOpen] = useState(false);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const entries = useMemo(
     () => Object.entries(value).filter(([key, fieldValue]) => !definition.hiddenKeys?.includes(key) && isThemeTokenValue(fieldValue)),
@@ -42,18 +43,16 @@ export function ThemeSettingsGroup({
   const advancedEntries = definition.commonKeys ? entries.filter(([key]) => !definition.commonKeys?.includes(key)) : [];
 
   return (
-    <section className="editor-ui-surface overflow-hidden bg-background/45" data-theme-settings-group={definition.id}>
-      <header className="editor-ui-panel-header flex items-start justify-between gap-3 py-3">
-        <h3 className="type-interface-heading min-w-0 truncate text-foreground" title={definition.description}>{definition.title}</h3>
-        <EditorIconButton
-          context="inline"
-          label={`重置${definition.title}`}
-          onClick={onReset}
-          disabled={resetDisabled}
-        >
-          <Refresh />
-        </EditorIconButton>
-      </header>
+    <ThemeSettingsCollapsible
+      open={open}
+      onOpenChange={setOpen}
+      title={definition.title}
+      description={definition.description}
+      resetLabel={`重置${definition.title}`}
+      resetDisabled={resetDisabled}
+      onReset={onReset}
+      groupId={definition.id}
+    >
       <div className="editor-ui-panel-body grid gap-3">
         {commonEntries.map(([key, fieldValue]) => (
           <ThemeSettingsField key={key} path={[...definition.path, key]} value={fieldValue} onChange={(nextValue) => onChange(key, nextValue)} />
@@ -76,7 +75,7 @@ export function ThemeSettingsGroup({
           </Collapsible>
         ) : null}
       </div>
-    </section>
+    </ThemeSettingsCollapsible>
   );
 }
 

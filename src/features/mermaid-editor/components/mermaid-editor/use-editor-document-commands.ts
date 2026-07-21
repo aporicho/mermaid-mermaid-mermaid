@@ -35,6 +35,7 @@ import { applyEditorCommandTransaction } from "@/features/mermaid-editor/lib/int
 import { loadMermaidDocument } from "@/features/mermaid-editor/lib/mermaid-document";
 import { serializeMermaid } from "@/features/mermaid-editor/lib/mermaid-graph";
 import type { ViewFilters } from "@/features/mermaid-editor/lib/view-filters";
+import type { NodeGeometrySpec } from "@/features/mermaid-editor/lib/node-geometry";
 import { workspaceViewForDocument, type WorkspaceView } from "@/features/mermaid-editor/lib/workspace-view";
 
 type StateSetter<T> = Dispatch<SetStateAction<T>>;
@@ -51,6 +52,7 @@ type UseEditorDocumentCommandsArgs = {
   workspaceView: WorkspaceView;
   viewFilters: ViewFilters;
   isCanvasEditable: boolean;
+  nodeGeometrySpec: NodeGeometrySpec;
   sourceEditBaseRef: { current: EditorSnapshot | null };
   sourceEditTimerRef: { current: number | null };
   setDocumentKind: StateSetter<DocumentKind>;
@@ -85,6 +87,7 @@ export function useEditorDocumentCommands({
   workspaceView,
   viewFilters,
   isCanvasEditable,
+  nodeGeometrySpec,
   sourceEditBaseRef,
   sourceEditTimerRef,
   setDocumentKind,
@@ -172,7 +175,7 @@ export function useEditorDocumentCommands({
       const previousSnapshot = snapshot();
 
       if (command.layoutMode === "auto") {
-        const nextGraph = measurePerformance("dagre-auto-layout", () => applyDagreAutoLayout(graph), {
+        const nextGraph = measurePerformance("dagre-auto-layout", () => applyDagreAutoLayout(graph, { spec: nodeGeometrySpec }), {
           nodes: graph.nodes.length,
           edges: graph.edges.length,
           modeSwitch: true
@@ -215,7 +218,7 @@ export function useEditorDocumentCommands({
         return;
       }
 
-      const nextGraph = layoutMode === "auto" ? applyDagreAutoLayout(loaded.graph) : loaded.graph;
+      const nextGraph = layoutMode === "auto" ? applyDagreAutoLayout(loaded.graph, { spec: nodeGeometrySpec }) : loaded.graph;
       setSource(serializeMermaid(nextGraph));
       setGraph(nextGraph);
       setStatus("已从 Mermaid 源码刷新画布。");
@@ -303,7 +306,7 @@ export function useEditorDocumentCommands({
 
   function applyAutoLayoutIfNeeded(nextGraph: MermaidGraph) {
     if (!isCanvasEditable || layoutMode !== "auto") return nextGraph;
-    return measurePerformance("dagre-auto-layout", () => applyDagreAutoLayout(nextGraph), {
+    return measurePerformance("dagre-auto-layout", () => applyDagreAutoLayout(nextGraph, { spec: nodeGeometrySpec }), {
       nodes: nextGraph.nodes.length,
       edges: nextGraph.edges.length
     });
@@ -369,7 +372,7 @@ export function useEditorDocumentCommands({
     });
     const nextEdgeRouting = sourceLayout ? loaded.edgeRouting : edgeRouting;
     const nextLayoutMode = sourceLayout ? loaded.layoutMode : layoutMode;
-    const loadedGraph = loaded.editableKind === "flowchart" && nextLayoutMode === "auto" ? applyDagreAutoLayout(loaded.graph) : loaded.graph;
+    const loadedGraph = loaded.editableKind === "flowchart" && nextLayoutMode === "auto" ? applyDagreAutoLayout(loaded.graph, { spec: nodeGeometrySpec }) : loaded.graph;
     setSource(loaded.source);
     setDiagramType(loaded.diagramType);
     setEditableKind(loaded.editableKind);
@@ -442,7 +445,7 @@ export function useEditorDocumentCommands({
         return;
       }
 
-      const nextGraph = measurePerformance("dagre-auto-layout", () => applyDagreAutoLayout(loaded.graph), {
+      const nextGraph = measurePerformance("dagre-auto-layout", () => applyDagreAutoLayout(loaded.graph, { spec: nodeGeometrySpec }), {
         nodes: loaded.graph.nodes.length,
         edges: loaded.graph.edges.length,
         manualRun: true

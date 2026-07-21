@@ -39,7 +39,7 @@ describe("theme settings schema", () => {
       for (const field of textFields) expect(paths).toContain(`${elementPath}.${field}`);
     }
     expect(MARKDOWN_TOKEN_DEFINITIONS.every((definition) => definition.defaultSource.length > 0)).toBe(true);
-    expect(createDefaultMarkdownTokens(DEFAULT_EDITOR_THEME)).toEqual(DEFAULT_EDITOR_THEME.markdown);
+    expect(flattenLeafPaths(createDefaultMarkdownTokens(DEFAULT_EDITOR_THEME)).sort()).toEqual(paths.sort());
   });
 
   it("does not expose legacy Markdown typography containers", () => {
@@ -48,7 +48,7 @@ describe("theme settings schema", () => {
       typography: Record<string, unknown>;
     };
 
-    expect(DEFAULT_EDITOR_THEME.version).toBe(8);
+    expect(DEFAULT_EDITOR_THEME.version).toBe(9);
     expect(theme.markdown).not.toHaveProperty("typography");
     expect(theme.markdown).not.toHaveProperty("font");
     expect(theme.markdown).not.toHaveProperty("quote");

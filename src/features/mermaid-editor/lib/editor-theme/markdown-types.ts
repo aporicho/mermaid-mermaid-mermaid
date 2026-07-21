@@ -34,7 +34,7 @@ export type MarkdownListTokens = MarkdownTextTokens & {
   blockSpacing: number;
 };
 
-export type MarkdownTaskListTokens = MarkdownListTokens & {
+export type MarkdownTaskListTokens = Omit<MarkdownListTokens, "markerColor"> & {
   checkboxSize: number;
   checkboxBorderWidth: number;
   checkboxBorderColor: string;
@@ -68,7 +68,7 @@ export type MarkdownCodeBlockTokens = MarkdownInlineCodeTokens & {
 export type MarkdownTableTokens = MarkdownTextTokens & {
   borderColor: string;
   headerBackground: string;
-  alternateBackground: string;
+  bodyBackground: string;
   cellPaddingX: number;
   cellPaddingY: number;
   borderWidth: number;

@@ -8,6 +8,7 @@ export type ThemeTokenGroupDefinition = {
   path: readonly string[];
   commonKeys?: readonly string[];
   hiddenKeys?: readonly string[];
+  section?: "ordinary" | "special";
 };
 
 export const THEME_SETTINGS_CATEGORIES = [
@@ -28,14 +29,20 @@ export const THEME_TOKEN_GROUPS: readonly ThemeTokenGroupDefinition[] = [
   group("radius", "interface", "圆角", "应用、控件、节点和标签的圆角。", ["radius"]),
   group("icon", "interface", "控件与图标", "Iconoir 图标尺寸、描边和按钮高度。", ["icon"], ["sizeSm", "sizeButton", "strokeWidth"], ["family"]),
 
-  group("canvas-colors", "canvas", "画布色彩", "画布、节点、连线和非法状态的颜色。", ["canvas"], ["surface", "nodeStroke", "nodeText", "edge", "edgeText", "labelStroke"]),
-  group("canvas-appearance", "canvas", "节点外观", "节点填色层级和拖动预览阴影。", ["canvasAppearance"]),
-  group("render", "canvas", "源码与渲染", "源码分隔线、渲染背景与网格点。", ["source"]),
-  group("render-surface", "canvas", "渲染表面", "导出及渲染视图使用的背景和网格。", ["render"]),
-  group("stroke", "canvas", "描边与虚线", "节点、连线、选择框、引导线和分组描边。", ["stroke"], ["node", "nodeEmphasized", "edge", "edgeThick", "overlay", "anchor"]),
-  group("canvas-interaction", "canvas", "连线与交互", "锚点、箭头、曲线精度、命中区域和网格细节。", ["canvasInteraction"], ["anchorRadius", "endpointRadius", "edgeHitStrokeWidth", "pointerLength", "pointerWidth", "parallelEdgeSpacing", "edgeCurveSegments"]),
-  group("subgraph", "canvas", "分组", "分组容器、标题、内边距和最小尺寸。", ["subgraph"], ["paddingX", "paddingTop", "paddingBottom", "titleHeight", "minWidth", "minHeight", "fillOpacity"], ["titleFontSize", "titleFontWeight"]),
-  group("edge-label", "canvas", "连线标签", "标签宽度和内边距；排版在独立排版页设置。", ["edgeLabel"], ["minChars", "maxChars", "paddingX", "height"], ["fontSize", "lineHeight"]),
+  { ...group("canvas-colors", "canvas", "画布色彩", "画布、节点、连线和非法状态的颜色。", ["canvas"], ["surface", "nodeStroke", "nodeText", "edge", "edgeText", "labelStroke"]), section: "ordinary" },
+  { ...group("canvas-appearance", "canvas", "节点外观", "节点填色层级和拖动预览阴影。", ["canvasAppearance"]), section: "ordinary" },
+  { ...group("render", "canvas", "源码与渲染", "源码分隔线、渲染背景与网格点。", ["source"]), section: "ordinary" },
+  { ...group("render-surface", "canvas", "渲染表面", "导出及渲染视图使用的背景和网格。", ["render"]), section: "ordinary" },
+  { ...group("stroke", "canvas", "描边与虚线", "节点、连线、选择框、引导线和分组描边。", ["stroke"], ["node", "nodeEmphasized", "edge", "edgeThick", "overlay", "anchor"]), section: "ordinary" },
+  { ...group("canvas-interaction", "canvas", "连线与交互", "锚点、箭头、曲线精度、命中区域和网格细节。", ["canvasInteraction"], ["anchorRadius", "endpointRadius", "edgeHitStrokeWidth", "pointerLength", "pointerWidth", "parallelEdgeSpacing", "edgeCurveSegments"]), section: "ordinary" },
+  { ...group("subgraph", "canvas", "分组", "分组容器、标题、内边距和最小尺寸。", ["subgraph"], ["paddingX", "paddingTop", "paddingBottom", "titleHeight", "minWidth", "minHeight", "fillOpacity"], ["titleFontSize", "titleFontWeight"]), section: "ordinary" },
+  { ...group("edge-label", "canvas", "连线标签", "标签宽度和内边距；排版在独立排版页设置。", ["edgeLabel"], ["minChars", "maxChars", "paddingX", "height"], ["fontSize", "lineHeight"]), section: "ordinary" },
+
+  { ...group("special-node-common", "canvas", "通用外观", "特殊节点共用的表面、文字、边框、圆角与阴影。", ["specialNode", "common"], ["background", "textColor", "mutedTextColor", "accentColor", "borderColor", "borderWidth", "radius"]), section: "special" },
+  { ...group("special-node-link-card", "canvas", "链接卡片", "链接预览的封面、内容区域、间距和尺寸。", ["specialNode", "linkCard"], ["coverBackground", "coverBorderColor", "coverBorderWidth", "coverRadius", "providerColor", "brandColor"]), section: "special" },
+  { ...group("special-node-markdown-document", "canvas", "Markdown 文档", "Markdown 文档卡片的徽标、分隔线、状态和内容层级。", ["specialNode", "markdownDocument"], ["badgeBackground", "badgeColor", "separatorColor", "separatorWidth", "pathOpacity", "excerptOpacity"]), section: "special" },
+  { ...group("special-node-image", "canvas", "图片节点", "图片节点的静态表面与交互边框。", ["specialNode", "image"]), section: "special" },
+  { ...group("special-node-table", "canvas", "表格节点", "表格边框、分隔线、选中单元格和编辑尺寸。", ["specialNode", "table"], ["background", "borderColor", "borderWidth", "dividerColor", "dividerWidth", "selectedCellFill", "selectedCellStroke"]), section: "special" },
 
   group("terminal", "terminal", "基础色彩", "终端背景、文字、光标和选区。", ["terminal"]),
   group("ansi", "terminal", "ANSI 16 色", "标准色与高亮色调色板。", ["ansi"]),
@@ -204,7 +211,7 @@ const TOKEN_LABELS: Record<string, string> = {
   marginY: "上下间距",
   radius: "圆角",
   headerBackground: "表头背景",
-  alternateBackground: "交替行背景",
+  bodyBackground: "表体背景",
   cellPaddingX: "单元格横向内边距",
   cellPaddingY: "单元格纵向内边距",
   thickness: "粗细",
@@ -250,7 +257,51 @@ const TOKEN_LABELS: Record<string, string> = {
   proximityDuration: "靠近反馈时长",
   minTextContrast: "文字最小对比度",
   minFocusContrast: "焦点最小对比度",
-  minSelectionContrast: "选区最小对比度"
+  minSelectionContrast: "选区最小对比度",
+  mutedTextColor: "弱文字颜色",
+  accentColor: "强调颜色",
+  shadowColor: "阴影颜色",
+  shadowBlur: "阴影模糊",
+  shadowOffsetY: "阴影纵向偏移",
+  width: "宽度",
+  inset: "内缩",
+  coverBackground: "封面背景",
+  coverBorderColor: "封面边框",
+  coverBorderWidth: "封面边框宽度",
+  coverRadius: "封面圆角",
+  coverFallbackHeight: "默认封面高度",
+  coverMinHeight: "封面最小高度",
+  coverMaxHeight: "封面最大高度",
+  contentPaddingX: "内容横向内边距",
+  providerColor: "来源颜色",
+  brandColor: "品牌颜色",
+  providerGap: "来源间距",
+  titleGap: "标题间距",
+  badgeSize: "徽标尺寸",
+  badgeBackground: "徽标背景",
+  badgeErrorBackground: "错误徽标背景",
+  badgeColor: "徽标文字",
+  badgeErrorColor: "错误徽标文字",
+  badgeOpacity: "徽标背景透明度",
+  badgeErrorOpacity: "错误徽标透明度",
+  badgeRadius: "徽标圆角",
+  pathGap: "路径间距",
+  separatorColor: "分隔线颜色",
+  separatorWidth: "分隔线宽度",
+  separatorOpacity: "分隔线透明度",
+  excerptGap: "摘要间距",
+  pathOpacity: "路径透明度",
+  excerptOpacity: "摘要透明度",
+  placeholderOpacity: "占位文字透明度",
+  interactionBorderColor: "交互边框",
+  interactionBorderWidth: "交互边框宽度",
+  dividerColor: "分隔线颜色",
+  selectedCellFill: "选中单元格背景",
+  selectedCellStroke: "选中单元格边框",
+  selectedCellStrokeWidth: "选中单元格边框宽度",
+  minColumnWidth: "最小列宽",
+  minRowHeight: "最小行高",
+  resizeHandleWidth: "调整手柄宽度"
 };
 
 export function themeTokenLabel(key: string) {

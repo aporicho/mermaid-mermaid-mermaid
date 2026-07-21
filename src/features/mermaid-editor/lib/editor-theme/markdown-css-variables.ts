@@ -55,7 +55,7 @@ export function markdownToCssVariables(theme: EditorTheme): Record<string, strin
     ...textVariables("table", markdown.table),
     "--markdown-table-border-color": markdown.table.borderColor,
     "--markdown-table-header-background": markdown.table.headerBackground,
-    "--markdown-table-alternate-background": markdown.table.alternateBackground,
+    "--markdown-table-body-background": markdown.table.bodyBackground,
     "--markdown-table-cell-padding-x": px(markdown.table.cellPaddingX),
     "--markdown-table-cell-padding-y": px(markdown.table.cellPaddingY),
     "--markdown-table-border-width": px(markdown.table.borderWidth),
@@ -90,10 +90,10 @@ function headingVariables(level: string, tokens: EditorTheme["markdown"]["headin
   };
 }
 
-function listVariables(prefix: string, tokens: EditorTheme["markdown"]["list"]["unordered"]): Record<string, string> {
+function listVariables(prefix: string, tokens: EditorTheme["markdown"]["list"]["unordered"] | EditorTheme["markdown"]["list"]["task"]): Record<string, string> {
   return {
     ...textVariables(prefix, tokens),
-    [`--markdown-${prefix}-marker-color`]: tokens.markerColor,
+    ...("markerColor" in tokens ? { [`--markdown-${prefix}-marker-color`]: tokens.markerColor } : {}),
     [`--markdown-${prefix}-indent`]: px(tokens.indent),
     [`--markdown-${prefix}-item-spacing`]: px(tokens.itemSpacing),
     [`--markdown-${prefix}-block-spacing`]: px(tokens.blockSpacing)

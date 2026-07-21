@@ -581,11 +581,6 @@
 
 .markdown-editor-panel .milkdown .ProseMirror a {
   color: var(--markdown-link-color);
-  font-family: var(--markdown-link-font-family);
-  font-size: var(--markdown-link-font-size);
-  font-weight: var(--markdown-link-font-weight);
-  line-height: var(--markdown-link-line-height);
-  letter-spacing: var(--markdown-link-letter-spacing);
   text-decoration-line: underline;
   text-decoration-thickness: var(--markdown-link-underline-thickness);
   text-underline-offset: var(--markdown-link-underline-offset);
@@ -597,6 +592,28 @@
 
 .markdown-editor-panel .milkdown .ProseMirror em {
   color: var(--markdown-emphasis-color);
+}
+
+.markdown-editor-panel .milkdown .ProseMirror strong {
+  color: var(--markdown-strong-color);
+  font-weight: var(--markdown-strong-font-weight);
+}
+
+.markdown-editor-panel .milkdown .ProseMirror :is(del, s) {
+  color: var(--markdown-strikethrough-color);
+  text-decoration-color: var(--markdown-strikethrough-decoration-color);
+  text-decoration-thickness: var(--markdown-strikethrough-decoration-thickness);
+}
+
+.markdown-editor-panel .milkdown .ProseMirror :where(p, li, td, th, blockquote) a:not(:is(h1, h2, h3, h4, h5, h6) a) {
+  font-family: var(--markdown-link-font-family);
+  font-size: var(--markdown-link-font-size);
+  font-weight: var(--markdown-link-font-weight);
+  line-height: var(--markdown-link-line-height);
+  letter-spacing: var(--markdown-link-letter-spacing);
+}
+
+.markdown-editor-panel .milkdown .ProseMirror :where(p, li, td, th, blockquote) em:not(:is(h1, h2, h3, h4, h5, h6) em) {
   font-family: var(--markdown-emphasis-font-family);
   font-size: var(--markdown-emphasis-font-size);
   font-weight: var(--markdown-emphasis-font-weight);
@@ -604,8 +621,7 @@
   letter-spacing: var(--markdown-emphasis-letter-spacing);
 }
 
-.markdown-editor-panel .milkdown .ProseMirror strong {
-  color: var(--markdown-strong-color);
+.markdown-editor-panel .milkdown .ProseMirror :where(p, li, td, th, blockquote) strong:not(:is(h1, h2, h3, h4, h5, h6) strong) {
   font-family: var(--markdown-strong-font-family);
   font-size: var(--markdown-strong-font-size);
   font-weight: var(--markdown-strong-font-weight);
@@ -613,15 +629,12 @@
   letter-spacing: var(--markdown-strong-letter-spacing);
 }
 
-.markdown-editor-panel .milkdown .ProseMirror :is(del, s) {
-  color: var(--markdown-strikethrough-color);
+.markdown-editor-panel .milkdown .ProseMirror :where(p, li, td, th, blockquote) :is(del, s):not(:is(h1, h2, h3, h4, h5, h6) :is(del, s)) {
   font-family: var(--markdown-strikethrough-font-family);
   font-size: var(--markdown-strikethrough-font-size);
   font-weight: var(--markdown-strikethrough-font-weight);
   line-height: var(--markdown-strikethrough-line-height);
   letter-spacing: var(--markdown-strikethrough-letter-spacing);
-  text-decoration-color: var(--markdown-strikethrough-decoration-color);
-  text-decoration-thickness: var(--markdown-strikethrough-decoration-thickness);
 }
 
 .markdown-editor-panel .milkdown .ProseMirror ul {
@@ -812,6 +825,7 @@
   border-collapse: separate;
   border-spacing: 0;
   border-radius: var(--markdown-table-radius);
+  background: var(--markdown-table-body-background);
   color: var(--markdown-table-color);
 }
 
@@ -832,10 +846,6 @@
 
 .markdown-editor-panel .milkdown .milkdown-table-block th {
   background: var(--markdown-table-header-background);
-}
-
-.markdown-editor-panel .milkdown .milkdown-table-block tbody tr:nth-child(even) td {
-  background: var(--markdown-table-alternate-background);
 }
 
 .markdown-editor-panel .milkdown .ProseMirror hr {

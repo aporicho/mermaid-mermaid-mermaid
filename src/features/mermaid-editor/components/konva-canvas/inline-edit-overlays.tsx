@@ -7,9 +7,15 @@ import type { CanvasVisualTokens } from "@/features/mermaid-editor/lib/canvas-vi
 import type { EdgeLabelGeometryTokens } from "@/features/mermaid-editor/lib/edge-label-geometry";
 import type { EditorTypographyTokens } from "@/features/mermaid-editor/lib/editor-theme";
 import type { TypographyRoleTokens } from "@/features/mermaid-editor/lib/editor-theme";
+import type { CanvasTableAlign } from "@/features/mermaid-editor/lib/editor-types";
+import type { SpecialNodeTableTokens } from "@/features/mermaid-editor/lib/editor-theme";
+import type { TableCellNavigation } from "@/features/mermaid-editor/lib/table-node";
+import { MAX_CANVAS_TABLE_CELL_LENGTH, MAX_CANVAS_TABLE_COLUMN_LABEL_LENGTH } from "@/features/mermaid-editor/lib/canvas-table-content";
 
 export type InlineEdit =
   | { type: "node"; id: string; value: string }
+  | { type: "tableCell"; id: string; rowId: string; columnId: string; value: string; align: CanvasTableAlign }
+  | { type: "tableHeader"; id: string; columnId: string; value: string; align: CanvasTableAlign }
   | { type: "subgraph"; id: string; value: string }
   | { type: "edge"; id: string; value: string };
 
@@ -31,10 +37,13 @@ export function InlineEditOverlays({
   edgeLabelThemeTokens,
   typography,
   nodeEditorTypography,
+  tableEditorTypography,
+  tableTokens,
   visualTokens,
   viewFilters,
   onChange,
-  onCommit
+  onCommit,
+  onTablePaste
 }: {
   inlineEdit: InlineEdit | null;
   editStyle: InlineEditStyle | null;
@@ -45,10 +54,13 @@ export function InlineEditOverlays({
   edgeLabelThemeTokens: EdgeLabelGeometryTokens;
   typography: EditorTypographyTokens["canvas"];
   nodeEditorTypography: TypographyRoleTokens;
+  tableEditorTypography: TypographyRoleTokens;
+  tableTokens: SpecialNodeTableTokens;
   visualTokens: CanvasVisualTokens;
   viewFilters: ViewFilters;
   onChange: (next: InlineEdit) => void;
-  onCommit: (save: boolean) => void;
+  onCommit: (save: boolean, navigation?: TableCellNavigation) => void;
+  onTablePaste: (text: string) => void;
 }) {
   if (!inlineEdit || !editStyle) return null;
 
@@ -102,6 +114,62 @@ export function InlineEditOverlays({
           }}
         />
       </>
+    );
+  }
+
+  if (inlineEdit.type === "tableCell" || inlineEdit.type === "tableHeader") {
+    return (
+      <Textarea
+        autoFocus
+        aria-label={inlineEdit.type === "tableCell" ? "编辑表格单元格" : "编辑表头"}
+        maxLength={inlineEdit.type === "tableCell" ? MAX_CANVAS_TABLE_CELL_LENGTH : MAX_CANVAS_TABLE_COLUMN_LABEL_LENGTH}
+        value={inlineEdit.value}
+        className="absolute z-40 block min-h-0 resize-none rounded-none bg-card text-foreground shadow-none outline-none ring-0 focus-visible:ring-1 focus-visible:ring-accent focus-visible:ring-offset-0"
+        style={{
+          left: editStyle.left,
+          top: editStyle.top,
+          width: editStyle.width,
+          height: editStyle.height,
+          borderColor: tableTokens.selectedCellStroke,
+          borderWidth: tableTokens.selectedCellStrokeWidth,
+          backgroundColor: tableTokens.background,
+          paddingLeft: tableTokens.cellPaddingX * activeScale,
+          paddingRight: tableTokens.cellPaddingX * activeScale,
+          paddingTop: tableTokens.cellPaddingY * activeScale,
+          paddingBottom: tableTokens.cellPaddingY * activeScale,
+          textAlign: inlineEdit.align,
+          fontFamily: tableEditorTypography.family,
+          fontSize: tableEditorTypography.fontSize * editStyle.textScale,
+          fontWeight: tableEditorTypography.fontWeight,
+          lineHeight: `${tableEditorTypography.lineHeight * editStyle.textScale}px`,
+          letterSpacing: `${tableEditorTypography.letterSpacing * editStyle.textScale}px`
+        }}
+        onChange={(event) => onChange({ ...inlineEdit, value: event.target.value })}
+        onBlur={() => onCommit(true)}
+        onPaste={(event) => {
+          if (inlineEdit.type !== "tableCell") return;
+          const text = event.clipboardData.getData("text/plain");
+          if (!text.includes("\t") && !/[\r\n]/.test(text)) return;
+          event.preventDefault();
+          onTablePaste(text);
+        }}
+        onKeyDown={(event) => {
+          if (event.key === "Escape") {
+            event.preventDefault();
+            onCommit(false);
+            return;
+          }
+          if (event.key === "Tab") {
+            event.preventDefault();
+            onCommit(true, inlineEdit.type === "tableCell" ? (event.shiftKey ? "previous" : "next") : undefined);
+            return;
+          }
+          if (event.key === "Enter" && !event.shiftKey) {
+            event.preventDefault();
+            onCommit(true, "down");
+          }
+        }}
+      />
     );
   }
 

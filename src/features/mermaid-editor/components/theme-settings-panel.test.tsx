@@ -51,9 +51,12 @@ describe("ThemeSettingsPanel", () => {
     expect(container?.textContent).not.toContain("默认：");
     expect(container?.querySelector('[aria-label="重置全部 Markdown 外观"]')).not.toBeNull();
     expect(container?.querySelector('[aria-label="重置基础"]')).not.toBeNull();
+    clickButton("基础");
+    clickButton("正文与段落");
     expect(container?.querySelector('[data-theme-token-path="markdown.body.fontFamily"]')).not.toBeNull();
 
     clickButton("排版");
+    clickButton("界面基础");
     expect(container?.textContent).not.toContain("每个角色的字体、字号、字重、行高和字距完全独立");
     expect(container?.textContent).not.toContain("应用正文、控件、导航、菜单和技术信息");
     expect(container?.querySelector('[aria-label="重置界面基础"]')).not.toBeNull();
@@ -70,6 +73,7 @@ describe("ThemeSettingsPanel", () => {
     expect(container?.querySelector('[data-markdown-category="heading"]')).not.toBeNull();
     expect(container?.querySelector('[data-markdown-category="inline"]')).not.toBeNull();
     expect(container?.querySelector('[data-markdown-category="block"]')).not.toBeNull();
+    for (const category of ["基础", "标题", "行内语义", "块级语义"]) clickButton(category);
     expect(container?.textContent).toContain("正文与段落");
     expect(container?.textContent).toContain("一级标题");
     expect(container?.textContent).toContain("删除线");
@@ -85,7 +89,7 @@ describe("ThemeSettingsPanel", () => {
     expect(onPreview).toHaveBeenCalledWith(
       "custom",
       expect.objectContaining({
-        version: 8,
+        version: 9,
         markdown: expect.objectContaining({
           heading: expect.objectContaining({ h1: DEFAULT_EDITOR_THEME.markdown.heading.h1 })
         })
@@ -96,10 +100,12 @@ describe("ThemeSettingsPanel", () => {
   it("keeps lower-level canvas tokens in an expandable advanced section", () => {
     renderPanel();
     clickButton("画布");
+    clickButton("普通节点");
+    clickButton("连线与交互");
 
     const interactionGroup = container?.querySelector('[data-theme-settings-group="canvas-interaction"]');
     expect(interactionGroup?.textContent).not.toContain("小格显示缩放");
-    const advancedButton = interactionGroup?.querySelector<HTMLButtonElement>('button[aria-expanded="false"]');
+    const advancedButton = interactionGroup?.querySelector<HTMLButtonElement>('[aria-label="展开连线与交互高级选项"]');
     act(() => advancedButton?.click());
     expect(interactionGroup?.textContent).toContain("小格显示缩放");
     expect(interactionGroup?.querySelector('[data-theme-token-path="canvasInteraction.gridMinorVisibleScale"]')).not.toBeNull();
@@ -120,6 +126,7 @@ describe("ThemeSettingsPanel", () => {
 
     clickButton("排版");
     expect(container?.querySelector('[aria-label="搜索排版角色"]')).not.toBeNull();
+    clickButton("界面基础");
     const bodyRole = container?.querySelector('[data-typography-group="interface"] [data-typography-role="body"]');
     expect(bodyRole?.querySelector('[role="combobox"]')?.textContent).toContain("Example Sans");
     expect(container?.querySelector('[data-typography-role="technical"] [role="combobox"]')).not.toBeNull();
@@ -135,6 +142,37 @@ describe("ThemeSettingsPanel", () => {
     expect(container?.querySelector('[data-theme-token-path="markdown.body.fontFamily"]')).not.toBeNull();
     expect(container?.querySelector('[data-theme-token-path="markdown.heading.h1.fontFamily"]')).not.toBeNull();
     expect(container?.querySelector('[data-theme-token-path="markdown.codeBlock.fontFamily"]')).not.toBeNull();
+  });
+
+  it("uses one collapsed interaction for every logical settings group", () => {
+    renderPanel();
+
+    clickButton("界面");
+    expect(expandedStates('[data-theme-settings-group] > header > button[aria-expanded]')).not.toContain("true");
+
+    clickButton("画布");
+    expect(expandedStates('[data-theme-settings-section] > header > button[aria-expanded]')).toEqual(["false", "false"]);
+    clickButton("普通节点");
+    expect(container?.querySelector('[data-theme-settings-section="ordinary"] > header > button')?.getAttribute("aria-expanded")).toBe("true");
+    expect(expandedStates('[data-theme-settings-section="ordinary"] [data-theme-settings-group] > header > button[aria-expanded]')).not.toContain("true");
+
+    clickButton("Markdown");
+    expect(expandedStates('[data-markdown-category] > section > header > button[aria-expanded]')).not.toContain("true");
+
+    clickButton("排版");
+    expect(expandedStates('[data-typography-group] > header > button[aria-expanded]')).not.toContain("true");
+  });
+
+  it("keeps reset actions disabled until a built-in theme becomes a custom draft", () => {
+    renderPanel();
+
+    clickButton("排版");
+    clickButton("界面基础");
+    expect(container?.querySelector<HTMLButtonElement>('[aria-label="重置界面基础"]')?.disabled).toBe(true);
+    expect(container?.querySelector<HTMLButtonElement>('[aria-label="重置正文"]')?.disabled).toBe(true);
+
+    clickButton("Markdown");
+    expect(container?.querySelector<HTMLButtonElement>('[aria-label="重置全部 Markdown 外观"]')?.disabled).toBe(true);
   });
 
   it("exposes explicit discard and apply actions without closing itself", () => {
@@ -182,5 +220,9 @@ describe("ThemeSettingsPanel", () => {
       setter?.call(input, value);
       input?.dispatchEvent(new Event("input", { bubbles: true }));
     });
+  }
+
+  function expandedStates(selector: string) {
+    return [...(container?.querySelectorAll<HTMLElement>(selector) ?? [])].map((entry) => entry.getAttribute("aria-expanded"));
   }
 });

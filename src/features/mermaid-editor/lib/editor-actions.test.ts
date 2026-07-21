@@ -4,10 +4,12 @@ import type { CanvasEdge, CanvasNode, CanvasSubgraph, MermaidGraph } from "@/fea
 import {
   addNodeAt,
   addNodesAt,
+  copySelection,
   createSubgraphFromSelection,
   deleteSelection,
   pasteClipboard,
   setNodeParent,
+  updateNode,
   updateEdges,
   updateNodes,
   updateSubgraphs
@@ -101,6 +103,59 @@ describe("editor actions", () => {
 
     expect(result.graph.nodes.at(-1)).toMatchObject({ id: "WebUI_copy", x: 32, y: 32 });
     expect(result.selection).toEqual({ nodeIds: ["WebUI_copy"], edgeIds: [], primaryId: "WebUI_copy" });
+  });
+
+  it("does not duplicate a CSV source binding through canvas copy and paste", () => {
+    const csvNode = {
+      ...node("Table"),
+      action: { kind: "file" as const, path: "data/people.csv", openMode: "app-window" as const }
+    };
+    const source = graph([csvNode]);
+    const copied = copySelection(source, { nodeIds: [csvNode.id], edgeIds: [] });
+    const pasted = pasteClipboard(source, { nodes: [csvNode], edges: [] });
+
+    expect(copied.nodes).toEqual([]);
+    expect(pasted.graph).toBe(source);
+  });
+
+  it("adds, updates and deep-clones structured node content", () => {
+    const content = {
+      kind: "table" as const,
+      version: 1 as const,
+      columns: [{ id: "name", label: "Name", width: 160, align: "left" as const }],
+      rows: [{ id: "row-1", cells: { name: "Alice" } }]
+    };
+    const added = addNodeAt(graph([]), 40, 80, { content });
+    const updated = updateNode(added.graph, "N1", {
+      content: { ...content, rows: [{ id: "row-1", cells: { name: "Bob" } }] }
+    });
+    const resized = updateNode(updated, "N1", {
+      content: { ...updated.nodes[0].content!, columns: [{ ...updated.nodes[0].content!.columns[0], width: 240 }] }
+    });
+    const copied = copySelection(updated, { nodeIds: ["N1"], edgeIds: [] });
+    copied.nodes[0].content!.rows[0].cells.name = "Copied";
+    const pasted = pasteClipboard(updated, copied);
+    const pastedContent = pasted.graph.nodes.at(-1)?.content;
+
+    expect(updated.nodes[0].content?.rows[0].cells.name).toBe("Bob");
+    expect(updated.nodes[0].tablePresentation).toBeUndefined();
+    expect(resized.nodes[0].tablePresentation).toEqual({ columns: [{ width: 240, align: "left" }] });
+    expect(pastedContent?.rows[0].cells.name).toBe("Copied");
+    expect(pastedContent).not.toBe(updated.nodes[0].content);
+    expect(pastedContent?.rows[0].cells).not.toBe(copied.nodes[0].content?.rows[0].cells);
+  });
+
+  it("keeps existing structured content when a runtime patch is invalid", () => {
+    const content = {
+      kind: "table" as const,
+      version: 1 as const,
+      columns: [{ id: "name", label: "Name", width: 160, align: "left" as const }],
+      rows: [{ id: "row-1", cells: { name: "Alice" } }]
+    };
+    const source = { ...node("A"), content };
+    const updated = updateNode(graph([source]), "A", { content: { kind: "table", version: 1, columns: [], rows: [] } });
+
+    expect(updated.nodes[0].content).toEqual(content);
   });
 
   it("creates a subgraph from selected nodes", () => {

@@ -39,6 +39,10 @@ export type EditorTypographyTokens = {
     excerpt: TypographyRoleTokens;
     titleEditor: TypographyRoleTokens;
   };
+  tableNode: {
+    cell: TypographyRoleTokens;
+    cellEditor: TypographyRoleTokens;
+  };
   mermaid: {
     general: TypographyRoleTokens;
     diagramTitle: TypographyRoleTokens;

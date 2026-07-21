@@ -151,7 +151,7 @@ function migrateLegacyMarkdown(source: Record<string, unknown>, legacyTypography
       color: colorOr(tableSource.textColor, fallback.table.color),
       borderColor: colorOr(tableSource.borderColor, fallback.table.borderColor),
       headerBackground: colorOr(tableSource.headerBackground, fallback.table.headerBackground),
-      alternateBackground: colorOr(tableSource.alternateBackground, fallback.table.alternateBackground)
+      bodyBackground: colorOr(tableSource.bodyBackground, colorOr(tableSource.alternateBackground, fallback.table.bodyBackground))
     },
     divider: { ...fallback.divider, ...objectValue(source.divider) },
     image: { ...fallback.image, ...objectValue(source.image) }

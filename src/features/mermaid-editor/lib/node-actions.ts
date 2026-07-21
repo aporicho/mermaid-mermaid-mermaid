@@ -1,5 +1,6 @@
 import type { CanvasNodeAction } from "@/features/mermaid-editor/lib/editor-types";
 import { isSupportedDocumentFilePath } from "@/features/mermaid-editor/lib/document-kind";
+import { isCsvTableFilePath } from "@/features/mermaid-editor/lib/csv-table-document";
 
 export const NODE_ACTION_NONE_VALUE = "__none__";
 
@@ -130,7 +131,7 @@ function isFileLikeTarget(value: string) {
   const trimmed = value.trim();
   if (!trimmed) return false;
   if (/^[a-z][a-z\d+.-]*:/i.test(trimmed)) return false;
-  return isSupportedDocumentFilePath(trimmed) || trimmed.startsWith("/") || trimmed.startsWith("./") || trimmed.startsWith("../") || trimmed.includes("\\");
+  return isSupportedDocumentFilePath(trimmed) || isCsvTableFilePath(trimmed) || trimmed.startsWith("/") || trimmed.startsWith("./") || trimmed.startsWith("../") || trimmed.includes("\\");
 }
 
 function filePathFromUrl(value: string) {

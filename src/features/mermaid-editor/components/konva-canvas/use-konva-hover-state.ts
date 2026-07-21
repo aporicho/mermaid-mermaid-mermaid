@@ -23,8 +23,8 @@ export function useKonvaHoverState({ viewEdges }: UseKonvaHoverStateArgs) {
   function updateHoverFromHit(hit: HitTarget) {
     setHoveredHitTarget(hit);
 
-    if (hit.kind === "node") {
-      setHoveredNodeId(hit.id);
+    if (hit.kind === "node" || hit.kind === "tableCell" || hit.kind === "tableHeader") {
+      setHoveredNodeId(hit.kind === "node" ? hit.id : hit.nodeId);
       setHoveredSubgraphId(null);
       setHoveredEdgeId(null);
       return;

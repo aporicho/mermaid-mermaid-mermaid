@@ -52,6 +52,15 @@ contextBridge.exposeInMainWorld("mmmElectron", {
   createProjectDocument(request) {
     return ipcRenderer.invoke("mmm:project:create-document", request);
   },
+  createProjectTextFile(request) {
+    return ipcRenderer.invoke("mmm:project:create-text-file", request);
+  },
+  readCsvFile(request) {
+    return ipcRenderer.invoke("mmm:csv:read", request);
+  },
+  writeCsvFile(request) {
+    return ipcRenderer.invoke("mmm:csv:write", request);
+  },
   pickImageAsset(documentPath) {
     return ipcRenderer.invoke("mmm:image:pick", documentPath);
   },

@@ -6,8 +6,13 @@ import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
 const require = createRequire(import.meta.url);
-const { createProjectDocument } = require("../../../../../electron/project-documents.cjs") as {
+const { createProjectDocument, createProjectTextFile } = require("../../../../../electron/project-documents.cjs") as {
   createProjectDocument: (request: Record<string, unknown>) => Promise<{
+    status: "created" | "exists";
+    file: { name: string; path: string };
+    text?: string;
+  }>;
+  createProjectTextFile: (request: Record<string, unknown>) => Promise<{
     status: "created" | "exists";
     file: { name: string; path: string };
     text?: string;
@@ -39,5 +44,19 @@ describe("Electron project document creation", () => {
     await expect(createProjectDocument({ rootPath, fileName: "../escape.md", documentKind: "markdown", text: "" })).rejects.toThrow();
     await expect(createProjectDocument({ rootPath, fileName: "notes.txt", documentKind: "markdown", text: "" })).rejects.toThrow();
     await expect(createProjectDocument({ rootPath, fileName: "notes.md", documentKind: "mermaid", text: "" })).rejects.toThrow();
+  });
+
+  it("creates a root-level CSV text file once without adding CSV to DocumentKind", async () => {
+    const rootPath = await mkdtemp(path.join(tmpdir(), "mmm-project-document-"));
+    roots.push(rootPath);
+    const request = { rootPath, fileName: "people.csv", kind: "csv", text: "Name\r\nAlice" };
+
+    expect((await createProjectTextFile(request)).status).toBe("created");
+    await writeFile(path.join(rootPath, "people.csv"), "keep me", "utf8");
+    expect((await createProjectTextFile(request)).status).toBe("exists");
+    expect(await readFile(path.join(rootPath, "people.csv"), "utf8")).toBe("keep me");
+    await expect(createProjectTextFile({ ...request, fileName: "../escape.csv" })).rejects.toThrow();
+    await expect(createProjectTextFile({ ...request, fileName: "people.md" })).rejects.toThrow();
+    await expect(createProjectTextFile({ ...request, fileName: "huge.csv", text: "x".repeat(1_048_577) })).rejects.toThrow();
   });
 });

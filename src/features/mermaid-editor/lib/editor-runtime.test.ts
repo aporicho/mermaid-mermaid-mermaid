@@ -25,6 +25,23 @@ function electronBridge(): ElectronBridge {
       file: { name: "notes.md", path: "/tmp/notes.md" },
       text: "# notes\n"
     })),
+    createProjectTextFile: vi.fn(() => Promise.resolve({
+      status: "created" as const,
+      file: { name: "table.csv", path: "/tmp/table.csv" },
+      text: "A\r\n"
+    })),
+    readCsvFile: vi.fn(() => Promise.resolve({
+      file: { name: "table.csv", path: "/tmp/table.csv" },
+      text: "A\r\n1",
+      revision: "abc",
+      modifiedAt: 1
+    })),
+    writeCsvFile: vi.fn(() => Promise.resolve({
+      status: "saved" as const,
+      file: { name: "table.csv", path: "/tmp/table.csv" },
+      revision: "def",
+      modifiedAt: 2
+    })),
     pickImageAsset: vi.fn(() => Promise.resolve(null)),
     importImageAssetPath: vi.fn(() => Promise.resolve({ src: "assets/demo.png", displaySrc: "mmm-asset://local/?path=%2Ftmp%2Fdemo.png", path: "/tmp/demo.png" })),
     importImageAssetBytes: vi.fn(() => Promise.resolve({ src: "assets/demo.png", displaySrc: "mmm-asset://local/?path=%2Ftmp%2Fdemo.png", path: "/tmp/demo.png" })),
@@ -75,5 +92,27 @@ describe("createEditorRuntime", () => {
 
     expect(runtime.kind).toBe("web");
     expect(runtime.host).toBe("web");
+  });
+
+  it("forwards project CSV reads, conflict-safe writes and creation to Electron", async () => {
+    const bridge = electronBridge();
+    window.mmmElectron = bridge;
+    const runtime = createEditorRuntime();
+    const file = { name: "table.csv", path: "/tmp/table.csv" };
+
+    await expect(runtime.readCsvFile({ rootPath: "/tmp", file })).resolves.toMatchObject({ status: "opened", snapshot: { revision: "abc" } });
+    await expect(runtime.writeCsvFile({ rootPath: "/tmp", file, text: "A\r\n2", expectedRevision: "abc" })).resolves.toMatchObject({ status: "saved", revision: "def" });
+    await expect(runtime.createProjectTextFile({ rootPath: "/tmp", fileName: "table.csv", kind: "csv", text: "A\r\n" })).resolves.toMatchObject({ status: "created" });
+    expect(bridge.readCsvFile).toHaveBeenCalledWith({ rootPath: "/tmp", path: "/tmp/table.csv" });
+    expect(bridge.writeCsvFile).toHaveBeenCalledWith(expect.objectContaining({ expectedRevision: "abc" }));
+  });
+
+  it("keeps path-only CSV project access unsupported on the web", async () => {
+    const runtime = createEditorRuntime();
+    const file = { name: "table.csv", path: "/tmp/table.csv" };
+
+    await expect(runtime.readCsvFile({ rootPath: "/tmp", file })).resolves.toMatchObject({ status: "unsupported" });
+    await expect(runtime.writeCsvFile({ rootPath: "/tmp", file, text: "A", expectedRevision: "abc" })).resolves.toMatchObject({ status: "unsupported" });
+    await expect(runtime.createProjectTextFile({ rootPath: "/tmp", fileName: "table.csv", kind: "csv", text: "A" })).resolves.toMatchObject({ status: "unsupported" });
   });
 });

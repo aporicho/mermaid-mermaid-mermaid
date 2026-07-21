@@ -11,6 +11,7 @@ import { ColorGrid, MixedSelectItem } from "@/features/mermaid-editor/components
 import type { CanvasNode, CanvasNodeAction, CanvasNodeBatchPatch, FlowchartNodeShape } from "@/features/mermaid-editor/lib/editor-types";
 import { DEFAULT_FLOWCHART_NODE_SHAPE, FLOWCHART_SHAPE_GROUPS, FLOWCHART_SHAPES } from "@/features/mermaid-editor/lib/flowchart-shapes";
 import { NODE_ACTION_NONE_VALUE, nodeActionLabel, nodeActionTarget } from "@/features/mermaid-editor/lib/node-actions";
+import { resolveCanvasNodeKind } from "@/features/mermaid-editor/lib/canvas-node-kind";
 
 type NodeInspectorSectionProps = {
   node: CanvasNode;
@@ -56,6 +57,26 @@ export function NodeInspectorSection({
   onOpenNodeAction,
   onEditNodeAction
 }: NodeInspectorSectionProps) {
+  if (resolveCanvasNodeKind(node) === "table") {
+    return (
+      <>
+        <div className="grid gap-2">
+          <Label htmlFor="node-id">节点 ID</Label>
+          <Input id="node-id" value={node.id} onChange={(event) => onRenameNode(node, event.target.value)} />
+        </div>
+        <div className="text-sm text-muted-foreground">{node.content?.kind === "table" ? `${node.content.columns.length} 列 · ${node.content.rows.length} 行` : node.csvStatus === "error" ? "CSV 读取失败" : "正在加载 CSV…"}</div>
+        <Separator />
+        <Button variant="outline" size="sm" className="justify-start" onClick={() => onAddEdgeFrom(node)} disabled={graphNodeCount < 2}>
+          <PathArrow className="size-4" />
+          从此表格连线
+        </Button>
+        <Button variant="destructive" size="sm" className="justify-start" onClick={onDeleteSelection}>
+          <Trash2 className="size-4" />
+          删除表格
+        </Button>
+      </>
+    );
+  }
   return (
     <>
       <div className="grid gap-2">

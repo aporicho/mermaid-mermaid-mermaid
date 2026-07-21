@@ -62,7 +62,7 @@ export const MARKDOWN_ELEMENT_DEFINITIONS: readonly MarkdownElementDefinition[] 
   element("list-task", "block", "任务列表", "任务列表文字、间距和复选框状态。", ["list", "task"]),
   element("blockquote", "block", "引用", "引用文字、背景、边线和空间。", ["blockquote"]),
   element("code-block", "block", "代码块", "代码块排版、颜色和盒模型。", ["codeBlock"], true),
-  element("table", "block", "表格", "表格文字、边框、表头、交替行和单元格空间。", ["table"]),
+  element("table", "block", "表格", "表格文字、边框、表头、统一表体和单元格空间。", ["table"]),
   element("divider", "block", "分隔线", "分隔线颜色、粗细和间距。", ["divider"]),
   element("image", "block", "图片", "图片边框、圆角和间距。", ["image"])
 ];
@@ -116,7 +116,7 @@ const EXTRA_FIELDS: Record<string, readonly MarkdownTokenDefinition[]> = {
   ],
   list: [
     color("markerColor", "标记颜色", "color", theme("ui.mutedForeground")),
-    number("indent", "缩进", "layout", literal(32), 12, 80),
+    number("indent", "缩进", "layout", literal(16), 12, 80),
     number("itemSpacing", "条目间距", "layout", literal(4), 0, 32),
     number("blockSpacing", "列表块间距", "layout", literal(8), 0, 48)
   ],
@@ -154,7 +154,7 @@ const EXTRA_FIELDS: Record<string, readonly MarkdownTokenDefinition[]> = {
   table: [
     color("borderColor", "边框颜色", "color", theme("ui.border")),
     color("headerBackground", "表头背景", "color", theme("ui.muted")),
-    color("alternateBackground", "交替行背景", "color", theme("ui.card")),
+    color("bodyBackground", "表体背景", "color", theme("ui.card")),
     number("cellPaddingX", "单元格横向内边距", "layout", literal(16), 0, 40),
     number("cellPaddingY", "单元格纵向内边距", "layout", literal(8), 0, 32),
     number("borderWidth", "边框宽度", "border", literal(1), 0, 6, 0.5),
@@ -181,7 +181,7 @@ export const MARKDOWN_TOKEN_DEFINITIONS: readonly MarkdownTokenDefinition[] = MA
   const extras = leaf === "unordered" || leaf === "ordered"
     ? EXTRA_FIELDS.list
     : leaf === "task"
-      ? [...EXTRA_FIELDS.list, ...EXTRA_FIELDS.task]
+      ? [...EXTRA_FIELDS.list.filter((definition) => definition.path[0] !== "markerColor"), ...EXTRA_FIELDS.task]
       : EXTRA_FIELDS[elementDefinition.id] || EXTRA_FIELDS[leaf] || [];
   return withPath(path, [...textFields(TEXT_DEFAULTS[elementDefinition.id]), ...extras]);
 });

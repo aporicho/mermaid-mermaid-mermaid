@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
-import { NavArrowDown, Refresh } from "iconoir-react/regular";
+import { Refresh } from "iconoir-react/regular";
 
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
 import { EditorIconButton, EditorSearchField } from "@/features/mermaid-editor/components/editor-ui";
 import { FontFamilyCombobox } from "@/features/mermaid-editor/components/theme-settings-typography";
@@ -16,6 +15,7 @@ import {
   type MarkdownThemeTokens
 } from "@/features/mermaid-editor/lib/editor-theme";
 import { cn } from "@/lib/utils";
+import { ThemeSettingsCollapsible } from "./theme-settings-collapsible";
 
 type MarkdownTokenValue = string | number;
 
@@ -49,7 +49,8 @@ export function ThemeSettingsMarkdown({
   onResetAll: () => void;
 }) {
   const [query, setQuery] = useState("");
-  const [openElements, setOpenElements] = useState<Set<string>>(() => new Set(["body"]));
+  const [openCategories, setOpenCategories] = useState<Set<MarkdownElementCategory>>(() => new Set());
+  const [openElements, setOpenElements] = useState<Set<string>>(() => new Set());
   const normalizedQuery = query.trim().toLocaleLowerCase();
 
   return (
@@ -72,31 +73,33 @@ export function ThemeSettingsMarkdown({
           .map((element) => ({ element, fields: fieldsForElement(element.path, normalizedQuery, element.title) }))
           .filter(({ fields }) => fields.length > 0);
         if (!elements.length) return null;
+        const categoryOpen = normalizedQuery ? true : openCategories.has(category.id);
         return (
-          <section key={category.id} className="grid gap-3" data-markdown-category={category.id} aria-label={`${category.title}：${category.description}`}>
-            <header className="flex items-center justify-between gap-3 border-b pb-2">
-              <h3 className="type-interface-heading">{category.title}</h3>
-              <EditorIconButton context="inline" label={`重置${category.title}`} disabled={resetDisabled} onClick={() => onResetCategory(category.id)}>
-                <Refresh />
-              </EditorIconButton>
-            </header>
+          <div key={category.id} data-markdown-category={category.id} aria-label={`${category.title}：${category.description}`}>
+            <ThemeSettingsCollapsible
+              open={categoryOpen}
+              onOpenChange={() => setOpenCategories((current) => toggleSetValue(current, category.id))}
+              title={category.title}
+              description={category.description}
+              resetLabel={`重置${category.title}`}
+              resetDisabled={resetDisabled}
+              onReset={() => onResetCategory(category.id)}
+            >
+              <div className="grid gap-3 p-3 pt-0">
             {elements.map(({ element, fields }) => {
               const open = normalizedQuery ? true : openElements.has(element.id);
               return (
-                <Collapsible key={element.id} open={open} onOpenChange={() => setOpenElements((current) => toggleSetValue(current, element.id))} asChild>
-                  <article className="editor-ui-surface overflow-hidden bg-background/45" data-markdown-element={element.id}>
-                    <header className="editor-ui-panel-header flex items-start justify-between gap-3 py-3">
-                      <CollapsibleTrigger asChild>
-                        <button type="button" className="flex min-w-0 flex-1 items-center gap-2 text-left" title={element.description}>
-                          <NavArrowDown className={cn("size-3.5 shrink-0 transition-transform", !open && "-rotate-90")} />
-                          <span className="type-interface-heading min-w-0 truncate">{element.title}</span>
-                        </button>
-                      </CollapsibleTrigger>
-                      <EditorIconButton context="inline" label={`重置${element.title}`} disabled={resetDisabled} onClick={() => onResetPath(element.path)}>
-                        <Refresh />
-                      </EditorIconButton>
-                    </header>
-                    <CollapsibleContent>
+                <ThemeSettingsCollapsible
+                  key={element.id}
+                  open={open}
+                  onOpenChange={() => setOpenElements((current) => toggleSetValue(current, element.id))}
+                  title={element.title}
+                  description={element.description}
+                  resetLabel={`重置${element.title}`}
+                  resetDisabled={resetDisabled}
+                  onReset={() => onResetPath(element.path)}
+                  markdownElement={element.id}
+                >
                       <div className="editor-ui-panel-body grid gap-4">
                         {sectionEntries(fields).map(([section, sectionFields]) => (
                           <section key={section} className="grid gap-2">
@@ -118,12 +121,12 @@ export function ThemeSettingsMarkdown({
                           </section>
                         ))}
                       </div>
-                    </CollapsibleContent>
-                  </article>
-                </Collapsible>
+                </ThemeSettingsCollapsible>
               );
             })}
-          </section>
+              </div>
+            </ThemeSettingsCollapsible>
+          </div>
         );
       })}
     </div>

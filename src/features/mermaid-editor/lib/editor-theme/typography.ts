@@ -53,6 +53,10 @@ export function createDefaultEditorTypography(): EditorTypographyTokens {
       excerpt: sans(12, 400, 17.4),
       titleEditor: sans(16, 700, 22)
     },
+    tableNode: {
+      cell: sans(13, 400, 18),
+      cellEditor: sans(13, 400, 18)
+    },
     mermaid: {
       general: sans(16, 400, 22),
       diagramTitle: sans(18, 600, 24),
