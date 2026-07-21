@@ -33,7 +33,9 @@ export type MarkdownListTokens = MarkdownTextTokens & {
   markerColor: string;
   indent: number;
   itemSpacing: number;
-  blockSpacing: number;
+  marginTop: number;
+  marginBottom: number;
+  nestedSpacing: number;
 };
 
 export type MarkdownTaskListTokens = Omit<MarkdownListTokens, "markerColor"> & {
@@ -54,7 +56,8 @@ export type MarkdownBlockquoteTokens = MarkdownTextTokens & {
   borderStyle: CssBorderStyle;
   paddingX: number;
   paddingY: number;
-  marginY: number;
+  marginTop: number;
+  marginBottom: number;
   radius: number;
 };
 
@@ -66,7 +69,8 @@ export type MarkdownInlineCodeTokens = MarkdownTextTokens & {
 };
 
 export type MarkdownCodeBlockTokens = MarkdownInlineCodeTokens & {
-  marginY: number;
+  marginTop: number;
+  marginBottom: number;
 };
 
 export type MarkdownTableTokens = MarkdownTextTokens & {
@@ -78,7 +82,8 @@ export type MarkdownTableTokens = MarkdownTextTokens & {
   borderWidth: number;
   borderStyle: CssBorderStyle;
   radius: number;
-  marginY: number;
+  marginTop: number;
+  marginBottom: number;
 };
 
 export type MarkdownThemeTokens = {
@@ -86,6 +91,7 @@ export type MarkdownThemeTokens = {
     paddingX: number;
     paddingY: number;
     taskCheckboxPlaceholderWidth: number;
+    headingStackSpacing: number;
   };
   body: MarkdownBodyTokens;
   heading: {
@@ -112,13 +118,15 @@ export type MarkdownThemeTokens = {
   divider: {
     color: string;
     thickness: number;
-    marginY: number;
+    marginTop: number;
+    marginBottom: number;
   };
   image: {
     borderColor: string;
     borderWidth: number;
     borderStyle: CssBorderStyle;
     radius: number;
-    marginY: number;
+    marginTop: number;
+    marginBottom: number;
   };
 };

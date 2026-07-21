@@ -6,6 +6,7 @@ export function markdownToCssVariables(theme: EditorTheme): Record<string, strin
     "--markdown-layout-padding-x": px(markdown.layout.paddingX),
     "--markdown-layout-padding-y": px(markdown.layout.paddingY),
     "--markdown-task-checkbox-placeholder-width": px(markdown.layout.taskCheckboxPlaceholderWidth),
+    "--markdown-heading-stack-spacing": px(markdown.layout.headingStackSpacing),
     "--markdown-font-body": markdown.body.fontFamily,
     "--markdown-font-heading": markdown.heading.h1.fontFamily,
     "--markdown-font-code": markdown.codeBlock.fontFamily,
@@ -44,7 +45,8 @@ export function markdownToCssVariables(theme: EditorTheme): Record<string, strin
     "--markdown-blockquote-border-style": markdown.blockquote.borderStyle,
     "--markdown-blockquote-padding-x": px(markdown.blockquote.paddingX),
     "--markdown-blockquote-padding-y": px(markdown.blockquote.paddingY),
-    "--markdown-blockquote-margin-y": px(markdown.blockquote.marginY),
+    "--markdown-blockquote-margin-top": px(markdown.blockquote.marginTop),
+    "--markdown-blockquote-margin-bottom": px(markdown.blockquote.marginBottom),
     "--markdown-blockquote-radius": px(markdown.blockquote.radius),
     ...textVariables("inline-code", markdown.inlineCode),
     "--markdown-inline-code-background": markdown.inlineCode.background,
@@ -55,7 +57,8 @@ export function markdownToCssVariables(theme: EditorTheme): Record<string, strin
     "--markdown-code-block-background": markdown.codeBlock.background,
     "--markdown-code-block-padding-x": px(markdown.codeBlock.paddingX),
     "--markdown-code-block-padding-y": px(markdown.codeBlock.paddingY),
-    "--markdown-code-block-margin-y": px(markdown.codeBlock.marginY),
+    "--markdown-code-block-margin-top": px(markdown.codeBlock.marginTop),
+    "--markdown-code-block-margin-bottom": px(markdown.codeBlock.marginBottom),
     "--markdown-code-block-radius": px(markdown.codeBlock.radius),
     ...textVariables("table", markdown.table),
     "--markdown-table-border-color": markdown.table.borderColor,
@@ -66,15 +69,18 @@ export function markdownToCssVariables(theme: EditorTheme): Record<string, strin
     "--markdown-table-border-width": px(markdown.table.borderWidth),
     "--markdown-table-border-style": markdown.table.borderStyle,
     "--markdown-table-radius": px(markdown.table.radius),
-    "--markdown-table-margin-y": px(markdown.table.marginY),
+    "--markdown-table-margin-top": px(markdown.table.marginTop),
+    "--markdown-table-margin-bottom": px(markdown.table.marginBottom),
     "--markdown-divider-color": markdown.divider.color,
     "--markdown-divider-thickness": px(markdown.divider.thickness),
-    "--markdown-divider-margin-y": px(markdown.divider.marginY),
+    "--markdown-divider-margin-top": px(markdown.divider.marginTop),
+    "--markdown-divider-margin-bottom": px(markdown.divider.marginBottom),
     "--markdown-image-border-color": markdown.image.borderColor,
     "--markdown-image-border-width": px(markdown.image.borderWidth),
     "--markdown-image-border-style": markdown.image.borderStyle,
     "--markdown-image-radius": px(markdown.image.radius),
-    "--markdown-image-margin-y": px(markdown.image.marginY)
+    "--markdown-image-margin-top": px(markdown.image.marginTop),
+    "--markdown-image-margin-bottom": px(markdown.image.marginBottom)
   };
 }
 
@@ -103,7 +109,9 @@ function listVariables(prefix: string, tokens: EditorTheme["markdown"]["list"]["
     ...("markerColor" in tokens ? { [`--markdown-${prefix}-marker-color`]: tokens.markerColor } : {}),
     [`--markdown-${prefix}-indent`]: px(tokens.indent),
     [`--markdown-${prefix}-item-spacing`]: px(tokens.itemSpacing),
-    [`--markdown-${prefix}-block-spacing`]: px(tokens.blockSpacing)
+    [`--markdown-${prefix}-margin-top`]: px(tokens.marginTop),
+    [`--markdown-${prefix}-margin-bottom`]: px(tokens.marginBottom),
+    [`--markdown-${prefix}-nested-spacing`]: px(tokens.nestedSpacing)
   };
 }
 

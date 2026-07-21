@@ -34,7 +34,7 @@ export function normalizeMarkdownTheme(
   fallback: MarkdownThemeTokens,
   options: { legacyTypography?: unknown; sourceVersion?: unknown } = {}
 ): MarkdownThemeTokens {
-  const source = objectValue(raw);
+  const source = withLegacyVerticalSpacingAliases(objectValue(raw));
   const migrated = migrateLegacyMarkdown(source, options.legacyTypography, fallback);
   return typeof options.sourceVersion === "number" && options.sourceVersion >= 8
     ? normalizeCanonicalMarkdown(source, migrated)
@@ -46,7 +46,7 @@ export function cloneMarkdownTheme(value: MarkdownThemeTokens): MarkdownThemeTok
 }
 
 function normalizeCanonicalMarkdown(raw: unknown, fallback: MarkdownThemeTokens): MarkdownThemeTokens {
-  const source = objectValue(raw);
+  const source = withLegacyVerticalSpacingAliases(objectValue(raw));
   const result = structuredCloneValue(fallback);
   for (const definition of MARKDOWN_TOKEN_DEFINITIONS) {
     const fallbackValue = valueAtPath(fallback, definition.path);
@@ -126,7 +126,8 @@ function migrateLegacyMarkdown(source: Record<string, unknown>, legacyTypography
       borderWidth: numberOr(quoteSource.borderWidth, fallback.blockquote.borderWidth),
       paddingX: numberOr(quoteSource.paddingX, fallback.blockquote.paddingX),
       paddingY: numberOr(quoteSource.paddingY, fallback.blockquote.paddingY),
-      marginY: numberOr(quoteSource.marginY, fallback.blockquote.marginY),
+      marginTop: numberOr(quoteSource.marginTop, fallback.blockquote.marginTop),
+      marginBottom: numberOr(quoteSource.marginBottom, fallback.blockquote.marginBottom),
       radius: numberOr(quoteSource.radius, fallback.blockquote.radius)
     },
     inlineCode: {
@@ -184,6 +185,7 @@ function legacyTypographyValues(raw: unknown): Partial<MarkdownTextTokens> {
 }
 
 function normalizeMarkedV8Elements(source: Record<string, unknown>, migrated: MarkdownThemeTokens): MarkdownThemeTokens {
+  source = withLegacyVerticalSpacingAliases(source);
   const result = structuredCloneValue(migrated);
   for (const elementDefinition of MARKDOWN_ELEMENT_DEFINITIONS) {
     if (!hasV8ElementMarker(source, elementDefinition)) continue;
@@ -223,6 +225,39 @@ function cssBorderStyleOr(value: unknown, fallback: string) {
 
 function objectValue(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+}
+
+function withLegacyVerticalSpacingAliases(source: Record<string, unknown>): Record<string, unknown> {
+  const result = { ...source };
+  const list = objectOrUndefined(source.list);
+  if (list) {
+    const expandedList = splitLegacySpacing(list, "blockSpacing");
+    for (const key of ["unordered", "ordered", "task"] as const) {
+      const tokens = objectOrUndefined(list[key]);
+      if (tokens) expandedList[key] = splitLegacySpacing(tokens, "blockSpacing");
+    }
+    result.list = expandedList;
+  }
+
+  for (const key of ["quote", "blockquote", "codeBlock", "table", "divider", "image"] as const) {
+    const tokens = objectOrUndefined(source[key]);
+    if (tokens) result[key] = splitLegacySpacing(tokens, "marginY");
+  }
+  return result;
+}
+
+function splitLegacySpacing(source: Record<string, unknown>, legacyKey: "blockSpacing" | "marginY"): Record<string, unknown> {
+  const legacyValue = source[legacyKey];
+  if (typeof legacyValue !== "number" || !Number.isFinite(legacyValue)) return { ...source };
+  return {
+    ...source,
+    ...(source.marginTop === undefined ? { marginTop: legacyValue } : {}),
+    ...(source.marginBottom === undefined ? { marginBottom: legacyValue } : {})
+  };
+}
+
+function objectOrUndefined(value: unknown): Record<string, unknown> | undefined {
+  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : undefined;
 }
 
 function valueAtPath(value: unknown, path: readonly string[]) {

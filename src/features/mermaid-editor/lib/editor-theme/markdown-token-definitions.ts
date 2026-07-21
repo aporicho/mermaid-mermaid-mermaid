@@ -107,12 +107,13 @@ const EXTRA_FIELDS: Record<string, readonly MarkdownTokenDefinition[]> = {
   layout: [
     number("paddingX", "横向内边距", "layout", literal(56), 0, 160),
     number("paddingY", "纵向内边距", "layout", literal(48), 0, 120),
-    number("taskCheckboxPlaceholderWidth", "任务框占位宽度", "layout", literal(24), 12, 56)
+    number("taskCheckboxPlaceholderWidth", "任务框占位宽度", "layout", literal(24), 12, 56),
+    number("headingStackSpacing", "连续标题间距", "layout", literal(8), 0, 48)
   ],
-  body: [number("paragraphSpacing", "段落间距", "layout", literal(8), 0, 48)],
-  "heading-h1": headingSpacing(32, 8),
-  "heading-h2": headingSpacing(28, 8),
-  "heading-h3": headingSpacing(24, 6),
+  body: [number("paragraphSpacing", "段落间距", "layout", literal(16), 0, 48)],
+  "heading-h1": headingSpacing(32, 12),
+  "heading-h2": headingSpacing(28, 10),
+  "heading-h3": headingSpacing(24, 8),
   "heading-h4": headingSpacing(20, 6),
   "heading-h5": headingSpacing(16, 4),
   "heading-h6": headingSpacing(16, 4),
@@ -129,7 +130,9 @@ const EXTRA_FIELDS: Record<string, readonly MarkdownTokenDefinition[]> = {
     color("markerColor", "标记颜色", "color", theme("interface.colors.mutedForeground")),
     number("indent", "缩进", "layout", literal(16), 12, 80),
     number("itemSpacing", "条目间距", "layout", literal(4), 0, 32),
-    number("blockSpacing", "列表块间距", "layout", literal(8), 0, 48)
+    number("marginTop", "顶部间距", "layout", literal(12), 0, 48),
+    number("marginBottom", "底部间距", "layout", literal(16), 0, 48),
+    number("nestedSpacing", "嵌套列表间距", "layout", literal(8), 0, 32)
   ],
   task: [
     number("checkboxSize", "复选框尺寸", "layout", literal(16), 10, 32),
@@ -148,7 +151,8 @@ const EXTRA_FIELDS: Record<string, readonly MarkdownTokenDefinition[]> = {
     borderStyle("borderStyle", "边线样式"),
     number("paddingX", "横向内边距", "layout", literal(20), 0, 64),
     number("paddingY", "纵向内边距", "layout", literal(8), 0, 48),
-    number("marginY", "上下间距", "layout", literal(8), 0, 48),
+    number("marginTop", "顶部间距", "layout", literal(16), 0, 48),
+    number("marginBottom", "底部间距", "layout", literal(16), 0, 48),
     number("radius", "圆角", "border", literal(4), 0, 32)
   ],
   inlineCode: [
@@ -161,7 +165,8 @@ const EXTRA_FIELDS: Record<string, readonly MarkdownTokenDefinition[]> = {
     color("background", "背景", "color", theme("interface.colors.card")),
     number("paddingX", "横向内边距", "layout", literal(20), 0, 64),
     number("paddingY", "纵向内边距", "layout", literal(16), 0, 64),
-    number("marginY", "上下间距", "layout", literal(8), 0, 48),
+    number("marginTop", "顶部间距", "layout", literal(16), 0, 48),
+    number("marginBottom", "底部间距", "layout", literal(16), 0, 48),
     number("radius", "圆角", "border", literal(6), 0, 32)
   ],
   table: [
@@ -173,19 +178,22 @@ const EXTRA_FIELDS: Record<string, readonly MarkdownTokenDefinition[]> = {
     number("borderWidth", "边框宽度", "border", literal(1), 0, 6, 0.5),
     borderStyle("borderStyle", "边框样式"),
     number("radius", "圆角", "border", literal(6), 0, 32),
-    number("marginY", "上下间距", "layout", literal(8), 0, 48)
+    number("marginTop", "顶部间距", "layout", literal(16), 0, 48),
+    number("marginBottom", "底部间距", "layout", literal(16), 0, 48)
   ],
   divider: [
     color("color", "颜色", "color", theme("interface.colors.border")),
     number("thickness", "粗细", "border", literal(1), 0, 8, 0.5),
-    number("marginY", "上下间距", "layout", literal(16), 0, 64)
+    number("marginTop", "顶部间距", "layout", literal(32), 0, 64),
+    number("marginBottom", "底部间距", "layout", literal(32), 0, 64)
   ],
   image: [
     color("borderColor", "边框颜色", "color", theme("interface.colors.border")),
     number("borderWidth", "边框宽度", "border", literal(0), 0, 8, 0.5),
     borderStyle("borderStyle", "边框样式"),
     number("radius", "圆角", "border", literal(8), 0, 48),
-    number("marginY", "上下间距", "layout", literal(12), 0, 64)
+    number("marginTop", "顶部间距", "layout", literal(16), 0, 64),
+    number("marginBottom", "底部间距", "layout", literal(16), 0, 64)
   ]
 };
 

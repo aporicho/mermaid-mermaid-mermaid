@@ -63,6 +63,9 @@
       "gridDot": "#73726c"
     },
     "markdown": {
+      "layout": {
+        "headingStackSpacing": 8
+      },
       "body": {
         "fontFamily": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
         "fontSize": 16,
@@ -80,8 +83,8 @@
           "lineHeight": 27.2,
           "letterSpacing": 0,
           "color": "#141413",
-          "marginTop": 24,
-          "marginBottom": 8
+          "marginTop": 32,
+          "marginBottom": 12
         },
         "h2": {
           "fontFamily": "\"方正屏显雅宋简体\", \"Songti SC\", \"Noto Serif SC\", serif",
@@ -90,8 +93,8 @@
           "lineHeight": 26.4,
           "letterSpacing": 0,
           "color": "#141413",
-          "marginTop": 24,
-          "marginBottom": 8
+          "marginTop": 28,
+          "marginBottom": 10
         },
         "h3": {
           "fontFamily": "\"方正屏显雅宋简体\", \"Songti SC\", \"Noto Serif SC\", serif",
@@ -100,8 +103,8 @@
           "lineHeight": 24,
           "letterSpacing": 0,
           "color": "#141413",
-          "marginTop": 20,
-          "marginBottom": 4
+          "marginTop": 24,
+          "marginBottom": 8
         },
         "h4": {
           "fontFamily": "\"方正屏显雅宋简体\", \"Songti SC\", \"Noto Serif SC\", serif",
@@ -111,7 +114,7 @@
           "letterSpacing": 0,
           "color": "#141413",
           "marginTop": 20,
-          "marginBottom": 4
+          "marginBottom": 6
         },
         "h5": {
           "fontFamily": "\"方正屏显雅宋简体\", \"Songti SC\", \"Noto Serif SC\", serif",
@@ -120,7 +123,7 @@
           "lineHeight": 20,
           "letterSpacing": 0,
           "color": "#141413",
-          "marginTop": 20,
+          "marginTop": 16,
           "marginBottom": 4
         },
         "h6": {
@@ -130,7 +133,7 @@
           "lineHeight": 20,
           "letterSpacing": 0,
           "color": "#141413",
-          "marginTop": 20,
+          "marginTop": 16,
           "marginBottom": 4
         }
       },
@@ -182,7 +185,9 @@
           "markerColor": "#3d3d3a",
           "indent": 16,
           "itemSpacing": 4,
-          "blockSpacing": 12
+          "marginTop": 12,
+          "marginBottom": 16,
+          "nestedSpacing": 8
         },
         "ordered": {
           "fontFamily": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
@@ -194,7 +199,9 @@
           "markerColor": "#3d3d3a",
           "indent": 16,
           "itemSpacing": 4,
-          "blockSpacing": 12
+          "marginTop": 12,
+          "marginBottom": 16,
+          "nestedSpacing": 8
         },
         "task": {
           "fontFamily": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
@@ -205,7 +212,9 @@
           "color": "#141413",
           "indent": 16,
           "itemSpacing": 4,
-          "blockSpacing": 12,
+          "marginTop": 12,
+          "marginBottom": 16,
+          "nestedSpacing": 8,
           "checkboxSize": 13,
           "checkboxBorderWidth": 1,
           "checkboxBorderColor": "#d0cfce",
@@ -227,7 +236,8 @@
         "borderWidth": 4,
         "paddingX": 16,
         "paddingY": 3.2,
-        "marginY": 12,
+        "marginTop": 16,
+        "marginBottom": 16,
         "radius": 0
       },
       "inlineCode": {
@@ -252,7 +262,8 @@
         "background": "#f1f0ec",
         "paddingX": 16,
         "paddingY": 16,
-        "marginY": 16,
+        "marginTop": 16,
+        "marginBottom": 16,
         "radius": 8
       },
       "table": {
@@ -269,18 +280,21 @@
         "cellPaddingY": 9.6,
         "borderWidth": 0.5,
         "radius": 0,
-        "marginY": 20
+        "marginTop": 16,
+        "marginBottom": 24
       },
       "divider": {
         "color": "#e4e3df",
         "thickness": 0.5,
-        "marginY": 24
+        "marginTop": 32,
+        "marginBottom": 32
       },
       "image": {
         "borderColor": "#e4e3df",
         "borderWidth": 0,
         "radius": 8,
-        "marginY": 12
+        "marginTop": 16,
+        "marginBottom": 16
       }
     },
     "font": {

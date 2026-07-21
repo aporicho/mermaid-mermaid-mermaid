@@ -62,8 +62,15 @@ describe("editor theme", () => {
     });
     expect(theme.markdown.body.fontFamily).toContain("Noto Sans SC Variable");
     expect(theme.markdown.body.fontFamily).not.toContain("方正屏显雅宋简体");
-    expect(theme.markdown.heading.h1).toMatchObject({ fontSize: 24, lineHeight: 27.2, marginTop: 24, marginBottom: 8 });
+    expect(theme.markdown.heading.h1).toMatchObject({ fontSize: 24, lineHeight: 27.2, marginTop: 32, marginBottom: 12 });
     expect(theme.markdown.heading.h6).toMatchObject({ fontSize: 14, lineHeight: 20, fontWeight: 600 });
+    expect(theme.markdown.layout.headingStackSpacing).toBe(8);
+    expect(theme.markdown.list.unordered).toMatchObject({ marginTop: 12, marginBottom: 16, itemSpacing: 4, nestedSpacing: 8 });
+    expect(theme.markdown.blockquote).toMatchObject({ marginTop: 16, marginBottom: 16 });
+    expect(theme.markdown.codeBlock).toMatchObject({ marginTop: 16, marginBottom: 16 });
+    expect(theme.markdown.table).toMatchObject({ marginTop: 16, marginBottom: 24 });
+    expect(theme.markdown.divider).toMatchObject({ marginTop: 32, marginBottom: 32 });
+    expect(theme.markdown.image).toMatchObject({ marginTop: 16, marginBottom: 16 });
     expect(theme.markdown.link).toMatchObject({ color: "#d97757", hoverColor: "#a94f2d", underlineOffset: 4 });
     expect(theme.markdown.list.task).toMatchObject({ indent: 16, checkboxSize: 13, checkboxRadius: 2 });
     expect(theme.markdown.codeBlock).toMatchObject({ background: "#f1f0ec", paddingX: 16, paddingY: 16, radius: 8 });
@@ -343,13 +350,48 @@ describe("editor theme", () => {
     expect(variables["--terminal-background"]).toBeDefined();
     expect(variables["--ansi-bright-red"]).toBeDefined();
     expect(variables["--markdown-body-color"]).toBe(DEFAULT_EDITOR_THEME.markdown.body.color);
+    expect(variables["--markdown-heading-stack-spacing"]).toBe("8px");
     expect(variables["--markdown-h1-font-size"]).toBe(`${DEFAULT_EDITOR_THEME.markdown.heading.h1.fontSize}px`);
     expect(variables["--markdown-code-block-background"]).toBe(DEFAULT_EDITOR_THEME.markdown.codeBlock.background);
+    expect(variables["--markdown-code-block-margin-top"]).toBe("16px");
+    expect(variables["--markdown-code-block-margin-bottom"]).toBe("16px");
     expect(variables["--markdown-table-border-color"]).toBe(DEFAULT_EDITOR_THEME.markdown.table.borderColor);
     expect(variables["--markdown-table-body-background"]).toBe(DEFAULT_EDITOR_THEME.markdown.table.bodyBackground);
+    expect(variables["--markdown-unordered-list-nested-spacing"]).toBe("8px");
+    expect(variables["--markdown-code-block-margin-y"]).toBeUndefined();
+    expect(variables["--markdown-unordered-list-block-spacing"]).toBeUndefined();
     expect(variables["--primary-foreground"]).toBe(variables["--background"]);
     expect(variables["--ui-border-width"]).toBe(`${DEFAULT_EDITOR_THEME.interface.surface.borderWidth}px`);
     expect(variables["--ui-control-height-md"]).toBe(`${DEFAULT_EDITOR_THEME.interface.icon.buttonHeightMd}px`);
+  });
+
+  it("defines a complete default Markdown vertical rhythm", () => {
+    const markdown = createDefaultMarkdownTheme({
+      interface: DEFAULT_EDITOR_THEME.interface,
+      typography: DEFAULT_EDITOR_THEME.typography
+    });
+
+    expect(markdown.layout.headingStackSpacing).toBe(8);
+    expect(markdown.body.paragraphSpacing).toBe(16);
+    expect(Object.fromEntries(Object.entries(markdown.heading).map(([level, heading]) => [
+      level,
+      [heading.marginTop, heading.marginBottom]
+    ]))).toEqual({
+      h1: [32, 12],
+      h2: [28, 10],
+      h3: [24, 8],
+      h4: [20, 6],
+      h5: [16, 4],
+      h6: [16, 4]
+    });
+    expect(markdown.list.unordered).toMatchObject({ marginTop: 12, marginBottom: 16, itemSpacing: 4, nestedSpacing: 8 });
+    expect(markdown.list.ordered).toMatchObject({ marginTop: 12, marginBottom: 16, itemSpacing: 4, nestedSpacing: 8 });
+    expect(markdown.list.task).toMatchObject({ marginTop: 12, marginBottom: 16, itemSpacing: 4, nestedSpacing: 8 });
+    expect(markdown.blockquote).toMatchObject({ marginTop: 16, marginBottom: 16 });
+    expect(markdown.codeBlock).toMatchObject({ marginTop: 16, marginBottom: 16 });
+    expect(markdown.table).toMatchObject({ marginTop: 16, marginBottom: 16 });
+    expect(markdown.divider).toMatchObject({ marginTop: 32, marginBottom: 32 });
+    expect(markdown.image).toMatchObject({ marginTop: 16, marginBottom: 16 });
   });
 
   it("derives Markdown defaults from each built-in theme palette", () => {
@@ -653,6 +695,9 @@ describe("editor theme", () => {
     const theme = normalizeEditorTheme({
       version: 8,
       markdown: {
+        layout: {
+          headingStackSpacing: 80
+        },
         body: {
           color: "#123456",
           fontSize: 99,
@@ -669,12 +714,19 @@ describe("editor theme", () => {
         },
         blockquote: {
           borderWidth: 20,
+          marginTop: 80,
+          marginBottom: -4,
           radius: 12
         },
         strikethrough: {
           decorationThickness: 99
         },
         list: {
+          unordered: {
+            marginTop: -2,
+            marginBottom: 80,
+            nestedSpacing: 80
+          },
           task: {
             checkboxSize: 99,
             checkboxBorderWidth: -2,
@@ -693,6 +745,7 @@ describe("editor theme", () => {
     });
 
     expect(theme.markdown.body.color).toBe("#123456");
+    expect(theme.markdown.layout.headingStackSpacing).toBe(48);
     expect(theme.markdown.body.fontSize).toBe(96);
     expect(theme.markdown.body.lineHeight).toBe(36);
     expect(theme.markdown.body.paragraphSpacing).toBe(0);
@@ -702,15 +755,64 @@ describe("editor theme", () => {
     expect(theme.markdown.heading.h1.marginTop).toBe(96);
     expect(theme.markdown.heading.h2).toEqual(createDefaultMarkdownTheme({ interface: theme.interface, typography: theme.typography }).heading.h2);
     expect(theme.markdown.blockquote.borderWidth).toBe(12);
+    expect(theme.markdown.blockquote.marginTop).toBe(48);
+    expect(theme.markdown.blockquote.marginBottom).toBe(0);
     expect(theme.markdown.blockquote.radius).toBe(12);
     expect(theme.markdown.strikethrough.decorationThickness).toBe(6);
     expect(theme.markdown.list.task.checkboxSize).toBe(32);
     expect(theme.markdown.list.task.checkboxBorderWidth).toBe(0);
     expect(theme.markdown.list.task.checkboxRadius).toBe(12);
+    expect(theme.markdown.list.unordered).toMatchObject({ marginTop: 0, marginBottom: 48, nestedSpacing: 32 });
     expect(theme.markdown.table.borderColor).toBe("#abcdef");
     expect(theme.markdown.table.cellPaddingX).toBe(24);
     expect(theme.markdown.image.borderWidth).toBe(3);
     expect(theme.markdown.image.radius).toBe(18);
+  });
+
+  it("migrates legacy v11 Markdown vertical spacing aliases without losing asymmetric canonical values", () => {
+    const theme = normalizeEditorTheme({
+      version: 11,
+      markdown: {
+        list: {
+          unordered: { blockSpacing: 9 },
+          ordered: { blockSpacing: 7, marginTop: 5 },
+          task: { blockSpacing: 11, marginBottom: 13 }
+        },
+        blockquote: { marginY: 6 },
+        codeBlock: { marginY: 10, marginBottom: 14 },
+        table: { marginY: 12 },
+        divider: { marginY: 20 },
+        image: { marginY: 15 }
+      }
+    });
+
+    expect(theme.markdown.list.unordered).toMatchObject({ marginTop: 9, marginBottom: 9, nestedSpacing: 8 });
+    expect(theme.markdown.list.ordered).toMatchObject({ marginTop: 5, marginBottom: 7, nestedSpacing: 8 });
+    expect(theme.markdown.list.task).toMatchObject({ marginTop: 11, marginBottom: 13, nestedSpacing: 8 });
+    expect(theme.markdown.blockquote).toMatchObject({ marginTop: 6, marginBottom: 6 });
+    expect(theme.markdown.codeBlock).toMatchObject({ marginTop: 10, marginBottom: 14 });
+    expect(theme.markdown.table).toMatchObject({ marginTop: 12, marginBottom: 12 });
+    expect(theme.markdown.divider).toMatchObject({ marginTop: 20, marginBottom: 20 });
+    expect(theme.markdown.image).toMatchObject({ marginTop: 15, marginBottom: 15 });
+    expect(theme.markdown.list.unordered).not.toHaveProperty("blockSpacing");
+    expect(theme.markdown.blockquote).not.toHaveProperty("marginY");
+  });
+
+  it("migrates pre-v8 flat list and quote spacing aliases into the canonical model", () => {
+    const theme = normalizeEditorTheme({
+      version: 7,
+      markdown: {
+        list: { blockSpacing: 7 },
+        quote: { marginY: 9 },
+        codeBlock: { marginY: 11 }
+      }
+    });
+
+    expect(theme.markdown.list.unordered).toMatchObject({ marginTop: 7, marginBottom: 7, nestedSpacing: 8 });
+    expect(theme.markdown.list.ordered).toMatchObject({ marginTop: 7, marginBottom: 7, nestedSpacing: 8 });
+    expect(theme.markdown.list.task).toMatchObject({ marginTop: 7, marginBottom: 7, nestedSpacing: 8 });
+    expect(theme.markdown.blockquote).toMatchObject({ marginTop: 9, marginBottom: 9 });
+    expect(theme.markdown.codeBlock).toMatchObject({ marginTop: 11, marginBottom: 11 });
   });
 
   it("maps custom colors to canvas and Mermaid render tokens", () => {

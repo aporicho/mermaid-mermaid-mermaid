@@ -522,7 +522,7 @@
 }
 
 .markdown-editor-panel .milkdown .ProseMirror p {
-  margin: 0 0 var(--markdown-paragraph-spacing);
+  margin: 0 0 calc(var(--markdown-paragraph-spacing) * var(--markdown-text-scale));
   padding: 0;
   color: var(--markdown-body-color);
   font: inherit;
@@ -537,7 +537,7 @@
 }
 
 .markdown-editor-panel .milkdown .ProseMirror h1 {
-  margin: var(--markdown-h1-margin-top) 0 var(--markdown-h1-margin-bottom);
+  margin: calc(var(--markdown-h1-margin-top) * var(--markdown-text-scale)) 0 calc(var(--markdown-h1-margin-bottom) * var(--markdown-text-scale));
   color: var(--markdown-h1-color);
   font-family: var(--markdown-h1-font-family);
   font-size: calc(var(--markdown-h1-font-size) * var(--markdown-text-scale));
@@ -547,7 +547,7 @@
 }
 
 .markdown-editor-panel .milkdown .ProseMirror h2 {
-  margin: var(--markdown-h2-margin-top) 0 var(--markdown-h2-margin-bottom);
+  margin: calc(var(--markdown-h2-margin-top) * var(--markdown-text-scale)) 0 calc(var(--markdown-h2-margin-bottom) * var(--markdown-text-scale));
   color: var(--markdown-h2-color);
   font-family: var(--markdown-h2-font-family);
   font-size: calc(var(--markdown-h2-font-size) * var(--markdown-text-scale));
@@ -557,7 +557,7 @@
 }
 
 .markdown-editor-panel .milkdown .ProseMirror h3 {
-  margin: var(--markdown-h3-margin-top) 0 var(--markdown-h3-margin-bottom);
+  margin: calc(var(--markdown-h3-margin-top) * var(--markdown-text-scale)) 0 calc(var(--markdown-h3-margin-bottom) * var(--markdown-text-scale));
   color: var(--markdown-h3-color);
   font-family: var(--markdown-h3-font-family);
   font-size: calc(var(--markdown-h3-font-size) * var(--markdown-text-scale));
@@ -567,7 +567,7 @@
 }
 
 .markdown-editor-panel .milkdown .ProseMirror h4 {
-  margin: var(--markdown-h4-margin-top) 0 var(--markdown-h4-margin-bottom);
+  margin: calc(var(--markdown-h4-margin-top) * var(--markdown-text-scale)) 0 calc(var(--markdown-h4-margin-bottom) * var(--markdown-text-scale));
   color: var(--markdown-h4-color);
   font-family: var(--markdown-h4-font-family);
   font-size: calc(var(--markdown-h4-font-size) * var(--markdown-text-scale));
@@ -577,7 +577,7 @@
 }
 
 .markdown-editor-panel .milkdown .ProseMirror h5 {
-  margin: var(--markdown-h5-margin-top) 0 var(--markdown-h5-margin-bottom);
+  margin: calc(var(--markdown-h5-margin-top) * var(--markdown-text-scale)) 0 calc(var(--markdown-h5-margin-bottom) * var(--markdown-text-scale));
   color: var(--markdown-h5-color);
   font-family: var(--markdown-h5-font-family);
   font-size: calc(var(--markdown-h5-font-size) * var(--markdown-text-scale));
@@ -587,7 +587,7 @@
 }
 
 .markdown-editor-panel .milkdown .ProseMirror h6 {
-  margin: var(--markdown-h6-margin-top) 0 var(--markdown-h6-margin-bottom);
+  margin: calc(var(--markdown-h6-margin-top) * var(--markdown-text-scale)) 0 calc(var(--markdown-h6-margin-bottom) * var(--markdown-text-scale));
   color: var(--markdown-h6-color);
   font-family: var(--markdown-h6-font-family);
   font-size: calc(var(--markdown-h6-font-size) * var(--markdown-text-scale));
@@ -655,7 +655,8 @@
 }
 
 .markdown-editor-panel .milkdown .ProseMirror ul {
-  margin: var(--markdown-unordered-list-block-spacing) 0;
+  margin-top: calc(var(--markdown-unordered-list-margin-top) * var(--markdown-text-scale));
+  margin-bottom: calc(var(--markdown-unordered-list-margin-bottom) * var(--markdown-text-scale));
   padding-left: var(--markdown-unordered-list-indent);
   color: var(--markdown-unordered-list-color);
   font-family: var(--markdown-unordered-list-font-family);
@@ -666,7 +667,8 @@
 }
 
 .markdown-editor-panel .milkdown .ProseMirror ol {
-  margin: var(--markdown-ordered-list-block-spacing) 0;
+  margin-top: calc(var(--markdown-ordered-list-margin-top) * var(--markdown-text-scale));
+  margin-bottom: calc(var(--markdown-ordered-list-margin-bottom) * var(--markdown-text-scale));
   padding-left: var(--markdown-ordered-list-indent);
   color: var(--markdown-ordered-list-color);
   font-family: var(--markdown-ordered-list-font-family);
@@ -678,18 +680,45 @@
 
 .markdown-editor-panel .milkdown .ProseMirror ul > li,
 .markdown-editor-panel .milkdown .ProseMirror ul > .milkdown-list-item-block > .list-item {
-  margin-block: var(--markdown-unordered-list-item-spacing);
+  margin: 0;
 }
 
 .markdown-editor-panel .milkdown .ProseMirror ol > li,
 .markdown-editor-panel .milkdown .ProseMirror ol > .milkdown-list-item-block > .list-item {
-  margin-block: var(--markdown-ordered-list-item-spacing);
+  margin: 0;
+}
+
+.markdown-editor-panel .milkdown .ProseMirror ul > li + li,
+.markdown-editor-panel .milkdown .ProseMirror ul > .milkdown-list-item-block + .milkdown-list-item-block > .list-item {
+  margin-top: calc(var(--markdown-unordered-list-item-spacing) * var(--markdown-text-scale));
+}
+
+.markdown-editor-panel .milkdown .ProseMirror ol > li + li,
+.markdown-editor-panel .milkdown .ProseMirror ol > .milkdown-list-item-block + .milkdown-list-item-block > .list-item {
+  margin-top: calc(var(--markdown-ordered-list-item-spacing) * var(--markdown-text-scale));
 }
 
 .markdown-editor-panel .milkdown .ProseMirror ul:has(> li[data-item-type="task"]),
 .markdown-editor-panel .milkdown .ProseMirror ul:has(> .milkdown-list-item-block > .list-item > .label-wrapper :is(.checked, .unchecked)) {
-  margin: var(--markdown-task-list-block-spacing) 0;
+  margin-top: calc(var(--markdown-task-list-margin-top) * var(--markdown-text-scale));
+  margin-bottom: calc(var(--markdown-task-list-margin-bottom) * var(--markdown-text-scale));
   padding-left: var(--markdown-task-list-indent);
+}
+
+.markdown-editor-panel .milkdown .ProseMirror :is(ul, ol) ul {
+  margin-top: calc(var(--markdown-unordered-list-nested-spacing) * var(--markdown-text-scale));
+  margin-bottom: calc(var(--markdown-unordered-list-nested-spacing) * var(--markdown-text-scale));
+}
+
+.markdown-editor-panel .milkdown .ProseMirror :is(ul, ol) ol {
+  margin-top: calc(var(--markdown-ordered-list-nested-spacing) * var(--markdown-text-scale));
+  margin-bottom: calc(var(--markdown-ordered-list-nested-spacing) * var(--markdown-text-scale));
+}
+
+.markdown-editor-panel .milkdown .ProseMirror :is(ul, ol) ul:has(> li[data-item-type="task"]),
+.markdown-editor-panel .milkdown .ProseMirror :is(ul, ol) ul:has(> .milkdown-list-item-block > .list-item > .label-wrapper :is(.checked, .unchecked)) {
+  margin-top: calc(var(--markdown-task-list-nested-spacing) * var(--markdown-text-scale));
+  margin-bottom: calc(var(--markdown-task-list-nested-spacing) * var(--markdown-text-scale));
 }
 
 .markdown-editor-panel .milkdown .ProseMirror ul > li::marker,
@@ -708,13 +737,17 @@
 .markdown-editor-panel .milkdown .ProseMirror li[data-item-type="task"],
 .markdown-editor-panel .milkdown .milkdown-list-item-block li:has(.label-wrapper .checked),
 .markdown-editor-panel .milkdown .milkdown-list-item-block li:has(.label-wrapper .unchecked) {
-  margin-block: var(--markdown-task-list-item-spacing);
   color: var(--markdown-task-list-color);
   font-family: var(--markdown-task-list-font-family);
   font-size: calc(var(--markdown-task-list-font-size) * var(--markdown-text-scale));
   font-weight: var(--markdown-task-list-font-weight);
   line-height: calc(var(--markdown-task-list-line-height) * var(--markdown-text-scale));
   letter-spacing: var(--markdown-task-list-letter-spacing);
+}
+
+.markdown-editor-panel .milkdown .ProseMirror ul > li + li[data-item-type="task"],
+.markdown-editor-panel .milkdown .ProseMirror ul > .milkdown-list-item-block + .milkdown-list-item-block > .list-item:has(> .label-wrapper :is(.checked, .unchecked)) {
+  margin-top: calc(var(--markdown-task-list-item-spacing) * var(--markdown-text-scale));
 }
 
 .markdown-editor-panel .milkdown .ProseMirror :is(li, th, td) p {
@@ -760,7 +793,8 @@
 
 .markdown-editor-panel .milkdown .ProseMirror blockquote {
   box-sizing: border-box;
-  margin: var(--markdown-blockquote-margin-y) 0;
+  margin-top: calc(var(--markdown-blockquote-margin-top) * var(--markdown-text-scale));
+  margin-bottom: calc(var(--markdown-blockquote-margin-bottom) * var(--markdown-text-scale));
   padding: var(--markdown-blockquote-padding-y) var(--markdown-blockquote-padding-x);
   border-left: var(--markdown-blockquote-border-width) var(--markdown-blockquote-border-style) var(--markdown-blockquote-border-color);
   border-radius: var(--markdown-blockquote-radius);
@@ -796,7 +830,8 @@
 
 .markdown-editor-panel .milkdown .ProseMirror pre,
 .markdown-editor-panel .milkdown .milkdown-code-block {
-  margin: var(--markdown-code-block-margin-y) 0;
+  margin-top: calc(var(--markdown-code-block-margin-top) * var(--markdown-text-scale));
+  margin-bottom: calc(var(--markdown-code-block-margin-bottom) * var(--markdown-text-scale));
   padding: var(--markdown-code-block-padding-y) var(--markdown-code-block-padding-x);
   border-radius: var(--markdown-code-block-radius);
   background: var(--markdown-code-block-background);
@@ -824,7 +859,8 @@
 }
 
 .markdown-editor-panel .milkdown .milkdown-table-block {
-  margin: var(--markdown-table-margin-y) 0;
+  margin-top: calc(var(--markdown-table-margin-top) * var(--markdown-text-scale));
+  margin-bottom: calc(var(--markdown-table-margin-bottom) * var(--markdown-text-scale));
   color: var(--markdown-table-color);
   font-family: var(--markdown-table-font-family);
   font-size: calc(var(--markdown-table-font-size) * var(--markdown-text-scale));
@@ -864,7 +900,8 @@
 
 .markdown-editor-panel .milkdown .ProseMirror hr {
   height: var(--markdown-divider-thickness);
-  margin: var(--markdown-divider-margin-y) 0;
+  margin-top: calc(var(--markdown-divider-margin-top) * var(--markdown-text-scale));
+  margin-bottom: calc(var(--markdown-divider-margin-bottom) * var(--markdown-text-scale));
   padding: 0;
   border: 0;
   background: var(--markdown-divider-color);
@@ -872,13 +909,53 @@
 }
 
 .markdown-editor-panel .milkdown .milkdown-image-block {
-  margin: var(--markdown-image-margin-y) 0;
+  margin-top: calc(var(--markdown-image-margin-top) * var(--markdown-text-scale));
+  margin-bottom: calc(var(--markdown-image-margin-bottom) * var(--markdown-text-scale));
 }
 
 .markdown-editor-panel .milkdown .ProseMirror img,
 .markdown-editor-panel .milkdown .milkdown-image-block > .image-wrapper img {
   border: var(--markdown-image-border-width) var(--markdown-image-border-style) var(--markdown-image-border-color);
   border-radius: var(--markdown-image-radius);
+}
+
+.markdown-editor-panel .milkdown .ProseMirror :where(blockquote, li, th, td) > p:first-child,
+.markdown-editor-panel .milkdown .milkdown-list-item-block .list-item > .children > p:first-child {
+  margin-top: 0;
+}
+
+.markdown-editor-panel .milkdown .ProseMirror :where(blockquote, li, th, td) > p:last-child,
+.markdown-editor-panel .milkdown .milkdown-list-item-block .list-item > .children > p:last-child {
+  margin-bottom: 0;
+}
+
+.markdown-editor-panel .milkdown .ProseMirror li > p:has(+ :is(ul, ol)),
+.markdown-editor-panel .milkdown .milkdown-list-item-block .list-item > .children > p:has(+ :is(ul, ol)) {
+  margin-bottom: 0;
+}
+
+.markdown-editor-panel .milkdown .ProseMirror > :is(h1, h2, h3, h4, h5, h6) + :is(p, ul, ol, blockquote, pre, .milkdown-code-block, .milkdown-table-block, hr, .milkdown-image-block) {
+  margin-top: 0;
+}
+
+.markdown-editor-panel .milkdown .ProseMirror > :is(p, ul, ol, blockquote, pre, .milkdown-code-block, .milkdown-table-block, hr, .milkdown-image-block):has(+ :is(h1, h2, h3, h4, h5, h6)) {
+  margin-bottom: 0;
+}
+
+.markdown-editor-panel .milkdown .ProseMirror > :is(h1, h2, h3, h4, h5, h6):has(+ :is(h1, h2, h3, h4, h5, h6)) {
+  margin-bottom: 0;
+}
+
+.markdown-editor-panel .milkdown .ProseMirror > :is(h1, h2, h3, h4, h5, h6) + :is(h1, h2, h3, h4, h5, h6) {
+  margin-top: calc(var(--markdown-heading-stack-spacing) * var(--markdown-text-scale));
+}
+
+.markdown-editor-panel .milkdown .ProseMirror > :first-child {
+  margin-top: 0;
+}
+
+.markdown-editor-panel .milkdown .ProseMirror > :last-child {
+  margin-bottom: 0;
 }
 
 .markdown-editor-panel .milkdown .editor {

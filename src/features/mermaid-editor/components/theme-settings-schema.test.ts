@@ -38,6 +38,14 @@ describe("theme settings schema", () => {
     expect(paths).toContain("table.borderStyle");
     expect(paths).toContain("image.borderStyle");
     expect(paths).toContain("list.task.checkboxBorderStyle");
+    expect(paths).toContain("layout.headingStackSpacing");
+    expect(paths).toContain("list.unordered.marginTop");
+    expect(paths).toContain("list.unordered.marginBottom");
+    expect(paths).toContain("list.unordered.nestedSpacing");
+    expect(paths).toContain("blockquote.marginTop");
+    expect(paths).toContain("blockquote.marginBottom");
+    expect(paths).not.toContain("list.unordered.blockSpacing");
+    expect(paths).not.toContain("blockquote.marginY");
   });
 
   it("does not expose legacy Markdown typography containers", () => {
