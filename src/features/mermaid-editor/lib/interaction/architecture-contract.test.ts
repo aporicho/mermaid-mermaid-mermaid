@@ -302,12 +302,28 @@ describe("interaction architecture contract", () => {
     expect(fileMenu).toContain("export function FileMenu");
     expect(viewFilter).toContain("export function ViewFilterMenu");
     expect(secondary).toContain("export function SecondaryActionsMenu");
+    expect(secondary).toContain('label="自动隐藏浮窗标题栏"');
+    expect(secondary).toContain("preferences.workspaceTitlebarAutoHide");
     expect(shared).toContain("edgeRoutingOptions");
     expect(shared).toContain("FilterToggle");
     expect(facade).not.toContain("function FileMenu(");
     expect(facade).not.toContain("function ViewFilterMenu(");
     expect(facade).not.toContain("function SecondaryActionsMenu(");
     expect(facade).not.toContain("<FloatingPanel");
+  });
+
+  it("threads workspace titlebar and Markdown scale preferences through focused panel modules", () => {
+    const editor = readProjectFile("src/features/mermaid-editor/components/mermaid-editor.tsx");
+    const surface = readProjectFile("src/features/mermaid-editor/components/mermaid-editor/editor-workspace-surface.tsx");
+    const panels = readProjectFile("src/features/mermaid-editor/components/mermaid-editor/editor-workspace-panels.tsx");
+    const detached = readProjectFile("src/features/mermaid-editor/components/mermaid-editor/detached-workspace-windows.tsx");
+
+    expect(editor).toContain("markdownTextScale={preferences.markdownTextScale}");
+    expect(editor).toContain("workspaceTitlebarAutoHide={preferences.workspaceTitlebarAutoHide}");
+    expect(surface).toContain("textScale={markdownTextScale}");
+    expect(panels).toContain("workspaceTitlebarAutoHide={workspaceTitlebarAutoHide}");
+    expect(detached).toContain("textScale={markdownTextScale}");
+    expect(detached).toContain("onTextScaleChange={onMarkdownTextScaleChange}");
   });
 
   it("keeps edge geometry behind a small public facade", () => {

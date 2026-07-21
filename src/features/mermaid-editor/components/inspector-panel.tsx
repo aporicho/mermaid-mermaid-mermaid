@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { ControlSlider as SlidersHorizontal } from "iconoir-react/regular";
 
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -39,9 +40,10 @@ type InspectorPanelProps = {
   onEditorCommand: (command: EditorCommand) => void;
   onOpenNodeAction?: (node: CanvasNode) => void;
   onEditNodeAction?: (node: CanvasNode) => void;
+  windowControls?: ReactNode;
 };
 
-export function InspectorPanel({ graph, selection, onEditorCommand, onOpenNodeAction, onEditNodeAction }: InspectorPanelProps) {
+export function InspectorPanel({ graph, selection, onEditorCommand, onOpenNodeAction, onEditNodeAction, windowControls }: InspectorPanelProps) {
   const model = createInspectorSelectionModel(graph, selection);
   const {
     selectedNodes,
@@ -150,13 +152,14 @@ export function InspectorPanel({ graph, selection, onEditorCommand, onOpenNodeAc
   }
 
   return (
-    <section className="grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)]">
+    <section className="flex h-full min-h-0 flex-col">
       <EditorPanelHeader
         icon={<SlidersHorizontal className="editor-ui-icon text-icon" />}
         title={<span className="flex items-center gap-2">检查器{selectionSummary ? <EditorStatusBadge>{selectionSummary}</EditorStatusBadge> : null}</span>}
-        className="cursor-grab pr-20 active:cursor-grabbing"
+        actions={windowControls}
+        className="cursor-grab active:cursor-grabbing"
       />
-      <ScrollArea className="min-h-0">
+      <ScrollArea className="min-h-0 flex-1">
         <div className="grid gap-4 p-4">
           {!hasInspectableSelection ? <EmptyInspector /> : null}
 

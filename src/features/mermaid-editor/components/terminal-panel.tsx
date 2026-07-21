@@ -230,7 +230,7 @@ export function TerminalPanel({ runtime, cwd, theme, terminalTheme, onClose, onS
 
   return (
     <section
-      className={cn("terminal-panel grid h-full min-h-0 w-full grid-rows-[auto_minmax(0,1fr)] overflow-hidden bg-card/[var(--ui-surface-opacity)]", className)}
+      className={cn("terminal-panel flex h-full min-h-0 w-full flex-col overflow-hidden bg-card/[var(--ui-surface-opacity)]", className)}
       data-editor-floating-menu-ignore
     >
       <EditorPanelHeader className="cursor-grab active:cursor-grabbing">
@@ -266,7 +266,7 @@ export function TerminalPanel({ runtime, cwd, theme, terminalTheme, onClose, onS
           )}
         </div>
       </EditorPanelHeader>
-      <div className="min-h-0 p-2" style={{ backgroundColor: terminalTheme.background, color: terminalTheme.foreground }}>
+      <div className="min-h-0 flex-1 p-2" style={{ backgroundColor: terminalTheme.background, color: terminalTheme.foreground }}>
         <div ref={containerRef} className={cn("h-full min-h-0 overflow-hidden rounded-sm", runtime.kind !== "desktop" && "opacity-80")} />
       </div>
     </section>

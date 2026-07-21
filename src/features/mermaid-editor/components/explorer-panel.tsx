@@ -203,7 +203,7 @@ export function ExplorerPanel({
   }
 
   return (
-    <aside className="grid h-full min-h-0 grid-rows-[auto_auto_minmax(0,1fr)] bg-card/[var(--ui-surface-opacity)]">
+    <aside className="flex h-full min-h-0 flex-col bg-card/[var(--ui-surface-opacity)]">
       <EditorPanelHeader
         title="资源管理器"
         className="cursor-grab active:cursor-grabbing"
@@ -227,7 +227,7 @@ export function ExplorerPanel({
         ) : null}
       </div>
 
-      <div className="min-h-0 overflow-y-auto px-1 py-1.5">
+      <div className="min-h-0 flex-1 overflow-y-auto px-1 py-1.5">
         {!projectWorkspace ? (
           <WorkspaceFolderEmptyState projectAvailable={projectAvailable} projectBusy={projectBusy} onOpenProject={onOpenProject} />
         ) : (

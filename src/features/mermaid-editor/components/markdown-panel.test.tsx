@@ -118,13 +118,13 @@ describe("MarkdownPanel", () => {
     vi.useRealTimers();
   });
 
-  function renderPanel(spellCheck = false, contentWidth = 880) {
+  function renderPanel(spellCheck = false, contentWidth = 880, textScale = 1) {
     container = document.createElement("div");
     document.body.appendChild(container);
     root = createRoot(container);
 
     act(() => {
-      root?.render(createElement(MarkdownPanel, { value: "# Hello", spellCheck, contentWidth, onChange: vi.fn() }));
+      root?.render(createElement(MarkdownPanel, { value: "# Hello", spellCheck, contentWidth, textScale, onChange: vi.fn() }));
     });
 
     const panel = container.querySelector(".markdown-editor-panel");
@@ -140,7 +140,7 @@ describe("MarkdownPanel", () => {
     expect(milkdownMock.create).toHaveBeenCalledTimes(1);
 
     act(() => {
-      root?.render(createElement(MarkdownPanel, { value: "# Hello", spellCheck: true, contentWidth: 880, onChange: vi.fn() }));
+      root?.render(createElement(MarkdownPanel, { value: "# Hello", spellCheck: true, contentWidth: 880, textScale: 1, onChange: vi.fn() }));
     });
 
     expect(milkdownMock.view?.dom.getAttribute("spellcheck")).toBe("true");
@@ -154,10 +154,24 @@ describe("MarkdownPanel", () => {
     expect(milkdownMock.create).toHaveBeenCalledTimes(1);
 
     act(() => {
-      root?.render(createElement(MarkdownPanel, { value: "# Hello", spellCheck: false, contentWidth: 1280, onChange: vi.fn() }));
+      root?.render(createElement(MarkdownPanel, { value: "# Hello", spellCheck: false, contentWidth: 1280, textScale: 1, onChange: vi.fn() }));
     });
 
     expect(panel.style.getPropertyValue("--markdown-content-width")).toBe("1280px");
+    expect(milkdownMock.create).toHaveBeenCalledTimes(1);
+  });
+
+  it("applies and updates the text scale without recreating Milkdown", () => {
+    const panel = renderPanel(false, 880, 1.26);
+
+    expect(panel.style.getPropertyValue("--markdown-text-scale")).toBe("1.3");
+    expect(milkdownMock.create).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      root?.render(createElement(MarkdownPanel, { value: "# Hello", spellCheck: false, contentWidth: 880, textScale: 0.65, onChange: vi.fn() }));
+    });
+
+    expect(panel.style.getPropertyValue("--markdown-text-scale")).toBe("0.7");
     expect(milkdownMock.create).toHaveBeenCalledTimes(1);
   });
 

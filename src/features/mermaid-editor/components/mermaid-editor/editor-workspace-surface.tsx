@@ -50,6 +50,7 @@ type EditorWorkspaceSurfaceProps = {
   markdownDocumentPreviewByNodeId: Record<string, MarkdownDocumentPreview>;
   markdownSpellcheckEnabled: boolean;
   markdownContentWidth: number;
+  markdownTextScale: number;
   visualTokens: CanvasVisualTokens;
   geometryTokens: EditorThemeGeometryTokens;
   typography: EditorTypographyTokens;
@@ -94,6 +95,7 @@ export function EditorWorkspaceSurface({
   markdownDocumentPreviewByNodeId,
   markdownSpellcheckEnabled,
   markdownContentWidth,
+  markdownTextScale,
   visualTokens,
   geometryTokens,
   typography,
@@ -169,6 +171,7 @@ export function EditorWorkspaceSurface({
         value={source}
         spellCheck={markdownSpellcheckEnabled}
         contentWidth={markdownContentWidth}
+        textScale={markdownTextScale}
         onChange={onMarkdownChange}
       />
     );

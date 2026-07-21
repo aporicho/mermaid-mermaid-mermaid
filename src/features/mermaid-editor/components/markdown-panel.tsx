@@ -21,6 +21,7 @@ import {
   getMarkdownBlockStyle,
   type MarkdownBlockStyle
 } from "@/features/mermaid-editor/lib/markdown-block-style";
+import { clampMarkdownTextScale } from "@/features/mermaid-editor/lib/markdown-text-scale";
 import { cn } from "@/lib/utils";
 
 type MarkdownPanelProps = {
@@ -29,6 +30,7 @@ type MarkdownPanelProps = {
   readOnly?: boolean;
   spellCheck: boolean;
   contentWidth: number;
+  textScale: number;
   onChange: (value: string) => void;
 };
 
@@ -62,7 +64,7 @@ const blockStyleGroups = [
   ]
 ] satisfies ReadonlyArray<ReadonlyArray<{ style: MarkdownBlockStyle; label: string; icon: typeof Text }>>;
 
-export function MarkdownPanel({ value, className, readOnly = false, spellCheck, contentWidth, onChange }: MarkdownPanelProps) {
+export function MarkdownPanel({ value, className, readOnly = false, spellCheck, contentWidth, textScale, onChange }: MarkdownPanelProps) {
   const panelRef = useRef<HTMLElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const crepeRef = useRef<Crepe | null>(null);
@@ -321,7 +323,10 @@ export function MarkdownPanel({ value, className, readOnly = false, spellCheck, 
       data-floating-panel-drag-exclude
       data-window-drag-exclude
       className={cn("markdown-editor-panel relative z-0 h-full min-h-0 overflow-auto bg-background", className)}
-      style={{ "--markdown-content-width": `${contentWidth}px` } as CSSProperties}
+      style={{
+        "--markdown-content-width": `${contentWidth}px`,
+        "--markdown-text-scale": String(clampMarkdownTextScale(textScale))
+      } as CSSProperties}
     >
       <div ref={rootRef} className="min-h-full" />
       {blockStyleMenu ? (

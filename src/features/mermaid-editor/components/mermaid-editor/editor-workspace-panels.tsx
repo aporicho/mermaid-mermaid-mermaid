@@ -6,7 +6,7 @@ import { FloatingPanel } from "@/features/mermaid-editor/components/floating-chr
 import { InspectorPanel } from "@/features/mermaid-editor/components/inspector-panel";
 import { DetachedWorkspaceWindows } from "@/features/mermaid-editor/components/mermaid-editor/detached-workspace-windows";
 import { TerminalPanel } from "@/features/mermaid-editor/components/terminal-panel";
-import { WorkspacePanelControls, WorkspacePanelHeader } from "@/features/mermaid-editor/components/workspace-panel-controls";
+import { WorkspacePanelControls } from "@/features/mermaid-editor/components/workspace-panel-controls";
 import type { DocumentKind } from "@/features/mermaid-editor/lib/document-kind";
 import { EDITOR_CHROME_CLASSES } from "@/features/mermaid-editor/lib/editor-chrome";
 import type { EditorRuntime, RuntimeFileRef } from "@/features/mermaid-editor/lib/editor-runtime";
@@ -25,7 +25,6 @@ import {
   type WorkspaceFloatingPanelId
 } from "@/features/mermaid-editor/lib/workspace-panels";
 import { cn } from "@/lib/utils";
-
 const ThemeSettingsPanel = lazy(() => import("@/features/mermaid-editor/components/theme-settings-panel").then((mod) => ({ default: mod.ThemeSettingsPanel })));
 
 type EditorWorkspacePanelsProps = {
@@ -51,8 +50,9 @@ type EditorWorkspacePanelsProps = {
   themeDraftDirty: boolean;
   terminalTheme: XtermThemeTokens;
   detachedMarkdownWindows: DetachedMarkdownWindow[];
-  markdownSpellcheckEnabled: boolean;
-  markdownContentWidth: number;
+  markdownSpellcheckEnabled: boolean; markdownContentWidth: number; markdownTextScale: number;
+  workspaceTitlebarAutoHide: boolean;
+  onMarkdownTextScaleChange: (value: number) => void;
   bringWorkspacePanelToFront: (panelId: WorkspaceFloatingPanelId) => void;
   workspacePanelStackPosition: (panelId: WorkspaceFloatingPanelId) => number;
   workspacePanelWindowState: (panelId: WorkspaceFloatingPanelId) => FloatingPanelWindowState;
@@ -93,8 +93,7 @@ export function EditorWorkspacePanels({
   themeDraftDirty,
   terminalTheme,
   detachedMarkdownWindows,
-  markdownSpellcheckEnabled,
-  markdownContentWidth,
+  markdownSpellcheckEnabled, markdownContentWidth, markdownTextScale, workspaceTitlebarAutoHide, onMarkdownTextScaleChange,
   bringWorkspacePanelToFront,
   workspacePanelStackPosition,
   workspacePanelWindowState,
@@ -126,6 +125,7 @@ export function EditorWorkspacePanels({
         kind="workspace"
         dismissMode="explicit"
         panelId="explorer"
+        titlebarAutoHide={workspaceTitlebarAutoHide}
         active={activeWorkspacePanel === "explorer"}
         stackIndex={workspacePanelStackPosition("explorer")}
         onFocusPanel={() => bringWorkspacePanelToFront("explorer")}
@@ -162,6 +162,7 @@ export function EditorWorkspacePanels({
         kind="workspace"
         dismissMode="explicit"
         panelId="inspector"
+        titlebarAutoHide={workspaceTitlebarAutoHide}
         active={activeWorkspacePanel === "inspector"}
         stackIndex={workspacePanelStackPosition("inspector")}
         onFocusPanel={() => bringWorkspacePanelToFront("inspector")}
@@ -172,20 +173,17 @@ export function EditorWorkspacePanels({
         onWindowStateChange={(state) => setWorkspacePanelWindowState("inspector", state)}
         className={cn(EDITOR_CHROME_CLASSES.sidePanel, "relative grid h-full w-full min-h-0")}
       >
-        <WorkspacePanelHeader
-          windowState={workspacePanelWindowState("inspector")}
-          onWindowStateChange={(state) => setWorkspacePanelWindowState("inspector", state)}
-          onCollapse={() => closeWorkspacePanel("inspector")}
+        <InspectorPanel
+          graph={graph} selection={selection} onEditorCommand={applyEditorCommand}
+          onOpenNodeAction={executeCanvasNodeAction} onEditNodeAction={editCanvasNodeAction}
+          windowControls={
+            <WorkspacePanelControls
+              windowState={workspacePanelWindowState("inspector")} onWindowStateChange={(state) => setWorkspacePanelWindowState("inspector", state)}
+              onClose={() => closeWorkspacePanel("inspector")}
+              closeLabel="关闭检查器" closeTooltipSide="left" closeIcon={<Xmark />}
+            />
+          }
         />
-        <div className="grid min-h-0">
-          <InspectorPanel
-            graph={graph}
-            selection={selection}
-            onEditorCommand={applyEditorCommand}
-            onOpenNodeAction={executeCanvasNodeAction}
-            onEditNodeAction={editCanvasNodeAction}
-          />
-        </div>
       </FloatingPanel>
       <FloatingPanel
         open={themeSettingsOpen}
@@ -193,6 +191,7 @@ export function EditorWorkspacePanels({
         kind="workspace"
         dismissMode="explicit"
         panelId="theme"
+        titlebarAutoHide={workspaceTitlebarAutoHide}
         active={activeWorkspacePanel === "theme"}
         stackIndex={workspacePanelStackPosition("theme")}
         onFocusPanel={() => bringWorkspacePanelToFront("theme")}
@@ -232,6 +231,7 @@ export function EditorWorkspacePanels({
         kind="workspace"
         dismissMode="explicit"
         panelId="terminal"
+        titlebarAutoHide={workspaceTitlebarAutoHide}
         active={activeWorkspacePanel === "terminal"}
         stackIndex={workspacePanelStackPosition("terminal")}
         onFocusPanel={() => bringWorkspacePanelToFront("terminal")}
@@ -262,9 +262,9 @@ export function EditorWorkspacePanels({
         />
       </FloatingPanel>
       <DetachedWorkspaceWindows
-        markdownWindows={detachedMarkdownWindows}
-        markdownSpellcheckEnabled={markdownSpellcheckEnabled}
-        markdownContentWidth={markdownContentWidth}
+        markdownWindows={detachedMarkdownWindows} markdownSpellcheckEnabled={markdownSpellcheckEnabled}
+        markdownContentWidth={markdownContentWidth} markdownTextScale={markdownTextScale}
+        workspaceTitlebarAutoHide={workspaceTitlebarAutoHide} onMarkdownTextScaleChange={onMarkdownTextScaleChange}
         activePanel={activeWorkspacePanel}
         bringPanelToFront={bringWorkspacePanelToFront}
         panelStackPosition={workspacePanelStackPosition}

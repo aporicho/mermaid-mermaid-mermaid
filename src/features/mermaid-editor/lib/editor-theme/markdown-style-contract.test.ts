@@ -27,8 +27,8 @@ describe("Markdown style contract", () => {
     expect(strongRule).toContain("font-weight: var(--markdown-strong-font-weight)");
 
     expect(cssRule('.markdown-editor-panel .milkdown .ProseMirror :where(p, li, td, th, blockquote) a:not(:is(h1, h2, h3, h4, h5, h6) a)')).toContain("font-family: var(--markdown-link-font-family)");
-    expect(cssRule('.markdown-editor-panel .milkdown .ProseMirror :where(p, li, td, th, blockquote) em:not(:is(h1, h2, h3, h4, h5, h6) em)')).toContain("font-size: var(--markdown-emphasis-font-size)");
-    expect(cssRule('.markdown-editor-panel .milkdown .ProseMirror :where(p, li, td, th, blockquote) strong:not(:is(h1, h2, h3, h4, h5, h6) strong)')).toContain("line-height: var(--markdown-strong-line-height)");
+    expect(cssRule('.markdown-editor-panel .milkdown .ProseMirror :where(p, li, td, th, blockquote) em:not(:is(h1, h2, h3, h4, h5, h6) em)')).toContain("font-size: calc(var(--markdown-emphasis-font-size) * var(--markdown-text-scale))");
+    expect(cssRule('.markdown-editor-panel .milkdown .ProseMirror :where(p, li, td, th, blockquote) strong:not(:is(h1, h2, h3, h4, h5, h6) strong)')).toContain("line-height: calc(var(--markdown-strong-line-height) * var(--markdown-text-scale))");
     expect(cssRule('.markdown-editor-panel .milkdown .ProseMirror :where(p, li, td, th, blockquote) :is(del, s):not(:is(h1, h2, h3, h4, h5, h6) :is(del, s))')).toContain("letter-spacing: var(--markdown-strikethrough-letter-spacing)");
   });
 
@@ -38,8 +38,24 @@ describe("Markdown style contract", () => {
 
   it("applies the exposed inline code typography scale", () => {
     const rule = cssRule(".markdown-editor-panel .milkdown .ProseMirror :not(pre) > code");
-    expect(rule).toContain("font-size: var(--markdown-inline-code-font-size)");
-    expect(rule).toContain("line-height: var(--markdown-inline-code-line-height)");
+    expect(rule).toContain("font-size: calc(var(--markdown-inline-code-font-size) * var(--markdown-text-scale))");
+    expect(rule).toContain("line-height: calc(var(--markdown-inline-code-line-height) * var(--markdown-text-scale))");
+  });
+
+  it("scales every Markdown text role without scaling non-typographic appearance tokens", () => {
+    const roles = [
+      "body", "h1", "h2", "h3", "h4", "h5", "h6", "link", "emphasis", "strong", "strikethrough",
+      "unordered-list", "ordered-list", "task-list", "blockquote", "inline-code", "code-block", "table"
+    ];
+    for (const role of roles) {
+      expect(css).toContain(`font-size: calc(var(--markdown-${role}-font-size) * var(--markdown-text-scale))`);
+      expect(css).toContain(`line-height: calc(var(--markdown-${role}-line-height) * var(--markdown-text-scale))`);
+    }
+    expect(css).not.toMatch(/font-size:\s*var\(--markdown-[^)]+-font-size\)/);
+    expect(css).not.toMatch(/line-height:\s*var\(--markdown-[^)]+-line-height\)/);
+    expect(css).toContain("width: var(--markdown-task-list-checkbox-size)");
+    expect(css).toContain("padding: var(--markdown-blockquote-padding-y) var(--markdown-blockquote-padding-x)");
+    expect(css).toContain("border-radius: var(--markdown-table-radius)");
   });
 
   it("uses theme tokens for reading layout and every exposed Markdown border style", () => {

@@ -13,6 +13,9 @@ type DetachedWorkspaceWindowsProps = {
   markdownWindows: DetachedMarkdownWindow[];
   markdownSpellcheckEnabled: boolean;
   markdownContentWidth: number;
+  markdownTextScale: number;
+  workspaceTitlebarAutoHide: boolean;
+  onMarkdownTextScaleChange: (value: number) => void;
   activePanel: WorkspaceFloatingPanelId | null;
   bringPanelToFront: (panelId: WorkspaceFloatingPanelId) => void;
   panelStackPosition: (panelId: WorkspaceFloatingPanelId) => number;
@@ -27,6 +30,9 @@ export function DetachedWorkspaceWindows({
   markdownWindows,
   markdownSpellcheckEnabled,
   markdownContentWidth,
+  markdownTextScale,
+  workspaceTitlebarAutoHide,
+  onMarkdownTextScaleChange,
   activePanel,
   bringPanelToFront,
   panelStackPosition,
@@ -46,6 +52,7 @@ export function DetachedWorkspaceWindows({
           kind="workspace"
           dismissMode="explicit"
           panelId={markdownWindow.id}
+          titlebarAutoHide={workspaceTitlebarAutoHide}
           active={activePanel === markdownWindow.id}
           stackIndex={panelStackPosition(markdownWindow.id)}
           onFocusPanel={() => bringPanelToFront(markdownWindow.id)}
@@ -63,10 +70,12 @@ export function DetachedWorkspaceWindows({
             dirty={markdownWindow.value !== markdownWindow.savedValue}
             spellCheck={markdownSpellcheckEnabled}
             contentWidth={markdownContentWidth}
+            textScale={markdownTextScale}
             windowState={panelWindowState(markdownWindow.id)}
             onWindowStateChange={(state) => setPanelWindowState(markdownWindow.id, state)}
             onClose={() => closeMarkdownWindow(markdownWindow.id)}
             onSave={() => void saveMarkdownWindow(markdownWindow.id)}
+            onTextScaleChange={onMarkdownTextScaleChange}
             onChange={(value) => updateMarkdownWindow(markdownWindow.id, value)}
           />
         </FloatingPanel>

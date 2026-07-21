@@ -1,7 +1,8 @@
 import type { ReactNode } from "react";
-import { Maximize, Xmark } from "iconoir-react/regular";
+import { Maximize, Pin, PinSlash } from "iconoir-react/regular";
 
 import { EditorIconButton } from "@/features/mermaid-editor/components/editor-ui";
+import { useWorkspacePanelHeader } from "@/features/mermaid-editor/components/floating-chrome/workspace-panel-header-context";
 import type { FloatingPanelWindowState } from "@/features/mermaid-editor/lib/floating-chrome";
 
 export function WorkspacePanelControls({
@@ -20,43 +21,33 @@ export function WorkspacePanelControls({
   closeIcon: ReactNode;
 }) {
   const maximized = windowState === "maximized";
+  const workspaceHeader = useWorkspacePanelHeader();
 
   return (
     <div className="flex shrink-0 items-center gap-1" data-floating-panel-drag-exclude>
+      {workspaceHeader ? (
+        <EditorIconButton
+          context="panel"
+          label={workspaceHeader.autoHide ? "固定标题栏" : "启用自动隐藏"}
+          tooltipSide={closeTooltipSide}
+          pressed={!workspaceHeader.autoHide}
+          onClick={workspaceHeader.toggleAutoHideOverride}
+          data-workspace-panel-titlebar-override={workspaceHeader.overridden ? "true" : "false"}
+        >
+          {workspaceHeader.autoHide ? <Pin /> : <PinSlash />}
+        </EditorIconButton>
+      ) : null}
       <EditorIconButton
-            context="panel"
-            label={maximized ? "还原" : "最大化"}
-            tooltipSide={closeTooltipSide}
-            onClick={() => onWindowStateChange(maximized ? "normal" : "maximized")}
-          >
-            <Maximize />
+        context="panel"
+        label={maximized ? "还原" : "最大化"}
+        tooltipSide={closeTooltipSide}
+        onClick={() => onWindowStateChange(maximized ? "normal" : "maximized")}
+      >
+        <Maximize />
       </EditorIconButton>
       <EditorIconButton context="panel" label={closeLabel} tooltipSide={closeTooltipSide} onClick={onClose}>
-            {closeIcon}
+        {closeIcon}
       </EditorIconButton>
-    </div>
-  );
-}
-
-export function WorkspacePanelHeader({
-  windowState,
-  onWindowStateChange,
-  onCollapse
-}: {
-  windowState: FloatingPanelWindowState;
-  onWindowStateChange: (state: FloatingPanelWindowState) => void;
-  onCollapse: () => void;
-}) {
-  return (
-    <div className="absolute right-2 top-2 z-30">
-      <WorkspacePanelControls
-        windowState={windowState}
-        onWindowStateChange={onWindowStateChange}
-        onClose={onCollapse}
-        closeLabel="关闭检查器"
-        closeTooltipSide="left"
-        closeIcon={<Xmark />}
-      />
     </div>
   );
 }

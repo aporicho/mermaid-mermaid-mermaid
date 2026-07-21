@@ -165,14 +165,14 @@ export function ThemeSettingsPanel({
   }
 
   return (
-    <div className="grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)_auto]" data-theme-settings-panel>
+    <div className="flex h-full min-h-0 flex-col" data-theme-settings-panel>
       <EditorPanelHeader
         icon={<ColorWheel className="editor-ui-icon shrink-0 text-icon" />}
         title={<span className="flex items-center gap-2">主题{hasDraft ? <EditorStatusBadge tone="accent">未应用</EditorStatusBadge> : null}</span>}
         actions={windowControls}
       />
 
-      <div className="grid min-h-0 grid-cols-[148px_minmax(0,1fr)] max-[520px]:grid-cols-[120px_minmax(0,1fr)]">
+      <div className="grid min-h-0 flex-1 grid-cols-[148px_minmax(0,1fr)] max-[520px]:grid-cols-[120px_minmax(0,1fr)]">
         <nav className="min-h-0 overflow-y-auto border-r bg-muted/20 p-2" aria-label="主题设置分类">
           <EditorList>
             {THEME_SETTINGS_CATEGORIES.map((entry) => (

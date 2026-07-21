@@ -1,9 +1,16 @@
-import { FloppyDisk, Text, Xmark } from "iconoir-react/regular";
+import { FloppyDisk, Text, Xmark, ZoomIn, ZoomOut } from "iconoir-react/regular";
 
 import { EditorIconButton, EditorPanelHeader } from "@/features/mermaid-editor/components/editor-ui";
 import { MarkdownPanel } from "@/features/mermaid-editor/components/markdown-panel";
 import { WorkspacePanelControls } from "@/features/mermaid-editor/components/workspace-panel-controls";
 import type { FloatingPanelWindowState } from "@/features/mermaid-editor/lib/floating-chrome";
+import {
+  MARKDOWN_TEXT_SCALE_MAX,
+  MARKDOWN_TEXT_SCALE_MIN,
+  adjustMarkdownTextScale,
+  clampMarkdownTextScale,
+  markdownTextScalePercent
+} from "@/features/mermaid-editor/lib/markdown-text-scale";
 
 export function MarkdownWindowPanel({
   title,
@@ -12,10 +19,12 @@ export function MarkdownWindowPanel({
   dirty,
   spellCheck,
   contentWidth,
+  textScale,
   windowState,
   onWindowStateChange,
   onClose,
   onSave,
+  onTextScaleChange,
   onChange
 }: {
   title: string;
@@ -24,18 +33,36 @@ export function MarkdownWindowPanel({
   dirty: boolean;
   spellCheck: boolean;
   contentWidth: number;
+  textScale: number;
   windowState: FloatingPanelWindowState;
   onWindowStateChange: (state: FloatingPanelWindowState) => void;
   onClose: () => void;
   onSave: () => void;
+  onTextScaleChange: (value: number) => void;
   onChange: (value: string) => void;
 }) {
+  const normalizedTextScale = clampMarkdownTextScale(textScale);
+  const textScalePercent = markdownTextScalePercent(normalizedTextScale);
   return (
-    <section className="grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)] bg-card/[var(--ui-surface-opacity)]">
+    <section className="flex h-full min-h-0 flex-col bg-card/[var(--ui-surface-opacity)]">
       <EditorPanelHeader
         icon={<Text className="editor-ui-icon shrink-0 text-icon" />}
         title={<span className="flex min-w-0 items-center gap-1" title={path || title}><span className="truncate">{title}</span>{dirty ? <span className="size-1.5 shrink-0 bg-foreground/60" aria-hidden /> : null}</span>}
         actions={<div className="flex shrink-0 items-center gap-1">
+          <EditorIconButton
+            context="panel"
+            label={`缩小 Markdown 文字（当前 ${textScalePercent}）`}
+            tooltipSide="top"
+            disabled={normalizedTextScale <= MARKDOWN_TEXT_SCALE_MIN}
+            onClick={() => onTextScaleChange(adjustMarkdownTextScale(normalizedTextScale, -1))}
+          ><ZoomOut /></EditorIconButton>
+          <EditorIconButton
+            context="panel"
+            label={`放大 Markdown 文字（当前 ${textScalePercent}）`}
+            tooltipSide="top"
+            disabled={normalizedTextScale >= MARKDOWN_TEXT_SCALE_MAX}
+            onClick={() => onTextScaleChange(adjustMarkdownTextScale(normalizedTextScale, 1))}
+          ><ZoomIn /></EditorIconButton>
           <EditorIconButton context="panel" label="保存 Markdown 窗口" tooltipSide="top" onClick={onSave}><FloppyDisk /></EditorIconButton>
           <WorkspacePanelControls
             windowState={windowState}
@@ -52,8 +79,9 @@ export function MarkdownWindowPanel({
         value={value}
         spellCheck={spellCheck}
         contentWidth={contentWidth}
+        textScale={normalizedTextScale}
         onChange={onChange}
-        className="markdown-editor-panel--window bg-background/95"
+        className="markdown-editor-panel--window min-h-0 flex-1 bg-background/95"
       />
     </section>
   );

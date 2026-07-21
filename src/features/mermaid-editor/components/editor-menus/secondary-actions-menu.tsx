@@ -261,6 +261,17 @@ export function SecondaryActionsMenu({
               }
             />
             <PreferenceToggle
+              active={preferences.workspaceTitlebarAutoHide}
+              icon={<Eye className="size-4" />}
+              label="自动隐藏浮窗标题栏"
+              onClick={() =>
+                updatePreference(
+                  { ...preferences, workspaceTitlebarAutoHide: !preferences.workspaceTitlebarAutoHide },
+                  preferences.workspaceTitlebarAutoHide ? "浮窗标题栏将保持显示。" : "浮窗标题栏将自动隐藏。"
+                )
+              }
+            />
+            <PreferenceToggle
               active={preferences.restoreLastFile}
               icon={<ClockRotateRight className="size-4" />}
               label="恢复上次文件"

@@ -38,9 +38,9 @@ export function normalizeEditorTheme(value: unknown, fallback: EditorTheme = DEF
   interfaceTokens.icon.family = "iconoir";
 
   const typography = normalizeEditorTypography(raw.typography, fallback.typography, {
-    font: objectValue(raw.font),
-    subgraph: objectValue(raw.subgraph),
-    edgeLabel: objectValue(raw.edgeLabel)
+    font: raw.font && typeof raw.font === "object" ? objectValue(raw.font) : undefined,
+    subgraph: raw.subgraph && typeof raw.subgraph === "object" ? objectValue(raw.subgraph) : undefined,
+    edgeLabel: raw.edgeLabel && typeof raw.edgeLabel === "object" ? objectValue(raw.edgeLabel) : undefined
   });
   const markdownFallback = createDefaultMarkdownTheme({ interface: interfaceTokens, typography });
   const legacyTypography = objectValue(raw.typography).markdown;

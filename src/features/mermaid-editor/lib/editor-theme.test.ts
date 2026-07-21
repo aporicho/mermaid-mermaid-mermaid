@@ -84,7 +84,7 @@ describe("editor theme", () => {
     expect(compiled.diagnostics).toEqual([]);
   });
 
-  it("uses sans-serif Markdown body and Founder serif headings in Warm Paper without replacing its palette", () => {
+  it("loads the persisted Warm Paper v11 appearance snapshot", () => {
     const theme = resolveEditorTheme("warm-paper", null);
     const compiled = compileEditorTheme(theme);
 
@@ -94,10 +94,16 @@ describe("editor theme", () => {
       primary: "#ff4050"
     });
     expect(theme.typography.interface.body.family).toContain("Noto Sans SC Variable");
-    expect(theme.typography.canvas.node.family).toContain("Noto Sans SC Variable");
+    expect(theme.typography.canvas.node).toMatchObject({ fontWeight: 500 });
+    expect(theme.typography.canvas.node.family).toContain("方正屏显雅宋简体");
     expect(theme.typography.linkCard.title.family).toContain("Noto Sans SC Variable");
-    expect(theme.markdown.body.fontFamily).toContain("Noto Sans SC Variable");
+    expect(theme.markdown.body.fontFamily).toContain("方正屏显雅宋简体");
     expect(theme.markdown.heading.h1.fontFamily).toContain("方正屏显雅宋简体");
+    expect(theme.canvas.ordinaryNode).toMatchObject({ borderWidth: 0, radius: 0, forkRadius: 4 });
+    expect(theme.canvas.edge).toMatchObject({ width: 1, pointerLength: 6, pointerWidth: 6, curveSegments: 120 });
+    expect(theme.canvas.group).toMatchObject({ borderStyle: "solid", borderWidth: 1, radius: 0 });
+    expect(theme.specialNode.linkCard.surface.radius).toBe(0);
+    expect(theme.specialNode.markdownDocument.surface).toMatchObject({ radius: 0, border: { width: 0 } });
     expect(theme.markdown.list.unordered.indent).toBe(16);
     expect(theme.markdown.list.ordered.indent).toBe(16);
     expect(theme.markdown.list.task.indent).toBe(16);
@@ -106,6 +112,7 @@ describe("editor theme", () => {
     expect(theme.typography.markdownCard.excerpt.family).toContain("Noto Sans SC Variable");
     expect(theme.typography.canvasDocument.card.family).toContain("方正屏显雅宋简体");
     expect(theme.typography.canvasDocument.shape.family).toContain("Noto Sans SC Variable");
+    expect(theme.motion.canvas.proximityMaxScale).toBe(1);
     expect(compiled.cssVariables["--markdown-body-line-height"]).toBe("26.4px");
     expect(compiled.diagnostics.map((diagnostic) => diagnostic.code)).toEqual([
       "ANSI_WHITE_CONTRAST",

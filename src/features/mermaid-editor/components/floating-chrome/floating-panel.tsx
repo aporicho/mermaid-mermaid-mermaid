@@ -17,6 +17,7 @@ import {
   floatingPanelSurfaceClass
 } from "./shared";
 import { useFloatingPanelController } from "./use-floating-panel-controller";
+import { WORKSPACE_PANEL_HEADER_HOT_ZONE_PX, WorkspacePanelHeaderProvider, useWorkspacePanelHeaderAutoHide } from "./workspace-panel-header-context";
 
 export function FloatingPanel({
   open,
@@ -31,6 +32,7 @@ export function FloatingPanel({
   windowState = "normal",
   onWindowStateChange,
   panelId,
+  titlebarAutoHide = true,
   active = false,
   stackIndex = 0,
   onFocusPanel,
@@ -51,6 +53,7 @@ export function FloatingPanel({
   windowState?: FloatingPanelWindowState;
   onWindowStateChange?: (state: FloatingPanelWindowState) => void;
   panelId?: string;
+  titlebarAutoHide?: boolean;
   active?: boolean;
   stackIndex?: number;
   onFocusPanel?: () => void;
@@ -75,6 +78,7 @@ export function FloatingPanel({
     onFocusPanel,
     resetDragOnOpen
   });
+  const workspaceHeader = useWorkspacePanelHeaderAutoHide({ enabled: kind === "workspace", open, dragging: panel.dragging, autoHide: titlebarAutoHide });
 
   if (!panel.mounted) return null;
 
@@ -101,6 +105,7 @@ export function FloatingPanel({
       data-floating-panel-active={active ? "true" : "false"}
       data-floating-panel-dismiss-mode={panel.resolvedDismissMode}
       data-floating-panel-window-state={windowState}
+      data-floating-panel-titlebar-auto-hide={workspaceHeader ? (workspaceHeader.autoHide ? "true" : "false") : undefined}
     >
       <div className={cn(panel.framePanel && "h-full w-full", !panel.framePanel && floatingPanelAnchorClass[placement])}>
         <div
@@ -117,7 +122,20 @@ export function FloatingPanel({
           )}
           style={{ opacity: open ? 1 : 0 }}
         >
-          {children}
+          <WorkspacePanelHeaderProvider value={workspaceHeader}>
+            {workspaceHeader?.autoHide ? (
+              <div
+                aria-hidden
+                className="absolute inset-x-0 top-0 z-50 cursor-grab touch-none active:cursor-grabbing"
+                style={{ height: WORKSPACE_PANEL_HEADER_HOT_ZONE_PX }}
+                data-floating-panel-header-hot-zone
+                data-floating-panel-drag-handle
+                onPointerEnter={workspaceHeader.showFromHotZone}
+                onPointerLeave={workspaceHeader.leaveHotZone}
+              />
+            ) : null}
+            {children}
+          </WorkspacePanelHeaderProvider>
           {panel.framePanel && panel.resizablePanel && !panel.maximized ? (
             <div aria-hidden data-floating-panel-drag-exclude>
               {FLOATING_PANEL_RESIZE_HANDLES.map((handle) => (

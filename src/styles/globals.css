@@ -515,9 +515,9 @@
   outline: none;
   color: var(--markdown-body-color);
   font-family: var(--markdown-body-font-family);
-  font-size: var(--markdown-body-font-size);
+  font-size: calc(var(--markdown-body-font-size) * var(--markdown-text-scale));
   font-weight: var(--markdown-body-font-weight);
-  line-height: var(--markdown-body-line-height);
+  line-height: calc(var(--markdown-body-line-height) * var(--markdown-text-scale));
   letter-spacing: var(--markdown-body-letter-spacing);
 }
 
@@ -540,9 +540,9 @@
   margin: var(--markdown-h1-margin-top) 0 var(--markdown-h1-margin-bottom);
   color: var(--markdown-h1-color);
   font-family: var(--markdown-h1-font-family);
-  font-size: var(--markdown-h1-font-size);
+  font-size: calc(var(--markdown-h1-font-size) * var(--markdown-text-scale));
   font-weight: var(--markdown-h1-font-weight);
-  line-height: var(--markdown-h1-line-height);
+  line-height: calc(var(--markdown-h1-line-height) * var(--markdown-text-scale));
   letter-spacing: var(--markdown-h1-letter-spacing);
 }
 
@@ -550,9 +550,9 @@
   margin: var(--markdown-h2-margin-top) 0 var(--markdown-h2-margin-bottom);
   color: var(--markdown-h2-color);
   font-family: var(--markdown-h2-font-family);
-  font-size: var(--markdown-h2-font-size);
+  font-size: calc(var(--markdown-h2-font-size) * var(--markdown-text-scale));
   font-weight: var(--markdown-h2-font-weight);
-  line-height: var(--markdown-h2-line-height);
+  line-height: calc(var(--markdown-h2-line-height) * var(--markdown-text-scale));
   letter-spacing: var(--markdown-h2-letter-spacing);
 }
 
@@ -560,9 +560,9 @@
   margin: var(--markdown-h3-margin-top) 0 var(--markdown-h3-margin-bottom);
   color: var(--markdown-h3-color);
   font-family: var(--markdown-h3-font-family);
-  font-size: var(--markdown-h3-font-size);
+  font-size: calc(var(--markdown-h3-font-size) * var(--markdown-text-scale));
   font-weight: var(--markdown-h3-font-weight);
-  line-height: var(--markdown-h3-line-height);
+  line-height: calc(var(--markdown-h3-line-height) * var(--markdown-text-scale));
   letter-spacing: var(--markdown-h3-letter-spacing);
 }
 
@@ -570,9 +570,9 @@
   margin: var(--markdown-h4-margin-top) 0 var(--markdown-h4-margin-bottom);
   color: var(--markdown-h4-color);
   font-family: var(--markdown-h4-font-family);
-  font-size: var(--markdown-h4-font-size);
+  font-size: calc(var(--markdown-h4-font-size) * var(--markdown-text-scale));
   font-weight: var(--markdown-h4-font-weight);
-  line-height: var(--markdown-h4-line-height);
+  line-height: calc(var(--markdown-h4-line-height) * var(--markdown-text-scale));
   letter-spacing: var(--markdown-h4-letter-spacing);
 }
 
@@ -580,9 +580,9 @@
   margin: var(--markdown-h5-margin-top) 0 var(--markdown-h5-margin-bottom);
   color: var(--markdown-h5-color);
   font-family: var(--markdown-h5-font-family);
-  font-size: var(--markdown-h5-font-size);
+  font-size: calc(var(--markdown-h5-font-size) * var(--markdown-text-scale));
   font-weight: var(--markdown-h5-font-weight);
-  line-height: var(--markdown-h5-line-height);
+  line-height: calc(var(--markdown-h5-line-height) * var(--markdown-text-scale));
   letter-spacing: var(--markdown-h5-letter-spacing);
 }
 
@@ -590,9 +590,9 @@
   margin: var(--markdown-h6-margin-top) 0 var(--markdown-h6-margin-bottom);
   color: var(--markdown-h6-color);
   font-family: var(--markdown-h6-font-family);
-  font-size: var(--markdown-h6-font-size);
+  font-size: calc(var(--markdown-h6-font-size) * var(--markdown-text-scale));
   font-weight: var(--markdown-h6-font-weight);
-  line-height: var(--markdown-h6-line-height);
+  line-height: calc(var(--markdown-h6-line-height) * var(--markdown-text-scale));
   letter-spacing: var(--markdown-h6-letter-spacing);
 }
 
@@ -624,33 +624,33 @@
 
 .markdown-editor-panel .milkdown .ProseMirror :where(p, li, td, th, blockquote) a:not(:is(h1, h2, h3, h4, h5, h6) a) {
   font-family: var(--markdown-link-font-family);
-  font-size: var(--markdown-link-font-size);
+  font-size: calc(var(--markdown-link-font-size) * var(--markdown-text-scale));
   font-weight: var(--markdown-link-font-weight);
-  line-height: var(--markdown-link-line-height);
+  line-height: calc(var(--markdown-link-line-height) * var(--markdown-text-scale));
   letter-spacing: var(--markdown-link-letter-spacing);
 }
 
 .markdown-editor-panel .milkdown .ProseMirror :where(p, li, td, th, blockquote) em:not(:is(h1, h2, h3, h4, h5, h6) em) {
   font-family: var(--markdown-emphasis-font-family);
-  font-size: var(--markdown-emphasis-font-size);
+  font-size: calc(var(--markdown-emphasis-font-size) * var(--markdown-text-scale));
   font-weight: var(--markdown-emphasis-font-weight);
-  line-height: var(--markdown-emphasis-line-height);
+  line-height: calc(var(--markdown-emphasis-line-height) * var(--markdown-text-scale));
   letter-spacing: var(--markdown-emphasis-letter-spacing);
 }
 
 .markdown-editor-panel .milkdown .ProseMirror :where(p, li, td, th, blockquote) strong:not(:is(h1, h2, h3, h4, h5, h6) strong) {
   font-family: var(--markdown-strong-font-family);
-  font-size: var(--markdown-strong-font-size);
+  font-size: calc(var(--markdown-strong-font-size) * var(--markdown-text-scale));
   font-weight: var(--markdown-strong-font-weight);
-  line-height: var(--markdown-strong-line-height);
+  line-height: calc(var(--markdown-strong-line-height) * var(--markdown-text-scale));
   letter-spacing: var(--markdown-strong-letter-spacing);
 }
 
 .markdown-editor-panel .milkdown .ProseMirror :where(p, li, td, th, blockquote) :is(del, s):not(:is(h1, h2, h3, h4, h5, h6) :is(del, s)) {
   font-family: var(--markdown-strikethrough-font-family);
-  font-size: var(--markdown-strikethrough-font-size);
+  font-size: calc(var(--markdown-strikethrough-font-size) * var(--markdown-text-scale));
   font-weight: var(--markdown-strikethrough-font-weight);
-  line-height: var(--markdown-strikethrough-line-height);
+  line-height: calc(var(--markdown-strikethrough-line-height) * var(--markdown-text-scale));
   letter-spacing: var(--markdown-strikethrough-letter-spacing);
 }
 
@@ -659,9 +659,9 @@
   padding-left: var(--markdown-unordered-list-indent);
   color: var(--markdown-unordered-list-color);
   font-family: var(--markdown-unordered-list-font-family);
-  font-size: var(--markdown-unordered-list-font-size);
+  font-size: calc(var(--markdown-unordered-list-font-size) * var(--markdown-text-scale));
   font-weight: var(--markdown-unordered-list-font-weight);
-  line-height: var(--markdown-unordered-list-line-height);
+  line-height: calc(var(--markdown-unordered-list-line-height) * var(--markdown-text-scale));
   letter-spacing: var(--markdown-unordered-list-letter-spacing);
 }
 
@@ -670,9 +670,9 @@
   padding-left: var(--markdown-ordered-list-indent);
   color: var(--markdown-ordered-list-color);
   font-family: var(--markdown-ordered-list-font-family);
-  font-size: var(--markdown-ordered-list-font-size);
+  font-size: calc(var(--markdown-ordered-list-font-size) * var(--markdown-text-scale));
   font-weight: var(--markdown-ordered-list-font-weight);
-  line-height: var(--markdown-ordered-list-line-height);
+  line-height: calc(var(--markdown-ordered-list-line-height) * var(--markdown-text-scale));
   letter-spacing: var(--markdown-ordered-list-letter-spacing);
 }
 
@@ -711,9 +711,9 @@
   margin-block: var(--markdown-task-list-item-spacing);
   color: var(--markdown-task-list-color);
   font-family: var(--markdown-task-list-font-family);
-  font-size: var(--markdown-task-list-font-size);
+  font-size: calc(var(--markdown-task-list-font-size) * var(--markdown-text-scale));
   font-weight: var(--markdown-task-list-font-weight);
-  line-height: var(--markdown-task-list-line-height);
+  line-height: calc(var(--markdown-task-list-line-height) * var(--markdown-text-scale));
   letter-spacing: var(--markdown-task-list-letter-spacing);
 }
 
@@ -767,9 +767,9 @@
   background: var(--markdown-blockquote-background);
   color: var(--markdown-blockquote-color);
   font-family: var(--markdown-blockquote-font-family);
-  font-size: var(--markdown-blockquote-font-size);
+  font-size: calc(var(--markdown-blockquote-font-size) * var(--markdown-text-scale));
   font-weight: var(--markdown-blockquote-font-weight);
-  line-height: var(--markdown-blockquote-line-height);
+  line-height: calc(var(--markdown-blockquote-line-height) * var(--markdown-text-scale));
   letter-spacing: var(--markdown-blockquote-letter-spacing);
 }
 
@@ -788,8 +788,8 @@
   background: var(--markdown-inline-code-background);
   color: var(--markdown-inline-code-color);
   font-family: var(--markdown-inline-code-font-family);
-  font-size: var(--markdown-inline-code-font-size);
-  line-height: var(--markdown-inline-code-line-height);
+  font-size: calc(var(--markdown-inline-code-font-size) * var(--markdown-text-scale));
+  line-height: calc(var(--markdown-inline-code-line-height) * var(--markdown-text-scale));
   font-weight: var(--markdown-inline-code-font-weight);
   letter-spacing: var(--markdown-inline-code-letter-spacing);
 }
@@ -802,8 +802,8 @@
   background: var(--markdown-code-block-background);
   color: var(--markdown-code-block-color);
   font-family: var(--markdown-code-block-font-family);
-  font-size: var(--markdown-code-block-font-size);
-  line-height: var(--markdown-code-block-line-height);
+  font-size: calc(var(--markdown-code-block-font-size) * var(--markdown-text-scale));
+  line-height: calc(var(--markdown-code-block-line-height) * var(--markdown-text-scale));
   font-weight: var(--markdown-code-block-font-weight);
   letter-spacing: var(--markdown-code-block-letter-spacing);
 }
@@ -817,8 +817,8 @@
   background: var(--markdown-code-block-background);
   color: var(--markdown-code-block-color);
   font-family: var(--markdown-code-block-font-family);
-  font-size: var(--markdown-code-block-font-size);
-  line-height: var(--markdown-code-block-line-height);
+  font-size: calc(var(--markdown-code-block-font-size) * var(--markdown-text-scale));
+  line-height: calc(var(--markdown-code-block-line-height) * var(--markdown-text-scale));
   font-weight: var(--markdown-code-block-font-weight);
   letter-spacing: var(--markdown-code-block-letter-spacing);
 }
@@ -827,9 +827,9 @@
   margin: var(--markdown-table-margin-y) 0;
   color: var(--markdown-table-color);
   font-family: var(--markdown-table-font-family);
-  font-size: var(--markdown-table-font-size);
+  font-size: calc(var(--markdown-table-font-size) * var(--markdown-text-scale));
   font-weight: var(--markdown-table-font-weight);
-  line-height: var(--markdown-table-line-height);
+  line-height: calc(var(--markdown-table-line-height) * var(--markdown-text-scale));
   letter-spacing: var(--markdown-table-letter-spacing);
 }
 

@@ -32,6 +32,7 @@ import { useGlobalOverlayActivity } from "@/lib/overlay-layers";
 import { useCanvasNodeGeometryModel } from "@/features/mermaid-editor/components/mermaid-editor/use-canvas-node-geometry-model";
 import { useCsvTableFileSync } from "@/features/mermaid-editor/components/mermaid-editor/use-csv-table-file-sync";
 import { normalizeFileWorkflowError } from "@/features/mermaid-editor/lib/file-workflow";
+import { clampMarkdownTextScale, markdownTextScalePercent } from "@/features/mermaid-editor/lib/markdown-text-scale";
 
 export function MermaidEditor() {
   useDisableNativeContextMenu();
@@ -563,7 +564,7 @@ export function MermaidEditor() {
             layoutMode={layoutMode}
             imageDisplaySrcBySrc={imageDisplaySrcBySrc}
             markdownDocumentPreviewByNodeId={markdownDocumentPreviewByNodeId}
-            markdownSpellcheckEnabled={preferences.markdownSpellcheckEnabled} markdownContentWidth={preferences.markdownContentWidth}
+            markdownSpellcheckEnabled={preferences.markdownSpellcheckEnabled} markdownContentWidth={preferences.markdownContentWidth} markdownTextScale={preferences.markdownTextScale}
             visualTokens={compiledTheme.canvasVisualTokens}
             geometryTokens={compiledTheme.geometry}
             typography={compiledTheme.typography}
@@ -599,13 +600,12 @@ export function MermaidEditor() {
           projectBusy={projectBusy} fileRef={fileRef}
           terminalCwd={terminalCwd} activeTheme={activeTheme} editingThemeId={editingThemeId}
           editingCustomTheme={editingCustomTheme} themeDraftDirty={themeDraftDirty}
-          terminalTheme={compiledTheme.terminalTheme}
-          detachedMarkdownWindows={detachedMarkdownWindows}
+          terminalTheme={compiledTheme.terminalTheme} detachedMarkdownWindows={detachedMarkdownWindows}
           markdownSpellcheckEnabled={preferences.markdownSpellcheckEnabled} markdownContentWidth={preferences.markdownContentWidth}
-          bringWorkspacePanelToFront={bringWorkspacePanelToFront}
-          workspacePanelStackPosition={workspacePanelStackPosition}
-          workspacePanelWindowState={workspacePanelWindowState}
-          setWorkspacePanelWindowState={setWorkspacePanelWindowState}
+          markdownTextScale={preferences.markdownTextScale} workspaceTitlebarAutoHide={preferences.workspaceTitlebarAutoHide}
+          onMarkdownTextScaleChange={(value) => { const markdownTextScale = clampMarkdownTextScale(value); updatePreferences({ ...preferences, markdownTextScale }, `Markdown 正文字号已设为 ${markdownTextScalePercent(markdownTextScale)}。`); }}
+          bringWorkspacePanelToFront={bringWorkspacePanelToFront} workspacePanelStackPosition={workspacePanelStackPosition}
+          workspacePanelWindowState={workspacePanelWindowState} setWorkspacePanelWindowState={setWorkspacePanelWindowState}
           closeWorkspacePanel={closeWorkspacePanel}
           hideThemeSettings={hideThemeSettings} discardThemeSettings={discardThemeSettings}
           applyThemeSettings={saveThemeSettings} previewTheme={previewTheme}
