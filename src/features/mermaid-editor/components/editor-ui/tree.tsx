@@ -1,5 +1,4 @@
 import { forwardRef, type ButtonHTMLAttributes, type HTMLAttributes } from "react";
-import { NavArrowRight } from "iconoir-react/regular";
 
 import { cn } from "@/lib/utils";
 
@@ -12,7 +11,7 @@ export const EditorTree = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivEleme
       ref={ref}
       role="tree"
       className={cn(
-        "grid min-w-0 overflow-x-hidden [--editor-tree-branch:0.375rem] [--editor-tree-indent:1.25rem] [--editor-tree-rail:-0.375rem] [--editor-tree-row-center:calc(var(--ui-control-height-sm)/2)]",
+        "grid min-w-0 overflow-x-hidden [--editor-tree-branch:0.75rem] [--editor-tree-indent:1.25rem] [--editor-tree-rail:-0.375rem] [--editor-tree-row-center:calc(var(--ui-control-height-sm)/2)]",
         className
       )}
       {...props}
@@ -51,33 +50,6 @@ export function EditorTreeGroup({ className, ...props }: HTMLAttributes<HTMLDivE
       className={cn("grid min-w-0 pl-[var(--editor-tree-indent)]", className)}
       {...props}
     />
-  );
-}
-
-export type EditorTreeDisclosureProps = Omit<HTMLAttributes<HTMLSpanElement>, "children"> & {
-  /** Omit for leaves so they retain the same fixed disclosure slot. */
-  expanded?: boolean;
-};
-
-export function EditorTreeDisclosure({ expanded, className, ...props }: EditorTreeDisclosureProps) {
-  const expandable = typeof expanded === "boolean";
-
-  return (
-    <span
-      aria-hidden="true"
-      data-tree-disclosure={expandable ? (expanded ? "expanded" : "collapsed") : "leaf"}
-      className={cn("grid size-4 shrink-0 place-items-center opacity-75", className)}
-      {...props}
-    >
-      {expandable ? (
-        <NavArrowRight
-          className={cn(
-            "size-3 transition-transform duration-150 motion-reduce:transition-none",
-            expanded && "rotate-90"
-          )}
-        />
-      ) : null}
-    </span>
   );
 }
 

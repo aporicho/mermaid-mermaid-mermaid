@@ -17,6 +17,7 @@ import type {
   RuntimeTerminalOpenResult,
   RuntimeTerminalShellOption
 } from "@/features/mermaid-editor/lib/editor-runtime/types";
+import type { RuntimeCreateProjectFileRequest, RuntimeCreateProjectFileResult, RuntimeMoveProjectFileRequest, RuntimeMoveProjectFileResult } from "@/features/mermaid-editor/lib/editor-runtime/project-file-types";
 import type { ProjectWorkspace } from "@/features/mermaid-editor/lib/project-workspace";
 import type {
   RuntimeCreateProjectTextFileResult,
@@ -82,6 +83,8 @@ export type ElectronBridge = {
     text: string;
   }) => Promise<ElectronCreateProjectDocumentResult>;
   createProjectTextFile: (request: { rootPath: string; fileName: string; kind: "csv"; text: string }) => Promise<RuntimeCreateProjectTextFileResult>;
+  createProjectFile: (request: RuntimeCreateProjectFileRequest) => Promise<RuntimeCreateProjectFileResult>;
+  moveProjectFile: (request: RuntimeMoveProjectFileRequest) => Promise<RuntimeMoveProjectFileResult>;
   readCsvFile: (request: { rootPath: string; path: string }) => Promise<RuntimeCsvFileSnapshot>;
   writeCsvFile: (request: { rootPath: string; path: string; text: string; expectedRevision: string }) => Promise<RuntimeWriteCsvFileResult>;
   pickImageAsset: (documentPath: string | null) => Promise<ElectronImageAsset | null>;

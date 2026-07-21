@@ -5,10 +5,12 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import {
   EditorDialog,
   EditorIconButton,
   EditorMenuToggleItem,
+  EditorPointMenu,
   EditorSegmentedControl,
   EditorSegmentedControlItem,
   EditorToolbar
@@ -80,5 +82,24 @@ describe("editor UI semantic components", () => {
     const closeButton = document.body.querySelector<HTMLButtonElement>('button[aria-label="关闭"]');
     act(() => closeButton?.click());
     expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+
+  it("provides a labelled point-anchored menu with standard menu items", () => {
+    act(() => {
+      root.render(
+        <EditorPointMenu
+          open
+          point={{ x: 120, y: 80 }}
+          onOpenChange={vi.fn()}
+          ariaLabel="资源操作"
+        >
+          <DropdownMenuItem>重命名</DropdownMenuItem>
+        </EditorPointMenu>
+      );
+    });
+
+    const menu = document.body.querySelector('[role="menu"]');
+    expect(menu?.getAttribute("aria-label")).toBe("资源操作");
+    expect(menu?.querySelector('[role="menuitem"]')?.textContent).toBe("重命名");
   });
 });

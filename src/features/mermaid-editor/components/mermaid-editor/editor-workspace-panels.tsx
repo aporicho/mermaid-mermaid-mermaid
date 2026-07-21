@@ -9,13 +9,13 @@ import { TerminalPanel } from "@/features/mermaid-editor/components/terminal-pan
 import { WorkspacePanelControls } from "@/features/mermaid-editor/components/workspace-panel-controls";
 import type { DocumentKind } from "@/features/mermaid-editor/lib/document-kind";
 import { EDITOR_CHROME_CLASSES } from "@/features/mermaid-editor/lib/editor-chrome";
-import type { EditorRuntime, RuntimeFileRef } from "@/features/mermaid-editor/lib/editor-runtime";
+import type { EditorRuntime, RuntimeFileRef, RuntimeProjectFileKind } from "@/features/mermaid-editor/lib/editor-runtime";
 import type { CanvasNode, MermaidGraph, Selection } from "@/features/mermaid-editor/lib/editor-types";
 import type { EditorTheme, EditorThemeId, XtermThemeTokens } from "@/features/mermaid-editor/lib/editor-theme";
 import type { FloatingPanelWindowState } from "@/features/mermaid-editor/lib/floating-chrome";
 import type { ExplorerWorkspaceTreeState } from "@/features/mermaid-editor/lib/explorer-tree-state";
 import type { EditorCommand } from "@/features/mermaid-editor/lib/interaction/commands";
-import type { ProjectFileEntry, ProjectWorkspace } from "@/features/mermaid-editor/lib/project-workspace";
+import type { ProjectFileEntry, ProjectResourceEntry, ProjectWorkspace } from "@/features/mermaid-editor/lib/project-workspace";
 import {
   WORKSPACE_PANEL_DEFAULT_SIZES,
   WORKSPACE_PANEL_MIN_SIZES,
@@ -64,6 +64,7 @@ type EditorWorkspacePanelsProps = {
   previewTheme: (themeId: EditorThemeId, customTheme: EditorTheme | null) => void;
   openProjectFolder: () => void | Promise<unknown>;
   refreshProjectWorkspace: () => void | Promise<unknown>;
+  createProjectFile: (request: { directoryPath: string; fileName: string; kind: RuntimeProjectFileKind }) => void | Promise<unknown>; moveProjectFile: (source: ProjectResourceEntry, targetDirectoryPath: string) => void | Promise<unknown>;
   openProjectFile: (file: ProjectFileEntry) => void | Promise<unknown>;
   openProjectMarkdownWindow: (file: ProjectFileEntry) => void | Promise<unknown>;
   onMarkdownDocumentPointerDrag: (file: ProjectFileEntry, point: { x: number; y: number }, phase: "move" | "drop" | "cancel") => void;
@@ -104,6 +105,7 @@ export function EditorWorkspacePanels({
   previewTheme,
   openProjectFolder,
   refreshProjectWorkspace,
+  createProjectFile, moveProjectFile,
   openProjectFile,
   openProjectMarkdownWindow,
   onMarkdownDocumentPointerDrag,
@@ -144,6 +146,7 @@ export function EditorWorkspacePanels({
           projectBusy={projectBusy}
           onOpenProject={() => void openProjectFolder()}
           onRefreshProject={() => void refreshProjectWorkspace()}
+          onCreateProjectFile={(request) => void createProjectFile(request)} onMoveProjectFile={(source, targetDirectoryPath) => void moveProjectFile(source, targetDirectoryPath)}
           onOpenProjectFile={(file) => void openProjectFile(file)}
           onOpenProjectMarkdownWindow={(file) => void openProjectMarkdownWindow(file)}
           onMarkdownDocumentPointerDrag={onMarkdownDocumentPointerDrag}

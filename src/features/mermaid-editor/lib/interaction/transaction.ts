@@ -247,6 +247,18 @@ export function applyEditorCommandTransaction(state: EditorTransactionState, com
     );
   }
 
+  if (command.type === "graph.updateNodeActions") {
+    const actions = new Map(command.updates.map((update) => [update.nodeId, update.action]));
+    const nodes = state.graph.nodes.map((node) => {
+      const action = actions.get(node.id);
+      return action && action !== node.action ? { ...node, action } : node;
+    });
+    const graph = nodes.some((node, index) => node !== state.graph.nodes[index])
+      ? { ...state.graph, nodes }
+      : state.graph;
+    return commitGraphState({ ...state, graph }, command.message || "已更新文件链接。");
+  }
+
   if (command.type === "graph.updateNodeFill") {
     return commitGraphState(
       {

@@ -36,6 +36,13 @@ export type {
   RuntimeTerminalShellOption
 } from "@/features/mermaid-editor/lib/editor-runtime/types";
 export type {
+  RuntimeCreateProjectFileRequest,
+  RuntimeCreateProjectFileResult,
+  RuntimeMoveProjectFileRequest,
+  RuntimeMoveProjectFileResult,
+  RuntimeProjectFileKind
+} from "@/features/mermaid-editor/lib/editor-runtime/project-file-types";
+export type {
   RuntimeCreateProjectTextFileResult,
   RuntimeCsvFileOperations,
   RuntimeCsvFileSnapshot,

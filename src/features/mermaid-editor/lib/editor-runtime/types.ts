@@ -5,6 +5,7 @@ import type { DocumentKind } from "@/features/mermaid-editor/lib/document-kind";
 import type { EmbeddedBrowserLogicalRect } from "@/features/mermaid-editor/lib/embedded-browser-rect";
 import type { RuntimeLinkPreviewRequest, RuntimeLinkPreviewResult } from "@/features/mermaid-editor/lib/editor-runtime/link-preview-types";
 import type { RuntimeCsvFileOperations } from "@/features/mermaid-editor/lib/editor-runtime/csv-file-types";
+import type { RuntimeCreateProjectFileRequest, RuntimeCreateProjectFileResult, RuntimeMoveProjectFileRequest, RuntimeMoveProjectFileResult } from "@/features/mermaid-editor/lib/editor-runtime/project-file-types";
 import type { ProjectWorkspace } from "@/features/mermaid-editor/lib/project-workspace";
 export type { RuntimeLinkPreviewRequest, RuntimeLinkPreviewResult } from "@/features/mermaid-editor/lib/editor-runtime/link-preview-types";
 
@@ -12,10 +13,7 @@ export type EditorDraftState = Record<string, unknown>;
 
 export type RuntimeSystemFont = { family: string; monospace: boolean };
 
-export type BrowserWritableFile = {
-  write: (data: string) => Promise<void>;
-  close: () => Promise<void>;
-};
+export type BrowserWritableFile = { write: (data: string) => Promise<void>; close: () => Promise<void> };
 
 export type BrowserFileHandle = {
   name: string;
@@ -206,6 +204,8 @@ export type EditorRuntime = RuntimeCsvFileOperations & {
   ) => Promise<RuntimeSaveFileResult>;
   saveFileAs: (documentText: string, suggestedName: string, documentKind: DocumentKind) => Promise<RuntimeSaveFileResult>;
   createProjectDocument: (request: { rootPath: string; fileName: string; documentKind: DocumentKind; text: string }) => Promise<RuntimeCreateProjectDocumentResult>;
+  createProjectFile: (request: RuntimeCreateProjectFileRequest) => Promise<RuntimeCreateProjectFileResult>;
+  moveProjectFile: (request: RuntimeMoveProjectFileRequest) => Promise<RuntimeMoveProjectFileResult>;
   pickImageAsset: (file: RuntimeFileRef | null) => Promise<RuntimeImageAssetResult>;
   importImageAssetPath: (file: RuntimeFileRef | null, path: string) => Promise<RuntimeImageAssetResult>;
   importImageAssetFile: (file: RuntimeFileRef | null, image: File) => Promise<RuntimeImageAssetResult>;

@@ -125,6 +125,8 @@ export function createWebRuntime(): EditorRuntime {
         message: "网页版无法在项目文件夹中创建 Markdown 文档，请使用 Electron 桌面版。"
       };
     },
+    async createProjectFile() { return { status: "unsupported", message: "网页版无法在项目文件夹中创建文件，请使用 Electron 桌面版。" }; },
+    async moveProjectFile() { return { status: "unsupported", message: "网页版无法移动项目文件，请使用 Electron 桌面版。" }; },
     async pickImageAsset() {
       return {
         status: "unsupported",

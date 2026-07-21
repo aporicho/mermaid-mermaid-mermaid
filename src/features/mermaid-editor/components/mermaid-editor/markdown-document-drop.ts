@@ -63,6 +63,15 @@ export function createMarkdownDocumentDropHandlers({
     });
   }
 
+  function isPointOnWorkspaceSurface(point: { x: number; y: number }) {
+    const surface = workspaceSurfaceRef.current;
+    if (!surface) return false;
+    const bounds = surface.getBoundingClientRect();
+    if (point.x < bounds.left || point.x > bounds.right || point.y < bounds.top || point.y > bounds.bottom) return false;
+    const hitTarget = document.elementFromPoint(point.x, point.y);
+    return hitTarget === surface || (hitTarget !== null && surface.contains(hitTarget));
+  }
+
   return {
     enter(event: DragEvent<HTMLElement>) {
       if (!isMarkdownDrag(event)) return external.enter(event);
@@ -135,17 +144,22 @@ export function createMarkdownDocumentDropHandlers({
         return;
       }
       if (phase === "move") {
+        if (!isPointOnWorkspaceSurface(point)) {
+          setFileDropFeedback(null);
+          return;
+        }
         showMarkdownDropFeedback(point);
         return;
       }
 
       setFileDropFeedback(null);
+      if (!isPointOnWorkspaceSurface(point)) return;
       if (!isCanvasEditable || workspaceView !== "canvas") {
         setStatus("请切换到可编辑 Mermaid 画布后再添加 Markdown 文档。");
         return;
       }
       const bounds = workspaceSurfaceRef.current?.getBoundingClientRect();
-      if (!bounds || point.x < bounds.left || point.x > bounds.right || point.y < bounds.top || point.y > bounds.bottom) return;
+      if (!bounds) return;
       addProjectMarkdownFile(file, canvasWorldPointFromClient(point, bounds, viewport), "pointer");
     }
   };

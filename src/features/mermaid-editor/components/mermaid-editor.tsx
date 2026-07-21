@@ -20,6 +20,7 @@ import { useEditorWorkspacePanelActions } from "@/features/mermaid-editor/compon
 import { useEditorWindowActions } from "@/features/mermaid-editor/components/mermaid-editor/use-editor-window-actions";
 import { useMarkdownDocumentPreviews } from "@/features/mermaid-editor/components/mermaid-editor/use-markdown-document-previews";
 import { useLinkedProjectDocuments } from "@/features/mermaid-editor/components/mermaid-editor/use-linked-project-documents";
+import { useProjectFileActions } from "@/features/mermaid-editor/components/mermaid-editor/use-project-file-actions";
 import { createMarkdownDocumentDropHandlers } from "@/features/mermaid-editor/components/mermaid-editor/markdown-document-drop";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { loadInitialState } from "@/features/mermaid-editor/lib/editor-state";
@@ -27,7 +28,7 @@ import { createEditorRuntime } from "@/features/mermaid-editor/lib/editor-runtim
 import type { EditorSnapshot } from "@/features/mermaid-editor/lib/editor-types";
 import { EditorMotionProvider } from "@/features/mermaid-editor/lib/use-gsap-motion";
 import { useDisableNativeContextMenu } from "@/features/mermaid-editor/lib/native-context-menu";
-import { useWorkspacePanels, type DetachedMarkdownWindow } from "@/features/mermaid-editor/lib/workspace-panels";
+import { markdownWindowPanelId, useWorkspacePanels, type DetachedMarkdownWindow } from "@/features/mermaid-editor/lib/workspace-panels";
 import { useGlobalOverlayActivity } from "@/lib/overlay-layers";
 import { useCanvasNodeGeometryModel } from "@/features/mermaid-editor/components/mermaid-editor/use-canvas-node-geometry-model";
 import { useCsvTableFileSync } from "@/features/mermaid-editor/components/mermaid-editor/use-csv-table-file-sync";
@@ -366,7 +367,7 @@ export function MermaidEditor() {
     applyEditorCommand,
     recordRecentAction
   });
-
+  const { createProjectFile, moveProjectFile } = useProjectFileActions({ runtime, projectWorkspace, fileRef, graph, detachedMarkdownWindows, setProjectBusy, setFileRef, setFileName, setRecentFiles, setDetachedMarkdownWindows, refreshProjectWorkspace, openProjectFile, beforeMove: flushLinkedFileWrites, applyEditorCommand, onDetachedMarkdownWindowMoved: (sourceFile, targetFile) => { const sourcePanelId = markdownWindowPanelId(sourceFile); const targetPanelId = markdownWindowPanelId(targetFile); const windowState = workspacePanelWindowState(sourcePanelId); removeWorkspacePanel(sourcePanelId); bringWorkspacePanelToFront(targetPanelId); setWorkspacePanelWindowState(targetPanelId, windowState); }, setStatus, showFileWorkflowError });
   const { markdownDocuments, csvTables } = useLinkedProjectDocuments({
     runtime, graph, viewport, canvasLiveState, projectWorkspace, applyEditorCommand,
     refreshProjectWorkspace, setStatus, showFileWorkflowError,
@@ -609,7 +610,7 @@ export function MermaidEditor() {
           hideThemeSettings={hideThemeSettings} discardThemeSettings={discardThemeSettings}
           applyThemeSettings={saveThemeSettings} previewTheme={previewTheme}
           openProjectFolder={openProjectFolder} refreshProjectWorkspace={refreshProjectWorkspace}
-          openProjectFile={openProjectFile}
+          createProjectFile={createProjectFile} moveProjectFile={moveProjectFile} openProjectFile={openProjectFile}
           openProjectMarkdownWindow={openProjectMarkdownWindow} onMarkdownDocumentPointerDrag={markdownDocumentDrop.pointer}
           applyEditorCommand={applyEditorCommand}
           executeCanvasNodeAction={executeCanvasNodeAction}

@@ -93,6 +93,8 @@ export function createElectronRuntime(): EditorRuntime {
         text: result.text
       };
     },
+    async createProjectFile(request) { return bridge.createProjectFile(request); },
+    async moveProjectFile(request) { return bridge.moveProjectFile(request); },
     async pickImageAsset(file) {
       if (!file?.path) return { status: "needs-document" };
       const asset = await bridge.pickImageAsset(file.path);

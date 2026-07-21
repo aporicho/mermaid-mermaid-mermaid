@@ -72,6 +72,7 @@ export type EditorCommand =
   | { type: "graph.renameSubgraph"; subgraphId: string; value: string; source: GraphCommandSource }
   | { type: "graph.updateNode"; nodeId: string; patch: Partial<Pick<CanvasNode, "label" | "fill" | "shape" | "asset" | "action" | "preview" | "content">>; message?: string; source: GraphCommandSource }
   | { type: "graph.updateNodes"; nodeIds: string[]; patch: CanvasNodeBatchPatch; message?: string; source: GraphCommandSource }
+  | { type: "graph.updateNodeActions"; updates: { nodeId: string; action: CanvasNodeAction }[]; message?: string; source: GraphCommandSource }
   | { type: "graph.updateNodeFill"; nodeIds: string[]; fill: string; source: GraphCommandSource }
   | {
       type: "graph.updateEdge";

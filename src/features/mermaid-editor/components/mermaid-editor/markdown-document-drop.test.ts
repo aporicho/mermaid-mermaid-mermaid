@@ -8,21 +8,25 @@ function createHandlers(addProjectMarkdownFile = vi.fn()) {
   const external = {
     enter: vi.fn(), over: vi.fn(), leave: vi.fn(), drop: vi.fn(), runtime: vi.fn()
   };
+  const workspaceSurface = {
+    getBoundingClientRect: () => ({ left: 100, top: 50, right: 1100, bottom: 750 }),
+    contains: vi.fn(() => false)
+  };
+  const setFileDropFeedback = vi.fn();
+  vi.stubGlobal("document", { elementFromPoint: vi.fn(() => workspaceSurface) });
   const handlers = createMarkdownDocumentDropHandlers({
     isCanvasEditable: true,
     workspaceView: "canvas",
     viewport: { x: 20, y: 10, scale: 2 },
-    workspaceSurfaceRef: {
-      current: { getBoundingClientRect: () => ({ left: 100, top: 50, right: 1100, bottom: 750 }) }
-    } as unknown as RefObject<HTMLDivElement>,
+    workspaceSurfaceRef: { current: workspaceSurface } as unknown as RefObject<HTMLDivElement>,
     addProjectMarkdownFile,
     setStatus: vi.fn(),
-    setFileDropFeedback: vi.fn(),
+    setFileDropFeedback,
     usesRuntimeFileDrops: true,
     projectWorkspace: null,
     external
   });
-  return { handlers, addProjectMarkdownFile, external };
+  return { handlers, addProjectMarkdownFile, external, setFileDropFeedback, workspaceSurface };
 }
 
 describe("Markdown document drops", () => {
@@ -69,5 +73,18 @@ describe("Markdown document drops", () => {
     handlers.pointer(file, { x: 320, y: 240 }, "drop");
 
     expect(addProjectMarkdownFile).toHaveBeenCalledWith(file, { x: 100, y: 90 }, "pointer");
+  });
+
+  it("does not drop through a floating panel that covers the workspace surface", () => {
+    const file = { name: "spec.md", path: "/repo/spec.md", relativePath: "spec.md" };
+    const { handlers, addProjectMarkdownFile, setFileDropFeedback } = createHandlers();
+    const floatingPanel = {};
+    vi.stubGlobal("document", { elementFromPoint: vi.fn(() => floatingPanel) });
+
+    handlers.pointer(file, { x: 320, y: 240 }, "move");
+    handlers.pointer(file, { x: 320, y: 240 }, "drop");
+
+    expect(setFileDropFeedback).toHaveBeenLastCalledWith(null);
+    expect(addProjectMarkdownFile).not.toHaveBeenCalled();
   });
 });

@@ -30,6 +30,16 @@ function electronBridge(): ElectronBridge {
       file: { name: "table.csv", path: "/tmp/table.csv" },
       text: "A\r\n"
     })),
+    createProjectFile: vi.fn(() => Promise.resolve({
+      status: "created" as const,
+      file: { name: "notes.md", path: "/tmp/docs/notes.md" },
+      text: "# Notes\n"
+    })),
+    moveProjectFile: vi.fn(() => Promise.resolve({
+      status: "moved" as const,
+      file: { name: "notes.md", path: "/tmp/archive/notes.md" },
+      sourcePath: "/tmp/docs/notes.md"
+    })),
     readCsvFile: vi.fn(() => Promise.resolve({
       file: { name: "table.csv", path: "/tmp/table.csv" },
       text: "A\r\n1",
@@ -114,5 +124,25 @@ describe("createEditorRuntime", () => {
     await expect(runtime.readCsvFile({ rootPath: "/tmp", file })).resolves.toMatchObject({ status: "unsupported" });
     await expect(runtime.writeCsvFile({ rootPath: "/tmp", file, text: "A", expectedRevision: "abc" })).resolves.toMatchObject({ status: "unsupported" });
     await expect(runtime.createProjectTextFile({ rootPath: "/tmp", fileName: "table.csv", kind: "csv", text: "A" })).resolves.toMatchObject({ status: "unsupported" });
+  });
+
+  it("forwards generic project file creation and movement to Electron", async () => {
+    const bridge = electronBridge();
+    window.mmmElectron = bridge;
+    const runtime = createEditorRuntime();
+    const createRequest = { rootPath: "/tmp", directoryPath: "/tmp/docs", fileName: "notes.md", kind: "markdown" as const, text: "# Notes\n" };
+    const moveRequest = { rootPath: "/tmp", sourcePath: "/tmp/docs/notes.md", targetDirectoryPath: "/tmp/archive" };
+
+    await expect(runtime.createProjectFile(createRequest)).resolves.toMatchObject({ status: "created" });
+    await expect(runtime.moveProjectFile(moveRequest)).resolves.toMatchObject({ status: "moved" });
+    expect(bridge.createProjectFile).toHaveBeenCalledWith(createRequest);
+    expect(bridge.moveProjectFile).toHaveBeenCalledWith(moveRequest);
+  });
+
+  it("keeps generic project file mutation unsupported on the web", async () => {
+    const runtime = createEditorRuntime();
+
+    await expect(runtime.createProjectFile({ rootPath: "/tmp", directoryPath: "", fileName: "notes.md", kind: "markdown", text: "" })).resolves.toMatchObject({ status: "unsupported" });
+    await expect(runtime.moveProjectFile({ rootPath: "/tmp", sourcePath: "notes.md", targetDirectoryPath: "archive" })).resolves.toMatchObject({ status: "unsupported" });
   });
 });

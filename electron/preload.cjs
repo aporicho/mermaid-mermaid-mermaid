@@ -55,6 +55,12 @@ contextBridge.exposeInMainWorld("mmmElectron", {
   createProjectTextFile(request) {
     return ipcRenderer.invoke("mmm:project:create-text-file", request);
   },
+  createProjectFile(request) {
+    return ipcRenderer.invoke("mmm:project:create-file", request);
+  },
+  moveProjectFile(request) {
+    return ipcRenderer.invoke("mmm:project:move-file", request);
+  },
   readCsvFile(request) {
     return ipcRenderer.invoke("mmm:csv:read", request);
   },

@@ -5,5 +5,6 @@ export * from "./icon-button";
 export * from "./list";
 export * from "./menu";
 export * from "./panel";
+export * from "./point-menu";
 export * from "./toolbar";
 export * from "./tree";

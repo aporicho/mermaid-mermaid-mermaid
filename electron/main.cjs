@@ -13,7 +13,7 @@ const {
 } = require("./image-assets.cjs");
 const { createAiBridge } = require("./ai-bridge.cjs");
 const { resolveLinkPreview } = require("./link-preview.cjs");
-const { createProjectDocument, createProjectTextFile } = require("./project-documents.cjs");
+const { createProjectDocument, createProjectFile, createProjectTextFile, moveProjectFile } = require("./project-documents.cjs");
 const { readProjectCsvFile, writeProjectCsvFile } = require("./project-csv.cjs");
 const { createTerminalManager } = require("./terminal.cjs");
 const { listSystemFonts } = require("./system-fonts.cjs");
@@ -228,6 +228,8 @@ function registerIpc() {
   ipcMain.handle("mmm:file:save-as", (event, request) => saveFileDialog(BrowserWindow.fromWebContents(event.sender), request?.suggestedName, request?.text));
   ipcMain.handle("mmm:project:create-document", (_event, request) => createProjectDocument(request));
   ipcMain.handle("mmm:project:create-text-file", (_event, request) => createProjectTextFile(request));
+  ipcMain.handle("mmm:project:create-file", (_event, request) => createProjectFile(request));
+  ipcMain.handle("mmm:project:move-file", (_event, request) => moveProjectFile(request));
   ipcMain.handle("mmm:csv:read", (_event, request) => readProjectCsvFile(request));
   ipcMain.handle("mmm:csv:write", (_event, request) => writeProjectCsvFile(request));
   ipcMain.handle("mmm:image:pick", (event, documentPath) => pickImageAssetDialog(BrowserWindow.fromWebContents(event.sender), documentPath));

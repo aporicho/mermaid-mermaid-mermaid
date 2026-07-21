@@ -24,11 +24,7 @@ import { runtimeFileRefFromPath } from "@/features/mermaid-editor/lib/file-workf
 import type { ProjectWorkspace } from "@/features/mermaid-editor/lib/project-workspace";
 import { createUnsupportedCsvFileOperations } from "@/features/mermaid-editor/lib/editor-runtime/unsupported-csv-file";
 
-type DesktopOpenedFile = {
-  name: string;
-  path: string;
-  text: string;
-};
+type DesktopOpenedFile = { name: string; path: string; text: string };
 type DesktopSavedFile = { name: string; path: string };
 type DesktopPendingFile = {
   name: string;
@@ -165,7 +161,9 @@ export function createDesktopRuntime(): EditorRuntime {
         file: { name: saved.name, path: saved.path }
       };
     },
-  async createProjectDocument() { return { status: "unsupported", message: "旧 Tauri 桌面壳暂不支持从画布新建项目文档，请使用 Electron 桌面版。" }; },
+    async createProjectDocument() { return { status: "unsupported", message: "旧 Tauri 桌面壳暂不支持从画布新建项目文档，请使用 Electron 桌面版。" }; },
+    async createProjectFile() { return { status: "unsupported", message: "旧 Tauri 桌面壳暂不支持创建项目文件，请使用 Electron 桌面版。" }; },
+    async moveProjectFile() { return { status: "unsupported", message: "旧 Tauri 桌面壳暂不支持移动项目文件，请使用 Electron 桌面版。" }; },
     async pickImageAsset(file) {
       if (!file?.path) return { status: "needs-document" };
       const asset = await tauriInvoke<DesktopImageAsset | null>("pick_image_asset", { documentPath: file.path });

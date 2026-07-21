@@ -372,6 +372,28 @@ describe("editor command transaction", () => {
     expect(result.state.graph).toEqual(tableState.graph);
   });
 
+  it("updates several file actions in one committed source sync", () => {
+    const result = applyEditorCommandTransaction(state, {
+      type: "graph.updateNodeActions",
+      updates: [
+        { nodeId: "A", action: { kind: "file", path: "archive/spec.md", openMode: "app-window" } },
+        { nodeId: "B", action: { kind: "file", path: "archive/spec.md", openMode: "app-window" } }
+      ],
+      message: "已更新移动文件的节点链接。",
+      source: "api"
+    });
+
+    expect(result.state.graph.nodes.map((node) => node.action?.kind === "file" ? node.action.path : null)).toEqual([
+      "archive/spec.md",
+      "archive/spec.md"
+    ]);
+    expect(result.effect).toMatchObject({
+      history: "push",
+      sourceSync: "commit",
+      status: "已更新移动文件的节点链接。"
+    });
+  });
+
   it("drafts node positions without history or source sync", () => {
     const result = applyEditorCommandTransaction(state, {
       type: "graph.draftNodePositions",
