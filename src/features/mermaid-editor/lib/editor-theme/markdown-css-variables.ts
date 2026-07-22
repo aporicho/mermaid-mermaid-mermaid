@@ -5,6 +5,8 @@ export function markdownToCssVariables(theme: EditorTheme): Record<string, strin
   return {
     "--markdown-layout-padding-x": px(markdown.layout.paddingX),
     "--markdown-layout-padding-y": px(markdown.layout.paddingY),
+    "--markdown-list-marker-width": px(markdown.layout.listMarkerWidth),
+    "--markdown-list-marker-gap": px(markdown.layout.listMarkerGap),
     "--markdown-task-checkbox-placeholder-width": px(markdown.layout.taskCheckboxPlaceholderWidth),
     "--markdown-heading-stack-spacing": px(markdown.layout.headingStackSpacing),
     "--markdown-font-body": markdown.body.fontFamily,

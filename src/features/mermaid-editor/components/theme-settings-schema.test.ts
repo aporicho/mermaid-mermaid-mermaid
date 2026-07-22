@@ -39,6 +39,8 @@ describe("theme settings schema", () => {
     expect(paths).toContain("image.borderStyle");
     expect(paths).toContain("list.task.checkboxBorderStyle");
     expect(paths).toContain("layout.headingStackSpacing");
+    expect(paths).toContain("layout.listMarkerWidth");
+    expect(paths).toContain("layout.listMarkerGap");
     expect(paths).toContain("list.unordered.marginTop");
     expect(paths).toContain("list.unordered.marginBottom");
     expect(paths).toContain("list.unordered.nestedSpacing");

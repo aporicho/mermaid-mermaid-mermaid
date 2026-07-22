@@ -90,6 +90,8 @@ export type MarkdownThemeTokens = {
   layout: {
     paddingX: number;
     paddingY: number;
+    listMarkerWidth: number;
+    listMarkerGap: number;
     taskCheckboxPlaceholderWidth: number;
     headingStackSpacing: number;
   };

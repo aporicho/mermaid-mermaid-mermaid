@@ -36,6 +36,22 @@ describe("Markdown style contract", () => {
     expect(css).not.toContain("--markdown-task-list-marker-color");
   });
 
+  it("keeps every top-level list flush and reserves indent tokens for nested levels", () => {
+    expect(cssRule(".markdown-editor-panel .milkdown .ProseMirror ul")).toContain("padding-left: 0");
+    expect(cssRule(".markdown-editor-panel .milkdown .ProseMirror ol")).toContain("padding-left: 0");
+    expect(cssRuleGroup('.markdown-editor-panel .milkdown .ProseMirror ul:has(> li[data-item-type="task"])')).toContain("padding-left: 0");
+    expect(cssRule(".markdown-editor-panel .milkdown .ProseMirror :is(ul, ol) ul")).toContain("padding-left: var(--markdown-unordered-list-indent)");
+    expect(cssRule(".markdown-editor-panel .milkdown .ProseMirror :is(ul, ol) ol")).toContain("padding-left: var(--markdown-ordered-list-indent)");
+    expect(cssRuleGroup('.markdown-editor-panel .milkdown .ProseMirror :is(ul, ol) ul:has(> li[data-item-type="task"])')).toContain("padding-left: var(--markdown-task-list-indent)");
+  });
+
+  it("replaces Crepe's fixed list marker geometry with Markdown layout tokens", () => {
+    expect(cssRule(".markdown-editor-panel .milkdown .milkdown-list-item-block li")).toContain("gap: var(--markdown-list-marker-gap)");
+    const marker = cssRule(".markdown-editor-panel .milkdown .milkdown-list-item-block li > .label-wrapper");
+    expect(marker).toContain("width: var(--markdown-list-marker-width)");
+    expect(marker).toContain("flex: 0 0 var(--markdown-list-marker-width)");
+  });
+
   it("applies the exposed inline code typography scale", () => {
     const rule = cssRule(".markdown-editor-panel .milkdown .ProseMirror :not(pre) > code");
     expect(rule).toContain("font-size: calc(var(--markdown-inline-code-font-size) * var(--markdown-text-scale))");
@@ -89,8 +105,8 @@ describe("Markdown style contract", () => {
     }
 
     expect(css).toContain("width: var(--markdown-task-list-checkbox-size)");
-    expect(css).toContain("padding-left: var(--markdown-unordered-list-indent)");
-    expect(css).toContain("padding-left: var(--markdown-ordered-list-indent)");
+    expect(cssRule(".markdown-editor-panel .milkdown .ProseMirror ul")).toContain("padding-left: 0");
+    expect(cssRule(".markdown-editor-panel .milkdown .ProseMirror ol")).toContain("padding-left: 0");
     expect(css).toContain("padding: var(--markdown-blockquote-padding-y) var(--markdown-blockquote-padding-x)");
     expect(css).toContain("padding: var(--markdown-code-block-padding-y) var(--markdown-code-block-padding-x)");
     expect(css).toContain("padding: var(--markdown-table-cell-padding-y) var(--markdown-table-cell-padding-x)");
@@ -114,19 +130,21 @@ describe("Markdown style contract", () => {
 
   it("lets headings control adjacent section spacing and closes the document boundaries", () => {
     const headingThenContent = cssRule(
-      ".markdown-editor-panel .milkdown .ProseMirror > :is(h1, h2, h3, h4, h5, h6) + :is(p, ul, ol, blockquote, pre, .milkdown-code-block, .milkdown-table-block, hr, .milkdown-image-block)"
+      ".markdown-editor-panel .milkdown .ProseMirror > :is(h1, h2, h3, h4, h5, h6) + :not(:is(h1, h2, h3, h4, h5, h6))"
     );
     const contentThenHeading = cssRule(
-      ".markdown-editor-panel .milkdown .ProseMirror > :is(p, ul, ol, blockquote, pre, .milkdown-code-block, .milkdown-table-block, hr, .milkdown-image-block):has(+ :is(h1, h2, h3, h4, h5, h6))"
-    );
-    const headingThenHeading = cssRule(
-      ".markdown-editor-panel .milkdown .ProseMirror > :is(h1, h2, h3, h4, h5, h6) + :is(h1, h2, h3, h4, h5, h6)"
+      ".markdown-editor-panel .milkdown .ProseMirror > :not(:is(h1, h2, h3, h4, h5, h6)):has(+ :is(h1, h2, h3, h4, h5, h6))"
     );
 
     expect(headingThenContent).toContain("margin-top: 0");
     expect(contentThenHeading).toContain("margin-bottom: 0");
     expect(cssRule(".markdown-editor-panel .milkdown .ProseMirror > :is(h1, h2, h3, h4, h5, h6):has(+ :is(h1, h2, h3, h4, h5, h6))")).toContain("margin-bottom: 0");
-    expect(headingThenHeading).toContain("margin-top: calc(var(--markdown-heading-stack-spacing) * var(--markdown-text-scale))");
+    for (const level of ["h1", "h2", "h3", "h4", "h5", "h6"]) {
+      const stackedHeading = cssRule(`.markdown-editor-panel .milkdown .ProseMirror > :is(h1, h2, h3, h4, h5, h6) + ${level}`);
+      expect(stackedHeading).toContain("margin-top: max(");
+      expect(stackedHeading).toContain("var(--markdown-heading-stack-spacing)");
+      expect(stackedHeading).toContain(`var(--markdown-${level}-margin-bottom)`);
+    }
     expect(cssRule(".markdown-editor-panel .milkdown .ProseMirror > :first-child")).toContain("margin-top: 0");
     expect(cssRule(".markdown-editor-panel .milkdown .ProseMirror > :last-child")).toContain("margin-bottom: 0");
   });
@@ -136,9 +154,14 @@ describe("Markdown style contract", () => {
     expect(css).toContain(".markdown-editor-panel .milkdown .ProseMirror ol > li + li,");
     expect(css).toContain(".milkdown-list-item-block + .milkdown-list-item-block > .list-item");
     expect(css).not.toMatch(/margin-block:\s*var\(--markdown-(?:unordered|ordered|task)-list-item-spacing\)/);
-    expect(cssRule(".markdown-editor-panel .milkdown .ProseMirror :is(ul, ol) ul")).toContain("var(--markdown-unordered-list-nested-spacing)");
-    expect(cssRule(".markdown-editor-panel .milkdown .ProseMirror :is(ul, ol) ol")).toContain("var(--markdown-ordered-list-nested-spacing)");
+    const nestedUnordered = cssRule(".markdown-editor-panel .milkdown .ProseMirror :is(ul, ol) ul");
+    const nestedOrdered = cssRule(".markdown-editor-panel .milkdown .ProseMirror :is(ul, ol) ol");
+    expect(nestedUnordered).toContain("var(--markdown-unordered-list-nested-spacing)");
+    expect(nestedUnordered).toContain("padding-left: var(--markdown-unordered-list-indent)");
+    expect(nestedOrdered).toContain("var(--markdown-ordered-list-nested-spacing)");
+    expect(nestedOrdered).toContain("padding-left: var(--markdown-ordered-list-indent)");
     expect(css).toContain("var(--markdown-task-list-nested-spacing)");
+    expect(css).toContain("padding-left: var(--markdown-task-list-indent)");
     expect(css).toContain(".ProseMirror li > p:has(+ :is(ul, ol)),");
     expect(css).toContain(".milkdown-list-item-block .list-item > .children > p:has(+ :is(ul, ol))");
   });
@@ -157,6 +180,8 @@ describe("Markdown style contract", () => {
     expect(css).toContain("var(--markdown-image-border-width) var(--markdown-image-border-style) var(--markdown-image-border-color)");
     expect(css).toContain("var(--markdown-task-list-checkbox-border-style)");
     expect(css).toContain("var(--markdown-task-checkbox-placeholder-width)");
+    expect(css).toContain("var(--markdown-list-marker-width)");
+    expect(css).toContain("var(--markdown-list-marker-gap)");
   });
 });
 
@@ -164,5 +189,13 @@ function cssRule(selector: string) {
   const start = css.indexOf(`${selector} {`);
   expect(start).toBeGreaterThanOrEqual(0);
   const end = css.indexOf("}\n", start);
+  return css.slice(start, end + 1);
+}
+
+function cssRuleGroup(firstSelector: string) {
+  const start = css.indexOf(firstSelector);
+  expect(start).toBeGreaterThanOrEqual(0);
+  const bodyStart = css.indexOf("{", start);
+  const end = css.indexOf("}\n", bodyStart);
   return css.slice(start, end + 1);
 }

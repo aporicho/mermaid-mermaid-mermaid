@@ -22,6 +22,8 @@ export type DetachedMarkdownWindow = {
   savedValue: string;
 };
 
+export const MARKDOWN_WINDOW_A4_SIZE = { width: 525, height: 742.5 } as const;
+
 const DEFAULT_WORKSPACE_PANEL_STACK: WorkspaceFloatingPanelId[] = ["explorer", "inspector", "terminal", "theme"];
 const DEFAULT_WORKSPACE_PANEL_WINDOW_STATES: Record<StaticWorkspacePanelId, FloatingPanelWindowState> = {
   explorer: "normal",
@@ -35,7 +37,7 @@ export const WORKSPACE_PANEL_DEFAULT_SIZES: Record<StaticWorkspacePanelId | "mar
   inspector: { width: 360, height: 640 },
   terminal: { width: 860, height: 320 },
   theme: { width: 620, height: 720 },
-  markdown: { width: 760, height: 640 }
+  markdown: MARKDOWN_WINDOW_A4_SIZE
 };
 
 export const WORKSPACE_PANEL_MIN_SIZES: Record<StaticWorkspacePanelId | "markdown", { width: number; height: number }> = {

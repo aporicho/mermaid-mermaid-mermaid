@@ -62,17 +62,17 @@ describe("editor theme", () => {
     });
     expect(theme.markdown.body.fontFamily).toContain("Noto Sans SC Variable");
     expect(theme.markdown.body.fontFamily).not.toContain("方正屏显雅宋简体");
-    expect(theme.markdown.heading.h1).toMatchObject({ fontSize: 24, lineHeight: 27.2, marginTop: 32, marginBottom: 12 });
+    expect(theme.markdown.heading.h1).toMatchObject({ fontSize: 24, lineHeight: 27.2, marginTop: 40, marginBottom: 20 });
     expect(theme.markdown.heading.h6).toMatchObject({ fontSize: 14, lineHeight: 20, fontWeight: 600 });
-    expect(theme.markdown.layout.headingStackSpacing).toBe(8);
+    expect(theme.markdown.layout).toMatchObject({ headingStackSpacing: 8, listMarkerWidth: 24, listMarkerGap: 8 });
     expect(theme.markdown.list.unordered).toMatchObject({ marginTop: 12, marginBottom: 16, itemSpacing: 4, nestedSpacing: 8 });
-    expect(theme.markdown.blockquote).toMatchObject({ marginTop: 16, marginBottom: 16 });
-    expect(theme.markdown.codeBlock).toMatchObject({ marginTop: 16, marginBottom: 16 });
-    expect(theme.markdown.table).toMatchObject({ marginTop: 16, marginBottom: 24 });
+    expect(theme.markdown.blockquote).toMatchObject({ marginTop: 16, marginBottom: 20 });
+    expect(theme.markdown.codeBlock).toMatchObject({ marginTop: 20, marginBottom: 20 });
+    expect(theme.markdown.table).toMatchObject({ marginTop: 20, marginBottom: 24 });
     expect(theme.markdown.divider).toMatchObject({ marginTop: 32, marginBottom: 32 });
-    expect(theme.markdown.image).toMatchObject({ marginTop: 16, marginBottom: 16 });
+    expect(theme.markdown.image).toMatchObject({ marginTop: 24, marginBottom: 24 });
     expect(theme.markdown.link).toMatchObject({ color: "#d97757", hoverColor: "#a94f2d", underlineOffset: 4 });
-    expect(theme.markdown.list.task).toMatchObject({ indent: 16, checkboxSize: 13, checkboxRadius: 2 });
+    expect(theme.markdown.list.task).toMatchObject({ indent: 8, checkboxSize: 13, checkboxRadius: 2 });
     expect(theme.markdown.codeBlock).toMatchObject({ background: "#f1f0ec", paddingX: 16, paddingY: 16, radius: 8 });
     expect(theme.markdown.codeBlock.fontFamily).toContain("Maple Mono");
     expect(theme.typography.interface.body.family).toContain("Noto Sans SC Variable");
@@ -111,9 +111,9 @@ describe("editor theme", () => {
     expect(theme.canvas.group).toMatchObject({ borderStyle: "solid", borderWidth: 1, radius: 0 });
     expect(theme.specialNode.linkCard.surface.radius).toBe(0);
     expect(theme.specialNode.markdownDocument.surface).toMatchObject({ radius: 0, border: { width: 0 } });
-    expect(theme.markdown.list.unordered.indent).toBe(16);
-    expect(theme.markdown.list.ordered.indent).toBe(16);
-    expect(theme.markdown.list.task.indent).toBe(16);
+    expect(theme.markdown.list.unordered.indent).toBe(8);
+    expect(theme.markdown.list.ordered.indent).toBe(8);
+    expect(theme.markdown.list.task.indent).toBe(8);
     expect(theme.markdown.codeBlock.fontFamily).toContain("Maple Mono");
     expect(theme.typography.markdownCard.title.family).toContain("方正屏显雅宋简体");
     expect(theme.typography.markdownCard.excerpt.family).toContain("Noto Sans SC Variable");
@@ -351,10 +351,12 @@ describe("editor theme", () => {
     expect(variables["--ansi-bright-red"]).toBeDefined();
     expect(variables["--markdown-body-color"]).toBe(DEFAULT_EDITOR_THEME.markdown.body.color);
     expect(variables["--markdown-heading-stack-spacing"]).toBe("8px");
+    expect(variables["--markdown-list-marker-width"]).toBe("24px");
+    expect(variables["--markdown-list-marker-gap"]).toBe("8px");
     expect(variables["--markdown-h1-font-size"]).toBe(`${DEFAULT_EDITOR_THEME.markdown.heading.h1.fontSize}px`);
     expect(variables["--markdown-code-block-background"]).toBe(DEFAULT_EDITOR_THEME.markdown.codeBlock.background);
-    expect(variables["--markdown-code-block-margin-top"]).toBe("16px");
-    expect(variables["--markdown-code-block-margin-bottom"]).toBe("16px");
+    expect(variables["--markdown-code-block-margin-top"]).toBe("20px");
+    expect(variables["--markdown-code-block-margin-bottom"]).toBe("20px");
     expect(variables["--markdown-table-border-color"]).toBe(DEFAULT_EDITOR_THEME.markdown.table.borderColor);
     expect(variables["--markdown-table-body-background"]).toBe(DEFAULT_EDITOR_THEME.markdown.table.bodyBackground);
     expect(variables["--markdown-unordered-list-nested-spacing"]).toBe("8px");
@@ -371,27 +373,27 @@ describe("editor theme", () => {
       typography: DEFAULT_EDITOR_THEME.typography
     });
 
-    expect(markdown.layout.headingStackSpacing).toBe(8);
+    expect(markdown.layout).toMatchObject({ headingStackSpacing: 8, listMarkerWidth: 24, listMarkerGap: 8 });
     expect(markdown.body.paragraphSpacing).toBe(16);
     expect(Object.fromEntries(Object.entries(markdown.heading).map(([level, heading]) => [
       level,
       [heading.marginTop, heading.marginBottom]
     ]))).toEqual({
-      h1: [32, 12],
-      h2: [28, 10],
-      h3: [24, 8],
-      h4: [20, 6],
-      h5: [16, 4],
-      h6: [16, 4]
+      h1: [48, 24],
+      h2: [44, 20],
+      h3: [36, 16],
+      h4: [32, 12],
+      h5: [28, 8],
+      h6: [24, 8]
     });
     expect(markdown.list.unordered).toMatchObject({ marginTop: 12, marginBottom: 16, itemSpacing: 4, nestedSpacing: 8 });
     expect(markdown.list.ordered).toMatchObject({ marginTop: 12, marginBottom: 16, itemSpacing: 4, nestedSpacing: 8 });
     expect(markdown.list.task).toMatchObject({ marginTop: 12, marginBottom: 16, itemSpacing: 4, nestedSpacing: 8 });
-    expect(markdown.blockquote).toMatchObject({ marginTop: 16, marginBottom: 16 });
-    expect(markdown.codeBlock).toMatchObject({ marginTop: 16, marginBottom: 16 });
-    expect(markdown.table).toMatchObject({ marginTop: 16, marginBottom: 16 });
+    expect(markdown.blockquote).toMatchObject({ marginTop: 16, marginBottom: 20 });
+    expect(markdown.codeBlock).toMatchObject({ marginTop: 20, marginBottom: 20 });
+    expect(markdown.table).toMatchObject({ marginTop: 20, marginBottom: 24 });
     expect(markdown.divider).toMatchObject({ marginTop: 32, marginBottom: 32 });
-    expect(markdown.image).toMatchObject({ marginTop: 16, marginBottom: 16 });
+    expect(markdown.image).toMatchObject({ marginTop: 24, marginBottom: 24 });
   });
 
   it("derives Markdown defaults from each built-in theme palette", () => {
@@ -480,7 +482,7 @@ describe("editor theme", () => {
 
     expect(theme.version).toBe(11);
     expect(theme.markdown.table.bodyBackground).toBe("#112233");
-    expect(theme.markdown.list.unordered.indent).toBe(16);
+    expect(theme.markdown.list.unordered.indent).toBe(8);
     expect(theme.specialNode.shared).toMatchObject({
       textColor: "#f0f0f0",
       accentColor: "#405060"
