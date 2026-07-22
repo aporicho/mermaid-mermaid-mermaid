@@ -510,12 +510,11 @@
 }
 
 .markdown-editor-panel.markdown-editor-panel--window {
-  --markdown-window-block-toolbar-gutter: 100px;
+  --markdown-window-block-toolbar-gutter: 80px;
 }
 
 .markdown-editor-panel.markdown-editor-panel--window .milkdown .editor {
-  padding-right: var(--markdown-layout-padding-x);
-  padding-left: max(var(--markdown-layout-padding-x), var(--markdown-window-block-toolbar-gutter));
+  padding-inline: max(var(--markdown-layout-padding-x), var(--markdown-window-block-toolbar-gutter));
 }
 
 .markdown-editor-panel .milkdown .ProseMirror {
@@ -573,6 +572,10 @@
 .markdown-editor-panel .milkdown .milkdown-block-handle .markdown-fold-handle-button:focus-visible {
   outline: none;
   box-shadow: 0 0 0 1px hsl(var(--ring));
+}
+
+.markdown-editor-panel .milkdown .milkdown-block-handle > .operation-item:first-child:not(:last-child) {
+  display: none;
 }
 
 .markdown-editor-panel.markdown-editor-panel--window .milkdown .milkdown-block-handle .operation-item {

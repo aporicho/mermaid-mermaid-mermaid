@@ -192,9 +192,9 @@ describe("Markdown style contract", () => {
     const windowActions = cssRule(".markdown-editor-panel.markdown-editor-panel--window .milkdown .milkdown-block-handle .operation-item");
     const windowActionIcons = cssRule(".markdown-editor-panel.markdown-editor-panel--window .milkdown .milkdown-block-handle .operation-item svg");
 
-    expect(windowPanel).toContain("--markdown-window-block-toolbar-gutter: 100px");
-    expect(windowEditor).toContain("padding-right: var(--markdown-layout-padding-x)");
-    expect(windowEditor).toContain("padding-left: max(var(--markdown-layout-padding-x), var(--markdown-window-block-toolbar-gutter))");
+    expect(windowPanel).toContain("--markdown-window-block-toolbar-gutter: 80px");
+    expect(windowEditor).toContain("padding-inline: max(var(--markdown-layout-padding-x), var(--markdown-window-block-toolbar-gutter))");
+    expect(cssRule(".markdown-editor-panel .milkdown .milkdown-block-handle > .operation-item:first-child:not(:last-child)")).toContain("display: none");
     expect(windowActions).toContain("width: 24px");
     expect(windowActions).toContain("height: 24px");
     expect(windowActionIcons).toContain("width: 18px");

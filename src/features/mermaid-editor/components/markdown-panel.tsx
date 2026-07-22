@@ -299,9 +299,15 @@ export function MarkdownPanel({ value, className, readOnly = false, spellCheck, 
         const operationItems = Array.from(
           blockHandle.querySelectorAll<HTMLElement>(":scope > .operation-item:not(.markdown-fold-handle-button)")
         );
+        const addHandle = operationItems.length > 1 ? operationItems[0] : null;
         const dragHandle = operationItems[operationItems.length - 1];
         if (!dragHandle) return;
 
+        if (addHandle) {
+          addHandle.hidden = true;
+          addHandle.setAttribute("aria-hidden", "true");
+          addHandle.tabIndex = -1;
+        }
         dragHandle.classList.add("markdown-block-style-handle");
         dragHandle.setAttribute("role", "button");
         dragHandle.setAttribute("aria-label", "块样式");
