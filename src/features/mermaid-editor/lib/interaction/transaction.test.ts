@@ -146,6 +146,23 @@ describe("editor command transaction", () => {
     expect(result.effect).toMatchObject({ history: "push", sourceSync: "commit", status: "已添加链接节点。" });
   });
 
+  it("adds and selects multiple image nodes as a single graph commit", () => {
+    const result = applyEditorCommandTransaction(state, {
+      type: "graph.addNodesAt",
+      nodes: [
+        { point: { x: 420, y: 260 }, label: "first", asset: { kind: "image", src: "./assets/first.png", width: 160, height: 120, preserveAspectRatio: true, labelPosition: "bottom" } },
+        { point: { x: 620, y: 260 }, label: "second", asset: { kind: "image", src: "./assets/second.png", width: 180, height: 100, preserveAspectRatio: true, labelPosition: "bottom" } }
+      ],
+      message: "已添加 2 张图片节点。",
+      source: "api"
+    });
+
+    expect(result.state.graph.nodes).toHaveLength(4);
+    expect(result.state.selection).toMatchObject({ nodeIds: ["N1", "N2"], primaryId: "N1" });
+    expect(result.state.graph.nodes.slice(-2).map((node) => node.asset?.src)).toEqual(["./assets/first.png", "./assets/second.png"]);
+    expect(result.effect).toMatchObject({ history: "push", sourceSync: "commit", status: "已添加 2 张图片节点。" });
+  });
+
   it("infers node actions from committed node text without replacing existing actions", () => {
     const linked = applyEditorCommandTransaction(state, {
       type: "graph.updateNodeLabel",

@@ -1,13 +1,11 @@
 import {
-  createCanvasImageElement
-} from "@/features/mermaid-editor/lib/canvas-document";
-import {
   canvasScreenToWorldPoint,
   windowPointToSurfacePoint,
   type DropPoint
 } from "@/features/mermaid-editor/lib/file-drop";
-import { createImageAsset, isSupportedImagePath } from "@/features/mermaid-editor/lib/node-assets";
+import { isSupportedImagePath } from "@/features/mermaid-editor/lib/node-assets";
 import type { RuntimeFileOpenRequest, RuntimeFileRef, RuntimeImageAssetResult } from "@/features/mermaid-editor/lib/editor-runtime";
+import { importImageBatch, type ImageImportBatchInput } from "@/features/mermaid-editor/lib/image-import-batch";
 
 import type { BrowserDroppedFile } from "../use-editor-drop-import";
 import type {
@@ -19,6 +17,12 @@ import {
   loadImageDimensions,
   viewportCenterPoint
 } from "./utils";
+import {
+  appendImportedCanvasImages,
+  imageBatchImportStatus,
+  importedGraphImageNodes,
+  type ImportedImagePlacement
+} from "./image-import-placement";
 
 export function useImageImportWorkflow(
   args: UseEditorFileWorkflowArgs,
@@ -46,38 +50,55 @@ export function useImageImportWorkflow(
   } = args;
 
   async function importBrowserDroppedImageAsset(file: BrowserDroppedFile, dropPosition?: DropPoint) {
-    const identity = file.path || file.name;
-    if (!canImportImage(identity)) return;
+    await importBrowserDroppedImageAssets([file], dropPosition);
+  }
 
-    const targetFile = await ensureDocumentFileForImageImport();
-    if (!targetFile?.path) {
-      setStatus("已取消图片导入。");
-      return;
-    }
-
-    try {
-      const result = file.path ? await runtime.importImageAssetPath(targetFile, file.path) : await runtime.importImageAssetFile(targetFile, file.file);
-      await applyImportedImageAssetResult(result, identity, dropPosition);
-    } catch (error) {
-      showFileWorkflowError(error, "导入图片失败。");
-    }
+  async function importBrowserDroppedImageAssets(files: BrowserDroppedFile[], dropPosition?: DropPoint) {
+    await importImageAssets(
+      files.map((file) => ({ identity: file.path || file.name, source: file })),
+      (input, targetFile) => input.source.path
+        ? runtime.importImageAssetPath(targetFile, input.source.path)
+        : runtime.importImageAssetFile(targetFile, input.source.file),
+      dropPosition
+    );
   }
 
   async function importImageAssetRequest(file: RuntimeFileOpenRequest, dropPosition?: DropPoint) {
-    if (!canImportImage(file.path)) return;
+    await importImageAssetRequests([file], dropPosition);
+  }
 
+  async function importImageAssetRequests(files: RuntimeFileOpenRequest[], dropPosition?: DropPoint) {
+    await importImageAssets(
+      files.map((file) => ({ identity: file.path, source: file })),
+      (input, targetFile) => runtime.importImageAssetPath(targetFile, input.source.path),
+      dropPosition
+    );
+  }
+
+  async function importImageAssets<TSource>(
+    inputs: ImageImportBatchInput<TSource>[],
+    importer: (input: ImageImportBatchInput<TSource>, targetFile: RuntimeFileRef) => Promise<RuntimeImageAssetResult>,
+    dropPosition?: DropPoint
+  ) {
+    if (!inputs.length) return;
+    if (!canImportImages(inputs.map((input) => input.identity))) return;
     const targetFile = await ensureDocumentFileForImageImport();
     if (!targetFile?.path) {
       setStatus("已取消图片导入。");
       return;
     }
 
-    try {
-      const result = await runtime.importImageAssetPath(targetFile, file.path);
-      await applyImportedImageAssetResult(result, file.path, dropPosition);
-    } catch (error) {
-      showFileWorkflowError(error, "导入图片失败。");
+    const batch = await importImageBatch(inputs, (input) => importer(input, targetFile));
+    if (!batch.ready.length) {
+      showBatchImportFailure(batch.failures);
+      return;
     }
+
+    const imported = await Promise.all(batch.ready.map(async (item) => ({
+      ...item,
+      dimensions: await loadImageDimensions(item.asset.displaySrc)
+    })));
+    applyImportedImageAssets(imported, dropPosition, batch.failures.length);
   }
 
   async function ensureDocumentFileForImageImport(): Promise<RuntimeFileRef | null> {
@@ -96,64 +117,56 @@ export function useImageImportWorkflow(
     return null;
   }
 
-  function canImportImage(identity: string) {
+  function canImportImages(identities: string[]) {
     if ((!isCanvasEditable && documentKind !== "canvas") || workspaceView !== "canvas") {
       showFileWorkflowError(
         {
           code: "unsupported_type",
           message: "请切换到无限画布后拖入图片。",
-          path: identity
+          path: identities[0]
         },
         "无法导入图片。"
       );
       return false;
     }
-    if (!isSupportedImagePath(identity)) {
-      showFileWorkflowError({ code: "unsupported_type", path: identity }, "文件类型不支持。");
+    const unsupported = identities.find((identity) => !isSupportedImagePath(identity));
+    if (unsupported) {
+      showFileWorkflowError({ code: "unsupported_type", path: unsupported }, "文件类型不支持。");
       return false;
     }
     return true;
   }
 
-  async function applyImportedImageAssetResult(result: RuntimeImageAssetResult, sourcePath: string, dropPosition?: DropPoint) {
-    if (result.status !== "ready") {
-      if (result.status === "unsupported") {
-        showFileWorkflowError({ code: "unsupported_type", message: result.message, path: sourcePath }, "文件类型不支持。");
-      }
-      if (result.status === "needs-document") {
-        showFileWorkflowError({ code: "unsupported_type", message: "请先保存当前文档，再拖入本地图片。", path: sourcePath }, "无法导入图片。");
-      }
-      return;
-    }
-
-    const dimensions = await loadImageDimensions(result.displaySrc);
+  function applyImportedImageAssets(
+    imported: ImportedImagePlacement[],
+    dropPosition: DropPoint | undefined,
+    failedCount: number
+  ) {
     const point = windowPointToCanvasWorldPoint(dropPosition) || viewportCenterPoint(viewport, canvasLiveState.canvasSize);
+    const message = imageBatchImportStatus(imported, failedCount, documentKind === "canvas" ? "图片" : "图片节点");
     if (documentKind === "canvas") {
-      const element = createCanvasImageElement(
-        canvasDocument.elements,
-        point.x - dimensions.width / 2,
-        point.y - dimensions.height / 2,
-        result.src,
-        dimensions.width,
-        dimensions.height
-      );
-      applyCanvasDocument({ ...canvasDocument, elements: [...canvasDocument.elements, element] }, result.copied ? "已复制并添加拖入的图片。" : "已添加拖入的图片。");
+      applyCanvasDocument(appendImportedCanvasImages(canvasDocument, imported, point), message);
       return;
     }
     applyEditorCommand({
-      type: "graph.addImageNodeAt",
-      point,
-      asset: createImageAsset({
-        src: result.src,
-        width: dimensions.width,
-        height: dimensions.height,
-        preserveAspectRatio: true,
-        labelPosition: "bottom"
-      }),
-      label: imageLabelFromSrc(result.src),
-      message: result.copied ? "已复制并添加拖入的图片节点。" : "已添加拖入的图片节点。",
+      type: "graph.addNodesAt",
+      nodes: importedGraphImageNodes(imported, point),
+      message,
       source: "api"
     });
+  }
+
+  function showBatchImportFailure<TSource>(failures: Awaited<ReturnType<typeof importImageBatch<TSource>>>["failures"]) {
+    const first = failures[0];
+    if (failures.length === 1 && first?.failure.kind === "error") {
+      showFileWorkflowError(first.failure.error, "导入图片失败。");
+      return;
+    }
+    const names = failures.slice(0, 3).map((failure) => imageLabelFromSrc(failure.identity)).join("、");
+    showFileWorkflowError(
+      { code: "unsupported_type", message: `${failures.length} 张图片导入失败${names ? `：${names}` : ""}。` },
+      "导入图片失败。"
+    );
   }
 
   function windowPointToCanvasWorldPoint(point: DropPoint | undefined): DropPoint | undefined {
@@ -164,6 +177,8 @@ export function useImageImportWorkflow(
 
   return {
     importBrowserDroppedImageAsset,
-    importImageAssetRequest
+    importBrowserDroppedImageAssets,
+    importImageAssetRequest,
+    importImageAssetRequests
   };
 }

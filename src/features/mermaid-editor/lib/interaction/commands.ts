@@ -41,7 +41,7 @@ export type EditorCommand =
   | { type: "graph.addNodeAt"; point: { x: number; y: number; parentId?: string }; label?: string; action?: CanvasNodeAction; preview?: CanvasNode["preview"]; content?: CanvasNode["content"]; message?: string; source: GraphCommandSource }
   | {
       type: "graph.addNodesAt";
-      nodes: { point: { x: number; y: number; parentId?: string }; label?: string; action?: CanvasNodeAction; preview?: CanvasNode["preview"]; content?: CanvasNode["content"] }[];
+      nodes: { point: { x: number; y: number; parentId?: string }; label?: string; action?: CanvasNodeAction; preview?: CanvasNode["preview"]; content?: CanvasNode["content"]; asset?: CanvasNodeAsset }[];
       message?: string;
       source: GraphCommandSource;
     }

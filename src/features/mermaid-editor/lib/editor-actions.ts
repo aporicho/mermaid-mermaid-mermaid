@@ -69,6 +69,7 @@ export type AddCanvasNodeOptions = {
   action?: CanvasNodeAction;
   preview?: CanvasNode["preview"];
   content?: CanvasNode["content"];
+  asset?: CanvasNode["asset"];
 };
 
 export type AddCanvasNodeItem = AddCanvasNodeOptions & {
@@ -241,6 +242,7 @@ function createNodeWithOptions(existingNodes: CanvasNode[], x: number, y: number
   return {
     ...node,
     label,
+    ...(options.asset ? { asset: createImageAsset(options.asset), shape: "rect" as const, fill: "#fbf6ef" } : {}),
     ...(action ? { action } : {}),
     ...(preview ? { preview } : {}),
     ...(content ? { content } : {})

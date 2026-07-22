@@ -5,6 +5,7 @@ import { parseCanvasLayout } from "@/features/mermaid-editor/lib/canvas-layout";
 import {
   createBlankCanvasDocument,
   normalizeCanvasDocument,
+  parseCanvasDocument,
   serializeCanvasDocument,
   type CanvasDocument
 } from "@/features/mermaid-editor/lib/canvas-document";
@@ -273,6 +274,23 @@ export function useEditorDocumentCommands({
   );
 
   function restoreSnapshot(next: EditorSnapshot) {
+    if (next.documentKind === "canvas") {
+      const document = parseCanvasDocument(next.source);
+      setDocumentKind("canvas");
+      setSource(serializeCanvasDocument(document));
+      setCanvasDocument(document);
+      setGraph(createEmptyDocumentGraph());
+      setDiagramType("unknown");
+      setEditableKind("render-only");
+      setDiagnostics([]);
+      setSelection(emptySelection);
+      setViewport(document.viewport);
+      setEdgeRouting(next.edgeRouting);
+      setLayoutMode(next.layoutMode);
+      setWorkspaceView(workspaceViewForDocument("render-only", workspaceView, "canvas"));
+      return;
+    }
+
     if (next.documentKind === "markdown") {
       setDocumentKind("markdown");
       setSource(next.source);
@@ -411,6 +429,8 @@ export function useEditorDocumentCommands({
   }
 
   function applyCanvasDocument(nextDocument: CanvasDocument, message?: string) {
+    flushSourceHistory();
+    setHistory((current) => pushHistory(current, snapshot()));
     const normalized = normalizeCanvasDocument(nextDocument);
     setCanvasDocument(normalized);
     setSource(serializeCanvasDocument(normalized));

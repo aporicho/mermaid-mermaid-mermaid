@@ -153,7 +153,8 @@ export function applyEditorCommandTransaction(state: EditorTransactionState, com
         label: node.label,
         action: node.action,
         preview: node.preview,
-        content: node.content
+        content: node.content,
+        asset: node.asset
       }))
     );
     const graph = command.nodes.reduce((currentGraph, node, index) => {
