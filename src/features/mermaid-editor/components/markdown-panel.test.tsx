@@ -27,6 +27,7 @@ const milkdownMock = vi.hoisted(() => ({
   create: vi.fn(() => Promise.resolve()),
   destroy: vi.fn(() => Promise.resolve()),
   dispatch: vi.fn(),
+  use: vi.fn(),
   setReadonly: vi.fn(),
   setSelection: vi.fn((selection: unknown) => ({ selection })),
   view: undefined as MockEditorView | undefined
@@ -42,6 +43,7 @@ vi.mock("@milkdown/crepe", () => ({
     return {
       editor: {
         status: "Created",
+        use: milkdownMock.use,
         action: (callback: (ctx: { get: () => MockEditorView }) => void) => {
           if (!milkdownMock.view) throw new Error("Mock editor view is not configured.");
           callback({ get: () => milkdownMock.view! });
@@ -73,6 +75,10 @@ vi.mock("@milkdown/kit/prose/state", () => {
 vi.mock("@/features/mermaid-editor/lib/markdown-block-style", () => ({
   convertMarkdownBlock: markdownBlockStyleMock.convert,
   getMarkdownBlockStyle: markdownBlockStyleMock.get
+}));
+
+vi.mock("@/features/mermaid-editor/lib/markdown-folding", () => ({
+  markdownFolding: Symbol("markdownFolding")
 }));
 
 describe("MarkdownPanel", () => {
@@ -110,6 +116,7 @@ describe("MarkdownPanel", () => {
     milkdownMock.create.mockClear();
     milkdownMock.destroy.mockClear();
     milkdownMock.dispatch.mockClear();
+    milkdownMock.use.mockClear();
     milkdownMock.setReadonly.mockClear();
     milkdownMock.setSelection.mockClear();
     markdownBlockStyleMock.convert.mockClear();
@@ -137,6 +144,7 @@ describe("MarkdownPanel", () => {
     renderPanel(false);
 
     expect(milkdownMock.view?.dom.getAttribute("spellcheck")).toBe("false");
+    expect(milkdownMock.use).toHaveBeenCalledTimes(1);
     expect(milkdownMock.create).toHaveBeenCalledTimes(1);
 
     act(() => {

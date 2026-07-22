@@ -21,6 +21,7 @@ import {
   getMarkdownBlockStyle,
   type MarkdownBlockStyle
 } from "@/features/mermaid-editor/lib/markdown-block-style";
+import { markdownFolding } from "@/features/mermaid-editor/lib/markdown-folding";
 import { clampMarkdownTextScale } from "@/features/mermaid-editor/lib/markdown-text-scale";
 import { cn } from "@/lib/utils";
 
@@ -116,6 +117,7 @@ export function MarkdownPanel({ value, className, readOnly = false, spellCheck, 
       root,
       defaultValue: initialValueRef.current
     });
+    crepe.editor.use(markdownFolding);
     crepe.setReadonly(initialReadOnlyRef.current);
     crepe.on((listener) => {
       listener.markdownUpdated((_ctx, markdown) => {

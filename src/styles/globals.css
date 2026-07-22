@@ -533,7 +533,64 @@
 }
 
 .markdown-editor-panel .milkdown .ProseMirror :is(h1, h2, h3, h4, h5, h6) {
+  position: relative;
   padding: 0;
+}
+
+.markdown-editor-panel .milkdown .ProseMirror .markdown-fold-toggle {
+  position: absolute;
+  z-index: 1;
+  display: inline-flex;
+  width: 16px;
+  height: 16px;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 3px;
+  outline: none;
+  background: transparent;
+  color: currentColor;
+  cursor: pointer;
+  opacity: 0;
+  transition: background-color 120ms ease, opacity 120ms ease;
+  user-select: none;
+}
+
+.markdown-editor-panel .milkdown .ProseMirror .markdown-fold-toggle svg {
+  width: 12px;
+  height: 12px;
+  pointer-events: none;
+  transition: transform 140ms ease;
+}
+
+.markdown-editor-panel .milkdown .ProseMirror .markdown-fold-toggle[aria-expanded="true"] svg {
+  transform: rotate(90deg);
+}
+
+.markdown-editor-panel .milkdown .ProseMirror .markdown-fold-toggle:hover,
+.markdown-editor-panel .milkdown .ProseMirror .markdown-fold-toggle:focus-visible {
+  background: hsl(var(--muted));
+  opacity: 1;
+}
+
+.markdown-editor-panel .milkdown .ProseMirror .markdown-fold-toggle:focus-visible {
+  box-shadow: 0 0 0 1px hsl(var(--ring));
+}
+
+.markdown-editor-panel .milkdown .ProseMirror .markdown-fold-toggle--heading {
+  top: 0.25em;
+  left: -15px;
+}
+
+.markdown-editor-panel .milkdown .ProseMirror .markdown-fold-heading:hover > .markdown-fold-toggle,
+.markdown-editor-panel .milkdown .ProseMirror .markdown-fold-heading--collapsed > .markdown-fold-toggle {
+  opacity: 0.58;
+}
+
+.markdown-editor-panel .milkdown .ProseMirror .markdown-fold-hidden {
+  display: none !important;
 }
 
 .markdown-editor-panel .milkdown .ProseMirror h1 {
@@ -680,6 +737,28 @@
 
 .markdown-editor-panel .milkdown .milkdown-list-item-block li {
   gap: var(--markdown-list-marker-gap);
+}
+
+.markdown-editor-panel .milkdown .markdown-fold-list-parent {
+  position: relative;
+}
+
+.markdown-editor-panel .milkdown .markdown-fold-toggle--list-item {
+  top: 8px;
+  left: -15px;
+}
+
+.markdown-editor-panel .milkdown .markdown-fold-list-parent:hover > .list-item > .children .markdown-fold-toggle,
+.markdown-editor-panel .milkdown .markdown-fold-list-parent--collapsed > .list-item > .children .markdown-fold-toggle,
+.markdown-editor-panel .milkdown li.markdown-fold-list-parent:hover > .markdown-fold-toggle,
+.markdown-editor-panel .milkdown li.markdown-fold-list-parent--collapsed > .markdown-fold-toggle {
+  opacity: 0.58;
+}
+
+.markdown-editor-panel .milkdown .markdown-fold-list-parent--collapsed > .list-item > .children > .content-dom > :is(ul, ol),
+.markdown-editor-panel .milkdown .markdown-fold-list-parent--collapsed > .list-item > .children > :is(ul, ol),
+.markdown-editor-panel .milkdown li.markdown-fold-list-parent--collapsed > :is(ul, ol) {
+  display: none !important;
 }
 
 .markdown-editor-panel .milkdown .milkdown-list-item-block li > .label-wrapper {
