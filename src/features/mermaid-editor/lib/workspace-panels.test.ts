@@ -5,6 +5,7 @@ import { MARKDOWN_WINDOW_A4_SIZE, WORKSPACE_PANEL_DEFAULT_SIZES } from "@/featur
 describe("workspace panel defaults", () => {
   it("opens detached Markdown documents at the portrait A4 aspect ratio", () => {
     expect(WORKSPACE_PANEL_DEFAULT_SIZES.markdown).toBe(MARKDOWN_WINDOW_A4_SIZE);
+    expect(MARKDOWN_WINDOW_A4_SIZE).toEqual({ width: 1050, height: 1485 });
     expect(MARKDOWN_WINDOW_A4_SIZE.width / MARKDOWN_WINDOW_A4_SIZE.height).toBe(210 / 297);
   });
 });

@@ -22,7 +22,7 @@ export type DetachedMarkdownWindow = {
   savedValue: string;
 };
 
-export const MARKDOWN_WINDOW_A4_SIZE = { width: 525, height: 742.5 } as const;
+export const MARKDOWN_WINDOW_A4_SIZE = { width: 1050, height: 1485 } as const;
 
 const DEFAULT_WORKSPACE_PANEL_STACK: WorkspaceFloatingPanelId[] = ["explorer", "inspector", "terminal", "theme"];
 const DEFAULT_WORKSPACE_PANEL_WINDOW_STATES: Record<StaticWorkspacePanelId, FloatingPanelWindowState> = {
