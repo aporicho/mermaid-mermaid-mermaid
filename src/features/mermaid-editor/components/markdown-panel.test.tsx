@@ -321,7 +321,7 @@ describe("MarkdownPanel", () => {
     expect(markdownBlockStyleMock.get).toHaveBeenCalledWith(milkdownMock.view?.state, 5);
   });
 
-  it("places folding between add and drag actions for a foldable block", async () => {
+  it("places folding after add and drag actions for a foldable block", async () => {
     markdownFoldingMock.find.mockReturnValue({
       collapsed: false,
       kind: "heading",
@@ -337,7 +337,7 @@ describe("MarkdownPanel", () => {
 
     const foldButton = handle.querySelector<HTMLButtonElement>(":scope > .markdown-fold-handle-button");
     expect(foldButton).not.toBeNull();
-    expect(Array.from(handle.children)).toEqual([addButton, foldButton, dragButton]);
+    expect(Array.from(handle.children)).toEqual([addButton, dragButton, foldButton]);
     expect(foldButton?.hidden).toBe(false);
     expect(foldButton?.getAttribute("aria-label")).toBe("折叠章节“Section”");
     expect(foldButton?.getAttribute("aria-expanded")).toBe("true");

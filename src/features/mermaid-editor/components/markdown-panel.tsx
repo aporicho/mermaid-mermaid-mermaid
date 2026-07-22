@@ -167,9 +167,13 @@ export function MarkdownPanel({ value, className, readOnly = false, spellCheck, 
 
     function getDragHandle(target: EventTarget | null) {
       if (!(target instanceof Element)) return null;
-      const operationItem = target.closest(".milkdown-block-handle > .operation-item");
+      const operationItem = target.closest(".milkdown-block-handle > .operation-item:not(.markdown-fold-handle-button)");
       const blockHandle = operationItem?.parentElement;
-      if (!operationItem || !blockHandle || operationItem !== blockHandle.lastElementChild) return null;
+      if (!operationItem || !blockHandle) return null;
+      const operationItems = Array.from(
+        blockHandle.querySelectorAll(":scope > .operation-item:not(.markdown-fold-handle-button)")
+      );
+      if (operationItem !== operationItems[operationItems.length - 1]) return null;
       return blockHandle;
     }
 
@@ -255,7 +259,7 @@ export function MarkdownPanel({ value, className, readOnly = false, spellCheck, 
       decorateBlockHandles();
     }
 
-    function createFoldButton(blockHandle: HTMLElement, dragHandle: HTMLElement) {
+    function createFoldButton(blockHandle: HTMLElement) {
       const button = document.createElement("button");
       button.type = "button";
       button.className = "operation-item markdown-fold-handle-button";
@@ -286,15 +290,19 @@ export function MarkdownPanel({ value, className, readOnly = false, spellCheck, 
       button.addEventListener("mousedown", suppressBlockDrag);
       button.addEventListener("dragstart", suppressBlockDrag);
       button.addEventListener("click", handleFoldButtonClick);
-      blockHandle.insertBefore(button, dragHandle);
+      blockHandle.appendChild(button);
       return button;
     }
 
     function decorateBlockHandles() {
       panelElement.querySelectorAll<HTMLElement>(".milkdown-block-handle").forEach((blockHandle) => {
-        const dragHandle = blockHandle.querySelector<HTMLElement>(":scope > .operation-item:last-child");
+        const operationItems = Array.from(
+          blockHandle.querySelectorAll<HTMLElement>(":scope > .operation-item:not(.markdown-fold-handle-button)")
+        );
+        const dragHandle = operationItems[operationItems.length - 1];
         if (!dragHandle) return;
 
+        dragHandle.classList.add("markdown-block-style-handle");
         dragHandle.setAttribute("role", "button");
         dragHandle.setAttribute("aria-label", "块样式");
         const isVisible = blockHandle.dataset.show === "true";
@@ -303,7 +311,7 @@ export function MarkdownPanel({ value, className, readOnly = false, spellCheck, 
         dragHandle.tabIndex = isVisible ? 0 : -1;
 
         const foldButton = blockHandle.querySelector<HTMLButtonElement>(":scope > .markdown-fold-handle-button")
-          ?? createFoldButton(blockHandle, dragHandle);
+          ?? createFoldButton(blockHandle);
         const resolved = isVisible ? resolveBlockHandlePosition(blockHandle) : null;
         const target = resolved ? findMarkdownFoldTarget(resolved.view.state, resolved.position) : null;
         updateFoldButton(blockHandle, foldButton, target);

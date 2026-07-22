@@ -509,6 +509,15 @@
   min-height: 100%;
 }
 
+.markdown-editor-panel.markdown-editor-panel--window {
+  --markdown-window-block-toolbar-gutter: 100px;
+}
+
+.markdown-editor-panel.markdown-editor-panel--window .milkdown .editor {
+  padding-right: var(--markdown-layout-padding-x);
+  padding-left: max(var(--markdown-layout-padding-x), var(--markdown-window-block-toolbar-gutter));
+}
+
 .markdown-editor-panel .milkdown .ProseMirror {
   max-width: var(--markdown-content-width, 880px);
   margin: 0 auto;
@@ -564,6 +573,17 @@
 .markdown-editor-panel .milkdown .milkdown-block-handle .markdown-fold-handle-button:focus-visible {
   outline: none;
   box-shadow: 0 0 0 1px hsl(var(--ring));
+}
+
+.markdown-editor-panel.markdown-editor-panel--window .milkdown .milkdown-block-handle .operation-item {
+  width: 24px;
+  height: 24px;
+  padding: 3px;
+}
+
+.markdown-editor-panel.markdown-editor-panel--window .milkdown .milkdown-block-handle .operation-item svg {
+  width: 18px;
+  height: 18px;
 }
 
 .markdown-editor-panel .milkdown .ProseMirror .markdown-fold-hidden {

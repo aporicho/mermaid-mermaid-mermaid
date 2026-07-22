@@ -185,10 +185,32 @@ describe("Markdown style contract", () => {
     expect(css).toContain("var(--markdown-list-marker-width)");
     expect(css).toContain("var(--markdown-list-marker-gap)");
   });
+
+  it("reserves a compact block-toolbar gutter only in detached Markdown windows", () => {
+    const windowPanel = cssRule(".markdown-editor-panel.markdown-editor-panel--window");
+    const windowEditor = cssLastRule(".markdown-editor-panel.markdown-editor-panel--window .milkdown .editor");
+    const windowActions = cssRule(".markdown-editor-panel.markdown-editor-panel--window .milkdown .milkdown-block-handle .operation-item");
+    const windowActionIcons = cssRule(".markdown-editor-panel.markdown-editor-panel--window .milkdown .milkdown-block-handle .operation-item svg");
+
+    expect(windowPanel).toContain("--markdown-window-block-toolbar-gutter: 100px");
+    expect(windowEditor).toContain("padding-right: var(--markdown-layout-padding-x)");
+    expect(windowEditor).toContain("padding-left: max(var(--markdown-layout-padding-x), var(--markdown-window-block-toolbar-gutter))");
+    expect(windowActions).toContain("width: 24px");
+    expect(windowActions).toContain("height: 24px");
+    expect(windowActionIcons).toContain("width: 18px");
+    expect(windowActionIcons).toContain("height: 18px");
+  });
 });
 
 function cssRule(selector: string) {
   const start = css.indexOf(`${selector} {`);
+  expect(start).toBeGreaterThanOrEqual(0);
+  const end = css.indexOf("}\n", start);
+  return css.slice(start, end + 1);
+}
+
+function cssLastRule(selector: string) {
+  const start = css.lastIndexOf(`${selector} {`);
   expect(start).toBeGreaterThanOrEqual(0);
   const end = css.indexOf("}\n", start);
   return css.slice(start, end + 1);
