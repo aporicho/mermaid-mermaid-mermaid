@@ -43,7 +43,7 @@ describe("theme settings schema", () => {
     expect(paths).toContain("layout.listMarkerGap");
     expect(paths).toContain("list.unordered.marginTop");
     expect(paths).toContain("list.unordered.marginBottom");
-    expect(paths).toContain("list.unordered.nestedSpacing");
+    expect(paths).not.toContain("list.unordered.nestedSpacing");
     expect(paths).toContain("blockquote.marginTop");
     expect(paths).toContain("blockquote.marginBottom");
     expect(paths).not.toContain("list.unordered.blockSpacing");

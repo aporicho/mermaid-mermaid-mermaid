@@ -65,7 +65,7 @@ describe("editor theme", () => {
     expect(theme.markdown.heading.h1).toMatchObject({ fontSize: 24, lineHeight: 27.2, marginTop: 40, marginBottom: 20 });
     expect(theme.markdown.heading.h6).toMatchObject({ fontSize: 14, lineHeight: 20, fontWeight: 600 });
     expect(theme.markdown.layout).toMatchObject({ headingStackSpacing: 8, listMarkerWidth: 24, listMarkerGap: 8 });
-    expect(theme.markdown.list.unordered).toMatchObject({ marginTop: 12, marginBottom: 16, itemSpacing: 4, nestedSpacing: 8 });
+    expect(theme.markdown.list.unordered).toMatchObject({ marginTop: 12, marginBottom: 16, itemSpacing: 4 });
     expect(theme.markdown.blockquote).toMatchObject({ marginTop: 16, marginBottom: 20 });
     expect(theme.markdown.codeBlock).toMatchObject({ marginTop: 20, marginBottom: 20 });
     expect(theme.markdown.table).toMatchObject({ marginTop: 20, marginBottom: 24 });
@@ -359,7 +359,7 @@ describe("editor theme", () => {
     expect(variables["--markdown-code-block-margin-bottom"]).toBe("20px");
     expect(variables["--markdown-table-border-color"]).toBe(DEFAULT_EDITOR_THEME.markdown.table.borderColor);
     expect(variables["--markdown-table-body-background"]).toBe(DEFAULT_EDITOR_THEME.markdown.table.bodyBackground);
-    expect(variables["--markdown-unordered-list-nested-spacing"]).toBe("8px");
+    expect(variables["--markdown-unordered-list-nested-spacing"]).toBeUndefined();
     expect(variables["--markdown-code-block-margin-y"]).toBeUndefined();
     expect(variables["--markdown-unordered-list-block-spacing"]).toBeUndefined();
     expect(variables["--primary-foreground"]).toBe(variables["--background"]);
@@ -386,9 +386,9 @@ describe("editor theme", () => {
       h5: [28, 8],
       h6: [24, 8]
     });
-    expect(markdown.list.unordered).toMatchObject({ marginTop: 12, marginBottom: 16, itemSpacing: 4, nestedSpacing: 8 });
-    expect(markdown.list.ordered).toMatchObject({ marginTop: 12, marginBottom: 16, itemSpacing: 4, nestedSpacing: 8 });
-    expect(markdown.list.task).toMatchObject({ marginTop: 12, marginBottom: 16, itemSpacing: 4, nestedSpacing: 8 });
+    expect(markdown.list.unordered).toMatchObject({ marginTop: 12, marginBottom: 16, itemSpacing: 4 });
+    expect(markdown.list.ordered).toMatchObject({ marginTop: 12, marginBottom: 16, itemSpacing: 4 });
+    expect(markdown.list.task).toMatchObject({ marginTop: 12, marginBottom: 16, itemSpacing: 4 });
     expect(markdown.blockquote).toMatchObject({ marginTop: 16, marginBottom: 20 });
     expect(markdown.codeBlock).toMatchObject({ marginTop: 20, marginBottom: 20 });
     expect(markdown.table).toMatchObject({ marginTop: 20, marginBottom: 24 });
@@ -764,7 +764,8 @@ describe("editor theme", () => {
     expect(theme.markdown.list.task.checkboxSize).toBe(32);
     expect(theme.markdown.list.task.checkboxBorderWidth).toBe(0);
     expect(theme.markdown.list.task.checkboxRadius).toBe(12);
-    expect(theme.markdown.list.unordered).toMatchObject({ marginTop: 0, marginBottom: 48, nestedSpacing: 32 });
+    expect(theme.markdown.list.unordered).toMatchObject({ marginTop: 0, marginBottom: 48 });
+    expect(theme.markdown.list.unordered).not.toHaveProperty("nestedSpacing");
     expect(theme.markdown.table.borderColor).toBe("#abcdef");
     expect(theme.markdown.table.cellPaddingX).toBe(24);
     expect(theme.markdown.image.borderWidth).toBe(3);
@@ -788,9 +789,9 @@ describe("editor theme", () => {
       }
     });
 
-    expect(theme.markdown.list.unordered).toMatchObject({ marginTop: 9, marginBottom: 9, nestedSpacing: 8 });
-    expect(theme.markdown.list.ordered).toMatchObject({ marginTop: 5, marginBottom: 7, nestedSpacing: 8 });
-    expect(theme.markdown.list.task).toMatchObject({ marginTop: 11, marginBottom: 13, nestedSpacing: 8 });
+    expect(theme.markdown.list.unordered).toMatchObject({ marginTop: 9, marginBottom: 9 });
+    expect(theme.markdown.list.ordered).toMatchObject({ marginTop: 5, marginBottom: 7 });
+    expect(theme.markdown.list.task).toMatchObject({ marginTop: 11, marginBottom: 13 });
     expect(theme.markdown.blockquote).toMatchObject({ marginTop: 6, marginBottom: 6 });
     expect(theme.markdown.codeBlock).toMatchObject({ marginTop: 10, marginBottom: 14 });
     expect(theme.markdown.table).toMatchObject({ marginTop: 12, marginBottom: 12 });
@@ -810,9 +811,9 @@ describe("editor theme", () => {
       }
     });
 
-    expect(theme.markdown.list.unordered).toMatchObject({ marginTop: 7, marginBottom: 7, nestedSpacing: 8 });
-    expect(theme.markdown.list.ordered).toMatchObject({ marginTop: 7, marginBottom: 7, nestedSpacing: 8 });
-    expect(theme.markdown.list.task).toMatchObject({ marginTop: 7, marginBottom: 7, nestedSpacing: 8 });
+    expect(theme.markdown.list.unordered).toMatchObject({ marginTop: 7, marginBottom: 7 });
+    expect(theme.markdown.list.ordered).toMatchObject({ marginTop: 7, marginBottom: 7 });
+    expect(theme.markdown.list.task).toMatchObject({ marginTop: 7, marginBottom: 7 });
     expect(theme.markdown.blockquote).toMatchObject({ marginTop: 9, marginBottom: 9 });
     expect(theme.markdown.codeBlock).toMatchObject({ marginTop: 11, marginBottom: 11 });
   });

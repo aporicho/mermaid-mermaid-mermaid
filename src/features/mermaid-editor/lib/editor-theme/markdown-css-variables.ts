@@ -112,8 +112,7 @@ function listVariables(prefix: string, tokens: EditorTheme["markdown"]["list"]["
     [`--markdown-${prefix}-indent`]: px(tokens.indent),
     [`--markdown-${prefix}-item-spacing`]: px(tokens.itemSpacing),
     [`--markdown-${prefix}-margin-top`]: px(tokens.marginTop),
-    [`--markdown-${prefix}-margin-bottom`]: px(tokens.marginBottom),
-    [`--markdown-${prefix}-nested-spacing`]: px(tokens.nestedSpacing)
+    [`--markdown-${prefix}-margin-bottom`]: px(tokens.marginBottom)
   };
 }
 

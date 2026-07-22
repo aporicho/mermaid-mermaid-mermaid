@@ -133,8 +133,7 @@ const EXTRA_FIELDS: Record<string, readonly MarkdownTokenDefinition[]> = {
     number("indent", "嵌套层级缩进", "layout", literal(8), 0, 40),
     number("itemSpacing", "条目间距", "layout", literal(4), 0, 32),
     number("marginTop", "顶部间距", "layout", literal(12), 0, 48),
-    number("marginBottom", "底部间距", "layout", literal(16), 0, 48),
-    number("nestedSpacing", "嵌套列表间距", "layout", literal(8), 0, 32)
+    number("marginBottom", "底部间距", "layout", literal(16), 0, 48)
   ],
   task: [
     number("checkboxSize", "复选框尺寸", "layout", literal(16), 10, 32),

@@ -35,7 +35,6 @@ export type MarkdownListTokens = MarkdownTextTokens & {
   itemSpacing: number;
   marginTop: number;
   marginBottom: number;
-  nestedSpacing: number;
 };
 
 export type MarkdownTaskListTokens = Omit<MarkdownListTokens, "markerColor"> & {

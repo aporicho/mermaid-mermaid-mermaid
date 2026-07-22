@@ -278,7 +278,6 @@ const TOKEN_LABELS: Record<string, string> = {
   markerColor: "标记颜色",
   indent: "嵌套层级缩进",
   itemSpacing: "条目间距",
-  nestedSpacing: "嵌套列表间距",
   textColor: "文字颜色",
   borderColor: "边线颜色",
   radius: "圆角",

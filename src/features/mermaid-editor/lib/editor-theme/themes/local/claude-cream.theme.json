@@ -191,8 +191,7 @@
           "indent": 8,
           "itemSpacing": 4,
           "marginTop": 12,
-          "marginBottom": 16,
-          "nestedSpacing": 8
+          "marginBottom": 16
         },
         "ordered": {
           "fontFamily": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
@@ -205,8 +204,7 @@
           "indent": 8,
           "itemSpacing": 4,
           "marginTop": 12,
-          "marginBottom": 16,
-          "nestedSpacing": 8
+          "marginBottom": 16
         },
         "task": {
           "fontFamily": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
@@ -219,7 +217,6 @@
           "itemSpacing": 4,
           "marginTop": 12,
           "marginBottom": 16,
-          "nestedSpacing": 8,
           "checkboxSize": 13,
           "checkboxBorderWidth": 1,
           "checkboxBorderColor": "#d0cfce",

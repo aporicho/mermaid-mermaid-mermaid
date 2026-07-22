@@ -76,15 +76,12 @@ describe("Markdown style contract", () => {
       "unordered-list-margin-top",
       "unordered-list-margin-bottom",
       "unordered-list-item-spacing",
-      "unordered-list-nested-spacing",
       "ordered-list-margin-top",
       "ordered-list-margin-bottom",
       "ordered-list-item-spacing",
-      "ordered-list-nested-spacing",
       "task-list-margin-top",
       "task-list-margin-bottom",
       "task-list-item-spacing",
-      "task-list-nested-spacing",
       "blockquote-margin-top",
       "blockquote-margin-bottom",
       "code-block-margin-top",
@@ -149,19 +146,24 @@ describe("Markdown style contract", () => {
     expect(cssRule(".markdown-editor-panel .milkdown .ProseMirror > :last-child")).toContain("margin-bottom: 0");
   });
 
-  it("spaces only adjacent list items and gives nested lists their own rhythm", () => {
+  it("uses one row spacing rhythm across every list level", () => {
     expect(css).toContain(".markdown-editor-panel .milkdown .ProseMirror ul > li + li,");
     expect(css).toContain(".markdown-editor-panel .milkdown .ProseMirror ol > li + li,");
     expect(css).toContain(".milkdown-list-item-block + .milkdown-list-item-block > .list-item");
     expect(css).not.toMatch(/margin-block:\s*var\(--markdown-(?:unordered|ordered|task)-list-item-spacing\)/);
     const nestedUnordered = cssRule(".markdown-editor-panel .milkdown .ProseMirror :is(ul, ol) ul");
     const nestedOrdered = cssRule(".markdown-editor-panel .milkdown .ProseMirror :is(ul, ol) ol");
-    expect(nestedUnordered).toContain("var(--markdown-unordered-list-nested-spacing)");
+    expect(nestedUnordered).toContain("var(--markdown-unordered-list-item-spacing)");
+    expect(nestedUnordered).toContain("margin-bottom: 0");
     expect(nestedUnordered).toContain("padding-left: var(--markdown-unordered-list-indent)");
-    expect(nestedOrdered).toContain("var(--markdown-ordered-list-nested-spacing)");
+    expect(nestedOrdered).toContain("var(--markdown-ordered-list-item-spacing)");
+    expect(nestedOrdered).toContain("margin-bottom: 0");
     expect(nestedOrdered).toContain("padding-left: var(--markdown-ordered-list-indent)");
-    expect(css).toContain("var(--markdown-task-list-nested-spacing)");
+    const nestedTask = cssRuleGroup('.markdown-editor-panel .milkdown .ProseMirror :is(ul, ol) ul:has(> li[data-item-type="task"])');
+    expect(nestedTask).toContain("var(--markdown-task-list-item-spacing)");
+    expect(nestedTask).toContain("margin-bottom: 0");
     expect(css).toContain("padding-left: var(--markdown-task-list-indent)");
+    expect(css).not.toContain("-list-nested-spacing");
     expect(css).toContain(".ProseMirror li > p:has(+ :is(ul, ol)),");
     expect(css).toContain(".milkdown-list-item-block .list-item > .children > p:has(+ :is(ul, ol))");
   });

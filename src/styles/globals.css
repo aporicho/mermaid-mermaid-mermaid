@@ -719,21 +719,21 @@
 }
 
 .markdown-editor-panel .milkdown .ProseMirror :is(ul, ol) ul {
-  margin-top: calc(var(--markdown-unordered-list-nested-spacing) * var(--markdown-text-scale));
-  margin-bottom: calc(var(--markdown-unordered-list-nested-spacing) * var(--markdown-text-scale));
+  margin-top: calc(var(--markdown-unordered-list-item-spacing) * var(--markdown-text-scale));
+  margin-bottom: 0;
   padding-left: var(--markdown-unordered-list-indent);
 }
 
 .markdown-editor-panel .milkdown .ProseMirror :is(ul, ol) ol {
-  margin-top: calc(var(--markdown-ordered-list-nested-spacing) * var(--markdown-text-scale));
-  margin-bottom: calc(var(--markdown-ordered-list-nested-spacing) * var(--markdown-text-scale));
+  margin-top: calc(var(--markdown-ordered-list-item-spacing) * var(--markdown-text-scale));
+  margin-bottom: 0;
   padding-left: var(--markdown-ordered-list-indent);
 }
 
 .markdown-editor-panel .milkdown .ProseMirror :is(ul, ol) ul:has(> li[data-item-type="task"]),
 .markdown-editor-panel .milkdown .ProseMirror :is(ul, ol) ul:has(> .milkdown-list-item-block > .list-item > .label-wrapper :is(.checked, .unchecked)) {
-  margin-top: calc(var(--markdown-task-list-nested-spacing) * var(--markdown-text-scale));
-  margin-bottom: calc(var(--markdown-task-list-nested-spacing) * var(--markdown-text-scale));
+  margin-top: calc(var(--markdown-task-list-item-spacing) * var(--markdown-text-scale));
+  margin-bottom: 0;
   padding-left: var(--markdown-task-list-indent);
 }
 

@@ -648,8 +648,7 @@
           "indent": 8,
           "itemSpacing": 4,
           "marginTop": 12,
-          "marginBottom": 16,
-          "nestedSpacing": 8
+          "marginBottom": 16
         },
         "ordered": {
           "fontFamily": "\"方正屏显雅宋简体\", system-ui, sans-serif",
@@ -662,8 +661,7 @@
           "indent": 8,
           "itemSpacing": 4,
           "marginTop": 12,
-          "marginBottom": 16,
-          "nestedSpacing": 8
+          "marginBottom": 16
         },
         "task": {
           "fontFamily": "\"方正屏显雅宋简体\", system-ui, sans-serif",
@@ -676,7 +674,6 @@
           "itemSpacing": 4,
           "marginTop": 12,
           "marginBottom": 16,
-          "nestedSpacing": 8,
           "checkboxSize": 16,
           "checkboxBorderWidth": 1,
           "checkboxBorderStyle": "solid",
