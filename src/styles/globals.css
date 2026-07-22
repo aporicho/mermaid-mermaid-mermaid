@@ -510,7 +510,7 @@
 }
 
 .markdown-editor-panel.markdown-editor-panel--window {
-  --markdown-window-block-toolbar-gutter: 80px;
+  --markdown-window-block-toolbar-gutter: 64px;
 }
 
 .markdown-editor-panel.markdown-editor-panel--window .milkdown .editor {
@@ -579,12 +579,16 @@
 }
 
 .markdown-editor-panel.markdown-editor-panel--window .milkdown .milkdown-block-handle .operation-item {
+  display: inline-flex;
   width: 24px;
   height: 24px;
+  align-items: center;
+  justify-content: center;
   padding: 3px;
 }
 
 .markdown-editor-panel.markdown-editor-panel--window .milkdown .milkdown-block-handle .operation-item svg {
+  display: block;
   width: 18px;
   height: 18px;
 }

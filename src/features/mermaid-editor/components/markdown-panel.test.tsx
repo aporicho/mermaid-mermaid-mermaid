@@ -24,6 +24,7 @@ type MockEditorView = {
 };
 
 const milkdownMock = vi.hoisted(() => ({
+  crepeConfig: undefined as unknown,
   create: vi.fn(() => Promise.resolve()),
   destroy: vi.fn(() => Promise.resolve()),
   dispatch: vi.fn(),
@@ -45,7 +46,8 @@ const markdownFoldingMock = vi.hoisted(() => ({
 }));
 
 vi.mock("@milkdown/crepe", () => ({
-  Crepe: vi.fn(function Crepe() {
+  Crepe: vi.fn(function Crepe(config: unknown) {
+    milkdownMock.crepeConfig = config;
     return {
       editor: {
         status: "Created",
@@ -60,7 +62,8 @@ vi.mock("@milkdown/crepe", () => ({
       on: vi.fn(),
       setReadonly: milkdownMock.setReadonly
     };
-  })
+  }),
+  CrepeFeature: { BlockEdit: "block-edit" }
 }));
 
 vi.mock("@milkdown/kit/core", () => ({
@@ -127,6 +130,7 @@ describe("MarkdownPanel", () => {
     milkdownMock.use.mockClear();
     milkdownMock.setReadonly.mockClear();
     milkdownMock.setSelection.mockClear();
+    milkdownMock.crepeConfig = undefined;
     markdownBlockStyleMock.convert.mockClear();
     markdownBlockStyleMock.get.mockClear();
     markdownFoldingMock.find.mockClear();
@@ -135,13 +139,13 @@ describe("MarkdownPanel", () => {
     vi.useRealTimers();
   });
 
-  function renderPanel(spellCheck = false, contentWidth = 880, textScale = 1) {
+  function renderPanel(spellCheck = false, contentWidth = 880, textScale = 1, className?: string) {
     container = document.createElement("div");
     document.body.appendChild(container);
     root = createRoot(container);
 
     act(() => {
-      root?.render(createElement(MarkdownPanel, { value: "# Hello", spellCheck, contentWidth, textScale, onChange: vi.fn() }));
+      root?.render(createElement(MarkdownPanel, { value: "# Hello", spellCheck, contentWidth, textScale, className, onChange: vi.fn() }));
     });
 
     const panel = container.querySelector(".markdown-editor-panel");
@@ -191,6 +195,15 @@ describe("MarkdownPanel", () => {
 
     expect(panel.style.getPropertyValue("--markdown-text-scale")).toBe("0.7");
     expect(milkdownMock.create).toHaveBeenCalledTimes(1);
+  });
+
+  it("places detached-window block handles close to their active block", () => {
+    renderPanel(false, 880, 1, "markdown-editor-panel--window");
+
+    const config = milkdownMock.crepeConfig as {
+      featureConfigs: Record<string, { blockHandle: { getOffset: () => number } }>;
+    };
+    expect(config.featureConfigs["block-edit"]?.blockHandle.getOffset()).toBe(6);
   });
 
   function appendBlockHandle(panel: HTMLElement) {

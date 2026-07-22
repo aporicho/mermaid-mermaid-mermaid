@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
-import { Crepe } from "@milkdown/crepe";
+import { Crepe, CrepeFeature } from "@milkdown/crepe";
 import { EditorStatus, editorViewCtx } from "@milkdown/kit/core";
 import { TextSelection } from "@milkdown/kit/prose/state";
 import { Check, CodeBrackets, List, NumberedListLeft, Quote, TaskList, Text, TextSize } from "iconoir-react/regular";
@@ -118,10 +118,18 @@ export function MarkdownPanel({ value, className, readOnly = false, spellCheck, 
     const root = rootRef.current;
     if (!root) return;
     let disposed = false;
+    const isDetachedWindow = root.closest(".markdown-editor-panel--window") !== null;
 
     const crepe = new Crepe({
       root,
-      defaultValue: initialValueRef.current
+      defaultValue: initialValueRef.current,
+      featureConfigs: {
+        [CrepeFeature.BlockEdit]: {
+          blockHandle: {
+            getOffset: () => isDetachedWindow ? 6 : 16
+          }
+        }
+      }
     });
     crepe.editor.use(markdownFolding);
     crepe.setReadonly(initialReadOnlyRef.current);
