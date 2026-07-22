@@ -21,7 +21,13 @@ import {
   getMarkdownBlockStyle,
   type MarkdownBlockStyle
 } from "@/features/mermaid-editor/lib/markdown-block-style";
-import { markdownFolding } from "@/features/mermaid-editor/lib/markdown-folding";
+import {
+  findMarkdownFoldTarget,
+  markdownFolding,
+  toggleMarkdownFold,
+  type MarkdownFoldKind,
+  type MarkdownFoldTarget
+} from "@/features/mermaid-editor/lib/markdown-folding";
 import { clampMarkdownTextScale } from "@/features/mermaid-editor/lib/markdown-text-scale";
 import { cn } from "@/lib/utils";
 
@@ -154,7 +160,9 @@ export function MarkdownPanel({ value, className, readOnly = false, spellCheck, 
     const panelElement: HTMLElement = currentPanel;
 
     function isBlockHandleEvent(event: DragEvent) {
-      return event.target instanceof Element && Boolean(event.target.closest(".milkdown-block-handle"));
+      return event.target instanceof Element
+        && !event.target.closest(".markdown-fold-handle-button")
+        && Boolean(event.target.closest(".milkdown-block-handle"));
     }
 
     function getDragHandle(target: EventTarget | null) {
@@ -165,15 +173,140 @@ export function MarkdownPanel({ value, className, readOnly = false, spellCheck, 
       return blockHandle;
     }
 
+    function resolveBlockHandlePosition(blockHandle: HTMLElement) {
+      const crepe = crepeRef.current;
+      if (!crepe || crepe.editor.status !== EditorStatus.Created) return null;
+
+      return crepe.editor.action((ctx) => {
+        const view = ctx.get(editorViewCtx);
+        const rect = blockHandle.getBoundingClientRect();
+        const editorRect = view.dom.getBoundingClientRect();
+        const resolved = view.posAtCoords({
+          left: editorRect.left + editorRect.width / 2,
+          top: rect.top + rect.height / 2
+        });
+        return {
+          position: resolved && resolved.inside >= 0
+            ? resolved.inside
+            : resolved?.pos ?? view.state.selection.from,
+          view
+        };
+      });
+    }
+
+    function setFoldButtonVisible(blockHandle: HTMLElement, button: HTMLButtonElement, visible: boolean) {
+      if (button.hidden === !visible) return;
+      const beforeWidth = blockHandle.getBoundingClientRect().width;
+      button.hidden = !visible;
+      const afterWidth = blockHandle.getBoundingClientRect().width;
+      const currentLeft = Number.parseFloat(blockHandle.style.left);
+      if (Number.isFinite(currentLeft) && beforeWidth !== afterWidth) {
+        blockHandle.style.left = `${currentLeft - (afterWidth - beforeWidth)}px`;
+      }
+    }
+
+    function hideFoldButton(blockHandle: HTMLElement, button: HTMLButtonElement) {
+      setFoldButtonVisible(blockHandle, button, false);
+      button.setAttribute("aria-hidden", "true");
+      button.tabIndex = -1;
+      delete button.dataset.markdownFoldKind;
+      delete button.dataset.markdownFoldPosition;
+    }
+
+    function updateFoldButton(
+      blockHandle: HTMLElement,
+      button: HTMLButtonElement,
+      target: MarkdownFoldTarget | null
+    ) {
+      if (!target || blockHandle.dataset.show !== "true") {
+        hideFoldButton(blockHandle, button);
+        return;
+      }
+
+      const action = target.collapsed ? "展开" : "折叠";
+      const subject = target.kind === "heading" ? "章节" : "子列表";
+      const normalizedLabel = target.label.trim().replace(/\s+/g, " ").slice(0, 48);
+      const accessibleLabel = normalizedLabel ? `${action}${subject}“${normalizedLabel}”` : `${action}${subject}`;
+      setFoldButtonVisible(blockHandle, button, true);
+      button.dataset.markdownFoldKind = target.kind;
+      button.dataset.markdownFoldPosition = String(target.position);
+      button.setAttribute("aria-expanded", target.collapsed ? "false" : "true");
+      button.setAttribute("aria-label", accessibleLabel);
+      button.removeAttribute("aria-hidden");
+      button.title = `${action}${subject}`;
+      button.tabIndex = 0;
+    }
+
+    function handleFoldButtonClick(event: MouseEvent) {
+      const button = event.currentTarget;
+      if (!(button instanceof HTMLButtonElement)) return;
+      const kind = button.dataset.markdownFoldKind as MarkdownFoldKind | undefined;
+      const position = Number(button.dataset.markdownFoldPosition);
+      if ((kind !== "heading" && kind !== "list-item") || !Number.isInteger(position)) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+      setBlockStyleMenu(null);
+      const crepe = crepeRef.current;
+      if (!crepe || crepe.editor.status !== EditorStatus.Created) return;
+      crepe.editor.action((ctx) => {
+        toggleMarkdownFold(ctx.get(editorViewCtx), { kind, position });
+      });
+      decorateBlockHandles();
+    }
+
+    function createFoldButton(blockHandle: HTMLElement, dragHandle: HTMLElement) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "operation-item markdown-fold-handle-button";
+      button.contentEditable = "false";
+      button.draggable = false;
+      button.hidden = true;
+      button.setAttribute("aria-hidden", "true");
+      button.tabIndex = -1;
+
+      const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      svg.setAttribute("aria-hidden", "true");
+      svg.setAttribute("viewBox", "0 0 24 24");
+      const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      path.setAttribute("d", "M9 6l6 6-6 6");
+      path.setAttribute("fill", "none");
+      path.setAttribute("stroke", "currentColor");
+      path.setAttribute("stroke-linecap", "round");
+      path.setAttribute("stroke-linejoin", "round");
+      path.setAttribute("stroke-width", "1.5");
+      svg.appendChild(path);
+      button.appendChild(svg);
+
+      const suppressBlockDrag = (event: Event) => {
+        event.preventDefault();
+        event.stopPropagation();
+      };
+      button.addEventListener("pointerdown", suppressBlockDrag);
+      button.addEventListener("mousedown", suppressBlockDrag);
+      button.addEventListener("dragstart", suppressBlockDrag);
+      button.addEventListener("click", handleFoldButtonClick);
+      blockHandle.insertBefore(button, dragHandle);
+      return button;
+    }
+
     function decorateBlockHandles() {
-      panelElement.querySelectorAll<HTMLElement>(".milkdown-block-handle > .operation-item:last-child").forEach((handle) => {
-        const blockHandle = handle.parentElement;
-        const isVisible = blockHandle?.dataset.show === "true";
-        handle.setAttribute("role", "button");
-        handle.setAttribute("aria-label", "块样式");
-        if (isVisible) handle.removeAttribute("aria-hidden");
-        else handle.setAttribute("aria-hidden", "true");
-        handle.tabIndex = isVisible ? 0 : -1;
+      panelElement.querySelectorAll<HTMLElement>(".milkdown-block-handle").forEach((blockHandle) => {
+        const dragHandle = blockHandle.querySelector<HTMLElement>(":scope > .operation-item:last-child");
+        if (!dragHandle) return;
+
+        dragHandle.setAttribute("role", "button");
+        dragHandle.setAttribute("aria-label", "块样式");
+        const isVisible = blockHandle.dataset.show === "true";
+        if (isVisible) dragHandle.removeAttribute("aria-hidden");
+        else dragHandle.setAttribute("aria-hidden", "true");
+        dragHandle.tabIndex = isVisible ? 0 : -1;
+
+        const foldButton = blockHandle.querySelector<HTMLButtonElement>(":scope > .markdown-fold-handle-button")
+          ?? createFoldButton(blockHandle, dragHandle);
+        const resolved = isVisible ? resolveBlockHandlePosition(blockHandle) : null;
+        const target = resolved ? findMarkdownFoldTarget(resolved.view.state, resolved.position) : null;
+        updateFoldButton(blockHandle, foldButton, target);
       });
     }
 
@@ -252,14 +385,7 @@ export function MarkdownPanel({ value, className, readOnly = false, spellCheck, 
       crepe.editor.action((ctx) => {
         const view = ctx.get(editorViewCtx);
         const rect = blockHandle.getBoundingClientRect();
-        const editorRect = view.dom.getBoundingClientRect();
-        const resolvedPosition = view.posAtCoords({
-          left: editorRect.left + editorRect.width / 2,
-          top: rect.top + rect.height / 2
-        });
-        const position = resolvedPosition && resolvedPosition.inside >= 0
-          ? resolvedPosition.inside
-          : resolvedPosition?.pos ?? view.state.selection.from;
+        const position = resolveBlockHandlePosition(blockHandle)?.position ?? view.state.selection.from;
         setBlockStyleMenu({
           conversionFailed: false,
           currentStyle: getMarkdownBlockStyle(view.state, position),

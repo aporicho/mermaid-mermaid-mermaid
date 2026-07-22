@@ -38,15 +38,21 @@ const markdownBlockStyleMock = vi.hoisted(() => ({
   get: vi.fn(() => "paragraph")
 }));
 
+const markdownFoldingMock = vi.hoisted(() => ({
+  find: vi.fn(() => null as { collapsed: boolean; kind: "heading" | "list-item"; label: string; position: number } | null),
+  plugin: Symbol("markdownFolding"),
+  toggle: vi.fn(() => true)
+}));
+
 vi.mock("@milkdown/crepe", () => ({
   Crepe: vi.fn(function Crepe() {
     return {
       editor: {
         status: "Created",
         use: milkdownMock.use,
-        action: (callback: (ctx: { get: () => MockEditorView }) => void) => {
+        action: <T,>(callback: (ctx: { get: () => MockEditorView }) => T) => {
           if (!milkdownMock.view) throw new Error("Mock editor view is not configured.");
-          callback({ get: () => milkdownMock.view! });
+          return callback({ get: () => milkdownMock.view! });
         }
       },
       create: milkdownMock.create,
@@ -78,7 +84,9 @@ vi.mock("@/features/mermaid-editor/lib/markdown-block-style", () => ({
 }));
 
 vi.mock("@/features/mermaid-editor/lib/markdown-folding", () => ({
-  markdownFolding: Symbol("markdownFolding")
+  findMarkdownFoldTarget: markdownFoldingMock.find,
+  markdownFolding: markdownFoldingMock.plugin,
+  toggleMarkdownFold: markdownFoldingMock.toggle
 }));
 
 describe("MarkdownPanel", () => {
@@ -121,6 +129,8 @@ describe("MarkdownPanel", () => {
     milkdownMock.setSelection.mockClear();
     markdownBlockStyleMock.convert.mockClear();
     markdownBlockStyleMock.get.mockClear();
+    markdownFoldingMock.find.mockClear();
+    markdownFoldingMock.toggle.mockClear();
     milkdownMock.view = undefined;
     vi.useRealTimers();
   });
@@ -309,6 +319,42 @@ describe("MarkdownPanel", () => {
     expect(menu?.textContent).toContain("引用");
     expect(menu?.textContent).toContain("代码块");
     expect(markdownBlockStyleMock.get).toHaveBeenCalledWith(milkdownMock.view?.state, 5);
+  });
+
+  it("places folding between add and drag actions for a foldable block", async () => {
+    markdownFoldingMock.find.mockReturnValue({
+      collapsed: false,
+      kind: "heading",
+      label: "Section",
+      position: 5
+    });
+    const panel = renderPanel();
+    const { addButton, dragButton, handle } = appendInteractiveBlockHandle(panel);
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    const foldButton = handle.querySelector<HTMLButtonElement>(":scope > .markdown-fold-handle-button");
+    expect(foldButton).not.toBeNull();
+    expect(Array.from(handle.children)).toEqual([addButton, foldButton, dragButton]);
+    expect(foldButton?.hidden).toBe(false);
+    expect(foldButton?.getAttribute("aria-label")).toBe("折叠章节“Section”");
+    expect(foldButton?.getAttribute("aria-expanded")).toBe("true");
+    expect(foldButton?.tabIndex).toBe(0);
+
+    act(() => {
+      foldButton?.dispatchEvent(new Event("dragstart", { bubbles: true, cancelable: true }));
+      foldButton?.click();
+    });
+
+    expect(markdownFoldingMock.find).toHaveBeenCalledWith(milkdownMock.view?.state, 5);
+    expect(markdownFoldingMock.toggle).toHaveBeenCalledWith(milkdownMock.view, {
+      kind: "heading",
+      position: 5
+    });
+    expect(getBlockStyleMenu()).toBeNull();
+    expect(panel.hasAttribute("data-md-block-dragging")).toBe(false);
   });
 
   it("only exposes a visible style handle as a keyboard-accessible menu entry", async () => {

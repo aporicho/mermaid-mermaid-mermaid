@@ -76,12 +76,13 @@ describe("application style contract", () => {
     expect(globals).toContain(".label-wrapper .checked::after");
   });
 
-  it("keeps hierarchy folding compatible with Crepe list-item content DOM", () => {
+  it("keeps hierarchy folding inside the Crepe block handle and supports its list-item content DOM", () => {
     const globals = readProjectFile("src/styles/globals.css");
 
     expect(globals).toContain(".markdown-fold-list-parent--collapsed > .list-item > .children > .content-dom > :is(ul, ol)");
-    expect(globals).toContain(".markdown-fold-list-parent:hover > .list-item > .children .markdown-fold-toggle");
-    expect(globals).toContain(".markdown-fold-heading--collapsed > .markdown-fold-toggle");
+    expect(globals).toContain(".milkdown-block-handle .markdown-fold-handle-button");
+    expect(globals).toContain('.markdown-fold-handle-button[aria-expanded="true"] svg');
+    expect(globals).not.toContain(".markdown-fold-toggle--heading");
   });
 
   it("packages Electron image assets through the desktop asset protocol", () => {

@@ -5,6 +5,13 @@ import { $prose } from "@milkdown/kit/utils";
 
 export type MarkdownFoldKind = "heading" | "list-item";
 
+export type MarkdownFoldTarget = {
+  collapsed: boolean;
+  kind: MarkdownFoldKind;
+  label: string;
+  position: number;
+};
+
 type MarkdownFoldAction = {
   kind: MarkdownFoldKind;
   position: number;
@@ -47,25 +54,6 @@ export function createMarkdownFoldingProsePlugin() {
     props: {
       decorations(state) {
         return markdownFoldingProsePluginKey.getState(state)?.decorations ?? DecorationSet.empty;
-      },
-      handleDOMEvents: {
-        mousedown(_view, event) {
-          if (!getFoldButton(event.target)) return false;
-          event.preventDefault();
-          return true;
-        },
-        click(view, event) {
-          const button = getFoldButton(event.target);
-          if (!button) return false;
-
-          const kind = button.dataset.markdownFoldKind;
-          const position = Number(button.dataset.markdownFoldPosition);
-          if ((kind !== "heading" && kind !== "list-item") || !Number.isInteger(position)) return false;
-
-          event.preventDefault();
-          toggleMarkdownFold(view, kind, position);
-          return true;
-        }
       }
     }
   });
@@ -123,6 +111,66 @@ export function collectListFoldTargets(doc: ProseMirrorNode): ListFoldTarget[] {
   return targets;
 }
 
+export function findMarkdownFoldTarget(state: EditorState, position: number): MarkdownFoldTarget | null {
+  const headingTargets = collectHeadingFoldTargets(state.doc);
+  const listTargets = collectListFoldTargets(state.doc);
+  const foldingState = markdownFoldingProsePluginKey.getState(state);
+  const maxPosition = state.doc.content.size;
+  const clamped = Math.max(0, Math.min(position, maxPosition));
+  const probes = [clamped, clamped + 1, clamped - 1]
+    .filter((probe, index, values) => probe >= 0 && probe <= maxPosition && values.indexOf(probe) === index);
+
+  for (const probe of probes) {
+    const $pos = state.doc.resolve(probe);
+    const nodeAfter = $pos.nodeAfter;
+    if (nodeAfter?.type.name === "heading") {
+      const target = headingTargets.find((candidate) => candidate.position === probe);
+      if (target) return toPublicTarget(target, "heading", foldingState?.collapsedHeadings);
+    }
+    if (nodeAfter?.type.name === "list_item") {
+      const target = listTargets.find((candidate) => candidate.position === probe);
+      return target ? toPublicTarget(target, "list-item", foldingState?.collapsedListItems) : null;
+    }
+
+    for (let depth = $pos.depth; depth >= 1; depth -= 1) {
+      const node = $pos.node(depth);
+      const nodePosition = $pos.before(depth);
+      if (node.type.name === "list_item") {
+        const target = listTargets.find((candidate) => candidate.position === nodePosition);
+        return target ? toPublicTarget(target, "list-item", foldingState?.collapsedListItems) : null;
+      }
+      if (node.type.name === "heading") {
+        const target = headingTargets.find((candidate) => candidate.position === nodePosition);
+        if (target) return toPublicTarget(target, "heading", foldingState?.collapsedHeadings);
+      }
+    }
+  }
+
+  return null;
+}
+
+export function toggleMarkdownFold(view: EditorView, target: Pick<MarkdownFoldTarget, "kind" | "position">) {
+  const currentTarget = findMarkdownFoldTarget(view.state, target.position);
+  if (!currentTarget || currentTarget.kind !== target.kind || currentTarget.position !== target.position) return false;
+
+  const willCollapse = !currentTarget.collapsed;
+  let transaction = view.state.tr;
+
+  if (willCollapse && selectionWillBeHidden(view.state, target.kind, target.position)) {
+    const selectionPosition = Math.min(target.position + 1, view.state.doc.content.size);
+    transaction = transaction.setSelection(TextSelection.near(view.state.doc.resolve(selectionPosition), 1));
+  }
+
+  transaction = transaction.setMeta(markdownFoldingProsePluginKey, {
+    kind: target.kind,
+    position: target.position,
+    type: "toggle"
+  } satisfies MarkdownFoldAction);
+  view.dispatch(transaction);
+  view.focus();
+  return true;
+}
+
 function applyFoldingTransaction(
   transaction: Transaction,
   previous: MarkdownFoldingState,
@@ -178,21 +226,13 @@ function buildFoldDecorations(
 
   for (const target of headingTargets) {
     const collapsed = collapsedHeadings.has(target.position);
+    if (!collapsed) continue;
     decorations.push(
       Decoration.node(target.position, target.position + target.node.nodeSize, {
-        class: collapsed
-          ? "markdown-fold-heading markdown-fold-heading--collapsed"
-          : "markdown-fold-heading",
+        class: "markdown-fold-heading--collapsed",
         "data-markdown-fold-level": String(target.level)
-      }),
-      Decoration.widget(
-        target.position + 1,
-        () => createFoldButton("heading", target.position, target.label, collapsed),
-        { side: -1 }
-      )
+      })
     );
-
-    if (!collapsed) continue;
     doc.forEach((node, position) => {
       if (position >= target.contentFrom && position < target.contentTo) {
         hiddenTopLevelPositions.add(position);
@@ -218,73 +258,11 @@ function buildFoldDecorations(
         class: collapsed
           ? "markdown-fold-list-parent markdown-fold-list-parent--collapsed"
           : "markdown-fold-list-parent"
-      }),
-      Decoration.widget(
-        target.position + 1,
-        () => createFoldButton("list-item", target.position, target.label, collapsed),
-        { side: -1 }
-      )
+      })
     );
   }
 
   return DecorationSet.create(doc, decorations);
-}
-
-function createFoldButton(kind: MarkdownFoldKind, position: number, label: string, collapsed: boolean) {
-  const button = document.createElement("button");
-  const subject = kind === "heading" ? "章节" : "子列表";
-  const action = collapsed ? "展开" : "折叠";
-  const normalizedLabel = label.trim().replace(/\s+/g, " ").slice(0, 48);
-  const accessibleLabel = normalizedLabel ? `${action}${subject}“${normalizedLabel}”` : `${action}${subject}`;
-
-  button.type = "button";
-  button.className = `markdown-fold-toggle markdown-fold-toggle--${kind}`;
-  button.contentEditable = "false";
-  button.dataset.markdownFoldKind = kind;
-  button.dataset.markdownFoldPosition = String(position);
-  button.setAttribute("aria-expanded", collapsed ? "false" : "true");
-  button.setAttribute("aria-label", accessibleLabel);
-  button.title = `${action}${subject}`;
-
-  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-  svg.setAttribute("aria-hidden", "true");
-  svg.setAttribute("fill", "none");
-  svg.setAttribute("viewBox", "0 0 24 24");
-
-  const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-  path.setAttribute("d", "M9 6l6 6-6 6");
-  path.setAttribute("stroke", "currentColor");
-  path.setAttribute("stroke-linecap", "round");
-  path.setAttribute("stroke-linejoin", "round");
-  path.setAttribute("stroke-width", "1.5");
-  svg.appendChild(path);
-  button.appendChild(svg);
-
-  return button;
-}
-
-function toggleMarkdownFold(view: EditorView, kind: MarkdownFoldKind, position: number) {
-  const foldingState = markdownFoldingProsePluginKey.getState(view.state);
-  if (!foldingState) return;
-
-  const collapsedPositions = kind === "heading"
-    ? foldingState.collapsedHeadings
-    : foldingState.collapsedListItems;
-  const willCollapse = !collapsedPositions.has(position);
-  let transaction = view.state.tr;
-
-  if (willCollapse && selectionWillBeHidden(view.state, kind, position)) {
-    const selectionPosition = Math.min(position + 1, view.state.doc.content.size);
-    transaction = transaction.setSelection(TextSelection.near(view.state.doc.resolve(selectionPosition), 1));
-  }
-
-  transaction = transaction.setMeta(markdownFoldingProsePluginKey, {
-    kind,
-    position,
-    type: "toggle"
-  } satisfies MarkdownFoldAction);
-  view.dispatch(transaction);
-  view.focus();
 }
 
 function selectionWillBeHidden(state: EditorState, kind: MarkdownFoldKind, position: number) {
@@ -328,12 +306,6 @@ function intersectPositions(requested: ReadonlySet<number>, valid: ReadonlySet<n
   return new Set([...requested].filter((position) => valid.has(position)));
 }
 
-function getFoldButton(target: EventTarget | null) {
-  if (!(target instanceof Element)) return null;
-  const button = target.closest<HTMLButtonElement>("button.markdown-fold-toggle");
-  return button?.isConnected ? button : null;
-}
-
 function getHeadingLevel(node: ProseMirrorNode) {
   const level = Number(node.attrs.level);
   return Number.isInteger(level) && level >= 1 && level <= 6 ? level : 1;
@@ -341,4 +313,17 @@ function getHeadingLevel(node: ProseMirrorNode) {
 
 function isListNode(node: ProseMirrorNode) {
   return node.type.name === "bullet_list" || node.type.name === "ordered_list";
+}
+
+function toPublicTarget(
+  target: Pick<HeadingFoldTarget | ListFoldTarget, "label" | "position">,
+  kind: MarkdownFoldKind,
+  collapsedPositions: ReadonlySet<number> | undefined
+): MarkdownFoldTarget {
+  return {
+    collapsed: collapsedPositions?.has(target.position) ?? false,
+    kind,
+    label: target.label,
+    position: target.position
+  };
 }

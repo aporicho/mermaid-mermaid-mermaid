@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import { Crepe } from "@milkdown/crepe";
+import { editorViewCtx } from "@milkdown/kit/core";
 import { Schema, type Node as ProseMirrorNode } from "@milkdown/kit/prose/model";
 import { EditorState, TextSelection } from "@milkdown/kit/prose/state";
 import { EditorView } from "@milkdown/kit/prose/view";
@@ -10,8 +11,10 @@ import {
   collectHeadingFoldTargets,
   collectListFoldTargets,
   createMarkdownFoldingProsePlugin,
+  findMarkdownFoldTarget,
   markdownFolding,
   markdownFoldingProsePluginKey,
+  toggleMarkdownFold,
   type MarkdownFoldKind
 } from "@/features/mermaid-editor/lib/markdown-folding";
 
@@ -100,11 +103,7 @@ function createView(doc: ProseMirrorNode) {
 }
 
 function toggle(view: EditorView, kind: MarkdownFoldKind, position: number) {
-  view.dispatch(view.state.tr.setMeta(markdownFoldingProsePluginKey, {
-    kind,
-    position,
-    type: "toggle"
-  }));
+  expect(toggleMarkdownFold(view, { kind, position })).toBe(true);
 }
 
 describe("markdown hierarchy folding", () => {
@@ -121,18 +120,13 @@ describe("markdown hierarchy folding", () => {
     try {
       await crepe.create();
 
-      const headingButton = root.querySelector<HTMLButtonElement>(
-        'h1 > button[data-markdown-fold-kind="heading"]'
-      );
-      const listButton = root.querySelector<HTMLButtonElement>(
-        'button[data-markdown-fold-kind="list-item"]'
-      );
-      expect(headingButton).not.toBeNull();
-      expect(listButton).not.toBeNull();
-      expect(listButton?.closest(".milkdown-list-item-block.markdown-fold-list-parent")).not.toBeNull();
-      expect(listButton?.parentElement?.classList.contains("content-dom")).toBe(true);
+      crepe.editor.action((ctx) => {
+        const view = ctx.get(editorViewCtx);
+        const [target] = collectListFoldTargets(view.state.doc);
+        expect(toggleMarkdownFold(view, { kind: "list-item", position: target!.position })).toBe(true);
+      });
 
-      listButton?.click();
+      expect(root.querySelector(".markdown-fold-toggle")).toBeNull();
       expect(root.querySelectorAll(".milkdown-list-item-block.markdown-fold-list-parent--collapsed")).toHaveLength(1);
       expect(crepe.getMarkdown()).toContain("Child");
     } finally {
@@ -167,16 +161,14 @@ describe("markdown hierarchy folding", () => {
       paragraph("Second body")
     ));
     const originalDocument = view.state.doc;
-    const button = view.dom.querySelector<HTMLButtonElement>('button[data-markdown-fold-kind="heading"]');
+    const [target] = collectHeadingFoldTargets(view.state.doc);
 
-    expect(button?.getAttribute("aria-expanded")).toBe("true");
-    button?.click();
+    toggle(view, "heading", target!.position);
 
     expect(view.state.doc).toBe(originalDocument);
     expect(view.dom.querySelectorAll(".markdown-fold-hidden")).toHaveLength(3);
     expect(view.dom.querySelectorAll("h1.markdown-fold-hidden")).toHaveLength(0);
-    expect(view.dom.querySelector<HTMLButtonElement>('button[data-markdown-fold-kind="heading"]')?.getAttribute("aria-expanded"))
-      .toBe("false");
+    expect(markdownFoldingProsePluginKey.getState(view.state)?.collapsedHeadings.has(target!.position)).toBe(true);
   });
 
   it("moves a selection out of content before hiding that section", () => {
@@ -184,7 +176,7 @@ describe("markdown hierarchy folding", () => {
     const [target] = collectHeadingFoldTargets(view.state.doc);
     view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, target!.contentFrom + 1)));
 
-    view.dom.querySelector<HTMLButtonElement>('button[data-markdown-fold-kind="heading"]')?.click();
+    toggle(view, "heading", target!.position);
 
     expect(view.state.selection.from).toBeLessThan(target!.contentFrom);
     expect(markdownFoldingProsePluginKey.getState(view.state)?.collapsedHeadings.has(target!.position)).toBe(true);
@@ -203,6 +195,26 @@ describe("markdown hierarchy folding", () => {
     expect(view.state.doc.textContent).toBe("ParentChild oneChild twoSibling");
     expect(view.dom.querySelectorAll("li.markdown-fold-list-parent--collapsed")).toHaveLength(1);
     expect(markdownFoldingProsePluginKey.getState(view.state)?.collapsedListItems.has(target!.position)).toBe(true);
+  });
+
+  it("resolves the nearest foldable block without offering an ancestor on a leaf child", () => {
+    const nested = bulletList(listItem("Leaf"));
+    const view = createView(createDocument(heading(1, "Section"), paragraph("Body"), bulletList(listItem("Parent", nested))));
+    const [headingTarget] = collectHeadingFoldTargets(view.state.doc);
+    const [listTarget] = collectListFoldTargets(view.state.doc);
+    const leafTextPosition = listTarget!.nestedRanges[0]!.from + 3;
+
+    expect(findMarkdownFoldTarget(view.state, headingTarget!.position + 1)).toMatchObject({
+      collapsed: false,
+      kind: "heading",
+      position: headingTarget!.position
+    });
+    expect(findMarkdownFoldTarget(view.state, listTarget!.position + 2)).toMatchObject({
+      collapsed: false,
+      kind: "list-item",
+      position: listTarget!.position
+    });
+    expect(findMarkdownFoldTarget(view.state, leafTextPosition)).toBeNull();
   });
 
   it("keeps a collapsed heading attached when blocks are inserted before it", () => {
