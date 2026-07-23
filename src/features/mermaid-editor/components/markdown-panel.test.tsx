@@ -451,7 +451,7 @@ describe("MarkdownPanel", () => {
     expect(panel.hasAttribute("data-md-block-dragging")).toBe(false);
   });
 
-  it("opens subtree folding actions from the fold button context menu", async () => {
+  it("directly toggles the whole subtree from the fold button context action", async () => {
     markdownFoldingMock.find.mockReturnValue({
       collapsed: false,
       kind: "heading",
@@ -472,19 +472,23 @@ describe("MarkdownPanel", () => {
       foldButton?.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: 40, clientY: 60 }));
     });
 
-    const collapseAll = [...document.body.querySelectorAll<HTMLElement>("[role='menuitem']")]
-      .find((item) => item.textContent?.includes("全部折叠"));
-    const expandAll = [...document.body.querySelectorAll<HTMLElement>("[role='menuitem']")]
-      .find((item) => item.textContent?.includes("全部展开"));
-    expect(collapseAll).toBeDefined();
-    expect(expandAll?.getAttribute("data-disabled")).not.toBeNull();
-
-    act(() => collapseAll?.click());
     expect(markdownFoldingMock.setSubtree).toHaveBeenCalledWith(milkdownMock.view, {
       kind: "heading",
       position: 5
     }, true);
     expect(onFoldStateChange).toHaveBeenCalledWith(markdownFoldingMock.read());
+    expect(document.body.textContent).not.toContain("全部折叠");
+
+    markdownFoldingMock.readSubtree.mockReturnValue({ allCollapsed: true, allExpanded: false, targetCount: 2 });
+    act(() => {
+      foldButton?.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true }));
+    });
+
+    expect(markdownFoldingMock.setSubtree).toHaveBeenLastCalledWith(milkdownMock.view, {
+      kind: "heading",
+      position: 5
+    }, false);
+    expect(onFoldStateChange).toHaveBeenCalledTimes(2);
   });
 
   it("only exposes a visible style handle as a keyboard-accessible menu entry", async () => {

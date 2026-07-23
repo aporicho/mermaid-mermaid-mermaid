@@ -5,7 +5,7 @@ import { Crepe, CrepeFeature } from "@milkdown/crepe";
 import { EditorStatus, editorViewCtx } from "@milkdown/kit/core";
 import { TextSelection } from "@milkdown/kit/prose/state";
 import { replaceAll } from "@milkdown/kit/utils";
-import { Check, CodeBrackets, Collapse, Expand, List, NumberedListLeft, Quote, TaskList, Text, TextSize } from "iconoir-react/regular";
+import { Check, CodeBrackets, List, NumberedListLeft, Quote, TaskList, Text, TextSize } from "iconoir-react/regular";
 import "@milkdown/crepe/theme/common/style.css";
 import "@milkdown/crepe/theme/frame.css";
 
@@ -22,7 +22,6 @@ import {
   getMarkdownBlockStyle,
   type MarkdownBlockStyle
 } from "@/features/mermaid-editor/lib/markdown-block-style";
-import { EditorPointMenu } from "@/features/mermaid-editor/components/editor-ui";
 import {
   findMarkdownFoldTarget,
   markdownFolding,
@@ -57,14 +56,6 @@ type BlockStyleMenuState = {
   left: number;
   position: number;
   top: number;
-};
-
-type FoldSubtreeMenuState = {
-  canCollapse: boolean;
-  canExpand: boolean;
-  target: Pick<MarkdownFoldTarget, "kind" | "position">;
-  x: number;
-  y: number;
 };
 
 const blockStyleGroups = [
@@ -107,9 +98,7 @@ export function MarkdownPanel({ value, className, readOnly = false, spellCheck, 
   const foldUserChangedRef = useRef(false);
   const lastFoldSnapshotKeyRef = useRef("");
   const decorateBlockHandlesRef = useRef<() => void>(() => undefined);
-  const foldMenuButtonRef = useRef<HTMLElement | null>(null);
   const [blockStyleMenu, setBlockStyleMenu] = useState<BlockStyleMenuState | null>(null);
-  const [foldSubtreeMenu, setFoldSubtreeMenu] = useState<FoldSubtreeMenuState | null>(null);
 
   function syncExternalValueIfReady(crepe: Crepe) {
     const nextValue = valueRef.current;
@@ -180,27 +169,6 @@ export function MarkdownPanel({ value, className, readOnly = false, spellCheck, 
       : current);
     return false;
   }, [blockStyleMenu]);
-
-  const changeFoldSubtree = useCallback((collapsed: boolean) => {
-    const menu = foldSubtreeMenu;
-    const crepe = crepeRef.current;
-    if (!menu || !crepe || crepe.editor.status !== EditorStatus.Created) return false;
-
-    let changed = false;
-    crepe.editor.action((ctx) => {
-      const view = ctx.get(editorViewCtx);
-      changed = setMarkdownFoldSubtree(view, menu.target, collapsed);
-      if (!changed) return;
-      foldUserChangedRef.current = true;
-      foldPersistenceActiveRef.current = true;
-      const snapshot = readMarkdownFoldSnapshot(view.state);
-      lastFoldSnapshotKeyRef.current = markdownFoldSnapshotKey(snapshot);
-      onFoldStateChangeRef.current?.(snapshot);
-    });
-    setFoldSubtreeMenu(null);
-    decorateBlockHandlesRef.current();
-    return changed;
-  }, [foldSubtreeMenu]);
 
   useEffect(() => {
     onChangeRef.current = onChange;
@@ -387,7 +355,6 @@ export function MarkdownPanel({ value, className, readOnly = false, spellCheck, 
       event.preventDefault();
       event.stopPropagation();
       setBlockStyleMenu(null);
-      setFoldSubtreeMenu(null);
       const crepe = crepeRef.current;
       if (!crepe || crepe.editor.status !== EditorStatus.Created) return;
       crepe.editor.action((ctx) => {
@@ -402,25 +369,26 @@ export function MarkdownPanel({ value, className, readOnly = false, spellCheck, 
       decorateBlockHandles();
     }
 
-    function openFoldSubtreeMenu(button: HTMLButtonElement, x: number, y: number) {
+    function toggleFoldSubtree(button: HTMLButtonElement) {
       const kind = button.dataset.markdownFoldKind as MarkdownFoldKind | undefined;
       const position = Number(button.dataset.markdownFoldPosition);
       if ((kind !== "heading" && kind !== "list-item") || !Number.isInteger(position)) return;
       const crepe = crepeRef.current;
       if (!crepe || crepe.editor.status !== EditorStatus.Created) return;
       crepe.editor.action((ctx) => {
-        const status = readMarkdownFoldSubtreeState(ctx.get(editorViewCtx).state, { kind, position });
+        const view = ctx.get(editorViewCtx);
+        const target: Pick<MarkdownFoldTarget, "kind" | "position"> = { kind, position };
+        const status = readMarkdownFoldSubtreeState(view.state, target);
         if (!status) return;
-        foldMenuButtonRef.current = button;
         setBlockStyleMenu(null);
-        setFoldSubtreeMenu({
-          canCollapse: !status.allCollapsed,
-          canExpand: !status.allExpanded,
-          target: { kind, position },
-          x,
-          y
-        });
+        if (!setMarkdownFoldSubtree(view, target, !status.allCollapsed)) return;
+        foldUserChangedRef.current = true;
+        foldPersistenceActiveRef.current = true;
+        const snapshot = readMarkdownFoldSnapshot(view.state);
+        lastFoldSnapshotKeyRef.current = markdownFoldSnapshotKey(snapshot);
+        onFoldStateChangeRef.current?.(snapshot);
       });
+      decorateBlockHandles();
     }
 
     function handleFoldButtonContextMenu(event: MouseEvent) {
@@ -428,7 +396,7 @@ export function MarkdownPanel({ value, className, readOnly = false, spellCheck, 
       if (!(button instanceof HTMLButtonElement)) return;
       event.preventDefault();
       event.stopPropagation();
-      openFoldSubtreeMenu(button, event.clientX, event.clientY);
+      toggleFoldSubtree(button);
     }
 
     function handleFoldButtonKeyDown(event: KeyboardEvent) {
@@ -437,8 +405,7 @@ export function MarkdownPanel({ value, className, readOnly = false, spellCheck, 
       if (!(button instanceof HTMLButtonElement)) return;
       event.preventDefault();
       event.stopPropagation();
-      const rect = button.getBoundingClientRect();
-      openFoldSubtreeMenu(button, rect.right, rect.top + rect.height / 2);
+      toggleFoldSubtree(button);
     }
 
     function createFoldButton(blockHandle: HTMLElement) {
@@ -546,7 +513,6 @@ export function MarkdownPanel({ value, className, readOnly = false, spellCheck, 
 
       blockDragOccurredRef.current = true;
       setBlockStyleMenu(null);
-      setFoldSubtreeMenu(null);
       panelElement.setAttribute("data-md-block-dragging", "true");
     }
 
@@ -608,7 +574,6 @@ export function MarkdownPanel({ value, className, readOnly = false, spellCheck, 
 
     function handleScroll() {
       setBlockStyleMenu(null);
-      setFoldSubtreeMenu(null);
     }
 
     const blockHandleObserver = new MutationObserver(decorateBlockHandles);
@@ -715,25 +680,6 @@ export function MarkdownPanel({ value, className, readOnly = false, spellCheck, 
             ) : null}
           </DropdownMenuContent>
         </DropdownMenu>
-      ) : null}
-      {foldSubtreeMenu ? (
-        <EditorPointMenu
-          open
-          point={{ x: foldSubtreeMenu.x, y: foldSubtreeMenu.y }}
-          onOpenChange={(open) => { if (!open) setFoldSubtreeMenu(null); }}
-          ariaLabel="折叠层级"
-          className="w-44"
-          restoreFocusRef={foldMenuButtonRef}
-        >
-          <DropdownMenuItem disabled={!foldSubtreeMenu.canCollapse} onSelect={() => { changeFoldSubtree(true); }}>
-            <Collapse className="size-4" />
-            <span>全部折叠</span>
-          </DropdownMenuItem>
-          <DropdownMenuItem disabled={!foldSubtreeMenu.canExpand} onSelect={() => { changeFoldSubtree(false); }}>
-            <Expand className="size-4" />
-            <span>全部展开</span>
-          </DropdownMenuItem>
-        </EditorPointMenu>
       ) : null}
     </section>
   );
