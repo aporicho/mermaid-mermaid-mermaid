@@ -6,7 +6,7 @@ import { migrateCanvasThemeV11, migrateInterfaceThemeV11, objectValue } from "./
 import { normalizeEditorTypography } from "./typography";
 import { createDefaultAgentTheme, normalizeAgentTheme } from "./agent-theme";
 import { isHexColor } from "./color";
-import type { CanvasStrokeStyle, CssBorderStyle, EditorMotionTokens, EditorTheme } from "./types";
+import type { CanvasStrokeStyle, CssBorderStyle, EditorMotionTokens, EditorTheme, TreeConnectorStyle } from "./types";
 
 export function resolveEditorTheme(themeId: string | undefined, customTheme: unknown): EditorTheme {
   if (themeId === "custom") return normalizeEditorTheme(customTheme, { ...DEFAULT_EDITOR_THEME, id: "custom", name: "自定义主题" });
@@ -36,6 +36,7 @@ export function normalizeEditorTheme(value: unknown, fallback: EditorTheme = DEF
   canvas.overlay.guide.centerStyle = canvasStrokeStyle(canvas.overlay.guide.centerStyle, fallback.canvas.overlay.guide.centerStyle);
   canvas.actionBadge.borderStyle = canvasStrokeStyle(canvas.actionBadge.borderStyle, fallback.canvas.actionBadge.borderStyle);
   interfaceTokens.surface.borderStyle = cssBorderStyle(interfaceTokens.surface.borderStyle, fallback.interface.surface.borderStyle);
+  interfaceTokens.tree.connectorStyle = treeConnectorStyle(interfaceTokens.tree.connectorStyle, fallback.interface.tree.connectorStyle);
   interfaceTokens.icon.family = "iconoir";
 
   const typography = normalizeEditorTypography(raw.typography, fallback.typography, {
@@ -58,7 +59,7 @@ export function normalizeEditorTheme(value: unknown, fallback: EditorTheme = DEF
   const agent = normalizeAgentTheme(raw.agent, createDefaultAgentTheme({ interface: interfaceTokens, typography }));
 
   return {
-    version: 13,
+    version: 14,
     id: "custom",
     name: typeof raw.name === "string" && raw.name.trim() ? raw.name : fallback.name,
     description: typeof raw.description === "string" ? raw.description : fallback.description,
@@ -178,6 +179,10 @@ function dashValue(value: unknown, fallback: readonly unknown[]) {
 
 function cssBorderStyle(value: unknown, fallback: CssBorderStyle): CssBorderStyle {
   return value === "none" || value === "solid" || value === "dashed" || value === "dotted" || value === "double" ? value : fallback;
+}
+
+function treeConnectorStyle(value: unknown, fallback: TreeConnectorStyle): TreeConnectorStyle {
+  return value === "none" || value === "solid" || value === "dashed" || value === "dotted" ? value : fallback;
 }
 
 function canvasStrokeStyle(value: unknown, fallback: CanvasStrokeStyle): CanvasStrokeStyle {

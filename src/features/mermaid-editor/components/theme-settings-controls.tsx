@@ -46,13 +46,14 @@ export function ThemeSettingsGroup({
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const normalizedQuery = query.trim().toLocaleLowerCase();
   const entries = useMemo(() => flattenFields(value).filter(({ path }) => {
+    if (definition.includeKeys && !definition.includeKeys.includes(path[0] || "")) return false;
     if (definition.hiddenKeys?.includes(path[0] || "")) return false;
     if (path.at(-1) === "customDash" && customDashStyle(value, path) !== "custom") return false;
     if (!normalizedQuery) return true;
     const fullPath = [...definition.path, ...path];
     const metadata = appearanceTokenDefinition(fullPath);
     return `${metadata?.label ?? themeTokenLabel(path.at(-1) || "")} ${fullPath.join(".")}`.toLocaleLowerCase().includes(normalizedQuery);
-  }), [definition.hiddenKeys, definition.path, normalizedQuery, value]);
+  }), [definition.hiddenKeys, definition.includeKeys, definition.path, normalizedQuery, value]);
   const commonEntries = entries.filter(({ path }) => appearanceTokenDefinition([...definition.path, ...path])?.level !== "advanced");
   const advancedEntries = entries.filter(({ path }) => appearanceTokenDefinition([...definition.path, ...path])?.level === "advanced");
 
@@ -102,7 +103,7 @@ function ThemeSettingsField({ path, value, onChange }: { path: readonly string[]
   const fieldPath = path.join(".");
   const control = definition?.control.kind ?? inferredStringControl(path, value);
 
-  if (control === "css-border-style" || control === "canvas-stroke-style") {
+  if (control === "css-border-style" || control === "canvas-stroke-style" || control === "tree-connector-style") {
     return <BorderStyleField label={label} path={fieldPath} value={String(value)} kind={control} onChange={onChange} />;
   }
   if (typeof value === "string" && (control === "color" || isHexColor(value))) {
@@ -300,12 +301,14 @@ function BorderStyleField({
   label: string;
   path: string;
   value: string;
-  kind: Extract<AppearanceTokenControlKind, "css-border-style" | "canvas-stroke-style">;
+  kind: Extract<AppearanceTokenControlKind, "css-border-style" | "canvas-stroke-style" | "tree-connector-style">;
   onChange: (value: string) => void;
 }) {
   const options = kind === "css-border-style"
     ? [["none", "无"], ["solid", "实线"], ["dashed", "虚线"], ["dotted", "点线"], ["double", "双线"]]
-    : [["none", "无"], ["solid", "实线"], ["dashed", "虚线"], ["dotted", "点线"], ["dash-dot", "点划线"], ["custom", "自定义"]];
+    : kind === "tree-connector-style"
+      ? [["none", "隐藏"], ["solid", "实线"], ["dashed", "虚线"], ["dotted", "点线"]]
+      : [["none", "无"], ["solid", "实线"], ["dashed", "虚线"], ["dotted", "点线"], ["dash-dot", "点划线"], ["custom", "自定义"]];
   return (
     <FieldFrame label={label} path={path}>
       <Select value={value} onValueChange={onChange}>

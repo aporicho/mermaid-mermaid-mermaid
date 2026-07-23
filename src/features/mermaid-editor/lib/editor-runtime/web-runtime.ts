@@ -44,13 +44,6 @@ export function createWebRuntime(): EditorRuntime {
         message: "应用内浏览器需要桌面版 WebView2。"
       };
     },
-    async openBrowserToolWindow(request) {
-      openExternalUrl(request.url);
-      return {
-        status: "opened",
-        external: true
-      };
-    },
     loadDraft() {
       if (typeof window === "undefined") return null;
       const raw = window.localStorage.getItem(EDITOR_DRAFT_STORAGE_KEY);

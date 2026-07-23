@@ -1,5 +1,4 @@
 import type { RuntimeAgentOperations } from "@/features/mermaid-editor/lib/editor-runtime/agent-types";
-import type { BrowserToolWindowRequest } from "@/features/mermaid-editor/lib/browser-tool-window";
 import type { DocumentKind } from "@/features/mermaid-editor/lib/document-kind";
 import type { EmbeddedBrowserLogicalRect } from "@/features/mermaid-editor/lib/embedded-browser-rect";
 import type { RuntimeLinkPreviewRequest, RuntimeLinkPreviewResult } from "@/features/mermaid-editor/lib/editor-runtime/link-preview-types";
@@ -161,17 +160,6 @@ export type RuntimeEmbeddedBrowserResult =
       message: string;
     };
 
-export type RuntimeBrowserToolWindowResult =
-  | {
-      status: "opened";
-      reused?: boolean;
-      external?: boolean;
-    }
-  | {
-      status: "unsupported";
-      message: string;
-    };
-
 export type EditorRuntimeHost = "web" | "electron";
 
 export type EditorRuntime = RuntimeAgentOperations & RuntimeCsvFileOperations & RuntimeDesktopWindowOperations & RuntimeProjectFileWatchOperations & import("@/features/mermaid-editor/lib/editor-runtime/markdown-fold-types").RuntimeMarkdownFoldOperations & {
@@ -183,7 +171,6 @@ export type EditorRuntime = RuntimeAgentOperations & RuntimeCsvFileOperations & 
     url: string;
     rect: EmbeddedBrowserLogicalRect;
   }) => Promise<RuntimeEmbeddedBrowserResult>;
-  openBrowserToolWindow: (request: BrowserToolWindowRequest) => Promise<RuntimeBrowserToolWindowResult>;
   loadDraft: () => EditorDraftState | null;
   loadSavedState: () => Promise<EditorDraftState | null>;
   listSystemFonts: () => Promise<RuntimeSystemFont[]>;

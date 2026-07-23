@@ -132,6 +132,8 @@ describe("interaction architecture contract", () => {
     }
     expect(panel).toContain('from "@/components/ui/sidebar"');
     expect(panel).toContain('from "@/components/ui/message-scroller"');
+    expect(panel).toContain("<AgentSettingsPanel");
+    expect(panel).not.toContain('from "@/components/ui/sheet"');
     expect(scroller).toContain('from "@shadcn/react/message-scroller"');
   });
 
@@ -464,7 +466,7 @@ describe("interaction architecture contract", () => {
 
     expect(editor).toContain("useEditorWindowActions");
     expect(editor).not.toContain("useEditorEmbeddedBrowserHandles");
-    expect(actions).toContain("openBrowserToolWindow");
+    expect(actions).toContain("openBrowserWorkspaceWindow");
     expect(actions).not.toContain("closeEmbeddedBrowser(panelId)");
     expect(desktopEvents).not.toContain("canCloseWindowRef.current || !isDirtyRef.current");
     expect(browserSurface).toContain("disposeRuntimeEmbeddedBrowserHandle");
@@ -690,12 +692,15 @@ describe("interaction architecture contract", () => {
   });
 
   it("routes every persistent workspace window through the shared window shell", () => {
-    const browserWindow = readProjectFile("src/features/mermaid-editor/components/browser-tool-window.tsx");
+    const app = readProjectFile("src/App.tsx");
+    const electronMain = readProjectFile("electron/main.cjs");
+    const agentWindows = readProjectFile("src/features/mermaid-editor/components/mermaid-editor/agent-terminal-workspace-panels.tsx");
     const titlebarLayout = readProjectFile("src/features/mermaid-editor/components/editor-ui/window-titlebar.tsx");
     const workspaceHosts = [
       "src/features/mermaid-editor/components/mermaid-editor/editor-workspace-panels.tsx",
       "src/features/mermaid-editor/components/mermaid-editor/agent-terminal-workspace-panels.tsx",
-      "src/features/mermaid-editor/components/mermaid-editor/detached-workspace-windows.tsx"
+      "src/features/mermaid-editor/components/mermaid-editor/detached-workspace-windows.tsx",
+      "src/features/mermaid-editor/components/mermaid-editor/browser-workspace-windows.tsx"
     ].map(readProjectFile);
     const windowContents = [
       "src/features/mermaid-editor/components/explorer-panel.tsx",
@@ -703,6 +708,8 @@ describe("interaction architecture contract", () => {
       "src/features/mermaid-editor/components/theme-settings-panel.tsx",
       "src/features/mermaid-editor/components/terminal-panel.tsx",
       "src/features/mermaid-editor/components/agent/agent-panel.tsx",
+      "src/features/mermaid-editor/components/agent/agent-settings-dialog.tsx",
+      "src/features/mermaid-editor/components/browser-window-panel.tsx",
       "src/features/mermaid-editor/components/detached-window-panels.tsx"
     ].map(readProjectFile);
 
@@ -715,8 +722,10 @@ describe("interaction architecture contract", () => {
       expect(content).not.toContain("WorkspacePanelControls");
       expect(content).not.toContain("data-window-drag-handle");
     }
-    expect(browserWindow).toContain("WindowTitlebarLayout");
     expect(titlebarLayout).toContain("data-window-titlebar-drag-exclude");
+    expect(agentWindows).not.toContain("agent-settings");
+    expect(app).not.toContain("BrowserToolWindow");
+    expect(electronMain).not.toContain("mmm:browser-tool:open");
   });
 
   it("keeps application chrome behind the editor UI semantic layer", () => {

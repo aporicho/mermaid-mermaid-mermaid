@@ -16,6 +16,7 @@ import type {
 } from "@/features/mermaid-editor/lib/editor-runtime";
 import type { EditorRecentAction } from "@/features/mermaid-editor/lib/editor-interaction-state";
 import {
+  browserToolWindowLabel,
   browserToolWindowTitle,
   normalizeBrowserUrl
 } from "@/features/mermaid-editor/lib/browser-tool-window";
@@ -31,6 +32,8 @@ import type {
 } from "@/features/mermaid-editor/lib/project-workspace";
 import {
   markdownWindowPanelId,
+  type BrowserWindowPanelId,
+  type DetachedBrowserWindow,
   type DetachedMarkdownWindow,
   type MarkdownWindowPanelId,
   type WorkspaceFloatingPanelId
@@ -53,6 +56,8 @@ type UseEditorWindowActionsArgs = {
   projectWorkspace: ProjectWorkspace | null;
   detachedMarkdownWindows: DetachedMarkdownWindow[];
   setDetachedMarkdownWindows: StateSetter<DetachedMarkdownWindow[]>;
+  detachedBrowserWindows: DetachedBrowserWindow[];
+  setDetachedBrowserWindows: StateSetter<DetachedBrowserWindow[]>;
   setRecentFiles: StateSetter<RecentFileEntry[]>;
   setNodeActionEditor: StateSetter<{ nodeId: string } | null>;
   setStatus: StateSetter<string>;
@@ -73,6 +78,8 @@ export function useEditorWindowActions({
   projectWorkspace,
   detachedMarkdownWindows,
   setDetachedMarkdownWindows,
+  detachedBrowserWindows,
+  setDetachedBrowserWindows,
   setRecentFiles,
   setNodeActionEditor,
   setStatus,
@@ -211,7 +218,7 @@ export function useEditorWindowActions({
     setNodeActionEditor(null);
   }
 
-  async function openBrowserToolWindow(url: string, sourceNode?: CanvasNode) {
+  function openBrowserWorkspaceWindow(url: string, sourceNode?: CanvasNode) {
     const targetUrl = normalizeBrowserUrl(url);
     if (!targetUrl) {
       setStatus("节点链接只支持 http/https URL。");
@@ -219,28 +226,39 @@ export function useEditorWindowActions({
     }
 
     const title = browserToolWindowTitle(targetUrl, sourceNode?.label);
-    try {
-      const result = await runtime.openBrowserToolWindow({
+    if (runtime.host === "web") {
+      runtime.openExternalUrl(targetUrl);
+      recordRecentAction("browser.open", sourceNode ? { kind: "node", id: sourceNode.id } : { kind: "canvas" }, title);
+      setStatus(`已使用系统浏览器打开 ${title}。`);
+      return;
+    }
+
+    const panelId = `browser:${browserToolWindowLabel(targetUrl)}` as BrowserWindowPanelId;
+    const existingWindow = detachedBrowserWindows.find((window) => window.id === panelId);
+    if (existingWindow) {
+      bringWorkspacePanelToFront(panelId);
+      setStatus(`已切换到内置浏览器 ${title}。`);
+      return;
+    }
+
+    setDetachedBrowserWindows((current) => [...current, {
+      id: panelId,
+      request: {
         url: targetUrl,
         title,
         sourceNodeId: sourceNode?.id,
         sourceLabel: sourceNode?.label
-      });
-      if (result.status === "unsupported") {
-        setStatus(result.message);
-        return;
       }
-      recordRecentAction("browser.open", sourceNode ? { kind: "node", id: sourceNode.id } : { kind: "canvas" }, title);
-      if (result.external) {
-        setStatus(`已使用系统浏览器打开 ${title}。`);
-      } else if (result.reused) {
-        setStatus(`已切换到网页工具 ${title}。`);
-      } else {
-        setStatus(`已打开网页工具 ${title}。`);
-      }
-    } catch (error) {
-      showFileWorkflowError(error, "打开浏览器工具失败。");
-    }
+    }]);
+    bringWorkspacePanelToFront(panelId);
+    setWorkspacePanelWindowState(panelId, "normal");
+    recordRecentAction("browser.open", sourceNode ? { kind: "node", id: sourceNode.id } : { kind: "canvas" }, title);
+    setStatus(`已打开内置浏览器 ${title}。`);
+  }
+
+  function closeDetachedBrowserWindow(panelId: BrowserWindowPanelId) {
+    setDetachedBrowserWindows((current) => current.filter((window) => window.id !== panelId));
+    removeWorkspacePanel(panelId);
   }
 
   function openUrlNodeAction(action: Extract<CanvasNodeAction, { kind: "url" }>, sourceNode?: CanvasNode) {
@@ -248,7 +266,7 @@ export function useEditorWindowActions({
       runtime.openExternalUrl(action.url);
       return;
     }
-    void openBrowserToolWindow(action.url, sourceNode);
+    openBrowserWorkspaceWindow(action.url, sourceNode);
   }
 
   async function openFileNodeAction(action: Extract<CanvasNodeAction, { kind: "file" }>) {
@@ -301,6 +319,7 @@ export function useEditorWindowActions({
     updateDetachedMarkdownWindow,
     closeDetachedMarkdownWindow,
     saveDetachedMarkdownWindow,
+    closeDetachedBrowserWindow,
     executeCanvasNodeAction,
     executeNodeActionDraft,
     editCanvasNodeAction,

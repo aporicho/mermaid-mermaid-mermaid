@@ -36,7 +36,7 @@ export type {
   SpecialNodeThemeTokens,
   SpecialNodeVisualState
 } from "./special-node-types";
-export type { CanvasBorderTokens, CanvasStrokeStyle, CanvasThemeTokens, CssBorderStyle, CssBorderTokens, InterfaceThemeTokens, ShadowTokens } from "./appearance-types";
+export type { CanvasBorderTokens, CanvasStrokeStyle, CanvasThemeTokens, CssBorderStyle, CssBorderTokens, InterfaceThemeTokens, ShadowTokens, TreeConnectorStyle } from "./appearance-types";
 export type { AgentSurfaceTokens, AgentThemeTokens } from "./agent-theme";
 
 export const MERMAID_FONT_FAMILY = "Noto Sans SC Variable, Noto Sans SC, PingFang SC, Microsoft YaHei UI, Microsoft YaHei, system-ui, sans-serif";
@@ -121,7 +121,7 @@ export type XtermThemeTokens = TerminalColorTokens &
   };
 
 export type EditorTheme = {
-  version: 13;
+  version: 14;
   id: EditorThemeId;
   name: string;
   description: string;

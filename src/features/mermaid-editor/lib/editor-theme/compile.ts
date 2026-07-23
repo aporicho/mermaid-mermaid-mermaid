@@ -123,6 +123,7 @@ export function themeToCssVariables(theme: EditorTheme): Record<string, string> 
     "--ui-tree-icon": hexToHslTriplet(ui.tree.iconColor),
     "--ui-tree-connector": hexToHslTriplet(ui.tree.connectorColor),
     "--ui-tree-connector-opacity": `${ui.tree.connectorOpacity}`,
+    "--ui-tree-connector-style": ui.tree.connectorStyle,
     "--ui-tree-hover-background": hexToHslTriplet(ui.tree.hoverBackground),
     "--ui-tree-hover-opacity": `${ui.tree.hoverOpacity}`,
     "--ui-tree-focus-background": hexToHslTriplet(ui.tree.focusBackground),

@@ -31,6 +31,34 @@ describe("editor theme", () => {
     expect(isBuiltInThemeId("custom")).toBe(false);
   });
 
+  it("migrates directory-tree typography and compiles connector styles", () => {
+    const legacy = structuredClone(DEFAULT_EDITOR_THEME) as any;
+    legacy.version = 13;
+    legacy.typography.interface.menu = {
+      ...legacy.typography.interface.menu,
+      family: "Legacy Tree Sans",
+      fontSize: 15,
+      fontWeight: 500
+    };
+    delete legacy.typography.interface.tree;
+    delete legacy.interface.tree.connectorStyle;
+
+    const migrated = normalizeEditorTheme(legacy);
+    expect(migrated.version).toBe(14);
+    expect(migrated.typography.interface.tree).toEqual(migrated.typography.interface.menu);
+    expect(migrated.interface.tree.connectorStyle).toBe("solid");
+    expect(themeToCssVariables(migrated)).toMatchObject({
+      "--type-interface-tree-family": "Legacy Tree Sans",
+      "--type-interface-tree-size": "15px",
+      "--ui-tree-connector-style": "solid"
+    });
+
+    const dotted = normalizeEditorTheme({ ...legacy, interface: { ...legacy.interface, tree: { ...legacy.interface.tree, connectorStyle: "dotted" } } });
+    expect(dotted.interface.tree.connectorStyle).toBe("dotted");
+    const invalid = normalizeEditorTheme({ ...legacy, interface: { ...legacy.interface, tree: { ...legacy.interface.tree, connectorStyle: "double" } } });
+    expect(invalid.interface.tree.connectorStyle).toBe("solid");
+  });
+
   it("loads the Claude Cream Chinese adaptation with sans body, serif headings and restrained chrome", () => {
     const entry = BUILT_IN_EDITOR_THEME_CATALOG.find((candidate) => candidate.id === "claude-cream");
     const theme = resolveEditorTheme("claude-cream", null);
@@ -148,7 +176,7 @@ describe("editor theme", () => {
 
     const theme = normalizeEditorTheme(legacy);
 
-    expect(theme.version).toBe(13);
+    expect(theme.version).toBe(14);
     expect(theme.id).toBe("custom");
     expect(theme.markdown.body.fontFamily).toBe(legacySans);
     expect(theme.markdown.heading.h1.fontFamily).toBe(founderSerif);
@@ -180,7 +208,7 @@ describe("editor theme", () => {
 
     const theme = normalizeEditorTheme(legacy);
 
-    expect(theme.version).toBe(13);
+    expect(theme.version).toBe(14);
     expect(theme.markdown.heading.h1.fontFamily).toBe(founderSerif);
     expect(theme.typography.markdownCard.title.family).toBe(founderSerif);
     expect(theme.typography.canvasDocument.card.family).toBe(founderSerif);
@@ -399,7 +427,7 @@ describe("editor theme", () => {
   it("derives Markdown defaults from each built-in theme palette", () => {
     const dracula = resolveEditorTheme("kitty-kovidgoyal-dracula", null);
 
-    expect(dracula.version).toBe(13);
+    expect(dracula.version).toBe(14);
     expect(dracula.markdown.body.color).toBe(dracula.interface.colors.foreground);
     expect(dracula.markdown.heading.h1.color).toBe(dracula.interface.colors.foreground);
     expect(dracula.markdown.link.color).toBe(dracula.interface.colors.primary);
@@ -428,7 +456,7 @@ describe("editor theme", () => {
       }
     });
 
-    expect(theme.version).toBe(13);
+    expect(theme.version).toBe(14);
     expect(theme.markdown.body).toMatchObject({ color: "#f0f0f0", fontFamily: "Example Sans" });
     expect(theme.markdown.link.color).toBe("#44aaff");
     expect(theme.markdown.codeBlock).toMatchObject({ background: "#202020", fontFamily: "Example Mono" });
@@ -449,7 +477,7 @@ describe("editor theme", () => {
       }
     });
 
-    expect(theme.version).toBe(13);
+    expect(theme.version).toBe(14);
     expect(theme.typography.canvas.node).toMatchObject({ family: "Legacy Sans, sans-serif", fontSize: 19 });
     expect(theme.typography.source.editor).toMatchObject({ family: "Legacy Mono, monospace", fontSize: 15, lineHeight: 32 });
     expect(theme.typography.terminal.content.family).toBe("Legacy Mono, monospace");
@@ -480,7 +508,7 @@ describe("editor theme", () => {
       }
     });
 
-    expect(theme.version).toBe(13);
+    expect(theme.version).toBe(14);
     expect(theme.markdown.table.bodyBackground).toBe("#112233");
     expect(theme.markdown.list.unordered.indent).toBe(8);
     expect(theme.specialNode.shared).toMatchObject({
@@ -900,7 +928,7 @@ describe("editor theme", () => {
 
     const terminalTheme = themeToTerminalTheme(theme);
 
-    expect(theme.version).toBe(13);
+    expect(theme.version).toBe(14);
     expect(theme.ansi.green).toBe("#00aa66");
     expect(theme.ansi.brightGreen).toBe(DEFAULT_EDITOR_THEME.ansi.brightGreen);
     expect(theme.terminal.background).toBe("#101010");
@@ -941,7 +969,7 @@ describe("editor theme", () => {
     });
     const compiled = compileEditorTheme(theme);
 
-    expect(theme.version).toBe(13);
+    expect(theme.version).toBe(14);
     expect(theme.motion.duration.fast).toBe(0.12);
     expect(theme.motion.duration.layout).toBe(1.6);
     expect(theme.motion.ease.standard).toBe("power1.out");
@@ -975,7 +1003,7 @@ describe("editor theme", () => {
       }
     });
 
-    expect(theme.version).toBe(13);
+    expect(theme.version).toBe(14);
     expect(theme.interface.surface).toEqual({
       borderWidth: 2,
       borderStyle: "dashed",

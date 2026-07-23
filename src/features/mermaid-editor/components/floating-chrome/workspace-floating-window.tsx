@@ -112,6 +112,7 @@ export function WorkspaceWindowHeader({
   icon,
   title,
   status,
+  center,
   actions,
   titleTooltip,
   className
@@ -120,6 +121,7 @@ export function WorkspaceWindowHeader({
   icon?: ReactNode;
   title: ReactNode;
   status?: ReactNode;
+  center?: ReactNode;
   actions?: ReactNode;
   titleTooltip?: string;
   className?: string;
@@ -135,6 +137,7 @@ export function WorkspaceWindowHeader({
       icon={icon}
       title={title}
       status={status}
+      center={center}
       actions={
         <>
           {actions}

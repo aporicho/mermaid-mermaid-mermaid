@@ -1,5 +1,6 @@
 export type CssBorderStyle = "none" | "solid" | "dashed" | "dotted" | "double";
 export type CanvasStrokeStyle = "none" | "solid" | "dashed" | "dotted" | "dash-dot" | "custom";
+export type TreeConnectorStyle = "none" | "solid" | "dashed" | "dotted";
 
 export type ShadowTokens = {
   color: string;
@@ -108,6 +109,7 @@ export type InterfaceThemeTokens = {
     iconColor: string;
     connectorColor: string;
     connectorOpacity: number;
+    connectorStyle: TreeConnectorStyle;
     hoverBackground: string;
     hoverOpacity: number;
     focusBackground: string;

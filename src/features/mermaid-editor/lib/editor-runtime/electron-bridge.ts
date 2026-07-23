@@ -1,10 +1,8 @@
 import type { EmbeddedBrowserLogicalRect } from "@/features/mermaid-editor/lib/embedded-browser-rect";
-import type { BrowserToolWindowRequest } from "@/features/mermaid-editor/lib/browser-tool-window";
 import type { DocumentKind } from "@/features/mermaid-editor/lib/document-kind";
 import type { ElectronAgentBridge } from "@/features/mermaid-editor/lib/editor-runtime/electron-agent-bridge";
 import type {
   EditorDraftState,
-  RuntimeBrowserToolWindowResult,
   RuntimeFileDropRequest,
   RuntimeFileOpenRequest,
   RuntimeLinkPreviewRequest,
@@ -116,7 +114,6 @@ export type ElectronBridge = ElectronMarkdownFoldBridge & ElectronMonitoringBrid
   focusEmbeddedBrowser: (label: string) => Promise<void>;
   setEmbeddedBrowserRect: (label: string, rect: EmbeddedBrowserLogicalRect) => Promise<void>;
   onEmbeddedBrowserError: (handler: (event: ElectronEmbeddedBrowserErrorEvent) => void) => () => void;
-  openBrowserToolWindow: (request: BrowserToolWindowRequest) => Promise<RuntimeBrowserToolWindowResult>;
 };
 
 declare global {

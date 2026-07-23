@@ -6,6 +6,7 @@ import { WorkspaceFloatingWindow } from "@/features/mermaid-editor/components/fl
 import { InspectorPanel } from "@/features/mermaid-editor/components/inspector-panel";
 import { DetachedWorkspaceWindows } from "@/features/mermaid-editor/components/mermaid-editor/detached-workspace-windows";
 import { AgentTerminalWorkspacePanels } from "@/features/mermaid-editor/components/mermaid-editor/agent-terminal-workspace-panels";
+import { BrowserWorkspaceWindows } from "@/features/mermaid-editor/components/mermaid-editor/browser-workspace-windows";
 import type { DocumentKind } from "@/features/mermaid-editor/lib/document-kind";
 import { EDITOR_CHROME_CLASSES } from "@/features/mermaid-editor/lib/editor-chrome";
 import type { EditorRuntime, RuntimeAgentTextSelection, RuntimeFileRef, RuntimeProjectFileKind } from "@/features/mermaid-editor/lib/editor-runtime";
@@ -20,6 +21,8 @@ import {
   WORKSPACE_PANEL_DEFAULT_SIZES,
   WORKSPACE_PANEL_MIN_SIZES,
   type DetachedMarkdownWindow,
+  type DetachedBrowserWindow,
+  type BrowserWindowPanelId,
   type MarkdownWindowPanelId,
   type ChromeWorkspacePanelId,
   type WorkspaceFloatingPanelId
@@ -53,6 +56,8 @@ type EditorWorkspacePanelsProps = {
   themeDraftDirty: boolean;
   terminalTheme: XtermThemeTokens;
   detachedMarkdownWindows: DetachedMarkdownWindow[];
+  detachedBrowserWindows: DetachedBrowserWindow[];
+  browserDomOverlayActive: boolean;
   markdownSpellcheckEnabled: boolean; markdownContentWidth: number; markdownTextScale: number;
   workspaceTitlebarAutoHide: boolean;
   onMarkdownTextScaleChange: (value: number) => void;
@@ -75,6 +80,7 @@ type EditorWorkspacePanelsProps = {
   executeCanvasNodeAction: (node: CanvasNode) => void | Promise<unknown>;
   editCanvasNodeAction: (node: CanvasNode) => void;
   closeDetachedMarkdownWindow: (panelId: MarkdownWindowPanelId) => void; saveDetachedMarkdownWindow: (panelId: MarkdownWindowPanelId) => void | Promise<unknown>; updateDetachedMarkdownWindow: (panelId: MarkdownWindowPanelId, value: string) => void;
+  closeDetachedBrowserWindow: (panelId: BrowserWindowPanelId) => void;
   onDetachedMarkdownSelectionChange: (panelId: MarkdownWindowPanelId, selection: RuntimeAgentTextSelection | null) => void;
   markdownFoldBindingFor: (file: RuntimeFileRef) => { foldState: MarkdownFoldSnapshot | null | undefined; onFoldStateChange?: (snapshot: MarkdownFoldSnapshot) => void };
   onStatus: (message: string) => void;
@@ -95,7 +101,7 @@ export function EditorWorkspacePanels({
   editingCustomTheme,
   themeDraftDirty,
   terminalTheme,
-  detachedMarkdownWindows,
+  detachedMarkdownWindows, detachedBrowserWindows, browserDomOverlayActive,
   markdownSpellcheckEnabled, markdownContentWidth, markdownTextScale, workspaceTitlebarAutoHide, onMarkdownTextScaleChange,
   bringWorkspacePanelToFront,
   workspacePanelStackPosition,
@@ -116,6 +122,7 @@ export function EditorWorkspacePanels({
   executeCanvasNodeAction,
   editCanvasNodeAction,
   closeDetachedMarkdownWindow,
+  closeDetachedBrowserWindow,
   saveDetachedMarkdownWindow,
   updateDetachedMarkdownWindow, markdownFoldBindingFor,
   onDetachedMarkdownSelectionChange,
@@ -243,6 +250,19 @@ export function EditorWorkspacePanels({
         saveMarkdownWindow={saveDetachedMarkdownWindow}
         updateMarkdownWindow={updateDetachedMarkdownWindow} markdownFoldBindingFor={markdownFoldBindingFor}
         onMarkdownSelectionChange={onDetachedMarkdownSelectionChange}
+      />
+      <BrowserWorkspaceWindows
+        runtime={runtime}
+        browserWindows={detachedBrowserWindows}
+        titlebarAutoHide={workspaceTitlebarAutoHide}
+        activePanel={activeWorkspacePanel}
+        domOverlayActive={browserDomOverlayActive}
+        bringPanelToFront={bringWorkspacePanelToFront}
+        panelStackPosition={workspacePanelStackPosition}
+        panelWindowState={workspacePanelWindowState}
+        setPanelWindowState={setWorkspacePanelWindowState}
+        closeBrowserWindow={closeDetachedBrowserWindow}
+        onStatus={onStatus}
       />
     </>
   );

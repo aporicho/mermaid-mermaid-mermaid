@@ -142,6 +142,7 @@ export const BASE_INTERFACE: InterfaceThemeTokens = {
     iconColor: BASE_COLORS.icon,
     connectorColor: BASE_COLORS.border,
     connectorOpacity: 0.55,
+    connectorStyle: "solid",
     hoverBackground: BASE_COLORS.accent,
     hoverOpacity: 0.55,
     focusBackground: BASE_COLORS.accent,
@@ -348,7 +349,7 @@ const BASE_SPECIAL_NODE = createDefaultSpecialNodeTheme({ interface: BASE_INTERF
 const BASE_AGENT = createDefaultAgentTheme({ interface: BASE_INTERFACE, typography: BASE_TYPOGRAPHY });
 
 export const EDITOR_THEME_BASE: Omit<EditorTheme, "id" | "name" | "description" | "baseThemeId"> = {
-  version: 13,
+  version: 14,
   interface: BASE_INTERFACE,
   agent: BASE_AGENT,
   canvas: BASE_CANVAS,
@@ -388,7 +389,7 @@ export function createEditorTheme(overrides: EditorThemeOverrides): EditorTheme 
 
   return {
     ...EDITOR_THEME_BASE,
-    version: 13,
+    version: 14,
     id: overrides.id,
     name: overrides.name,
     description: overrides.description,

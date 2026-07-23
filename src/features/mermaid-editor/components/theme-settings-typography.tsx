@@ -29,7 +29,7 @@ const TYPOGRAPHY_GROUPS: readonly { key: TypographyGroupKey; title: string; desc
 ];
 
 const ROLE_LABELS: Record<string, string> = {
-  body: "正文", heading: "标题", control: "按钮与表单", navigation: "导航", menu: "菜单", tooltip: "提示浮层",
+  body: "正文", heading: "标题", control: "按钮与表单", navigation: "导航", menu: "菜单", tree: "目录树", tooltip: "提示浮层",
   metadata: "辅助说明", status: "状态信息", technical: "技术数据与路径", node: "普通节点", nodeEditor: "节点编辑态",
   edgeLabel: "连线标签", edgeEditor: "连线标签编辑态", subgraphTitle: "组标题", actionBadge: "节点操作徽标",
   brand: "品牌占位文字", provider: "平台名称", title: "标题", titleEditor: "标题编辑态", badge: "类型徽标", path: "文件路径",
@@ -52,6 +52,8 @@ const BUILTIN_FONTS: RuntimeSystemFont[] = [
 export function ThemeSettingsTypography({
   value,
   visibleGroups,
+  visibleRoles,
+  groupTitle,
   systemFonts,
   loading,
   error,
@@ -60,10 +62,13 @@ export function ThemeSettingsTypography({
   resetDisabled,
   onChangeRole,
   onResetRole,
-  onResetGroup
+  onResetGroup,
+  onResetVisibleRoles
 }: {
   value: EditorTypographyTokens;
   visibleGroups?: readonly TypographyGroupKey[];
+  visibleRoles?: readonly string[];
+  groupTitle?: string;
   systemFonts: RuntimeSystemFont[];
   loading: boolean;
   error: string | null;
@@ -73,6 +78,7 @@ export function ThemeSettingsTypography({
   onChangeRole: (group: TypographyGroupKey, role: string, value: TypographyRoleTokens) => void;
   onResetRole: (group: TypographyGroupKey, role: string) => void;
   onResetGroup: (group: TypographyGroupKey) => void;
+  onResetVisibleRoles?: (group: TypographyGroupKey, roles: readonly string[]) => void;
 }) {
   const [query, setQuery] = useState("");
   const [openGroups, setOpenGroups] = useState<Set<TypographyGroupKey>>(() => new Set());
@@ -88,24 +94,24 @@ export function ThemeSettingsTypography({
         aria-label="搜索文字角色"
       /> : null}
       {TYPOGRAPHY_GROUPS.filter((definition) => !visibleGroups || visibleGroups.includes(definition.key)).map((definition) => {
-        const roles = Object.entries(value[definition.key]) as [string, TypographyRoleTokens][];
-        const visibleRoles = normalizedQuery ? roles.filter(([key]) => `${ROLE_LABELS[key] || key} ${definition.title} typography.${definition.key}.${key}`.toLocaleLowerCase().includes(normalizedQuery)) : roles;
-        if (!visibleRoles.length) return null;
+        const roles: [string, TypographyRoleTokens][] = (Object.entries(value[definition.key]) as [string, TypographyRoleTokens][]).filter(([key]) => !visibleRoles || visibleRoles.includes(key));
+        const filteredRoles: [string, TypographyRoleTokens][] = normalizedQuery ? roles.filter(([key]) => `${ROLE_LABELS[key] || key} ${definition.title} typography.${definition.key}.${key}`.toLocaleLowerCase().includes(normalizedQuery)) : roles;
+        if (!filteredRoles.length) return null;
         const open = normalizedQuery ? true : openGroups.has(definition.key);
         return (
           <ThemeSettingsCollapsible
             key={definition.key}
             open={open}
             onOpenChange={() => setOpenGroups((current) => toggleSetValue(current, definition.key))}
-            title={definition.title}
+            title={groupTitle ?? definition.title}
             description={definition.description}
-            resetLabel={`重置${definition.title}`}
+            resetLabel={`重置${groupTitle ?? definition.title}`}
             resetDisabled={resetDisabled}
-            onReset={() => onResetGroup(definition.key)}
+            onReset={() => visibleRoles?.length && onResetVisibleRoles ? onResetVisibleRoles(definition.key, visibleRoles) : onResetGroup(definition.key)}
             typographyGroup={definition.key}
           >
               <div className="editor-ui-panel-body grid gap-3">
-                {visibleRoles.map(([roleKey, role]) => (
+                {filteredRoles.map(([roleKey, role]) => (
                   <TypographyRoleEditor
                     key={roleKey}
                     roleKey={roleKey}

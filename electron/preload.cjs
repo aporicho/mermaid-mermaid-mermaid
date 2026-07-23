@@ -148,9 +148,6 @@ contextBridge.exposeInMainWorld("mmmElectron", {
     const listener = (_event, payload) => handler(payload);
     ipcRenderer.on("mmm:browser:error", listener);
     return () => ipcRenderer.removeListener("mmm:browser:error", listener);
-  },
-  openBrowserToolWindow(request) {
-    return ipcRenderer.invoke("mmm:browser-tool:open", request);
   }
 });
 

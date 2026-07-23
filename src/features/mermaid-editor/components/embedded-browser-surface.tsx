@@ -94,7 +94,7 @@ export function EmbeddedBrowserSurface({
         const message = formatEmbeddedBrowserError(error);
         setNativeError(message);
         setNativeState("error");
-        callbacksRef.current.onStatus(`WebView2 内置浏览器创建失败${message ? `：${message}` : "。"}`);
+        callbacksRef.current.onStatus(`内置浏览器创建失败${message ? `：${message}` : "。"}`);
         callbacksRef.current.onBrowserError(url, message || "create rejected");
         return;
       }
@@ -108,7 +108,7 @@ export function EmbeddedBrowserSurface({
         setNativeError(result.message);
         setNativeState(result.status === "unsupported" ? "unavailable" : "error");
         if (result.status === "error") {
-          callbacksRef.current.onStatus(`WebView2 内置浏览器不可用${result.message ? `：${result.message}` : "。"}`);
+          callbacksRef.current.onStatus(`内置浏览器不可用${result.message ? `：${result.message}` : "。"}`);
           callbacksRef.current.onBrowserError(url, result.message || "create failed");
         }
         return;
@@ -122,7 +122,7 @@ export function EmbeddedBrowserSurface({
         if (disposed || syncErrorReportedRef.current) return;
         syncErrorReportedRef.current = true;
         const message = formatEmbeddedBrowserError(error) || operation;
-        callbacksRef.current.onStatus(`WebView2 内置浏览器同步失败：${message}`);
+        callbacksRef.current.onStatus(`内置浏览器同步失败：${message}`);
         callbacksRef.current.onBrowserError(url, `sync ${operation}: ${message}`);
       };
 
@@ -161,7 +161,7 @@ export function EmbeddedBrowserSurface({
         const message = formatEmbeddedBrowserError(event);
         setNativeError(message);
         setNativeState("error");
-        callbacksRef.current.onStatus(`WebView2 内置浏览器创建失败${message ? `：${message}` : "。"}`);
+        callbacksRef.current.onStatus(`内置浏览器创建失败${message ? `：${message}` : "。"}`);
         callbacksRef.current.onBrowserError(url, message || "desktop-browser-error");
       });
     }
@@ -183,7 +183,7 @@ export function EmbeddedBrowserSurface({
       {nativeState === "unavailable" || nativeState === "error" ? (
         <EmbeddedBrowserUnavailable
           url={url}
-          reason={nativeState === "unavailable" ? "需要桌面版 WebView2" : "内置浏览器创建失败"}
+          reason={nativeState === "unavailable" ? "需要桌面版内置浏览器" : "内置浏览器创建失败"}
           detail={nativeError}
           onRetry={onReload}
           onOpenExternal={() => {

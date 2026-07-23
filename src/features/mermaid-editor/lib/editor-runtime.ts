@@ -12,7 +12,6 @@ export type {
   EditorDraftState,
   EditorRuntimeHost,
   EditorRuntime,
-  RuntimeBrowserToolWindowResult,
   RuntimeEmbeddedBrowserHandle,
   RuntimeEmbeddedBrowserResult,
   RuntimeFileDropRequest,

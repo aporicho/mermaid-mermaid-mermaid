@@ -63,10 +63,10 @@ describe("ThemeSettingsPanel", () => {
     expect(container?.querySelector('[data-theme-token-path="markdown.body.fontFamily"]')).not.toBeNull();
 
     clickButton("界面");
-    clickButton("界面基础");
+    clickButton("界面文字");
     expect(container?.textContent).not.toContain("每个角色的字体、字号、字重、行高和字距完全独立");
     expect(container?.textContent).not.toContain("应用正文、控件、导航、菜单和技术信息");
-    expect(container?.querySelector('[aria-label="重置界面基础"]')).not.toBeNull();
+    expect(container?.querySelector('[aria-label="重置界面文字"]')).not.toBeNull();
     expect(container?.querySelector('[aria-label="重置正文"]')).not.toBeNull();
   });
 
@@ -96,7 +96,7 @@ describe("ThemeSettingsPanel", () => {
     expect(onPreview).toHaveBeenCalledWith(
       "custom",
       expect.objectContaining({
-        version: 13,
+        version: 14,
         markdown: expect.objectContaining({
           heading: expect.objectContaining({ h1: DEFAULT_EDITOR_THEME.markdown.heading.h1 })
         })
@@ -164,7 +164,7 @@ describe("ThemeSettingsPanel", () => {
     expect([...(container?.querySelectorAll("nav button") ?? [])].some((button) => button.textContent === "排版")).toBe(false);
     clickButton("界面");
     expect(container?.querySelector('[aria-label="搜索外观 token"]')).not.toBeNull();
-    clickButton("界面基础");
+    clickButton("界面文字");
     const bodyRole = container?.querySelector('[data-typography-group="interface"] [data-typography-role="body"]');
     expect(bodyRole?.querySelector('[role="combobox"]')?.textContent).toContain("Example Sans");
     expect(container?.querySelector('[data-typography-role="technical"] [role="combobox"]')).not.toBeNull();
@@ -202,8 +202,8 @@ describe("ThemeSettingsPanel", () => {
     renderPanel();
 
     clickButton("界面");
-    clickButton("界面基础");
-    expect(container?.querySelector<HTMLButtonElement>('[aria-label="重置界面基础"]')?.disabled).toBe(true);
+    clickButton("界面文字");
+    expect(container?.querySelector<HTMLButtonElement>('[aria-label="重置界面文字"]')?.disabled).toBe(true);
     expect(container?.querySelector<HTMLButtonElement>('[aria-label="重置正文"]')?.disabled).toBe(true);
 
     clickButton("Markdown");

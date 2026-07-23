@@ -27,8 +27,6 @@ const { createProjectFileWatcher } = require("./project-file-watcher.cjs");
 const { scanProjectFolder: scanProjectFolderSnapshot } = require("./project-workspace.cjs");
 const { createWindowFileRouter } = require("./window-file-router.cjs");
 const { attachWindowFullscreenEvents, registerWindowFullscreenIpc } = require("./window-fullscreen.cjs");
-const BROWSER_TOOL_WINDOW_KIND = "browser-tool";
-const BROWSER_TOOL_WINDOW_PARAM = "mmmWindow";
 const DEV_SERVER_URL = process.env.MMM_ELECTRON_DEV_SERVER_URL || "";
 const PROJECT_DIR = path.resolve(__dirname, "..");
 const DIST_INDEX = path.join(PROJECT_DIR, "dist", "index.html");
@@ -44,7 +42,6 @@ const IMAGE_FILTERS = [{ name: "Images", extensions: ["png", "jpg", "jpeg", "web
 const embeddedBrowsers = new Map();
 const forceCloseWindowIds = new Set();
 const pendingCloseWindowIds = new Set(), pendingCloseTimers = new Map();
-const browserToolWindows = new Map();
 const mainWindows = new Set();
 const windowFileRouter = createWindowFileRouter();
 
@@ -153,38 +150,6 @@ function requestMainWindow(openFiles = []) {
   return createMainWindow(openFiles);
 }
 
-function createBrowserToolWindow(owner, request) {
-  const label = browserToolWindowLabel(request.url);
-  const existing = browserToolWindows.get(label);
-  if (existing && !existing.isDestroyed()) {
-    existing.show();
-    existing.focus();
-    return { status: "opened", reused: true };
-  }
-
-  const window = new BrowserWindow({
-    title: `MMM Browser - ${browserToolWindowTitle(request.url, request.title)}`,
-    width: 1040,
-    height: 720,
-    minWidth: 640,
-    minHeight: 420,
-    show: false,
-    frame: false,
-    parent: owner ?? mainWindow ?? undefined,
-    modal: false,
-    skipTaskbar: true,
-    backgroundColor: "#ffffff",
-    webPreferences: secureWebPreferences()
-  });
-
-  browserToolWindows.set(label, window);
-  attachWindowCleanup(window);
-  window.on("closed", () => browserToolWindows.delete(label));
-  loadAppUrl(window, browserToolShellUrl(request, appUrl()));
-  window.once("ready-to-show", () => window.show());
-  return { status: "opened" };
-}
-
 function secureWebPreferences() {
   return {
     preload: PRELOAD_PATH,
@@ -286,12 +251,11 @@ function registerIpc() {
   ipcMain.handle("mmm:project:read-folder", (_event, rootPath) => scanProjectFolder(rootPath));
   ipcMain.handle("mmm:project-watch:set", (event, request) => projectFileWatcher.setTargets(event.sender, request));
   ipcMain.handle("mmm:browser:create", (event, request) => createEmbeddedBrowser(event.sender, request));
-  ipcMain.handle("mmm:browser:close", (_event, label) => closeEmbeddedBrowser(label));
-  ipcMain.handle("mmm:browser:hide", (_event, label) => setEmbeddedBrowserVisible(label, false));
-  ipcMain.handle("mmm:browser:show", (_event, label) => setEmbeddedBrowserVisible(label, true));
-  ipcMain.handle("mmm:browser:focus", (_event, label) => focusEmbeddedBrowser(label));
-  ipcMain.handle("mmm:browser:set-rect", (_event, label, rect) => setEmbeddedBrowserRect(label, rect));
-  ipcMain.handle("mmm:browser-tool:open", (event, request) => createBrowserToolWindow(BrowserWindow.fromWebContents(event.sender), request));
+  ipcMain.handle("mmm:browser:close", (event, label) => closeEmbeddedBrowser(event.sender, label));
+  ipcMain.handle("mmm:browser:hide", (event, label) => setEmbeddedBrowserVisible(event.sender, label, false));
+  ipcMain.handle("mmm:browser:show", (event, label) => setEmbeddedBrowserVisible(event.sender, label, true));
+  ipcMain.handle("mmm:browser:focus", (event, label) => focusEmbeddedBrowser(event.sender, label));
+  ipcMain.handle("mmm:browser:set-rect", (event, label, rect) => setEmbeddedBrowserRect(event.sender, label, rect));
 }
 
 function registerAssetProtocol() {
@@ -437,8 +401,8 @@ function attachWindowCleanup(window) {
     if (mainWindows.delete(window) && mainWindow === window) {
       mainWindow = [...mainWindows].at(-1) || null;
     }
-    for (const [label, record] of embeddedBrowsers) {
-      if (record.ownerId === window.id) closeEmbeddedBrowser(label);
+    for (const [key, record] of embeddedBrowsers) {
+      if (record.ownerId === window.id) closeEmbeddedBrowserByKey(key);
     }
   });
 }
@@ -504,7 +468,7 @@ function createEmbeddedBrowser(sender, request) {
   const url = normalizeHttpUrl(request?.url);
   if (!label || !url) return { status: "error", message: "Invalid embedded browser request." };
 
-  closeEmbeddedBrowser(label);
+  closeEmbeddedBrowser(sender, label);
 
   const view = new WebContentsView({
     webPreferences: {
@@ -538,7 +502,8 @@ function createEmbeddedBrowser(sender, request) {
   view.setBounds(normalizeBounds(request.rect));
   view.webContents.loadURL(url);
 
-  embeddedBrowsers.set(label, {
+  const key = embeddedBrowserKey(sender, label);
+  embeddedBrowsers.set(key, {
     label,
     owner,
     ownerId: owner.id,
@@ -549,10 +514,18 @@ function createEmbeddedBrowser(sender, request) {
   return { status: "created", label };
 }
 
-function closeEmbeddedBrowser(label) {
-  const record = embeddedBrowsers.get(label);
+function embeddedBrowserKey(sender, label) {
+  return `${sender.id}:${label}`;
+}
+
+function closeEmbeddedBrowser(sender, label) {
+  closeEmbeddedBrowserByKey(embeddedBrowserKey(sender, label));
+}
+
+function closeEmbeddedBrowserByKey(key) {
+  const record = embeddedBrowsers.get(key);
   if (!record) return;
-  embeddedBrowsers.delete(label);
+  embeddedBrowsers.delete(key);
   try {
     record.owner.contentView.removeChildView(record.view);
   } catch {
@@ -563,21 +536,21 @@ function closeEmbeddedBrowser(label) {
   }
 }
 
-function setEmbeddedBrowserVisible(label, visible) {
-  const record = embeddedBrowsers.get(label);
+function setEmbeddedBrowserVisible(sender, label, visible) {
+  const record = embeddedBrowsers.get(embeddedBrowserKey(sender, label));
   if (!record) return;
   record.visible = visible;
   record.view.setVisible(visible);
 }
 
-function focusEmbeddedBrowser(label) {
-  const record = embeddedBrowsers.get(label);
+function focusEmbeddedBrowser(sender, label) {
+  const record = embeddedBrowsers.get(embeddedBrowserKey(sender, label));
   if (!record) return;
   record.view.webContents.focus();
 }
 
-function setEmbeddedBrowserRect(label, rect) {
-  const record = embeddedBrowsers.get(label);
+function setEmbeddedBrowserRect(sender, label, rect) {
+  const record = embeddedBrowsers.get(embeddedBrowserKey(sender, label));
   if (!record) return;
   record.view.setBounds(normalizeBounds(rect));
 }
@@ -604,38 +577,4 @@ function normalizeHttpUrl(value) {
   } catch {
     return "";
   }
-}
-
-function browserToolWindowTitle(url, fallback) {
-  const normalizedFallback = typeof fallback === "string" ? fallback.trim() : "";
-  if (normalizedFallback) return normalizedFallback;
-  try {
-    return new URL(url).hostname || url;
-  } catch {
-    return url;
-  }
-}
-
-function browserToolWindowLabel(url) {
-  return `browser-tool-${hashText(url)}`;
-}
-
-function browserToolShellUrl(request, baseHref) {
-  const url = new URL(baseHref);
-  url.search = "";
-  url.hash = "";
-  url.searchParams.set(BROWSER_TOOL_WINDOW_PARAM, BROWSER_TOOL_WINDOW_KIND);
-  url.searchParams.set("url", request.url);
-  if (request.title) url.searchParams.set("title", request.title);
-  if (request.sourceNodeId) url.searchParams.set("sourceNodeId", request.sourceNodeId);
-  if (request.sourceLabel) url.searchParams.set("sourceLabel", request.sourceLabel);
-  return url.toString();
-}
-
-function hashText(value) {
-  let hash = 0;
-  for (let index = 0; index < value.length; index += 1) {
-    hash = (hash * 31 + value.charCodeAt(index)) >>> 0;
-  }
-  return hash.toString(36);
 }

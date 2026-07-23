@@ -13,6 +13,7 @@ export type EditorTypographyTokens = {
     control: TypographyRoleTokens;
     navigation: TypographyRoleTokens;
     menu: TypographyRoleTokens;
+    tree: TypographyRoleTokens;
     tooltip: TypographyRoleTokens;
     metadata: TypographyRoleTokens;
     status: TypographyRoleTokens;

@@ -394,6 +394,14 @@
   letter-spacing: var(--type-interface-menu-letter-spacing, 0);
 }
 
+.type-interface-tree {
+  font-family: var(--type-interface-tree-family, var(--font-sans));
+  font-size: var(--type-interface-tree-size, 12px);
+  font-weight: var(--type-interface-tree-weight, 400);
+  line-height: var(--type-interface-tree-line-height, 18px);
+  letter-spacing: var(--type-interface-tree-letter-spacing, 0);
+}
+
 .type-interface-tooltip {
   font-family: var(--type-interface-tooltip-family, var(--font-sans));
   font-size: var(--type-interface-tooltip-size, 12px);

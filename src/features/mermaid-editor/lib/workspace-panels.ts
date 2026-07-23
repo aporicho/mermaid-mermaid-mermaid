@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import type { DocumentKind } from "@/features/mermaid-editor/lib/document-kind";
+import type { BrowserToolWindowRequest } from "@/features/mermaid-editor/lib/browser-tool-window";
 import type { RuntimeFileRef } from "@/features/mermaid-editor/lib/editor-runtime";
 import {
   bringFloatingPanelToFront,
@@ -12,7 +13,7 @@ export type StaticWorkspacePanelId = "explorer" | "inspector" | "terminal" | "ag
 export type ChromeWorkspacePanelId = Exclude<StaticWorkspacePanelId, "theme">;
 export type MarkdownWindowPanelId = `markdown:${string}`;
 export type BrowserWindowPanelId = `browser:${string}`;
-export type WorkspaceFloatingPanelId = StaticWorkspacePanelId | MarkdownWindowPanelId;
+export type WorkspaceFloatingPanelId = StaticWorkspacePanelId | MarkdownWindowPanelId | BrowserWindowPanelId;
 
 export type DetachedMarkdownWindow = {
   id: MarkdownWindowPanelId;
@@ -21,6 +22,11 @@ export type DetachedMarkdownWindow = {
   value: string;
   savedValue: string;
   missing?: boolean;
+};
+
+export type DetachedBrowserWindow = {
+  id: BrowserWindowPanelId;
+  request: BrowserToolWindowRequest;
 };
 
 export const MARKDOWN_WINDOW_A4_SIZE = { width: 1050, height: 1485 } as const;
@@ -34,22 +40,24 @@ const DEFAULT_WORKSPACE_PANEL_WINDOW_STATES: Record<StaticWorkspacePanelId, Floa
   theme: "normal"
 };
 
-export const WORKSPACE_PANEL_DEFAULT_SIZES: Record<StaticWorkspacePanelId | "markdown", { width: number; height: number }> = {
+export const WORKSPACE_PANEL_DEFAULT_SIZES: Record<StaticWorkspacePanelId | "markdown" | "browser", { width: number; height: number }> = {
   explorer: { width: 360, height: 640 },
   inspector: { width: 360, height: 640 },
   terminal: { width: 860, height: 320 },
   agent: { width: 960, height: 720 },
   theme: { width: 620, height: 720 },
-  markdown: MARKDOWN_WINDOW_A4_SIZE
+  markdown: MARKDOWN_WINDOW_A4_SIZE,
+  browser: { width: 1040, height: 720 }
 };
 
-export const WORKSPACE_PANEL_MIN_SIZES: Record<StaticWorkspacePanelId | "markdown", { width: number; height: number }> = {
+export const WORKSPACE_PANEL_MIN_SIZES: Record<StaticWorkspacePanelId | "markdown" | "browser", { width: number; height: number }> = {
   explorer: { width: 320, height: 220 },
   inspector: { width: 320, height: 220 },
   terminal: { width: 560, height: 260 },
   agent: { width: 640, height: 420 },
   theme: { width: 480, height: 360 },
-  markdown: { width: 420, height: 300 }
+  markdown: { width: 420, height: 300 },
+  browser: { width: 640, height: 420 }
 };
 
 export function markdownWindowPanelId(file: Pick<RuntimeFileRef, "name" | "path">): MarkdownWindowPanelId {
@@ -63,7 +71,8 @@ export function useWorkspacePanels({
   terminalOpen,
   themeSettingsOpen,
   documentKind,
-  detachedMarkdownWindows
+  detachedMarkdownWindows,
+  detachedBrowserWindows
 }: {
   leftCollapsed: boolean;
   rightCollapsed: boolean;
@@ -72,6 +81,7 @@ export function useWorkspacePanels({
   themeSettingsOpen: boolean;
   documentKind: DocumentKind;
   detachedMarkdownWindows: DetachedMarkdownWindow[];
+  detachedBrowserWindows: DetachedBrowserWindow[];
 }) {
   const [workspacePanelStack, setWorkspacePanelStack] = useState<WorkspaceFloatingPanelId[]>(DEFAULT_WORKSPACE_PANEL_STACK);
   const [workspacePanelWindowStates, setWorkspacePanelWindowStates] = useState<Record<string, FloatingPanelWindowState>>(() => ({
@@ -86,8 +96,9 @@ export function useWorkspacePanels({
     if (agentOpen) panelIds.push("agent");
     if (themeSettingsOpen) panelIds.push("theme");
     panelIds.push(...detachedMarkdownWindows.map((window) => window.id));
+    panelIds.push(...detachedBrowserWindows.map((window) => window.id));
     return panelIds;
-  }, [agentOpen, detachedMarkdownWindows, documentKind, leftCollapsed, rightCollapsed, terminalOpen, themeSettingsOpen]);
+  }, [agentOpen, detachedBrowserWindows, detachedMarkdownWindows, documentKind, leftCollapsed, rightCollapsed, terminalOpen, themeSettingsOpen]);
 
   const activeWorkspacePanel = useMemo(() => {
     for (let index = workspacePanelStack.length - 1; index >= 0; index -= 1) {
@@ -102,7 +113,8 @@ export function useWorkspacePanels({
   }, []);
 
   const setWorkspacePanelWindowState = useCallback((panelId: WorkspaceFloatingPanelId, state: FloatingPanelWindowState) => {
-    const nextState = state === "fullscreen" && panelId !== "agent" && panelId !== "terminal" && !panelId.startsWith("markdown:") ? "normal" : state;
+    const fullscreenAllowed = panelId === "agent" || panelId === "terminal" || panelId.startsWith("markdown:") || panelId.startsWith("browser:");
+    const nextState = state === "fullscreen" && !fullscreenAllowed ? "normal" : state;
     setWorkspacePanelWindowStates((current) => nextState === "fullscreen"
       ? Object.fromEntries([...Object.keys(current), panelId].map((id) => [id, id === panelId ? "fullscreen" : "normal"]))
       : { ...current, [panelId]: nextState });

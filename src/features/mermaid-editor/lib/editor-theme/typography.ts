@@ -31,6 +31,7 @@ export function createDefaultEditorTypography(): EditorTypographyTokens {
       control: sans(13, 500, 18),
       navigation: sans(12, 500, 18),
       menu: sans(12, 400, 18),
+      tree: sans(12, 400, 18),
       tooltip: sans(12, 400, 18),
       metadata: sans(12, 400, 18),
       status: sans(12, 400, 18),
@@ -95,7 +96,9 @@ export function createDefaultEditorTypography(): EditorTypographyTokens {
 export function normalizeEditorTypography(raw: unknown, fallback: EditorTypographyTokens, legacy: LegacyTypographySource = {}): EditorTypographyTokens {
   const migrated = migrateLegacyTypography(fallback, legacy);
   if (!raw || typeof raw !== "object") return migrated;
-  return mapTypographyRoles(migrated, (role, path) => normalizeRole(valueAtPath(raw, path), role));
+  const normalized = mapTypographyRoles(migrated, (role, path) => normalizeRole(valueAtPath(raw, path), role));
+  inheritLegacyTreeTypography(normalized, raw);
+  return normalized;
 }
 
 export function cloneEditorTypography(value: EditorTypographyTokens): EditorTypographyTokens {
@@ -104,7 +107,17 @@ export function cloneEditorTypography(value: EditorTypographyTokens): EditorTypo
 
 export function mergeEditorTypography(base: EditorTypographyTokens, overrides: unknown): EditorTypographyTokens {
   if (!overrides || typeof overrides !== "object") return cloneEditorTypography(base);
-  return mapTypographyRoles(base, (role, path) => normalizeRole(valueAtPath(overrides, path), role));
+  const merged = mapTypographyRoles(base, (role, path) => normalizeRole(valueAtPath(overrides, path), role));
+  inheritLegacyTreeTypography(merged, overrides);
+  return merged;
+}
+
+function inheritLegacyTreeTypography(target: EditorTypographyTokens, source: unknown) {
+  const interfaceSource = valueAtPath(source, ["interface"]);
+  if (!interfaceSource || typeof interfaceSource !== "object") return;
+  const roles = interfaceSource as Record<string, unknown>;
+  if (roles.tree !== undefined || roles.menu === undefined) return;
+  target.interface.tree = { ...target.interface.menu };
 }
 
 export function typographyToCssVariables(typography: EditorTypographyTokens): Record<string, string> {

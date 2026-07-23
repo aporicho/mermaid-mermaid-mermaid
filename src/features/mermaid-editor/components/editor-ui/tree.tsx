@@ -11,7 +11,7 @@ export const EditorTree = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivEleme
       ref={ref}
       role="tree"
       className={cn(
-        "type-interface-menu grid min-w-0 overflow-x-hidden [--editor-tree-branch:calc(var(--ui-tree-connector-rail-inset)+var(--ui-tree-row-padding-start))] [--editor-tree-indent:var(--ui-tree-level-indent)] [--editor-tree-rail:calc(var(--ui-tree-connector-rail-inset)*-1)] [--editor-tree-row-center:calc(var(--ui-tree-row-height)/2)]",
+        "type-interface-tree grid min-w-0 overflow-x-hidden [--editor-tree-branch:calc(var(--ui-tree-connector-rail-inset)+var(--ui-tree-row-padding-start))] [--editor-tree-indent:var(--ui-tree-level-indent)] [--editor-tree-rail:calc(var(--ui-tree-connector-rail-inset)*-1)] [--editor-tree-row-center:calc(var(--ui-tree-row-height)/2)]",
         className
       )}
       {...props}
@@ -32,8 +32,8 @@ export function EditorTreeItem({ root = false, className, ...props }: EditorTree
       className={cn(
         "relative grid min-w-0",
         !root && [
-          "before:pointer-events-none before:absolute before:bottom-0 before:left-[var(--editor-tree-rail)] before:top-0 before:z-10 before:border-l-[length:var(--ui-tree-connector-width)] before:border-[hsl(var(--ui-tree-connector)/var(--ui-tree-connector-opacity))]",
-          "after:pointer-events-none after:absolute after:left-[var(--editor-tree-rail)] after:top-[var(--editor-tree-row-center)] after:z-10 after:w-[var(--editor-tree-branch)] after:border-t-[length:var(--ui-tree-connector-width)] after:border-[hsl(var(--ui-tree-connector)/var(--ui-tree-connector-opacity))]",
+          "before:pointer-events-none before:absolute before:bottom-0 before:left-[var(--editor-tree-rail)] before:top-0 before:z-10 before:border-l-[length:var(--ui-tree-connector-width)] before:[border-left-style:var(--ui-tree-connector-style,solid)] before:border-[hsl(var(--ui-tree-connector)/var(--ui-tree-connector-opacity))]",
+          "after:pointer-events-none after:absolute after:left-[var(--editor-tree-rail)] after:top-[var(--editor-tree-row-center)] after:z-10 after:w-[var(--editor-tree-branch)] after:border-t-[length:var(--ui-tree-connector-width)] after:[border-top-style:var(--ui-tree-connector-style,solid)] after:border-[hsl(var(--ui-tree-connector)/var(--ui-tree-connector-opacity))]",
           "last:before:bottom-auto last:before:h-[var(--editor-tree-row-center)]"
         ],
         className

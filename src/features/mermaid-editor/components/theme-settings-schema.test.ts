@@ -18,6 +18,8 @@ describe("theme settings schema", () => {
     expect(APPEARANCE_TOKEN_DEFINITIONS.every((definition) => definition.label && definition.groupId && definition.consumer && definition.control.kind)).toBe(true);
     expect(APPEARANCE_TOKEN_DEFINITIONS.filter((definition) => !/[\u3400-\u9fff]/u.test(definition.label)).map((definition) => definition.path.join("."))).toEqual([]);
     expect(APPEARANCE_TOKEN_DEFINITIONS.some((definition) => definition.path.join(".") === "typography.interface.body.family" && definition.category === "interface")).toBe(true);
+    expect(APPEARANCE_TOKEN_DEFINITIONS.find((definition) => definition.path.join(".") === "typography.interface.tree.family")).toMatchObject({ groupId: "typography-interface-tree", control: { kind: "font" } });
+    expect(APPEARANCE_TOKEN_DEFINITIONS.find((definition) => definition.path.join(".") === "interface.tree.connectorStyle")).toMatchObject({ groupId: "interface-tree-connector", control: { kind: "tree-connector-style" } });
     expect(APPEARANCE_TOKEN_DEFINITIONS.some((definition) => definition.path.join(".") === "typography.linkCard.title.family" && definition.category === "specialNode")).toBe(true);
   });
 
@@ -56,7 +58,7 @@ describe("theme settings schema", () => {
       typography: Record<string, unknown>;
     };
 
-    expect(DEFAULT_EDITOR_THEME.version).toBe(13);
+    expect(DEFAULT_EDITOR_THEME.version).toBe(14);
     expect(theme.markdown).not.toHaveProperty("typography");
     expect(theme.markdown).not.toHaveProperty("font");
     expect(theme.markdown).not.toHaveProperty("quote");

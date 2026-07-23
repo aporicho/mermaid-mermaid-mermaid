@@ -170,9 +170,6 @@ export function createElectronRuntime(): EditorRuntime {
         status: "created",
         browser: electronEmbeddedBrowserHandle(result.label || request.label, bridge)
       };
-    },
-    async openBrowserToolWindow(request) {
-      return bridge.openBrowserToolWindow(request);
     }
   };
 }

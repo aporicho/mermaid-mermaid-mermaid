@@ -12,7 +12,7 @@ export type ThemeSettingsCategoryId = "library" | "interface" | "agent" | "canva
 export type AppearanceTokenState = "editable" | "derived" | "fixed" | "legacy";
 export type AppearanceTokenLevel = "common" | "advanced";
 export type AppearanceTokenConsumer = "css" | "konva" | "mermaid-svg" | "terminal" | "motion" | "diagnostics" | "theme-registry";
-export type AppearanceTokenControlKind = "color" | "font" | "number" | "text" | "css-border-style" | "canvas-stroke-style" | "dash";
+export type AppearanceTokenControlKind = "color" | "font" | "number" | "text" | "css-border-style" | "canvas-stroke-style" | "tree-connector-style" | "dash";
 
 export type AppearanceTokenDefinition = {
   path: readonly string[];
@@ -39,10 +39,12 @@ export type ThemeTokenGroupDefinition = {
   description: string;
   path: readonly string[];
   commonKeys?: readonly string[];
+  includeKeys?: readonly string[];
   hiddenKeys?: readonly string[];
   level?: "common" | "advanced";
   consumer: AppearanceTokenConsumer;
   typographyGroup?: keyof EditorTypographyTokens;
+  typographyRoles?: readonly string[];
 };
 
 export const THEME_SETTINGS_CATEGORIES = [
@@ -67,8 +69,14 @@ export const THEME_TOKEN_GROUPS: readonly ThemeTokenGroupDefinition[] = [
   group("interface-spacing", "interface", "间距与尺寸", ["interface", "spacing"], "css"),
   group("interface-icon", "interface", "图标", ["interface", "icon"], "css", { hiddenKeys: ["family"] }),
   group("interface-scrollbar", "interface", "滚动条", ["interface", "scrollbar"], "css"),
-  group("interface-tree", "interface", "目录树", ["interface", "tree"], "css"),
-  typographyGroup("typography-interface", "interface", "界面文字", "interface", "css"),
+  group("interface-tree-layout", "interface", "目录树布局与状态", ["interface", "tree"], "css", {
+    includeKeys: ["foreground", "iconColor", "hoverBackground", "hoverOpacity", "focusBackground", "focusOpacity", "selectedBackground", "selectedForeground", "rowHeight", "rowPaddingStart", "rowPaddingEnd", "rowPaddingY", "contentGap", "levelIndent", "iconSize"]
+  }),
+  group("interface-tree-connector", "interface", "目录树连线", ["interface", "tree"], "css", {
+    includeKeys: ["connectorColor", "connectorOpacity", "connectorStyle", "connectorRailInset", "connectorWidth"]
+  }),
+  typographyGroup("typography-interface-tree", "interface", "目录树文字", "interface", "css", ["tree"]),
+  typographyGroup("typography-interface", "interface", "界面文字", "interface", "css", ["body", "heading", "control", "navigation", "menu", "tooltip", "metadata", "status", "technical"]),
 
   group("agent-layout", "agent", "布局", ["agent", "layout"], "css"),
   group("agent-typography", "agent", "文字", ["agent", "typography"], "css"),
@@ -120,7 +128,7 @@ function group(
   title: string,
   path: readonly string[],
   consumer: AppearanceTokenConsumer,
-  options: Pick<ThemeTokenGroupDefinition, "level" | "hiddenKeys"> = {}
+  options: Pick<ThemeTokenGroupDefinition, "level" | "includeKeys" | "hiddenKeys"> = {}
 ): ThemeTokenGroupDefinition {
   return { id, category, title, description: "", path, consumer, ...options };
 }
@@ -130,9 +138,10 @@ function typographyGroup(
   category: ThemeTokenGroupDefinition["category"],
   title: string,
   typography: keyof EditorTypographyTokens,
-  consumer: AppearanceTokenConsumer
+  consumer: AppearanceTokenConsumer,
+  roles?: readonly string[]
 ): ThemeTokenGroupDefinition {
-  return { id, category, title, description: "", path: ["typography", typography], consumer, typographyGroup: typography };
+  return { id, category, title, description: "", path: ["typography", typography], consumer, typographyGroup: typography, typographyRoles: roles, includeKeys: roles };
 }
 
 const TOKEN_LABELS: Record<string, string> = {
@@ -167,6 +176,7 @@ const TOKEN_LABELS: Record<string, string> = {
   iconColor: "图标颜色",
   connectorColor: "连接线颜色",
   connectorOpacity: "连接线透明度",
+  connectorStyle: "连接线样式",
   hoverBackground: "悬停背景",
   focusBackground: "焦点背景",
   focusOpacity: "焦点透明度",
@@ -524,7 +534,7 @@ const FIXED_THEME_METADATA: readonly AppearanceTokenDefinition[] = [
 
 const GROUP_TOKEN_DEFINITIONS = THEME_TOKEN_GROUPS.flatMap((definition) => {
   const value = valueAtPath(DEFAULT_EDITOR_THEME, definition.path);
-  return flattenTokenLeaves(value).map(({ path, value: leafValue }) => {
+  return flattenTokenLeaves(value).filter(({ path }) => !definition.includeKeys || definition.includeKeys.includes(path[0] || "")).map(({ path, value: leafValue }) => {
     const fullPath = [...definition.path, ...path];
     const key = fullPath.at(-1) || "";
     const hidden = definition.hiddenKeys?.includes(path[0] || "") ?? false;
@@ -574,7 +584,7 @@ const FIXED_CANVAS_DOCUMENT_TYPOGRAPHY = flattenTokenLeaves(DEFAULT_EDITOR_THEME
 });
 
 /**
- * Every canonical v12 appearance leaf has exactly one registry entry. The panel,
+ * Every canonical v14 appearance leaf has exactly one registry entry. The panel,
  * search and contract tests all consume this registry instead of maintaining
  * separate path lists.
  */
@@ -624,6 +634,7 @@ function controlFor(path: readonly string[], value: unknown): AppearanceTokenDef
   if (Array.isArray(value)) return { kind: "dash" };
   if (typeof value === "number") return { kind: "number", ...themeTokenNumberSpec(path, value) };
   if (key === "family") return { kind: "font" };
+  if (key === "connectorStyle" && path[0] === "interface") return { kind: "tree-connector-style" };
   if (key === "borderStyle" || key.endsWith("Style") || key === "style") {
     return { kind: path[0] === "interface" || path[0] === "agent" ? "css-border-style" : "canvas-stroke-style" };
   }

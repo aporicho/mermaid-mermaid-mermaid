@@ -91,8 +91,11 @@ export function ThemeSettingsPanel({
 
   function resetGroup(definition: ThemeTokenGroupDefinition) {
     const custom = toCustomTheme(activeTheme);
-    const baseValue = themeValueAtPath(baseThemeFor(activeTheme), definition.path);
-    onPreview("custom", normalizeEditorTheme(updateThemeValueAtPath(custom, definition.path, baseValue), custom));
+    const base = baseThemeFor(activeTheme);
+    const next = definition.includeKeys?.length
+      ? definition.includeKeys.reduce((current, key) => updateThemeValueAtPath(current, [...definition.path, key], themeValueAtPath(base, [...definition.path, key])), custom)
+      : updateThemeValueAtPath(custom, definition.path, themeValueAtPath(base, definition.path));
+    onPreview("custom", normalizeEditorTheme(next, next));
   }
 
   function updateTypographyRole(group: keyof EditorTheme["typography"], role: string, value: TypographyRoleTokens) {
@@ -105,6 +108,16 @@ export function ThemeSettingsPanel({
     const path = role ? ["typography", group, role] : ["typography", group];
     const baseValue = themeValueAtPath(baseThemeFor(activeTheme), path);
     onPreview("custom", normalizeEditorTheme(updateThemeValueAtPath(custom, path, baseValue), custom));
+  }
+
+  function resetTypographyRoles(group: keyof EditorTheme["typography"], roles: readonly string[]) {
+    const base = baseThemeFor(activeTheme);
+    const next = roles.reduce((current, role) => updateThemeValueAtPath(
+      current,
+      ["typography", group, role],
+      themeValueAtPath(base, ["typography", group, role])
+    ), toCustomTheme(activeTheme));
+    onPreview("custom", normalizeEditorTheme(next, next));
   }
 
   function updateMarkdownField(path: readonly string[], value: ThemeTokenValue) {
@@ -135,6 +148,8 @@ export function ThemeSettingsPanel({
           key={definition.id}
           value={activeTheme.typography}
           visibleGroups={[definition.typographyGroup]}
+          visibleRoles={definition.typographyRoles}
+          groupTitle={definition.title}
           systemFonts={systemFonts}
           loading={fontsLoading}
           error={fontsError}
@@ -144,6 +159,7 @@ export function ThemeSettingsPanel({
           onChangeRole={updateTypographyRole}
           onResetRole={(group, role) => resetTypographyPath(group, role)}
           onResetGroup={(group) => resetTypographyPath(group)}
+          onResetVisibleRoles={resetTypographyRoles}
         />
       );
     }

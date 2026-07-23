@@ -92,7 +92,6 @@ function electronBridge(): ElectronBridge {
     focusEmbeddedBrowser: vi.fn(() => Promise.resolve()),
     setEmbeddedBrowserRect: vi.fn(() => Promise.resolve()),
     onEmbeddedBrowserError: vi.fn(() => () => undefined),
-    openBrowserToolWindow: vi.fn(() => Promise.resolve({ status: "opened" as const }))
   };
 }
 

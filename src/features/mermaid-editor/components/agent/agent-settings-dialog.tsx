@@ -8,6 +8,8 @@ import {
   EditPencil,
   Key,
   LogOut,
+  NavArrowDown,
+  NavArrowLeft,
   Package,
   Plus,
   Refresh,
@@ -15,13 +17,13 @@ import {
   Tools,
   Trash,
   User,
-  WarningTriangle,
-  Xmark
+  WarningTriangle
 } from "iconoir-react/regular";
 
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
 import { Item, ItemActions, ItemContent, ItemDescription, ItemMedia, ItemTitle } from "@/components/ui/item";
@@ -32,33 +34,32 @@ import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { EditorIconButton } from "@/features/mermaid-editor/components/editor-ui";
+import { WorkspaceWindowHeader } from "@/features/mermaid-editor/components/floating-chrome";
 import { cn } from "@/lib/utils";
 
 import type { AgentController } from "./use-agent-session";
 
-export function AgentSettingsDialog({ controller, open, onOpenChange }: { controller: AgentController; open: boolean; onOpenChange: (open: boolean) => void }) {
+export function AgentSettingsPanel({ controller, onBack }: { controller: AgentController; onBack: () => void }) {
   const [page, setPage] = useState("models");
   const loadOverview = controller.loadOverview;
   const setControllerError = controller.setError;
 
   useEffect(() => {
-    if (!open) return;
     void loadOverview().catch((error) => setControllerError(readableError(error)));
-  }, [loadOverview, open, setControllerError]);
+  }, [loadOverview, setControllerError]);
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="grid h-[min(720px,calc(100vh-48px))] max-w-[min(920px,calc(100vw-48px))] grid-rows-[auto_minmax(0,1fr)] bg-card p-0">
-        <div className="flex min-w-0 items-center gap-3 border-b px-5 py-3">
-          <div className="min-w-0 flex-1">
-            <DialogTitle className="truncate text-base font-semibold">Agent 设置</DialogTitle>
-            <DialogDescription className="sr-only">管理 Pi 模型、工具、资源、设置与项目信任。</DialogDescription>
-          </div>
-          {controller.busyAction ? <span className="flex items-center gap-2 text-xs text-muted-foreground"><Spinner className="size-3.5" />正在处理</span> : null}
-          <DialogClose asChild><Button variant="ghost" size="icon" aria-label="关闭 Agent 设置"><Xmark /></Button></DialogClose>
-        </div>
+    <div className="grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)] bg-card">
+      <WorkspaceWindowHeader
+        leadingActions={<EditorIconButton context="panel" label="返回聊天" onClick={onBack}><NavArrowLeft /></EditorIconButton>}
+        icon={<Settings className="size-4 shrink-0" />}
+        title="Agent 设置"
+        status={controller.busyAction ? <span className="type-interface-status flex items-center gap-2 text-muted-foreground"><Spinner className="size-3.5" />正在处理</span> : null}
+      />
 
-        {!controller.overview ? (
+      {!controller.overview ? (
           <Empty>
             <EmptyMedia>{controller.overviewBusy ? <Spinner /> : <Settings />}</EmptyMedia>
             <EmptyHeader>
@@ -67,7 +68,7 @@ export function AgentSettingsDialog({ controller, open, onOpenChange }: { contro
             </EmptyHeader>
             {!controller.overviewBusy ? <Button onClick={() => void controller.loadOverview(true)}>重新载入</Button> : null}
           </Empty>
-        ) : (
+      ) : (
           <Tabs orientation="vertical" value={page} onValueChange={setPage} className="grid min-h-0 grid-cols-[11.5rem_minmax(0,1fr)] max-[700px]:grid-cols-[3.5rem_minmax(0,1fr)]">
             <TabsList className="h-full flex-col items-stretch justify-start rounded-none border-r bg-muted/25 p-2">
               <SettingsTab value="models" icon={<User />} label="模型与账户" />
@@ -85,9 +86,8 @@ export function AgentSettingsDialog({ controller, open, onOpenChange }: { contro
               <SettingsPage value="trust"><TrustPage controller={controller} overview={controller.overview} /></SettingsPage>
             </ScrollArea>
           </Tabs>
-        )}
-      </DialogContent>
-    </Dialog>
+      )}
+    </div>
   );
 }
 
@@ -134,16 +134,31 @@ function ProviderItem({ provider, config, controller, onEdit }: { provider: any;
   const status = provider.configured
     ? provider.status?.label || provider.status?.source || "已连接"
     : ambientAuth.length ? "等待环境凭据" : "未连接";
+  function login(auth: any) {
+    void controller.runControl({ type: "login", providerId: provider.id, authType: auth.type }).catch((error) => handleControlError(controller, error));
+  }
+
   return <Item className="hover:bg-muted/45">
     <ItemMedia><User /></ItemMedia>
     <ItemContent><ItemTitle>{provider.name || provider.id}</ItemTitle><ItemDescription>{status}{config ? " · 已覆盖配置" : ""}</ItemDescription></ItemContent>
     <ItemActions>
-      <Button variant="ghost" size="icon" aria-label={`配置 ${provider.name || provider.id}`} onClick={onEdit}><EditPencil /></Button>
+      <ProviderAction label={`配置 ${provider.name || provider.id}`} onClick={onEdit}><EditPencil /></ProviderAction>
       {provider.configured
-        ? <Button variant="ghost" size="sm" onClick={() => void controller.runControl({ type: "logout", providerId: provider.id }).catch((error) => handleControlError(controller, error))}><LogOut />退出</Button>
-        : interactiveAuth.map((auth: any) => <Button key={auth.type} variant="secondary" size="sm" title={auth.label} onClick={() => void controller.runControl({ type: "login", providerId: provider.id, authType: auth.type }).catch((error) => handleControlError(controller, error))}><Key />{auth.label}</Button>)}
+        ? <ProviderAction label={`退出 ${provider.name || provider.id}`} onClick={() => void controller.runControl({ type: "logout", providerId: provider.id }).catch((error) => handleControlError(controller, error))}><LogOut /></ProviderAction>
+        : interactiveAuth.length === 1
+          ? <Button variant="secondary" size="sm" title={interactiveAuth[0].label} aria-label={`连接 ${provider.name || provider.id}：${interactiveAuth[0].label}`} onClick={() => login(interactiveAuth[0])}><Key />连接</Button>
+          : interactiveAuth.length > 1
+            ? <DropdownMenu>
+                <DropdownMenuTrigger asChild><Button variant="secondary" size="sm" aria-label={`连接 ${provider.name || provider.id}`}><Key />连接<NavArrowDown className="size-3.5" /></Button></DropdownMenuTrigger>
+                <DropdownMenuContent align="end">{interactiveAuth.map((auth: any) => <DropdownMenuItem key={auth.type} onSelect={() => login(auth)}><Key />{auth.label}</DropdownMenuItem>)}</DropdownMenuContent>
+              </DropdownMenu>
+            : null}
     </ItemActions>
   </Item>;
+}
+
+function ProviderAction({ label, onClick, children }: { label: string; onClick: () => void; children: ReactNode }) {
+  return <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" aria-label={label} onClick={onClick}>{children}</Button></TooltipTrigger><TooltipContent>{label}</TooltipContent></Tooltip>;
 }
 
 function AuthFlowPanel({ controller }: { controller: AgentController }) {

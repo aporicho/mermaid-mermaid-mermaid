@@ -48,7 +48,6 @@ import {
 } from "@/components/ui/message-scroller";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import {
   Sidebar,
   SidebarContent,
@@ -67,7 +66,7 @@ import { WorkspaceWindowHeader } from "@/features/mermaid-editor/components/floa
 import type { EditorRuntime, RuntimeAgentReference } from "@/features/mermaid-editor/lib/editor-runtime";
 import { cn } from "@/lib/utils";
 
-import { AgentSettingsDialog } from "./agent-settings-dialog";
+import { AgentSettingsPanel } from "./agent-settings-dialog";
 import type { AgentController, AgentInteractionRequest, AgentToolActivity, AgentTranscriptItem } from "./use-agent-session";
 
 type AgentPanelProps = {
@@ -76,7 +75,7 @@ type AgentPanelProps = {
 };
 
 export function AgentPanel({ runtime, controller }: AgentPanelProps) {
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [view, setView] = useState<"chat" | "settings">("chat");
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [renameOpen, setRenameOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement | null>(null);
@@ -90,14 +89,27 @@ export function AgentPanel({ runtime, controller }: AgentPanelProps) {
     }
   }, [controller.sidebarOpen, loadOverview, mobileSidebarOpen, setControllerError, wide]);
 
+  useEffect(() => {
+    if (!mobileSidebarOpen) return;
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") setMobileSidebarOpen(false);
+    }
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [mobileSidebarOpen]);
+
   function toggleSidebar() {
     if (wide) controller.setSidebarOpen(!controller.sidebarOpen);
     else setMobileSidebarOpen(true);
   }
 
+  if (view === "settings") {
+    return <TooltipProvider delayDuration={300}><AgentSettingsPanel controller={controller} onBack={() => setView("chat")} /></TooltipProvider>;
+  }
+
   return (
     <TooltipProvider delayDuration={300}>
-      <div ref={rootRef} className="grid h-full min-h-0 grid-rows-[auto_auto_minmax(0,1fr)] bg-card font-[family-name:var(--agent-type-body-family)] text-[length:var(--agent-type-body-size)] font-[var(--agent-type-body-weight)] leading-[var(--agent-type-body-line-height)] [letter-spacing:var(--agent-type-body-letter-spacing)] text-card-foreground">
+      <div ref={rootRef} className="relative isolate grid h-full min-h-0 grid-rows-[auto_auto_minmax(0,1fr)] overflow-hidden bg-card font-[family-name:var(--agent-type-body-family)] text-[length:var(--agent-type-body-size)] font-[var(--agent-type-body-weight)] leading-[var(--agent-type-body-line-height)] [letter-spacing:var(--agent-type-body-letter-spacing)] text-card-foreground">
         <WorkspaceWindowHeader
           leadingActions={<IconButton label={wide && controller.sidebarOpen ? "收起会话侧栏" : "打开会话侧栏"} onClick={toggleSidebar}>{wide && controller.sidebarOpen ? <SidebarCollapse /> : <SidebarExpand />}</IconButton>}
           icon={<Brain className="size-4 shrink-0" />}
@@ -106,27 +118,26 @@ export function AgentPanel({ runtime, controller }: AgentPanelProps) {
           actions={<>
             <IconButton label="新会话" onClick={() => void controller.createSession().catch((error) => controller.setError(readableError(error)))}><Plus /></IconButton>
             <SessionActions controller={controller} onRename={() => setRenameOpen(true)} />
-            <IconButton label="Agent 设置" onClick={() => setSettingsOpen(true)}><Settings /></IconButton>
+            <IconButton label="Agent 设置" onClick={() => setView("settings")}><Settings /></IconButton>
           </>}
         />
 
         <AgentStatus controller={controller} />
 
         <SidebarProvider open={wide && controller.sidebarOpen} onOpenChange={controller.setSidebarOpen} className="min-h-0">
-          {wide ? <Sidebar><AgentSessionSidebar controller={controller} onOpenSettings={() => setSettingsOpen(true)} /></Sidebar> : null}
+          {wide ? <Sidebar><AgentSessionSidebar controller={controller} onOpenSettings={() => setView("settings")} /></Sidebar> : null}
           <SidebarInset className="grid min-h-0 grid-rows-[minmax(0,1fr)]">
-            <AgentConversation controller={controller} onOpenSettings={() => setSettingsOpen(true)} onOpenLink={runtime.openExternalUrl} />
+            <AgentConversation controller={controller} onOpenSettings={() => setView("settings")} onOpenLink={runtime.openExternalUrl} />
           </SidebarInset>
         </SidebarProvider>
 
-        <Sheet open={mobileSidebarOpen} onOpenChange={setMobileSidebarOpen}>
-          <SheetContent side="left" className="w-[min(84vw,320px)] p-0">
-            <SheetTitle className="sr-only">Agent 会话</SheetTitle>
-            <AgentSessionSidebar controller={controller} onOpenSettings={() => { setMobileSidebarOpen(false); setSettingsOpen(true); }} onSelectSession={() => setMobileSidebarOpen(false)} />
-          </SheetContent>
-        </Sheet>
+        {!wide && mobileSidebarOpen ? <div className="absolute inset-0 z-40 flex" role="dialog" aria-modal="true" aria-label="Agent 会话">
+          <aside className="h-full w-[min(84%,320px)] border-r bg-card shadow-[var(--ui-shadow-panel)]">
+            <AgentSessionSidebar controller={controller} onOpenSettings={() => { setMobileSidebarOpen(false); setView("settings"); }} onSelectSession={() => setMobileSidebarOpen(false)} />
+          </aside>
+          <Button type="button" variant="ghost" className="h-full min-w-0 flex-1 rounded-none bg-background/55 p-0 backdrop-blur-[2px] hover:bg-background/65" aria-label="关闭会话侧栏" onClick={() => setMobileSidebarOpen(false)} />
+        </div> : null}
 
-        <AgentSettingsDialog controller={controller} open={settingsOpen} onOpenChange={setSettingsOpen} />
         <RenameSessionDialog controller={controller} open={renameOpen} onOpenChange={setRenameOpen} />
         <AgentInteractionDialog controller={controller} request={controller.interaction} />
       </div>
