@@ -59,6 +59,7 @@ export type FloatingPanelControllerInput = {
   stackIndex: number;
   onFocusPanel?: () => void;
   resetDragOnOpen: boolean;
+  mountStrategy?: "unmount" | "keep-alive";
 };
 
 export function useFloatingPanelController({
@@ -75,7 +76,8 @@ export function useFloatingPanelController({
   onWindowStateChange,
   stackIndex,
   onFocusPanel,
-  resetDragOnOpen
+  resetDragOnOpen,
+  mountStrategy = "unmount"
 }: FloatingPanelControllerInput) {
   const [mounted, setMounted] = useState(open);
   const [dragOffset, setDragOffset] = useState<FloatingPanelOffset>({ x: 0, y: 0 });
@@ -113,7 +115,9 @@ export function useFloatingPanelController({
     resetFrameOnOpen: resetDragOnOpen,
     windowState
   });
-  const handleExited = useCallback(() => setMounted(false), []);
+  const handleExited = useCallback(() => {
+    if (mountStrategy === "unmount") setMounted(false);
+  }, [mountStrategy]);
 
   useEffect(() => {
     if (!open) return;
@@ -316,7 +320,7 @@ export function useFloatingPanelController({
 }
 
 function releasePointerCapture(event: ReactPointerEvent<HTMLDivElement>) {
-  if (!event.currentTarget.hasPointerCapture(event.pointerId)) return;
+  if (typeof event.currentTarget.hasPointerCapture !== "function" || !event.currentTarget.hasPointerCapture(event.pointerId)) return;
   try {
     event.currentTarget.releasePointerCapture(event.pointerId);
   } catch {

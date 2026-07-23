@@ -58,7 +58,7 @@ export function normalizeEditorTheme(value: unknown, fallback: EditorTheme = DEF
   const agent = normalizeAgentTheme(raw.agent, createDefaultAgentTheme({ interface: interfaceTokens, typography }));
 
   return {
-    version: 12,
+    version: 13,
     id: "custom",
     name: typeof raw.name === "string" && raw.name.trim() ? raw.name : fallback.name,
     description: typeof raw.description === "string" ? raw.description : fallback.description,

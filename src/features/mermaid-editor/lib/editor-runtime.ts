@@ -1,7 +1,5 @@
-import { createDesktopRuntime } from "@/features/mermaid-editor/lib/editor-runtime/desktop-runtime";
 import { createElectronRuntime } from "@/features/mermaid-editor/lib/editor-runtime/electron-runtime";
 import { isElectronRuntime } from "@/features/mermaid-editor/lib/editor-runtime/electron-bridge";
-import { isTauriRuntime } from "@/features/mermaid-editor/lib/editor-runtime/tauri-bridge";
 import type { EditorRuntime } from "@/features/mermaid-editor/lib/editor-runtime/types";
 import { createWebRuntime } from "@/features/mermaid-editor/lib/editor-runtime/web-runtime";
 export {
@@ -55,5 +53,5 @@ export type { RuntimeMarkdownFoldMoveResult, RuntimeMarkdownFoldOperations, Runt
 export { MAX_RUNTIME_CSV_FILE_BYTES } from "@/features/mermaid-editor/lib/editor-runtime/csv-file-types";
 export function createEditorRuntime(): EditorRuntime {
   if (isElectronRuntime()) return createElectronRuntime();
-  return isTauriRuntime() ? createDesktopRuntime() : createWebRuntime();
+  return createWebRuntime();
 }

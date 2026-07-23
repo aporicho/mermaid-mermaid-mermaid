@@ -1,13 +1,11 @@
 import { Suspense, lazy } from "react";
-import { Xmark } from "iconoir-react/regular";
 
 import { ExplorerPanel } from "@/features/mermaid-editor/components/explorer-panel";
 import type { AgentController } from "@/features/mermaid-editor/components/agent/use-agent-session";
-import { FloatingPanel } from "@/features/mermaid-editor/components/floating-chrome";
+import { WorkspaceFloatingWindow } from "@/features/mermaid-editor/components/floating-chrome";
 import { InspectorPanel } from "@/features/mermaid-editor/components/inspector-panel";
 import { DetachedWorkspaceWindows } from "@/features/mermaid-editor/components/mermaid-editor/detached-workspace-windows";
 import { AgentTerminalWorkspacePanels } from "@/features/mermaid-editor/components/mermaid-editor/agent-terminal-workspace-panels";
-import { WorkspacePanelControls } from "@/features/mermaid-editor/components/workspace-panel-controls";
 import type { DocumentKind } from "@/features/mermaid-editor/lib/document-kind";
 import { EDITOR_CHROME_CLASSES } from "@/features/mermaid-editor/lib/editor-chrome";
 import type { EditorRuntime, RuntimeAgentTextSelection, RuntimeFileRef, RuntimeProjectFileKind } from "@/features/mermaid-editor/lib/editor-runtime";
@@ -48,6 +46,7 @@ type EditorWorkspacePanelsProps = {
   projectBusy: boolean;
   fileRef: RuntimeFileRef | null;
   terminalCwd?: string;
+  terminalContextKey: string;
   activeTheme: EditorTheme;
   editingThemeId: EditorThemeId;
   editingCustomTheme: EditorTheme | null;
@@ -90,7 +89,7 @@ export function EditorWorkspacePanels({
   projectFiles, explorerTreeState,
   onExplorerTreeStateChange, projectBusy,
   fileRef,
-  terminalCwd,
+  terminalCwd, terminalContextKey,
   activeTheme,
   editingThemeId,
   editingCustomTheme,
@@ -124,22 +123,23 @@ export function EditorWorkspacePanels({
 }: EditorWorkspacePanelsProps) {
   return (
     <>
-      <FloatingPanel
+      <WorkspaceFloatingWindow
         open={!leftCollapsed}
         placement="left-panel"
-        kind="workspace"
-        dismissMode="explicit"
         panelId="explorer"
         titlebarAutoHide={workspaceTitlebarAutoHide}
         active={activeWorkspacePanel === "explorer"}
         stackIndex={workspacePanelStackPosition("explorer")}
         onFocusPanel={() => bringWorkspacePanelToFront("explorer")}
-        resetDragOnOpen={false}
         defaultSize={WORKSPACE_PANEL_DEFAULT_SIZES.explorer}
-        minSize={WORKSPACE_PANEL_MIN_SIZES.explorer} fullscreenable={false}
+        minSize={WORKSPACE_PANEL_MIN_SIZES.explorer}
+        allowFullscreen={false}
         windowState={workspacePanelWindowState("explorer")}
         onWindowStateChange={(state) => setWorkspacePanelWindowState("explorer", state)}
-        className={cn(EDITOR_CHROME_CLASSES.sidePanel, "relative h-full w-full")}
+        onClose={() => closeWorkspacePanel("explorer")}
+        closeLabel="关闭资源管理器"
+        tooltipSide="right"
+        className={cn(EDITOR_CHROME_CLASSES.sidePanel, "relative")}
       >
         <ExplorerPanel
           runtimeKind={runtime.kind}
@@ -156,17 +156,15 @@ export function EditorWorkspacePanels({
           onOpenProjectMarkdownWindow={(file) => void openProjectMarkdownWindow(file)}
           onMarkdownDocumentPointerDrag={onMarkdownDocumentPointerDrag}
           onStatus={onStatus}
-          windowState={workspacePanelWindowState("explorer")}
-          onWindowStateChange={(state) => setWorkspacePanelWindowState("explorer", state)}
-          onCollapse={() => closeWorkspacePanel("explorer")}
         />
-      </FloatingPanel>
+      </WorkspaceFloatingWindow>
       <AgentTerminalWorkspacePanels
         runtime={runtime}
         agentOpen={agentOpen}
         terminalOpen={terminalOpen}
         agentController={agentController}
         terminalCwd={terminalCwd}
+        terminalContextKey={terminalContextKey}
         activeTheme={activeTheme}
         terminalTheme={terminalTheme}
         titlebarAutoHide={workspaceTitlebarAutoHide}
@@ -178,51 +176,46 @@ export function EditorWorkspacePanels({
         closePanel={closeWorkspacePanel}
         onStatus={onStatus}
       />
-      <FloatingPanel
+      <WorkspaceFloatingWindow
         open={!rightCollapsed && documentKind === "mermaid"}
         placement="right-panel"
-        kind="workspace"
-        dismissMode="explicit"
         panelId="inspector"
         titlebarAutoHide={workspaceTitlebarAutoHide}
         active={activeWorkspacePanel === "inspector"}
         stackIndex={workspacePanelStackPosition("inspector")}
         onFocusPanel={() => bringWorkspacePanelToFront("inspector")}
-        resetDragOnOpen={false}
         defaultSize={WORKSPACE_PANEL_DEFAULT_SIZES.inspector}
-        minSize={WORKSPACE_PANEL_MIN_SIZES.inspector} fullscreenable={false}
+        minSize={WORKSPACE_PANEL_MIN_SIZES.inspector}
+        allowFullscreen={false}
         windowState={workspacePanelWindowState("inspector")}
         onWindowStateChange={(state) => setWorkspacePanelWindowState("inspector", state)}
-        className={cn(EDITOR_CHROME_CLASSES.sidePanel, "relative grid h-full w-full min-h-0")}
+        onClose={() => closeWorkspacePanel("inspector")}
+        closeLabel="关闭检查器"
+        tooltipSide="left"
+        className={cn(EDITOR_CHROME_CLASSES.sidePanel, "relative")}
       >
         <InspectorPanel
           graph={graph} selection={selection} onEditorCommand={applyEditorCommand}
           onOpenNodeAction={executeCanvasNodeAction} onEditNodeAction={editCanvasNodeAction}
-          windowControls={
-            <WorkspacePanelControls
-              windowState={workspacePanelWindowState("inspector")} onWindowStateChange={(state) => setWorkspacePanelWindowState("inspector", state)}
-              onClose={() => closeWorkspacePanel("inspector")}
-              closeLabel="关闭检查器" closeTooltipSide="left" closeIcon={<Xmark />}
-            />
-          }
         />
-      </FloatingPanel>
-      <FloatingPanel
+      </WorkspaceFloatingWindow>
+      <WorkspaceFloatingWindow
         open={themeSettingsOpen}
         placement="right-panel"
-        kind="workspace"
-        dismissMode="explicit"
         panelId="theme"
         titlebarAutoHide={workspaceTitlebarAutoHide}
         active={activeWorkspacePanel === "theme"}
         stackIndex={workspacePanelStackPosition("theme")}
         onFocusPanel={() => bringWorkspacePanelToFront("theme")}
-        resetDragOnOpen={false}
         defaultSize={WORKSPACE_PANEL_DEFAULT_SIZES.theme}
-        minSize={WORKSPACE_PANEL_MIN_SIZES.theme} fullscreenable={false}
+        minSize={WORKSPACE_PANEL_MIN_SIZES.theme}
+        allowFullscreen={false}
         windowState={workspacePanelWindowState("theme")}
         onWindowStateChange={(state) => setWorkspacePanelWindowState("theme", state)}
-        className="grid h-full w-full min-h-0 overflow-hidden bg-card"
+        onClose={hideThemeSettings}
+        closeLabel="隐藏主题面板"
+        tooltipSide="left"
+        className="bg-card"
       >
         <Suspense fallback={null}>
           <ThemeSettingsPanel
@@ -234,19 +227,9 @@ export function EditorWorkspacePanels({
             onPreview={previewTheme}
             onDiscard={discardThemeSettings}
             onApply={applyThemeSettings}
-            windowControls={
-              <WorkspacePanelControls
-                windowState={workspacePanelWindowState("theme")}
-                onWindowStateChange={(state) => setWorkspacePanelWindowState("theme", state)}
-                onClose={hideThemeSettings}
-                closeLabel="隐藏主题面板"
-                closeTooltipSide="left"
-                closeIcon={<Xmark />}
-              />
-            }
           />
         </Suspense>
-      </FloatingPanel>
+      </WorkspaceFloatingWindow>
       <DetachedWorkspaceWindows
         markdownWindows={detachedMarkdownWindows} markdownSpellcheckEnabled={markdownSpellcheckEnabled}
         markdownContentWidth={markdownContentWidth} markdownTextScale={markdownTextScale}

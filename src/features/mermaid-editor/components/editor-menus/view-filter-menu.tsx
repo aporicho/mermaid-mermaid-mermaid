@@ -17,7 +17,7 @@ import {
   arrowTypeFilterLabels,
   edgeStyleFilterLabels
 } from "@/features/mermaid-editor/components/editor-menus/shared";
-import { FloatingIconButton, FloatingPanel } from "@/features/mermaid-editor/components/floating-chrome";
+import { FloatingIconButton, FloatingPopover } from "@/features/mermaid-editor/components/floating-chrome";
 import type { EdgeStyle, FlowchartArrowType } from "@/features/mermaid-editor/lib/editor-types";
 import { useDismissableFloatingMenu } from "@/features/mermaid-editor/lib/use-dismissable-floating-menu";
 import { ARROW_TYPE_FILTERS, DEFAULT_VIEW_FILTERS, EDGE_STYLE_FILTERS, type ViewFilters } from "@/features/mermaid-editor/lib/view-filters";
@@ -101,7 +101,7 @@ export function ViewFilterMenu({
         <FilterAlt />
       </FloatingIconButton>
 
-      <FloatingPanel open={open} placement="right" kind="popover" dismissMode="outside" className="w-72">
+      <FloatingPopover open={open} placement="right" dismissMode="outside" className="w-72">
         <EditorMenuSurface>
           <div className="grid grid-cols-2 gap-1">
             <EditorMenuItem data-floating-action-item icon={<Eye />} label="全部显示" onClick={onReset} />
@@ -137,7 +137,7 @@ export function ViewFilterMenu({
             </div>
           </div>
         </EditorMenuSurface>
-      </FloatingPanel>
+      </FloatingPopover>
     </div>
   );
 }

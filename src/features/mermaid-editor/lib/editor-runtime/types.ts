@@ -172,7 +172,7 @@ export type RuntimeBrowserToolWindowResult =
       message: string;
     };
 
-export type EditorRuntimeHost = "web" | "tauri" | "electron";
+export type EditorRuntimeHost = "web" | "electron";
 
 export type EditorRuntime = RuntimeAgentOperations & RuntimeCsvFileOperations & RuntimeDesktopWindowOperations & RuntimeProjectFileWatchOperations & import("@/features/mermaid-editor/lib/editor-runtime/markdown-fold-types").RuntimeMarkdownFoldOperations & {
   kind: "web" | "desktop";

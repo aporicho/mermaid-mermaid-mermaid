@@ -12,7 +12,7 @@ import {
 } from "react";
 
 export const WORKSPACE_PANEL_HEADER_HIDE_DELAY_MS = 800;
-export const WORKSPACE_PANEL_HEADER_HOT_ZONE_PX = 8;
+export { FLOATING_PANEL_HEADER_HOT_ZONE_PX as WORKSPACE_PANEL_HEADER_HOT_ZONE_PX } from "@/features/mermaid-editor/lib/floating-chrome";
 
 type WorkspacePanelHeaderContextValue = {
   visible: boolean;

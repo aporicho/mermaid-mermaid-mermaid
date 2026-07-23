@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ColorWheel, WarningTriangle } from "iconoir-react/regular";
 
 import { Button } from "@/components/ui/button";
@@ -7,10 +7,10 @@ import {
   EditorListRow,
   EditorNotice,
   EditorPanelFooter,
-  EditorPanelHeader,
   EditorSearchField,
   EditorStatusBadge
 } from "@/features/mermaid-editor/components/editor-ui";
+import { WorkspaceWindowHeader } from "@/features/mermaid-editor/components/floating-chrome";
 import {
   compileEditorTheme,
   MARKDOWN_ELEMENT_DEFINITIONS,
@@ -50,8 +50,7 @@ export function ThemeSettingsPanel({
   hasDraft,
   onPreview,
   onDiscard,
-  onApply,
-  windowControls
+  onApply
 }: {
   themeId: EditorThemeId;
   customTheme: EditorTheme | null;
@@ -61,7 +60,6 @@ export function ThemeSettingsPanel({
   onPreview: (themeId: EditorThemeId, customTheme: EditorTheme | null) => void;
   onDiscard: () => void;
   onApply: () => void;
-  windowControls: ReactNode;
 }) {
   const [activeCategory, setActiveCategory] = useState<ThemeSettingsCategoryId>("library");
   const [query, setQuery] = useState("");
@@ -166,10 +164,10 @@ export function ThemeSettingsPanel({
 
   return (
     <div className="flex h-full min-h-0 flex-col" data-theme-settings-panel>
-      <EditorPanelHeader
+      <WorkspaceWindowHeader
         icon={<ColorWheel className="editor-ui-icon shrink-0 text-icon" />}
-        title={<span className="flex items-center gap-2">主题{hasDraft ? <EditorStatusBadge tone="accent">未应用</EditorStatusBadge> : null}</span>}
-        actions={windowControls}
+        title="主题"
+        status={hasDraft ? <EditorStatusBadge tone="accent">未应用</EditorStatusBadge> : null}
       />
 
       <div className="grid min-h-0 flex-1 grid-cols-[148px_minmax(0,1fr)] max-[520px]:grid-cols-[120px_minmax(0,1fr)]">

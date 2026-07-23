@@ -1,16 +1,19 @@
 // @vitest-environment jsdom
 
-import { act, createElement, type ReactNode } from "react";
+import { act, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { EditorPanelHeader } from "@/features/mermaid-editor/components/editor-ui";
-import { FloatingPanel } from "@/features/mermaid-editor/components/floating-chrome";
+import { EditorSectionHeader } from "@/features/mermaid-editor/components/editor-ui";
+import {
+  FloatingPopover,
+  WorkspaceFloatingWindow,
+  WorkspaceWindowHeader
+} from "@/features/mermaid-editor/components/floating-chrome";
 import { WORKSPACE_PANEL_HEADER_HIDE_DELAY_MS, WORKSPACE_PANEL_HEADER_HOT_ZONE_PX } from "@/features/mermaid-editor/components/floating-chrome/workspace-panel-header-context";
-import { WorkspacePanelControls } from "@/features/mermaid-editor/components/workspace-panel-controls";
 
-describe("FloatingPanel", () => {
+describe("floating chrome", () => {
   let container: HTMLDivElement | null = null;
   let root: Root | null = null;
 
@@ -40,22 +43,33 @@ describe("FloatingPanel", () => {
 
     act(() => {
       root?.render(
-        createElement(
-          FloatingPanel,
-          {
-            open: true,
-            placement: "center-panel",
-            kind: "workspace",
-            panelId: "markdown-window",
-            defaultSize: { width: 640, height: 480 },
-            children: createElement("div", { "data-testid": "workspace-content" })
-          }
-        )
+        <TooltipProvider delayDuration={0}>
+          <WorkspaceFloatingWindow
+            open
+            placement="center-panel"
+            panelId="markdown-window"
+            titlebarAutoHide={false}
+            active
+            stackIndex={0}
+            onFocusPanel={() => undefined}
+            defaultSize={{ width: 640, height: 480 }}
+            minSize={{ width: 320, height: 220 }}
+            windowState="normal"
+            onWindowStateChange={() => undefined}
+            onClose={() => undefined}
+            closeLabel="关闭 Markdown 窗口"
+          >
+            <section className="flex h-full min-h-0 flex-col">
+              <WorkspaceWindowHeader title="Markdown" />
+              <div data-testid="workspace-content" />
+            </section>
+          </WorkspaceFloatingWindow>
+        </TooltipProvider>
       );
     });
 
     const content = requiredElement<HTMLElement>("[data-testid='workspace-content']");
-    const surface = content.parentElement;
+    const surface = content.closest(".editor-ui-panel");
     if (!(surface instanceof HTMLElement)) throw new Error("Expected workspace panel surface.");
     const panel = content.closest("[data-floating-panel-kind='workspace']");
     if (!(panel instanceof HTMLElement)) throw new Error("Expected workspace panel root.");
@@ -74,35 +88,30 @@ describe("FloatingPanel", () => {
       act(() => {
         root?.render(
           <TooltipProvider delayDuration={0}>
-            <FloatingPanel
+            <WorkspaceFloatingWindow
               open={next.open}
               placement="center-panel"
-              kind="workspace"
               panelId="header-test"
               titlebarAutoHide={next.titlebarAutoHide}
+              active
+              stackIndex={0}
+              onFocusPanel={() => undefined}
               defaultSize={{ width: 640, height: 480 }}
+              minSize={{ width: 320, height: 220 }}
               windowState="normal"
               onWindowStateChange={() => undefined}
+              onClose={() => undefined}
+              closeLabel="关闭测试面板"
             >
               <section className="flex h-full min-h-0 flex-col">
-                <EditorPanelHeader
+                <WorkspaceWindowHeader
                   title="测试面板"
-                  actions={
-                    <WorkspacePanelControls
-                      allowFullscreen
-                      leadingActions={leadingActions}
-                      windowState="normal"
-                      onWindowStateChange={() => undefined}
-                      onClose={() => undefined}
-                      closeLabel="关闭测试面板"
-                      closeTooltipSide="top"
-                      closeIcon={<span aria-hidden>×</span>}
-                    />
-                  }
+                  leadingActions={leadingActions}
+                  actions={<button type="button" data-testid="business-action">业务操作</button>}
                 />
                 <button type="button" data-testid="workspace-content">内容</button>
               </section>
-            </FloatingPanel>
+            </WorkspaceFloatingWindow>
           </TooltipProvider>
         );
       });
@@ -141,12 +150,60 @@ describe("FloatingPanel", () => {
     act(() => target.dispatchEvent(event));
   }
 
+  function dispatchDragPointer(target: Element, type: "pointerdown" | "pointermove" | "pointerup", x: number, y: number) {
+    const event = new MouseEvent(type, { bubbles: true, button: 0, clientX: x, clientY: y });
+    Object.defineProperty(event, "pointerId", { value: 7 });
+    act(() => target.dispatchEvent(event));
+  }
+
   it("does not wrap workspace content in fixed-position containing block classes", () => {
     const { panel, surface } = renderWorkspacePanel();
 
     expect(panel.className).not.toContain("will-change-transform");
     expect(surface.className).not.toContain("will-change-transform");
     expect(surface.className).not.toContain("backdrop-blur");
+  });
+
+  it("keeps a keep-alive workspace mounted but inert while it is hidden", () => {
+    createContainer();
+
+    function render(open: boolean) {
+      act(() => {
+        root?.render(
+          <WorkspaceFloatingWindow
+            open={open}
+            placement="bottom-panel"
+            panelId="terminal-test"
+            titlebarAutoHide={false}
+            active={open}
+            stackIndex={0}
+            onFocusPanel={() => undefined}
+            defaultSize={{ width: 640, height: 480 }}
+            minSize={{ width: 320, height: 220 }}
+            windowState="normal"
+            onWindowStateChange={() => undefined}
+            onClose={() => undefined}
+            closeLabel="隐藏终端"
+            mountStrategy="keep-alive"
+          >
+            <div data-testid="terminal-content" />
+          </WorkspaceFloatingWindow>
+        );
+      });
+    }
+
+    render(true);
+    const content = requiredElement<HTMLElement>("[data-testid='terminal-content']");
+    const panel = requiredElement<HTMLElement>("[data-floating-panel-id='terminal-test']");
+    render(false);
+
+    expect(container?.querySelector("[data-testid='terminal-content']")).toBe(content);
+    expect(panel.getAttribute("aria-hidden")).toBe("true");
+    expect(panel.hasAttribute("inert")).toBe(true);
+
+    render(true);
+    expect(container?.querySelector("[data-testid='terminal-content']")).toBe(content);
+    expect(panel.hasAttribute("inert")).toBe(false);
   });
 
   it("keeps resize handles in an absolute overlay instead of workspace layout flow", () => {
@@ -159,13 +216,30 @@ describe("FloatingPanel", () => {
     expect(overlay?.className).toContain("pointer-events-none");
   });
 
+  it("labels workspace windows from their shared titlebar and moves them by that titlebar", () => {
+    const { panel } = renderWorkspacePanel();
+    const header = requiredElement<HTMLElement>("[data-workspace-panel-header='true']");
+    const initialLeft = Number.parseFloat(panel.style.left);
+    const initialTop = Number.parseFloat(panel.style.top);
+
+    expect(panel.getAttribute("role")).toBe("region");
+    expect(panel.getAttribute("aria-labelledby")).toBe(header.querySelector("[id]")?.id);
+
+    dispatchDragPointer(header, "pointerdown", 100, 100);
+    dispatchDragPointer(panel, "pointermove", 140, 125);
+    dispatchDragPointer(panel, "pointerup", 140, 125);
+
+    expect(Number.parseFloat(panel.style.left)).toBe(initialLeft + 40);
+    expect(Number.parseFloat(panel.style.top)).toBe(initialTop + 25);
+  });
+
   it("leaves non-workspace panel headers in their ordinary layout", () => {
     createContainer();
     act(() => {
       root?.render(
-        <FloatingPanel open placement="right" kind="popover">
-          <EditorPanelHeader title="普通浮层" />
-        </FloatingPanel>
+        <FloatingPopover open placement="right">
+          <EditorSectionHeader title="普通浮层" />
+        </FloatingPopover>
       );
     });
 
@@ -215,23 +289,25 @@ describe("FloatingPanel", () => {
     expect(panel.header().dataset.workspacePanelHeaderState).toBe("hidden");
   });
 
-  it("keeps leading actions in the same drag-excluded control group as the window controls", () => {
+  it("separates leading and trailing actions into drag-excluded titlebar groups", () => {
     const panel = renderWorkspaceHeaderPanel({
       leadingActions: <button type="button" data-testid="leading-action">前置操作</button>
     });
     const leadingAction = requiredElement<HTMLButtonElement>("[data-testid='leading-action']");
+    const businessAction = requiredElement<HTMLButtonElement>("[data-testid='business-action']");
     const pinButton = panel.titlebarButton("固定标题栏");
     const maximizeButton = panel.titlebarButton("全屏");
     const closeButton = panel.titlebarButton("关闭测试面板");
-    const controlGroup = leadingAction.parentElement;
+    const leadingGroup = leadingAction.parentElement;
+    const actionGroup = businessAction.parentElement;
 
-    expect(controlGroup).not.toBeNull();
-    expect(controlGroup?.hasAttribute("data-floating-panel-drag-exclude")).toBe(true);
-    expect(pinButton.parentElement).toBe(controlGroup);
-    expect(maximizeButton.parentElement).toBe(controlGroup);
-    expect(closeButton.parentElement).toBe(controlGroup);
-    expect(Array.from(controlGroup?.children ?? [])).toEqual([
-      leadingAction,
+    expect(leadingGroup?.hasAttribute("data-window-titlebar-drag-exclude")).toBe(true);
+    expect(actionGroup?.hasAttribute("data-window-titlebar-drag-exclude")).toBe(true);
+    expect(pinButton.parentElement).toBe(actionGroup);
+    expect(maximizeButton.parentElement).toBe(actionGroup);
+    expect(closeButton.parentElement).toBe(actionGroup);
+    expect(Array.from(actionGroup?.children ?? [])).toEqual([
+      businessAction,
       pinButton,
       maximizeButton,
       closeButton

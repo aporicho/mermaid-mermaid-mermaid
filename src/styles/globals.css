@@ -724,10 +724,6 @@
   user-select: none;
 }
 
-.markdown-editor-panel .milkdown .milkdown-block-handle .markdown-fold-handle-button[hidden] {
-  display: none;
-}
-
 .markdown-editor-panel .milkdown .milkdown-block-handle .markdown-fold-handle-button svg {
   fill: none;
   color: currentColor;
@@ -760,6 +756,10 @@
   display: block;
   width: 18px;
   height: 18px;
+}
+
+.markdown-editor-panel .milkdown .milkdown-block-handle .markdown-fold-handle-button[hidden] {
+  display: none !important;
 }
 
 .markdown-editor-panel .milkdown .ProseMirror .markdown-fold-hidden {

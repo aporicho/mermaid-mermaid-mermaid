@@ -91,6 +91,14 @@ export function useEditorDocumentModel({ initial, runtime }: UseEditorDocumentMo
   const hiddenViewFilters = useMemo(() => hiddenFilterCount(viewFilters), [viewFilters]);
   const projectFiles = useMemo(() => projectWorkspace?.files || [], [projectWorkspace]);
   const terminalCwd = useMemo(() => projectWorkspace?.rootPath || parentDirectoryPath(fileRef?.path), [fileRef?.path, projectWorkspace?.rootPath]);
+  const terminalContextKey = useMemo(
+    () => projectWorkspace?.rootPath
+      ? `project:${projectWorkspace.rootPath}`
+      : terminalCwd
+        ? `directory:${terminalCwd}`
+        : "scratch",
+    [projectWorkspace?.rootPath, terminalCwd]
+  );
   const isDirty = !lastSavedDocument || currentDocument !== lastSavedDocument;
   const isCanvasEditable = documentKind === "mermaid" && editableKind === "flowchart";
   const canvasViewTooltip = isCanvasEditable ? "无限画布" : `${diagramTypeLabel(diagramType)} 仅支持渲染`;
@@ -190,6 +198,7 @@ export function useEditorDocumentModel({ initial, runtime }: UseEditorDocumentMo
     hiddenViewFilters,
     projectFiles,
     terminalCwd,
+    terminalContextKey,
     isDirty,
     isCanvasEditable,
     canvasViewTooltip

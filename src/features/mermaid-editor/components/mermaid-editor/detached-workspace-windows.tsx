@@ -1,5 +1,5 @@
 import { MarkdownWindowPanel } from "@/features/mermaid-editor/components/detached-window-panels";
-import { FloatingPanel } from "@/features/mermaid-editor/components/floating-chrome";
+import { WorkspaceFloatingWindow } from "@/features/mermaid-editor/components/floating-chrome";
 import type { FloatingPanelWindowState } from "@/features/mermaid-editor/lib/floating-chrome";
 import type { RuntimeAgentTextSelection, RuntimeFileRef } from "@/features/mermaid-editor/lib/editor-runtime";
 import type { MarkdownFoldSnapshot } from "@/features/mermaid-editor/lib/markdown-fold-state";
@@ -55,23 +55,22 @@ export function DetachedWorkspaceWindows({
     <>
       {markdownWindows.map((markdownWindow) => {
         const foldBinding = markdownFoldBindingFor(markdownWindow.file);
-        return <FloatingPanel
+        return <WorkspaceFloatingWindow
           key={markdownWindow.id}
           open
           placement="center-panel"
-          kind="workspace"
-          dismissMode="explicit"
           panelId={markdownWindow.id}
           titlebarAutoHide={workspaceTitlebarAutoHide}
           active={activePanel === markdownWindow.id}
           stackIndex={panelStackPosition(markdownWindow.id)}
           onFocusPanel={() => bringPanelToFront(markdownWindow.id)}
-          resetDragOnOpen={false}
           defaultSize={WORKSPACE_PANEL_DEFAULT_SIZES.markdown}
           minSize={WORKSPACE_PANEL_MIN_SIZES.markdown}
           windowState={panelWindowState(markdownWindow.id)}
           onWindowStateChange={(state) => setPanelWindowState(markdownWindow.id, state)}
-          className="relative h-full w-full min-h-0 overflow-hidden rounded-[var(--theme-radius-app)]"
+          onClose={() => closeMarkdownWindow(markdownWindow.id)}
+          closeLabel="关闭 Markdown 窗口"
+          tooltipSide="top"
         >
           <MarkdownWindowPanel
             title={markdownWindow.title}
@@ -81,9 +80,6 @@ export function DetachedWorkspaceWindows({
             spellCheck={markdownSpellcheckEnabled}
             contentWidth={markdownContentWidth}
             textScale={markdownTextScale}
-            windowState={panelWindowState(markdownWindow.id)}
-            onWindowStateChange={(state) => setPanelWindowState(markdownWindow.id, state)}
-            onClose={() => closeMarkdownWindow(markdownWindow.id)}
             onSave={() => void saveMarkdownWindow(markdownWindow.id)}
             onTextScaleChange={onMarkdownTextScaleChange}
             foldState={foldBinding.foldState}
@@ -91,7 +87,7 @@ export function DetachedWorkspaceWindows({
             onChange={(value) => updateMarkdownWindow(markdownWindow.id, value)}
             onSelectionChange={(selection) => onMarkdownSelectionChange?.(markdownWindow.id, selection)}
           />
-        </FloatingPanel>;
+        </WorkspaceFloatingWindow>;
       })}
     </>
   );

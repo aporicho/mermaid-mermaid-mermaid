@@ -101,7 +101,7 @@ npm run windows:run
 npm run desktop:ship
 ```
 
-`desktop:*` 默认走 Electron 壳：`desktop:dev` 启动 Vite + Electron，`desktop:build` 构建当前平台 Electron 产物，`desktop:ship` 构建、安装并启动当前平台桌面应用。旧 Tauri 链路保留在 `tauri:dev`、`tauri:build`、`tauri:ship`，仅作为回退和迁移对照。
+`desktop:*` 统一走 Electron 壳：`desktop:dev` 启动 Vite + Electron，`desktop:build` 构建当前平台 Electron 产物，`desktop:ship` 构建、安装并启动当前平台桌面应用。
 
 Electron 会为执行命令的操作系统构建产物。从 WSL 运行会得到 Linux 产物；需要 Windows 安装包时，使用 `npm run windows:run` 从 WSL 同步到 Windows 环境构建、安装并启动。
 
@@ -243,9 +243,6 @@ src/main.tsx, src/App.tsx, src/styles/
 electron/
   Electron 桌面壳、内嵌浏览器、原生文件命令、图片资源、本地 PTY 终端和 Pi Agent Worker。
 
-src-tauri/
-  旧 Tauri 桌面壳，迁移期保留作为回退实现和能力对照。
-
 src/components/ui/
   共享 UI 原语。
 
@@ -294,7 +291,7 @@ docs/
 - `node-geometry.ts` 负责节点 frame、文本、锚点、路由、对齐和命中测试几何。
 - `edge-geometry.ts` 负责完成连线和草稿连线路由。
 - Konva/Pixi 组件只翻译事件、渲染图形、执行返回命令；不要在组件里分散业务规则。
-- 浏览器和桌面平台行为必须经过 `editor-runtime.ts`；编辑器组件不要直接调用 Electron / Tauri API、浏览器文件选择 API、PTY 终端或 Pi Worker。
+- 浏览器和桌面平台行为必须经过 `editor-runtime.ts`；编辑器组件不要直接调用 Electron API、浏览器文件选择 API、PTY 终端或 Pi Worker。
 - 新节点 ID 默认使用 `N1`、`N2`、`N3` 序列，除非保留用户已有 ID。
 - 新增图标按钮必须沿用圆形 `size="icon"` 规则。
 

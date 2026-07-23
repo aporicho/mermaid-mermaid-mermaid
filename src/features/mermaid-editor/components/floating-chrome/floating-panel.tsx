@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { AriaRole, ReactNode } from "react";
 
 import type {
   FloatingPanelDismissMode,
@@ -37,8 +37,11 @@ export function FloatingPanel({
   stackIndex = 0,
   onFocusPanel,
   resetDragOnOpen = true,
+  mountStrategy = "unmount",
   frameClassName,
   className,
+  role,
+  ariaLabelledBy,
   children
 }: {
   open: boolean;
@@ -58,8 +61,11 @@ export function FloatingPanel({
   stackIndex?: number;
   onFocusPanel?: () => void;
   resetDragOnOpen?: boolean;
+  mountStrategy?: "unmount" | "keep-alive";
   frameClassName?: string;
   className?: string;
+  role?: AriaRole;
+  ariaLabelledBy?: string;
   children: ReactNode;
 }) {
   const panel = useFloatingPanelController({
@@ -76,7 +82,8 @@ export function FloatingPanel({
     onWindowStateChange,
     stackIndex,
     onFocusPanel,
-    resetDragOnOpen
+    resetDragOnOpen,
+    mountStrategy
   });
   const workspaceHeader = useWorkspacePanelHeaderAutoHide({ enabled: kind === "workspace", open, dragging: panel.dragging, autoHide: titlebarAutoHide });
 
@@ -106,6 +113,10 @@ export function FloatingPanel({
       data-floating-panel-dismiss-mode={panel.resolvedDismissMode}
       data-floating-panel-window-state={windowState}
       data-floating-panel-titlebar-auto-hide={workspaceHeader ? (workspaceHeader.autoHide ? "true" : "false") : undefined}
+      aria-hidden={!open || undefined}
+      inert={!open || undefined}
+      role={role}
+      aria-labelledby={ariaLabelledBy}
     >
       <div className={cn(panel.framePanel && "h-full w-full", !panel.framePanel && floatingPanelAnchorClass[placement])}>
         <div

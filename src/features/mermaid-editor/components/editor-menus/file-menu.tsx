@@ -10,7 +10,7 @@ import {
 } from "iconoir-react/regular";
 
 import { EditorMenuItem, EditorMenuSection, EditorMenuSurface } from "@/features/mermaid-editor/components/editor-ui";
-import { FloatingIconButton, FloatingPanel } from "@/features/mermaid-editor/components/floating-chrome";
+import { FloatingIconButton, FloatingPopover } from "@/features/mermaid-editor/components/floating-chrome";
 import type { RecentFileEntry } from "@/features/mermaid-editor/lib/file-workflow";
 import { useDismissableFloatingMenu } from "@/features/mermaid-editor/lib/use-dismissable-floating-menu";
 
@@ -59,7 +59,7 @@ export function FileMenu({
         <Folder />
       </FloatingIconButton>
 
-      <FloatingPanel open={open} placement="top-left" kind="popover" dismissMode="outside" className="w-72">
+      <FloatingPopover open={open} placement="top-left" dismissMode="outside" className="w-72">
         <EditorMenuSurface>
           <EditorMenuSection>
             <EditorMenuItem data-floating-action-item icon={<Plus />} label="新建 Mermaid" onClick={() => runAndClose(onNewMermaidFile)} />
@@ -95,7 +95,7 @@ export function FileMenu({
             </EditorMenuSection>
           ) : null}
         </EditorMenuSurface>
-      </FloatingPanel>
+      </FloatingPopover>
     </div>
   );
 }

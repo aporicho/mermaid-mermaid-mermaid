@@ -39,7 +39,6 @@ flowchart LR
     RuntimeAdapter["运行时适配器<br/>editor-runtime.ts"]
     BrowserRuntime["浏览器运行时<br/>文件选择 / 下载 / localStorage"]
     ElectronNative["Electron 原生层<br/>文件 / 项目扫描 / 应用状态 / 图片资源 / PTY / Pi Worker"]
-    TauriNative["Tauri 原生层<br/>迁移期回退"]
     PtySession["本地 PTY 会话<br/>node-pty / shell / resize"]
     WindowsFlow["Windows 验收流程<br/>windows:run -> electron:ship -> launch"]
   end
@@ -104,7 +103,6 @@ flowchart LR
   RuntimeAdapter --> BrowserRuntime
   RuntimeAdapter --> ElectronNative
   ElectronNative --> PtySession
-  RuntimeAdapter -.-> TauriNative
   PtySession -->|data / exit event| RuntimeAdapter
   ElectronNative --> WindowsFlow
   RuntimeAdapter -->|打开 / 保存 / 草稿 / 图片显示 URL| Truth

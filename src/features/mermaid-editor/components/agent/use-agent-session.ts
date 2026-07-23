@@ -53,6 +53,17 @@ export type AgentInteractionRequest = {
   raw: Record<string, unknown>;
 };
 
+export type AgentAuthFlowState = {
+  providerId: string;
+  status: "pending" | "waiting" | "success" | "cancelled" | "error";
+  message?: string;
+  url?: string;
+  deviceCode?: string;
+  verificationUri?: string;
+  expiresAt?: number;
+  links?: Array<{ url: string; label?: string }>;
+};
+
 export type AgentController = ReturnType<typeof useAgentSession>;
 
 type PendingRpc = {
@@ -105,6 +116,7 @@ export function useAgentSession({
   const [documents, setDocuments] = useState<RuntimeAgentDocumentSummary[]>([]);
   const [composerRequest, setComposerRequest] = useState<string | null>(null);
   const [activity, setActivity] = useState<string | null>(null);
+  const [authFlow, setAuthFlow] = useState<AgentAuthFlowState | null>(null);
   const [startupAttempt, setStartupAttempt] = useState(0);
   const preferenceKey = useMemo(() => `mmm:agent-ui:v1:${projectRoot || cwd || "scratch"}`, [cwd, projectRoot]);
   const [preferenceState, setPreferenceState] = useState(() => ({ key: preferenceKey, value: readUiPreferences(preferenceKey) }));
@@ -116,6 +128,7 @@ export function useAgentSession({
   const streamingFrameRef = useRef<number | null>(null);
   const documentBridgeRef = useRef(documentBridge);
   const overviewPromiseRef = useRef<Promise<Record<string, any>> | null>(null);
+  const openedAuthUrlsRef = useRef(new Set<string>());
 
   const sessionKey = String(sessionState?.sessionId || workerState?.sessionId || "pending");
   const preferences = preferenceState.key === preferenceKey ? preferenceState.value : DEFAULT_UI_PREFERENCES;
@@ -257,6 +270,10 @@ export function useAgentSession({
     }
     if (event.lane === "control") {
       const payload = event.payload;
+      if (payload.type === "host_request_cancelled") {
+        const requestId = String(payload.id || "");
+        setInteraction((current) => current?.id === requestId ? null : current);
+      }
       if (payload.type === "ready") {
         setWorkerState((payload.state || null) as RuntimeAgentState | null);
         setStatus("ready");
@@ -271,14 +288,52 @@ export function useAgentSession({
         setActivity(String(progress?.message || progress?.action || "正在处理包"));
       }
       if (payload.type === "auth") {
+        const providerId = String(payload.providerId || "");
         const authEvent = payload.event as Record<string, unknown> | undefined;
-        if (authEvent?.type === "progress" || authEvent?.type === "info") setActivity(String(authEvent.message || "正在登录"));
-        if (authEvent?.type === "auth_url") {
-          setActivity(String(authEvent.instructions || "请在浏览器中完成登录"));
-          const url = typeof authEvent.url === "string" ? authEvent.url : typeof authEvent.authUrl === "string" ? authEvent.authUrl : "";
-          if (url) runtime.openExternalUrl(url);
+        if (authEvent?.type === "progress" || authEvent?.type === "info") {
+          const message = String(authEvent.message || "正在登录");
+          const links = Array.isArray(authEvent.links) ? authEvent.links.flatMap((item) => {
+            if (!item || typeof item !== "object" || Array.isArray(item)) return [];
+            const link = item as Record<string, unknown>;
+            return typeof link.url === "string" ? [{ url: link.url, label: typeof link.label === "string" ? link.label : undefined }] : [];
+          }) : undefined;
+          setActivity(message);
+          setAuthFlow((current) => ({ ...(current?.providerId === providerId ? current : { providerId, status: "waiting" }), status: "waiting", message, links }));
         }
-        if (authEvent?.type === "device_code") setActivity(`设备代码：${String(authEvent.userCode || "")}`);
+        if (authEvent?.type === "auth_url") {
+          const message = String(authEvent.instructions || "请在浏览器中完成登录");
+          const url = typeof authEvent.url === "string" ? authEvent.url : typeof authEvent.authUrl === "string" ? authEvent.authUrl : "";
+          setActivity(message);
+          setAuthFlow({ providerId, status: "waiting", message, url });
+          if (url && !openedAuthUrlsRef.current.has(url)) {
+            openedAuthUrlsRef.current.add(url);
+            runtime.openExternalUrl(url);
+          }
+        }
+        if (authEvent?.type === "device_code") {
+          const deviceCode = String(authEvent.userCode || "");
+          const verificationUri = String(authEvent.verificationUri || "");
+          const expiresInSeconds = Number(authEvent.expiresInSeconds);
+          setActivity(`设备代码：${deviceCode}`);
+          setAuthFlow({
+            providerId,
+            status: "waiting",
+            message: "请在浏览器中输入设备代码",
+            deviceCode,
+            verificationUri,
+            ...(Number.isFinite(expiresInSeconds) ? { expiresAt: Date.now() + expiresInSeconds * 1000 } : {})
+          });
+          if (verificationUri && !openedAuthUrlsRef.current.has(verificationUri)) {
+            openedAuthUrlsRef.current.add(verificationUri);
+            runtime.openExternalUrl(verificationUri);
+          }
+        }
+      }
+      if (payload.type === "auth_result") {
+        const providerId = String(payload.providerId || "");
+        const status = payload.status === "success" || payload.status === "cancelled" || payload.status === "error" ? payload.status : "error";
+        setAuthFlow((current) => ({ ...(current?.providerId === providerId ? current : { providerId }), status, message: typeof payload.message === "string" ? payload.message : current?.message }));
+        setActivity(null);
       }
       return;
     }
@@ -431,7 +486,9 @@ export function useAgentSession({
   const sendPrompt = useCallback(async (text: string, explicit: RuntimeAgentReference[] = []) => {
     const prompt = text.trim();
     if (!prompt) return;
-    if (!sessionState?.model) throw new Error("请先连接并选择一个可用模型。");
+    const selectedModel = sessionState?.model as Record<string, unknown> | null | undefined;
+    const selectedModelAvailable = selectedModel && availableModels.some((model) => model.provider === selectedModel.provider && model.id === selectedModel.id);
+    if (!selectedModelAvailable) throw new Error("当前模型不可用，请重新连接服务商或选择一个可用模型。");
     const workspace = await refreshDocuments();
     const active = workspace.documents.find((document) => document.active);
     const implicitReference = active?.selection && active.selection.text ? selectionReference(active) : null;
@@ -465,7 +522,7 @@ export function useAgentSession({
       setTranscript((current) => current.filter((item) => item.id !== optimisticId));
       throw promptError;
     }
-  }, [refreshDocuments, runtime, sendRpc, sessionState?.isStreaming, sessionState?.model]);
+  }, [availableModels, refreshDocuments, runtime, sendRpc, sessionState?.isStreaming, sessionState?.model]);
 
   const resolveInteraction = useCallback(async (result: { value?: string; confirmed?: boolean; index?: number; cancelled?: boolean }) => {
     const current = interaction;
@@ -497,9 +554,14 @@ export function useAgentSession({
   const runControl = useCallback(async <T,>(command: Record<string, unknown>) => {
     setBusyAction(String(command.type || "control"));
     setError(null);
+    if (command.type === "login") {
+      openedAuthUrlsRef.current.clear();
+      setAuthFlow({ providerId: String(command.providerId || ""), status: "pending", message: "正在开始认证" });
+    }
     try {
       const result = await runtime.runAgentControl<T>(command as { type: string; [key: string]: unknown });
       if (command.type !== "set_turn_context" && command.type !== "prepare_migration") await loadOverview(true);
+      if (command.type === "cancel_login") setAuthFlow((current) => current ? { ...current, status: "cancelled", message: "认证已取消" } : null);
       return result;
     } finally {
       setBusyAction(null);
@@ -545,6 +607,7 @@ export function useAgentSession({
     references,
     composerRequest,
     activity,
+    authFlow,
     draft,
     explicitReferences,
     sidebarOpen: preferences.sidebarOpen,
@@ -567,7 +630,8 @@ export function useAgentSession({
     retryAgent,
     loadOverview,
     runControl,
-    resolveInteraction
+    resolveInteraction,
+    openExternalUrl: runtime.openExternalUrl
   };
 }
 

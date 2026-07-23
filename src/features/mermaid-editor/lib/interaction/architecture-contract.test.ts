@@ -167,13 +167,17 @@ describe("interaction architecture contract", () => {
       { path: "src/features/mermaid-editor/components/floating-chrome.tsx", maxLines: 20 },
       { path: "src/features/mermaid-editor/components/floating-chrome/chrome-slot.tsx", maxLines: 180 },
       { path: "src/features/mermaid-editor/components/floating-chrome/floating-buttons.tsx", maxLines: 100 },
-      { path: "src/features/mermaid-editor/components/floating-chrome/floating-panel.tsx", maxLines: 160 },
+      { path: "src/features/mermaid-editor/components/floating-chrome/floating-panel.tsx", maxLines: 170 },
+      { path: "src/features/mermaid-editor/components/floating-chrome/floating-popover.tsx", maxLines: 20 },
       { path: "src/features/mermaid-editor/components/floating-chrome/floating-panel-frame.ts", maxLines: 90 },
       { path: "src/features/mermaid-editor/components/floating-chrome/motion-presence.tsx", maxLines: 120 },
       { path: "src/features/mermaid-editor/components/floating-chrome/shared.ts", maxLines: 70 },
       { path: "src/features/mermaid-editor/components/floating-chrome/use-floating-panel-controller.ts", maxLines: 350 },
       { path: "src/features/mermaid-editor/components/floating-chrome/use-floating-panel-frame-state.ts", maxLines: 130 },
       { path: "src/features/mermaid-editor/components/floating-chrome/use-floating-panel-motion.ts", maxLines: 130 },
+      { path: "src/features/mermaid-editor/components/floating-chrome/workspace-floating-window.tsx", maxLines: 200 },
+      { path: "src/features/mermaid-editor/components/floating-chrome/workspace-panel-header-context.tsx", maxLines: 180 },
+      { path: "src/features/mermaid-editor/components/editor-ui/window-titlebar.tsx", maxLines: 70 },
       { path: "src/features/mermaid-editor/components/editor-menus.tsx", maxLines: 20 },
       { path: "src/features/mermaid-editor/components/editor-menus/file-menu.tsx", maxLines: 150 },
       { path: "src/features/mermaid-editor/components/editor-menus/view-filter-menu.tsx", maxLines: 180 },
@@ -214,10 +218,7 @@ describe("interaction architecture contract", () => {
       { path: "src/features/mermaid-editor/lib/editor-runtime/types.ts", maxLines: 230 },
       { path: "src/features/mermaid-editor/lib/editor-runtime/shared.ts", maxLines: 40 },
       { path: "src/features/mermaid-editor/lib/editor-runtime/browser-file.ts", maxLines: 60 },
-      { path: "src/features/mermaid-editor/lib/editor-runtime/tauri-bridge.ts", maxLines: 70 },
-      { path: "src/features/mermaid-editor/lib/editor-runtime/embedded-browser.ts", maxLines: 110 },
       { path: "src/features/mermaid-editor/lib/editor-runtime/web-runtime.ts", maxLines: 220 },
-      { path: "src/features/mermaid-editor/lib/editor-runtime/desktop-runtime.ts", maxLines: 300 },
       { path: "src/features/mermaid-editor/lib/editor-runtime/electron-runtime.ts", maxLines: 230 },
       { path: "src/features/mermaid-editor/lib/editor-runtime/electron-bridge.ts", maxLines: 140 },
       { path: "electron/main.cjs", maxLines: 650 },
@@ -248,8 +249,7 @@ describe("interaction architecture contract", () => {
       { path: "src/features/mermaid-editor/lib/editor-theme/compile.ts", maxLines: 340 },
       { path: "src/features/mermaid-editor/lib/editor-theme/normalize.ts", maxLines: 340 },
       { path: "src/features/mermaid-editor/lib/editor-theme/presets.ts", maxLines: 420 },
-      { path: "src/features/mermaid-editor/lib/editor-theme/types.ts", maxLines: 340 },
-      { path: "src-tauri/src/main.rs", maxLines: 1450 }
+      { path: "src/features/mermaid-editor/lib/editor-theme/types.ts", maxLines: 340 }
     ];
 
     for (const budget of budgets) {
@@ -366,18 +366,14 @@ describe("interaction architecture contract", () => {
     const facade = readProjectFile("src/features/mermaid-editor/lib/editor-runtime.ts");
     const types = readProjectFile("src/features/mermaid-editor/lib/editor-runtime/types.ts");
     const web = readProjectFile("src/features/mermaid-editor/lib/editor-runtime/web-runtime.ts");
-    const desktop = readProjectFile("src/features/mermaid-editor/lib/editor-runtime/desktop-runtime.ts");
     const electronRuntime = readProjectFile("src/features/mermaid-editor/lib/editor-runtime/electron-runtime.ts");
     const electronBridge = readProjectFile("src/features/mermaid-editor/lib/editor-runtime/electron-bridge.ts");
     const electronMain = readProjectFile("electron/main.cjs");
     const browserFile = readProjectFile("src/features/mermaid-editor/lib/editor-runtime/browser-file.ts");
-    const tauriBridge = readProjectFile("src/features/mermaid-editor/lib/editor-runtime/tauri-bridge.ts");
-    const embeddedBrowser = readProjectFile("src/features/mermaid-editor/lib/editor-runtime/embedded-browser.ts");
 
     expect(facade).toContain("createEditorRuntime");
     expect(facade).toContain("createWebRuntime");
     expect(facade).toContain("createElectronRuntime");
-    expect(facade).toContain("createDesktopRuntime");
     expect(types).toContain("export type EditorRuntime");
     expect(web).toContain("export function createWebRuntime");
     expect(electronRuntime).toContain("export function createElectronRuntime");
@@ -385,10 +381,8 @@ describe("interaction architecture contract", () => {
     expect(electronMain).toContain("createPiAgentManager");
     expect(electronMain).not.toContain("createAiBridge");
     expect(electronMain).toContain("createTerminalManager");
-    expect(desktop).toContain("export function createDesktopRuntime");
     expect(browserFile).toContain("FILE_PICKER_TYPES");
-    expect(tauriBridge).toContain("export async function tauriInvoke");
-    expect(embeddedBrowser).toContain("createDesktopEmbeddedBrowser");
+    expect(types).toContain('export type EditorRuntimeHost = "web" | "electron"');
     expect(facade).not.toContain("showOpenFilePicker");
     expect(facade).not.toContain("terminal_open");
     expect(facade).not.toContain("new Webview");
@@ -425,6 +419,8 @@ describe("interaction architecture contract", () => {
     expect(windowsRun).not.toContain("npm run electron:ship");
     expect(windowsRun).not.toContain("src-tauri\\\\target\\\\release");
     expect(packageJson).toContain('"electron:ship": "node scripts/electron-ship.mjs"');
+    expect(packageJson).not.toContain("tauri");
+    expect(viteConfig).not.toContain("TAURI_");
     expect(electronShip).toContain('"electron:build"');
     expect(electronBuild).toContain("--publish");
     expect(electronBuild).toContain("never");
@@ -663,6 +659,8 @@ describe("interaction architecture contract", () => {
     const barrel = readProjectFile("src/features/mermaid-editor/components/floating-chrome.tsx");
     const slot = readProjectFile("src/features/mermaid-editor/components/floating-chrome/chrome-slot.tsx");
     const panel = readProjectFile("src/features/mermaid-editor/components/floating-chrome/floating-panel.tsx");
+    const popover = readProjectFile("src/features/mermaid-editor/components/floating-chrome/floating-popover.tsx");
+    const workspaceWindow = readProjectFile("src/features/mermaid-editor/components/floating-chrome/workspace-floating-window.tsx");
     const controller = readProjectFile("src/features/mermaid-editor/components/floating-chrome/use-floating-panel-controller.ts");
     const frame = readProjectFile("src/features/mermaid-editor/components/floating-chrome/use-floating-panel-frame-state.ts");
     const motion = readProjectFile("src/features/mermaid-editor/components/floating-chrome/use-floating-panel-motion.ts");
@@ -670,7 +668,8 @@ describe("interaction architecture contract", () => {
 
     expect(barrel).toContain("export * from \"./floating-chrome/chrome-slot\"");
     expect(barrel).toContain("export * from \"./floating-chrome/floating-buttons\"");
-    expect(barrel).toContain("export * from \"./floating-chrome/floating-panel\"");
+    expect(barrel).toContain("export * from \"./floating-chrome/floating-popover\"");
+    expect(barrel).toContain("export * from \"./floating-chrome/workspace-floating-window\"");
     expect(barrel).toContain("export * from \"./floating-chrome/motion-presence\"");
     expect(slot).toContain("export function FloatingChromeSlot");
     expect(panel).toContain("useFloatingPanelController");
@@ -680,10 +679,44 @@ describe("interaction architecture contract", () => {
     expect(frame).toContain("export function useFloatingPanelFrameState");
     expect(motion).toContain("export function useFloatingPanelMotion");
     expect(buttons).toContain("export function FloatingIconButton");
+    expect(popover).toContain("export function FloatingPopover");
+    expect(workspaceWindow).toContain("export function WorkspaceFloatingWindow");
+    expect(workspaceWindow).toContain("export function WorkspaceWindowHeader");
+    expect(barrel).not.toContain("./floating-chrome/floating-panel\"");
     expect(barrel).not.toContain("function FloatingPanel");
     expect(barrel).not.toContain("function FloatingChromeSlot");
     expect(barrel).not.toContain("function MotionPresence");
     expect(barrel).not.toContain("function FloatingIconButton");
+  });
+
+  it("routes every persistent workspace window through the shared window shell", () => {
+    const browserWindow = readProjectFile("src/features/mermaid-editor/components/browser-tool-window.tsx");
+    const titlebarLayout = readProjectFile("src/features/mermaid-editor/components/editor-ui/window-titlebar.tsx");
+    const workspaceHosts = [
+      "src/features/mermaid-editor/components/mermaid-editor/editor-workspace-panels.tsx",
+      "src/features/mermaid-editor/components/mermaid-editor/agent-terminal-workspace-panels.tsx",
+      "src/features/mermaid-editor/components/mermaid-editor/detached-workspace-windows.tsx"
+    ].map(readProjectFile);
+    const windowContents = [
+      "src/features/mermaid-editor/components/explorer-panel.tsx",
+      "src/features/mermaid-editor/components/inspector-panel.tsx",
+      "src/features/mermaid-editor/components/theme-settings-panel.tsx",
+      "src/features/mermaid-editor/components/terminal-panel.tsx",
+      "src/features/mermaid-editor/components/agent/agent-panel.tsx",
+      "src/features/mermaid-editor/components/detached-window-panels.tsx"
+    ].map(readProjectFile);
+
+    for (const host of workspaceHosts) {
+      expect(host).toContain("WorkspaceFloatingWindow");
+      expect(host).not.toContain("<FloatingPanel");
+    }
+    for (const content of windowContents) {
+      expect(content).toContain("WorkspaceWindowHeader");
+      expect(content).not.toContain("WorkspacePanelControls");
+      expect(content).not.toContain("data-window-drag-handle");
+    }
+    expect(browserWindow).toContain("WindowTitlebarLayout");
+    expect(titlebarLayout).toContain("data-window-titlebar-drag-exclude");
   });
 
   it("keeps application chrome behind the editor UI semantic layer", () => {
@@ -698,7 +731,7 @@ describe("interaction architecture contract", () => {
     const imageDialog = readProjectFile("src/features/mermaid-editor/components/canvas-document-editor/image-url-dialog.tsx");
     const unsavedDialog = readProjectFile("src/features/mermaid-editor/components/file-workflow-feedback.tsx");
 
-    for (const moduleName of ["dialog", "feedback", "field", "icon-button", "list", "menu", "panel", "toolbar"]) {
+    for (const moduleName of ["dialog", "feedback", "field", "icon-button", "list", "menu", "panel", "toolbar", "window-titlebar"]) {
       expect(barrel).toContain(`export * from "./${moduleName}"`);
     }
     for (const className of ["editor-ui-control", "editor-ui-popover", "editor-ui-panel", "editor-ui-dialog", "editor-ui-toolbar"]) {

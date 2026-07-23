@@ -11,7 +11,7 @@ import {
 import { Copy, Maximize, OpenNewWindow, Refresh as RefreshCw, Substract, WebWindow, Xmark } from "iconoir-react/regular";
 
 import { Input } from "@/components/ui/input";
-import { EditorIconButton } from "@/features/mermaid-editor/components/editor-ui";
+import { EditorIconButton, WindowTitlebarLayout } from "@/features/mermaid-editor/components/editor-ui";
 import { EmbeddedBrowserSurface } from "@/features/mermaid-editor/components/embedded-browser-surface";
 import { createEditorRuntime } from "@/features/mermaid-editor/lib/editor-runtime";
 import {
@@ -93,22 +93,15 @@ export function BrowserToolWindow({ request }: BrowserToolWindowProps) {
 
   return (
     <section className="grid h-screen min-h-0 grid-rows-[auto_minmax(0,1fr)] overflow-hidden border bg-background text-foreground">
-      <header
-        className="editor-ui-panel-header flex min-w-0 cursor-grab items-center gap-2 bg-card/[var(--ui-surface-opacity)] active:cursor-grabbing"
-        style={electronDragStyle}
-        onPointerDown={startWindowDrag}
-        onDoubleClick={toggleMaximize}
-      >
-        <div className="flex min-w-0 items-center gap-2 px-1">
-          <WebWindow className="size-4 shrink-0 text-icon" />
-          <div className="hidden min-w-[128px] max-w-[220px] sm:block">
-            <div className="truncate text-sm font-medium">{pageTitle}</div>
-            <div className={status ? "truncate text-[11px] leading-4 text-muted-foreground" : "sr-only"} aria-live="polite">
-              {status}
-            </div>
+      <WindowTitlebarLayout
+        icon={<WebWindow className="size-4 shrink-0 text-icon" />}
+        title={<div className="hidden min-w-[128px] max-w-[220px] sm:block">
+          <div className="truncate text-sm font-medium">{pageTitle}</div>
+          <div className={status ? "truncate text-[11px] leading-4 text-muted-foreground" : "sr-only"} aria-live="polite">
+            {status}
           </div>
-        </div>
-        <form className="flex min-w-0 flex-1 items-center gap-1.5" data-browser-window-drag-exclude style={electronNoDragStyle} onSubmit={submitAddress}>
+        </div>}
+        center={<form className="flex min-w-0 flex-1 items-center gap-1.5" style={electronNoDragStyle} onSubmit={submitAddress}>
           <Input
             value={address}
             className="min-w-0 flex-1 bg-background/95"
@@ -124,8 +117,8 @@ export function BrowserToolWindow({ request }: BrowserToolWindowProps) {
           <BrowserToolButton label="系统浏览器打开" onClick={openInSystemBrowser}>
             <OpenNewWindow />
           </BrowserToolButton>
-        </form>
-        <div className="flex shrink-0 items-center gap-1" data-browser-window-drag-exclude style={electronNoDragStyle}>
+        </form>}
+        actions={<>
           <BrowserToolButton label="最小化" onClick={() => runWindowAction("minimize")}>
             <Substract />
           </BrowserToolButton>
@@ -135,8 +128,12 @@ export function BrowserToolWindow({ request }: BrowserToolWindowProps) {
           <BrowserToolButton label="关闭" danger onClick={() => runWindowAction("close")}>
             <Xmark />
           </BrowserToolButton>
-        </div>
-      </header>
+        </>}
+        className="cursor-grab bg-card/[var(--ui-surface-opacity)] active:cursor-grabbing"
+        style={electronDragStyle}
+        onPointerDown={startWindowDrag}
+        onDoubleClick={toggleMaximize}
+      />
       <EmbeddedBrowserSurface
         panelId={panelId}
         url={currentUrl}
@@ -182,5 +179,5 @@ function BrowserToolButton({
 }
 
 function hasDragExcludedTarget(target: EventTarget) {
-  return target instanceof Element && Boolean(target.closest("[data-browser-window-drag-exclude]"));
+  return target instanceof Element && Boolean(target.closest("[data-window-titlebar-drag-exclude]"));
 }

@@ -1,10 +1,10 @@
 "use client";
 
-import type { ReactNode } from "react";
 import { ControlSlider as SlidersHorizontal } from "iconoir-react/regular";
 
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { EditorPanelHeader, EditorStatusBadge } from "@/features/mermaid-editor/components/editor-ui";
+import { EditorStatusBadge } from "@/features/mermaid-editor/components/editor-ui";
+import { WorkspaceWindowHeader } from "@/features/mermaid-editor/components/floating-chrome";
 import { EdgeInspectorSection, MultiEdgeInspectorSection } from "@/features/mermaid-editor/components/inspector-panel/edge-sections";
 import {
   NODE_ACTION_FILE_MODE_APP,
@@ -40,10 +40,9 @@ type InspectorPanelProps = {
   onEditorCommand: (command: EditorCommand) => void;
   onOpenNodeAction?: (node: CanvasNode) => void;
   onEditNodeAction?: (node: CanvasNode) => void;
-  windowControls?: ReactNode;
 };
 
-export function InspectorPanel({ graph, selection, onEditorCommand, onOpenNodeAction, onEditNodeAction, windowControls }: InspectorPanelProps) {
+export function InspectorPanel({ graph, selection, onEditorCommand, onOpenNodeAction, onEditNodeAction }: InspectorPanelProps) {
   const model = createInspectorSelectionModel(graph, selection);
   const {
     selectedNodes,
@@ -153,11 +152,10 @@ export function InspectorPanel({ graph, selection, onEditorCommand, onOpenNodeAc
 
   return (
     <section className="flex h-full min-h-0 flex-col">
-      <EditorPanelHeader
+      <WorkspaceWindowHeader
         icon={<SlidersHorizontal className="editor-ui-icon text-icon" />}
-        title={<span className="flex items-center gap-2">检查器{selectionSummary ? <EditorStatusBadge>{selectionSummary}</EditorStatusBadge> : null}</span>}
-        actions={windowControls}
-        className="cursor-grab active:cursor-grabbing"
+        title="检查器"
+        status={selectionSummary ? <EditorStatusBadge>{selectionSummary}</EditorStatusBadge> : null}
       />
       <ScrollArea className="min-h-0 flex-1">
         <div className="grid gap-4 p-4">

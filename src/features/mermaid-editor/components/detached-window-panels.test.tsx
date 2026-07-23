@@ -14,9 +14,12 @@ vi.mock("@/features/mermaid-editor/components/markdown-panel", async () => {
   };
 });
 
-vi.mock("@/features/mermaid-editor/components/workspace-panel-controls", () => ({
-  WorkspacePanelControls: () => null
-}));
+vi.mock("@/features/mermaid-editor/components/floating-chrome", async () => {
+  const { createElement: element } = await import("react");
+  return {
+    WorkspaceWindowHeader: ({ actions }: { actions?: import("react").ReactNode }) => element("header", null, actions)
+  };
+});
 
 describe("MarkdownWindowPanel", () => {
   let container: HTMLDivElement | null = null;
@@ -108,9 +111,6 @@ describe("MarkdownWindowPanel", () => {
           spellCheck: false,
           contentWidth: 880,
           textScale,
-          windowState: "normal",
-          onWindowStateChange: vi.fn(),
-          onClose: vi.fn(),
           onSave,
           onTextScaleChange,
           onChange: vi.fn()

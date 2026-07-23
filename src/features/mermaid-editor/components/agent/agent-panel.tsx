@@ -63,6 +63,7 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { WorkspaceWindowHeader } from "@/features/mermaid-editor/components/floating-chrome";
 import type { EditorRuntime, RuntimeAgentReference } from "@/features/mermaid-editor/lib/editor-runtime";
 import { cn } from "@/lib/utils";
 
@@ -72,10 +73,9 @@ import type { AgentController, AgentInteractionRequest, AgentToolActivity, Agent
 type AgentPanelProps = {
   runtime: EditorRuntime;
   controller: AgentController;
-  windowControls?: ReactNode;
 };
 
-export function AgentPanel({ runtime, controller, windowControls }: AgentPanelProps) {
+export function AgentPanel({ runtime, controller }: AgentPanelProps) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [renameOpen, setRenameOpen] = useState(false);
@@ -98,20 +98,17 @@ export function AgentPanel({ runtime, controller, windowControls }: AgentPanelPr
   return (
     <TooltipProvider delayDuration={300}>
       <div ref={rootRef} className="grid h-full min-h-0 grid-rows-[auto_auto_minmax(0,1fr)] bg-card font-[family-name:var(--agent-type-body-family)] text-[length:var(--agent-type-body-size)] font-[var(--agent-type-body-weight)] leading-[var(--agent-type-body-line-height)] [letter-spacing:var(--agent-type-body-letter-spacing)] text-card-foreground">
-        <header className="flex min-w-0 items-center gap-1 border-b px-2 py-1.5" data-window-drag-handle>
-          <div data-window-drag-exclude><IconButton label={wide && controller.sidebarOpen ? "收起会话侧栏" : "打开会话侧栏"} onClick={toggleSidebar}>{wide && controller.sidebarOpen ? <SidebarCollapse /> : <SidebarExpand />}</IconButton></div>
-          <div className="ml-1 flex min-w-0 items-center gap-2">
-            <Brain className="size-4 shrink-0" />
-            <span className="truncate text-sm font-medium">{sessionTitle(controller)}</span>
-          </div>
-          {controller.workerState?.scratch ? <Badge tone="neutral" className="ml-1 shrink-0">临时画布</Badge> : null}
-          <div className="ml-auto flex shrink-0 items-center gap-0.5" data-window-drag-exclude>
+        <WorkspaceWindowHeader
+          leadingActions={<IconButton label={wide && controller.sidebarOpen ? "收起会话侧栏" : "打开会话侧栏"} onClick={toggleSidebar}>{wide && controller.sidebarOpen ? <SidebarCollapse /> : <SidebarExpand />}</IconButton>}
+          icon={<Brain className="size-4 shrink-0" />}
+          title={sessionTitle(controller)}
+          status={controller.workerState?.scratch ? <Badge tone="neutral" className="shrink-0">临时画布</Badge> : null}
+          actions={<>
             <IconButton label="新会话" onClick={() => void controller.createSession().catch((error) => controller.setError(readableError(error)))}><Plus /></IconButton>
             <SessionActions controller={controller} onRename={() => setRenameOpen(true)} />
             <IconButton label="Agent 设置" onClick={() => setSettingsOpen(true)}><Settings /></IconButton>
-            {windowControls}
-          </div>
-        </header>
+          </>}
+        />
 
         <AgentStatus controller={controller} />
 

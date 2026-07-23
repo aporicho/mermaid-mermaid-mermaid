@@ -8,3 +8,4 @@ export * from "./panel";
 export * from "./point-menu";
 export * from "./toolbar";
 export * from "./tree";
+export * from "./window-titlebar";

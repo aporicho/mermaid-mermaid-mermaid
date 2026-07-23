@@ -3,10 +3,13 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   CheckCircle,
+  Copy,
   Download,
+  EditPencil,
   Key,
   LogOut,
   Package,
+  Plus,
   Refresh,
   Settings,
   Tools,
@@ -98,7 +101,10 @@ function SettingsPage({ value, children }: { value: string; children: ReactNode 
 
 function ModelsPage({ controller, overview }: ControlProps) {
   const [query, setQuery] = useState("");
+  const [providerEditor, setProviderEditor] = useState<{ provider?: any; config?: any; custom: boolean } | null>(null);
   const providers = [...(overview.models?.providers || [])].sort((a: any, b: any) => Number(Boolean(b.configured)) - Number(Boolean(a.configured)));
+  const providerConfigs = overview.models?.config?.providers || [];
+  const providerConfigById = new Map(providerConfigs.map((config: any) => [config.id, config]));
   const models = overview.models?.models || [];
   const normalizedQuery = query.trim().toLowerCase();
   const visibleProviders = providers.filter((provider: any) => `${provider.name || ""} ${provider.id || ""}`.toLowerCase().includes(normalizedQuery));
@@ -106,27 +112,262 @@ function ModelsPage({ controller, overview }: ControlProps) {
   const available = visibleProviders.filter((provider: any) => !provider.configured);
   const visibleModels = models.filter((model: any) => `${model.name || ""} ${model.id || ""} ${model.provider || ""}`.toLowerCase().includes(normalizedQuery));
 
-  return <Section title="模型与账户" action={<Button variant="ghost" size="icon" aria-label="刷新模型" onClick={() => void controller.loadOverview(true)}><Refresh /></Button>}>
+  return <Section title="模型与账户" action={<div className="flex gap-1"><Button variant="ghost" size="sm" onClick={() => setProviderEditor({ custom: true })}><Plus />自定义</Button><Button variant="ghost" size="icon" aria-label="刷新模型" onClick={() => void controller.loadOverview(true)}><Refresh /></Button></div>}>
+    <AuthFlowPanel controller={controller} />
+    {overview.models?.config?.error ? <Notice tone="danger" icon={<WarningTriangle />} text={`models.json：${overview.models.config.error}`} /> : null}
     <Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索服务商或模型" className="mb-4" />
-    {configured.length ? <div className="grid gap-1">{configured.map((provider: any) => <ProviderItem key={provider.id} provider={provider} controller={controller} />)}</div> : null}
+    {configured.length ? <div className="grid gap-1">{configured.map((provider: any) => <ProviderItem key={provider.id} provider={provider} config={providerConfigById.get(provider.id)} controller={controller} onEdit={() => setProviderEditor({ provider, config: providerConfigById.get(provider.id), custom: provider.origin === "custom" })} />)}</div> : null}
     {available.length ? <Collapsible defaultOpen={!configured.length} className="mt-2">
       <CollapsibleTrigger asChild><Button variant="ghost" className="w-full justify-between"><span>添加服务商</span><span className="text-xs text-muted-foreground">{available.length}</span></Button></CollapsibleTrigger>
-      <CollapsibleContent className="mt-1 grid gap-1">{available.map((provider: any) => <ProviderItem key={provider.id} provider={provider} controller={controller} />)}</CollapsibleContent>
+      <CollapsibleContent className="mt-1 grid gap-1">{available.map((provider: any) => <ProviderItem key={provider.id} provider={provider} config={providerConfigById.get(provider.id)} controller={controller} onEdit={() => setProviderEditor({ provider, config: providerConfigById.get(provider.id), custom: provider.origin === "custom" })} />)}</CollapsibleContent>
     </Collapsible> : null}
     <Separator className="my-5" />
     <SectionLabel>可用模型</SectionLabel>
     {visibleModels.length ? <div className="grid gap-0.5 sm:grid-cols-2">{visibleModels.map((model: any) => <Item key={`${model.provider}:${model.id}`} className="py-1.5"><ItemContent><ItemTitle>{model.name || model.id}</ItemTitle><ItemDescription>{model.provider}</ItemDescription></ItemContent><span className={cn("size-1.5 rounded-full", model.available ? "bg-[hsl(var(--success))]" : "bg-muted-foreground/30")} /></Item>)}</div> : <InlineEmpty text="没有匹配的模型" />}
+    <ProviderConfigDialog controller={controller} state={providerEditor} revision={overview.models?.config?.revision} onOpenChange={(open) => { if (!open) setProviderEditor(null); }} />
   </Section>;
 }
 
-function ProviderItem({ provider, controller }: { provider: any; controller: AgentController }) {
+function ProviderItem({ provider, config, controller, onEdit }: { provider: any; config?: any; controller: AgentController; onEdit: () => void }) {
+  const interactiveAuth = (provider.authOptions || []).filter((auth: any) => auth.interactive);
+  const ambientAuth = (provider.authOptions || []).filter((auth: any) => !auth.interactive);
+  const status = provider.configured
+    ? provider.status?.label || provider.status?.source || "已连接"
+    : ambientAuth.length ? "等待环境凭据" : "未连接";
   return <Item className="hover:bg-muted/45">
     <ItemMedia><User /></ItemMedia>
-    <ItemContent><ItemTitle>{provider.name || provider.id}</ItemTitle><ItemDescription>{provider.configured ? "已连接" : "未连接"}</ItemDescription></ItemContent>
-    <ItemActions>{provider.configured
-      ? <Button variant="ghost" size="sm" onClick={() => void controller.runControl({ type: "logout", providerId: provider.id }).catch((error) => controller.setError(readableError(error)))}><LogOut />退出</Button>
-      : (provider.authTypes || []).map((auth: string) => <Button key={auth} variant="secondary" size="sm" onClick={() => void controller.runControl({ type: "login", providerId: provider.id, authType: auth }).catch((error) => controller.setError(readableError(error)))}><Key />{auth === "oauth" ? "OAuth" : "API Key"}</Button>)}</ItemActions>
+    <ItemContent><ItemTitle>{provider.name || provider.id}</ItemTitle><ItemDescription>{status}{config ? " · 已覆盖配置" : ""}</ItemDescription></ItemContent>
+    <ItemActions>
+      <Button variant="ghost" size="icon" aria-label={`配置 ${provider.name || provider.id}`} onClick={onEdit}><EditPencil /></Button>
+      {provider.configured
+        ? <Button variant="ghost" size="sm" onClick={() => void controller.runControl({ type: "logout", providerId: provider.id }).catch((error) => handleControlError(controller, error))}><LogOut />退出</Button>
+        : interactiveAuth.map((auth: any) => <Button key={auth.type} variant="secondary" size="sm" title={auth.label} onClick={() => void controller.runControl({ type: "login", providerId: provider.id, authType: auth.type }).catch((error) => handleControlError(controller, error))}><Key />{auth.label}</Button>)}
+    </ItemActions>
   </Item>;
+}
+
+function AuthFlowPanel({ controller }: { controller: AgentController }) {
+  const flow = controller.authFlow;
+  if (!flow || flow.status === "success" || flow.status === "cancelled") return null;
+  const url = flow.verificationUri || flow.url;
+  const failed = flow.status === "error";
+  return <div className="mb-4 rounded-[var(--theme-radius-control-md)] bg-muted/45 p-3 text-sm">
+    <div className={cn("flex items-center gap-2", failed && "text-destructive")}>
+      {failed ? <WarningTriangle className="size-3.5" /> : <Spinner className="size-3.5" />}
+      <span className="min-w-0 flex-1">{flow.message || (failed ? "认证失败" : "正在认证")}</span>
+      {!failed ? <Button variant="ghost" size="sm" onClick={() => void controller.runControl({ type: "cancel_login", providerId: flow.providerId })}>取消</Button> : null}
+    </div>
+    {flow.deviceCode ? <div className="mt-2 flex items-center gap-2"><code className="rounded bg-background px-2 py-1 font-mono text-base tracking-widest">{flow.deviceCode}</code><Button variant="ghost" size="icon" aria-label="复制设备代码" onClick={() => void navigator.clipboard?.writeText(flow.deviceCode || "")}><Copy /></Button></div> : null}
+    {url ? <Button variant="link" className="mt-1 h-auto px-0" onClick={() => controller.openExternalUrl(url)}>在浏览器中继续</Button> : null}
+    {flow.links?.map((link) => <Button key={link.url} variant="link" className="mt-1 h-auto px-2" onClick={() => controller.openExternalUrl(link.url)}>{link.label || "打开链接"}</Button>)}
+  </div>;
+}
+
+type ProviderModelDraft = {
+  id: string;
+  name: string;
+  reasoning: boolean;
+  input: string[];
+  contextWindow: number;
+  maxTokens: number;
+  api: string;
+  baseUrl: string;
+};
+
+type ProviderDraft = {
+  id: string;
+  name: string;
+  baseUrl: string;
+  api: string;
+  authMode: "stored" | "environment" | "local" | "radius" | "preserve";
+  envName: string;
+  authHeader: boolean;
+  models: ProviderModelDraft[];
+  headers: Array<{ name: string; value: string; preserve: boolean }>;
+  compat: { supportsDeveloperRole: boolean; supportsReasoningEffort: boolean };
+};
+
+const MODEL_APIS = [
+  ["openai-completions", "OpenAI Chat Completions"],
+  ["openai-responses", "OpenAI Responses"],
+  ["anthropic-messages", "Anthropic Messages"],
+  ["google-generative-ai", "Google Generative AI"]
+] as const;
+
+function ProviderConfigDialog({
+  controller,
+  state,
+  revision,
+  onOpenChange
+}: {
+  controller: AgentController;
+  state: { provider?: any; config?: any; custom: boolean } | null;
+  revision?: string;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const [draft, setDraft] = useState<ProviderDraft>(() => providerDraft(state));
+  const [saving, setSaving] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  useEffect(() => {
+    setDraft(providerDraft(state));
+    setConfirmDelete(false);
+  }, [state]);
+
+  if (!state) return null;
+  const activeState = state;
+  const existing = Boolean(activeState.config);
+  const newCustomProvider = !activeState.provider && !activeState.config;
+  const providerId = activeState.config?.id || activeState.provider?.id;
+
+  function updateModel(index: number, update: Partial<ProviderModelDraft>) {
+    setDraft((current) => ({
+      ...current,
+      models: current.models.map((model, modelIndex) => modelIndex === index ? { ...model, ...update } : model)
+    }));
+  }
+
+  async function save() {
+    setSaving(true);
+    try {
+      await controller.runControl({
+        type: "upsert_provider_config",
+        providerId: draft.id,
+        custom: activeState.custom,
+        expectedRevision: revision,
+        provider: {
+          name: draft.name,
+          baseUrl: draft.baseUrl,
+          api: draft.api,
+          authMode: draft.authMode,
+          envName: draft.envName,
+          authHeader: draft.authHeader,
+          headers: draft.headers,
+          ...(activeState.custom ? { models: draft.models } : {}),
+          compat: draft.compat
+        }
+      });
+      onOpenChange(false);
+      if (draft.authMode === "stored" && !activeState.provider?.configured) {
+        await controller.runControl({ type: "login", providerId: draft.id, authType: "api_key" });
+      }
+    } catch (error) {
+      handleControlError(controller, error);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function remove() {
+    setSaving(true);
+    try {
+      await controller.runControl({ type: "delete_provider_config", providerId, expectedRevision: revision });
+      onOpenChange(false);
+    } catch (error) {
+      handleControlError(controller, error);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return <Dialog open onOpenChange={onOpenChange}>
+    <DialogContent className="grid max-h-[min(760px,calc(100vh-40px))] max-w-2xl grid-rows-[auto_minmax(0,1fr)_auto] gap-0 overflow-hidden p-0">
+      <div className="border-b px-5 py-4">
+        <DialogTitle className="text-base">{newCustomProvider ? "添加自定义 Provider" : `配置 ${state.provider?.name || state.config?.name || providerId}`}</DialogTitle>
+        <DialogDescription className="sr-only">配置连接、认证、模型和兼容性。</DialogDescription>
+      </div>
+      <ScrollArea className="min-h-0">
+        <div className="grid gap-5 p-5">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="Provider ID"><Input value={draft.id} disabled={!newCustomProvider} placeholder="my-provider" onChange={(event) => setDraft((current) => ({ ...current, id: event.target.value.toLowerCase() }))} /></Field>
+            <Field label="显示名称"><Input value={draft.name} placeholder="自定义服务商" onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))} /></Field>
+            <Field label="Base URL" className="sm:col-span-2"><Input value={draft.baseUrl} placeholder={state.custom ? "http://localhost:11434/v1" : "留空以使用默认端点"} onChange={(event) => setDraft((current) => ({ ...current, baseUrl: event.target.value }))} /></Field>
+            <Field label="API 协议">
+              <Select value={draft.api || "inherit"} onValueChange={(value) => setDraft((current) => ({ ...current, api: value === "inherit" ? "" : value }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{!state.custom ? <SelectItem value="inherit">跟随 Provider</SelectItem> : null}{MODEL_APIS.map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}</SelectContent></Select>
+            </Field>
+            <Field label="认证方式">
+              <Select value={draft.authMode} onValueChange={(value) => setDraft((current) => ({ ...current, authMode: value as ProviderDraft["authMode"] }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>
+                <SelectItem value="stored">安全存储 API Key</SelectItem>
+                <SelectItem value="environment">环境变量</SelectItem>
+                <SelectItem value="local">本地免认证</SelectItem>
+                <SelectItem value="radius">Radius OAuth</SelectItem>
+                <SelectItem value="preserve">保持现有来源</SelectItem>
+              </SelectContent></Select>
+            </Field>
+            {draft.authMode === "environment" ? <Field label="环境变量"><Input value={draft.envName} placeholder="OPENAI_API_KEY" onChange={(event) => setDraft((current) => ({ ...current, envName: event.target.value }))} /></Field> : null}
+          </div>
+
+          {state.custom ? <div>
+            <div className="mb-2 flex items-center"><SectionLabel>模型</SectionLabel><Button variant="ghost" size="sm" className="ml-auto" onClick={() => setDraft((current) => ({ ...current, models: [...current.models, blankProviderModel()] }))}><Plus />添加模型</Button></div>
+            <div className="grid gap-2">{draft.models.map((model, index) => <div key={index} className="grid gap-2 rounded-[var(--theme-radius-control-md)] bg-muted/35 p-3 sm:grid-cols-2">
+              <Field label="模型 ID"><Input value={model.id} placeholder="model-id" onChange={(event) => updateModel(index, { id: event.target.value })} /></Field>
+              <Field label="显示名称"><Input value={model.name} placeholder="可选" onChange={(event) => updateModel(index, { name: event.target.value })} /></Field>
+              <Field label="上下文长度"><Input type="number" min={1} value={model.contextWindow} onChange={(event) => updateModel(index, { contextWindow: Number(event.target.value) })} /></Field>
+              <Field label="最大输出"><Input type="number" min={1} value={model.maxTokens} onChange={(event) => updateModel(index, { maxTokens: Number(event.target.value) })} /></Field>
+              <Field label="模型 API 覆盖"><Select value={model.api || "inherit"} onValueChange={(value) => updateModel(index, { api: value === "inherit" ? "" : value })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="inherit">跟随 Provider</SelectItem>{MODEL_APIS.map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}</SelectContent></Select></Field>
+              <Field label="模型 Base URL"><Input value={model.baseUrl} placeholder="跟随 Provider" onChange={(event) => updateModel(index, { baseUrl: event.target.value })} /></Field>
+              <SettingSwitch label="推理模型" checked={model.reasoning} onCheckedChange={(reasoning) => updateModel(index, { reasoning })} />
+              <SettingSwitch label="支持图片" checked={model.input.includes("image")} onCheckedChange={(image) => updateModel(index, { input: image ? ["text", "image"] : ["text"] })} />
+              {draft.models.length > 1 ? <Button variant="ghost" size="sm" className="sm:col-span-2 sm:justify-self-end" onClick={() => setDraft((current) => ({ ...current, models: current.models.filter((_, modelIndex) => modelIndex !== index) }))}><Trash />移除模型</Button> : null}
+            </div>)}</div>
+          </div> : null}
+
+          <Collapsible>
+            <CollapsibleTrigger asChild><Button variant="ghost" className="w-full justify-between">高级兼容性<span className="text-xs text-muted-foreground">{state.config?.headerKeys?.length ? `${state.config.headerKeys.length} 个保留 Header` : ""}</span></Button></CollapsibleTrigger>
+            <CollapsibleContent className="mt-2 grid gap-1">
+              <SettingSwitch label="自动添加 Authorization Header" checked={draft.authHeader} onCheckedChange={(authHeader) => setDraft((current) => ({ ...current, authHeader }))} />
+              <SettingSwitch label="支持 Developer Role" checked={draft.compat.supportsDeveloperRole} onCheckedChange={(value) => setDraft((current) => ({ ...current, compat: { ...current.compat, supportsDeveloperRole: value } }))} />
+              <SettingSwitch label="支持 Reasoning Effort" checked={draft.compat.supportsReasoningEffort} onCheckedChange={(value) => setDraft((current) => ({ ...current, compat: { ...current.compat, supportsReasoningEffort: value } }))} />
+              <div className="mt-3 flex items-center"><SectionLabel>自定义 Headers</SectionLabel><Button variant="ghost" size="sm" className="ml-auto" onClick={() => setDraft((current) => ({ ...current, headers: [...current.headers, { name: "", value: "", preserve: false }] }))}><Plus />添加</Button></div>
+              {draft.headers.map((header, index) => <div key={index} className="grid grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)_auto] gap-2 px-2">
+                <Input aria-label="Header 名称" value={header.name} placeholder="X-Custom-Header" onChange={(event) => setDraft((current) => ({ ...current, headers: current.headers.map((item, itemIndex) => itemIndex === index ? { ...item, name: event.target.value } : item) }))} />
+                <Input aria-label={`${header.name || "Header"} 值`} type="password" value={header.value} placeholder={header.preserve ? "保持现有值" : "$ENV_OR_VALUE"} onChange={(event) => setDraft((current) => ({ ...current, headers: current.headers.map((item, itemIndex) => itemIndex === index ? { ...item, value: event.target.value } : item) }))} />
+                <Button variant="ghost" size="icon" aria-label={`移除 ${header.name || "Header"}`} onClick={() => setDraft((current) => ({ ...current, headers: current.headers.filter((_, itemIndex) => itemIndex !== index) }))}><Trash /></Button>
+              </div>)}
+            </CollapsibleContent>
+          </Collapsible>
+
+          {confirmDelete ? <Notice tone="danger" icon={<WarningTriangle />} text="只删除 models.json 中的配置；已安全存储的凭据需通过“退出”单独删除。" /> : null}
+        </div>
+      </ScrollArea>
+      <div className="flex items-center gap-2 border-t px-5 py-3">
+        {existing ? confirmDelete
+          ? <><Button variant="destructive" disabled={saving} onClick={() => void remove()}>确认删除</Button><Button variant="ghost" onClick={() => setConfirmDelete(false)}>取消删除</Button></>
+          : <Button variant="ghost" className="text-destructive" disabled={saving} onClick={() => setConfirmDelete(true)}><Trash />删除配置</Button>
+          : null}
+        <Button variant="ghost" className="ml-auto" onClick={() => onOpenChange(false)}>取消</Button>
+        <Button disabled={saving || !draft.id.trim()} onClick={() => void save()}>{saving ? <Spinner className="size-3.5" /> : null}保存</Button>
+      </div>
+    </DialogContent>
+  </Dialog>;
+}
+
+function Field({ label, className, children }: { label: string; className?: string; children: ReactNode }) {
+  return <label className={cn("grid gap-1.5 text-xs text-muted-foreground", className)}><span>{label}</span>{children}</label>;
+}
+
+function providerDraft(state: { provider?: any; config?: any; custom: boolean } | null): ProviderDraft {
+  const config = state?.config;
+  const custom = state?.custom ?? true;
+  return {
+    id: config?.id || state?.provider?.id || "",
+    name: config?.name === config?.id ? "" : config?.name || "",
+    baseUrl: config?.baseUrl || "",
+    api: config?.api || (custom ? "openai-completions" : ""),
+    authMode: config?.credential?.mode || (custom ? "stored" : "preserve"),
+    envName: config?.credential?.envName || "",
+    authHeader: Boolean(config?.authHeader),
+    models: config?.models?.length ? config.models : custom ? [blankProviderModel()] : [],
+    headers: (config?.headerKeys || []).map((name: string) => ({ name, value: "", preserve: true })),
+    compat: {
+      supportsDeveloperRole: config?.compat?.supportsDeveloperRole !== false,
+      supportsReasoningEffort: config?.compat?.supportsReasoningEffort !== false
+    }
+  };
+}
+
+function blankProviderModel(): ProviderModelDraft {
+  return { id: "", name: "", reasoning: false, input: ["text"], contextWindow: 128000, maxTokens: 32000, api: "", baseUrl: "" };
 }
 
 function ToolsPage({ controller, overview }: ControlProps) {
@@ -273,6 +514,12 @@ function settingValueLabel(value: string) {
 
 function readableError(error: unknown) {
   return error instanceof Error ? error.message : String(error);
+}
+
+function handleControlError(controller: AgentController, error: unknown) {
+  const message = readableError(error);
+  if (message.includes("认证已取消")) return;
+  controller.setError(message);
 }
 
 type ControlProps = { controller: AgentController; overview: Record<string, any> };

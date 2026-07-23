@@ -30,7 +30,7 @@ describe("browser tool window helpers", () => {
         sourceNodeId: "node-1",
         sourceLabel: "Reference"
       },
-      "tauri://localhost/index.html?stale=true#main"
+      "file:///opt/mermaid-canvas-editor/index.html?stale=true#main"
     );
     const parsedUrl = new URL(shellUrl);
 

@@ -169,7 +169,6 @@ function syncProject(sourceDir, destinationDir) {
       "--exclude", ".git/",
       "--exclude", "node_modules/",
       "--exclude", "dist/",
-      "--exclude", "src-tauri/target/",
       "--exclude", ".next/",
       "--exclude", ".vite/",
       "--exclude", "*.log",
@@ -219,9 +218,7 @@ function shouldSkip(relativePath, name) {
     || relativePath === "dist"
     || relativePath === "dist-electron"
     || relativePath === ".next"
-    || relativePath === ".vite"
-    || relativePath === "src-tauri/target"
-    || relativePath.startsWith("src-tauri/target/");
+    || relativePath === ".vite";
 }
 
 function copyIfChanged(sourcePath, destinationPath) {

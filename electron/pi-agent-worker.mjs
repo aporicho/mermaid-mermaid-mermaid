@@ -1,4 +1,4 @@
-/* global AbortController, process, setImmediate */
+/* global process, setImmediate */
 
 import crypto from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
@@ -13,11 +13,13 @@ import {
   DefaultPackageManager,
   getAgentDir,
   hasTrustRequiringProjectResources,
+  ModelRuntime,
   ProjectTrustStore,
   runRpcMode,
   SessionManager,
   SettingsManager
 } from "@earendil-works/pi-coding-agent";
+import { createPiAgentModelController } from "./pi-agent-models.mjs";
 
 const pendingHostRequests = new Map();
 const pendingTurnContexts = [];
@@ -25,6 +27,8 @@ let runtime = null;
 let bootstrap = null;
 let controlQueue = Promise.resolve();
 let projectTrustByCwd = new Map();
+let builtinProviderIds = new Set();
+let agentModels = null;
 
 process.on("message", (message) => {
   if (!message || typeof message !== "object") return;
@@ -36,11 +40,17 @@ process.on("message", (message) => {
     const pending = pendingHostRequests.get(message.id);
     if (!pending) return;
     pendingHostRequests.delete(message.id);
+    pending.cleanup?.();
     if (message.error) pending.reject(new Error(String(message.error)));
     else pending.resolve(message.result);
     return;
   }
   if (message.type === "control") {
+    if (message.command?.type === "cancel_login") {
+      const cancelled = agentModels?.cancelLogin(message.command.providerId) ?? false;
+      send({ type: "control_response", id: message.id, ok: true, result: { cancelled } });
+      return;
+    }
     controlQueue = controlQueue
       .then(() => handleControl(message.command))
       .then(
@@ -107,6 +117,19 @@ async function initialize(input) {
     cwd: bootstrap.cwd,
     agentDir,
     sessionManager
+  });
+  const builtinRuntime = await ModelRuntime.create({
+    modelsPath: null,
+    authPath: join(agentDir, ".builtin-provider-probe-auth.json"),
+    allowModelNetwork: false
+  });
+  builtinProviderIds = new Set(builtinRuntime.getProviders().map((provider) => provider.id));
+  agentModels = createPiAgentModelController({
+    getRuntime: () => runtime,
+    builtinProviderIds,
+    requestHost,
+    send,
+    readableError
   });
   send({
     type: "ready",
@@ -308,11 +331,11 @@ async function handleControl(command) {
     runtime.session.setActiveToolsByName([...new Set([...required, ...requested])]);
     return { all: runtime.session.getAllTools(), active: runtime.session.getActiveToolNames() };
   }
-  if (type === "login") return login(command);
-  if (type === "logout") {
-    await runtime.session.modelRuntime.logout(String(command.providerId));
-    return modelOverview();
-  }
+  if (type === "login") return agentModels.login(command);
+  if (type === "logout") return agentModels.logout(command);
+  if (type === "validate_provider_config") return agentModels.validateConfig(command);
+  if (type === "upsert_provider_config") return agentModels.upsertConfig(command);
+  if (type === "delete_provider_config") return agentModels.deleteConfig(command);
   if (type === "replace_settings") return replaceSettings(command);
   if (type === "package_install") return packageInstall(command);
   if (type === "package_remove") return packageRemove(command);
@@ -352,7 +375,7 @@ async function buildOverview() {
       streaming: session.isStreaming,
       stats: session.getSessionStats()
     },
-    models: await modelOverview(),
+    models: await agentModels.overview(),
     sessions: await listSessions(),
     tools: { all: session.getAllTools(), active: session.getActiveToolNames() },
     commands: [
@@ -379,27 +402,6 @@ async function buildOverview() {
   };
 }
 
-async function modelOverview() {
-  const modelRuntime = runtime.session.modelRuntime;
-  const credentials = await modelRuntime.listCredentials();
-  const available = await modelRuntime.getAvailable().catch(() => []);
-  const availableKeys = new Set(available.map((model) => `${model.provider}:${model.id}`));
-  return {
-    providers: modelRuntime.getProviders().map((provider) => ({
-      id: provider.id,
-      name: provider.name,
-      authTypes: [provider.auth.apiKey ? "api_key" : null, provider.auth.oauth ? "oauth" : null].filter(Boolean),
-      configured: modelRuntime.hasConfiguredAuth(provider.id),
-      status: modelRuntime.getProviderAuthStatus(provider.id)
-    })),
-    credentials,
-    models: modelRuntime.getModels().map((model) => ({
-      ...sanitizeModel(model),
-      available: availableKeys.has(`${model.provider}:${model.id}`)
-    }))
-  };
-}
-
 async function listSessions() {
   const sessions = await SessionManager.list(runtime.cwd, runtime.services.settingsManager.getSessionDir());
   return sessions.map((session) => ({
@@ -407,25 +409,6 @@ async function listSessions() {
     created: session.created.toISOString(),
     modified: session.modified.toISOString()
   }));
-}
-
-async function login(command) {
-  const providerId = String(command.providerId || "");
-  const authType = command.authType === "oauth" ? "oauth" : "api_key";
-  const controller = new AbortController();
-  await runtime.session.modelRuntime.login(providerId, authType, {
-    signal: controller.signal,
-    async prompt(prompt) {
-      const result = await requestHost("auth_prompt", { providerId, prompt: sanitizeAuthPrompt(prompt) });
-      if (typeof result?.value !== "string") throw new Error("Login cancelled.");
-      return result.value;
-    },
-    notify(event) {
-      send({ type: "control_event", event: { type: "auth", providerId, event } });
-    }
-  });
-  await runtime.session.modelRuntime.refresh({ allowNetwork: true }).catch(() => undefined);
-  return modelOverview();
 }
 
 async function replaceSettings(command) {
@@ -516,12 +499,48 @@ function packageManagerWithProgress() {
   return manager;
 }
 
-function requestHost(method, params) {
+function requestHost(method, params, signals = []) {
   const id = `host_${crypto.randomUUID()}`;
   return new Promise((resolvePromise, reject) => {
-    pendingHostRequests.set(id, { resolve: resolvePromise, reject });
+    const activeSignals = signals.filter(Boolean);
+    let settled = false;
+    const cleanup = () => activeSignals.forEach((signal) => signal.removeEventListener("abort", abort));
+    const abort = () => {
+      if (settled) return;
+      settled = true;
+      pendingHostRequests.delete(id);
+      cleanup();
+      send({ type: "control_event", event: { type: "host_request_cancelled", id } });
+      reject(abortError("认证提示已取消。"));
+    };
+    if (activeSignals.some((signal) => signal.aborted)) {
+      abort();
+      return;
+    }
+    activeSignals.forEach((signal) => signal.addEventListener("abort", abort, { once: true }));
+    pendingHostRequests.set(id, {
+      cleanup,
+      resolve(value) {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        resolvePromise(value);
+      },
+      reject(error) {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        reject(error);
+      }
+    });
     send({ type: "host_request", id, method, params });
   });
+}
+
+function abortError(message) {
+  const error = new Error(message);
+  error.name = "AbortError";
+  return error;
 }
 
 function toolResult(value) {
@@ -541,15 +560,6 @@ function sanitizeModel(model) {
     reasoning: Boolean(model.reasoning),
     contextWindow: model.contextWindow,
     maxTokens: model.maxTokens
-  };
-}
-
-function sanitizeAuthPrompt(prompt) {
-  return {
-    type: prompt.type,
-    message: prompt.message,
-    placeholder: prompt.placeholder,
-    options: prompt.type === "select" ? prompt.options : undefined
   };
 }
 

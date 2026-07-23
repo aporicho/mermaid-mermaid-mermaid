@@ -20,7 +20,7 @@ export function openExternalUrl(url: string) {
 }
 
 export function isExternalAssetSrc(src: string) {
-  return /^(https?:|data:|blob:|asset:|tauri:)/i.test(src);
+  return /^(https?:|data:|blob:|mmm-asset:)/i.test(src);
 }
 
 export function isNativeFilePath(src: string) {

@@ -23,7 +23,7 @@ import { Separator } from "@/components/ui/separator";
 import { EditorMenuItem, EditorMenuSurface } from "@/features/mermaid-editor/components/editor-ui";
 import { PreferenceToggle, directions, edgeRoutingOptions, layoutModeOptions } from "@/features/mermaid-editor/components/editor-menus/shared";
 import { MarkdownContentWidthPreference } from "@/features/mermaid-editor/components/editor-menus/markdown-content-width-preference";
-import { FloatingIconButton, FloatingPanel } from "@/features/mermaid-editor/components/floating-chrome";
+import { FloatingIconButton, FloatingPopover } from "@/features/mermaid-editor/components/floating-chrome";
 import { APP_LOGOS, appLogoById, normalizeAppLogoId } from "@/features/mermaid-editor/lib/app-logo";
 import type { DocumentKind } from "@/features/mermaid-editor/lib/document-kind";
 import type { EdgeRouting, GraphDirection, LayoutMode } from "@/features/mermaid-editor/lib/editor-types";
@@ -95,10 +95,9 @@ export function SecondaryActionsMenu({
         <MoreHoriz />
       </FloatingIconButton>
 
-      <FloatingPanel
+      <FloatingPopover
         open={open}
         placement="bottom-left"
-        kind="popover"
         dismissMode="outside"
         className="max-h-[min(720px,calc(100vh-112px))] w-64 overflow-y-auto"
       >
@@ -312,7 +311,7 @@ export function SecondaryActionsMenu({
             disabled={!editable && !isCanvasDocument}
           />
         </EditorMenuSurface>
-      </FloatingPanel>
+      </FloatingPopover>
     </div>
   );
 }

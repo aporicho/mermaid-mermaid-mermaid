@@ -103,6 +103,27 @@ export type InterfaceThemeTokens = {
     hoverOpacity: number;
     activeOpacity: number;
   };
+  tree: {
+    foreground: string;
+    iconColor: string;
+    connectorColor: string;
+    connectorOpacity: number;
+    hoverBackground: string;
+    hoverOpacity: number;
+    focusBackground: string;
+    focusOpacity: number;
+    selectedBackground: string;
+    selectedForeground: string;
+    rowHeight: number;
+    rowPaddingStart: number;
+    rowPaddingEnd: number;
+    rowPaddingY: number;
+    contentGap: number;
+    levelIndent: number;
+    connectorRailInset: number;
+    connectorWidth: number;
+    iconSize: number;
+  };
 };
 
 export type CanvasThemeTokens = {

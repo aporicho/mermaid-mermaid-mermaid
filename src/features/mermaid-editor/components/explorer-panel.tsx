@@ -21,8 +21,7 @@ import {
   Plus,
   MediaImage,
   Refresh as RefreshCw,
-  Text,
-  Xmark
+  Text
 } from "iconoir-react/regular";
 
 import { Button } from "@/components/ui/button";
@@ -36,7 +35,6 @@ import {
   EditorList,
   EditorListRow,
   EditorPointMenu,
-  EditorPanelHeader,
   EditorSegmentedControl,
   EditorSegmentedControlItem,
   EditorTree,
@@ -44,12 +42,11 @@ import {
   EditorTreeItem,
   EditorTreeRow
 } from "@/features/mermaid-editor/components/editor-ui";
-import { WorkspacePanelControls } from "@/features/mermaid-editor/components/workspace-panel-controls";
+import { WorkspaceWindowHeader } from "@/features/mermaid-editor/components/floating-chrome";
 import { EDITOR_CHROME_CLASSES } from "@/features/mermaid-editor/lib/editor-chrome";
 import type { RuntimeFileRef } from "@/features/mermaid-editor/lib/editor-runtime";
 import type { ExplorerWorkspaceTreeState } from "@/features/mermaid-editor/lib/explorer-tree-state";
 import { projectDirectoryAncestors, validExpandedDirectoryPaths } from "@/features/mermaid-editor/lib/explorer-tree-state";
-import type { FloatingPanelWindowState } from "@/features/mermaid-editor/lib/floating-chrome";
 import {
   buildProjectResourceTree,
   isProjectFileActive,
@@ -118,10 +115,7 @@ export function ExplorerPanel({
   onCreateProjectFile,
   onMoveProjectFile,
   onMarkdownDocumentPointerDrag,
-  onStatus,
-  windowState,
-  onWindowStateChange,
-  onCollapse
+  onStatus
 }: {
   runtimeKind: "web" | "desktop";
   projectWorkspace: ProjectWorkspace | null;
@@ -138,9 +132,6 @@ export function ExplorerPanel({
   onMoveProjectFile: (file: ProjectResourceEntry, targetDirectoryPath: string) => void;
   onMarkdownDocumentPointerDrag: (file: ProjectFileEntry, point: { x: number; y: number }, phase: "move" | "drop" | "cancel") => void;
   onStatus: (message: string) => void;
-  windowState: FloatingPanelWindowState;
-  onWindowStateChange: (state: FloatingPanelWindowState) => void;
-  onCollapse: () => void;
 }) {
   const resources = useMemo(
     () => projectWorkspace?.resources ?? projectResourcesFromFiles(projectFiles),
@@ -168,10 +159,14 @@ export function ExplorerPanel({
   const [focusedItemId, setFocusedItemId] = useState(rootItemId);
   const treeRef = useRef<HTMLDivElement>(null);
   const activeRowRef = useRef<HTMLButtonElement | null>(null);
-  const lastAutoRevealRef = useRef("");
+  const lastActiveRevealKeyRef = useRef<string | null>(null);
+  const pendingActiveRevealKeyRef = useRef<string | null>(null);
   const filePointerDragRef = useRef<ExplorerFilePointerDrag | null>(null);
   const contextMenuAnchorRef = useRef<HTMLElement | null>(null);
   const projectAvailable = runtimeKind === "desktop";
+  const activeRevealKey = projectWorkspace && activeFile
+    ? `${projectWorkspace.rootPath}\n${activeFile.path}`
+    : null;
 
   useEffect(() => {
     setFocusedItemId(activeFile ? `file:${activeFile.path}` : rootItemId);
@@ -186,21 +181,33 @@ export function ExplorerPanel({
   }, [directoryPaths, expandedDirectoryPaths, onTreeStateChange, projectWorkspace, rootExpanded, treeState]);
 
   useEffect(() => {
-    if (!projectWorkspace || !activeFile || !treeState) return;
-    const revealKey = `${projectWorkspace.rootPath}\n${activeFile.path}`;
-    if (lastAutoRevealRef.current === revealKey) return;
-    lastAutoRevealRef.current = revealKey;
+    if (!projectWorkspace || !activeFile || !treeState || !activeRevealKey) {
+      lastActiveRevealKeyRef.current = null;
+      pendingActiveRevealKeyRef.current = null;
+      return;
+    }
+    if (lastActiveRevealKeyRef.current === activeRevealKey) return;
+    lastActiveRevealKeyRef.current = activeRevealKey;
+    pendingActiveRevealKeyRef.current = activeRevealKey;
     const nextPaths = [...new Set([...expandedDirectoryPaths, ...projectDirectoryAncestors(activeFile.relativePath)])];
     if (!rootExpanded || !samePaths(nextPaths, expandedDirectoryPaths)) {
       onTreeStateChange({ rootExpanded: true, expandedDirectoryPaths: nextPaths });
     }
-  }, [activeFile, expandedDirectoryPaths, onTreeStateChange, projectWorkspace, rootExpanded, treeState]);
+  }, [activeFile, activeRevealKey, expandedDirectoryPaths, onTreeStateChange, projectWorkspace, rootExpanded, treeState]);
 
   useEffect(() => {
-    if (!activeFile) return;
-    const frame = window.requestAnimationFrame(() => activeRowRef.current?.scrollIntoView({ block: "nearest" }));
+    if (!activeFile || !activeRevealKey || pendingActiveRevealKeyRef.current !== activeRevealKey || !rootExpanded) return;
+    const ancestors = projectDirectoryAncestors(activeFile.relativePath);
+    if (ancestors.some((path) => !expandedDirectorySet.has(path))) return;
+    const frame = window.requestAnimationFrame(() => {
+      if (pendingActiveRevealKeyRef.current !== activeRevealKey) return;
+      const activeRow = activeRowRef.current;
+      if (!activeRow) return;
+      activeRow.scrollIntoView({ block: "nearest" });
+      pendingActiveRevealKeyRef.current = null;
+    });
     return () => window.cancelAnimationFrame(frame);
-  }, [activeFile, expandedDirectoryPathKey, rootExpanded]);
+  }, [activeFile, activeRevealKey, expandedDirectoryPathKey, expandedDirectorySet, rootExpanded]);
 
   useEffect(() => {
     if (!projectBusy) return;
@@ -378,34 +385,23 @@ export function ExplorerPanel({
 
   return (
     <aside className="flex h-full min-h-0 flex-col bg-card/[var(--ui-surface-opacity)]">
-      <EditorPanelHeader
+      <WorkspaceWindowHeader
         title="资源管理器"
-        className="cursor-grab active:cursor-grabbing"
-        actions={<WorkspacePanelControls
-          leadingActions={
+        actions={<>
+          <EditorIconButton context="panel" label="打开文件夹" tooltipSide="right" disabled={!projectAvailable || projectBusy} onClick={onOpenProject}>
+            <Folder />
+          </EditorIconButton>
+          {projectWorkspace ? (
             <>
-              <EditorIconButton context="panel" label="打开文件夹" tooltipSide="right" disabled={!projectAvailable || projectBusy} onClick={onOpenProject}>
-                <Folder />
+              <EditorIconButton context="panel" label="新建文件" tooltipSide="right" disabled={projectBusy} onClick={() => setCreateFileDialog({ directoryPath: "" })}>
+                <Plus />
               </EditorIconButton>
-              {projectWorkspace ? (
-                <>
-                  <EditorIconButton context="panel" label="新建文件" tooltipSide="right" disabled={projectBusy} onClick={() => setCreateFileDialog({ directoryPath: "" })}>
-                    <Plus />
-                  </EditorIconButton>
-                  <EditorIconButton context="panel" label="刷新文件夹" tooltipSide="right" disabled={projectBusy} onClick={onRefreshProject}>
-                    <RefreshCw className={cn(projectBusy && "animate-spin")} />
-                  </EditorIconButton>
-                </>
-              ) : null}
+              <EditorIconButton context="panel" label="刷新文件夹" tooltipSide="right" disabled={projectBusy} onClick={onRefreshProject}>
+                <RefreshCw className={cn(projectBusy && "animate-spin")} />
+              </EditorIconButton>
             </>
-          }
-          windowState={windowState}
-          onWindowStateChange={onWindowStateChange}
-          onClose={onCollapse}
-          closeLabel="关闭资源管理器"
-          closeTooltipSide="right"
-          closeIcon={<Xmark />}
-        />}
+          ) : null}
+        </>}
       />
 
       <div className="min-h-0 flex-1 overflow-y-auto px-1 py-1.5">
@@ -421,7 +417,7 @@ export function ExplorerPanel({
                 aria-level={1}
                 aria-expanded={rootExpanded}
                 tabIndex={focusedItemId === rootItemId ? 0 : -1}
-                className={cn(dropTargetDirectoryPath === "" && "text-accent-foreground before:bg-accent")}
+                className={cn(dropTargetDirectoryPath === "" && "text-[hsl(var(--ui-tree-selected-foreground))] before:bg-[hsl(var(--ui-tree-selected-background))]")}
                 title={projectWorkspace.rootPath}
                 onFocus={() => setFocusedItemId(rootItemId)}
                 onKeyDown={(event) => {
@@ -433,7 +429,7 @@ export function ExplorerPanel({
                 onContextMenu={(event) => openDirectoryContextMenu("", event)}
               >
                 <Folder className="size-4 shrink-0" />
-                <span className="min-w-0 truncate text-xs font-medium">{projectWorkspace.rootName}</span>
+                <span className="type-interface-navigation min-w-0 truncate">{projectWorkspace.rootName}</span>
               </EditorTreeRow>
               {rootExpanded ? (
                 <EditorTreeGroup>
@@ -617,7 +613,7 @@ function ProjectTreeNodeRow({
           aria-level={level}
           aria-expanded={expanded}
           tabIndex={focusedItemId === node.id ? 0 : -1}
-          className={cn(dropTargetDirectoryPath === node.relativePath && "text-accent-foreground before:bg-accent")}
+          className={cn(dropTargetDirectoryPath === node.relativePath && "text-[hsl(var(--ui-tree-selected-foreground))] before:bg-[hsl(var(--ui-tree-selected-background))]")}
           title={node.path}
           onFocus={() => onFocusItem(node.id)}
           onKeyDown={(event) => {
@@ -629,7 +625,7 @@ function ProjectTreeNodeRow({
           onContextMenu={(event) => onOpenDirectoryContextMenu(node.relativePath, event)}
         >
           <Folder className="size-4 shrink-0" />
-          <span className="min-w-0 truncate text-xs">{node.name}</span>
+          <span className="min-w-0 truncate">{node.name}</span>
         </EditorTreeRow>
         {expanded ? (
           <EditorTreeGroup>
@@ -774,7 +770,7 @@ function ProjectFileRow({
         onContextMenu={(event) => onOpenFileContextMenu(node.resource, file, event)}
       >
         <ProjectResourceIcon resource={node.resource} />
-        <span className="min-w-0 truncate text-xs">{node.name}</span>
+        <span className="min-w-0 truncate">{node.name}</span>
       </EditorTreeRow>
     </EditorTreeItem>
   );

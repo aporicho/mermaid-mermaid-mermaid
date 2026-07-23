@@ -145,7 +145,7 @@ function toRuntimeErrorShape(error: unknown): RuntimeErrorShape {
       const parsed = JSON.parse(error);
       if (parsed && typeof parsed === "object") return parsed as RuntimeErrorShape;
     } catch {
-      // Tauri can return plain strings for legacy errors.
+      // Runtime bridges may return plain strings for native errors.
     }
     return { message: error };
   }

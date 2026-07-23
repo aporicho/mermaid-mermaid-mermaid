@@ -3,7 +3,11 @@ import type { CanvasThemeTokens, InterfaceThemeTokens } from "./appearance-types
 export function migrateInterfaceThemeV11(raw: Record<string, unknown>, fallback: InterfaceThemeTokens): InterfaceThemeTokens {
   if (isObjectValue(raw.interface)) {
     const rawInterface = objectValue(raw.interface);
-    return withV12SemanticColors(deepMerge(fallback, rawInterface), objectValue(rawInterface.colors), fallback);
+    return withV13Tree(
+      withV12SemanticColors(deepMerge(fallback, rawInterface), objectValue(rawInterface.colors), fallback),
+      rawInterface,
+      fallback
+    );
   }
 
   const ui = objectValue(raw.ui);
@@ -86,9 +90,32 @@ export function migrateInterfaceThemeV11(raw: Record<string, unknown>, fallback:
       buttonHeightSm: numberValue(icon.buttonHeightSm, fallback.icon.buttonHeightSm),
       buttonHeightMd: numberValue(icon.buttonHeightMd, fallback.icon.buttonHeightMd)
     },
-    scrollbar: { ...fallback.scrollbar }
+    scrollbar: { ...fallback.scrollbar },
+    tree: { ...fallback.tree }
   };
-  return withV12SemanticColors(migrated, ui, fallback);
+  return withV13Tree(withV12SemanticColors(migrated, ui, fallback), {}, fallback);
+}
+
+function withV13Tree(
+  interfaceTokens: InterfaceThemeTokens,
+  sourceInterface: Record<string, unknown>,
+  fallback: InterfaceThemeTokens
+): InterfaceThemeTokens {
+  const colors = interfaceTokens.colors;
+  const derived: InterfaceThemeTokens["tree"] = {
+    ...fallback.tree,
+    foreground: colors.foreground,
+    iconColor: colors.icon,
+    connectorColor: colors.border,
+    hoverBackground: colors.accent,
+    focusBackground: colors.accent,
+    selectedBackground: colors.accent,
+    selectedForeground: colors.accentForeground
+  };
+  return {
+    ...interfaceTokens,
+    tree: deepMerge(derived, objectValue(sourceInterface.tree))
+  };
 }
 
 function withV12SemanticColors(

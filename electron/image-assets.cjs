@@ -122,7 +122,7 @@ function isSupportedImagePath(filePath) {
 
 function isExternalAssetSrc(src) {
   const lower = String(src || "").toLowerCase();
-  return ["http://", "https://", "data:", "blob:", "asset:", "tauri:", `${ASSET_PROTOCOL}:`].some((prefix) => lower.startsWith(prefix));
+  return ["http://", "https://", "data:", "blob:", `${ASSET_PROTOCOL}:`].some((prefix) => lower.startsWith(prefix));
 }
 
 function isPathInside(child, parent) {

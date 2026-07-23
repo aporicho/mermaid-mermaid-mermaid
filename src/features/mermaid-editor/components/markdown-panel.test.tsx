@@ -451,6 +451,23 @@ describe("MarkdownPanel", () => {
     expect(panel.hasAttribute("data-md-block-dragging")).toBe(false);
   });
 
+  it("keeps the fold action hidden and unfocusable for a block without foldable children", async () => {
+    markdownFoldingMock.find.mockReturnValue(null);
+    const panel = renderPanel(true);
+    const { dragButton, handle } = appendInteractiveBlockHandle(panel);
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    const foldButton = handle.querySelector<HTMLButtonElement>(":scope > .markdown-fold-handle-button");
+    expect(foldButton).not.toBeNull();
+    expect(foldButton?.hidden).toBe(true);
+    expect(foldButton?.getAttribute("aria-hidden")).toBe("true");
+    expect(foldButton?.tabIndex).toBe(-1);
+    expect(Array.from(handle.children).filter((item) => !(item as HTMLElement).hidden)).toEqual([dragButton]);
+  });
+
   it("directly toggles the whole subtree from the fold button context action", async () => {
     markdownFoldingMock.find.mockReturnValue({
       collapsed: false,

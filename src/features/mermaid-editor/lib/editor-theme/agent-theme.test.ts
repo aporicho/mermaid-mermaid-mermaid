@@ -12,7 +12,7 @@ describe("Agent theme", () => {
   it("compiles every Agent surface and layout group to CSS variables", () => {
     const compiled = compileEditorTheme(DEFAULT_EDITOR_THEME);
 
-    expect(DEFAULT_EDITOR_THEME.version).toBe(12);
+    expect(DEFAULT_EDITOR_THEME.version).toBe(13);
     expect(compiled.agent).toEqual(DEFAULT_EDITOR_THEME.agent);
     expect(compiled.cssVariables).toMatchObject({
       "--agent-sidebar-width": "248px",
@@ -61,7 +61,7 @@ describe("Agent theme", () => {
       }
     });
 
-    expect(migrated.version).toBe(12);
+    expect(migrated.version).toBe(13);
     expect(migrated.agent.message.assistant.background).toBe("#ffffff");
     expect(migrated.agent.message.user.background).toBe("#eeeeee");
     expect(migrated.agent.composer.borderColor).toBe("#999999");

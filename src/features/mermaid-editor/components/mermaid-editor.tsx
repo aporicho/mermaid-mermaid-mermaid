@@ -96,7 +96,7 @@ export function MermaidEditor() {
     setLastSavedDocument,
     documentGenerationRef, beginDocumentSession, refreshImageAssets,
     imageDisplaySrcBySrc, currentDocument, previewSource,
-    hiddenViewFilters, projectFiles, terminalCwd,
+    hiddenViewFilters, projectFiles, terminalCwd, terminalContextKey,
     isDirty, isCanvasEditable, canvasViewTooltip
   } = useEditorDocumentModel({ initial, runtime });
   const { explorerTreeState, setExplorerTreeState, activeExplorerTreeState, updateExplorerTreeState } = useEditorExplorerTreeModel({ initialState: initial.explorerTreeState, projectWorkspace });
@@ -596,7 +596,7 @@ export function MermaidEditor() {
           projectWorkspace={projectWorkspace} projectFiles={projectFiles}
           explorerTreeState={activeExplorerTreeState} onExplorerTreeStateChange={updateExplorerTreeState}
           projectBusy={projectBusy} fileRef={fileRef}
-          terminalCwd={terminalCwd} activeTheme={activeTheme} editingThemeId={editingThemeId}
+          terminalCwd={terminalCwd} terminalContextKey={terminalContextKey} activeTheme={activeTheme} editingThemeId={editingThemeId}
           editingCustomTheme={editingCustomTheme} themeDraftDirty={themeDraftDirty}
           terminalTheme={compiledTheme.terminalTheme} detachedMarkdownWindows={detachedMarkdownWindows}
           markdownSpellcheckEnabled={preferences.markdownSpellcheckEnabled} markdownContentWidth={preferences.markdownContentWidth}

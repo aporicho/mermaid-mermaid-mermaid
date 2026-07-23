@@ -9,20 +9,34 @@ import { ExplorerPanel } from "@/features/mermaid-editor/components/explorer-pan
 import type { ExplorerWorkspaceTreeState } from "@/features/mermaid-editor/lib/explorer-tree-state";
 import type { ProjectFileEntry, ProjectResourceEntry, ProjectWorkspace } from "@/features/mermaid-editor/lib/project-workspace";
 
+vi.mock("@/features/mermaid-editor/components/floating-chrome", async () => {
+  const { createElement } = await import("react");
+  return {
+    WorkspaceWindowHeader: ({ actions }: { actions?: import("react").ReactNode }) => createElement("header", null, actions)
+  };
+});
+
 const markdownFile: ProjectFileEntry = {
   name: "note.md",
   path: "/project/docs/note.md",
   relativePath: "docs/note.md"
 };
 
+const secondMarkdownFile: ProjectFileEntry = {
+  name: "ideas.md",
+  path: "/project/ideas.md",
+  relativePath: "ideas.md"
+};
+
 const workspace: ProjectWorkspace = {
   rootName: "project",
   rootPath: "/project",
-  files: [markdownFile],
+  files: [markdownFile, secondMarkdownFile],
   resources: [
     { kind: "directory", name: "docs", path: "/project/docs", relativePath: "docs" },
     { kind: "directory", name: "empty", path: "/project/empty", relativePath: "empty" },
     { kind: "file", name: "note.md", path: "/project/docs/note.md", relativePath: "docs/note.md", documentKind: "markdown" },
+    { kind: "file", name: "ideas.md", path: "/project/ideas.md", relativePath: "ideas.md", documentKind: "markdown" },
     { kind: "file", name: "cover.png", path: "/project/docs/cover.png", relativePath: "docs/cover.png" },
     { kind: "file", name: "README.txt", path: "/project/README.txt", relativePath: "README.txt" }
   ],
@@ -77,7 +91,7 @@ describe("ExplorerPanel", () => {
     const header = container.querySelector("header");
     const labels = [...(header?.querySelectorAll<HTMLButtonElement>("button") ?? [])]
       .map((button) => button.getAttribute("aria-label"));
-    expect(labels).toEqual(["打开文件夹", "新建文件", "刷新文件夹", "关闭资源管理器"]);
+    expect(labels).toEqual(["打开文件夹", "新建文件", "刷新文件夹"]);
     expect(container.querySelector('button[aria-label="关闭文件夹"]')).toBeNull();
 
     act(() => container.querySelector<HTMLButtonElement>('button[aria-label="打开文件夹"]')?.click());
@@ -329,6 +343,21 @@ describe("ExplorerPanel", () => {
     expect(document.activeElement).toBe(buttonNamed("docs"));
   });
 
+  it("does not jump back to the active file when an unrelated directory is toggled", async () => {
+    const scrollIntoView = vi.mocked(HTMLElement.prototype.scrollIntoView);
+    const harness = renderExplorer({ currentFileRef: { name: "note.md", path: markdownFile.path } });
+    await act(async () => new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve())));
+    expect(scrollIntoView).toHaveBeenCalledTimes(1);
+
+    act(() => buttonNamed("empty")?.click());
+    await act(async () => new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve())));
+    expect(scrollIntoView).toHaveBeenCalledTimes(1);
+
+    harness.setCurrentFileRef({ name: secondMarkdownFile.name, path: secondMarkdownFile.path });
+    await act(async () => new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve())));
+    expect(scrollIntoView).toHaveBeenCalledTimes(2);
+  });
+
   function renderExplorer({
     onStatus = vi.fn(),
     onOpenProjectFile = vi.fn(),
@@ -356,7 +385,10 @@ describe("ExplorerPanel", () => {
     projectBusy?: boolean;
     projectWorkspace?: ProjectWorkspace | null;
   } = {}) {
+    let updateCurrentFileRef: (value: { name: string; path: string } | null) => void = () => undefined;
     function Harness() {
+      const [activeFileRef, setActiveFileRef] = useState(currentFileRef);
+      updateCurrentFileRef = setActiveFileRef;
       const [treeState, setTreeState] = useState<ExplorerWorkspaceTreeState>({
         rootPath: workspace.rootPath,
         rootExpanded: true,
@@ -369,7 +401,7 @@ describe("ExplorerPanel", () => {
             runtimeKind="desktop"
             projectWorkspace={projectWorkspace}
             projectFiles={projectWorkspace?.files ?? []}
-            currentFileRef={currentFileRef}
+            currentFileRef={activeFileRef}
             projectBusy={projectBusy}
             treeState={treeState}
             onTreeStateChange={(state) => setTreeState((current) => ({ ...current, ...state }))}
@@ -381,14 +413,16 @@ describe("ExplorerPanel", () => {
             onMoveProjectFile={onMoveProjectFile}
             onMarkdownDocumentPointerDrag={onMarkdownDocumentPointerDrag}
             onStatus={onStatus}
-            windowState="normal"
-            onWindowStateChange={vi.fn()}
-            onCollapse={vi.fn()}
           />
         </TooltipProvider>
       );
     }
     act(() => root.render(<Harness />));
+    return {
+      setCurrentFileRef(value: { name: string; path: string } | null) {
+        act(() => updateCurrentFileRef(value));
+      }
+    };
   }
 
   function buttonNamed(label: string) {
