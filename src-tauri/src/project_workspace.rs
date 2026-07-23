@@ -237,6 +237,7 @@ fn should_skip_project_directory(path: &Path) -> bool {
             ".git"
                 | ".hg"
                 | ".svn"
+                | ".mermaid-canvas-editor"
                 | "node_modules"
                 | "dist"
                 | "build"

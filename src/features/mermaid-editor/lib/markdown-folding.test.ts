@@ -14,6 +14,8 @@ import {
   findMarkdownFoldTarget,
   markdownFolding,
   markdownFoldingProsePluginKey,
+  readMarkdownFoldSnapshot,
+  restoreMarkdownFoldSnapshot,
   toggleMarkdownFold,
   type MarkdownFoldKind
 } from "@/features/mermaid-editor/lib/markdown-folding";
@@ -244,5 +246,72 @@ describe("markdown hierarchy folding", () => {
 
     expect(markdownFoldingProsePluginKey.getState(view.state)?.collapsedListItems.size).toBe(0);
     expect(collectListFoldTargets(view.state.doc)).toHaveLength(0);
+  });
+
+  it("serializes and restores heading and list folds without persisting numeric positions", () => {
+    const doc = createDocument(
+      heading(1, "Section"),
+      paragraph("Body"),
+      bulletList(listItem("Parent", bulletList(listItem("Child"))))
+    );
+    const source = createView(doc);
+    const [headingTarget] = collectHeadingFoldTargets(source.state.doc);
+    const [listTarget] = collectListFoldTargets(source.state.doc);
+    toggle(source, "heading", headingTarget!.position);
+    toggle(source, "list-item", listTarget!.position);
+
+    const snapshot = readMarkdownFoldSnapshot(source.state);
+    expect(snapshot.folds).toEqual([
+      expect.objectContaining({ kind: "heading", outline: [expect.objectContaining({ label: "Section" })] }),
+      expect.objectContaining({ kind: "list-item", path: [expect.objectContaining({ label: "Parent" })] })
+    ]);
+
+    const restored = createView(doc);
+    expect(restoreMarkdownFoldSnapshot(restored, snapshot)).toBe(true);
+    const restoredState = markdownFoldingProsePluginKey.getState(restored.state);
+    expect(restoredState?.collapsedHeadings).toEqual(new Set([headingTarget!.position]));
+    expect(restoredState?.collapsedListItems).toEqual(new Set([listTarget!.position]));
+  });
+
+  it("safely restores unique semantic anchors after external content changes", () => {
+    const source = createView(createDocument(
+      heading(1, "Section"),
+      bulletList(listItem("Parent", bulletList(listItem("Child"))))
+    ));
+    const [headingTarget] = collectHeadingFoldTargets(source.state.doc);
+    const [listTarget] = collectListFoldTargets(source.state.doc);
+    toggle(source, "heading", headingTarget!.position);
+    toggle(source, "list-item", listTarget!.position);
+    const snapshot = readMarkdownFoldSnapshot(source.state);
+
+    const changed = createView(createDocument(
+      paragraph("Externally inserted"),
+      heading(1, "Section"),
+      paragraph("New body"),
+      bulletList(listItem("Parent", bulletList(listItem("Child"))))
+    ));
+    expect(restoreMarkdownFoldSnapshot(changed, snapshot)).toBe(true);
+
+    const state = markdownFoldingProsePluginKey.getState(changed.state);
+    expect(state?.collapsedHeadings.size).toBe(1);
+    expect(state?.collapsedListItems.size).toBe(1);
+  });
+
+  it("does not restore an externally changed fold when its semantic anchor is ambiguous", () => {
+    const source = createView(createDocument(heading(1, "Root"), heading(2, "Repeated"), paragraph("Body")));
+    const target = collectHeadingFoldTargets(source.state.doc).find((candidate) => candidate.label === "Repeated");
+    toggle(source, "heading", target!.position);
+    const snapshot = readMarkdownFoldSnapshot(source.state);
+
+    const changed = createView(createDocument(
+      heading(1, "Root"),
+      heading(2, "Repeated"),
+      paragraph("First"),
+      heading(2, "Repeated"),
+      paragraph("Second")
+    ));
+    restoreMarkdownFoldSnapshot(changed, snapshot);
+
+    expect(markdownFoldingProsePluginKey.getState(changed.state)?.collapsedHeadings.size).toBe(0);
   });
 });

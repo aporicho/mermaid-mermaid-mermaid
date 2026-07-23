@@ -13,11 +13,11 @@ import type {
   EditorDraftState,
   EditorRuntime
 } from "@/features/mermaid-editor/lib/editor-runtime/types";
-import { createUnsupportedCsvFileOperations } from "@/features/mermaid-editor/lib/editor-runtime/unsupported-csv-file";
+import { createUnsupportedProjectFileOperations } from "@/features/mermaid-editor/lib/editor-runtime/unsupported-project-file";
 
 export function createWebRuntime(): EditorRuntime {
   return {
-    ...createUnsupportedCsvFileOperations("网页版"),
+    ...createUnsupportedProjectFileOperations("网页版"),
     kind: "web",
     host: "web",
     openExternalUrl(url) {

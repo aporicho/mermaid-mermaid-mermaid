@@ -50,6 +50,7 @@ export type {
   RuntimeReadCsvFileResult,
   RuntimeWriteCsvFileResult
 } from "@/features/mermaid-editor/lib/editor-runtime/csv-file-types";
+export type { RuntimeMarkdownFoldMoveResult, RuntimeMarkdownFoldOperations, RuntimeMarkdownFoldReadResult, RuntimeMarkdownFoldRequest, RuntimeMarkdownFoldWriteResult } from "@/features/mermaid-editor/lib/editor-runtime/markdown-fold-types";
 export { MAX_RUNTIME_CSV_FILE_BYTES } from "@/features/mermaid-editor/lib/editor-runtime/csv-file-types";
 
 export function createEditorRuntime(): EditorRuntime {

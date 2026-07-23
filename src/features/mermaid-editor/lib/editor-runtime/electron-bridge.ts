@@ -18,6 +18,7 @@ import type {
   RuntimeTerminalShellOption
 } from "@/features/mermaid-editor/lib/editor-runtime/types";
 import type { RuntimeCreateProjectFileRequest, RuntimeCreateProjectFileResult, RuntimeMoveProjectFileRequest, RuntimeMoveProjectFileResult } from "@/features/mermaid-editor/lib/editor-runtime/project-file-types";
+import type { ElectronMarkdownFoldBridge } from "@/features/mermaid-editor/lib/editor-runtime/electron-markdown-fold";
 import type { ProjectWorkspace } from "@/features/mermaid-editor/lib/project-workspace";
 import type {
   RuntimeCreateProjectTextFileResult,
@@ -62,7 +63,7 @@ export type ElectronImageAsset = {
   copied?: boolean;
 };
 
-export type ElectronBridge = {
+export type ElectronBridge = ElectronMarkdownFoldBridge & {
   host: "electron";
   openExternalUrl: (url: string) => Promise<void>;
   startWindowDrag: () => Promise<void>;

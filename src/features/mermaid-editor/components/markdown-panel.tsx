@@ -24,10 +24,13 @@ import {
 import {
   findMarkdownFoldTarget,
   markdownFolding,
+  readMarkdownFoldSnapshot,
+  restoreMarkdownFoldSnapshot,
   toggleMarkdownFold,
   type MarkdownFoldKind,
   type MarkdownFoldTarget
 } from "@/features/mermaid-editor/lib/markdown-folding";
+import { emptyMarkdownFoldSnapshot, markdownFoldSnapshotKey, type MarkdownFoldSnapshot } from "@/features/mermaid-editor/lib/markdown-fold-state";
 import { clampMarkdownTextScale } from "@/features/mermaid-editor/lib/markdown-text-scale";
 import { cn } from "@/lib/utils";
 
@@ -38,6 +41,8 @@ type MarkdownPanelProps = {
   spellCheck: boolean;
   contentWidth: number;
   textScale: number;
+  foldState?: MarkdownFoldSnapshot | null;
+  onFoldStateChange?: (snapshot: MarkdownFoldSnapshot) => void;
   onChange: (value: string) => void;
 };
 
@@ -71,7 +76,7 @@ const blockStyleGroups = [
   ]
 ] satisfies ReadonlyArray<ReadonlyArray<{ style: MarkdownBlockStyle; label: string; icon: typeof Text }>>;
 
-export function MarkdownPanel({ value, className, readOnly = false, spellCheck, contentWidth, textScale, onChange }: MarkdownPanelProps) {
+export function MarkdownPanel({ value, className, readOnly = false, spellCheck, contentWidth, textScale, foldState, onFoldStateChange, onChange }: MarkdownPanelProps) {
   const panelRef = useRef<HTMLElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const crepeRef = useRef<Crepe | null>(null);
@@ -81,7 +86,30 @@ export function MarkdownPanel({ value, className, readOnly = false, spellCheck, 
   const initialReadOnlyRef = useRef(readOnly);
   const spellCheckRef = useRef(spellCheck);
   const onChangeRef = useRef(onChange);
+  const onFoldStateChangeRef = useRef(onFoldStateChange);
+  const foldStateRef = useRef(foldState);
+  const foldRestoreAppliedRef = useRef(false);
+  const foldPersistenceActiveRef = useRef(false);
+  const foldUserChangedRef = useRef(false);
+  const lastFoldSnapshotKeyRef = useRef("");
   const [blockStyleMenu, setBlockStyleMenu] = useState<BlockStyleMenuState | null>(null);
+
+  function restoreFoldStateIfReady(crepe: Crepe) {
+    const snapshot = foldStateRef.current;
+    if (snapshot === undefined || foldRestoreAppliedRef.current || crepe.editor.status !== EditorStatus.Created) return;
+    if (foldUserChangedRef.current) {
+      foldRestoreAppliedRef.current = true;
+      return;
+    }
+
+    crepe.editor.action((ctx) => {
+      const view = ctx.get(editorViewCtx);
+      restoreMarkdownFoldSnapshot(view, snapshot ?? emptyMarkdownFoldSnapshot());
+      lastFoldSnapshotKeyRef.current = markdownFoldSnapshotKey(readMarkdownFoldSnapshot(view.state));
+      foldPersistenceActiveRef.current = true;
+      foldRestoreAppliedRef.current = true;
+    });
+  }
 
   const changeBlockStyle = useCallback((style: MarkdownBlockStyle) => {
     const menu = blockStyleMenu;
@@ -115,10 +143,26 @@ export function MarkdownPanel({ value, className, readOnly = false, spellCheck, 
   }, [onChange]);
 
   useEffect(() => {
+    onFoldStateChangeRef.current = onFoldStateChange;
+  }, [onFoldStateChange]);
+
+  useEffect(() => {
     const root = rootRef.current;
     if (!root) return;
     let disposed = false;
     const isDetachedWindow = root.closest(".markdown-editor-panel--window") !== null;
+
+    function reportFoldState() {
+      const current = crepeRef.current;
+      if (!current || current.editor.status !== EditorStatus.Created || !foldPersistenceActiveRef.current) return;
+      current.editor.action((ctx) => {
+        const snapshot = readMarkdownFoldSnapshot(ctx.get(editorViewCtx).state);
+        const key = markdownFoldSnapshotKey(snapshot);
+        if (key === lastFoldSnapshotKeyRef.current) return;
+        lastFoldSnapshotKeyRef.current = key;
+        onFoldStateChangeRef.current?.(snapshot);
+      });
+    }
 
     const crepe = new Crepe({
       root,
@@ -139,21 +183,30 @@ export function MarkdownPanel({ value, className, readOnly = false, spellCheck, 
     crepe.on((listener) => {
       listener.markdownUpdated((_ctx, markdown) => {
         onChangeRef.current(markdown);
+        reportFoldState();
       });
     });
     crepeRef.current = crepe;
     void crepe.create().then(() => {
       if (!disposed && crepeRef.current === crepe) {
         applyMarkdownSpellcheck(crepe, spellCheckRef.current);
+        restoreFoldStateIfReady(crepe);
       }
     });
 
     return () => {
       disposed = true;
+      reportFoldState();
       crepeRef.current = null;
       void crepe.destroy();
     };
   }, []);
+
+  useEffect(() => {
+    foldStateRef.current = foldState;
+    const crepe = crepeRef.current;
+    if (crepe) restoreFoldStateIfReady(crepe);
+  }, [foldState]);
 
   useEffect(() => {
     crepeRef.current?.setReadonly(readOnly);
@@ -265,7 +318,13 @@ export function MarkdownPanel({ value, className, readOnly = false, spellCheck, 
       const crepe = crepeRef.current;
       if (!crepe || crepe.editor.status !== EditorStatus.Created) return;
       crepe.editor.action((ctx) => {
-        toggleMarkdownFold(ctx.get(editorViewCtx), { kind, position });
+        const view = ctx.get(editorViewCtx);
+        if (!toggleMarkdownFold(view, { kind, position })) return;
+        foldUserChangedRef.current = true;
+        foldPersistenceActiveRef.current = true;
+        const snapshot = readMarkdownFoldSnapshot(view.state);
+        lastFoldSnapshotKeyRef.current = markdownFoldSnapshotKey(snapshot);
+        onFoldStateChangeRef.current?.(snapshot);
       });
       decorateBlockHandles();
     }

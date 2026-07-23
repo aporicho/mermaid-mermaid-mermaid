@@ -15,6 +15,11 @@ const { createAiBridge } = require("./ai-bridge.cjs");
 const { resolveLinkPreview } = require("./link-preview.cjs");
 const { createProjectDocument, createProjectFile, createProjectTextFile, moveProjectFile } = require("./project-documents.cjs");
 const { readProjectCsvFile, writeProjectCsvFile } = require("./project-csv.cjs");
+const {
+  moveProjectMarkdownFoldState,
+  readProjectMarkdownFoldState,
+  writeProjectMarkdownFoldState
+} = require("./markdown-fold-store.cjs");
 const { createTerminalManager } = require("./terminal.cjs");
 const { listSystemFonts } = require("./system-fonts.cjs");
 const { scanProjectFolder: scanProjectFolderSnapshot } = require("./project-workspace.cjs");
@@ -249,6 +254,9 @@ function registerIpc() {
   ipcMain.handle("mmm:project:create-text-file", (_event, request) => createProjectTextFile(request));
   ipcMain.handle("mmm:project:create-file", (_event, request) => createProjectFile(request));
   ipcMain.handle("mmm:project:move-file", (_event, request) => moveProjectFile(request));
+  ipcMain.handle("mmm:markdown-folds:read", (_event, request) => readProjectMarkdownFoldState(request));
+  ipcMain.handle("mmm:markdown-folds:write", (_event, request) => writeProjectMarkdownFoldState(request));
+  ipcMain.handle("mmm:markdown-folds:move", (_event, request) => moveProjectMarkdownFoldState(request));
   ipcMain.handle("mmm:csv:read", (_event, request) => readProjectCsvFile(request));
   ipcMain.handle("mmm:csv:write", (_event, request) => writeProjectCsvFile(request));
   ipcMain.handle("mmm:image:pick", (event, documentPath) => pickImageAssetDialog(BrowserWindow.fromWebContents(event.sender), documentPath));

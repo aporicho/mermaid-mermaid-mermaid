@@ -1,6 +1,8 @@
 import { MarkdownWindowPanel } from "@/features/mermaid-editor/components/detached-window-panels";
 import { FloatingPanel } from "@/features/mermaid-editor/components/floating-chrome";
 import type { FloatingPanelWindowState } from "@/features/mermaid-editor/lib/floating-chrome";
+import type { RuntimeFileRef } from "@/features/mermaid-editor/lib/editor-runtime";
+import type { MarkdownFoldSnapshot } from "@/features/mermaid-editor/lib/markdown-fold-state";
 import {
   WORKSPACE_PANEL_DEFAULT_SIZES,
   WORKSPACE_PANEL_MIN_SIZES,
@@ -24,6 +26,10 @@ type DetachedWorkspaceWindowsProps = {
   closeMarkdownWindow: (panelId: MarkdownWindowPanelId) => void;
   saveMarkdownWindow: (panelId: MarkdownWindowPanelId) => void | Promise<unknown>;
   updateMarkdownWindow: (panelId: MarkdownWindowPanelId, value: string) => void;
+  markdownFoldBindingFor: (file: RuntimeFileRef) => {
+    foldState: MarkdownFoldSnapshot | null | undefined;
+    onFoldStateChange?: (snapshot: MarkdownFoldSnapshot) => void;
+  };
 };
 
 export function DetachedWorkspaceWindows({
@@ -40,12 +46,14 @@ export function DetachedWorkspaceWindows({
   setPanelWindowState,
   closeMarkdownWindow,
   saveMarkdownWindow,
-  updateMarkdownWindow
+  updateMarkdownWindow,
+  markdownFoldBindingFor
 }: DetachedWorkspaceWindowsProps) {
   return (
     <>
-      {markdownWindows.map((markdownWindow) => (
-        <FloatingPanel
+      {markdownWindows.map((markdownWindow) => {
+        const foldBinding = markdownFoldBindingFor(markdownWindow.file);
+        return <FloatingPanel
           key={markdownWindow.id}
           open
           placement="center-panel"
@@ -76,10 +84,12 @@ export function DetachedWorkspaceWindows({
             onClose={() => closeMarkdownWindow(markdownWindow.id)}
             onSave={() => void saveMarkdownWindow(markdownWindow.id)}
             onTextScaleChange={onMarkdownTextScaleChange}
+            foldState={foldBinding.foldState}
+            onFoldStateChange={foldBinding.onFoldStateChange}
             onChange={(value) => updateMarkdownWindow(markdownWindow.id, value)}
           />
-        </FloatingPanel>
-      ))}
+        </FloatingPanel>;
+      })}
     </>
   );
 }

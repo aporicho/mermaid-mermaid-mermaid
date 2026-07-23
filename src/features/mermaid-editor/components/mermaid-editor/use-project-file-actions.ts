@@ -48,6 +48,7 @@ export function useProjectFileActions({
   beforeMove,
   applyEditorCommand,
   onDetachedMarkdownWindowMoved,
+  onMarkdownFileMoved,
   setStatus,
   showFileWorkflowError
 }: {
@@ -66,6 +67,7 @@ export function useProjectFileActions({
   beforeMove?: () => boolean | void | Promise<boolean | void>;
   applyEditorCommand: (command: EditorCommand) => void;
   onDetachedMarkdownWindowMoved?: (source: RuntimeFileRef, target: RuntimeFileRef) => void;
+  onMarkdownFileMoved?: (sourcePath: string, targetPath: string) => void | Promise<void>;
   setStatus: (message: string) => void;
   showFileWorkflowError: (error: unknown, fallbackMessage?: string) => void;
 }) {
@@ -133,6 +135,7 @@ export function useProjectFileActions({
 
       const targetPath = result.file.path;
       if (targetPath) {
+        await onMarkdownFileMoved?.(source.path, targetPath);
         const migration: ProjectFilePathMigration = {
           sourceAbsolutePath: source.path,
           sourceRelativePath: source.relativePath,

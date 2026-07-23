@@ -10,6 +10,7 @@ import { WorkspacePanelControls } from "@/features/mermaid-editor/components/wor
 import type { DocumentKind } from "@/features/mermaid-editor/lib/document-kind";
 import { EDITOR_CHROME_CLASSES } from "@/features/mermaid-editor/lib/editor-chrome";
 import type { EditorRuntime, RuntimeFileRef, RuntimeProjectFileKind } from "@/features/mermaid-editor/lib/editor-runtime";
+import type { MarkdownFoldSnapshot } from "@/features/mermaid-editor/lib/markdown-fold-state";
 import type { CanvasNode, MermaidGraph, Selection } from "@/features/mermaid-editor/lib/editor-types";
 import type { EditorTheme, EditorThemeId, XtermThemeTokens } from "@/features/mermaid-editor/lib/editor-theme";
 import type { FloatingPanelWindowState } from "@/features/mermaid-editor/lib/floating-chrome";
@@ -71,9 +72,8 @@ type EditorWorkspacePanelsProps = {
   applyEditorCommand: (command: EditorCommand) => void;
   executeCanvasNodeAction: (node: CanvasNode) => void | Promise<unknown>;
   editCanvasNodeAction: (node: CanvasNode) => void;
-  closeDetachedMarkdownWindow: (panelId: MarkdownWindowPanelId) => void;
-  saveDetachedMarkdownWindow: (panelId: MarkdownWindowPanelId) => void | Promise<unknown>;
-  updateDetachedMarkdownWindow: (panelId: MarkdownWindowPanelId, value: string) => void;
+  closeDetachedMarkdownWindow: (panelId: MarkdownWindowPanelId) => void; saveDetachedMarkdownWindow: (panelId: MarkdownWindowPanelId) => void | Promise<unknown>; updateDetachedMarkdownWindow: (panelId: MarkdownWindowPanelId, value: string) => void;
+  markdownFoldBindingFor: (file: RuntimeFileRef) => { foldState: MarkdownFoldSnapshot | null | undefined; onFoldStateChange?: (snapshot: MarkdownFoldSnapshot) => void };
   onStatus: (message: string) => void;
 };
 
@@ -114,7 +114,7 @@ export function EditorWorkspacePanels({
   editCanvasNodeAction,
   closeDetachedMarkdownWindow,
   saveDetachedMarkdownWindow,
-  updateDetachedMarkdownWindow,
+  updateDetachedMarkdownWindow, markdownFoldBindingFor,
   onStatus
 }: EditorWorkspacePanelsProps) {
   return (
@@ -272,7 +272,7 @@ export function EditorWorkspacePanels({
         setPanelWindowState={setWorkspacePanelWindowState}
         closeMarkdownWindow={closeDetachedMarkdownWindow}
         saveMarkdownWindow={saveDetachedMarkdownWindow}
-        updateMarkdownWindow={updateDetachedMarkdownWindow}
+        updateMarkdownWindow={updateDetachedMarkdownWindow} markdownFoldBindingFor={markdownFoldBindingFor}
       />
     </>
   );

@@ -1,7 +1,9 @@
 const { contextBridge, ipcRenderer, webUtils } = require("electron");
+const { createProjectPreloadBridge } = require("./project-preload.cjs");
 
 contextBridge.exposeInMainWorld("mmmElectron", {
   host: "electron",
+  ...createProjectPreloadBridge(ipcRenderer),
   openExternalUrl(url) {
     return ipcRenderer.invoke("mmm:open-external-url", url);
   },
@@ -48,18 +50,6 @@ contextBridge.exposeInMainWorld("mmmElectron", {
   },
   saveFileAs(suggestedName, text) {
     return ipcRenderer.invoke("mmm:file:save-as", { suggestedName, text });
-  },
-  createProjectDocument(request) {
-    return ipcRenderer.invoke("mmm:project:create-document", request);
-  },
-  createProjectTextFile(request) {
-    return ipcRenderer.invoke("mmm:project:create-text-file", request);
-  },
-  createProjectFile(request) {
-    return ipcRenderer.invoke("mmm:project:create-file", request);
-  },
-  moveProjectFile(request) {
-    return ipcRenderer.invoke("mmm:project:move-file", request);
   },
   readCsvFile(request) {
     return ipcRenderer.invoke("mmm:csv:read", request);

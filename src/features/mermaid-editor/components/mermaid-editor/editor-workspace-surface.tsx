@@ -26,6 +26,7 @@ import type { EditorCommand } from "@/features/mermaid-editor/lib/interaction/co
 import type { ViewFilters } from "@/features/mermaid-editor/lib/view-filters";
 import type { WorkspaceView } from "@/features/mermaid-editor/lib/workspace-view";
 import type { MarkdownDocumentPreview } from "@/features/mermaid-editor/lib/markdown-document";
+import type { MarkdownFoldSnapshot } from "@/features/mermaid-editor/lib/markdown-fold-state";
 
 const KonvaCanvas = lazy(() => import("@/features/mermaid-editor/components/konva-canvas").then((mod) => ({ default: mod.KonvaCanvas })));
 
@@ -64,6 +65,8 @@ type EditorWorkspaceSurfaceProps = {
   onCanvasDocumentChange: (document: CanvasDocument, status?: string) => void;
   onStatus: (status: string) => void;
   onMarkdownChange: (value: string) => void;
+  markdownFoldState: MarkdownFoldSnapshot | null | undefined;
+  onMarkdownFoldStateChange?: (snapshot: MarkdownFoldSnapshot) => void;
   onSourceChange: (value: string) => void;
   onRunSource: () => void;
   onEditorCommand: (command: EditorCommand) => void;
@@ -109,6 +112,8 @@ export function EditorWorkspaceSurface({
   onCanvasDocumentChange,
   onStatus,
   onMarkdownChange,
+  markdownFoldState,
+  onMarkdownFoldStateChange,
   onSourceChange,
   onRunSource,
   onEditorCommand,
@@ -172,6 +177,8 @@ export function EditorWorkspaceSurface({
         spellCheck={markdownSpellcheckEnabled}
         contentWidth={markdownContentWidth}
         textScale={markdownTextScale}
+        foldState={markdownFoldState}
+        onFoldStateChange={onMarkdownFoldStateChange}
         onChange={onMarkdownChange}
       />
     );

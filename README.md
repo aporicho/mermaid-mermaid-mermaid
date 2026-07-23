@@ -9,6 +9,7 @@
 - 在 Mermaid 源码、内部图模型和 `%% canvas-layout:` 布局注释之间保持同步。
 - 对非 flowchart 的 Mermaid 图提供只渲染模式。
 - 使用 Milkdown/Crepe 阅读和编辑 Markdown 文件；内容宽度可独立设置，正文、六级标题、链接、列表、引用、代码、表格、分隔线和图片样式可随主题配置。
+- Markdown 标题与多级列表的折叠状态会在 Electron 桌面端按项目和文件恢复，主编辑器与浮动 Markdown 窗口共享同一份状态。
 - 使用 `.canvas.json` 保存非 Mermaid 无限白板画布，并用 PixiJS 渲染形状、文本、图片和连线。
 - 在 `canvas-layout` 注释里保存节点位置、节点颜色、连线路由、视口和文件级主题。
 - 支持打开、保存、另存为、下载兜底、撤销、重做、复制、粘贴、节点编辑、连线编辑、创建连接和端点重连。
@@ -134,6 +135,8 @@ npm run windows:run
 - 右下角是选择/连接模式切换。
 
 左侧面板是项目文件浏览器。桌面端会围绕当前文件或用户选择的文件夹递归扫描 Mermaid、Markdown 和 `.canvas.json` 画布项目文档；面板本身保持简洁，不放筛选输入框。右侧面板承载 Mermaid 属性、主题和诊断。两个侧栏都以覆盖层形式浮在工作区上，不改变画布坐标系。
+
+Electron 将项目内 Markdown 的折叠视图状态写入项目根目录的 `.mermaid-canvas-editor/markdown-folds.json`。该隐藏目录不会出现在项目文件浏览器中，也不会修改 Markdown 正文；是否把它纳入版本控制由项目自行决定。
 
 终端是项目级工具面板，不属于文档视图。它从底部悬浮展开，不挤压无限画布、渲染视图、Markdown 视图或源码视图。终端默认使用项目根目录作为 cwd；没有项目文件夹时使用当前文件所在目录。桌面端会从后端提供的受控列表中选择 shell：Windows 下包括默认 shell、PowerShell、PowerShell 7、CMD 和 WSL；不存在的 shell 不会出现在下拉列表里。
 

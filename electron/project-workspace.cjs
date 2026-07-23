@@ -3,7 +3,7 @@ const path = require("node:path");
 
 const PROJECT_FILE_LIMIT = 500;
 const PROJECT_RESOURCE_LIMIT = 10_000;
-const SKIPPED_PROJECT_DIRECTORIES = new Set([".git", ".hg", ".svn", "node_modules", "dist", "build", ".vite", ".next", "target", "dist-electron"]);
+const SKIPPED_PROJECT_DIRECTORIES = new Set([".git", ".hg", ".svn", ".mermaid-canvas-editor", "node_modules", "dist", "build", ".vite", ".next", "target", "dist-electron"]);
 
 async function scanProjectFolder(rootPath) {
   const root = await fsp.realpath(rootPath);

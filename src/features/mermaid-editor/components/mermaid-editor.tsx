@@ -20,6 +20,7 @@ import { useEditorWorkspacePanelActions } from "@/features/mermaid-editor/compon
 import { useEditorWindowActions } from "@/features/mermaid-editor/components/mermaid-editor/use-editor-window-actions";
 import { useMarkdownDocumentPreviews } from "@/features/mermaid-editor/components/mermaid-editor/use-markdown-document-previews";
 import { useLinkedProjectDocuments } from "@/features/mermaid-editor/components/mermaid-editor/use-linked-project-documents";
+import { useMarkdownFoldPersistence } from "@/features/mermaid-editor/components/mermaid-editor/use-markdown-fold-persistence";
 import { useProjectFileActions } from "@/features/mermaid-editor/components/mermaid-editor/use-project-file-actions";
 import { createMarkdownDocumentDropHandlers } from "@/features/mermaid-editor/components/mermaid-editor/markdown-document-drop";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -153,6 +154,7 @@ export function MermaidEditor() {
   const [terminalOpen, setTerminalOpen] = useState(false);
   const [themeSettingsOpen, setThemeSettingsOpen] = useState(false);
   const [detachedMarkdownWindows, setDetachedMarkdownWindows] = useState<DetachedMarkdownWindow[]>([]);
+  const markdownFolds = useMarkdownFoldPersistence({ runtime, projectWorkspace, currentFile: fileRef, detachedMarkdownWindows, onStatus: setStatus });
   const {
     activeWorkspacePanel,
     bringWorkspacePanelToFront,
@@ -367,7 +369,7 @@ export function MermaidEditor() {
     applyEditorCommand,
     recordRecentAction
   });
-  const { createProjectFile, moveProjectFile } = useProjectFileActions({ runtime, projectWorkspace, fileRef, graph, detachedMarkdownWindows, setProjectBusy, setFileRef, setFileName, setRecentFiles, setDetachedMarkdownWindows, refreshProjectWorkspace, openProjectFile, beforeMove: flushLinkedFileWrites, applyEditorCommand, onDetachedMarkdownWindowMoved: (sourceFile, targetFile) => { const sourcePanelId = markdownWindowPanelId(sourceFile); const targetPanelId = markdownWindowPanelId(targetFile); const windowState = workspacePanelWindowState(sourcePanelId); removeWorkspacePanel(sourcePanelId); bringWorkspacePanelToFront(targetPanelId); setWorkspacePanelWindowState(targetPanelId, windowState); }, setStatus, showFileWorkflowError });
+  const { createProjectFile, moveProjectFile } = useProjectFileActions({ runtime, projectWorkspace, fileRef, graph, detachedMarkdownWindows, setProjectBusy, setFileRef, setFileName, setRecentFiles, setDetachedMarkdownWindows, refreshProjectWorkspace, openProjectFile, beforeMove: flushLinkedFileWrites, applyEditorCommand, onDetachedMarkdownWindowMoved: (sourceFile, targetFile) => { const sourcePanelId = markdownWindowPanelId(sourceFile); const targetPanelId = markdownWindowPanelId(targetFile); const windowState = workspacePanelWindowState(sourcePanelId); removeWorkspacePanel(sourcePanelId); bringWorkspacePanelToFront(targetPanelId); setWorkspacePanelWindowState(targetPanelId, windowState); }, onMarkdownFileMoved: markdownFolds.migrateMarkdownFoldState, setStatus, showFileWorkflowError });
   const { markdownDocuments, csvTables } = useLinkedProjectDocuments({
     runtime, graph, viewport, canvasLiveState, projectWorkspace, applyEditorCommand,
     refreshProjectWorkspace, setStatus, showFileWorkflowError,
@@ -387,7 +389,7 @@ export function MermaidEditor() {
     currentDocumentRef,
     openRuntimeFileRequest,
     handleRuntimeFileDropRequest: markdownDocumentDrop.runtime,
-    prepareWindowClose,
+    prepareWindowClose: () => markdownFolds.flushBeforeWindowClose(prepareWindowClose),
     applyLoadedDocument,
     applyStoredEditorState,
     showFileWorkflowError,
@@ -402,7 +404,6 @@ export function MermaidEditor() {
     setLastSavedDocument,
     setStatus
   });
-
   const {
     openProjectMarkdownWindow,
     updateDetachedMarkdownWindow,
@@ -431,7 +432,6 @@ export function MermaidEditor() {
     recordRecentAction,
     onMarkdownFileSaved: updateMarkdownDocumentPreviewFromText
   });
-
   useEditorAiCommands({
     nodeGeometrySpec: canvasNodeGeometrySpec,
     runtime,
@@ -577,7 +577,7 @@ export function MermaidEditor() {
             mermaidThemeVariables={compiledTheme.mermaidThemeVariables}
             onCanvasDocumentChange={applyCanvasDocument}
             onStatus={setStatus}
-            onMarkdownChange={applyMarkdownSource}
+            onMarkdownChange={applyMarkdownSource} markdownFoldState={markdownFolds.bindingFor(fileRef).foldState} onMarkdownFoldStateChange={markdownFolds.bindingFor(fileRef).onFoldStateChange}
             onSourceChange={applySource}
             onRunSource={refreshFromSource}
             onEditorCommand={applyEditorCommand}
@@ -617,7 +617,7 @@ export function MermaidEditor() {
           editCanvasNodeAction={editCanvasNodeAction}
           closeDetachedMarkdownWindow={closeDetachedMarkdownWindow}
           saveDetachedMarkdownWindow={saveDetachedMarkdownWindow}
-          updateDetachedMarkdownWindow={updateDetachedMarkdownWindow}
+          updateDetachedMarkdownWindow={updateDetachedMarkdownWindow} markdownFoldBindingFor={markdownFolds.bindingFor}
           onStatus={setStatus}
         />
         <EditorFloatingChrome

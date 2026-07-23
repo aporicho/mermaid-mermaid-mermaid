@@ -42,6 +42,12 @@ const markdownBlockStyleMock = vi.hoisted(() => ({
 const markdownFoldingMock = vi.hoisted(() => ({
   find: vi.fn(() => null as { collapsed: boolean; kind: "heading" | "list-item"; label: string; position: number } | null),
   plugin: Symbol("markdownFolding"),
+  read: vi.fn(() => ({
+    version: 1 as const,
+    documentFingerprint: "current",
+    folds: [{ kind: "heading" as const, outline: [{ level: 1, label: "Section", occurrence: 0 }] }]
+  })),
+  restore: vi.fn(() => 1),
   toggle: vi.fn(() => true)
 }));
 
@@ -89,6 +95,8 @@ vi.mock("@/features/mermaid-editor/lib/markdown-block-style", () => ({
 vi.mock("@/features/mermaid-editor/lib/markdown-folding", () => ({
   findMarkdownFoldTarget: markdownFoldingMock.find,
   markdownFolding: markdownFoldingMock.plugin,
+  readMarkdownFoldSnapshot: markdownFoldingMock.read,
+  restoreMarkdownFoldSnapshot: markdownFoldingMock.restore,
   toggleMarkdownFold: markdownFoldingMock.toggle
 }));
 
@@ -134,18 +142,34 @@ describe("MarkdownPanel", () => {
     markdownBlockStyleMock.convert.mockClear();
     markdownBlockStyleMock.get.mockClear();
     markdownFoldingMock.find.mockClear();
+    markdownFoldingMock.read.mockClear();
+    markdownFoldingMock.restore.mockClear();
     markdownFoldingMock.toggle.mockClear();
     milkdownMock.view = undefined;
     vi.useRealTimers();
   });
 
-  function renderPanel(spellCheck = false, contentWidth = 880, textScale = 1, className?: string) {
+  function renderPanel(
+    spellCheck = false,
+    contentWidth = 880,
+    textScale = 1,
+    className?: string,
+    overrides: Partial<Parameters<typeof MarkdownPanel>[0]> = {}
+  ) {
     container = document.createElement("div");
     document.body.appendChild(container);
     root = createRoot(container);
 
     act(() => {
-      root?.render(createElement(MarkdownPanel, { value: "# Hello", spellCheck, contentWidth, textScale, className, onChange: vi.fn() }));
+      root?.render(createElement(MarkdownPanel, {
+        value: "# Hello",
+        spellCheck,
+        contentWidth,
+        textScale,
+        className,
+        onChange: vi.fn(),
+        ...overrides
+      }));
     });
 
     const panel = container.querySelector(".markdown-editor-panel");
@@ -213,6 +237,21 @@ describe("MarkdownPanel", () => {
       featureConfigs: Record<string, { virtual?: boolean }>;
     };
     expect(config.featureConfigs.cursor?.virtual).toBe(false);
+  });
+
+  it("restores a loaded fold snapshot after Milkdown is ready", async () => {
+    const snapshot = {
+      version: 1 as const,
+      documentFingerprint: "saved",
+      folds: [{ kind: "heading" as const, outline: [{ level: 1, label: "Section", occurrence: 0 }] }]
+    };
+    renderPanel(false, 880, 1, undefined, { foldState: snapshot });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(markdownFoldingMock.restore).toHaveBeenCalledWith(milkdownMock.view, snapshot);
   });
 
   function appendBlockHandle(panel: HTMLElement) {
@@ -350,7 +389,8 @@ describe("MarkdownPanel", () => {
       label: "Section",
       position: 5
     });
-    const panel = renderPanel();
+    const onFoldStateChange = vi.fn();
+    const panel = renderPanel(false, 880, 1, undefined, { onFoldStateChange });
     const { addButton, dragButton, handle } = appendInteractiveBlockHandle(panel);
 
     await act(async () => {
@@ -378,6 +418,7 @@ describe("MarkdownPanel", () => {
       kind: "heading",
       position: 5
     });
+    expect(onFoldStateChange).toHaveBeenCalledWith(markdownFoldingMock.read());
     expect(getBlockStyleMenu()).toBeNull();
     expect(panel.hasAttribute("data-md-block-dragging")).toBe(false);
   });

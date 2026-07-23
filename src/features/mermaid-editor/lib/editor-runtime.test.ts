@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { createEditorRuntime } from "@/features/mermaid-editor/lib/editor-runtime";
 import type { ElectronBridge } from "@/features/mermaid-editor/lib/editor-runtime/electron-bridge";
+import type { MarkdownFoldSnapshot } from "@/features/mermaid-editor/lib/markdown-fold-state";
 
 function electronBridge(): ElectronBridge {
   return {
@@ -40,6 +41,9 @@ function electronBridge(): ElectronBridge {
       file: { name: "notes.md", path: "/tmp/archive/notes.md" },
       sourcePath: "/tmp/docs/notes.md"
     })),
+    readMarkdownFoldState: vi.fn(() => Promise.resolve(null)),
+    writeMarkdownFoldState: vi.fn(() => Promise.resolve({ status: "saved" as const })),
+    moveMarkdownFoldState: vi.fn(() => Promise.resolve({ status: "moved" as const })),
     readCsvFile: vi.fn(() => Promise.resolve({
       file: { name: "table.csv", path: "/tmp/table.csv" },
       text: "A\r\n1",
@@ -144,5 +148,35 @@ describe("createEditorRuntime", () => {
 
     await expect(runtime.createProjectFile({ rootPath: "/tmp", directoryPath: "", fileName: "notes.md", kind: "markdown", text: "" })).resolves.toMatchObject({ status: "unsupported" });
     await expect(runtime.moveProjectFile({ rootPath: "/tmp", sourcePath: "notes.md", targetDirectoryPath: "archive" })).resolves.toMatchObject({ status: "unsupported" });
+  });
+
+  it("forwards Markdown fold reads, writes and moves to Electron", async () => {
+    const bridge = electronBridge();
+    const snapshot = {
+      version: 1,
+      documentFingerprint: "document",
+      folds: [{ kind: "heading", outline: [{ level: 1, label: "Notes", occurrence: 0 }] }]
+    } satisfies MarkdownFoldSnapshot;
+    vi.mocked(bridge.readMarkdownFoldState).mockResolvedValueOnce(snapshot);
+    window.mmmElectron = bridge;
+    const runtime = createEditorRuntime();
+    const request = { rootPath: "/tmp", documentPath: "/tmp/notes.md" };
+
+    await expect(runtime.readMarkdownFoldState(request)).resolves.toEqual({ status: "loaded", snapshot });
+    await expect(runtime.writeMarkdownFoldState({ ...request, snapshot })).resolves.toEqual({ status: "saved" });
+    await expect(runtime.moveMarkdownFoldState({ rootPath: "/tmp", sourcePath: "/tmp/notes.md", targetPath: "/tmp/archive/notes.md" })).resolves.toEqual({ status: "moved" });
+    expect(bridge.readMarkdownFoldState).toHaveBeenCalledWith(request);
+    expect(bridge.writeMarkdownFoldState).toHaveBeenCalledWith({ ...request, snapshot });
+    expect(bridge.moveMarkdownFoldState).toHaveBeenCalledWith({ rootPath: "/tmp", sourcePath: "/tmp/notes.md", targetPath: "/tmp/archive/notes.md" });
+  });
+
+  it("keeps project Markdown fold persistence session-only on the web", async () => {
+    const runtime = createEditorRuntime();
+    const request = { rootPath: "/tmp", documentPath: "/tmp/notes.md" };
+    const snapshot = { version: 1, documentFingerprint: "document", folds: [] } satisfies MarkdownFoldSnapshot;
+
+    await expect(runtime.readMarkdownFoldState(request)).resolves.toMatchObject({ status: "unsupported" });
+    await expect(runtime.writeMarkdownFoldState({ ...request, snapshot })).resolves.toMatchObject({ status: "unsupported" });
+    await expect(runtime.moveMarkdownFoldState({ rootPath: "/tmp", sourcePath: "/tmp/notes.md", targetPath: "/tmp/archive/notes.md" })).resolves.toMatchObject({ status: "unsupported" });
   });
 });

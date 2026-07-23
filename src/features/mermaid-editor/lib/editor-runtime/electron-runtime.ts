@@ -10,6 +10,7 @@ import type {
 } from "@/features/mermaid-editor/lib/editor-runtime/types";
 import type { ElectronImageAsset } from "@/features/mermaid-editor/lib/editor-runtime/electron-bridge";
 import { createElectronCsvFileOperations } from "@/features/mermaid-editor/lib/editor-runtime/electron-csv-file";
+import { createElectronMarkdownFoldOperations } from "@/features/mermaid-editor/lib/editor-runtime/electron-markdown-fold";
 
 export function createElectronRuntime(): EditorRuntime {
   const bridge = getElectronBridge();
@@ -20,6 +21,7 @@ export function createElectronRuntime(): EditorRuntime {
   return {
     ...fallback,
     ...createElectronCsvFileOperations(bridge),
+    ...createElectronMarkdownFoldOperations(bridge),
     kind: "desktop",
     host: "electron",
     openExternalUrl(url) {

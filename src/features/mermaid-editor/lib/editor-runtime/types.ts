@@ -175,7 +175,7 @@ export type RuntimeBrowserToolWindowResult =
 
 export type EditorRuntimeHost = "web" | "tauri" | "electron";
 
-export type EditorRuntime = RuntimeCsvFileOperations & {
+export type EditorRuntime = RuntimeCsvFileOperations & import("@/features/mermaid-editor/lib/editor-runtime/markdown-fold-types").RuntimeMarkdownFoldOperations & {
   kind: "web" | "desktop";
   host: EditorRuntimeHost;
   openExternalUrl: (url: string) => void;
