@@ -63,7 +63,7 @@ vi.mock("@milkdown/crepe", () => ({
       setReadonly: milkdownMock.setReadonly
     };
   }),
-  CrepeFeature: { BlockEdit: "block-edit" }
+  CrepeFeature: { BlockEdit: "block-edit", Cursor: "cursor" }
 }));
 
 vi.mock("@milkdown/kit/core", () => ({
@@ -201,9 +201,18 @@ describe("MarkdownPanel", () => {
     renderPanel(false, 880, 1, "markdown-editor-panel--window");
 
     const config = milkdownMock.crepeConfig as {
-      featureConfigs: Record<string, { blockHandle: { getOffset: () => number } }>;
+      featureConfigs: Record<string, { blockHandle?: { getOffset: () => number }; virtual?: boolean }>;
     };
-    expect(config.featureConfigs["block-edit"]?.blockHandle.getOffset()).toBe(6);
+    expect(config.featureConfigs["block-edit"]?.blockHandle?.getOffset()).toBe(6);
+  });
+
+  it("disables Crepe's layout-shifting virtual cursor", () => {
+    renderPanel();
+
+    const config = milkdownMock.crepeConfig as {
+      featureConfigs: Record<string, { virtual?: boolean }>;
+    };
+    expect(config.featureConfigs.cursor?.virtual).toBe(false);
   });
 
   function appendBlockHandle(panel: HTMLElement) {

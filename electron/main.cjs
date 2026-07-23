@@ -18,6 +18,7 @@ const { readProjectCsvFile, writeProjectCsvFile } = require("./project-csv.cjs")
 const { createTerminalManager } = require("./terminal.cjs");
 const { listSystemFonts } = require("./system-fonts.cjs");
 const { scanProjectFolder: scanProjectFolderSnapshot } = require("./project-workspace.cjs");
+const { createWindowFileRouter } = require("./window-file-router.cjs");
 const BROWSER_TOOL_WINDOW_KIND = "browser-tool";
 const BROWSER_TOOL_WINDOW_PARAM = "mmmWindow";
 const DEV_SERVER_URL = process.env.MMM_ELECTRON_DEV_SERVER_URL || "";
@@ -36,7 +37,8 @@ const embeddedBrowsers = new Map();
 const forceCloseWindowIds = new Set();
 const pendingCloseWindowIds = new Set(), pendingCloseTimers = new Map();
 const browserToolWindows = new Map();
-const pendingOpenFiles = [];
+const mainWindows = new Set();
+const windowFileRouter = createWindowFileRouter();
 
 const aiBridge = createAiBridge(app.getVersion());
 const terminalManager = createTerminalManager({
@@ -46,8 +48,12 @@ const terminalManager = createTerminalManager({
     }
   }
 });
+// Keep one Electron main process for shared services, but allow every launch request to create its own editor window.
 const hasSingleInstanceLock = app.requestSingleInstanceLock();
 let mainWindow = null;
+let startupOpenFiles = collectDocumentFileArgs(process.argv.slice(1));
+let mainWindowsReady = false;
+const deferredMainWindowRequests = [];
 protocol.registerSchemesAsPrivileged([
   {
     scheme: ASSET_PROTOCOL,
@@ -63,19 +69,15 @@ protocol.registerSchemesAsPrivileged([
 if (!hasSingleInstanceLock) {
   app.quit();
 } else {
-  queuePendingFileOpens(collectDocumentFileArgs(process.argv.slice(1)), false);
-
   app.on("second-instance", (_event, argv) => {
-    queuePendingFileOpens(collectDocumentFileArgs(argv.slice(1)), true);
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      if (mainWindow.isMinimized()) mainWindow.restore();
-      mainWindow.focus();
-    }
+    requestMainWindow(collectDocumentFileArgs(argv.slice(1)));
   });
 
   app.on("open-file", (event, filePath) => {
     event.preventDefault();
-    queuePendingFileOpens(collectDocumentFileArgs([filePath]), true);
+    const files = collectDocumentFileArgs([filePath]);
+    if (mainWindowsReady) createMainWindow(files);
+    else startupOpenFiles = mergeDocumentFiles(startupOpenFiles, files);
   });
 
   app.whenReady().then(async () => {
@@ -83,9 +85,12 @@ if (!hasSingleInstanceLock) {
     registerAssetProtocol();
     registerIpc();
     await aiBridge.start();
-    mainWindow = createMainWindow();
+    mainWindowsReady = true;
+    createMainWindow(startupOpenFiles);
+    startupOpenFiles = [];
+    for (const files of deferredMainWindowRequests.splice(0)) createMainWindow(files);
     app.on("activate", () => {
-      if (BrowserWindow.getAllWindows().length === 0) mainWindow = createMainWindow();
+      if (mainWindows.size === 0) createMainWindow();
     });
   });
 }
@@ -99,7 +104,7 @@ app.on("before-quit", () => {
   void aiBridge.close();
 });
 
-function createMainWindow() {
+function createMainWindow(openFiles = []) {
   const window = new BrowserWindow({
     title: "Mermaid Canvas Editor",
     width: 1280,
@@ -112,12 +117,26 @@ function createMainWindow() {
     webPreferences: secureWebPreferences()
   });
 
+  mainWindows.add(window);
+  mainWindow = window;
+  queuePendingFileOpens(window.webContents.id, openFiles);
   attachWindowCloseGuard(window);
   attachWindowCleanup(window);
+  window.on("focus", () => {
+    mainWindow = window;
+  });
   loadAppUrl(window, appUrl());
 
   window.once("ready-to-show", () => window.show());
   return window;
+}
+
+function requestMainWindow(openFiles = []) {
+  if (!mainWindowsReady) {
+    deferredMainWindowRequests.push(openFiles);
+    return null;
+  }
+  return createMainWindow(openFiles);
 }
 
 function createBrowserToolWindow(owner, request) {
@@ -237,7 +256,7 @@ function registerIpc() {
   ipcMain.handle("mmm:image:import-bytes", (_event, request) => importImageAssetBytes(request?.documentPath, request?.fileName, request?.bytes));
   ipcMain.handle("mmm:image:resolve-src", (_event, request) => resolveImageAssetSrc(request?.documentPath, request?.src));
   ipcMain.handle("mmm:link-preview:resolve", (_event, request) => resolveLinkPreview(request));
-  ipcMain.handle("mmm:pending-files:take", takePendingOpenFiles);
+  ipcMain.handle("mmm:pending-files:take", (event) => takePendingOpenFiles(event.sender.id));
   ipcMain.handle("mmm:ai:publish-context", (_event, context) => aiBridge.publishContext(context));
   ipcMain.handle("mmm:ai:take-next-command", () => ({
     ok: true,
@@ -347,17 +366,12 @@ function resolveImageAssetSrc(documentPath, src) {
   return assetPath ? filePathToAssetUrl(assetPath) : src;
 }
 
-function takePendingOpenFiles() {
-  return pendingOpenFiles.splice(0, pendingOpenFiles.length);
+function takePendingOpenFiles(webContentsId) {
+  return windowFileRouter.take(webContentsId);
 }
 
-function queuePendingFileOpens(files, emit) {
-  for (const file of files) {
-    if (!pendingOpenFiles.some((item) => item.path === file.path)) pendingOpenFiles.push(file);
-  }
-  if (emit && files.length > 0 && mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.webContents.send("mmm:file:external-open", files);
-  }
+function queuePendingFileOpens(webContentsId, files) {
+  windowFileRouter.enqueue(webContentsId, files);
 }
 
 async function openProjectFolderDialog(owner) {
@@ -399,8 +413,13 @@ function attachWindowCloseGuard(window) {
 }
 
 function attachWindowCleanup(window) {
+  const webContentsId = window.webContents.id;
   window.on("closed", () => {
     clearPendingClose(window.id);
+    windowFileRouter.clear(webContentsId);
+    if (mainWindows.delete(window) && mainWindow === window) {
+      mainWindow = [...mainWindows].at(-1) || null;
+    }
     for (const [label, record] of embeddedBrowsers) {
       if (record.ownerId === window.id) closeEmbeddedBrowser(label);
     }
@@ -437,6 +456,14 @@ function collectDocumentFileArgs(args) {
       name: path.basename(filePath),
       path: filePath
     }));
+}
+
+function mergeDocumentFiles(current, incoming) {
+  const merged = [...current];
+  for (const file of incoming) {
+    if (!merged.some((item) => item.path === file.path)) merged.push(file);
+  }
+  return merged;
 }
 
 function fileWorkflowError(code, message, filePath) {

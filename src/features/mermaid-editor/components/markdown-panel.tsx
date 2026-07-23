@@ -128,6 +128,9 @@ export function MarkdownPanel({ value, className, readOnly = false, spellCheck, 
           blockHandle: {
             getOffset: () => isDetachedWindow ? 6 : 16
           }
+        },
+        [CrepeFeature.Cursor]: {
+          virtual: false
         }
       }
     });
