@@ -4,8 +4,12 @@ import { BLANK_FLOWCHART_SOURCE, BLANK_MARKDOWN_SOURCE } from "@/features/mermai
 import type { CanvasNodeAction, MermaidGraph } from "@/features/mermaid-editor/lib/editor-types";
 import type { RecentFileEntry } from "@/features/mermaid-editor/lib/file-workflow";
 import { initialMarkdownDocumentSource } from "@/features/mermaid-editor/lib/markdown-document";
+import { initialHtmlDocumentSource } from "@/features/mermaid-editor/lib/html-document";
+import { runtimeFilePathToUrl } from "@/features/mermaid-editor/lib/html-document";
 import {
+  htmlWindowPanelId,
   markdownWindowPanelId,
+  type DetachedHtmlWindow,
   type DetachedMarkdownWindow
 } from "@/features/mermaid-editor/lib/workspace-panels";
 
@@ -21,6 +25,7 @@ export function initialProjectFileText(kind: RuntimeProjectFileKind, fileName?: 
   if (kind === "mermaid") return `${BLANK_FLOWCHART_SOURCE}\n`;
   if (kind === "markdown") return fileName ? initialMarkdownDocumentSource(fileName) : BLANK_MARKDOWN_SOURCE;
   if (kind === "canvas") return serializeCanvasDocument(createBlankCanvasDocument());
+  if (kind === "html") return initialHtmlDocumentSource(fileName || "index.html");
   return "";
 }
 
@@ -71,6 +76,20 @@ export function migrateDetachedMarkdownWindows(windows: DetachedMarkdownWindow[]
       id: markdownWindowPanelId(file),
       file,
       title: migration.targetFile.name
+    };
+  });
+}
+
+export function migrateDetachedHtmlWindows(windows: DetachedHtmlWindow[], migration: ProjectFilePathMigration) {
+  return windows.map((window) => {
+    if (!sameRuntimePath(window.file.path, migration.sourceAbsolutePath)) return window;
+    const file = { ...window.file, ...migration.targetFile, path: migration.targetFile.path };
+    return {
+      ...window,
+      id: htmlWindowPanelId(file),
+      file,
+      title: migration.targetFile.name,
+      url: runtimeFilePathToUrl(migration.targetFile.path)
     };
   });
 }

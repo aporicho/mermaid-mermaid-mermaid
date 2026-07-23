@@ -5,6 +5,7 @@ import {
   initialProjectFileText,
   migrateCurrentProjectFileRef,
   migrateDetachedMarkdownWindows,
+  migrateDetachedHtmlWindows,
   migrateRecentProjectFiles,
   projectFileActionUpdates,
   projectRelativePathFromRuntimePath,
@@ -26,6 +27,7 @@ describe("project file actions", () => {
     expect(initialProjectFileText("markdown", "design-notes.md")).toBe("# design-notes\n\n");
     expect(JSON.parse(initialProjectFileText("canvas"))).toMatchObject({ schema: "mmm.canvas", version: 1 });
     expect(initialProjectFileText("csv")).toBe("");
+    expect(initialProjectFileText("html", "index.html")).toContain("<title>index</title>");
   });
 
   it("derives relative paths for POSIX and Windows project roots", () => {
@@ -76,6 +78,29 @@ describe("project file actions", () => {
       title: "spec.md",
       value: "unsaved edit",
       savedValue: "saved"
+    });
+  });
+
+  it("migrates detached HTML previews and their local file URLs", () => {
+    const htmlMigration: ProjectFilePathMigration = {
+      sourceAbsolutePath: "/project/web/index.html",
+      sourceRelativePath: "web/index.html",
+      sourceName: "index.html",
+      targetFile: { name: "index.html", path: "/project/archive/index.html" },
+      targetRelativePath: "archive/index.html"
+    };
+    const windows = migrateDetachedHtmlWindows([{
+      id: "html:/project/web/index.html",
+      file: { name: "index.html", path: "/project/web/index.html" },
+      title: "index.html",
+      url: "file:///project/web/index.html"
+    }], htmlMigration);
+
+    expect(windows[0]).toMatchObject({
+      id: "html:/project/archive/index.html",
+      file: htmlMigration.targetFile,
+      title: "index.html",
+      url: "file:///project/archive/index.html"
     });
   });
 });

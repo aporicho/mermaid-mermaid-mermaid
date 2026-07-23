@@ -1,5 +1,6 @@
 import {
   ClockRotateRight,
+  CodeBrackets,
   ColorWheel,
   Expand as Maximize2,
   Eye,
@@ -43,6 +44,7 @@ export function SecondaryActionsMenu({
   onAddTableNode,
   onAddImageNode,
   onAddMarkdownDocument,
+  onAddHtmlDocument,
   onCreateGroup,
   onSaveAs,
   onDirectionChange,
@@ -66,6 +68,7 @@ export function SecondaryActionsMenu({
   onAddTableNode: () => void;
   onAddImageNode: () => void;
   onAddMarkdownDocument: () => void;
+  onAddHtmlDocument: () => void;
   onCreateGroup: () => void;
   onSaveAs: () => void;
   onDirectionChange: (direction: GraphDirection) => void;
@@ -107,6 +110,13 @@ export function SecondaryActionsMenu({
             icon={<Plus />}
             label="添加节点"
             onClick={() => runAndClose(onAddNode)}
+            disabled={!editable}
+          />
+          <EditorMenuItem
+            data-floating-action-item
+            icon={<CodeBrackets />}
+            label="添加 HTML"
+            onClick={() => runAndClose(onAddHtmlDocument)}
             disabled={!editable}
           />
           <EditorMenuItem

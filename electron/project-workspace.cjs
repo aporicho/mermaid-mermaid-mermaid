@@ -63,7 +63,7 @@ async function collectProjectFiles(root, directory, files, resources, state) {
 
     const supportedDocument = isSupportedDocumentPath(fullPath);
     let modifiedAt;
-    if (supportedDocument || /\.csv$/i.test(fullPath)) {
+    if (supportedDocument || /\.(?:csv|html?)$/i.test(fullPath)) {
       try {
         modifiedAt = (await fsp.stat(fullPath)).mtimeMs;
       } catch {

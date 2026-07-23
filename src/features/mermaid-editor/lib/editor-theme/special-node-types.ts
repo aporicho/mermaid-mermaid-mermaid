@@ -84,6 +84,27 @@ export type SpecialNodeImageTokens = {
   state: SpecialNodeStateTokens;
 };
 
+export type SpecialNodeHtmlDocumentTokens = {
+  surface: SpecialNodeSurfaceTokens;
+  state: SpecialNodeStateTokens;
+  width: number;
+  height: number;
+  contentPadding: number;
+  badgeSize: number;
+  badgeBackground: string;
+  badgeColor: string;
+  badgeOpacity: number;
+  badgeRadius: number;
+  titleGap: number;
+  pathGap: number;
+  separatorColor: string;
+  separatorWidth: number;
+  separatorOpacity: number;
+  excerptGap: number;
+  pathOpacity: number;
+  excerptOpacity: number;
+};
+
 export type SpecialNodeTableTokens = {
   surface: SpecialNodeSurfaceTokens;
   state: SpecialNodeStateTokens;
@@ -106,6 +127,7 @@ export type SpecialNodeThemeTokens = {
   shared: SpecialNodeSharedTokens;
   linkCard: SpecialNodeLinkCardTokens;
   markdownDocument: SpecialNodeMarkdownDocumentTokens;
+  htmlDocument: SpecialNodeHtmlDocumentTokens;
   image: SpecialNodeImageTokens;
   table: SpecialNodeTableTokens;
 };

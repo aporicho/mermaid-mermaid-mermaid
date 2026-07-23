@@ -28,6 +28,12 @@ const secondMarkdownFile: ProjectFileEntry = {
   relativePath: "ideas.md"
 };
 
+const htmlFile: ProjectFileEntry = {
+  name: "index.html",
+  path: "/project/docs/index.html",
+  relativePath: "docs/index.html"
+};
+
 const workspace: ProjectWorkspace = {
   rootName: "project",
   rootPath: "/project",
@@ -37,6 +43,7 @@ const workspace: ProjectWorkspace = {
     { kind: "directory", name: "empty", path: "/project/empty", relativePath: "empty" },
     { kind: "file", name: "note.md", path: "/project/docs/note.md", relativePath: "docs/note.md", documentKind: "markdown" },
     { kind: "file", name: "ideas.md", path: "/project/ideas.md", relativePath: "ideas.md", documentKind: "markdown" },
+    { kind: "file", name: "index.html", path: "/project/docs/index.html", relativePath: "docs/index.html" },
     { kind: "file", name: "cover.png", path: "/project/docs/cover.png", relativePath: "docs/cover.png" },
     { kind: "file", name: "README.txt", path: "/project/README.txt", relativePath: "README.txt" }
   ],
@@ -98,6 +105,28 @@ describe("ExplorerPanel", () => {
     act(() => container.querySelector<HTMLButtonElement>('button[aria-label="刷新文件夹"]')?.click());
     expect(onOpenProject).toHaveBeenCalledTimes(1);
     expect(onRefreshProject).toHaveBeenCalledTimes(1);
+  });
+
+  it("opens HTML resources in their dedicated floating preview and drags them as HTML nodes", () => {
+    const onOpenProjectHtmlWindow = vi.fn();
+    const onProjectDocumentPointerDrag = vi.fn();
+    renderExplorer({ onOpenProjectHtmlWindow, onProjectDocumentPointerDrag });
+    const source = buttonNamed("index.html");
+
+    act(() => source?.click());
+    expect(onOpenProjectHtmlWindow).toHaveBeenCalledWith(htmlFile);
+
+    vi.mocked(document.elementFromPoint).mockReturnValue(null);
+    act(() => {
+      dispatchPointer(source, "pointerdown", 0, 0);
+      dispatchPointer(source, "pointermove", 12, 0);
+      dispatchPointer(source, "pointerup", 18, 0);
+    });
+    expect(onProjectDocumentPointerDrag).toHaveBeenNthCalledWith(1, htmlFile, "html", { x: 12, y: 0 }, "move");
+    expect(onProjectDocumentPointerDrag).toHaveBeenNthCalledWith(2, htmlFile, "html", { x: 18, y: 0 }, "drop");
+
+    act(() => source?.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, clientX: 20, clientY: 30 })));
+    expect(document.body.querySelector('[aria-label="index.html 操作"]')?.textContent).toContain("在浮窗中预览");
   });
 
   it("creates typed project files from the titlebar and completes their extensions", () => {
@@ -215,8 +244,8 @@ describe("ExplorerPanel", () => {
 
   it("moves Markdown to a tree directory but keeps its canvas drag outside the explorer", () => {
     const onMoveProjectFile = vi.fn();
-    const onMarkdownDocumentPointerDrag = vi.fn();
-    renderExplorer({ onMoveProjectFile, onMarkdownDocumentPointerDrag });
+    const onProjectDocumentPointerDrag = vi.fn();
+    renderExplorer({ onMoveProjectFile, onProjectDocumentPointerDrag });
     const source = buttonNamed("note.md");
     const rootTarget = buttonNamed("project");
     vi.mocked(document.elementFromPoint).mockReturnValue(rootTarget);
@@ -227,7 +256,7 @@ describe("ExplorerPanel", () => {
       dispatchPointer(source, "pointerup", 12, 0);
     });
     expect(onMoveProjectFile).toHaveBeenCalledWith(workspace.resources?.find((resource) => resource.name === "note.md"), "");
-    expect(onMarkdownDocumentPointerDrag).not.toHaveBeenCalled();
+    expect(onProjectDocumentPointerDrag).not.toHaveBeenCalled();
 
     onMoveProjectFile.mockClear();
     vi.mocked(document.elementFromPoint).mockReturnValue(null);
@@ -238,25 +267,25 @@ describe("ExplorerPanel", () => {
       dispatchPointer(source, "pointermove", 18, 0, 2);
       dispatchPointer(source, "pointerup", 18, 0, 2);
     });
-    expect(onMarkdownDocumentPointerDrag).toHaveBeenNthCalledWith(1, markdownFile, { x: 12, y: 0 }, "move");
-    expect(onMarkdownDocumentPointerDrag).toHaveBeenNthCalledWith(2, markdownFile, { x: 18, y: 0 }, "cancel");
+    expect(onProjectDocumentPointerDrag).toHaveBeenNthCalledWith(1, markdownFile, "markdown", { x: 12, y: 0 }, "move");
+    expect(onProjectDocumentPointerDrag).toHaveBeenNthCalledWith(2, markdownFile, "markdown", { x: 18, y: 0 }, "cancel");
     expect(onMoveProjectFile).toHaveBeenCalledWith(workspace.resources?.find((resource) => resource.name === "note.md"), "");
 
-    onMarkdownDocumentPointerDrag.mockClear();
+    onProjectDocumentPointerDrag.mockClear();
     vi.mocked(document.elementFromPoint).mockReturnValue(null);
     act(() => {
       dispatchPointer(source, "pointerdown", 0, 0, 3);
       dispatchPointer(source, "pointermove", 12, 0, 3);
       dispatchPointer(source, "pointerup", 18, 0, 3);
     });
-    expect(onMarkdownDocumentPointerDrag).toHaveBeenNthCalledWith(1, markdownFile, { x: 12, y: 0 }, "move");
-    expect(onMarkdownDocumentPointerDrag).toHaveBeenNthCalledWith(2, markdownFile, { x: 18, y: 0 }, "drop");
+    expect(onProjectDocumentPointerDrag).toHaveBeenNthCalledWith(1, markdownFile, "markdown", { x: 12, y: 0 }, "move");
+    expect(onProjectDocumentPointerDrag).toHaveBeenNthCalledWith(2, markdownFile, "markdown", { x: 18, y: 0 }, "drop");
   });
 
   it("does nothing when a file is dropped in its current directory", () => {
     const onMoveProjectFile = vi.fn();
-    const onMarkdownDocumentPointerDrag = vi.fn();
-    renderExplorer({ onMoveProjectFile, onMarkdownDocumentPointerDrag });
+    const onProjectDocumentPointerDrag = vi.fn();
+    renderExplorer({ onMoveProjectFile, onProjectDocumentPointerDrag });
     const source = buttonNamed("note.md");
     vi.mocked(document.elementFromPoint).mockReturnValue(buttonNamed("docs"));
 
@@ -266,7 +295,7 @@ describe("ExplorerPanel", () => {
       dispatchPointer(source, "pointerup", 12, 0);
     });
     expect(onMoveProjectFile).not.toHaveBeenCalled();
-    expect(onMarkdownDocumentPointerDrag).not.toHaveBeenCalled();
+    expect(onProjectDocumentPointerDrag).not.toHaveBeenCalled();
   });
 
   it("cleans up a highlighted drop target when the pointer is cancelled", () => {
@@ -366,7 +395,8 @@ describe("ExplorerPanel", () => {
     onCreateProjectFile = vi.fn(),
     onMoveProjectFile = vi.fn(),
     onOpenProjectMarkdownWindow = vi.fn(),
-    onMarkdownDocumentPointerDrag = vi.fn(),
+    onOpenProjectHtmlWindow = vi.fn(),
+    onProjectDocumentPointerDrag = vi.fn(),
     currentFileRef = null,
     initialExpandedPaths = ["docs"],
     projectBusy = false,
@@ -376,10 +406,11 @@ describe("ExplorerPanel", () => {
     onOpenProjectFile?: (file: ProjectFileEntry) => void;
     onOpenProject?: () => void;
     onRefreshProject?: () => void;
-    onCreateProjectFile?: (request: { directoryPath: string; fileName: string; kind: "markdown" | "mermaid" | "canvas" | "csv" }) => void;
+    onCreateProjectFile?: (request: { directoryPath: string; fileName: string; kind: "markdown" | "mermaid" | "canvas" | "csv" | "html" }) => void;
     onMoveProjectFile?: (file: ProjectResourceEntry, targetDirectoryPath: string) => void;
     onOpenProjectMarkdownWindow?: (file: ProjectFileEntry) => void;
-    onMarkdownDocumentPointerDrag?: (file: ProjectFileEntry, point: { x: number; y: number }, phase: "move" | "drop" | "cancel") => void;
+    onOpenProjectHtmlWindow?: (file: ProjectFileEntry) => void;
+    onProjectDocumentPointerDrag?: (file: ProjectFileEntry, kind: "markdown" | "html", point: { x: number; y: number }, phase: "move" | "drop" | "cancel") => void;
     currentFileRef?: { name: string; path: string } | null;
     initialExpandedPaths?: string[];
     projectBusy?: boolean;
@@ -409,9 +440,10 @@ describe("ExplorerPanel", () => {
             onRefreshProject={onRefreshProject}
             onOpenProjectFile={onOpenProjectFile}
             onOpenProjectMarkdownWindow={onOpenProjectMarkdownWindow}
+            onOpenProjectHtmlWindow={onOpenProjectHtmlWindow}
             onCreateProjectFile={onCreateProjectFile}
             onMoveProjectFile={onMoveProjectFile}
-            onMarkdownDocumentPointerDrag={onMarkdownDocumentPointerDrag}
+            onProjectDocumentPointerDrag={onProjectDocumentPointerDrag}
             onStatus={onStatus}
           />
         </TooltipProvider>

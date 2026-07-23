@@ -5,15 +5,10 @@ import * as DropdownMenuPrimitive from "@radix-ui/react-dropdown-menu";
 import { Check, NavArrowRight } from "iconoir-react/regular";
 
 import { OVERLAY_Z_INDEX } from "@/lib/overlay-layers";
-import { useOverlayRegistration } from "@/lib/use-overlay-registration";
+import { useOverlayPortalContainer } from "@/lib/overlay-layer-context";
 import { cn } from "@/lib/utils";
 
-function DropdownMenu({ open, defaultOpen, onOpenChange, ...props }: React.ComponentProps<typeof DropdownMenuPrimitive.Root>) {
-  const [localOpen, setLocalOpen] = React.useState(defaultOpen ?? false);
-  const resolvedOpen = open ?? localOpen;
-  useOverlayRegistration("dropdown-menu", resolvedOpen);
-  return <DropdownMenuPrimitive.Root open={open} defaultOpen={defaultOpen} onOpenChange={(nextOpen) => { setLocalOpen(nextOpen); onOpenChange?.(nextOpen); }} {...props} />;
-}
+const DropdownMenu = DropdownMenuPrimitive.Root;
 
 const DropdownMenuTrigger = DropdownMenuPrimitive.Trigger;
 const DropdownMenuGroup = DropdownMenuPrimitive.Group;
@@ -21,11 +16,14 @@ const DropdownMenuSub = DropdownMenuPrimitive.Sub;
 const DropdownMenuRadioGroup = DropdownMenuPrimitive.RadioGroup;
 
 const DropdownMenuContent = React.forwardRef<React.ElementRef<typeof DropdownMenuPrimitive.Content>, React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Content>>(
-  ({ className, sideOffset = 6, style, ...props }, ref) => (
-    <DropdownMenuPrimitive.Portal>
-      <DropdownMenuPrimitive.Content ref={ref} sideOffset={sideOffset} className={cn("editor-ui-popover min-w-48 p-1 text-popover-foreground outline-none", className)} style={{ zIndex: OVERLAY_Z_INDEX.dropdown, ...style }} data-window-drag-exclude data-editor-floating-menu-ignore {...props} />
+  ({ className, sideOffset = 6, style, ...props }, ref) => {
+    const { portalContainer, scopeId } = useOverlayPortalContainer();
+    return (
+    <DropdownMenuPrimitive.Portal container={portalContainer || undefined}>
+      <DropdownMenuPrimitive.Content ref={ref} sideOffset={sideOffset} className={cn("editor-ui-popover pointer-events-auto min-w-48 p-1 text-popover-foreground outline-none", className)} style={{ zIndex: OVERLAY_Z_INDEX.dropdown, ...style }} data-overlay-layer="dropdown" data-overlay-scope-id={scopeId} data-window-drag-exclude data-editor-floating-menu-ignore {...props} />
     </DropdownMenuPrimitive.Portal>
-  )
+    );
+  }
 );
 DropdownMenuContent.displayName = DropdownMenuPrimitive.Content.displayName;
 
@@ -72,7 +70,10 @@ const DropdownMenuSubTrigger = React.forwardRef<React.ElementRef<typeof Dropdown
 DropdownMenuSubTrigger.displayName = DropdownMenuPrimitive.SubTrigger.displayName;
 
 const DropdownMenuSubContent = React.forwardRef<React.ElementRef<typeof DropdownMenuPrimitive.SubContent>, React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.SubContent>>(
-  ({ className, style, ...props }, ref) => <DropdownMenuPrimitive.SubContent ref={ref} className={cn("editor-ui-popover min-w-40 p-1 text-popover-foreground outline-none", className)} style={{ zIndex: OVERLAY_Z_INDEX.dropdown, ...style }} {...props} />
+  ({ className, style, ...props }, ref) => {
+    const { scopeId } = useOverlayPortalContainer();
+    return <DropdownMenuPrimitive.SubContent ref={ref} className={cn("editor-ui-popover pointer-events-auto min-w-40 p-1 text-popover-foreground outline-none", className)} style={{ zIndex: OVERLAY_Z_INDEX.dropdown, ...style }} data-overlay-layer="dropdown" data-overlay-scope-id={scopeId} {...props} />;
+  }
 );
 DropdownMenuSubContent.displayName = DropdownMenuPrimitive.SubContent.displayName;
 

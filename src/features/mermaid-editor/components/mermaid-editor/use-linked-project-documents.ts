@@ -1,6 +1,7 @@
 import type { CanvasLiveState } from "@/features/mermaid-editor/components/mermaid-editor/editor-shell-utils";
 import { useCsvTableDocumentActions } from "@/features/mermaid-editor/components/mermaid-editor/use-csv-table-document-actions";
 import { useMarkdownDocumentActions } from "@/features/mermaid-editor/components/mermaid-editor/use-markdown-document-actions";
+import { useHtmlDocumentActions } from "@/features/mermaid-editor/components/mermaid-editor/use-html-document-actions";
 import type { EditorRuntime } from "@/features/mermaid-editor/lib/editor-runtime";
 import type { MermaidGraph, ViewportState } from "@/features/mermaid-editor/lib/editor-types";
 import type { EditorCommand } from "@/features/mermaid-editor/lib/interaction/commands";
@@ -45,5 +46,6 @@ export function useLinkedProjectDocuments({
     updatePreviewFromText: updateMarkdownPreviewFromText
   });
   const csvTables = useCsvTableDocumentActions(shared);
-  return { markdownDocuments, csvTables };
+  const htmlDocuments = useHtmlDocumentActions(shared);
+  return { markdownDocuments, htmlDocuments, csvTables };
 }

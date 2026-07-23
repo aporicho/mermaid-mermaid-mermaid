@@ -78,7 +78,8 @@ describe("Electron project document creation", () => {
       ["mermaid", "diagram.mmd", "flowchart TD"],
       ["markdown", "notes.markdown", "# Notes\n"],
       ["canvas", "board.canvas.json", "{}"],
-      ["csv", "table.csv", "A\r\n1"]
+      ["csv", "table.csv", "A\r\n1"],
+      ["html", "index.html", "<!doctype html>"]
     ] as const;
 
     for (const [kind, fileName, text] of cases) {

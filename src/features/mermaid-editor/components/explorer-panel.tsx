@@ -46,6 +46,7 @@ import { WorkspaceWindowHeader } from "@/features/mermaid-editor/components/floa
 import { EDITOR_CHROME_CLASSES } from "@/features/mermaid-editor/lib/editor-chrome";
 import type { RuntimeFileRef } from "@/features/mermaid-editor/lib/editor-runtime";
 import type { ExplorerWorkspaceTreeState } from "@/features/mermaid-editor/lib/explorer-tree-state";
+import { isHtmlDocumentFilePath } from "@/features/mermaid-editor/lib/html-document";
 import { projectDirectoryAncestors, validExpandedDirectoryPaths } from "@/features/mermaid-editor/lib/explorer-tree-state";
 import {
   buildProjectResourceTree,
@@ -70,7 +71,7 @@ type ExplorerFilePointerDrag = {
   lastX: number;
   lastY: number;
   dragging: boolean;
-  markdownCanvasActive: boolean;
+  documentCanvasKind?: "markdown" | "html";
 };
 
 type ExplorerDirectoryDropTarget = {
@@ -85,7 +86,7 @@ type ExplorerContextMenu = {
   | { kind: "directory"; directoryPath: string }
 );
 
-export type ExplorerProjectFileKind = "markdown" | "mermaid" | "canvas" | "csv";
+export type ExplorerProjectFileKind = "markdown" | "mermaid" | "canvas" | "csv" | "html";
 
 export type ExplorerCreateProjectFileRequest = {
   directoryPath: string;
@@ -97,7 +98,8 @@ const EXPLORER_FILE_KINDS = [
   { kind: "markdown", label: "Markdown", defaultFileName: "document.md", extension: ".md" },
   { kind: "mermaid", label: "Mermaid", defaultFileName: "diagram.mmd", extension: ".mmd" },
   { kind: "canvas", label: "画布", defaultFileName: "board.canvas.json", extension: ".canvas.json" },
-  { kind: "csv", label: "CSV", defaultFileName: "table.csv", extension: ".csv" }
+  { kind: "csv", label: "CSV", defaultFileName: "table.csv", extension: ".csv" },
+  { kind: "html", label: "HTML", defaultFileName: "index.html", extension: ".html" }
 ] as const satisfies readonly { kind: ExplorerProjectFileKind; label: string; defaultFileName: string; extension: string }[];
 
 export function ExplorerPanel({
@@ -112,9 +114,10 @@ export function ExplorerPanel({
   onRefreshProject,
   onOpenProjectFile,
   onOpenProjectMarkdownWindow,
+  onOpenProjectHtmlWindow,
   onCreateProjectFile,
   onMoveProjectFile,
-  onMarkdownDocumentPointerDrag,
+  onProjectDocumentPointerDrag,
   onStatus
 }: {
   runtimeKind: "web" | "desktop";
@@ -128,9 +131,10 @@ export function ExplorerPanel({
   onRefreshProject: () => void;
   onOpenProjectFile: (file: ProjectFileEntry) => void;
   onOpenProjectMarkdownWindow: (file: ProjectFileEntry) => void;
+  onOpenProjectHtmlWindow: (file: ProjectFileEntry) => void;
   onCreateProjectFile: (request: ExplorerCreateProjectFileRequest) => void;
   onMoveProjectFile: (file: ProjectResourceEntry, targetDirectoryPath: string) => void;
-  onMarkdownDocumentPointerDrag: (file: ProjectFileEntry, point: { x: number; y: number }, phase: "move" | "drop" | "cancel") => void;
+  onProjectDocumentPointerDrag: (file: ProjectFileEntry, kind: "markdown" | "html", point: { x: number; y: number }, phase: "move" | "drop" | "cancel") => void;
   onStatus: (message: string) => void;
 }) {
   const resources = useMemo(
@@ -215,10 +219,10 @@ export function ExplorerPanel({
     filePointerDragRef.current = null;
     setDraggedResourcePath(null);
     setDropTargetDirectoryPath(null);
-    if (drag?.markdownCanvasActive && drag.file && drag.resource.documentKind === "markdown") {
-      onMarkdownDocumentPointerDrag(drag.file, { x: drag.lastX, y: drag.lastY }, "cancel");
+    if (drag?.documentCanvasKind && drag.file) {
+      onProjectDocumentPointerDrag(drag.file, drag.documentCanvasKind, { x: drag.lastX, y: drag.lastY }, "cancel");
     }
-  }, [onMarkdownDocumentPointerDrag, projectBusy]);
+  }, [onProjectDocumentPointerDrag, projectBusy]);
 
   function updateExpansion(nextRootExpanded: boolean, nextPaths: string[]) {
     onTreeStateChange({ rootExpanded: nextRootExpanded, expandedDirectoryPaths: nextPaths });
@@ -273,7 +277,7 @@ export function ExplorerPanel({
       lastX: event.clientX,
       lastY: event.clientY,
       dragging: false,
-      markdownCanvasActive: false
+      documentCanvasKind: undefined
     };
   }
 
@@ -293,17 +297,18 @@ export function ExplorerPanel({
     if (target) {
       const sourceDirectoryPath = parentResourceDirectory(drag.resource.relativePath);
       setDropTargetDirectoryPath(target.directoryPath === sourceDirectoryPath ? null : target.directoryPath);
-      if (drag.markdownCanvasActive && drag.file) {
-        onMarkdownDocumentPointerDrag(drag.file, { x: event.clientX, y: event.clientY }, "cancel");
-        drag.markdownCanvasActive = false;
+      if (drag.documentCanvasKind && drag.file) {
+        onProjectDocumentPointerDrag(drag.file, drag.documentCanvasKind, { x: event.clientX, y: event.clientY }, "cancel");
+        drag.documentCanvasKind = undefined;
       }
       return;
     }
 
     setDropTargetDirectoryPath(null);
-    if (drag.file && drag.resource.documentKind === "markdown") {
-      onMarkdownDocumentPointerDrag(drag.file, { x: event.clientX, y: event.clientY }, "move");
-      drag.markdownCanvasActive = true;
+    const documentKind = projectDocumentNodeKind(drag.resource);
+    if (drag.file && documentKind) {
+      onProjectDocumentPointerDrag(drag.file, documentKind, { x: event.clientX, y: event.clientY }, "move");
+      drag.documentCanvasKind = documentKind;
     }
   }
 
@@ -318,8 +323,8 @@ export function ExplorerPanel({
 
     const target = explorerDirectoryDropTargetAtPoint(treeRef.current, event.clientX, event.clientY);
     if (target) {
-      if (drag.markdownCanvasActive && drag.file) {
-        onMarkdownDocumentPointerDrag(drag.file, { x: event.clientX, y: event.clientY }, "cancel");
+      if (drag.documentCanvasKind && drag.file) {
+        onProjectDocumentPointerDrag(drag.file, drag.documentCanvasKind, { x: event.clientX, y: event.clientY }, "cancel");
       }
       if (!projectBusy && target.directoryPath !== parentResourceDirectory(drag.resource.relativePath)) {
         onMoveProjectFile(drag.resource, target.directoryPath);
@@ -327,8 +332,9 @@ export function ExplorerPanel({
       return true;
     }
 
-    if (drag.file && drag.resource.documentKind === "markdown") {
-      onMarkdownDocumentPointerDrag(drag.file, { x: event.clientX, y: event.clientY }, projectBusy ? "cancel" : "drop");
+    const documentKind = projectDocumentNodeKind(drag.resource);
+    if (drag.file && documentKind) {
+      onProjectDocumentPointerDrag(drag.file, documentKind, { x: event.clientX, y: event.clientY }, projectBusy ? "cancel" : "drop");
     }
     return true;
   }
@@ -339,8 +345,8 @@ export function ExplorerPanel({
     filePointerDragRef.current = null;
     setDraggedResourcePath(null);
     setDropTargetDirectoryPath(null);
-    if (drag.markdownCanvasActive && drag.file && drag.resource.documentKind === "markdown") {
-      onMarkdownDocumentPointerDrag(drag.file, { x: event.clientX, y: event.clientY }, "cancel");
+    if (drag.documentCanvasKind && drag.file) {
+      onProjectDocumentPointerDrag(drag.file, drag.documentCanvasKind, { x: event.clientX, y: event.clientY }, "cancel");
     }
   }
 
@@ -448,7 +454,8 @@ export function ExplorerPanel({
                       onToggleDirectory={toggleDirectory}
                       onOpenProjectFile={onOpenProjectFile}
                       onOpenProjectMarkdownWindow={onOpenProjectMarkdownWindow}
-                      onMarkdownDocumentPointerDrag={onMarkdownDocumentPointerDrag}
+                      onOpenProjectHtmlWindow={onOpenProjectHtmlWindow}
+                      onProjectDocumentPointerDrag={onProjectDocumentPointerDrag}
                       projectBusy={projectBusy}
                       draggedResourcePath={draggedResourcePath}
                       dropTargetDirectoryPath={dropTargetDirectoryPath}
@@ -485,6 +492,7 @@ export function ExplorerPanel({
           }}
           onOpenProjectFile={(file) => { setContextMenu(null); onOpenProjectFile(file); }}
           onOpenProjectMarkdownWindow={(file) => { setContextMenu(null); onOpenProjectMarkdownWindow(file); }}
+          onOpenProjectHtmlWindow={(file) => { setContextMenu(null); onOpenProjectHtmlWindow(file); }}
           onMove={(resource) => {
             setContextMenu(null);
             setMoveFileDialog({ resource, targetDirectoryPath: parentResourceDirectory(resource.relativePath) });
@@ -562,7 +570,8 @@ function ProjectTreeNodeRow({
   onToggleDirectory,
   onOpenProjectFile,
   onOpenProjectMarkdownWindow,
-  onMarkdownDocumentPointerDrag,
+  onOpenProjectHtmlWindow,
+  onProjectDocumentPointerDrag,
   projectBusy,
   draggedResourcePath,
   dropTargetDirectoryPath,
@@ -588,7 +597,8 @@ function ProjectTreeNodeRow({
   onToggleDirectory: (relativePath: string) => void;
   onOpenProjectFile: (file: ProjectFileEntry) => void;
   onOpenProjectMarkdownWindow: (file: ProjectFileEntry) => void;
-  onMarkdownDocumentPointerDrag: (file: ProjectFileEntry, point: { x: number; y: number }, phase: "move" | "drop" | "cancel") => void;
+  onOpenProjectHtmlWindow: (file: ProjectFileEntry) => void;
+  onProjectDocumentPointerDrag: (file: ProjectFileEntry, kind: "markdown" | "html", point: { x: number; y: number }, phase: "move" | "drop" | "cancel") => void;
   projectBusy: boolean;
   draggedResourcePath: string | null;
   dropTargetDirectoryPath: string | null;
@@ -644,7 +654,8 @@ function ProjectTreeNodeRow({
                 onToggleDirectory={onToggleDirectory}
                 onOpenProjectFile={onOpenProjectFile}
                 onOpenProjectMarkdownWindow={onOpenProjectMarkdownWindow}
-                onMarkdownDocumentPointerDrag={onMarkdownDocumentPointerDrag}
+                onOpenProjectHtmlWindow={onOpenProjectHtmlWindow}
+                onProjectDocumentPointerDrag={onProjectDocumentPointerDrag}
                 projectBusy={projectBusy}
                 draggedResourcePath={draggedResourcePath}
                 dropTargetDirectoryPath={dropTargetDirectoryPath}
@@ -676,6 +687,7 @@ function ProjectTreeNodeRow({
       onFocusItem={onFocusItem}
       onTreeKeyDown={onTreeKeyDown}
       onOpenProjectFile={onOpenProjectFile}
+      onOpenProjectHtmlWindow={onOpenProjectHtmlWindow}
       projectBusy={projectBusy}
       dragging={draggedResourcePath === node.resource.path}
       onStartFilePointerDrag={onStartFilePointerDrag}
@@ -699,6 +711,7 @@ function ProjectFileRow({
   onFocusItem,
   onTreeKeyDown,
   onOpenProjectFile,
+  onOpenProjectHtmlWindow,
   projectBusy,
   dragging,
   onStartFilePointerDrag,
@@ -718,6 +731,7 @@ function ProjectFileRow({
   onFocusItem: (id: string) => void;
   onTreeKeyDown: (event: ReactKeyboardEvent<HTMLButtonElement>, item: { id: string; kind: "root" | "directory" | "file"; parentPath?: string }) => void;
   onOpenProjectFile: (file: ProjectFileEntry) => void;
+  onOpenProjectHtmlWindow: (file: ProjectFileEntry) => void;
   projectBusy: boolean;
   dragging: boolean;
   onStartFilePointerDrag: (resource: ProjectResourceEntry, file: ProjectFileEntry | undefined, event: ReactPointerEvent<HTMLButtonElement>) => void;
@@ -728,7 +742,8 @@ function ProjectFileRow({
   onOpenFileContextMenuFromKeyboard: (resource: ProjectResourceEntry, file: ProjectFileEntry | undefined, event: ReactKeyboardEvent<HTMLButtonElement>) => boolean;
   onUnsupportedResource: (resource: ProjectResourceEntry) => void;
 }) {
-  const file = node.file ?? (node.resource.documentKind ? resourceProjectFile(node.resource) : undefined);
+  const htmlFile = isHtmlDocumentFilePath(node.resource.path);
+  const file = node.file ?? (node.resource.documentKind || htmlFile ? resourceProjectFile(node.resource) : undefined);
   const active = file ? isProjectFileActive(file, currentFileRef) : false;
   const suppressClickRef = useRef(false);
 
@@ -764,7 +779,8 @@ function ProjectFileRow({
             event.preventDefault();
             return;
           }
-          if (file) onOpenProjectFile(file);
+          if (file && htmlFile) onOpenProjectHtmlWindow(file);
+          else if (file) onOpenProjectFile(file);
           else onUnsupportedResource(node.resource);
         }}
         onContextMenu={(event) => onOpenFileContextMenu(node.resource, file, event)}
@@ -781,6 +797,7 @@ function ProjectResourceIcon({ resource }: { resource: ProjectResourceEntry }) {
   if (resource.documentKind === "mermaid") return <CodeBrackets className={className} />;
   if (resource.documentKind === "markdown") return <Text className={className} />;
   if (resource.documentKind === "canvas") return <Database className={className} />;
+  if (isHtmlDocumentFilePath(resource.path)) return <CodeBrackets className={className} />;
   const extension = resource.name.toLocaleLowerCase().split(".").at(-1) || "";
   if (["png", "jpg", "jpeg", "gif", "webp", "svg", "avif", "ico"].includes(extension)) return <MediaImage className={className} />;
   if (["zip", "tar", "gz", "7z", "rar"].includes(extension)) return <Archive className={className} />;
@@ -795,6 +812,7 @@ function ProjectResourceContextMenu({
   onOpenChange,
   onOpenProjectFile,
   onOpenProjectMarkdownWindow,
+  onOpenProjectHtmlWindow,
   onMove,
   onCreateFile
 }: {
@@ -805,6 +823,7 @@ function ProjectResourceContextMenu({
   onOpenChange: (open: boolean) => void;
   onOpenProjectFile: (file: ProjectFileEntry) => void;
   onOpenProjectMarkdownWindow: (file: ProjectFileEntry) => void;
+  onOpenProjectHtmlWindow: (file: ProjectFileEntry) => void;
   onMove: (resource: ProjectResourceEntry) => void;
   onCreateFile: (directoryPath: string) => void;
 }) {
@@ -812,6 +831,7 @@ function ProjectResourceContextMenu({
 
   const fileMenu = menu.kind === "file";
   const markdownFile = fileMenu && menu.resource.documentKind === "markdown" && Boolean(menu.file);
+  const htmlFile = fileMenu && isHtmlDocumentFilePath(menu.resource.path) && Boolean(menu.file);
   const targetName = fileMenu
     ? menu.resource.name
     : menu.directoryPath.split("/").at(-1) || rootName;
@@ -824,7 +844,7 @@ function ProjectResourceContextMenu({
       ariaLabel={`${targetName} 操作`}
       restoreFocusRef={restoreFocusRef}
     >
-      {fileMenu && menu.file ? (
+      {fileMenu && menu.file && !htmlFile ? (
         <DropdownMenuItem title={menu.file.path} onSelect={() => onOpenProjectFile(menu.file!)}>
           <Page className="size-4" />
           <span className="truncate">打开</span>
@@ -834,6 +854,12 @@ function ProjectResourceContextMenu({
         <DropdownMenuItem title={menu.file.path} onSelect={() => onOpenProjectMarkdownWindow(menu.file!)}>
           <OpenNewWindow className="size-4" />
           <span className="truncate">在浮窗中打开</span>
+        </DropdownMenuItem>
+      ) : null}
+      {htmlFile && menu.file ? (
+        <DropdownMenuItem title={menu.file.path} onSelect={() => onOpenProjectHtmlWindow(menu.file!)}>
+          <OpenNewWindow className="size-4" />
+          <span className="truncate">在浮窗中预览</span>
         </DropdownMenuItem>
       ) : null}
       {fileMenu ? (
@@ -992,6 +1018,12 @@ function resourceProjectFile(resource: ProjectResourceEntry): ProjectFileEntry {
     relativePath: resource.relativePath,
     ...(resource.modifiedAt ? { modifiedAt: resource.modifiedAt } : {})
   };
+}
+
+function projectDocumentNodeKind(resource: ProjectResourceEntry): "markdown" | "html" | undefined {
+  if (resource.documentKind === "markdown") return "markdown";
+  if (isHtmlDocumentFilePath(resource.path)) return "html";
+  return undefined;
 }
 
 function samePaths(left: readonly string[], right: readonly string[]) {

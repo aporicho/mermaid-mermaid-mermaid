@@ -47,6 +47,7 @@ describe("v11 special-node theme", () => {
     });
     expect(theme).not.toHaveProperty("common");
     expect(theme.linkCard.surface).not.toBe(theme.markdownDocument.surface);
+    expect(theme.htmlDocument.surface).not.toBe(theme.markdownDocument.surface);
     expect(theme.markdownDocument.surface).not.toBe(theme.image.surface);
     expect(theme.image.surface.shadow).not.toBe(theme.linkCard.surface.shadow);
     expect(theme.table.surface.shadow.opacity).toBe(0);
@@ -77,6 +78,7 @@ describe("v11 special-node theme", () => {
     expect(theme.shared).toMatchObject({ textColor: "#223344", mutedTextColor: "#334455", accentColor: "#445566" });
     expect(theme.linkCard.surface).toMatchObject({ background: "#112233", radius: 13, border: { color: "#556677", width: 3 }, shadow: { color: "#667788", blur: 19, opacity: 0.4, offsetY: 7 } });
     expect(theme.markdownDocument.surface).toMatchObject({ background: "#112233", radius: 13 });
+    expect(theme.htmlDocument.surface).toMatchObject({ background: "#112233", radius: 13 });
     expect(theme.linkCard.coverBorder).toMatchObject({ color: "#778899", width: 2 });
     expect(theme.image.surface).toMatchObject({ background: "#010203", radius: 17, border: { color: "#020304", width: 4 }, shadow: { color: "#667788" } });
     expect(theme.image.state).toMatchObject({ selectedBorderColor: "#030405", emphasizedBorderWidth: 5 });

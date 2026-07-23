@@ -11,6 +11,7 @@ describe("special node render token contract", () => {
     const files = [
       "node-link-card.tsx",
       "markdown-document-card.tsx",
+      "html-document-card.tsx",
       "node-image-surface.tsx",
       "table-node.tsx"
     ].map((file) => source(`src/features/mermaid-editor/components/konva-canvas/${file}`));
@@ -57,6 +58,15 @@ describe("special node render token contract", () => {
       expect(image, token).toContain(token);
     }
     expect(image).not.toContain("specialNode.common");
+  });
+
+  it("consumes every HTML subtype appearance token", () => {
+    const html = source("src/features/mermaid-editor/components/konva-canvas/html-document-card.tsx");
+    for (const token of [
+      "htmlDocument", "tokens.state", "tokens.contentPadding", "tokens.badgeSize", "tokens.badgeBackground", "tokens.badgeColor",
+      "tokens.badgeOpacity", "tokens.badgeRadius", "tokens.titleGap", "tokens.pathGap", "tokens.separatorColor", "tokens.separatorWidth",
+      "tokens.separatorOpacity", "tokens.excerptGap", "tokens.pathOpacity", "tokens.excerptOpacity", "shared.textColor", "shared.mutedTextColor"
+    ]) expect(html, token).toContain(token);
   });
 
   it("uses table header, body, hover, selection, grid and whole-surface states", () => {

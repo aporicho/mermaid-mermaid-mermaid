@@ -31,10 +31,13 @@ import type {
   ProjectWorkspace
 } from "@/features/mermaid-editor/lib/project-workspace";
 import {
+  htmlWindowPanelId,
   markdownWindowPanelId,
   type BrowserWindowPanelId,
   type DetachedBrowserWindow,
+  type DetachedHtmlWindow,
   type DetachedMarkdownWindow,
+  type HtmlWindowPanelId,
   type MarkdownWindowPanelId,
   type WorkspaceFloatingPanelId
 } from "@/features/mermaid-editor/lib/workspace-panels";
@@ -47,6 +50,11 @@ import {
   runtimeFileNameFromPath
 } from "@/features/mermaid-editor/lib/runtime-paths";
 import type { FileOpenSource } from "@/features/mermaid-editor/components/mermaid-editor/use-editor-file-workflow";
+import {
+  isHtmlDocumentFilePath,
+  resolveHtmlDocumentFile,
+  runtimeFilePathToUrl
+} from "@/features/mermaid-editor/lib/html-document";
 
 type StateSetter<T> = Dispatch<SetStateAction<T>>;
 
@@ -58,6 +66,8 @@ type UseEditorWindowActionsArgs = {
   setDetachedMarkdownWindows: StateSetter<DetachedMarkdownWindow[]>;
   detachedBrowserWindows: DetachedBrowserWindow[];
   setDetachedBrowserWindows: StateSetter<DetachedBrowserWindow[]>;
+  detachedHtmlWindows: DetachedHtmlWindow[];
+  setDetachedHtmlWindows: StateSetter<DetachedHtmlWindow[]>;
   setRecentFiles: StateSetter<RecentFileEntry[]>;
   setNodeActionEditor: StateSetter<{ nodeId: string } | null>;
   setStatus: StateSetter<string>;
@@ -80,6 +90,8 @@ export function useEditorWindowActions({
   setDetachedMarkdownWindows,
   detachedBrowserWindows,
   setDetachedBrowserWindows,
+  detachedHtmlWindows,
+  setDetachedHtmlWindows,
   setRecentFiles,
   setNodeActionEditor,
   setStatus,
@@ -130,6 +142,41 @@ export function useEditorWindowActions({
 
   function closeDetachedMarkdownWindow(panelId: MarkdownWindowPanelId) {
     setDetachedMarkdownWindows((current) => current.filter((window) => window.id !== panelId));
+    removeWorkspacePanel(panelId);
+  }
+
+  function openProjectHtmlWindow(file: ProjectFileEntry) {
+    if (!isHtmlDocumentFilePath(file.path)) return;
+    if (runtime.host !== "electron") {
+      setStatus("本地 HTML 预览仅在桌面版可用。");
+      return;
+    }
+
+    const path = file.path.trim();
+    const url = runtimeFilePathToUrl(path);
+    if (!path || !url) {
+      showFileWorkflowError({ code: "file_not_found", path }, "无法打开 HTML 文件。");
+      return;
+    }
+
+    const runtimeFile = { name: file.name, path };
+    const panelId = htmlWindowPanelId(runtimeFile);
+    const existingWindow = detachedHtmlWindows.find((window) => window.id === panelId);
+    if (existingWindow) {
+      bringWorkspacePanelToFront(panelId);
+      setStatus(`已切换到 ${existingWindow.title} 预览。`);
+      return;
+    }
+
+    const title = file.name || runtimeFileNameFromPath(path) || "HTML 预览";
+    setDetachedHtmlWindows((current) => [...current, { id: panelId, file: runtimeFile, title, url }]);
+    bringWorkspacePanelToFront(panelId);
+    setWorkspacePanelWindowState(panelId, "normal");
+    setStatus(`已在浮动窗口中预览 ${title}。`);
+  }
+
+  function closeDetachedHtmlWindow(panelId: HtmlWindowPanelId) {
+    setDetachedHtmlWindows((current) => current.filter((window) => window.id !== panelId));
     removeWorkspacePanel(panelId);
   }
 
@@ -270,6 +317,10 @@ export function useEditorWindowActions({
   }
 
   async function openFileNodeAction(action: Extract<CanvasNodeAction, { kind: "file" }>) {
+    if (isHtmlDocumentFilePath(action.path)) {
+      openProjectHtmlWindow(resolveHtmlDocumentFile(action.path, fileRef?.path, projectWorkspace));
+      return;
+    }
     const path = resolveNodeActionFilePath(action.path);
     if (!path) {
       showFileWorkflowError({ code: "file_not_found", path: action.path }, "无法打开节点文件。");
@@ -316,10 +367,12 @@ export function useEditorWindowActions({
 
   return {
     openProjectMarkdownWindow,
+    openProjectHtmlWindow,
     updateDetachedMarkdownWindow,
     closeDetachedMarkdownWindow,
     saveDetachedMarkdownWindow,
     closeDetachedBrowserWindow,
+    closeDetachedHtmlWindow,
     executeCanvasNodeAction,
     executeNodeActionDraft,
     editCanvasNodeAction,

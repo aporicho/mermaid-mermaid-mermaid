@@ -5,11 +5,7 @@ import type { FileWorkflowError } from "@/features/mermaid-editor/lib/file-workf
 
 import type { UnsavedPromptState } from "./use-editor-file-workflow";
 
-type UseEditorOverlayStateArgs = {
-  globalDomOverlayActive: boolean;
-};
-
-export function useEditorOverlayState({ globalDomOverlayActive }: UseEditorOverlayStateArgs) {
+export function useEditorOverlayState() {
   const [status, setStatus] = useState("");
   const [fileMenuOpen, setFileMenuOpen] = useState(false);
   const [fileWorkflowError, setFileWorkflowError] = useState<FileWorkflowError | null>(null);
@@ -18,15 +14,6 @@ export function useEditorOverlayState({ globalDomOverlayActive }: UseEditorOverl
   const [viewFiltersOpen, setViewFiltersOpen] = useState(false);
   const [nodeActionEditor, setNodeActionEditor] = useState<{ nodeId: string } | null>(null);
   const [fileDropFeedback, setFileDropFeedback] = useState<FileDropFeedback | null>(null);
-
-  const browserDomOverlayActive =
-    globalDomOverlayActive ||
-    fileMenuOpen ||
-    viewFiltersOpen ||
-    secondaryActionsOpen ||
-    Boolean(nodeActionEditor) ||
-    Boolean(fileWorkflowError) ||
-    Boolean(unsavedPrompt);
 
   useEffect(() => {
     if (!status) return;
@@ -87,7 +74,6 @@ export function useEditorOverlayState({ globalDomOverlayActive }: UseEditorOverl
     setNodeActionEditor,
     fileDropFeedback,
     setFileDropFeedback,
-    browserDomOverlayActive,
     updateFileMenuOpen,
     updateViewFiltersOpen,
     updateSecondaryActionsOpen,

@@ -718,7 +718,8 @@ describe("interaction architecture contract", () => {
       "src/features/mermaid-editor/components/mermaid-editor/editor-workspace-panels.tsx",
       "src/features/mermaid-editor/components/mermaid-editor/agent-terminal-workspace-panels.tsx",
       "src/features/mermaid-editor/components/mermaid-editor/detached-workspace-windows.tsx",
-      "src/features/mermaid-editor/components/mermaid-editor/browser-workspace-windows.tsx"
+      "src/features/mermaid-editor/components/mermaid-editor/browser-workspace-windows.tsx",
+      "src/features/mermaid-editor/components/mermaid-editor/html-workspace-windows.tsx"
     ].map(readProjectFile);
     const windowContents = [
       "src/features/mermaid-editor/components/explorer-panel.tsx",
@@ -728,6 +729,7 @@ describe("interaction architecture contract", () => {
       "src/features/mermaid-editor/components/agent/agent-panel.tsx",
       "src/features/mermaid-editor/components/agent/agent-settings-dialog.tsx",
       "src/features/mermaid-editor/components/browser-window-panel.tsx",
+      "src/features/mermaid-editor/components/html-window-panel.tsx",
       "src/features/mermaid-editor/components/detached-window-panels.tsx"
     ].map(readProjectFile);
 
@@ -754,6 +756,7 @@ describe("interaction architecture contract", () => {
     const nodeDialog = readProjectFile("src/features/mermaid-editor/components/node-action-editor-dialog.tsx");
     const markdownDialog = readProjectFile("src/features/mermaid-editor/components/markdown-document-dialog.tsx");
     const csvDialog = readProjectFile("src/features/mermaid-editor/components/csv-table-dialog.tsx");
+    const htmlDialog = readProjectFile("src/features/mermaid-editor/components/html-document-dialog.tsx");
     const projectDocumentDialog = readProjectFile("src/features/mermaid-editor/components/project-document-node-dialog.tsx");
     const imageDialog = readProjectFile("src/features/mermaid-editor/components/canvas-document-editor/image-url-dialog.tsx");
     const unsavedDialog = readProjectFile("src/features/mermaid-editor/components/file-workflow-feedback.tsx");
@@ -770,7 +773,7 @@ describe("interaction architecture contract", () => {
       expect(dialog).toContain("EditorDialog");
       expect(dialog).not.toContain('className="fixed inset-0');
     }
-    for (const dialog of [markdownDialog, csvDialog]) {
+    for (const dialog of [markdownDialog, htmlDialog, csvDialog]) {
       expect(dialog).toContain("ProjectDocumentNodeDialog");
       expect(dialog).not.toContain('className="fixed inset-0');
     }
@@ -911,7 +914,7 @@ describe("interaction architecture contract", () => {
     expect(clipboardImagePaste).toContain("pasteClipboardImageNode");
     expect(documentModel).toContain("currentDocument");
     expect(themeModel).toContain("useResolvedEditorMotion");
-    expect(overlayState).toContain("browserDomOverlayActive");
+    expect(overlayState).not.toContain("browserDomOverlayActive");
     expect(panelActions).toContain("openWorkspacePanel");
     expect(editor).not.toContain("function addImageNode(");
     expect(editor).not.toContain("function updateViewport(");

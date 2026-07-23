@@ -27,6 +27,7 @@ const { createProjectFileWatcher } = require("./project-file-watcher.cjs");
 const { scanProjectFolder: scanProjectFolderSnapshot } = require("./project-workspace.cjs");
 const { createWindowFileRouter } = require("./window-file-router.cjs");
 const { attachWindowFullscreenEvents, registerWindowFullscreenIpc } = require("./window-fullscreen.cjs");
+const { normalizeEmbeddedBrowserUrl, normalizeHttpUrl } = require("./embedded-browser-url.cjs");
 const DEV_SERVER_URL = process.env.MMM_ELECTRON_DEV_SERVER_URL || "";
 const PROJECT_DIR = path.resolve(__dirname, "..");
 const DIST_INDEX = path.join(PROJECT_DIR, "dist", "index.html");
@@ -467,7 +468,7 @@ function createEmbeddedBrowser(sender, request) {
   if (!owner.contentView?.addChildView) return { status: "unsupported", message: "Electron WebContentsView is unavailable in this runtime." };
 
   const label = typeof request?.label === "string" ? request.label : "";
-  const url = normalizeHttpUrl(request?.url);
+  const url = normalizeEmbeddedBrowserUrl(request?.url);
   if (!label || !url) return { status: "error", message: "Invalid embedded browser request." };
 
   closeEmbeddedBrowser(sender, label);
@@ -588,7 +589,7 @@ function focusEmbeddedBrowser(sender, label) {
 function navigateEmbeddedBrowser(sender, label, value) {
   const record = embeddedBrowsers.get(embeddedBrowserKey(sender, label));
   if (!record) return;
-  const url = normalizeHttpUrl(value);
+  const url = normalizeEmbeddedBrowserUrl(value);
   if (!url) throw new Error("Invalid embedded browser URL.");
   return record.view.webContents.loadURL(url);
 }
@@ -621,15 +622,4 @@ function normalizeBounds(rect) {
 
 function finiteNumber(value, fallback) {
   return Number.isFinite(value) ? Math.round(value) : fallback;
-}
-
-function normalizeHttpUrl(value) {
-  if (typeof value !== "string") return "";
-  try {
-    const url = new URL(value.trim());
-    if (url.protocol !== "http:" && url.protocol !== "https:") return "";
-    return url.toString();
-  } catch {
-    return "";
-  }
 }

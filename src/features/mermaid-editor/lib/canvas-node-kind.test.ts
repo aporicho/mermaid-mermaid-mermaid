@@ -29,4 +29,8 @@ describe("canvas node kind", () => {
     expect(resolveCanvasNodeKind(node({ content: createDefaultCanvasTableContent(2, 2) }))).toBe("table");
     expect(resolveCanvasNodeKind(node({ action: { kind: "file", path: "notes/table.md", openMode: "app-window" } }))).toBe("markdown-document");
   });
+
+  it("renders HTML file actions as their own special node kind", () => {
+    expect(resolveCanvasNodeKind(node({ action: { kind: "file", path: "web/index.html", openMode: "app-window" } }))).toBe("html-document");
+  });
 });

@@ -56,14 +56,14 @@ describe("floating chrome", () => {
     expect(bringFloatingPanelToFront(stack, "terminal")).toEqual(["explorer", "inspector", "terminal"]);
   });
 
-  it("maps workspace stack position and popover panels to stable z-indexes", () => {
+  it("maps workspace stack position and popovers to local isolated z-indexes", () => {
     const stack = ["explorer", "terminal", "inspector"] as const;
 
     expect(floatingPanelStackIndex(stack, "terminal")).toBe(1);
     expect(floatingPanelZIndex("workspace", 0)).toBe(FLOATING_WORKSPACE_PANEL_BASE_Z_INDEX);
     expect(floatingPanelZIndex("workspace", 2)).toBe(FLOATING_WORKSPACE_PANEL_BASE_Z_INDEX + 2);
     expect(floatingPanelZIndex("popover", 99)).toBe(FLOATING_POPOVER_PANEL_Z_INDEX);
-    expect(floatingPanelZIndex("popover", 99)).toBeGreaterThan(floatingPanelZIndex("workspace", 2));
+    expect(floatingPanelZIndex("popover", 99)).toBe(1);
   });
 
   it("keeps a recoverable titlebar strip when dragging offset panels beyond the viewport", () => {

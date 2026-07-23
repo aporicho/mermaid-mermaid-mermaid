@@ -14,6 +14,10 @@ import {
 } from "@/features/mermaid-editor/lib/markdown-document";
 import type { ProjectFileEntry, ProjectWorkspace } from "@/features/mermaid-editor/lib/project-workspace";
 import type { WorkspaceView } from "@/features/mermaid-editor/lib/workspace-view";
+import {
+  htmlDocumentProjectFileForRuntimeFile,
+  isHtmlDocumentFilePath
+} from "@/features/mermaid-editor/lib/html-document";
 
 type DragHandler = (event: DragEvent<HTMLElement>) => void;
 
@@ -23,6 +27,7 @@ export function createMarkdownDocumentDropHandlers({
   viewport,
   workspaceSurfaceRef,
   addProjectMarkdownFile,
+  addProjectHtmlFile,
   setStatus,
   setFileDropFeedback,
   usesRuntimeFileDrops,
@@ -34,6 +39,7 @@ export function createMarkdownDocumentDropHandlers({
   viewport: ViewportState;
   workspaceSurfaceRef: RefObject<HTMLDivElement | null>;
   addProjectMarkdownFile: (file: ProjectFileEntry, point?: { x: number; y: number }, source?: "pointer") => void;
+  addProjectHtmlFile: (file: ProjectFileEntry, point?: { x: number; y: number }, source?: "pointer") => void;
   setStatus: (message: string) => void;
   setFileDropFeedback: (feedback: FileDropFeedback | null) => void;
   usesRuntimeFileDrops: boolean;
@@ -50,8 +56,8 @@ export function createMarkdownDocumentDropHandlers({
     return Array.from(event.dataTransfer.types).includes(MARKDOWN_DOCUMENT_DRAG_TYPE) || Boolean(currentMarkdownDocumentDrag());
   }
 
-  function isRuntimeMarkdownFileDrop(event: DragEvent<HTMLElement>) {
-    return usesRuntimeFileDrops && Array.from(event.dataTransfer.files).some((file) => isSupportedMarkdownFilePath(file.name));
+  function isRuntimeLinkedFileDrop(event: DragEvent<HTMLElement>) {
+    return usesRuntimeFileDrops && Array.from(event.dataTransfer.files).some((file) => isSupportedMarkdownFilePath(file.name) || isHtmlDocumentFilePath(file.name));
   }
 
   function showMarkdownDropFeedback(point: { x: number; y: number }) {
@@ -90,7 +96,7 @@ export function createMarkdownDocumentDropHandlers({
     },
     drop(event: DragEvent<HTMLElement>) {
       if (!isMarkdownDrag(event)) {
-        if (isCanvasEditable && workspaceView === "canvas" && isRuntimeMarkdownFileDrop(event)) {
+        if (isCanvasEditable && workspaceView === "canvas" && isRuntimeLinkedFileDrop(event)) {
           event.preventDefault();
           return;
         }
@@ -112,7 +118,7 @@ export function createMarkdownDocumentDropHandlers({
       addProjectMarkdownFile(payload, point, "pointer");
     },
     runtime(request: RuntimeFileDropRequest) {
-      const file = request.files.find((candidate) => isSupportedMarkdownFilePath(candidate.path || candidate.name));
+      const file = request.files.find((candidate) => isSupportedMarkdownFilePath(candidate.path || candidate.name) || isHtmlDocumentFilePath(candidate.path || candidate.name));
       if (!usesRuntimeFileDrops || !isCanvasEditable || workspaceView !== "canvas" || !file) {
         external.runtime(request);
         return;
@@ -128,7 +134,8 @@ export function createMarkdownDocumentDropHandlers({
         ? { x: request.position.x - bounds.left, y: request.position.y - bounds.top }
         : undefined;
       if (request.type !== "drop") {
-        setFileDropFeedback({ message: "释放以添加 Markdown 文档卡片", tone: "ready", position: localPoint });
+        const label = isHtmlDocumentFilePath(file.path || file.name) ? "HTML 文件节点" : "Markdown 文档卡片";
+        setFileDropFeedback({ message: `释放以添加 ${label}`, tone: "ready", position: localPoint });
         return;
       }
 
@@ -136,9 +143,13 @@ export function createMarkdownDocumentDropHandlers({
       const worldPoint = request.position && bounds
         ? canvasWorldPointFromClient(request.position, bounds, viewport)
         : undefined;
-      addProjectMarkdownFile(markdownDocumentProjectFileForRuntimeFile(file, projectWorkspace), worldPoint, "pointer");
+      if (isHtmlDocumentFilePath(file.path || file.name)) {
+        addProjectHtmlFile(htmlDocumentProjectFileForRuntimeFile(file, projectWorkspace), worldPoint, "pointer");
+      } else {
+        addProjectMarkdownFile(markdownDocumentProjectFileForRuntimeFile(file, projectWorkspace), worldPoint, "pointer");
+      }
     },
-    pointer(file: ProjectFileEntry, point: { x: number; y: number }, phase: "move" | "drop" | "cancel") {
+    pointer(file: ProjectFileEntry, kind: "markdown" | "html", point: { x: number; y: number }, phase: "move" | "drop" | "cancel") {
       if (phase === "cancel") {
         setFileDropFeedback(null);
         return;
@@ -148,7 +159,12 @@ export function createMarkdownDocumentDropHandlers({
           setFileDropFeedback(null);
           return;
         }
-        showMarkdownDropFeedback(point);
+        const bounds = workspaceSurfaceRef.current?.getBoundingClientRect();
+        setFileDropFeedback({
+          message: isCanvasEditable && workspaceView === "canvas" ? `释放以添加 ${kind === "html" ? "HTML 文件节点" : "Markdown 文档卡片"}` : "请切换到可编辑 Mermaid 画布",
+          tone: isCanvasEditable && workspaceView === "canvas" ? "ready" : "blocked",
+          position: bounds ? { x: point.x - bounds.left, y: point.y - bounds.top } : undefined
+        });
         return;
       }
 
@@ -160,7 +176,9 @@ export function createMarkdownDocumentDropHandlers({
       }
       const bounds = workspaceSurfaceRef.current?.getBoundingClientRect();
       if (!bounds) return;
-      addProjectMarkdownFile(file, canvasWorldPointFromClient(point, bounds, viewport), "pointer");
+      const worldPoint = canvasWorldPointFromClient(point, bounds, viewport);
+      if (kind === "html") addProjectHtmlFile(file, worldPoint, "pointer");
+      else addProjectMarkdownFile(file, worldPoint, "pointer");
     }
   };
 }

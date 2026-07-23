@@ -31,6 +31,7 @@ describe("Electron project workspace scanner", () => {
     await writeFile(path.join(root, "docs", "diagram.mmd"), "flowchart LR");
     await writeFile(path.join(root, "docs", "cover.png"), "not-an-image");
     await writeFile(path.join(root, "docs", "people.csv"), "Name\nAlice");
+    await writeFile(path.join(root, "docs", "index.html"), "<!doctype html>");
     await writeFile(path.join(root, "node_modules", "ignored", "hidden.md"), "# hidden");
     await writeFile(path.join(root, ".mermaid-canvas-editor", "markdown-folds.json"), "{}");
 
@@ -42,7 +43,8 @@ describe("Electron project workspace scanner", () => {
       expect.objectContaining({ kind: "directory", relativePath: "docs/empty" }),
       expect.objectContaining({ kind: "file", relativePath: "docs/diagram.mmd" }),
       expect.objectContaining({ kind: "file", relativePath: "docs/cover.png" }),
-      expect.objectContaining({ kind: "file", relativePath: "docs/people.csv", modifiedAt: expect.any(Number) })
+      expect.objectContaining({ kind: "file", relativePath: "docs/people.csv", modifiedAt: expect.any(Number) }),
+      expect.objectContaining({ kind: "file", relativePath: "docs/index.html", modifiedAt: expect.any(Number) })
     ]));
     expect(workspace.resources.some((entry) => entry.relativePath.includes("node_modules"))).toBe(false);
     expect(workspace.resources.some((entry) => entry.relativePath.includes(".mermaid-canvas-editor"))).toBe(false);

@@ -6,7 +6,7 @@ import { WorkspaceFloatingWindow } from "@/features/mermaid-editor/components/fl
 import { InspectorPanel } from "@/features/mermaid-editor/components/inspector-panel";
 import { DetachedWorkspaceWindows } from "@/features/mermaid-editor/components/mermaid-editor/detached-workspace-windows";
 import { AgentTerminalWorkspacePanels } from "@/features/mermaid-editor/components/mermaid-editor/agent-terminal-workspace-panels";
-import { BrowserWorkspaceWindows } from "@/features/mermaid-editor/components/mermaid-editor/browser-workspace-windows";
+import { NativeWebWorkspaceWindows } from "@/features/mermaid-editor/components/mermaid-editor/native-web-workspace-windows";
 import type { DocumentKind } from "@/features/mermaid-editor/lib/document-kind";
 import { EDITOR_CHROME_CLASSES } from "@/features/mermaid-editor/lib/editor-chrome";
 import type { EditorRuntime, RuntimeAgentTextSelection, RuntimeFileRef, RuntimeProjectFileKind } from "@/features/mermaid-editor/lib/editor-runtime";
@@ -22,8 +22,10 @@ import {
   WORKSPACE_PANEL_MIN_SIZES,
   type DetachedMarkdownWindow,
   type DetachedBrowserWindow,
+  type DetachedHtmlWindow,
   type BrowserWindowPanelId,
   type MarkdownWindowPanelId,
+  type HtmlWindowPanelId,
   type ChromeWorkspacePanelId,
   type WorkspaceFloatingPanelId
 } from "@/features/mermaid-editor/lib/workspace-panels";
@@ -57,7 +59,7 @@ type EditorWorkspacePanelsProps = {
   terminalTheme: XtermThemeTokens;
   detachedMarkdownWindows: DetachedMarkdownWindow[];
   detachedBrowserWindows: DetachedBrowserWindow[];
-  browserDomOverlayActive: boolean;
+  detachedHtmlWindows: DetachedHtmlWindow[];
   markdownSpellcheckEnabled: boolean; markdownContentWidth: number; markdownTextScale: number;
   workspaceTitlebarAutoHide: boolean;
   onMarkdownTextScaleChange: (value: number) => void;
@@ -75,12 +77,14 @@ type EditorWorkspacePanelsProps = {
   createProjectFile: (request: { directoryPath: string; fileName: string; kind: RuntimeProjectFileKind }) => void | Promise<unknown>; moveProjectFile: (source: ProjectResourceEntry, targetDirectoryPath: string) => void | Promise<unknown>;
   openProjectFile: (file: ProjectFileEntry) => void | Promise<unknown>;
   openProjectMarkdownWindow: (file: ProjectFileEntry) => void | Promise<unknown>;
-  onMarkdownDocumentPointerDrag: (file: ProjectFileEntry, point: { x: number; y: number }, phase: "move" | "drop" | "cancel") => void;
+  openProjectHtmlWindow: (file: ProjectFileEntry) => void | Promise<unknown>;
+  onProjectDocumentPointerDrag: (file: ProjectFileEntry, kind: "markdown" | "html", point: { x: number; y: number }, phase: "move" | "drop" | "cancel") => void;
   applyEditorCommand: (command: EditorCommand) => void;
   executeCanvasNodeAction: (node: CanvasNode) => void | Promise<unknown>;
   editCanvasNodeAction: (node: CanvasNode) => void;
   closeDetachedMarkdownWindow: (panelId: MarkdownWindowPanelId) => void; saveDetachedMarkdownWindow: (panelId: MarkdownWindowPanelId) => void | Promise<unknown>; updateDetachedMarkdownWindow: (panelId: MarkdownWindowPanelId, value: string) => void;
   closeDetachedBrowserWindow: (panelId: BrowserWindowPanelId) => void;
+  closeDetachedHtmlWindow: (panelId: HtmlWindowPanelId) => void;
   onDetachedMarkdownSelectionChange: (panelId: MarkdownWindowPanelId, selection: RuntimeAgentTextSelection | null) => void;
   markdownFoldBindingFor: (file: RuntimeFileRef) => { foldState: MarkdownFoldSnapshot | null | undefined; onFoldStateChange?: (snapshot: MarkdownFoldSnapshot) => void };
   onStatus: (message: string) => void;
@@ -101,7 +105,7 @@ export function EditorWorkspacePanels({
   editingCustomTheme,
   themeDraftDirty,
   terminalTheme,
-  detachedMarkdownWindows, detachedBrowserWindows, browserDomOverlayActive,
+  detachedMarkdownWindows, detachedBrowserWindows, detachedHtmlWindows,
   markdownSpellcheckEnabled, markdownContentWidth, markdownTextScale, workspaceTitlebarAutoHide, onMarkdownTextScaleChange,
   bringWorkspacePanelToFront,
   workspacePanelStackPosition,
@@ -117,19 +121,21 @@ export function EditorWorkspacePanels({
   createProjectFile, moveProjectFile,
   openProjectFile,
   openProjectMarkdownWindow,
-  onMarkdownDocumentPointerDrag,
+  openProjectHtmlWindow,
+  onProjectDocumentPointerDrag,
   applyEditorCommand,
   executeCanvasNodeAction,
   editCanvasNodeAction,
   closeDetachedMarkdownWindow,
   closeDetachedBrowserWindow,
+  closeDetachedHtmlWindow,
   saveDetachedMarkdownWindow,
   updateDetachedMarkdownWindow, markdownFoldBindingFor,
   onDetachedMarkdownSelectionChange,
   onStatus
 }: EditorWorkspacePanelsProps) {
   return (
-    <>
+    <div className="pointer-events-none absolute inset-0 isolate z-[1]" data-layer-group="workspace-windows">
       <WorkspaceFloatingWindow
         open={!leftCollapsed}
         placement="left-panel"
@@ -161,7 +167,8 @@ export function EditorWorkspacePanels({
           onCreateProjectFile={(request) => void createProjectFile(request)} onMoveProjectFile={(source, targetDirectoryPath) => void moveProjectFile(source, targetDirectoryPath)}
           onOpenProjectFile={(file) => void openProjectFile(file)}
           onOpenProjectMarkdownWindow={(file) => void openProjectMarkdownWindow(file)}
-          onMarkdownDocumentPointerDrag={onMarkdownDocumentPointerDrag}
+          onOpenProjectHtmlWindow={(file) => void openProjectHtmlWindow(file)}
+          onProjectDocumentPointerDrag={onProjectDocumentPointerDrag}
           onStatus={onStatus}
         />
       </WorkspaceFloatingWindow>
@@ -251,19 +258,20 @@ export function EditorWorkspacePanels({
         updateMarkdownWindow={updateDetachedMarkdownWindow} markdownFoldBindingFor={markdownFoldBindingFor}
         onMarkdownSelectionChange={onDetachedMarkdownSelectionChange}
       />
-      <BrowserWorkspaceWindows
+      <NativeWebWorkspaceWindows
         runtime={runtime}
         browserWindows={detachedBrowserWindows}
+        htmlWindows={detachedHtmlWindows}
         titlebarAutoHide={workspaceTitlebarAutoHide}
         activePanel={activeWorkspacePanel}
-        domOverlayActive={browserDomOverlayActive}
         bringPanelToFront={bringWorkspacePanelToFront}
         panelStackPosition={workspacePanelStackPosition}
         panelWindowState={workspacePanelWindowState}
         setPanelWindowState={setWorkspacePanelWindowState}
         closeBrowserWindow={closeDetachedBrowserWindow}
+        closeHtmlWindow={closeDetachedHtmlWindow}
         onStatus={onStatus}
       />
-    </>
+    </div>
   );
 }

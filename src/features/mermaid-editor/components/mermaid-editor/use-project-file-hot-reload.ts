@@ -10,8 +10,9 @@ import type {
   RuntimeProjectFileChangeBatch
 } from "@/features/mermaid-editor/lib/editor-runtime";
 import { isSupportedImagePath } from "@/features/mermaid-editor/lib/node-assets";
+import { isHtmlDocumentFilePath } from "@/features/mermaid-editor/lib/html-document";
 import type { ProjectWorkspace } from "@/features/mermaid-editor/lib/project-workspace";
-import type { DetachedMarkdownWindow } from "@/features/mermaid-editor/lib/workspace-panels";
+import type { DetachedHtmlWindow, DetachedMarkdownWindow } from "@/features/mermaid-editor/lib/workspace-panels";
 
 type SetState<T> = Dispatch<SetStateAction<T>>;
 
@@ -22,6 +23,8 @@ type ProjectFileHotReloadArgs = {
   currentDocumentRef: { current: string };
   detachedMarkdownWindows: DetachedMarkdownWindow[];
   setDetachedMarkdownWindows: SetState<DetachedMarkdownWindow[]>;
+  detachedHtmlWindows: DetachedHtmlWindow[];
+  setDetachedHtmlWindows: SetState<DetachedHtmlWindow[]>;
   setFileRef: SetState<RuntimeFileRef | null>;
   setStatus: SetState<string>;
   applyLoadedDocument: (text: string, name: string, file: RuntimeFileRef | null, source?: FileOpenSource) => void;
@@ -39,7 +42,7 @@ export function useProjectFileHotReload(args: ProjectFileHotReloadArgs) {
   const requestRevisionRef = useRef(new Map<string, number>());
   argsRef.current = args;
 
-  const extraPaths = [args.fileRef?.path, ...args.detachedMarkdownWindows.map((window) => window.file.path)]
+  const extraPaths = [args.fileRef?.path, ...args.detachedMarkdownWindows.map((window) => window.file.path), ...args.detachedHtmlWindows.map((window) => window.file.path)]
     .filter((path): path is string => Boolean(path));
   const targetKey = `${args.projectWorkspace?.rootPath || ""}\0${[...new Set(extraPaths)].sort().join("\0")}`;
 
@@ -85,6 +88,13 @@ async function handleProjectFileChanges(
   const csvPaths = new Set(fileChanges.filter((change) => isCsvPath(change.path)).map((change) => change.path));
   if (csvPaths.size) void args.reloadExternalCsvFiles(csvPaths);
   if (fileChanges.some((change) => isSupportedImagePath(change.path))) args.refreshImageAssets();
+  const htmlChanges = fileChanges.filter((change) => isHtmlDocumentFilePath(change.path));
+  if (htmlChanges.length) {
+    args.setDetachedHtmlWindows((current) => current.map((window) => {
+      const change = htmlChanges.find((candidate) => comparablePath(candidate.path) === comparablePath(window.file.path));
+      return change ? { ...window, revision: (window.revision || 0) + 1, missing: change.kind === "removed" } : window;
+    }));
+  }
 
   const reads = new Map<string, Promise<RuntimeOpenFileResult>>();
   const readFile = (path: string) => {

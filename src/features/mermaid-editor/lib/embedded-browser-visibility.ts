@@ -31,7 +31,20 @@ export function isEmbeddedBrowserSurfaceOccluded(surface: HTMLElement) {
     .filter((panel) => panel !== owner && panel.getAttribute("aria-hidden") !== "true" && !panel.inert)
     .map((panel) => ({ rect: panel.getBoundingClientRect(), zIndex: numericZIndex(panel) }));
 
-  return isEmbeddedBrowserLayerOccluded({ rect, zIndex: ownerZIndex, higherLayers });
+  if (isEmbeddedBrowserLayerOccluded({ rect, zIndex: ownerZIndex, higherLayers })) return true;
+
+  const ownerScopeId = owner.dataset.overlayScopeId;
+  return Array.from(document.querySelectorAll<HTMLElement>("[data-overlay-layer]"))
+    .some((layer) => {
+      if (!isVisibleOverlayLayer(layer)) return false;
+      const layerRect = layer.getBoundingClientRect();
+      if (!rectanglesOverlap(rect, layerRect)) return false;
+
+      const layerOwner = layer.closest<HTMLElement>("[data-floating-panel-kind='workspace']");
+      if (layerOwner === owner || layer.dataset.overlayScopeId === ownerScopeId) return true;
+      if (!layerOwner) return true;
+      return numericZIndex(layerOwner) > ownerZIndex;
+    });
 }
 
 export function rectanglesOverlap(first: EmbeddedBrowserLayerRect, second: EmbeddedBrowserLayerRect) {
@@ -44,4 +57,12 @@ export function rectanglesOverlap(first: EmbeddedBrowserLayerRect, second: Embed
 function numericZIndex(element: HTMLElement) {
   const parsed = Number.parseFloat(window.getComputedStyle(element).zIndex);
   return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function isVisibleOverlayLayer(element: HTMLElement) {
+  if (element.getAttribute("aria-hidden") === "true" || element.inert) return false;
+  const style = window.getComputedStyle(element);
+  if (style.display === "none" || style.visibility === "hidden" || Number.parseFloat(style.opacity) === 0) return false;
+  const rect = element.getBoundingClientRect();
+  return rect.width > 0 && rect.height > 0;
 }

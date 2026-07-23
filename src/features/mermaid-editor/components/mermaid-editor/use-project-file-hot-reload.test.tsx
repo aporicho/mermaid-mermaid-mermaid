@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useProjectFileHotReload } from "@/features/mermaid-editor/components/mermaid-editor/use-project-file-hot-reload";
 import type { FileOpenSource } from "@/features/mermaid-editor/components/mermaid-editor/use-editor-file-workflow";
 import type { EditorRuntime, RuntimeFileRef, RuntimeProjectFileChangeBatch } from "@/features/mermaid-editor/lib/editor-runtime";
-import type { DetachedMarkdownWindow } from "@/features/mermaid-editor/lib/workspace-panels";
+import type { DetachedHtmlWindow, DetachedMarkdownWindow } from "@/features/mermaid-editor/lib/workspace-panels";
 
 const workspace = {
   rootName: "project",
@@ -62,7 +62,8 @@ describe("useProjectFileHotReload", () => {
         observedAt: 2,
         changes: [
           { directory: false, kind: "changed", path: "/project/notes.md" },
-          { directory: false, kind: "changed", path: "/project/floating.md" }
+          { directory: false, kind: "changed", path: "/project/floating.md" },
+          { directory: false, kind: "changed", path: "/project/index.html" }
         ]
       });
       await settle();
@@ -73,9 +74,10 @@ describe("useProjectFileHotReload", () => {
     expect(updateMarkdownPreviewFromText).toHaveBeenCalledWith("/project/notes.md", "# Current disk");
     expect(updateMarkdownPreviewFromText).toHaveBeenCalledWith("/project/floating.md", "# Floating disk");
     expect(container.querySelector("[data-window-value]")?.getAttribute("data-window-value")).toBe("# Floating disk");
+    expect(container.querySelector("[data-html-revision]")?.getAttribute("data-html-revision")).toBe("1");
     expect(runtime.setProjectFileWatchTargets).toHaveBeenCalledWith(expect.objectContaining({
       rootPath: "/project",
-      extraPaths: expect.arrayContaining(["/project/notes.md", "/project/floating.md"])
+      extraPaths: expect.arrayContaining(["/project/notes.md", "/project/floating.md", "/project/index.html"])
     }));
   });
 
@@ -158,6 +160,12 @@ function Probe({
     value: "# Floating local",
     savedValue: "# Floating old"
   }]);
+  const [htmlWindows, setHtmlWindows] = useState<DetachedHtmlWindow[]>([{
+    id: "html:/project/index.html",
+    file: { name: "index.html", path: "/project/index.html" },
+    title: "index.html",
+    url: "file:///project/index.html"
+  }]);
   const currentDocumentRef = useRef(currentDocument);
   currentDocumentRef.current = currentDocument;
   useProjectFileHotReload({
@@ -167,6 +175,8 @@ function Probe({
     currentDocumentRef,
     detachedMarkdownWindows: windows,
     setDetachedMarkdownWindows: setWindows,
+    detachedHtmlWindows: htmlWindows,
+    setDetachedHtmlWindows: setHtmlWindows,
     setFileRef,
     setStatus: vi.fn(),
     applyLoadedDocument,
@@ -183,6 +193,7 @@ function Probe({
     data-current-path={fileRef?.path || ""}
     data-window-value={windows[0]?.value || ""}
     data-window-missing={String(Boolean(windows[0]?.missing))}
+    data-html-revision={String(htmlWindows[0]?.revision || 0)}
   />;
 }
 

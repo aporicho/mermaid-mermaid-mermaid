@@ -13,7 +13,7 @@ import { gsap, useEditorMotion, useGSAP } from "@/features/mermaid-editor/lib/us
 import { cn } from "@/lib/utils";
 
 export function FloatingChromeLayer({ children, className }: { children: ReactNode; className?: string }) {
-  return <div className={cn("pointer-events-none absolute inset-0 z-40", className)}>{children}</div>;
+  return <div className={cn("pointer-events-none absolute inset-0 isolate z-[2]", className)} data-layer-group="application-chrome">{children}</div>;
 }
 
 export function FloatingChromeSlot({

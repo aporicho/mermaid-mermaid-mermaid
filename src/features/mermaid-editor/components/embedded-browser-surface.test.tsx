@@ -10,7 +10,7 @@ import type {
   RuntimeEmbeddedBrowserHandle,
   RuntimeEmbeddedBrowserResult
 } from "@/features/mermaid-editor/lib/editor-runtime";
-import type { BrowserWindowPanelId } from "@/features/mermaid-editor/lib/workspace-panels";
+import type { BrowserWindowPanelId, HtmlWindowPanelId } from "@/features/mermaid-editor/lib/workspace-panels";
 
 const panelId = "browser:test" as BrowserWindowPanelId;
 
@@ -64,7 +64,7 @@ describe("EmbeddedBrowserSurface", () => {
     runtime: EditorRuntime;
     onStatus?: (message: string) => void;
     onBrowserError?: (url: string, message: string) => void;
-    onBrowserHandleChange?: (panelId: BrowserWindowPanelId, handle: RuntimeEmbeddedBrowserHandle | null) => void;
+    onBrowserHandleChange?: (panelId: BrowserWindowPanelId | HtmlWindowPanelId, handle: RuntimeEmbeddedBrowserHandle | null) => void;
   }) {
     container = document.createElement("div");
     document.body.appendChild(container);
@@ -76,7 +76,6 @@ describe("EmbeddedBrowserSurface", () => {
           panelId,
           url: "https://example.com",
           runtime,
-          domOverlayActive: false,
           retryRevision: 0,
           onRetry: vi.fn(),
           onStatus,
@@ -121,7 +120,6 @@ describe("EmbeddedBrowserSurface", () => {
           panelId,
           url: "https://example.com",
           runtime,
-          domOverlayActive: false,
           retryRevision: 0,
           onRetry: vi.fn(),
           onStatus: vi.fn(),
@@ -152,7 +150,6 @@ describe("EmbeddedBrowserSurface", () => {
           panelId,
           url: "https://openai.com",
           runtime,
-          domOverlayActive: false,
           retryRevision: 0,
           onRetry: vi.fn(),
           onStatus: vi.fn(),

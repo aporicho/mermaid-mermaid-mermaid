@@ -12,6 +12,7 @@ import {
   initialProjectFileText,
   migrateCurrentProjectFileRef,
   migrateDetachedMarkdownWindows,
+  migrateDetachedHtmlWindows,
   migrateRecentProjectFiles,
   projectFileActionUpdates,
   projectRelativePathFromRuntimePath,
@@ -22,7 +23,7 @@ import type {
   ProjectResourceEntry,
   ProjectWorkspace
 } from "@/features/mermaid-editor/lib/project-workspace";
-import type { DetachedMarkdownWindow } from "@/features/mermaid-editor/lib/workspace-panels";
+import type { DetachedHtmlWindow, DetachedMarkdownWindow } from "@/features/mermaid-editor/lib/workspace-panels";
 
 type StateSetter<T> = Dispatch<SetStateAction<T>>;
 
@@ -38,16 +39,19 @@ export function useProjectFileActions({
   fileRef,
   graph,
   detachedMarkdownWindows,
+  detachedHtmlWindows,
   setProjectBusy,
   setFileRef,
   setFileName,
   setRecentFiles,
   setDetachedMarkdownWindows,
+  setDetachedHtmlWindows,
   refreshProjectWorkspace,
   openProjectFile,
   beforeMove,
   applyEditorCommand,
   onDetachedMarkdownWindowMoved,
+  onDetachedHtmlWindowMoved,
   onMarkdownFileMoved,
   setStatus,
   showFileWorkflowError
@@ -57,16 +61,19 @@ export function useProjectFileActions({
   fileRef: RuntimeFileRef | null;
   graph: MermaidGraph;
   detachedMarkdownWindows: DetachedMarkdownWindow[];
+  detachedHtmlWindows: DetachedHtmlWindow[];
   setProjectBusy: StateSetter<boolean>;
   setFileRef: StateSetter<RuntimeFileRef | null>;
   setFileName: StateSetter<string>;
   setRecentFiles: StateSetter<RecentFileEntry[]>;
   setDetachedMarkdownWindows: StateSetter<DetachedMarkdownWindow[]>;
+  setDetachedHtmlWindows: StateSetter<DetachedHtmlWindow[]>;
   refreshProjectWorkspace: () => void | Promise<unknown>;
   openProjectFile: (file: ProjectFileEntry) => void | Promise<unknown>;
   beforeMove?: () => boolean | void | Promise<boolean | void>;
   applyEditorCommand: (command: EditorCommand) => void;
   onDetachedMarkdownWindowMoved?: (source: RuntimeFileRef, target: RuntimeFileRef) => void;
+  onDetachedHtmlWindowMoved?: (source: RuntimeFileRef, target: RuntimeFileRef) => void;
   onMarkdownFileMoved?: (sourcePath: string, targetPath: string) => void | Promise<void>;
   setStatus: (message: string) => void;
   showFileWorkflowError: (error: unknown, fallbackMessage?: string) => void;
@@ -94,7 +101,7 @@ export function useProjectFileActions({
 
       await refreshProjectWorkspace();
       setStatus(`已创建 ${result.file.name}。`);
-      if (request.kind === "csv" || !result.file.path) return;
+      if (request.kind === "csv" || request.kind === "html" || !result.file.path) return;
       await openProjectFile({
         name: result.file.name,
         path: result.file.path,
@@ -152,6 +159,9 @@ export function useProjectFileActions({
         const detachedWindow = detachedMarkdownWindows.find((window) => window.file.path === source.path);
         if (detachedWindow) onDetachedMarkdownWindowMoved?.(detachedWindow.file, result.file);
         setDetachedMarkdownWindows((current) => migrateDetachedMarkdownWindows(current, migration));
+        const detachedHtmlWindow = detachedHtmlWindows.find((window) => window.file.path === source.path);
+        if (detachedHtmlWindow) onDetachedHtmlWindowMoved?.(detachedHtmlWindow.file, result.file);
+        setDetachedHtmlWindows((current) => migrateDetachedHtmlWindows(current, migration));
         const updates = projectFileActionUpdates(graph, migration);
         if (updates.length) {
           applyEditorCommand({

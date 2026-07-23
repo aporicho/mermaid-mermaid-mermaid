@@ -1,7 +1,7 @@
 import type { DocumentKind } from "@/features/mermaid-editor/lib/document-kind";
 import type { RuntimeFileRef } from "@/features/mermaid-editor/lib/editor-runtime/types";
 
-export type RuntimeProjectFileKind = DocumentKind | "csv";
+export type RuntimeProjectFileKind = DocumentKind | "csv" | "html";
 
 export type RuntimeCreateProjectFileRequest = {
   rootPath: string;

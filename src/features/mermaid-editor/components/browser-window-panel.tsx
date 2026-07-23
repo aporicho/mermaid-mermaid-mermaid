@@ -16,14 +16,12 @@ import type { DetachedBrowserWindow } from "@/features/mermaid-editor/lib/worksp
 export function BrowserWindowPanel({
   browserWindow,
   runtime,
-  domOverlayActive,
   onFocusPanel,
   onStatus,
   onBrowserHandleChange = noopBrowserHandleChange
 }: {
   browserWindow: DetachedBrowserWindow;
   runtime: EditorRuntime;
-  domOverlayActive: boolean;
   onFocusPanel: () => void;
   onStatus: (message: string) => void;
   onBrowserHandleChange?: (panelId: DetachedBrowserWindow["id"], handle: RuntimeEmbeddedBrowserHandle | null) => void;
@@ -124,15 +122,14 @@ export function BrowserWindowPanel({
           panelId={browserWindow.id}
           url={currentUrl}
           runtime={runtime}
-          domOverlayActive={domOverlayActive}
           retryRevision={retryRevision}
           onRetry={reloadBrowser}
           onStatus={reportStatus}
           onBrowserError={(url, message) => reportStatus(`${browserToolWindowTitle(url)} ${message}`.trim())}
           onBrowserFocus={onFocusPanel}
-          onBrowserHandleChange={(panelId, handle) => {
+          onBrowserHandleChange={(_panelId, handle) => {
             setBrowserHandle(handle);
-            onBrowserHandleChange(panelId, handle);
+            onBrowserHandleChange(browserWindow.id, handle);
           }}
           onBrowserStateChange={updateBrowserState}
         />

@@ -65,6 +65,7 @@ type EditorFloatingChromeProps = {
   onAddTableNode: () => void;
   onAddImageNode: () => void | Promise<unknown>;
   onAddMarkdownDocument: () => void;
+  onAddHtmlDocument: () => void;
   onCreateGroup: () => void;
   onDirectionChange: (direction: GraphDirection) => void;
   onEdgeRoutingChange: (edgeRouting: EdgeRouting) => void;
@@ -123,6 +124,7 @@ export function EditorFloatingChrome({
   onAddTableNode,
   onAddImageNode,
   onAddMarkdownDocument,
+  onAddHtmlDocument,
   onCreateGroup,
   onDirectionChange,
   onEdgeRoutingChange,
@@ -239,6 +241,7 @@ export function EditorFloatingChrome({
           onAddTableNode={onAddTableNode}
           onAddImageNode={() => void onAddImageNode()}
           onAddMarkdownDocument={onAddMarkdownDocument}
+          onAddHtmlDocument={onAddHtmlDocument}
           onCreateGroup={onCreateGroup}
           onSaveAs={() => void onSaveAs()}
           onDirectionChange={onDirectionChange}

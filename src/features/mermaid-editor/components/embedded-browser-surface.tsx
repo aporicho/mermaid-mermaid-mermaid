@@ -7,19 +7,20 @@ import { disposeRuntimeEmbeddedBrowserHandle } from "@/features/mermaid-editor/c
 import { embeddedBrowserLogicalRect, embeddedBrowserRectKey } from "@/features/mermaid-editor/lib/embedded-browser-rect";
 import { isEmbeddedBrowserSurfaceOccluded } from "@/features/mermaid-editor/lib/embedded-browser-visibility";
 import type { EditorRuntime, RuntimeEmbeddedBrowserHandle, RuntimeEmbeddedBrowserState } from "@/features/mermaid-editor/lib/editor-runtime";
-import type { BrowserWindowPanelId } from "@/features/mermaid-editor/lib/workspace-panels";
+import type { BrowserWindowPanelId, HtmlWindowPanelId } from "@/features/mermaid-editor/lib/workspace-panels";
+
+type EmbeddedBrowserPanelId = BrowserWindowPanelId | HtmlWindowPanelId;
 
 type EmbeddedBrowserSurfaceProps = {
-  panelId: BrowserWindowPanelId;
+  panelId: EmbeddedBrowserPanelId;
   url: string;
   runtime: EditorRuntime;
-  domOverlayActive: boolean;
   retryRevision: number;
   onRetry: () => void;
   onStatus: (message: string) => void;
   onBrowserError: (url: string, message: string) => void;
   onBrowserFocus: () => void;
-  onBrowserHandleChange: (panelId: BrowserWindowPanelId, handle: RuntimeEmbeddedBrowserHandle | null) => void;
+  onBrowserHandleChange: (panelId: EmbeddedBrowserPanelId, handle: RuntimeEmbeddedBrowserHandle | null) => void;
   onBrowserStateChange: (state: RuntimeEmbeddedBrowserState) => void;
 };
 
@@ -29,7 +30,6 @@ export function EmbeddedBrowserSurface({
   panelId,
   url,
   runtime,
-  domOverlayActive,
   retryRevision,
   onRetry,
   onStatus,
@@ -41,7 +41,6 @@ export function EmbeddedBrowserSurface({
   const surfaceRef = useRef<HTMLDivElement | null>(null);
   const browserRef = useRef<RuntimeEmbeddedBrowserHandle | null>(null);
   const nativeCreatedRef = useRef(false);
-  const domOverlayActiveRef = useRef(domOverlayActive);
   const desiredUrlRef = useRef(url);
   const loadedUrlRef = useRef(url);
   const syncErrorReportedRef = useRef(false);
@@ -58,10 +57,6 @@ export function EmbeddedBrowserSurface({
   useEffect(() => {
     callbacksRef.current = { onStatus, onBrowserError, onBrowserFocus, onBrowserHandleChange, onBrowserStateChange };
   }, [onBrowserError, onBrowserFocus, onBrowserHandleChange, onBrowserStateChange, onStatus]);
-
-  useEffect(() => {
-    domOverlayActiveRef.current = domOverlayActive;
-  }, [domOverlayActive]);
 
   useEffect(() => {
     desiredUrlRef.current = url;
@@ -154,7 +149,6 @@ export function EmbeddedBrowserSurface({
         if (!nativeCreated || !readyToShow) return;
         const surface = surfaceRef.current;
         const shouldShow = surface !== null
-          && !domOverlayActiveRef.current
           && !isEmbeddedBrowserSurfaceOccluded(surface);
         if (!force && lastVisible === shouldShow) return;
         lastVisible = shouldShow;
@@ -231,7 +225,7 @@ export function EmbeddedBrowserSurface({
   }, [panelId, retryRevision, runtime]);
 
   return (
-    <div ref={surfaceRef} className="relative h-full w-full min-h-0 min-w-0 overflow-hidden bg-background">
+    <div ref={surfaceRef} className="relative h-full w-full min-h-0 min-w-0 overflow-hidden bg-background" data-workspace-native-surface>
       {nativeState === "unavailable" || nativeState === "error" ? (
         <EmbeddedBrowserUnavailable
           url={url}

@@ -5,6 +5,12 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { TooltipProvider } from "@/components/ui/tooltip";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger
+} from "@/components/ui/dropdown-menu";
 import { EditorSectionHeader } from "@/features/mermaid-editor/components/editor-ui";
 import {
   FloatingPopover,
@@ -214,6 +220,41 @@ describe("floating chrome", () => {
     expect(overlay?.className).toContain("absolute");
     expect(overlay?.className).toContain("inset-0");
     expect(overlay?.className).toContain("pointer-events-none");
+  });
+
+  it("portals a window menu into the overlay host owned by that window", () => {
+    createContainer();
+    act(() => {
+      root?.render(
+        <WorkspaceFloatingWindow
+          open
+          placement="center-panel"
+          panelId="menu-owner"
+          titlebarAutoHide={false}
+          active
+          stackIndex={0}
+          onFocusPanel={() => undefined}
+          defaultSize={{ width: 640, height: 480 }}
+          minSize={{ width: 320, height: 220 }}
+          windowState="normal"
+          onWindowStateChange={() => undefined}
+          onClose={() => undefined}
+          closeLabel="关闭"
+        >
+          <DropdownMenu open>
+            <DropdownMenuTrigger>打开</DropdownMenuTrigger>
+            <DropdownMenuContent><DropdownMenuItem>菜单项</DropdownMenuItem></DropdownMenuContent>
+          </DropdownMenu>
+        </WorkspaceFloatingWindow>
+      );
+    });
+
+    const panel = requiredElement<HTMLElement>("[data-floating-panel-id='menu-owner']");
+    const host = panel.querySelector<HTMLElement>("[data-overlay-layer-host='workspace']");
+    const menu = host?.querySelector<HTMLElement>("[data-overlay-layer='dropdown']");
+    expect(host?.dataset.overlayScopeId).toBe("workspace:menu-owner");
+    expect(menu?.dataset.overlayScopeId).toBe("workspace:menu-owner");
+    expect(document.body.querySelector("[data-overlay-layer='dropdown']")).toBe(menu);
   });
 
   it("labels workspace windows from their shared titlebar and moves them by that titlebar", () => {

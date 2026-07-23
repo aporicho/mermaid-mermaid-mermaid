@@ -74,6 +74,26 @@ export function createDefaultSpecialNodeTheme(source: SpecialNodeThemeSource): S
       excerptOpacity: 0.74,
       placeholderOpacity: 0.56
     },
+    htmlDocument: {
+      surface: surface(interfaceColors.card, ordinaryBorder, ordinaryNode.roundedRadius, ordinaryNode.shadow),
+      state: cloneState(interaction),
+      width: 280,
+      height: 180,
+      contentPadding: 12,
+      badgeSize: 38,
+      badgeBackground: interfaceColors.primary,
+      badgeColor: interfaceColors.primary,
+      badgeOpacity: 0.12,
+      badgeRadius: source.interface.radius.controlSm,
+      titleGap: 10,
+      pathGap: 1,
+      separatorColor: ordinaryNode.borderColor,
+      separatorWidth: 1,
+      separatorOpacity: 0.18,
+      excerptGap: 10,
+      pathOpacity: 0.62,
+      excerptOpacity: 0.74
+    },
     image: {
       surface: surface(
         interfaceColors.muted,
@@ -173,6 +193,7 @@ function migrateLegacySpecialNodeTheme(raw: unknown, fallback: SpecialNodeThemeT
   const shared = objectValue(source.shared);
   const linkCard = objectValue(source.linkCard);
   const markdownDocument = objectValue(source.markdownDocument);
+  const htmlDocument = objectValue(source.htmlDocument);
   const image = objectValue(source.image);
   const table = objectValue(source.table);
 
@@ -204,6 +225,11 @@ function migrateLegacySpecialNodeTheme(raw: unknown, fallback: SpecialNodeThemeT
       ...markdownDocument,
       surface: mergeObjects(commonSurface, objectValue(markdownDocument.surface)),
       state: mergeObjects(commonState, objectValue(markdownDocument.state))
+    },
+    htmlDocument: {
+      ...htmlDocument,
+      surface: mergeObjects(commonSurface, objectValue(htmlDocument.surface)),
+      state: mergeObjects(commonState, objectValue(htmlDocument.state))
     },
     image: {
       ...image,
@@ -339,6 +365,9 @@ const SPECIAL_NODE_NUMBER_RANGES: Record<string, readonly [number, number]> = {
   "markdownDocument.width": [160, 960],
   "markdownDocument.height": [96, 720],
   "markdownDocument.badgeSize": [16, 128],
+  "htmlDocument.width": [160, 960],
+  "htmlDocument.height": [96, 720],
+  "htmlDocument.badgeSize": [16, 128],
   "table.minColumnWidth": [24, 480],
   "table.minRowHeight": [16, 240],
   "table.resizeHandleWidth": [2, 32]

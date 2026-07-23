@@ -1,7 +1,10 @@
+// @vitest-environment jsdom
+
 import { describe, expect, it } from "vitest";
 
 import {
   isEmbeddedBrowserLayerOccluded,
+  isEmbeddedBrowserSurfaceOccluded,
   rectanglesOverlap
 } from "@/features/mermaid-editor/lib/embedded-browser-visibility";
 
@@ -35,4 +38,50 @@ describe("embedded browser visibility", () => {
   it("treats touching edges as non-overlapping", () => {
     expect(rectanglesOverlap(browserRect, { left: 700, top: 100, right: 900, bottom: 600 })).toBe(false);
   });
+
+  it("hides the native surface for an overlapping overlay owned by its window", () => {
+    const owner = elementWithRect("div", browserRect);
+    owner.dataset.floatingPanelKind = "workspace";
+    owner.dataset.overlayScopeId = "workspace:browser";
+    owner.style.zIndex = "2";
+    const surface = elementWithRect("div", browserRect);
+    const overlay = elementWithRect("div", { left: 500, top: 120, right: 760, bottom: 360 });
+    overlay.dataset.overlayLayer = "dropdown";
+    overlay.dataset.overlayScopeId = "workspace:browser";
+    owner.append(surface, overlay);
+    document.body.append(owner);
+
+    expect(isEmbeddedBrowserSurfaceOccluded(surface)).toBe(true);
+    owner.remove();
+  });
+
+  it("keeps the native surface visible below a non-overlapping global overlay", () => {
+    const owner = elementWithRect("div", browserRect);
+    owner.dataset.floatingPanelKind = "workspace";
+    owner.dataset.overlayScopeId = "workspace:browser";
+    owner.style.zIndex = "2";
+    const surface = elementWithRect("div", browserRect);
+    const overlay = elementWithRect("div", { left: 720, top: 100, right: 900, bottom: 300 });
+    overlay.dataset.overlayLayer = "dropdown";
+    overlay.dataset.overlayScopeId = "application";
+    owner.append(surface);
+    document.body.append(owner, overlay);
+
+    expect(isEmbeddedBrowserSurfaceOccluded(surface)).toBe(false);
+    owner.remove();
+    overlay.remove();
+  });
 });
+
+function elementWithRect(tag: "div", rect: { left: number; top: number; right: number; bottom: number }) {
+  const element = document.createElement(tag);
+  element.getBoundingClientRect = () => ({
+    ...rect,
+    x: rect.left,
+    y: rect.top,
+    width: rect.right - rect.left,
+    height: rect.bottom - rect.top,
+    toJSON: () => undefined
+  });
+  return element;
+}

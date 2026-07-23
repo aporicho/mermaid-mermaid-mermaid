@@ -40,10 +40,12 @@ export function FileDropFeedbackBadge({ feedback }: { feedback: FileDropFeedback
   return (
     <div
       className={cn(
-        "editor-ui-surface type-interface-status pointer-events-none absolute z-30 -translate-x-1/2 -translate-y-1/2 px-3 py-2",
+        "editor-ui-surface type-interface-status pointer-events-none absolute z-[3] -translate-x-1/2 -translate-y-1/2 px-3 py-2",
         feedback.tone === "blocked" ? "border-destructive/30 text-destructive" : "border-border text-foreground"
       )}
       style={style}
+      data-overlay-layer="feedback"
+      data-overlay-scope-id="application"
     >
       {feedback.message}
     </div>
@@ -60,6 +62,8 @@ export function FileWorkflowErrorBanner({ error, onClose }: { error: FileWorkflo
       actions={<EditorIconButton context="inline" tone="danger" label="关闭文件错误提示" onClick={onClose}><Xmark /></EditorIconButton>}
       className="fixed left-1/2 top-14 w-[min(520px,calc(100vw-24px))] -translate-x-1/2"
       style={{ zIndex: OVERLAY_Z_INDEX.banner }}
+      data-overlay-layer="banner"
+      data-overlay-scope-id="application"
     />
   );
 }
