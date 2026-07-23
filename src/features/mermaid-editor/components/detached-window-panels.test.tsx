@@ -18,7 +18,7 @@ vi.mock("@/features/mermaid-editor/components/workspace-panel-controls", () => (
   WorkspacePanelControls: () => null
 }));
 
-describe("MarkdownWindowPanel text scale", () => {
+describe("MarkdownWindowPanel", () => {
   let container: HTMLDivElement | null = null;
   let root: Root | null = null;
 
@@ -60,7 +60,44 @@ describe("MarkdownWindowPanel text scale", () => {
     expect(button("放大 Markdown 文字（当前 200%）").disabled).toBe(true);
   });
 
-  function renderPanel(textScale: number, onTextScaleChange: (value: number) => void) {
+  it("saves the detached Markdown document with Ctrl or Meta plus S", () => {
+    const onSave = vi.fn();
+    const globalKeyDown = vi.fn();
+    window.addEventListener("keydown", globalKeyDown);
+    renderPanel(1, vi.fn(), onSave);
+    const markdownPanel = container?.querySelector<HTMLElement>("[data-markdown-panel-scale]");
+    if (!markdownPanel) throw new Error("Missing Markdown panel.");
+
+    const ctrlSave = new KeyboardEvent("keydown", { key: "s", ctrlKey: true, bubbles: true, cancelable: true });
+    const metaSave = new KeyboardEvent("keydown", { key: "S", metaKey: true, bubbles: true, cancelable: true });
+    act(() => markdownPanel.dispatchEvent(ctrlSave));
+    act(() => markdownPanel.dispatchEvent(metaSave));
+
+    expect(onSave).toHaveBeenCalledTimes(2);
+    expect(globalKeyDown).not.toHaveBeenCalled();
+    expect(ctrlSave.defaultPrevented).toBe(true);
+    expect(metaSave.defaultPrevented).toBe(true);
+    window.removeEventListener("keydown", globalKeyDown);
+  });
+
+  it("leaves alternate save combinations for the global shortcut handler", () => {
+    const onSave = vi.fn();
+    renderPanel(1, vi.fn(), onSave);
+    const markdownPanel = container?.querySelector<HTMLElement>("[data-markdown-panel-scale]");
+    if (!markdownPanel) throw new Error("Missing Markdown panel.");
+
+    act(() => markdownPanel.dispatchEvent(new KeyboardEvent("keydown", {
+      key: "s",
+      ctrlKey: true,
+      shiftKey: true,
+      bubbles: true,
+      cancelable: true
+    })));
+
+    expect(onSave).not.toHaveBeenCalled();
+  });
+
+  function renderPanel(textScale: number, onTextScaleChange: (value: number) => void, onSave = vi.fn()) {
     act(() => {
       root?.render(createElement(TooltipProvider, {
         delayDuration: 0,
@@ -74,7 +111,7 @@ describe("MarkdownWindowPanel text scale", () => {
           windowState: "normal",
           onWindowStateChange: vi.fn(),
           onClose: vi.fn(),
-          onSave: vi.fn(),
+          onSave,
           onTextScaleChange,
           onChange: vi.fn()
         })

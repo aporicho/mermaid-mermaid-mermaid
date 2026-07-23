@@ -1,3 +1,4 @@
+import type { KeyboardEvent } from "react";
 import { FloppyDisk, Text, Xmark, ZoomIn, ZoomOut } from "iconoir-react/regular";
 
 import { EditorIconButton, EditorPanelHeader } from "@/features/mermaid-editor/components/editor-ui";
@@ -43,8 +44,25 @@ export function MarkdownWindowPanel({
 }) {
   const normalizedTextScale = clampMarkdownTextScale(textScale);
   const textScalePercent = markdownTextScalePercent(normalizedTextScale);
+
+  function handleKeyDown(event: KeyboardEvent<HTMLElement>) {
+    if (
+      event.key.toLowerCase() !== "s"
+      || (!event.ctrlKey && !event.metaKey)
+      || event.shiftKey
+      || event.altKey
+    ) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    onSave();
+  }
+
   return (
-    <section className="flex h-full min-h-0 flex-col bg-card/[var(--ui-surface-opacity)]">
+    <section
+      className="flex h-full min-h-0 flex-col bg-card/[var(--ui-surface-opacity)]"
+      onKeyDownCapture={handleKeyDown}
+    >
       <EditorPanelHeader
         icon={<Text className="editor-ui-icon shrink-0 text-icon" />}
         title={<span className="flex min-w-0 items-center gap-1" title={path || title}><span className="truncate">{title}</span>{dirty ? <span className="size-1.5 shrink-0 bg-foreground/60" aria-hidden /> : null}</span>}
