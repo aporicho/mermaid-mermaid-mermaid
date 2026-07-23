@@ -22,6 +22,7 @@ import { useMarkdownDocumentPreviews } from "@/features/mermaid-editor/component
 import { useLinkedProjectDocuments } from "@/features/mermaid-editor/components/mermaid-editor/use-linked-project-documents";
 import { useMarkdownFoldPersistence } from "@/features/mermaid-editor/components/mermaid-editor/use-markdown-fold-persistence";
 import { useProjectFileActions } from "@/features/mermaid-editor/components/mermaid-editor/use-project-file-actions";
+import { useProjectFileHotReload } from "@/features/mermaid-editor/components/mermaid-editor/use-project-file-hot-reload";
 import { createMarkdownDocumentDropHandlers } from "@/features/mermaid-editor/components/mermaid-editor/markdown-document-drop";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { loadInitialState } from "@/features/mermaid-editor/lib/editor-state";
@@ -92,23 +93,14 @@ export function MermaidEditor() {
     setProjectBusy,
     lastSavedDocument,
     setLastSavedDocument,
-    documentGenerationRef, beginDocumentSession,
-    imageDisplaySrcBySrc,
-    currentDocument,
-    previewSource,
-    hiddenViewFilters,
-    projectFiles,
-    terminalCwd,
-    isDirty,
-    isCanvasEditable,
-    canvasViewTooltip
+    documentGenerationRef, beginDocumentSession, refreshImageAssets,
+    imageDisplaySrcBySrc, currentDocument, previewSource,
+    hiddenViewFilters, projectFiles, terminalCwd,
+    isDirty, isCanvasEditable, canvasViewTooltip
   } = useEditorDocumentModel({ initial, runtime });
   const { explorerTreeState, setExplorerTreeState, activeExplorerTreeState, updateExplorerTreeState } = useEditorExplorerTreeModel({ initialState: initial.explorerTreeState, projectWorkspace });
-  const {
-    previewByNodeId: markdownDocumentPreviewByNodeId,
-    requestPreview: requestMarkdownDocumentPreview,
-    updatePreviewFromText: updateMarkdownDocumentPreviewFromText
-  } = useMarkdownDocumentPreviews({ runtime, fileRef, projectWorkspace });
+  const { previewByNodeId: markdownDocumentPreviewByNodeId, requestPreview: requestMarkdownDocumentPreview,
+    updatePreviewFromText: updateMarkdownDocumentPreviewFromText, markPreviewMissing: markMarkdownDocumentPreviewMissing } = useMarkdownDocumentPreviews({ runtime, fileRef, projectWorkspace });
   const {
     status,
     setStatus,
@@ -276,7 +268,7 @@ export function MermaidEditor() {
   const showCsvFileWorkflowError = useCallback((error: unknown, message = "CSV 文件操作失败。") => {
     setFileWorkflowError(normalizeFileWorkflowError(error, message));
   }, [setFileWorkflowError]);
-  const { flushPendingWrites: flushLinkedFileWrites, discardPendingWrites: discardLinkedFileWrites } = useCsvTableFileSync({ runtime, graph, setGraph, fileRef, projectWorkspace, documentGenerationRef, layoutMode, nodeGeometrySpec: canvasNodeGeometrySpec, showFileWorkflowError: showCsvFileWorkflowError });
+  const { flushPendingWrites: flushLinkedFileWrites, discardPendingWrites: discardLinkedFileWrites, reloadExternalFiles: reloadExternalCsvFiles } = useCsvTableFileSync({ runtime, graph, setGraph, fileRef, projectWorkspace, documentGenerationRef, layoutMode, nodeGeometrySpec: canvasNodeGeometrySpec, showFileWorkflowError: showCsvFileWorkflowError });
   const {
     showFileWorkflowError,
     resolveUnsavedPrompt,
@@ -431,6 +423,13 @@ export function MermaidEditor() {
     applyEditorCommand,
     recordRecentAction,
     onMarkdownFileSaved: updateMarkdownDocumentPreviewFromText
+  });
+  useProjectFileHotReload({ runtime, projectWorkspace, fileRef, currentDocumentRef,
+    detachedMarkdownWindows, setDetachedMarkdownWindows, setFileRef, setStatus,
+    applyLoadedDocument, refreshProjectWorkspace, discardLinkedFileWrites, reloadExternalCsvFiles,
+    updateMarkdownPreviewFromText: updateMarkdownDocumentPreviewFromText,
+    markMarkdownPreviewMissing: markMarkdownDocumentPreviewMissing,
+    refreshImageAssets, showFileWorkflowError
   });
   useEditorAiCommands({
     nodeGeometrySpec: canvasNodeGeometrySpec,

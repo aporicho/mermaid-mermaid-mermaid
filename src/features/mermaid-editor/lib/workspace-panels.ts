@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import type { DocumentKind } from "@/features/mermaid-editor/lib/document-kind";
 import type { RuntimeFileRef } from "@/features/mermaid-editor/lib/editor-runtime";
@@ -20,6 +20,7 @@ export type DetachedMarkdownWindow = {
   title: string;
   value: string;
   savedValue: string;
+  missing?: boolean;
 };
 
 export const MARKDOWN_WINDOW_A4_SIZE = { width: 1050, height: 1485 } as const;
@@ -95,7 +96,22 @@ export function useWorkspacePanels({
   }, []);
 
   const setWorkspacePanelWindowState = useCallback((panelId: WorkspaceFloatingPanelId, state: FloatingPanelWindowState) => {
-    setWorkspacePanelWindowStates((current) => ({ ...current, [panelId]: state }));
+    const nextState = state === "fullscreen" && panelId !== "terminal" && !panelId.startsWith("markdown:") ? "normal" : state;
+    setWorkspacePanelWindowStates((current) => nextState === "fullscreen"
+      ? Object.fromEntries([...Object.keys(current), panelId].map((id) => [id, id === panelId ? "fullscreen" : "normal"]))
+      : { ...current, [panelId]: nextState });
+  }, []);
+
+  useEffect(() => {
+    function exitFloatingPanelFullscreen(event: KeyboardEvent) {
+      if (event.key !== "Escape") return;
+      setWorkspacePanelWindowStates((current) => {
+        if (!Object.values(current).includes("fullscreen")) return current;
+        return Object.fromEntries(Object.entries(current).map(([id, state]) => [id, state === "fullscreen" ? "normal" : state]));
+      });
+    }
+    window.addEventListener("keydown", exitFloatingPanelFullscreen);
+    return () => window.removeEventListener("keydown", exitFloatingPanelFullscreen);
   }, []);
 
   const removeWorkspacePanel = useCallback((panelId: WorkspaceFloatingPanelId) => {

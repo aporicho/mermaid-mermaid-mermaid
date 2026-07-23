@@ -89,6 +89,7 @@ describe("FloatingPanel", () => {
                   title="测试面板"
                   actions={
                     <WorkspacePanelControls
+                      allowFullscreen
                       leadingActions={leadingActions}
                       windowState="normal"
                       onWindowStateChange={() => undefined}
@@ -210,7 +211,7 @@ describe("FloatingPanel", () => {
     });
     const leadingAction = requiredElement<HTMLButtonElement>("[data-testid='leading-action']");
     const pinButton = panel.titlebarButton("固定标题栏");
-    const maximizeButton = panel.titlebarButton("最大化");
+    const maximizeButton = panel.titlebarButton("全屏");
     const closeButton = panel.titlebarButton("关闭测试面板");
     const controlGroup = leadingAction.parentElement;
 

@@ -3,7 +3,6 @@ import { describe, expect, it } from "vitest";
 import {
   FLOATING_CHROME_HIDE_DELAY_MS,
   FLOATING_PANEL_EDGE_MARGIN_PX,
-  FLOATING_PANEL_MAXIMIZED_TOP_INSET_PX,
   FLOATING_POPOVER_PANEL_Z_INDEX,
   FLOATING_WORKSPACE_PANEL_BASE_Z_INDEX,
   bringFloatingPanelToFront,
@@ -14,7 +13,7 @@ import {
   floatingPanelHiddenOffset,
   floatingPanelZIndex,
   fitFloatingPanelFrameToViewport,
-  maximizedFloatingPanelFrame,
+  fullscreenFloatingPanelFrame,
   resizeFloatingPanelFrame,
   restoreFloatingPanelFrame,
   shouldDragFloatingPanel,
@@ -133,12 +132,12 @@ describe("floating chrome", () => {
     ).toEqual({ x: 240, y: 160, width: 320, height: 220 });
   });
 
-  it("builds a maximized panel frame with a protected top inset", () => {
-    expect(maximizedFloatingPanelFrame({ viewport: { width: 1000, height: 720 } })).toEqual({
-      x: FLOATING_PANEL_EDGE_MARGIN_PX,
-      y: FLOATING_PANEL_MAXIMIZED_TOP_INSET_PX,
-      width: 1000 - FLOATING_PANEL_EDGE_MARGIN_PX * 2,
-      height: 720 - FLOATING_PANEL_MAXIMIZED_TOP_INSET_PX - FLOATING_PANEL_EDGE_MARGIN_PX
+  it("builds a true fullscreen panel frame", () => {
+    expect(fullscreenFloatingPanelFrame({ viewport: { width: 1000, height: 720 } })).toEqual({
+      x: 0,
+      y: 0,
+      width: 1000,
+      height: 720
     });
   });
 

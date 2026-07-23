@@ -59,7 +59,7 @@ import { DEFAULT_VIEW_FILTERS, normalizeViewFilters, type ViewFilters } from "@/
 import { workspaceViewForDocument, type WorkspaceView } from "@/features/mermaid-editor/lib/workspace-view";
 import type { NodeGeometrySpec } from "@/features/mermaid-editor/lib/node-geometry";
 
-type FileOpenSource = "picker" | "recent" | "project" | "drop" | "external" | "restore";
+type FileOpenSource = "picker" | "recent" | "project" | "drop" | "external" | "restore" | "watch";
 type StateSetter<T> = Dispatch<SetStateAction<T>>;
 
 type UseEditorDocumentLifecycleArgs = {
@@ -172,9 +172,9 @@ export function useEditorDocumentLifecycle({
       isDirtyRef.current = false;
       setRecentFiles((current) => upsertRecentFile(current, file));
       setFileWorkflowError(null);
-      setStatus(`已打开 ${name}。`);
-      recordRecentAction(source === "restore" ? "document.restore" : "document.open", { kind: "document" }, `打开 ${name}。`);
-      if (source !== "restore") void syncWorkspaceForOpenedFile(file);
+      setStatus(source === "watch" ? `已从磁盘刷新 ${name}。` : `已打开 ${name}。`);
+      if (source !== "watch") recordRecentAction(source === "restore" ? "document.restore" : "document.open", { kind: "document" }, `打开 ${name}。`);
+      if (source !== "restore" && source !== "watch") void syncWorkspaceForOpenedFile(file);
       return;
     }
 
@@ -201,9 +201,9 @@ export function useEditorDocumentLifecycle({
       isDirtyRef.current = false;
       setRecentFiles((current) => upsertRecentFile(current, file));
       setFileWorkflowError(null);
-      setStatus(`已打开 ${name}。`);
-      recordRecentAction(source === "restore" ? "document.restore" : "document.open", { kind: "document" }, `打开 ${name}。`);
-      if (source !== "restore") void syncWorkspaceForOpenedFile(file);
+      setStatus(source === "watch" ? `已从磁盘刷新 ${name}。` : `已打开 ${name}。`);
+      if (source !== "watch") recordRecentAction(source === "restore" ? "document.restore" : "document.open", { kind: "document" }, `打开 ${name}。`);
+      if (source !== "restore" && source !== "watch") void syncWorkspaceForOpenedFile(file);
       return;
     }
 
@@ -233,9 +233,11 @@ export function useEditorDocumentLifecycle({
     isDirtyRef.current = false;
     setRecentFiles((current) => upsertRecentFile(current, file));
     setFileWorkflowError(null);
-    setStatus(loaded.editableKind === "flowchart" ? `已打开 ${name}。` : `已打开 ${name}，当前类型仅渲染。`);
-    recordRecentAction(source === "restore" ? "document.restore" : "document.open", { kind: "document" }, `打开 ${name}。`);
-    if (source !== "restore") void syncWorkspaceForOpenedFile(file);
+    setStatus(source === "watch"
+      ? `已从磁盘刷新 ${name}。`
+      : loaded.editableKind === "flowchart" ? `已打开 ${name}。` : `已打开 ${name}，当前类型仅渲染。`);
+    if (source !== "watch") recordRecentAction(source === "restore" ? "document.restore" : "document.open", { kind: "document" }, `打开 ${name}。`);
+    if (source !== "restore" && source !== "watch") void syncWorkspaceForOpenedFile(file);
   }
 
   function applyStoredEditorState(stored: StoredEditor): StoredEditorApplyResult {

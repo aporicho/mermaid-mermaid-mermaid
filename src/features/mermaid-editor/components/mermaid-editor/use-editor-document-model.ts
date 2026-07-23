@@ -62,10 +62,15 @@ export function useEditorDocumentModel({ initial, runtime }: UseEditorDocumentMo
   const [projectBusy, setProjectBusy] = useState(false);
   const [lastSavedDocument, setLastSavedDocument] = useState(initial.lastSavedDocument);
   const [imageDisplaySrcBySrc, setImageDisplaySrcBySrc] = useState<Record<string, string>>({});
+  const [imageAssetRevision, setImageAssetRevision] = useState(0);
   const documentGenerationRef = useRef(0);
 
   function beginDocumentSession() {
     documentGenerationRef.current += 1;
+  }
+
+  function refreshImageAssets() {
+    setImageAssetRevision((current) => current + 1);
   }
 
   const currentDocument = useMemo(
@@ -107,7 +112,11 @@ export function useEditorDocumentModel({ initial, runtime }: UseEditorDocumentMo
     void Promise.all(
       assetSources.map(async (src) => {
         try {
-          return [src, await runtime.resolveImageAssetSrc(fileRef, src)] as const;
+          const displaySrc = await runtime.resolveImageAssetSrc(fileRef, src);
+          const revisionedSrc = imageAssetRevision > 0 && displaySrc.startsWith("mmm-asset:")
+            ? `${displaySrc}${displaySrc.includes("?") ? "&" : "?"}revision=${imageAssetRevision}`
+            : displaySrc;
+          return [src, revisionedSrc] as const;
         } catch {
           return [src, src] as const;
         }
@@ -119,7 +128,7 @@ export function useEditorDocumentModel({ initial, runtime }: UseEditorDocumentMo
     return () => {
       disposed = true;
     };
-  }, [fileRef, graph.nodes, runtime]);
+  }, [fileRef, graph.nodes, imageAssetRevision, runtime]);
 
   return {
     documentKind,
@@ -174,6 +183,7 @@ export function useEditorDocumentModel({ initial, runtime }: UseEditorDocumentMo
     setLastSavedDocument,
     documentGenerationRef,
     beginDocumentSession,
+    refreshImageAssets,
     imageDisplaySrcBySrc,
     currentDocument,
     previewSource,

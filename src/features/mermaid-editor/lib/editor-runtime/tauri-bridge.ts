@@ -1,6 +1,8 @@
 export type TauriCurrentWindow = {
   startDragging: () => Promise<void>;
   toggleMaximize: () => Promise<void>;
+  isFullscreen: () => Promise<boolean>;
+  setFullscreen: (fullscreen: boolean) => Promise<void>;
   minimize: () => Promise<void>;
   close: () => Promise<void>;
   destroy: () => Promise<void>;

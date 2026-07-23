@@ -6,6 +6,8 @@ import type { EmbeddedBrowserLogicalRect } from "@/features/mermaid-editor/lib/e
 import type { RuntimeLinkPreviewRequest, RuntimeLinkPreviewResult } from "@/features/mermaid-editor/lib/editor-runtime/link-preview-types";
 import type { RuntimeCsvFileOperations } from "@/features/mermaid-editor/lib/editor-runtime/csv-file-types";
 import type { RuntimeCreateProjectFileRequest, RuntimeCreateProjectFileResult, RuntimeMoveProjectFileRequest, RuntimeMoveProjectFileResult } from "@/features/mermaid-editor/lib/editor-runtime/project-file-types";
+import type { RuntimeDesktopWindowOperations } from "@/features/mermaid-editor/lib/editor-runtime/desktop-window-types";
+import type { RuntimeProjectFileWatchOperations } from "@/features/mermaid-editor/lib/editor-runtime/project-file-watch-types";
 import type { ProjectWorkspace } from "@/features/mermaid-editor/lib/project-workspace";
 export type { RuntimeLinkPreviewRequest, RuntimeLinkPreviewResult } from "@/features/mermaid-editor/lib/editor-runtime/link-preview-types";
 
@@ -136,8 +138,6 @@ export type RuntimeProjectFolderResult =
       message: string;
     };
 
-export type RuntimeDesktopWindowAction = "minimize" | "toggleMaximize" | "close";
-
 export type RuntimeEmbeddedBrowserHandle = {
   close: () => Promise<void>;
   hide: () => Promise<void>;
@@ -175,15 +175,10 @@ export type RuntimeBrowserToolWindowResult =
 
 export type EditorRuntimeHost = "web" | "tauri" | "electron";
 
-export type EditorRuntime = RuntimeCsvFileOperations & import("@/features/mermaid-editor/lib/editor-runtime/markdown-fold-types").RuntimeMarkdownFoldOperations & {
+export type EditorRuntime = RuntimeCsvFileOperations & RuntimeDesktopWindowOperations & RuntimeProjectFileWatchOperations & import("@/features/mermaid-editor/lib/editor-runtime/markdown-fold-types").RuntimeMarkdownFoldOperations & {
   kind: "web" | "desktop";
   host: EditorRuntimeHost;
   openExternalUrl: (url: string) => void;
-  isDesktopWindowAvailable: () => boolean;
-  startDesktopWindowDrag: () => Promise<void>;
-  toggleDesktopWindowMaximize: () => Promise<void>;
-  runDesktopWindowAction: (action: RuntimeDesktopWindowAction) => Promise<void>;
-  listenForDesktopWindowCloseRequest: (handler: () => boolean | Promise<boolean>) => Promise<() => void>;
   createEmbeddedBrowser: (request: {
     label: string;
     url: string;

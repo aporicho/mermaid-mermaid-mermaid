@@ -28,7 +28,7 @@ export function FloatingPanel({
   resizable,
   minSize,
   defaultSize,
-  maximizable,
+  fullscreenable,
   windowState = "normal",
   onWindowStateChange,
   panelId,
@@ -49,7 +49,7 @@ export function FloatingPanel({
   resizable?: boolean;
   minSize?: FloatingPanelSize;
   defaultSize?: FloatingPanelSize;
-  maximizable?: boolean;
+  fullscreenable?: boolean;
   windowState?: FloatingPanelWindowState;
   onWindowStateChange?: (state: FloatingPanelWindowState) => void;
   panelId?: string;
@@ -71,7 +71,7 @@ export function FloatingPanel({
     resizable,
     minSize,
     defaultSize,
-    maximizable,
+    fullscreenable,
     windowState,
     onWindowStateChange,
     stackIndex,
@@ -115,6 +115,7 @@ export function FloatingPanel({
             kind !== "workspace" && "will-change-transform",
             floatingPanelSurfaceClass[kind],
             panel.framePanel && "h-full w-full",
+            panel.fullscreen && "!rounded-none !border-0 !shadow-none",
             kind === "workspace" && active && "border-foreground/20",
             kind === "workspace" && !active && "border-border/80",
             open ? "pointer-events-auto" : "pointer-events-none",
@@ -136,7 +137,7 @@ export function FloatingPanel({
             ) : null}
             {children}
           </WorkspacePanelHeaderProvider>
-          {panel.framePanel && panel.resizablePanel && !panel.maximized ? (
+          {panel.framePanel && panel.resizablePanel && !panel.fullscreen ? (
             <div aria-hidden data-floating-panel-drag-exclude>
               {FLOATING_PANEL_RESIZE_HANDLES.map((handle) => (
                 <div

@@ -77,7 +77,7 @@ describe("ExplorerPanel", () => {
     const header = container.querySelector("header");
     const labels = [...(header?.querySelectorAll<HTMLButtonElement>("button") ?? [])]
       .map((button) => button.getAttribute("aria-label"));
-    expect(labels).toEqual(["打开文件夹", "新建文件", "刷新文件夹", "最大化", "关闭资源管理器"]);
+    expect(labels).toEqual(["打开文件夹", "新建文件", "刷新文件夹", "关闭资源管理器"]);
     expect(container.querySelector('button[aria-label="关闭文件夹"]')).toBeNull();
 
     act(() => container.querySelector<HTMLButtonElement>('button[aria-label="打开文件夹"]')?.click());

@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Maximize, Pin, PinSlash } from "iconoir-react/regular";
+import { Collapse, Expand, Pin, PinSlash } from "iconoir-react/regular";
 
 import { EditorIconButton } from "@/features/mermaid-editor/components/editor-ui";
 import { useWorkspacePanelHeader } from "@/features/mermaid-editor/components/floating-chrome/workspace-panel-header-context";
@@ -7,6 +7,7 @@ import type { FloatingPanelWindowState } from "@/features/mermaid-editor/lib/flo
 
 export function WorkspacePanelControls({
   leadingActions,
+  allowFullscreen = false,
   windowState,
   onWindowStateChange,
   onClose,
@@ -15,6 +16,7 @@ export function WorkspacePanelControls({
   closeIcon
 }: {
   leadingActions?: ReactNode;
+  allowFullscreen?: boolean;
   windowState: FloatingPanelWindowState;
   onWindowStateChange: (state: FloatingPanelWindowState) => void;
   onClose: () => void;
@@ -22,7 +24,7 @@ export function WorkspacePanelControls({
   closeTooltipSide: "top" | "right" | "bottom" | "left";
   closeIcon: ReactNode;
 }) {
-  const maximized = windowState === "maximized";
+  const fullscreen = windowState === "fullscreen";
   const workspaceHeader = useWorkspacePanelHeader();
 
   return (
@@ -40,14 +42,16 @@ export function WorkspacePanelControls({
           {workspaceHeader.autoHide ? <Pin /> : <PinSlash />}
         </EditorIconButton>
       ) : null}
-      <EditorIconButton
-        context="panel"
-        label={maximized ? "还原" : "最大化"}
-        tooltipSide={closeTooltipSide}
-        onClick={() => onWindowStateChange(maximized ? "normal" : "maximized")}
-      >
-        <Maximize />
-      </EditorIconButton>
+      {allowFullscreen ? (
+        <EditorIconButton
+          context="panel"
+          label={fullscreen ? "退出全屏" : "全屏"}
+          tooltipSide={closeTooltipSide}
+          onClick={() => onWindowStateChange(fullscreen ? "normal" : "fullscreen")}
+        >
+          {fullscreen ? <Collapse /> : <Expand />}
+        </EditorIconButton>
+      ) : null}
       <EditorIconButton context="panel" label={closeLabel} tooltipSide={closeTooltipSide} onClick={onClose}>
         {closeIcon}
       </EditorIconButton>

@@ -27,7 +27,7 @@ import type { FileDropFeedback } from "@/features/mermaid-editor/components/file
 import type { UnsavedPromptChoice } from "@/features/mermaid-editor/lib/desktop-close-workflow";
 import type { NodeGeometrySpec } from "@/features/mermaid-editor/lib/node-geometry";
 
-export type FileOpenSource = "picker" | "recent" | "project" | "drop" | "external" | "restore";
+export type FileOpenSource = "picker" | "recent" | "project" | "drop" | "external" | "restore" | "watch";
 
 export type UnsavedPromptState = {
   title: string;

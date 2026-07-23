@@ -16,7 +16,6 @@ export type {
   EditorRuntimeHost,
   EditorRuntime,
   RuntimeBrowserToolWindowResult,
-  RuntimeDesktopWindowAction,
   RuntimeEmbeddedBrowserHandle,
   RuntimeEmbeddedBrowserResult,
   RuntimeFileDropRequest,
@@ -35,6 +34,8 @@ export type {
   RuntimeTerminalSession,
   RuntimeTerminalShellOption
 } from "@/features/mermaid-editor/lib/editor-runtime/types";
+export type { RuntimeDesktopWindowAction } from "@/features/mermaid-editor/lib/editor-runtime/desktop-window-types";
+export type { RuntimeProjectFileChange, RuntimeProjectFileChangeBatch, RuntimeProjectFileWatchTargets } from "@/features/mermaid-editor/lib/editor-runtime/project-file-watch-types";
 export type {
   RuntimeCreateProjectFileRequest,
   RuntimeCreateProjectFileResult,
@@ -52,7 +53,6 @@ export type {
 } from "@/features/mermaid-editor/lib/editor-runtime/csv-file-types";
 export type { RuntimeMarkdownFoldMoveResult, RuntimeMarkdownFoldOperations, RuntimeMarkdownFoldReadResult, RuntimeMarkdownFoldRequest, RuntimeMarkdownFoldWriteResult } from "@/features/mermaid-editor/lib/editor-runtime/markdown-fold-types";
 export { MAX_RUNTIME_CSV_FILE_BYTES } from "@/features/mermaid-editor/lib/editor-runtime/csv-file-types";
-
 export function createEditorRuntime(): EditorRuntime {
   if (isElectronRuntime()) return createElectronRuntime();
   return isTauriRuntime() ? createDesktopRuntime() : createWebRuntime();

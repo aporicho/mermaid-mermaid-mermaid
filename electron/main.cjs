@@ -22,8 +22,10 @@ const {
 } = require("./markdown-fold-store.cjs");
 const { createTerminalManager } = require("./terminal.cjs");
 const { listSystemFonts } = require("./system-fonts.cjs");
+const { createProjectFileWatcher } = require("./project-file-watcher.cjs");
 const { scanProjectFolder: scanProjectFolderSnapshot } = require("./project-workspace.cjs");
 const { createWindowFileRouter } = require("./window-file-router.cjs");
+const { attachWindowFullscreenEvents, registerWindowFullscreenIpc } = require("./window-fullscreen.cjs");
 const BROWSER_TOOL_WINDOW_KIND = "browser-tool";
 const BROWSER_TOOL_WINDOW_PARAM = "mmmWindow";
 const DEV_SERVER_URL = process.env.MMM_ELECTRON_DEV_SERVER_URL || "";
@@ -51,6 +53,11 @@ const terminalManager = createTerminalManager({
     for (const window of BrowserWindow.getAllWindows()) {
       if (!window.isDestroyed()) window.webContents.send(`mmm:${channel}`, payload);
     }
+  }
+});
+const projectFileWatcher = createProjectFileWatcher({
+  send(webContents, payload) {
+    webContents.send("mmm:project-files:changed", payload);
   }
 });
 // Keep one Electron main process for shared services, but allow every launch request to create its own editor window.
@@ -107,6 +114,7 @@ app.on("window-all-closed", () => {
 app.on("before-quit", () => {
   terminalManager.closeAll();
   void aiBridge.close();
+  void projectFileWatcher.closeAll();
 });
 
 function createMainWindow(openFiles = []) {
@@ -217,6 +225,8 @@ function registerIpc() {
     else window.maximize();
   });
 
+  registerWindowFullscreenIpc({ ipcMain, BrowserWindow });
+
   ipcMain.handle("mmm:window:action", (event, action) => {
     const window = BrowserWindow.fromWebContents(event.sender);
     if (!window) return;
@@ -279,6 +289,7 @@ function registerIpc() {
   ipcMain.handle("mmm:terminal:close", (_event, sessionId) => terminalManager.close(sessionId));
   ipcMain.handle("mmm:project:open-folder", (event) => openProjectFolderDialog(BrowserWindow.fromWebContents(event.sender)));
   ipcMain.handle("mmm:project:read-folder", (_event, rootPath) => scanProjectFolder(rootPath));
+  ipcMain.handle("mmm:project-watch:set", (event, request) => projectFileWatcher.setTargets(event.sender, request));
   ipcMain.handle("mmm:browser:create", (event, request) => createEmbeddedBrowser(event.sender, request));
   ipcMain.handle("mmm:browser:close", (_event, label) => closeEmbeddedBrowser(label));
   ipcMain.handle("mmm:browser:hide", (_event, label) => setEmbeddedBrowserVisible(label, false));
@@ -422,9 +433,11 @@ function attachWindowCloseGuard(window) {
 
 function attachWindowCleanup(window) {
   const webContentsId = window.webContents.id;
+  attachWindowFullscreenEvents(window);
   window.on("closed", () => {
     clearPendingClose(window.id);
     windowFileRouter.clear(webContentsId);
+    void projectFileWatcher.removeSubscriber(webContentsId);
     if (mainWindows.delete(window) && mainWindow === window) {
       mainWindow = [...mainWindows].at(-1) || null;
     }

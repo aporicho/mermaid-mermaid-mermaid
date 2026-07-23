@@ -11,7 +11,7 @@ import type {
 import type { ElectronImageAsset } from "@/features/mermaid-editor/lib/editor-runtime/electron-bridge";
 import { createElectronCsvFileOperations } from "@/features/mermaid-editor/lib/editor-runtime/electron-csv-file";
 import { createElectronMarkdownFoldOperations } from "@/features/mermaid-editor/lib/editor-runtime/electron-markdown-fold";
-
+import { createElectronRuntimeMonitoring } from "@/features/mermaid-editor/lib/editor-runtime/electron-runtime-monitoring";
 export function createElectronRuntime(): EditorRuntime {
   const bridge = getElectronBridge();
   const fallback = createWebRuntime();
@@ -21,7 +21,7 @@ export function createElectronRuntime(): EditorRuntime {
   return {
     ...fallback,
     ...createElectronCsvFileOperations(bridge),
-    ...createElectronMarkdownFoldOperations(bridge),
+    ...createElectronMarkdownFoldOperations(bridge), ...createElectronRuntimeMonitoring(bridge),
     kind: "desktop",
     host: "electron",
     openExternalUrl(url) {

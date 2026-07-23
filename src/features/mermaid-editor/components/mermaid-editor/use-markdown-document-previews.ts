@@ -104,10 +104,29 @@ export function useMarkdownDocumentPreviews({
     });
   }, []);
 
+  const markPreviewMissing = useCallback((path: string) => {
+    const pathKey = markdownDocumentReferenceKey(path);
+    const preview = {
+      status: "missing",
+      path,
+      excerpt: "",
+      message: "Markdown 文档已从磁盘移除。"
+    } satisfies MarkdownDocumentPreview;
+    cacheRef.current.set(pathKey, { signature: `${pathKey}:missing`, preview });
+    setPreviewByNodeId((current) => {
+      const next = { ...current };
+      for (const [nodeId, nodePathKey] of nodePathKeyRef.current) {
+        if (nodePathKey === pathKey) next[nodeId] = preview;
+      }
+      return next;
+    });
+  }, []);
+
   return {
     previewByNodeId,
     requestPreview,
-    updatePreviewFromText
+    updatePreviewFromText,
+    markPreviewMissing
   };
 }
 

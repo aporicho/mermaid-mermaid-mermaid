@@ -2,7 +2,6 @@ import { OVERLAY_Z_INDEX } from "@/lib/overlay-layers";
 
 export const FLOATING_CHROME_HIDE_DELAY_MS = 500;
 export const FLOATING_PANEL_EDGE_MARGIN_PX = 12;
-export const FLOATING_PANEL_MAXIMIZED_TOP_INSET_PX = 64;
 export const FLOATING_WORKSPACE_PANEL_BASE_Z_INDEX = OVERLAY_Z_INDEX.workspaceBase;
 export const FLOATING_POPOVER_PANEL_Z_INDEX = OVERLAY_Z_INDEX.floatingPopover;
 
@@ -42,7 +41,7 @@ export type FloatingPanelViewport = {
 
 export type FloatingPanelKind = "popover" | "workspace";
 export type FloatingPanelDismissMode = "outside" | "explicit";
-export type FloatingPanelWindowState = "normal" | "maximized";
+export type FloatingPanelWindowState = "normal" | "fullscreen";
 export type FloatingPanelResizeHandle = "n" | "ne" | "e" | "se" | "s" | "sw" | "w" | "nw";
 
 export const FLOATING_PANEL_HIDDEN_OFFSETS: Record<FloatingPanelPlacement, FloatingPanelOffset> = {
@@ -186,21 +185,16 @@ export function resizeFloatingPanelFrame({
   });
 }
 
-export function maximizedFloatingPanelFrame({
-  viewport,
-  topInset = FLOATING_PANEL_MAXIMIZED_TOP_INSET_PX
+export function fullscreenFloatingPanelFrame({
+  viewport
 }: {
   viewport: FloatingPanelViewport;
-  topInset?: number;
 }): FloatingPanelFrame {
-  const margin = viewport.margin ?? FLOATING_PANEL_EDGE_MARGIN_PX;
-  const top = Math.max(margin, topInset);
-
   return {
-    x: margin,
-    y: top,
-    width: Math.max(1, viewport.width - margin * 2),
-    height: Math.max(1, viewport.height - top - margin)
+    x: 0,
+    y: 0,
+    width: Math.max(1, viewport.width),
+    height: Math.max(1, viewport.height)
   };
 }
 

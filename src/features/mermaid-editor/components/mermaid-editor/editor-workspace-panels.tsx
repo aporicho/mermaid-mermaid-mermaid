@@ -131,7 +131,7 @@ export function EditorWorkspacePanels({
         onFocusPanel={() => bringWorkspacePanelToFront("explorer")}
         resetDragOnOpen={false}
         defaultSize={WORKSPACE_PANEL_DEFAULT_SIZES.explorer}
-        minSize={WORKSPACE_PANEL_MIN_SIZES.explorer}
+        minSize={WORKSPACE_PANEL_MIN_SIZES.explorer} fullscreenable={false}
         windowState={workspacePanelWindowState("explorer")}
         onWindowStateChange={(state) => setWorkspacePanelWindowState("explorer", state)}
         className={cn(EDITOR_CHROME_CLASSES.sidePanel, "relative h-full w-full")}
@@ -168,7 +168,7 @@ export function EditorWorkspacePanels({
         onFocusPanel={() => bringWorkspacePanelToFront("inspector")}
         resetDragOnOpen={false}
         defaultSize={WORKSPACE_PANEL_DEFAULT_SIZES.inspector}
-        minSize={WORKSPACE_PANEL_MIN_SIZES.inspector}
+        minSize={WORKSPACE_PANEL_MIN_SIZES.inspector} fullscreenable={false}
         windowState={workspacePanelWindowState("inspector")}
         onWindowStateChange={(state) => setWorkspacePanelWindowState("inspector", state)}
         className={cn(EDITOR_CHROME_CLASSES.sidePanel, "relative grid h-full w-full min-h-0")}
@@ -197,7 +197,7 @@ export function EditorWorkspacePanels({
         onFocusPanel={() => bringWorkspacePanelToFront("theme")}
         resetDragOnOpen={false}
         defaultSize={WORKSPACE_PANEL_DEFAULT_SIZES.theme}
-        minSize={WORKSPACE_PANEL_MIN_SIZES.theme}
+        minSize={WORKSPACE_PANEL_MIN_SIZES.theme} fullscreenable={false}
         windowState={workspacePanelWindowState("theme")}
         onWindowStateChange={(state) => setWorkspacePanelWindowState("theme", state)}
         className="grid h-full w-full min-h-0 overflow-hidden bg-card"
@@ -251,7 +251,7 @@ export function EditorWorkspacePanels({
           onStatus={onStatus}
           windowControls={
             <WorkspacePanelControls
-              windowState={workspacePanelWindowState("terminal")}
+              allowFullscreen windowState={workspacePanelWindowState("terminal")}
               onWindowStateChange={(state) => setWorkspacePanelWindowState("terminal", state)}
               onClose={() => closeWorkspacePanel("terminal")}
               closeLabel="关闭终端"

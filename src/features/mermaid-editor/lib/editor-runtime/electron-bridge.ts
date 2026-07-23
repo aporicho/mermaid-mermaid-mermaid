@@ -6,7 +6,6 @@ import type { AiEditorContext } from "@/features/mermaid-editor/lib/ai-context";
 import type {
   EditorDraftState,
   RuntimeBrowserToolWindowResult,
-  RuntimeDesktopWindowAction,
   RuntimeFileDropRequest,
   RuntimeFileOpenRequest,
   RuntimeLinkPreviewRequest,
@@ -17,6 +16,8 @@ import type {
   RuntimeTerminalOpenResult,
   RuntimeTerminalShellOption
 } from "@/features/mermaid-editor/lib/editor-runtime/types";
+import type { RuntimeDesktopWindowAction } from "@/features/mermaid-editor/lib/editor-runtime/desktop-window-types";
+import type { ElectronMonitoringBridge } from "@/features/mermaid-editor/lib/editor-runtime/electron-monitoring-bridge-types";
 import type { RuntimeCreateProjectFileRequest, RuntimeCreateProjectFileResult, RuntimeMoveProjectFileRequest, RuntimeMoveProjectFileResult } from "@/features/mermaid-editor/lib/editor-runtime/project-file-types";
 import type { ElectronMarkdownFoldBridge } from "@/features/mermaid-editor/lib/editor-runtime/electron-markdown-fold";
 import type { ProjectWorkspace } from "@/features/mermaid-editor/lib/project-workspace";
@@ -63,7 +64,7 @@ export type ElectronImageAsset = {
   copied?: boolean;
 };
 
-export type ElectronBridge = ElectronMarkdownFoldBridge & {
+export type ElectronBridge = ElectronMarkdownFoldBridge & ElectronMonitoringBridge & {
   host: "electron";
   openExternalUrl: (url: string) => Promise<void>;
   startWindowDrag: () => Promise<void>;

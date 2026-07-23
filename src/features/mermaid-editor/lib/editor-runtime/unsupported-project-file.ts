@@ -1,5 +1,6 @@
 import type { RuntimeCsvFileOperations } from "@/features/mermaid-editor/lib/editor-runtime/csv-file-types";
 import type { RuntimeMarkdownFoldOperations } from "@/features/mermaid-editor/lib/editor-runtime/markdown-fold-types";
+export { createUnsupportedRuntimeMonitoringOperations } from "@/features/mermaid-editor/lib/editor-runtime/unsupported-runtime-monitoring";
 
 export function createUnsupportedProjectFileOperations(hostLabel: string): RuntimeCsvFileOperations & RuntimeMarkdownFoldOperations {
   const unsupportedCsv = () => Promise.resolve({ status: "unsupported" as const, message: `${hostLabel}暂不支持项目 CSV 文件操作。` });

@@ -14,8 +14,10 @@ import {
   findMarkdownFoldTarget,
   markdownFolding,
   markdownFoldingProsePluginKey,
+  readMarkdownFoldSubtreeState,
   readMarkdownFoldSnapshot,
   restoreMarkdownFoldSnapshot,
+  setMarkdownFoldSubtree,
   toggleMarkdownFold,
   type MarkdownFoldKind
 } from "@/features/mermaid-editor/lib/markdown-folding";
@@ -197,6 +199,58 @@ describe("markdown hierarchy folding", () => {
     expect(view.state.doc.textContent).toBe("ParentChild oneChild twoSibling");
     expect(view.dom.querySelectorAll("li.markdown-fold-list-parent--collapsed")).toHaveLength(1);
     expect(markdownFoldingProsePluginKey.getState(view.state)?.collapsedListItems.has(target!.position)).toBe(true);
+  });
+
+  it("collapses and expands every foldable target inside one heading subtree", () => {
+    const outsideList = bulletList(listItem("Outside", bulletList(listItem("Outside child"))));
+    const view = createView(createDocument(
+      heading(1, "Root"),
+      paragraph("Body"),
+      heading(2, "Child"),
+      bulletList(listItem("Parent", bulletList(listItem("Nested", bulletList(listItem("Leaf")))))),
+      heading(1, "Sibling"),
+      outsideList
+    ));
+    const headings = collectHeadingFoldTargets(view.state.doc);
+    const lists = collectListFoldTargets(view.state.doc);
+    const root = headings.find((target) => target.label === "Root")!;
+    const sibling = headings.find((target) => target.label === "Sibling")!;
+    const outside = lists.find((target) => target.label === "Outside")!;
+
+    expect(readMarkdownFoldSubtreeState(view.state, { kind: "heading", position: root.position })).toEqual({
+      allCollapsed: false,
+      allExpanded: true,
+      targetCount: 4
+    });
+    expect(setMarkdownFoldSubtree(view, { kind: "heading", position: root.position }, true)).toBe(true);
+
+    const collapsed = markdownFoldingProsePluginKey.getState(view.state)!;
+    expect(collapsed.collapsedHeadings).toEqual(new Set([root.position, headings.find((target) => target.label === "Child")!.position]));
+    expect(collapsed.collapsedListItems.size).toBe(2);
+    expect(collapsed.collapsedHeadings.has(sibling.position)).toBe(false);
+    expect(collapsed.collapsedListItems.has(outside.position)).toBe(false);
+    expect(setMarkdownFoldSubtree(view, { kind: "heading", position: root.position }, true)).toBe(false);
+
+    expect(setMarkdownFoldSubtree(view, { kind: "heading", position: root.position }, false)).toBe(true);
+    const expanded = markdownFoldingProsePluginKey.getState(view.state)!;
+    expect(expanded.collapsedHeadings.size).toBe(0);
+    expect(expanded.collapsedListItems.size).toBe(0);
+  });
+
+  it("limits list subtree operations to the current list item", () => {
+    const view = createView(createDocument(bulletList(
+      listItem("First", bulletList(listItem("Child", bulletList(listItem("Grandchild"))))),
+      listItem("Second", bulletList(listItem("Second child")))
+    )));
+    const targets = collectListFoldTargets(view.state.doc);
+    const first = targets.find((target) => target.label === "First")!;
+    const child = targets.find((target) => target.label === "Child")!;
+    const second = targets.find((target) => target.label === "Second")!;
+
+    expect(setMarkdownFoldSubtree(view, { kind: "list-item", position: first.position }, true)).toBe(true);
+    const state = markdownFoldingProsePluginKey.getState(view.state)!;
+    expect(state.collapsedListItems).toEqual(new Set([first.position, child.position]));
+    expect(state.collapsedListItems.has(second.position)).toBe(false);
   });
 
   it("resolves the nearest foldable block without offering an ancestor on a leaf child", () => {

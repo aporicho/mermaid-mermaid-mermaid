@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import {
-  maximizedFloatingPanelFrame,
+  fullscreenFloatingPanelFrame,
   restoreFloatingPanelFrame,
   type FloatingPanelFrame,
   type FloatingPanelPlacement,
@@ -43,8 +43,8 @@ export function useFloatingPanelFrameState({
   );
   const normalFrameRef = useRef<FloatingPanelFrame | null>(null);
   const previousWindowStateRef = useRef<FloatingPanelWindowState>(windowState);
-  const maximized = framePanel && windowState === "maximized";
-  const renderedFrame = maximized ? maximizedFloatingPanelFrame({ viewport }) : panelFrame;
+  const fullscreen = framePanel && windowState === "fullscreen";
+  const renderedFrame = fullscreen ? fullscreenFloatingPanelFrame({ viewport }) : panelFrame;
 
   useEffect(() => {
     if (!framePanel || !open || !resetFrameOnOpen) return;
@@ -83,10 +83,10 @@ export function useFloatingPanelFrameState({
       return;
     }
     const previousWindowState = previousWindowStateRef.current;
-    if (windowState === "maximized" && previousWindowState !== "maximized") {
+    if (windowState === "fullscreen" && previousWindowState !== "fullscreen") {
       normalFrameRef.current = panelFrame;
     }
-    if (windowState === "normal" && previousWindowState === "maximized" && normalFrameRef.current) {
+    if (windowState === "normal" && previousWindowState === "fullscreen" && normalFrameRef.current) {
       setPanelFrame(
         restoreFloatingPanelFrame({
           frame: normalFrameRef.current,
@@ -104,6 +104,6 @@ export function useFloatingPanelFrameState({
     panelFrame,
     setPanelFrame,
     renderedFrame,
-    maximized
+    fullscreen
   };
 }

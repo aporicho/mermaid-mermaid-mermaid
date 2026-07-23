@@ -224,7 +224,51 @@ export function useCsvTableFileSync({
     await Promise.allSettled(reloads);
   }, [documentGenerationRef, fileRef?.path, projectWorkspace?.rootPath, runtime, setGraph, showFileWorkflowError]);
 
-  return { flushPendingWrites, discardPendingWrites };
+  const reloadExternalFiles = useCallback(async (paths: ReadonlySet<string> | readonly string[]) => {
+    const changedPaths = new Set(Array.from(paths, (filePath) => csvTableDocumentReferenceKey(filePath)));
+    if (!changedPaths.size || !aliveRef.current) return;
+    const context: CsvSyncContext = {
+      runtime,
+      setGraph,
+      rootPath: projectWorkspace?.rootPath || parentDirectoryPath(fileRef?.path),
+      bindingsRef,
+      retiredRef,
+      aliveRef,
+      graphRef,
+      documentGenerationRef,
+      layoutModeRef,
+      nodeGeometrySpecRef,
+      showFileWorkflowError
+    };
+
+    const reloads: Promise<void>[] = [];
+    for (const [nodeId, binding] of bindingsRef.current) {
+      if (!binding.file.path || !changedPaths.has(csvTableDocumentReferenceKey(binding.file.path))) continue;
+      reloads.push((async () => {
+        if (binding.pending) await binding.pending.catch(() => undefined);
+        if (!aliveRef.current || bindingsRef.current.get(nodeId) !== binding) return;
+
+        try {
+          const result = await runtime.readCsvFile({ rootPath: context.rootPath, file: runtimeFile(binding.file) });
+          if (result.status !== "unsupported" && result.snapshot.revision === binding.revision) return;
+        } catch {
+          // Let the normal loader surface missing or unreadable files on the node.
+        }
+
+        const node = graphRef.current.nodes.find((candidate) => candidate.id === nodeId);
+        if (!node || bindingsRef.current.get(nodeId) !== binding) return;
+        binding.blocked = false;
+        binding.blockReason = undefined;
+        binding.revision = undefined;
+        binding.savedText = undefined;
+        binding.desiredText = undefined;
+        await loadCsvNode(context, nodeId, binding, node.content, node.tablePresentation);
+      })());
+    }
+    await Promise.allSettled(reloads);
+  }, [documentGenerationRef, fileRef?.path, projectWorkspace?.rootPath, runtime, setGraph, showFileWorkflowError]);
+
+  return { flushPendingWrites, discardPendingWrites, reloadExternalFiles };
 
 }
 

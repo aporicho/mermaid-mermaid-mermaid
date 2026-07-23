@@ -1,9 +1,11 @@
 const { contextBridge, ipcRenderer, webUtils } = require("electron");
 const { createProjectPreloadBridge } = require("./project-preload.cjs");
+const { createWindowFullscreenPreloadBridge } = require("./window-fullscreen-preload.cjs");
 
 contextBridge.exposeInMainWorld("mmmElectron", {
   host: "electron",
   ...createProjectPreloadBridge(ipcRenderer),
+  ...createWindowFullscreenPreloadBridge(ipcRenderer),
   openExternalUrl(url) {
     return ipcRenderer.invoke("mmm:open-external-url", url);
   },
@@ -122,6 +124,14 @@ contextBridge.exposeInMainWorld("mmmElectron", {
   },
   readProjectFolder(rootPath) {
     return ipcRenderer.invoke("mmm:project:read-folder", rootPath);
+  },
+  setProjectFileWatchTargets(request) {
+    return ipcRenderer.invoke("mmm:project-watch:set", request);
+  },
+  onProjectFileChanges(handler) {
+    const listener = (_event, payload) => handler(payload);
+    ipcRenderer.on("mmm:project-files:changed", listener);
+    return () => ipcRenderer.removeListener("mmm:project-files:changed", listener);
   },
   createEmbeddedBrowser(request) {
     return ipcRenderer.invoke("mmm:browser:create", request);

@@ -22,7 +22,8 @@ import type {
 } from "@/features/mermaid-editor/lib/editor-runtime/types";
 import { runtimeFileRefFromPath } from "@/features/mermaid-editor/lib/file-workflow";
 import type { ProjectWorkspace } from "@/features/mermaid-editor/lib/project-workspace";
-import { createUnsupportedProjectFileOperations } from "@/features/mermaid-editor/lib/editor-runtime/unsupported-project-file";
+import { createUnsupportedProjectFileOperations, createUnsupportedRuntimeMonitoringOperations } from "@/features/mermaid-editor/lib/editor-runtime/unsupported-project-file";
+import { createTauriWindowFullscreenOperations } from "@/features/mermaid-editor/lib/editor-runtime/tauri-window-fullscreen";
 
 type DesktopOpenedFile = { name: string; path: string; text: string };
 type DesktopSavedFile = { name: string; path: string };
@@ -43,7 +44,7 @@ type AiNextCommandResponse = {
 };
 export function createDesktopRuntime(): EditorRuntime {
   return {
-    ...createUnsupportedProjectFileOperations("旧 Tauri 桌面壳"),
+    ...createUnsupportedProjectFileOperations("旧 Tauri 桌面壳"), ...createUnsupportedRuntimeMonitoringOperations(), ...createTauriWindowFullscreenOperations(),
     kind: "desktop",
     host: "tauri",
     openExternalUrl(url) {

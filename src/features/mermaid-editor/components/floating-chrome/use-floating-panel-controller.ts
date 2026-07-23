@@ -53,7 +53,7 @@ export type FloatingPanelControllerInput = {
   resizable?: boolean;
   minSize?: FloatingPanelSize;
   defaultSize?: FloatingPanelSize;
-  maximizable?: boolean;
+  fullscreenable?: boolean;
   windowState: FloatingPanelWindowState;
   onWindowStateChange?: (state: FloatingPanelWindowState) => void;
   stackIndex: number;
@@ -70,7 +70,7 @@ export function useFloatingPanelController({
   resizable,
   minSize,
   defaultSize,
-  maximizable,
+  fullscreenable,
   windowState,
   onWindowStateChange,
   stackIndex,
@@ -101,10 +101,10 @@ export function useFloatingPanelController({
   const resolvedDismissMode = dismissMode ?? defaultFloatingPanelDismissMode(kind);
   const draggablePanel = shouldDragFloatingPanel(kind, draggable);
   const resizablePanel = kind === "workspace" && (resizable ?? true);
-  const maximizablePanel = kind === "workspace" && (maximizable ?? true);
-  const framePanel = kind === "workspace" && (resizablePanel || maximizablePanel || Boolean(defaultSize));
+  const fullscreenablePanel = kind === "workspace" && (fullscreenable ?? true);
+  const framePanel = kind === "workspace" && (resizablePanel || fullscreenablePanel || Boolean(defaultSize));
   const zIndex = floatingPanelZIndex(kind, stackIndex);
-  const { viewport, panelFrame, setPanelFrame, renderedFrame, maximized } = useFloatingPanelFrameState({
+  const { viewport, panelFrame, setPanelFrame, renderedFrame, fullscreen } = useFloatingPanelFrameState({
     placement,
     resolvedDefaultSize,
     resolvedMinSize,
@@ -152,16 +152,16 @@ export function useFloatingPanelController({
   }
 
   function doubleClick(event: ReactMouseEvent<HTMLDivElement>) {
-    if (!maximizablePanel || !onWindowStateChange || !open) return;
+    if (!fullscreenablePanel || !onWindowStateChange || !open) return;
     const target = event.target instanceof Element ? event.target : null;
     if (!target || isDragExcluded(target)) return;
     const handle = target.closest("[data-floating-panel-drag-handle]");
     if (!handle || !event.currentTarget.contains(handle)) return;
-    onWindowStateChange(windowState === "maximized" ? "normal" : "maximized");
+    onWindowStateChange(windowState === "fullscreen" ? "normal" : "fullscreen");
   }
 
   function startDrag(event: ReactPointerEvent<HTMLDivElement>) {
-    if (!draggablePanel || !open || event.button !== 0 || maximized) return;
+    if (!draggablePanel || !open || event.button !== 0 || fullscreen) return;
     const target = event.target instanceof Element ? event.target : null;
     if (!target) return;
     const handle = target.closest("[data-floating-panel-drag-handle]");
@@ -238,7 +238,7 @@ export function useFloatingPanelController({
 
   function startResize(event: ReactPointerEvent<HTMLDivElement>, handle: FloatingPanelResizeHandle) {
     focusPanel();
-    if (!framePanel || !resizablePanel || !open || event.button !== 0 || maximized) return;
+    if (!framePanel || !resizablePanel || !open || event.button !== 0 || fullscreen) return;
     resizeStateRef.current = {
       pointerId: event.pointerId,
       startClientX: event.clientX,
@@ -304,7 +304,7 @@ export function useFloatingPanelController({
     resizing,
     framePanel,
     resizablePanel,
-    maximized,
+    fullscreen,
     resolvedDismissMode,
     pointerDown,
     pointerMove,

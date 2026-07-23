@@ -88,6 +88,7 @@ export function MarkdownWindowPanel({
           ><ZoomIn /></EditorIconButton>
           <EditorIconButton context="panel" label="保存 Markdown 窗口" tooltipSide="top" onClick={onSave}><FloppyDisk /></EditorIconButton>
           <WorkspacePanelControls
+            allowFullscreen
             windowState={windowState}
             onWindowStateChange={onWindowStateChange}
             onClose={onClose}

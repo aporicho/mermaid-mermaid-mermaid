@@ -26,9 +26,20 @@ type MarkdownFoldAction = {
   position: number;
   type: "toggle";
 } | {
+  collapsed: boolean;
+  headingPositions: number[];
+  listItemPositions: number[];
+  type: "set-subtree";
+} | {
   collapsedHeadings: number[];
   collapsedListItems: number[];
   type: "restore";
+};
+
+export type MarkdownFoldSubtreeState = {
+  allCollapsed: boolean;
+  allExpanded: boolean;
+  targetCount: number;
 };
 
 type HeadingFoldTarget = {
@@ -184,6 +195,51 @@ export function toggleMarkdownFold(view: EditorView, target: Pick<MarkdownFoldTa
   return true;
 }
 
+export function readMarkdownFoldSubtreeState(
+  state: EditorState,
+  target: Pick<MarkdownFoldTarget, "kind" | "position">
+): MarkdownFoldSubtreeState | null {
+  const subtree = collectMarkdownFoldSubtree(state, target);
+  if (!subtree) return null;
+  const foldingState = markdownFoldingProsePluginKey.getState(state);
+  const collapsedHeadings = foldingState?.collapsedHeadings ?? new Set<number>();
+  const collapsedListItems = foldingState?.collapsedListItems ?? new Set<number>();
+  const collapsedCount = subtree.headingPositions.filter((position) => collapsedHeadings.has(position)).length
+    + subtree.listItemPositions.filter((position) => collapsedListItems.has(position)).length;
+  const targetCount = subtree.headingPositions.length + subtree.listItemPositions.length;
+  return {
+    allCollapsed: targetCount > 0 && collapsedCount === targetCount,
+    allExpanded: collapsedCount === 0,
+    targetCount
+  };
+}
+
+export function setMarkdownFoldSubtree(
+  view: EditorView,
+  target: Pick<MarkdownFoldTarget, "kind" | "position">,
+  collapsed: boolean
+) {
+  const subtree = collectMarkdownFoldSubtree(view.state, target);
+  if (!subtree) return false;
+  const status = readMarkdownFoldSubtreeState(view.state, target);
+  if (!status || (collapsed ? status.allCollapsed : status.allExpanded)) return false;
+
+  let transaction = view.state.tr;
+  if (collapsed && selectionWillBeHidden(view.state, target.kind, target.position)) {
+    const selectionPosition = Math.min(target.position + 1, view.state.doc.content.size);
+    transaction = transaction.setSelection(TextSelection.near(view.state.doc.resolve(selectionPosition), 1));
+  }
+  transaction = transaction.setMeta(markdownFoldingProsePluginKey, {
+    collapsed,
+    headingPositions: subtree.headingPositions,
+    listItemPositions: subtree.listItemPositions,
+    type: "set-subtree"
+  } satisfies MarkdownFoldAction);
+  view.dispatch(transaction);
+  view.focus();
+  return true;
+}
+
 export function readMarkdownFoldSnapshot(state: EditorState): MarkdownFoldSnapshot {
   const foldingState = markdownFoldingProsePluginKey.getState(state);
   const anchors = collectFoldAnchors(state.doc);
@@ -247,7 +303,55 @@ function applyFoldingTransaction(
     else targetSet.add(action.position);
   }
 
+  if (action?.type === "set-subtree") {
+    for (const position of action.headingPositions) {
+      if (action.collapsed) collapsedHeadings.add(position);
+      else collapsedHeadings.delete(position);
+    }
+    for (const position of action.listItemPositions) {
+      if (action.collapsed) collapsedListItems.add(position);
+      else collapsedListItems.delete(position);
+    }
+  }
+
   return createFoldingState(newState.doc, collapsedHeadings, collapsedListItems);
+}
+
+function collectMarkdownFoldSubtree(
+  state: EditorState,
+  target: Pick<MarkdownFoldTarget, "kind" | "position">
+) {
+  const currentTarget = findMarkdownFoldTarget(state, target.position);
+  if (!currentTarget || currentTarget.kind !== target.kind || currentTarget.position !== target.position) return null;
+
+  const headings = collectHeadingFoldTargets(state.doc);
+  const listItems = collectListFoldTargets(state.doc);
+  if (target.kind === "heading") {
+    const root = headings.find((candidate) => candidate.position === target.position);
+    if (!root) return null;
+    return {
+      headingPositions: headings
+        .filter((candidate) => candidate.position === root.position
+          || (candidate.position >= root.contentFrom && candidate.position < root.contentTo))
+        .map((candidate) => candidate.position),
+      listItemPositions: listItems
+        .filter((candidate) => candidate.position >= root.contentFrom && candidate.position < root.contentTo)
+        .map((candidate) => candidate.position)
+    };
+  }
+
+  const root = listItems.find((candidate) => candidate.position === target.position);
+  if (!root) return null;
+  const subtreeFrom = root.position;
+  const subtreeTo = root.position + root.node.nodeSize;
+  return {
+    headingPositions: headings
+      .filter((candidate) => candidate.position >= subtreeFrom && candidate.position < subtreeTo)
+      .map((candidate) => candidate.position),
+    listItemPositions: listItems
+      .filter((candidate) => candidate.position >= subtreeFrom && candidate.position < subtreeTo)
+      .map((candidate) => candidate.position)
+  };
 }
 
 function createFoldingState(

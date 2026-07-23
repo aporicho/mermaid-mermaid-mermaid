@@ -9,7 +9,7 @@ import { MarkdownPanel } from "@/features/mermaid-editor/components/markdown-pan
 type MockEditorView = {
   dom: HTMLElement;
   state: {
-    selection: { from: number };
+    selection: { anchor: number; from: number; head: number };
     doc: {
       content: { size: number };
       resolve: (position: number) => unknown;
@@ -31,6 +31,7 @@ const milkdownMock = vi.hoisted(() => ({
   use: vi.fn(),
   setReadonly: vi.fn(),
   setSelection: vi.fn((selection: unknown) => ({ selection })),
+  replaceAll: vi.fn(),
   view: undefined as MockEditorView | undefined
 }));
 
@@ -47,7 +48,9 @@ const markdownFoldingMock = vi.hoisted(() => ({
     documentFingerprint: "current",
     folds: [{ kind: "heading" as const, outline: [{ level: 1, label: "Section", occurrence: 0 }] }]
   })),
+  readSubtree: vi.fn(() => ({ allCollapsed: false, allExpanded: true, targetCount: 2 })),
   restore: vi.fn(() => 1),
+  setSubtree: vi.fn(() => true),
   toggle: vi.fn(() => true)
 }));
 
@@ -79,6 +82,10 @@ vi.mock("@milkdown/kit/core", () => ({
 
 vi.mock("@milkdown/kit/prose/state", () => {
   class TextSelection {
+    static create(_doc: unknown, anchor: number, head: number) {
+      return { anchor, head };
+    }
+
     static near() {
       return new TextSelection();
     }
@@ -86,6 +93,10 @@ vi.mock("@milkdown/kit/prose/state", () => {
 
   return { TextSelection };
 });
+
+vi.mock("@milkdown/kit/utils", () => ({
+  replaceAll: (markdown: string, flush?: boolean) => (ctx: unknown) => milkdownMock.replaceAll(markdown, flush, ctx)
+}));
 
 vi.mock("@/features/mermaid-editor/lib/markdown-block-style", () => ({
   convertMarkdownBlock: markdownBlockStyleMock.convert,
@@ -95,8 +106,10 @@ vi.mock("@/features/mermaid-editor/lib/markdown-block-style", () => ({
 vi.mock("@/features/mermaid-editor/lib/markdown-folding", () => ({
   findMarkdownFoldTarget: markdownFoldingMock.find,
   markdownFolding: markdownFoldingMock.plugin,
+  readMarkdownFoldSubtreeState: markdownFoldingMock.readSubtree,
   readMarkdownFoldSnapshot: markdownFoldingMock.read,
   restoreMarkdownFoldSnapshot: markdownFoldingMock.restore,
+  setMarkdownFoldSubtree: markdownFoldingMock.setSubtree,
   toggleMarkdownFold: markdownFoldingMock.toggle
 }));
 
@@ -110,7 +123,7 @@ describe("MarkdownPanel", () => {
     milkdownMock.view = {
       dom: document.createElement("div"),
       state: {
-        selection: { from: 5 },
+        selection: { from: 5, anchor: 5, head: 5 },
         doc: {
           content: { size: 20 },
           resolve: vi.fn((position: number) => ({ position }))
@@ -138,12 +151,15 @@ describe("MarkdownPanel", () => {
     milkdownMock.use.mockClear();
     milkdownMock.setReadonly.mockClear();
     milkdownMock.setSelection.mockClear();
+    milkdownMock.replaceAll.mockClear();
     milkdownMock.crepeConfig = undefined;
     markdownBlockStyleMock.convert.mockClear();
     markdownBlockStyleMock.get.mockClear();
     markdownFoldingMock.find.mockClear();
     markdownFoldingMock.read.mockClear();
+    markdownFoldingMock.readSubtree.mockClear();
     markdownFoldingMock.restore.mockClear();
+    markdownFoldingMock.setSubtree.mockClear();
     markdownFoldingMock.toggle.mockClear();
     milkdownMock.view = undefined;
     vi.useRealTimers();
@@ -191,6 +207,18 @@ describe("MarkdownPanel", () => {
 
     expect(milkdownMock.view?.dom.getAttribute("spellcheck")).toBe("true");
     expect(milkdownMock.create).toHaveBeenCalledTimes(1);
+  });
+
+  it("applies an external value update without recreating Milkdown", () => {
+    renderPanel(false);
+
+    act(() => {
+      root?.render(createElement(MarkdownPanel, { value: "# Updated on disk", spellCheck: false, contentWidth: 880, textScale: 1, onChange: vi.fn() }));
+    });
+
+    expect(milkdownMock.replaceAll).toHaveBeenCalledWith("# Updated on disk", true, expect.anything());
+    expect(milkdownMock.create).toHaveBeenCalledTimes(1);
+    expect(markdownFoldingMock.restore).toHaveBeenCalled();
   });
 
   it("applies and updates the configured content width without recreating Milkdown", () => {
@@ -421,6 +449,42 @@ describe("MarkdownPanel", () => {
     expect(onFoldStateChange).toHaveBeenCalledWith(markdownFoldingMock.read());
     expect(getBlockStyleMenu()).toBeNull();
     expect(panel.hasAttribute("data-md-block-dragging")).toBe(false);
+  });
+
+  it("opens subtree folding actions from the fold button context menu", async () => {
+    markdownFoldingMock.find.mockReturnValue({
+      collapsed: false,
+      kind: "heading",
+      label: "Section",
+      position: 5
+    });
+    const onFoldStateChange = vi.fn();
+    const panel = renderPanel(false, 880, 1, undefined, { onFoldStateChange });
+    const { handle } = appendInteractiveBlockHandle(panel);
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+    const foldButton = handle.querySelector<HTMLButtonElement>(":scope > .markdown-fold-handle-button");
+    expect(foldButton).not.toBeNull();
+
+    act(() => {
+      foldButton?.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: 40, clientY: 60 }));
+    });
+
+    const collapseAll = [...document.body.querySelectorAll<HTMLElement>("[role='menuitem']")]
+      .find((item) => item.textContent?.includes("全部折叠"));
+    const expandAll = [...document.body.querySelectorAll<HTMLElement>("[role='menuitem']")]
+      .find((item) => item.textContent?.includes("全部展开"));
+    expect(collapseAll).toBeDefined();
+    expect(expandAll?.getAttribute("data-disabled")).not.toBeNull();
+
+    act(() => collapseAll?.click());
+    expect(markdownFoldingMock.setSubtree).toHaveBeenCalledWith(milkdownMock.view, {
+      kind: "heading",
+      position: 5
+    }, true);
+    expect(onFoldStateChange).toHaveBeenCalledWith(markdownFoldingMock.read());
   });
 
   it("only exposes a visible style handle as a keyboard-accessible menu entry", async () => {

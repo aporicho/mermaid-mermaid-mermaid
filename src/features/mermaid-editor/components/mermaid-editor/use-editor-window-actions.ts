@@ -131,21 +131,31 @@ export function useEditorWindowActions({
     if (!targetWindow) return;
 
     try {
-      const result = await runtime.saveFile(targetWindow.file, targetWindow.value, targetWindow.title, "markdown");
+      const result = targetWindow.missing
+        ? await runtime.saveFileAs(targetWindow.value, targetWindow.title, "markdown")
+        : await runtime.saveFile(targetWindow.file, targetWindow.value, targetWindow.title, "markdown");
       if (result.status === "cancelled") return;
       const savedTitle = ensureEditorDocumentFileName(result.file.name, "markdown");
+      const savedPanelId = markdownWindowPanelId(result.file);
       setDetachedMarkdownWindows((current) =>
         current.map((window) =>
           window.id === panelId
             ? {
                 ...window,
+                id: savedPanelId,
                 file: result.file,
                 title: savedTitle,
-                savedValue: window.value
+                savedValue: window.value,
+                missing: false
               }
             : window
         )
       );
+      if (savedPanelId !== panelId) {
+        removeWorkspacePanel(panelId);
+        bringWorkspacePanelToFront(savedPanelId);
+        setWorkspacePanelWindowState(savedPanelId, "normal");
+      }
       setRecentFiles((current) => upsertRecentFile(current, result.file));
       if (result.file.path) onMarkdownFileSaved?.(result.file.path, targetWindow.value);
       setStatus(`已保存 ${savedTitle}。`);

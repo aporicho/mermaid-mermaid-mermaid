@@ -41,6 +41,7 @@ describe("useCsvTableFileSync", () => {
   let updateGraph: Dispatch<SetStateAction<MermaidGraph>> | null = null;
   let flushPendingWrites: ((options?: { overwriteConflicts?: boolean }) => Promise<boolean>) | null = null;
   let discardPendingWrites: (() => Promise<void>) | null = null;
+  let reloadExternalFiles: ((paths: ReadonlySet<string> | readonly string[]) => Promise<void>) | null = null;
 
   beforeEach(() => {
     (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -51,6 +52,7 @@ describe("useCsvTableFileSync", () => {
     updateGraph = null;
     flushPendingWrites = null;
     discardPendingWrites = null;
+    reloadExternalFiles = null;
   });
 
   afterEach(() => {
@@ -143,7 +145,7 @@ describe("useCsvTableFileSync", () => {
       root?.render(<Probe runtime={runtime} onGraph={(graph, setter) => {
         renderedGraph = graph;
         updateGraph = setter;
-      }} onFlush={(flush) => { flushPendingWrites = flush; }} onDiscard={(discard) => { discardPendingWrites = discard; }} showFileWorkflowError={vi.fn()} />);
+      }} onFlush={(flush) => { flushPendingWrites = flush; }} onDiscard={(discard) => { discardPendingWrites = discard; }} onReload={(reload) => { reloadExternalFiles = reload; }} showFileWorkflowError={vi.fn()} />);
       await settle();
     });
     await act(async () => {
@@ -206,6 +208,22 @@ describe("useCsvTableFileSync", () => {
     expect(writeCsvFile).toHaveBeenCalledTimes(1);
   });
 
+  it("replaces local table state when the linked CSV changes on disk", async () => {
+    const readCsvFile = vi.fn()
+      .mockResolvedValueOnce(openedCsv("Name\r\nAlice", "revision-1"))
+      .mockResolvedValueOnce(openedCsv("Name\r\nBob", "revision-2"))
+      .mockResolvedValueOnce(openedCsv("Name\r\nBob", "revision-2"));
+
+    await renderProbe({ readCsvFile, writeCsvFile: vi.fn() } as unknown as EditorRuntime);
+    await act(async () => {
+      await reloadExternalFiles?.(new Set(["/project/data/people.csv"]));
+      await settle();
+    });
+
+    expect(renderedGraph.nodes[0].content?.rows[0].cells["column-1"]).toBe("Bob");
+    expect(readCsvFile).toHaveBeenCalledTimes(3);
+  });
+
   it("reflows the expanded CSV table when the canvas uses auto layout", async () => {
     const graphWithNeighbor: MermaidGraph = {
       ...initialGraph,
@@ -220,7 +238,7 @@ describe("useCsvTableFileSync", () => {
       root?.render(<Probe runtime={runtime} initialState={graphWithNeighbor} layoutMode="auto" nodeGeometrySpec={defaultNodeGeometrySpec(() => 80)} onGraph={(graph, setter) => {
         renderedGraph = graph;
         updateGraph = setter;
-      }} onFlush={(flush) => { flushPendingWrites = flush; }} onDiscard={(discard) => { discardPendingWrites = discard; }} showFileWorkflowError={vi.fn()} />);
+      }} onFlush={(flush) => { flushPendingWrites = flush; }} onDiscard={(discard) => { discardPendingWrites = discard; }} onReload={(reload) => { reloadExternalFiles = reload; }} showFileWorkflowError={vi.fn()} />);
       await settle();
     });
 
@@ -290,7 +308,7 @@ describe("useCsvTableFileSync", () => {
       root?.render(<Probe runtime={runtime} onGraph={(graph, setter) => {
         renderedGraph = graph;
         updateGraph = setter;
-      }} onFlush={(flush) => { flushPendingWrites = flush; }} onDiscard={(discard) => { discardPendingWrites = discard; }} showFileWorkflowError={vi.fn()} />);
+      }} onFlush={(flush) => { flushPendingWrites = flush; }} onDiscard={(discard) => { discardPendingWrites = discard; }} onReload={(reload) => { reloadExternalFiles = reload; }} showFileWorkflowError={vi.fn()} />);
       await settle();
     });
   }
@@ -314,6 +332,7 @@ function Probe({
   onGraph,
   onFlush,
   onDiscard,
+  onReload,
   showFileWorkflowError
 }: {
   runtime: EditorRuntime;
@@ -325,12 +344,13 @@ function Probe({
   onGraph: (graph: MermaidGraph, setter: Dispatch<SetStateAction<MermaidGraph>>) => void;
   onFlush: (flush: (options?: { overwriteConflicts?: boolean }) => Promise<boolean>) => void;
   onDiscard: (discard: () => Promise<void>) => void;
+  onReload?: (reload: (paths: ReadonlySet<string> | readonly string[]) => Promise<void>) => void;
   showFileWorkflowError: (error: unknown, fallbackMessage?: string) => void;
 }) {
   const [graph, setGraph] = useState(initialState);
   const fallbackDocumentGenerationRef = useRef(documentGeneration);
   fallbackDocumentGenerationRef.current = documentGeneration;
-  const { flushPendingWrites, discardPendingWrites } = useCsvTableFileSync({
+  const { flushPendingWrites, discardPendingWrites, reloadExternalFiles: reloadFiles } = useCsvTableFileSync({
     runtime,
     graph,
     setGraph,
@@ -344,6 +364,7 @@ function Probe({
   onGraph(graph, setGraph);
   onFlush(flushPendingWrites);
   onDiscard(discardPendingWrites);
+  onReload?.(reloadFiles);
   return null;
 }
 
