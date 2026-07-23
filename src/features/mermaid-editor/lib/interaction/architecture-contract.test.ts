@@ -137,6 +137,24 @@ describe("interaction architecture contract", () => {
     expect(scroller).toContain('from "@shadcn/react/message-scroller"');
   });
 
+  it("keeps Agent and browser bodies filling the shared floating window", () => {
+    const agent = readProjectFile("src/features/mermaid-editor/components/agent/agent-panel.tsx");
+    const settings = readProjectFile("src/features/mermaid-editor/components/agent/agent-settings-dialog.tsx");
+    const browser = readProjectFile("src/features/mermaid-editor/components/browser-window-panel.tsx");
+    const surface = readProjectFile("src/features/mermaid-editor/components/embedded-browser-surface.tsx");
+    const nativeFrame = readProjectFile("src/features/mermaid-editor/components/floating-chrome/workspace-native-surface-frame.tsx");
+
+    expect(agent).toContain("flex h-full min-h-0 flex-col");
+    expect(agent).toContain('className="min-h-0 flex-1"');
+    expect(agent).toContain('controller.status !== "ready"');
+    expect(settings).toContain("flex h-full min-h-0 flex-col");
+    expect(settings).toContain('controller.status !== "ready"');
+    expect(browser).toContain("WorkspaceNativeSurfaceFrame");
+    expect(surface).toContain("isEmbeddedBrowserSurfaceOccluded");
+    expect(surface).not.toContain("activeRef");
+    expect(nativeFrame).toContain("WORKSPACE_PANEL_HEADER_HOT_ZONE_PX");
+  });
+
   it("keeps known oversized files on a no-growth budget", () => {
     const budgets = [
       { path: "src/features/mermaid-editor/components/mermaid-editor.tsx", maxLines: 700 },

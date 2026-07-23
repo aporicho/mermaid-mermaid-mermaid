@@ -84,10 +84,11 @@ export function AgentPanel({ runtime, controller }: AgentPanelProps) {
   const setControllerError = controller.setError;
 
   useEffect(() => {
+    if (controller.status !== "ready") return;
     if ((wide && controller.sidebarOpen) || mobileSidebarOpen) {
       void loadOverview().catch((error) => setControllerError(readableError(error)));
     }
-  }, [controller.sidebarOpen, loadOverview, mobileSidebarOpen, setControllerError, wide]);
+  }, [controller.sidebarOpen, controller.status, loadOverview, mobileSidebarOpen, setControllerError, wide]);
 
   useEffect(() => {
     if (!mobileSidebarOpen) return;
@@ -109,7 +110,7 @@ export function AgentPanel({ runtime, controller }: AgentPanelProps) {
 
   return (
     <TooltipProvider delayDuration={300}>
-      <div ref={rootRef} className="relative isolate grid h-full min-h-0 grid-rows-[auto_auto_minmax(0,1fr)] overflow-hidden bg-card font-[family-name:var(--agent-type-body-family)] text-[length:var(--agent-type-body-size)] font-[var(--agent-type-body-weight)] leading-[var(--agent-type-body-line-height)] [letter-spacing:var(--agent-type-body-letter-spacing)] text-card-foreground">
+      <div ref={rootRef} className="relative isolate flex h-full min-h-0 flex-col overflow-hidden bg-card font-[family-name:var(--agent-type-body-family)] text-[length:var(--agent-type-body-size)] font-[var(--agent-type-body-weight)] leading-[var(--agent-type-body-line-height)] [letter-spacing:var(--agent-type-body-letter-spacing)] text-card-foreground">
         <WorkspaceWindowHeader
           leadingActions={<IconButton label={wide && controller.sidebarOpen ? "收起会话侧栏" : "打开会话侧栏"} onClick={toggleSidebar}>{wide && controller.sidebarOpen ? <SidebarCollapse /> : <SidebarExpand />}</IconButton>}
           icon={<Brain className="size-4 shrink-0" />}
@@ -124,7 +125,7 @@ export function AgentPanel({ runtime, controller }: AgentPanelProps) {
 
         <AgentStatus controller={controller} />
 
-        <SidebarProvider open={wide && controller.sidebarOpen} onOpenChange={controller.setSidebarOpen} className="min-h-0">
+        <SidebarProvider open={wide && controller.sidebarOpen} onOpenChange={controller.setSidebarOpen} className="min-h-0 flex-1">
           {wide ? <Sidebar><AgentSessionSidebar controller={controller} onOpenSettings={() => setView("settings")} /></Sidebar> : null}
           <SidebarInset className="grid min-h-0 grid-rows-[minmax(0,1fr)]">
             <AgentConversation controller={controller} onOpenSettings={() => setView("settings")} onOpenLink={runtime.openExternalUrl} />

@@ -1,29 +1,30 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Copy, OpenNewWindow, Refresh as RefreshCw, WebWindow } from "iconoir-react/regular";
 
 import { Input } from "@/components/ui/input";
+import { Spinner } from "@/components/ui/spinner";
 import { EditorIconButton } from "@/features/mermaid-editor/components/editor-ui";
 import { EmbeddedBrowserSurface } from "@/features/mermaid-editor/components/embedded-browser-surface";
-import { WorkspaceWindowHeader } from "@/features/mermaid-editor/components/floating-chrome";
+import { WorkspaceNativeSurfaceFrame, WorkspaceWindowHeader } from "@/features/mermaid-editor/components/floating-chrome";
 import {
   browserToolWindowTitle,
   normalizeBrowserUrl
 } from "@/features/mermaid-editor/lib/browser-tool-window";
-import type { EditorRuntime, RuntimeEmbeddedBrowserHandle } from "@/features/mermaid-editor/lib/editor-runtime";
+import type { EditorRuntime, RuntimeEmbeddedBrowserHandle, RuntimeEmbeddedBrowserState } from "@/features/mermaid-editor/lib/editor-runtime";
 import type { DetachedBrowserWindow } from "@/features/mermaid-editor/lib/workspace-panels";
 
 export function BrowserWindowPanel({
   browserWindow,
   runtime,
-  active,
   domOverlayActive,
+  onFocusPanel,
   onStatus,
   onBrowserHandleChange = noopBrowserHandleChange
 }: {
   browserWindow: DetachedBrowserWindow;
   runtime: EditorRuntime;
-  active: boolean;
   domOverlayActive: boolean;
+  onFocusPanel: () => void;
   onStatus: (message: string) => void;
   onBrowserHandleChange?: (panelId: DetachedBrowserWindow["id"], handle: RuntimeEmbeddedBrowserHandle | null) => void;
 }) {
@@ -31,7 +32,10 @@ export function BrowserWindowPanel({
   const [address, setAddress] = useState(browserWindow.request.url);
   const [pageTitle, setPageTitle] = useState(browserToolWindowTitle(browserWindow.request.url, browserWindow.request.title));
   const [localStatus, setLocalStatus] = useState("");
-  const [reloadRevision, setReloadRevision] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [retryRevision, setRetryRevision] = useState(0);
+  const [browserHandle, setBrowserHandle] = useState<RuntimeEmbeddedBrowserHandle | null>(null);
+  const addressFocusedRef = useRef(false);
 
   useEffect(() => {
     if (!localStatus) return;
@@ -61,7 +65,20 @@ export function BrowserWindowPanel({
   }
 
   function reloadBrowser() {
-    setReloadRevision((current) => current + 1);
+    if (!browserHandle) {
+      setRetryRevision((current) => current + 1);
+      return;
+    }
+    void browserHandle.reload().catch((error) => reportStatus(`重新载入失败：${readableError(error)}`));
+  }
+
+  function updateBrowserState(state: RuntimeEmbeddedBrowserState) {
+    setLoading(state.loading);
+    if (state.url) {
+      setCurrentUrl(state.url);
+      if (!addressFocusedRef.current) setAddress(state.url);
+    }
+    setPageTitle(state.title || browserToolWindowTitle(state.url || currentUrl));
   }
 
   function copyAddress() {
@@ -75,12 +92,14 @@ export function BrowserWindowPanel({
   }
 
   return (
-    <div className="grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)] bg-card">
+    <div className="flex h-full min-h-0 flex-col bg-card">
       <WorkspaceWindowHeader
         icon={<WebWindow className="size-4 shrink-0 text-icon" />}
         title={<span className="block max-w-44 truncate">{pageTitle}</span>}
         titleTooltip={pageTitle}
-        status={localStatus ? <span className="type-interface-status hidden max-w-40 truncate text-muted-foreground xl:block" aria-live="polite">{localStatus}</span> : null}
+        status={localStatus
+          ? <span className="type-interface-status hidden max-w-40 truncate text-muted-foreground xl:block" aria-live="polite">{localStatus}</span>
+          : loading ? <span className="type-interface-status hidden items-center gap-1.5 text-muted-foreground xl:flex"><Spinner className="size-3.5" />载入中</span> : null}
         center={
           <form className="flex min-w-0 flex-1 items-center" onSubmit={submitAddress}>
             <Input
@@ -89,6 +108,8 @@ export function BrowserWindowPanel({
               spellCheck={false}
               aria-label="浏览器地址"
               onChange={(event) => setAddress(event.target.value)}
+              onFocus={() => { addressFocusedRef.current = true; }}
+              onBlur={() => { addressFocusedRef.current = false; setAddress(currentUrl); }}
             />
           </form>
         }
@@ -98,22 +119,32 @@ export function BrowserWindowPanel({
           <EditorIconButton context="panel" label="系统浏览器打开" onClick={openInSystemBrowser}><OpenNewWindow /></EditorIconButton>
         </>}
       />
-      <EmbeddedBrowserSurface
-        panelId={browserWindow.id}
-        url={currentUrl}
-        runtime={runtime}
-        active={active}
-        domOverlayActive={domOverlayActive}
-        reloadRevision={reloadRevision}
-        onReload={reloadBrowser}
-        onStatus={reportStatus}
-        onBrowserError={(url, message) => reportStatus(`${browserToolWindowTitle(url)} ${message}`.trim())}
-        onBrowserHandleChange={onBrowserHandleChange}
-      />
+      <WorkspaceNativeSurfaceFrame>
+        <EmbeddedBrowserSurface
+          panelId={browserWindow.id}
+          url={currentUrl}
+          runtime={runtime}
+          domOverlayActive={domOverlayActive}
+          retryRevision={retryRevision}
+          onRetry={reloadBrowser}
+          onStatus={reportStatus}
+          onBrowserError={(url, message) => reportStatus(`${browserToolWindowTitle(url)} ${message}`.trim())}
+          onBrowserFocus={onFocusPanel}
+          onBrowserHandleChange={(panelId, handle) => {
+            setBrowserHandle(handle);
+            onBrowserHandleChange(panelId, handle);
+          }}
+          onBrowserStateChange={updateBrowserState}
+        />
+      </WorkspaceNativeSurfaceFrame>
     </div>
   );
 }
 
 function noopBrowserHandleChange() {
   // EmbeddedBrowserSurface owns and disposes the native handle on unmount.
+}
+
+function readableError(error: unknown) {
+  return error instanceof Error ? error.message : String(error);
 }

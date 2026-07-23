@@ -138,9 +138,9 @@ contextBridge.exposeInMainWorld("mmmElectron", {
   showEmbeddedBrowser(label) {
     return ipcRenderer.invoke("mmm:browser:show", label);
   },
-  focusEmbeddedBrowser(label) {
-    return ipcRenderer.invoke("mmm:browser:focus", label);
-  },
+  focusEmbeddedBrowser(label) { return ipcRenderer.invoke("mmm:browser:focus", label); },
+  navigateEmbeddedBrowser(label, url) { return ipcRenderer.invoke("mmm:browser:navigate", label, url); },
+  reloadEmbeddedBrowser(label) { return ipcRenderer.invoke("mmm:browser:reload", label); },
   setEmbeddedBrowserRect(label, rect) {
     return ipcRenderer.invoke("mmm:browser:set-rect", label, rect);
   },
@@ -148,6 +148,16 @@ contextBridge.exposeInMainWorld("mmmElectron", {
     const listener = (_event, payload) => handler(payload);
     ipcRenderer.on("mmm:browser:error", listener);
     return () => ipcRenderer.removeListener("mmm:browser:error", listener);
+  },
+  onEmbeddedBrowserFocus(handler) {
+    const listener = (_event, payload) => handler(payload);
+    ipcRenderer.on("mmm:browser:focus", listener);
+    return () => ipcRenderer.removeListener("mmm:browser:focus", listener);
+  },
+  onEmbeddedBrowserState(handler) {
+    const listener = (_event, payload) => handler(payload);
+    ipcRenderer.on("mmm:browser:state", listener);
+    return () => ipcRenderer.removeListener("mmm:browser:state", listener);
   }
 });
 

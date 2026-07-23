@@ -90,8 +90,12 @@ function electronBridge(): ElectronBridge {
     hideEmbeddedBrowser: vi.fn(() => Promise.resolve()),
     showEmbeddedBrowser: vi.fn(() => Promise.resolve()),
     focusEmbeddedBrowser: vi.fn(() => Promise.resolve()),
+    navigateEmbeddedBrowser: vi.fn(() => Promise.resolve()),
+    reloadEmbeddedBrowser: vi.fn(() => Promise.resolve()),
     setEmbeddedBrowserRect: vi.fn(() => Promise.resolve()),
     onEmbeddedBrowserError: vi.fn(() => () => undefined),
+    onEmbeddedBrowserFocus: vi.fn(() => () => undefined),
+    onEmbeddedBrowserState: vi.fn(() => () => undefined),
   };
 }
 
@@ -186,5 +190,37 @@ describe("createEditorRuntime", () => {
     await expect(runtime.readMarkdownFoldState(request)).resolves.toMatchObject({ status: "unsupported" });
     await expect(runtime.writeMarkdownFoldState({ ...request, snapshot })).resolves.toMatchObject({ status: "unsupported" });
     await expect(runtime.moveMarkdownFoldState({ rootPath: "/tmp", sourcePath: "/tmp/notes.md", targetPath: "/tmp/archive/notes.md" })).resolves.toMatchObject({ status: "unsupported" });
+  });
+
+  it("keeps embedded browser navigation and state on one Electron handle", async () => {
+    const bridge = electronBridge();
+    window.mmmElectron = bridge;
+    const runtime = createEditorRuntime();
+    const result = await runtime.createEmbeddedBrowser({
+      label: "browser-test",
+      url: "https://example.com",
+      rect: { x: 10, y: 20, width: 640, height: 480 }
+    });
+    if (result.status !== "created") throw new Error("Expected a native browser handle.");
+    const onFocus = vi.fn();
+    const onState = vi.fn();
+
+    await result.browser.onFocus(onFocus);
+    await result.browser.onState(onState);
+    await result.browser.navigate("https://openai.com");
+    await result.browser.reload();
+    vi.mocked(bridge.onEmbeddedBrowserFocus).mock.calls[0][0]({ label: "another-browser" });
+    vi.mocked(bridge.onEmbeddedBrowserFocus).mock.calls[0][0]({ label: "browser-test" });
+    vi.mocked(bridge.onEmbeddedBrowserState).mock.calls[0][0]({
+      label: "browser-test",
+      url: "https://openai.com/",
+      title: "OpenAI",
+      loading: false
+    });
+
+    expect(bridge.navigateEmbeddedBrowser).toHaveBeenCalledWith("browser-test", "https://openai.com");
+    expect(bridge.reloadEmbeddedBrowser).toHaveBeenCalledWith("browser-test");
+    expect(onFocus).toHaveBeenCalledTimes(1);
+    expect(onState).toHaveBeenCalledWith({ url: "https://openai.com/", title: "OpenAI", loading: false });
   });
 });

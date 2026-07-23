@@ -255,6 +255,8 @@ function registerIpc() {
   ipcMain.handle("mmm:browser:hide", (event, label) => setEmbeddedBrowserVisible(event.sender, label, false));
   ipcMain.handle("mmm:browser:show", (event, label) => setEmbeddedBrowserVisible(event.sender, label, true));
   ipcMain.handle("mmm:browser:focus", (event, label) => focusEmbeddedBrowser(event.sender, label));
+  ipcMain.handle("mmm:browser:navigate", (event, label, url) => navigateEmbeddedBrowser(event.sender, label, url));
+  ipcMain.handle("mmm:browser:reload", (event, label) => reloadEmbeddedBrowser(event.sender, label));
   ipcMain.handle("mmm:browser:set-rect", (event, label, rect) => setEmbeddedBrowserRect(event.sender, label, rect));
 }
 
@@ -484,15 +486,29 @@ function createEmbeddedBrowser(sender, request) {
     if (normalizeHttpUrl(nextUrl)) shell.openExternal(nextUrl);
     return { action: "deny" };
   });
+  const sendState = () => sendEmbeddedBrowserEvent(sender, "mmm:browser:state", embeddedBrowserState(label, view, url));
+  view.webContents.on("did-start-loading", sendState);
+  view.webContents.on("did-stop-loading", sendState);
+  view.webContents.on("did-navigate", sendState);
+  view.webContents.on("did-navigate-in-page", sendState);
+  view.webContents.on("page-title-updated", sendState);
+  view.webContents.on("focus", () => {
+    try {
+      owner.contentView.addChildView(view);
+    } catch {
+      // The owner may already be closing.
+    }
+    sendEmbeddedBrowserEvent(sender, "mmm:browser:focus", { label });
+  });
   view.webContents.on("did-fail-load", (_event, errorCode, errorDescription, validatedURL) => {
     if (errorCode === -3) return;
-    sender.send("mmm:browser:error", {
+    sendEmbeddedBrowserEvent(sender, "mmm:browser:error", {
       label,
       message: errorDescription || `Failed to load ${validatedURL || url}`
     });
   });
   view.webContents.on("render-process-gone", (_event, details) => {
-    sender.send("mmm:browser:error", {
+    sendEmbeddedBrowserEvent(sender, "mmm:browser:error", {
       label,
       message: details.reason || "Embedded browser renderer exited."
     });
@@ -500,7 +516,8 @@ function createEmbeddedBrowser(sender, request) {
 
   owner.contentView.addChildView(view);
   view.setBounds(normalizeBounds(request.rect));
-  view.webContents.loadURL(url);
+  view.setBorderRadius(normalizeBorderRadius(request.rect?.borderRadius));
+  view.setVisible(false);
 
   const key = embeddedBrowserKey(sender, label);
   embeddedBrowsers.set(key, {
@@ -508,10 +525,28 @@ function createEmbeddedBrowser(sender, request) {
     owner,
     ownerId: owner.id,
     view,
-    visible: true
+    visible: false
+  });
+  void view.webContents.loadURL(url).catch((error) => {
+    sendEmbeddedBrowserEvent(sender, "mmm:browser:error", { label, message: readableError(error).message });
   });
 
   return { status: "created", label };
+}
+
+function embeddedBrowserState(label, view, fallbackUrl) {
+  const contents = view.webContents;
+  return {
+    label,
+    url: contents.getURL() || fallbackUrl,
+    title: contents.getTitle() || "",
+    loading: contents.isLoading()
+  };
+}
+
+function sendEmbeddedBrowserEvent(sender, channel, payload) {
+  if (sender.isDestroyed()) return;
+  sender.send(channel, payload);
 }
 
 function embeddedBrowserKey(sender, label) {
@@ -546,13 +581,33 @@ function setEmbeddedBrowserVisible(sender, label, visible) {
 function focusEmbeddedBrowser(sender, label) {
   const record = embeddedBrowsers.get(embeddedBrowserKey(sender, label));
   if (!record) return;
+  record.owner.contentView.addChildView(record.view);
   record.view.webContents.focus();
+}
+
+function navigateEmbeddedBrowser(sender, label, value) {
+  const record = embeddedBrowsers.get(embeddedBrowserKey(sender, label));
+  if (!record) return;
+  const url = normalizeHttpUrl(value);
+  if (!url) throw new Error("Invalid embedded browser URL.");
+  return record.view.webContents.loadURL(url);
+}
+
+function reloadEmbeddedBrowser(sender, label) {
+  const record = embeddedBrowsers.get(embeddedBrowserKey(sender, label));
+  if (!record) return;
+  record.view.webContents.reload();
 }
 
 function setEmbeddedBrowserRect(sender, label, rect) {
   const record = embeddedBrowsers.get(embeddedBrowserKey(sender, label));
   if (!record) return;
   record.view.setBounds(normalizeBounds(rect));
+  record.view.setBorderRadius(normalizeBorderRadius(rect?.borderRadius));
+}
+
+function normalizeBorderRadius(value) {
+  return Math.max(0, finiteNumber(value, 0));
 }
 
 function normalizeBounds(rect) {

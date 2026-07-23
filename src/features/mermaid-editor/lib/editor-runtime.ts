@@ -14,6 +14,7 @@ export type {
   EditorRuntime,
   RuntimeEmbeddedBrowserHandle,
   RuntimeEmbeddedBrowserResult,
+  RuntimeEmbeddedBrowserState,
   RuntimeFileDropRequest,
   RuntimeFileOpenRequest,
   RuntimeFileRef,

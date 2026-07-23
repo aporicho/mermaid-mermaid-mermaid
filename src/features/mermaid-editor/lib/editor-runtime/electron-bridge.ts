@@ -1,6 +1,6 @@
-import type { EmbeddedBrowserLogicalRect } from "@/features/mermaid-editor/lib/embedded-browser-rect";
 import type { DocumentKind } from "@/features/mermaid-editor/lib/document-kind";
 import type { ElectronAgentBridge } from "@/features/mermaid-editor/lib/editor-runtime/electron-agent-bridge";
+import type { ElectronEmbeddedBrowserBridge } from "@/features/mermaid-editor/lib/editor-runtime/electron-embedded-browser-bridge";
 import type {
   EditorDraftState,
   RuntimeFileDropRequest,
@@ -24,21 +24,6 @@ import type {
   RuntimeWriteCsvFileResult
 } from "@/features/mermaid-editor/lib/editor-runtime/csv-file-types";
 
-export type ElectronEmbeddedBrowserCreateResult =
-  | {
-      status: "created";
-      label: string;
-    }
-  | {
-      status: "unsupported" | "error";
-      message: string;
-    };
-
-export type ElectronEmbeddedBrowserErrorEvent = {
-  label: string;
-  message: string;
-};
-
 export type ElectronOpenedFile = {
   name: string;
   path: string;
@@ -61,7 +46,7 @@ export type ElectronImageAsset = {
   copied?: boolean;
 };
 
-export type ElectronBridge = ElectronMarkdownFoldBridge & ElectronMonitoringBridge & ElectronAgentBridge & {
+export type ElectronBridge = ElectronMarkdownFoldBridge & ElectronMonitoringBridge & ElectronAgentBridge & ElectronEmbeddedBrowserBridge & {
   host: "electron";
   openExternalUrl: (url: string) => Promise<void>;
   startWindowDrag: () => Promise<void>;
@@ -103,17 +88,6 @@ export type ElectronBridge = ElectronMarkdownFoldBridge & ElectronMonitoringBrid
   onTerminalExit: (handler: (event: RuntimeTerminalExitEvent) => void) => () => void;
   openProjectFolder: () => Promise<ProjectWorkspace | null>;
   readProjectFolder: (rootPath: string) => Promise<ProjectWorkspace>;
-  createEmbeddedBrowser: (request: {
-    label: string;
-    url: string;
-    rect: EmbeddedBrowserLogicalRect;
-  }) => Promise<ElectronEmbeddedBrowserCreateResult>;
-  closeEmbeddedBrowser: (label: string) => Promise<void>;
-  hideEmbeddedBrowser: (label: string) => Promise<void>;
-  showEmbeddedBrowser: (label: string) => Promise<void>;
-  focusEmbeddedBrowser: (label: string) => Promise<void>;
-  setEmbeddedBrowserRect: (label: string, rect: EmbeddedBrowserLogicalRect) => Promise<void>;
-  onEmbeddedBrowserError: (handler: (event: ElectronEmbeddedBrowserErrorEvent) => void) => () => void;
 };
 
 declare global {

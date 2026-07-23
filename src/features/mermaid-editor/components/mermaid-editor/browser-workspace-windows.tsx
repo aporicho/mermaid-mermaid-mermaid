@@ -56,8 +56,8 @@ export function BrowserWorkspaceWindows({
       <BrowserWindowPanel
         browserWindow={browserWindow}
         runtime={runtime}
-        active={activePanel === browserWindow.id}
         domOverlayActive={domOverlayActive}
+        onFocusPanel={() => bringPanelToFront(browserWindow.id)}
         onStatus={onStatus}
       />
     </WorkspaceFloatingWindow>

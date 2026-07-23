@@ -20,9 +20,13 @@ function createHandle(): RuntimeEmbeddedBrowserHandle {
     hide: vi.fn(() => Promise.resolve()),
     show: vi.fn(() => Promise.resolve()),
     focus: vi.fn(() => Promise.resolve()),
+    navigate: vi.fn(() => Promise.resolve()),
+    reload: vi.fn(() => Promise.resolve()),
     setRect: vi.fn(() => Promise.resolve()),
     onCreated: vi.fn(() => Promise.resolve()),
-    onError: vi.fn(() => Promise.resolve())
+    onError: vi.fn(() => Promise.resolve()),
+    onFocus: vi.fn(() => Promise.resolve()),
+    onState: vi.fn(() => Promise.resolve())
   };
 }
 
@@ -72,12 +76,13 @@ describe("EmbeddedBrowserSurface", () => {
           panelId,
           url: "https://example.com",
           runtime,
-          active: true,
           domOverlayActive: false,
-          reloadRevision: 0,
-          onReload: vi.fn(),
+          retryRevision: 0,
+          onRetry: vi.fn(),
           onStatus,
           onBrowserError,
+          onBrowserFocus: vi.fn(),
+          onBrowserStateChange: vi.fn(),
           onBrowserHandleChange
         })
       );
@@ -116,12 +121,13 @@ describe("EmbeddedBrowserSurface", () => {
           panelId,
           url: "https://example.com",
           runtime,
-          active: true,
           domOverlayActive: false,
-          reloadRevision: 0,
-          onReload: vi.fn(),
+          retryRevision: 0,
+          onRetry: vi.fn(),
           onStatus: vi.fn(),
           onBrowserError: vi.fn(),
+          onBrowserFocus: vi.fn(),
+          onBrowserStateChange: vi.fn(),
           onBrowserHandleChange: vi.fn()
         })
       );
@@ -129,6 +135,38 @@ describe("EmbeddedBrowserSurface", () => {
     });
 
     expect(createEmbeddedBrowser).toHaveBeenCalledTimes(1);
+    expect(handle.close).not.toHaveBeenCalled();
+  });
+
+  it("navigates the existing native browser when the address changes", async () => {
+    const handle = createHandle();
+    vi.mocked(handle.onCreated).mockImplementation(async (handler) => handler());
+    const createEmbeddedBrowser = vi.fn(async (): Promise<RuntimeEmbeddedBrowserResult> => ({ status: "created", browser: handle }));
+    const runtime = createRuntime(createEmbeddedBrowser);
+
+    await renderSurface({ runtime });
+
+    await act(async () => {
+      root?.render(
+        createElement(EmbeddedBrowserSurface, {
+          panelId,
+          url: "https://openai.com",
+          runtime,
+          domOverlayActive: false,
+          retryRevision: 0,
+          onRetry: vi.fn(),
+          onStatus: vi.fn(),
+          onBrowserError: vi.fn(),
+          onBrowserFocus: vi.fn(),
+          onBrowserStateChange: vi.fn(),
+          onBrowserHandleChange: vi.fn()
+        })
+      );
+      await Promise.resolve();
+    });
+
+    expect(createEmbeddedBrowser).toHaveBeenCalledTimes(1);
+    expect(handle.navigate).toHaveBeenCalledWith("https://openai.com");
     expect(handle.close).not.toHaveBeenCalled();
   });
 

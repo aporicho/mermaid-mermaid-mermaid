@@ -1,4 +1,4 @@
-import { createContext, useContext, useId, type ReactNode } from "react";
+import { useId, type ReactNode } from "react";
 import { Collapse, Expand, Pin, PinSlash, Xmark } from "iconoir-react/regular";
 
 import { EditorIconButton, WindowTitlebarLayout } from "@/features/mermaid-editor/components/editor-ui";
@@ -11,18 +11,11 @@ import { cn } from "@/lib/utils";
 
 import { FloatingPanel } from "./floating-panel";
 import { useWorkspacePanelHeader } from "./workspace-panel-header-context";
-
-type WorkspaceWindowChrome = {
-  titleId: string;
-  allowFullscreen: boolean;
-  windowState: FloatingPanelWindowState;
-  onWindowStateChange: (state: FloatingPanelWindowState) => void;
-  onClose: () => void;
-  closeLabel: string;
-  tooltipSide: "top" | "right" | "bottom" | "left";
-};
-
-const WorkspaceWindowChromeContext = createContext<WorkspaceWindowChrome | null>(null);
+import {
+  WorkspaceWindowChromeContext,
+  useWorkspaceWindowChrome,
+  type WorkspaceWindowChrome
+} from "./workspace-window-chrome-context";
 
 export function WorkspaceFloatingWindow({
   open,
@@ -126,7 +119,7 @@ export function WorkspaceWindowHeader({
   titleTooltip?: string;
   className?: string;
 }) {
-  const chrome = useContext(WorkspaceWindowChromeContext);
+  const chrome = useWorkspaceWindowChrome();
   const workspaceHeader = useWorkspacePanelHeader();
   if (!chrome || !workspaceHeader) throw new Error("WorkspaceWindowHeader must be rendered inside WorkspaceFloatingWindow.");
   const fullscreen = chrome.windowState === "fullscreen";

@@ -8,7 +8,6 @@ import {
   EditPencil,
   Key,
   LogOut,
-  NavArrowDown,
   NavArrowLeft,
   Package,
   Plus,
@@ -47,11 +46,12 @@ export function AgentSettingsPanel({ controller, onBack }: { controller: AgentCo
   const setControllerError = controller.setError;
 
   useEffect(() => {
+    if (controller.status !== "ready") return;
     void loadOverview().catch((error) => setControllerError(readableError(error)));
-  }, [loadOverview, setControllerError]);
+  }, [controller.status, loadOverview, setControllerError]);
 
   return (
-    <div className="grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)] bg-card">
+    <div className="flex h-full min-h-0 flex-col bg-card">
       <WorkspaceWindowHeader
         leadingActions={<EditorIconButton context="panel" label="返回聊天" onClick={onBack}><NavArrowLeft /></EditorIconButton>}
         icon={<Settings className="size-4 shrink-0" />}
@@ -60,16 +60,16 @@ export function AgentSettingsPanel({ controller, onBack }: { controller: AgentCo
       />
 
       {!controller.overview ? (
-          <Empty>
-            <EmptyMedia>{controller.overviewBusy ? <Spinner /> : <Settings />}</EmptyMedia>
+          <Empty className="min-h-0 flex-1">
+            <EmptyMedia>{controller.overviewBusy || controller.status === "starting" ? <Spinner /> : <Settings />}</EmptyMedia>
             <EmptyHeader>
-              <EmptyTitle>{controller.overviewBusy ? "正在读取设置" : "设置尚未载入"}</EmptyTitle>
-              {!controller.overviewBusy ? <EmptyDescription>重新读取 Pi 的模型与项目配置。</EmptyDescription> : null}
+              <EmptyTitle>{controller.status === "starting" ? "正在启动 Agent" : controller.overviewBusy ? "正在读取设置" : "设置尚未载入"}</EmptyTitle>
+              {!controller.overviewBusy && controller.status !== "starting" ? <EmptyDescription>重新读取 Pi 的模型与项目配置。</EmptyDescription> : null}
             </EmptyHeader>
-            {!controller.overviewBusy ? <Button onClick={() => void controller.loadOverview(true)}>重新载入</Button> : null}
+            {!controller.overviewBusy && controller.status === "ready" ? <Button onClick={() => void controller.loadOverview(true)}>重新载入</Button> : null}
           </Empty>
       ) : (
-          <Tabs orientation="vertical" value={page} onValueChange={setPage} className="grid min-h-0 grid-cols-[11.5rem_minmax(0,1fr)] max-[700px]:grid-cols-[3.5rem_minmax(0,1fr)]">
+          <Tabs orientation="vertical" value={page} onValueChange={setPage} className="grid min-h-0 flex-1 grid-cols-[11.5rem_minmax(0,1fr)] max-[700px]:grid-cols-[3.5rem_minmax(0,1fr)]">
             <TabsList className="h-full flex-col items-stretch justify-start rounded-none border-r bg-muted/25 p-2">
               <SettingsTab value="models" icon={<User />} label="模型与账户" />
               <SettingsTab value="tools" icon={<Tools />} label="工具与命令" />
@@ -146,15 +146,24 @@ function ProviderItem({ provider, config, controller, onEdit }: { provider: any;
       {provider.configured
         ? <ProviderAction label={`退出 ${provider.name || provider.id}`} onClick={() => void controller.runControl({ type: "logout", providerId: provider.id }).catch((error) => handleControlError(controller, error))}><LogOut /></ProviderAction>
         : interactiveAuth.length === 1
-          ? <Button variant="secondary" size="sm" title={interactiveAuth[0].label} aria-label={`连接 ${provider.name || provider.id}：${interactiveAuth[0].label}`} onClick={() => login(interactiveAuth[0])}><Key />连接</Button>
+          ? <ProviderConnectButton label={`连接 ${provider.name || provider.id}：${interactiveAuth[0].label}`} onClick={() => login(interactiveAuth[0])} />
           : interactiveAuth.length > 1
             ? <DropdownMenu>
-                <DropdownMenuTrigger asChild><Button variant="secondary" size="sm" aria-label={`连接 ${provider.name || provider.id}`}><Key />连接<NavArrowDown className="size-3.5" /></Button></DropdownMenuTrigger>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <DropdownMenuTrigger asChild><Button variant="secondary" size="icon" aria-label={`连接 ${provider.name || provider.id}`}><Key /></Button></DropdownMenuTrigger>
+                  </TooltipTrigger>
+                  <TooltipContent>连接 {provider.name || provider.id}</TooltipContent>
+                </Tooltip>
                 <DropdownMenuContent align="end">{interactiveAuth.map((auth: any) => <DropdownMenuItem key={auth.type} onSelect={() => login(auth)}><Key />{auth.label}</DropdownMenuItem>)}</DropdownMenuContent>
               </DropdownMenu>
             : null}
     </ItemActions>
   </Item>;
+}
+
+function ProviderConnectButton({ label, onClick }: { label: string; onClick: () => void }) {
+  return <Tooltip><TooltipTrigger asChild><Button variant="secondary" size="icon" aria-label={label} onClick={onClick}><Key /></Button></TooltipTrigger><TooltipContent>{label}</TooltipContent></Tooltip>;
 }
 
 function ProviderAction({ label, onClick, children }: { label: string; onClick: () => void; children: ReactNode }) {

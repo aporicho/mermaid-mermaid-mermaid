@@ -5,10 +5,10 @@ import { ensureRuntimeDocumentFileName } from "@/features/mermaid-editor/lib/edi
 import type {
   EditorRuntime,
   RuntimeImageAssetResult,
-  RuntimeEmbeddedBrowserHandle,
   RuntimeEmbeddedBrowserResult
 } from "@/features/mermaid-editor/lib/editor-runtime/types";
 import type { ElectronImageAsset } from "@/features/mermaid-editor/lib/editor-runtime/electron-bridge";
+import { createElectronEmbeddedBrowserHandle } from "@/features/mermaid-editor/lib/editor-runtime/electron-embedded-browser";
 import { createElectronCsvFileOperations } from "@/features/mermaid-editor/lib/editor-runtime/electron-csv-file";
 import { createElectronMarkdownFoldOperations } from "@/features/mermaid-editor/lib/editor-runtime/electron-markdown-fold";
 import { createElectronRuntimeMonitoring } from "@/features/mermaid-editor/lib/editor-runtime/electron-runtime-monitoring";
@@ -168,7 +168,7 @@ export function createElectronRuntime(): EditorRuntime {
       if (result.status !== "created") return result;
       return {
         status: "created",
-        browser: electronEmbeddedBrowserHandle(result.label || request.label, bridge)
+        browser: createElectronEmbeddedBrowserHandle(result.label || request.label, bridge)
       };
     }
   };
@@ -181,43 +181,5 @@ function electronImageAssetResult(asset: ElectronImageAsset): RuntimeImageAssetR
     displaySrc: asset.displaySrc,
     path: asset.path,
     copied: asset.copied
-  };
-}
-
-function electronEmbeddedBrowserHandle(label: string, bridge: NonNullable<ReturnType<typeof getElectronBridge>>): RuntimeEmbeddedBrowserHandle {
-  let closed = false;
-  let unlistenError: (() => void) | null = null;
-
-  return {
-    async close() {
-      if (closed) return;
-      closed = true;
-      unlistenError?.();
-      unlistenError = null;
-      await bridge.closeEmbeddedBrowser(label);
-    },
-    async hide() {
-      if (!closed) await bridge.hideEmbeddedBrowser(label);
-    },
-    async show() {
-      if (!closed) await bridge.showEmbeddedBrowser(label);
-    },
-    async focus() {
-      if (!closed) await bridge.focusEmbeddedBrowser(label);
-    },
-    async setRect(rect) {
-      if (!closed) await bridge.setEmbeddedBrowserRect(label, rect);
-    },
-    async onCreated(handler) {
-      window.requestAnimationFrame(() => {
-        if (!closed) handler();
-      });
-    },
-    async onError(handler) {
-      unlistenError?.();
-      unlistenError = bridge.onEmbeddedBrowserError((event) => {
-        if (!closed && event.label === label) handler(event.message || event);
-      });
-    }
   };
 }

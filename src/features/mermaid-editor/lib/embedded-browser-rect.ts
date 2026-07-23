@@ -3,6 +3,7 @@ export type EmbeddedBrowserRectInput = {
   top: number;
   width: number;
   height: number;
+  borderRadius?: number;
 };
 
 export type EmbeddedBrowserLogicalRect = {
@@ -10,6 +11,7 @@ export type EmbeddedBrowserLogicalRect = {
   y: number;
   width: number;
   height: number;
+  borderRadius?: number;
 };
 
 export function embeddedBrowserLogicalRect(rect: EmbeddedBrowserRectInput): EmbeddedBrowserLogicalRect {
@@ -17,10 +19,12 @@ export function embeddedBrowserLogicalRect(rect: EmbeddedBrowserRectInput): Embe
     x: Math.floor(rect.left),
     y: Math.floor(rect.top),
     width: Math.max(1, Math.ceil(rect.width)),
-    height: Math.max(1, Math.ceil(rect.height))
+    height: Math.max(1, Math.ceil(rect.height)),
+    ...(Number.isFinite(rect.borderRadius) ? { borderRadius: Math.max(0, rect.borderRadius || 0) } : {})
   };
 }
 
 export function embeddedBrowserRectKey(rect: EmbeddedBrowserLogicalRect) {
-  return `${rect.x}:${rect.y}:${rect.width}:${rect.height}`;
+  const bounds = `${rect.x}:${rect.y}:${rect.width}:${rect.height}`;
+  return rect.borderRadius === undefined ? bounds : `${bounds}:r${rect.borderRadius}`;
 }

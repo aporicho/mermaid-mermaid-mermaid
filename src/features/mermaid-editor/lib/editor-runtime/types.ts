@@ -141,9 +141,19 @@ export type RuntimeEmbeddedBrowserHandle = {
   hide: () => Promise<void>;
   show: () => Promise<void>;
   focus: () => Promise<void>;
+  navigate: (url: string) => Promise<void>;
+  reload: () => Promise<void>;
   setRect: (rect: EmbeddedBrowserLogicalRect) => Promise<void>;
   onCreated: (handler: () => void) => Promise<void>;
   onError: (handler: (error: unknown) => void) => Promise<void>;
+  onFocus: (handler: () => void) => Promise<void>;
+  onState: (handler: (state: RuntimeEmbeddedBrowserState) => void) => Promise<void>;
+};
+
+export type RuntimeEmbeddedBrowserState = {
+  url: string;
+  title: string;
+  loading: boolean;
 };
 
 export type RuntimeEmbeddedBrowserResult =
