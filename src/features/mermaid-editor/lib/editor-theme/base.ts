@@ -3,6 +3,7 @@ import { DEFAULT_EDGE_LABEL_GEOMETRY_TOKENS } from "@/features/mermaid-editor/li
 import { DEFAULT_NODE_GEOMETRY_TOKENS } from "@/features/mermaid-editor/lib/node-geometry";
 import { SUBGRAPH_GEOMETRY_TOKENS } from "@/features/mermaid-editor/lib/subgraph-geometry";
 import type { CanvasThemeTokens, InterfaceThemeTokens, ShadowTokens } from "./appearance-types";
+import { createDefaultAgentTheme, normalizeAgentTheme } from "./agent-theme";
 import { createDefaultMarkdownTheme, mergeMarkdownTheme, type DeepPartial } from "./markdown-theme";
 import { createDefaultSpecialNodeTheme, normalizeSpecialNodeTheme } from "./special-node-theme";
 import { migrateCanvasThemeV11, migrateInterfaceThemeV11, objectValue } from "./theme-v11-migration";
@@ -31,6 +32,12 @@ const BASE_COLORS: InterfaceThemeTokens["colors"] = {
   accentForeground: "#b91f31",
   destructive: "#b91f31",
   destructiveForeground: "#f8f3ec",
+  success: "#36724f",
+  successForeground: "#fffaf4",
+  warning: "#a66a00",
+  warningForeground: "#fffaf4",
+  info: "#2f5f9f",
+  infoForeground: "#fffaf4",
   border: "#b8ada0",
   input: "#b8ada0",
   focusRing: "#ff4050"
@@ -317,10 +324,12 @@ export const BASE_CANVAS: CanvasThemeTokens = {
 const BASE_TYPOGRAPHY = createDefaultEditorTypography();
 const BASE_MARKDOWN = createDefaultMarkdownTheme({ interface: BASE_INTERFACE, typography: BASE_TYPOGRAPHY });
 const BASE_SPECIAL_NODE = createDefaultSpecialNodeTheme({ interface: BASE_INTERFACE, canvas: BASE_CANVAS });
+const BASE_AGENT = createDefaultAgentTheme({ interface: BASE_INTERFACE, typography: BASE_TYPOGRAPHY });
 
 export const EDITOR_THEME_BASE: Omit<EditorTheme, "id" | "name" | "description" | "baseThemeId"> = {
-  version: 11,
+  version: 12,
   interface: BASE_INTERFACE,
+  agent: BASE_AGENT,
   canvas: BASE_CANVAS,
   specialNode: BASE_SPECIAL_NODE,
   source: { line: "#d7ccc0" },
@@ -354,15 +363,17 @@ export function createEditorTheme(overrides: EditorThemeOverrides): EditorTheme 
     raw.markdown as DeepPartial<EditorTheme["markdown"]> | undefined
   );
   const specialNode = normalizeSpecialNodeTheme(raw.specialNode, createDefaultSpecialNodeTheme({ interface: interfaceTokens, canvas }));
+  const agent = normalizeAgentTheme(raw.agent, createDefaultAgentTheme({ interface: interfaceTokens, typography }));
 
   return {
     ...EDITOR_THEME_BASE,
-    version: 11,
+    version: 12,
     id: overrides.id,
     name: overrides.name,
     description: overrides.description,
     ...(typeof raw.baseThemeId === "string" ? { baseThemeId: raw.baseThemeId } : {}),
     interface: interfaceTokens,
+    agent,
     canvas,
     specialNode,
     source: { ...EDITOR_THEME_BASE.source, ...objectValue(raw.source) },

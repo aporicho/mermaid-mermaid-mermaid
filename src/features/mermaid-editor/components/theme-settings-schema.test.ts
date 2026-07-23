@@ -56,7 +56,7 @@ describe("theme settings schema", () => {
       typography: Record<string, unknown>;
     };
 
-    expect(DEFAULT_EDITOR_THEME.version).toBe(11);
+    expect(DEFAULT_EDITOR_THEME.version).toBe(12);
     expect(theme.markdown).not.toHaveProperty("typography");
     expect(theme.markdown).not.toHaveProperty("font");
     expect(theme.markdown).not.toHaveProperty("quote");

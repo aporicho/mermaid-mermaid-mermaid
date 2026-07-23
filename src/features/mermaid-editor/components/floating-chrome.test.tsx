@@ -149,6 +149,16 @@ describe("FloatingPanel", () => {
     expect(surface.className).not.toContain("backdrop-blur");
   });
 
+  it("keeps resize handles in an absolute overlay instead of workspace layout flow", () => {
+    renderWorkspacePanel();
+
+    const handle = requiredElement<HTMLElement>("[data-floating-panel-resize-handle='se']");
+    const overlay = handle.parentElement;
+    expect(overlay?.className).toContain("absolute");
+    expect(overlay?.className).toContain("inset-0");
+    expect(overlay?.className).toContain("pointer-events-none");
+  });
+
   it("leaves non-workspace panel headers in their ordinary layout", () => {
     createContainer();
     act(() => {

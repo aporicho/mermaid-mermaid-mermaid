@@ -3,6 +3,7 @@ import {
   DotsGrid3x3 as Grid3X3,
   SidebarExpand as PanelLeftOpen,
   SidebarExpand as PanelRightOpen,
+  ChatBubble,
   Terminal
 } from "iconoir-react/regular";
 
@@ -30,6 +31,7 @@ type EditorFloatingChromeProps = {
   secondaryActionsOpen: boolean;
   leftCollapsed: boolean;
   rightCollapsed: boolean;
+  agentOpen: boolean;
   terminalOpen: boolean;
   recentFiles: RecentFileEntry[];
   projectBusy: boolean;
@@ -87,6 +89,7 @@ export function EditorFloatingChrome({
   secondaryActionsOpen,
   leftCollapsed,
   rightCollapsed,
+  agentOpen,
   terminalOpen,
   recentFiles,
   projectBusy,
@@ -249,15 +252,24 @@ export function EditorFloatingChrome({
         />
       </FloatingChromeSlot>
 
-      {!terminalOpen ? (
+      {!agentOpen || !terminalOpen ? (
         <FloatingChromeSlot placement="bottomCenter">
-          <FloatingIconButton
-            label="打开终端"
-            tooltipSide="top"
-            onClick={() => onOpenWorkspacePanel("terminal")}
-          >
-            <Terminal />
-          </FloatingIconButton>
+          <div className="flex items-center gap-1">
+            {!agentOpen ? <FloatingIconButton
+              label="打开 Pi Agent"
+              tooltipSide="top"
+              onClick={() => onOpenWorkspacePanel("agent")}
+            >
+              <ChatBubble />
+            </FloatingIconButton> : null}
+            {!terminalOpen ? <FloatingIconButton
+              label="打开终端"
+              tooltipSide="top"
+              onClick={() => onOpenWorkspacePanel("terminal")}
+            >
+              <Terminal />
+            </FloatingIconButton> : null}
+          </div>
         </FloatingChromeSlot>
       ) : null}
 

@@ -1,6 +1,6 @@
 # Mermaid 画布编辑器
 
-这是一个本地项目文档编辑器，把 Mermaid 源码编辑、官方渲染预览、Mermaid 可编辑无限画布、Markdown 阅读/编辑、独立无限白板画布和桌面端集成终端放在同一个工作区里。项目使用 Vite、React、TypeScript、Tailwind CSS、shadcn 风格 UI 原语、Mermaid、Milkdown、xterm.js、React Konva、PixiJS 和 Electron 构建桌面端。
+这是一个本地项目文档编辑器，把 Mermaid 源码编辑、官方渲染预览、Mermaid 可编辑无限画布、Markdown 阅读/编辑、独立无限白板画布、桌面端集成终端和 Pi Agent 放在同一个工作区里。项目使用 Vite、React、TypeScript、Tailwind CSS、shadcn UI、Mermaid、Milkdown、xterm.js、React Konva、PixiJS 和 Electron 构建桌面端。
 
 ## 核心能力
 
@@ -17,6 +17,7 @@
 - Electron 桌面端可从项目树拖入 Markdown 文档卡片，或从画布菜单关联已有文档、在项目根目录安全新建文档；双击卡片在浮动 Markdown 窗口中打开。
 - Mermaid 支持无限画布、渲染视图和源码视图；Markdown 支持 Markdown 视图和源码视图；Canvas 支持独立无限白板画布。
 - 桌面端支持底部悬浮终端面板，终端在当前项目目录或当前文件目录中启动，并可在可用的受控 shell 之间切换。
+- 桌面端提供独立 Pi Agent 浮动面板，支持流式对话、模型与 thinking 切换、认证、会话、工具、资源、包、设置、项目信任和打开文档的修订安全修改；Agent UI 只使用 shadcn 组件。
 - 应用主题会同时作用于 CSS 变量、Konva/Pixi 画布 token、Mermaid `themeVariables` 和终端 ANSI 16 色。
 
 ## 编译安装使用
@@ -81,9 +82,9 @@ http://127.0.0.1:5173
 
 调试桌面壳时使用 `npm run desktop:dev`。
 
-## 桌面端与智能体桥接
+## 桌面端、终端与 Pi Agent
 
-浏览器构建是静态 Vite 应用，负责人工编辑、查看、导入和导出 Mermaid、Markdown 和 Canvas 项目文档。桌面端在此基础上增加真实文件读写、项目文件夹扫描、图片资源导入、本地 PTY 终端和实时智能体桥接。
+浏览器构建是静态 Vite 应用，负责人工编辑、查看、导入和导出 Mermaid、Markdown 和 Canvas 项目文档。桌面端在此基础上增加真实文件读写、项目文件夹扫描、图片资源导入、本地 PTY 终端和应用内 Pi Agent。终端与 Agent 是两个独立浮动面板，可以同时打开：终端保持 xterm + node-pty 的完整能力，Agent 使用 Pi SDK 的模型、认证、会话、工具、Skills、Extensions、Prompts 和 Packages。
 
 桌面端相关命令：
 
@@ -112,13 +113,7 @@ npm run windows:run
 
 该脚本会把当前工作区同步到 Windows 临时目录，执行 Windows 侧 `npm install`，构建 Windows Electron 包，安装并启动桌面应用。默认跳过重复的 Windows 侧测试、类型检查和原生依赖重建，因为常规检查应先在 WSL 仓库完成，且 `node-pty` 终端依赖在未安装 Visual Studio C++ Build Tools 的 Windows 上会阻塞安装包生成。设置 `MMM_WINDOWS_RUN_FULL_CHECKS=1` 可包含这些检查；安装 Visual Studio C++ Build Tools 后设置 `MMM_WINDOWS_RUN_NATIVE_REBUILD=1` 可重建原生终端依赖；设置 `MMM_WINDOWS_RUN_LAUNCH_ONLY=1` 可只启动已安装应用。
 
-桌面应用启动后，会在随机 `127.0.0.1` 端口开启带 token 的本地桥接服务，并把发现信息写入：
-
-```text
-~/.mermaid-canvas-editor/bridge.json
-```
-
-`mmm` CLI 默认读取该文件，用于 `mmm ping`、`mmm context` 和 `mmm apply` 等实时命令。静态 Web 构建不暴露实时智能体上下文。
+Pi Agent 不开放 loopback HTTP 服务，也不写 discovery token。每个编辑器窗口按需启动独立 Pi Worker：官方 JSONL RPC 负责 Agent 协议，Node IPC 负责控制面、信任确认和打开文档的实时读写。`mmm` CLI 保留为离线文件工具，继续提供 `read`、`validate`、`diff`、`patch`、`layout` 和 `fixture`。
 
 ## 界面结构
 
@@ -131,7 +126,7 @@ npm run windows:run
 - 右上角是窗口控制、筛选和三视图切换。
 - 右侧中部是属性、主题和诊断面板入口。
 - 左下角是设置和辅助操作入口。
-- 底部中间是桌面终端入口。
+- 底部中间并列放置 Pi Agent 与桌面终端入口。
 - 右下角是选择/连接模式切换。
 
 左侧面板是项目文件浏览器。桌面端会围绕当前文件或用户选择的文件夹递归扫描 Mermaid、Markdown 和 `.canvas.json` 画布项目文档；面板本身保持简洁，不放筛选输入框。右侧面板承载 Mermaid 属性、主题和诊断。两个侧栏都以覆盖层形式浮在工作区上，不改变画布坐标系。
@@ -246,7 +241,7 @@ src/main.tsx, src/App.tsx, src/styles/
   Vite React 应用入口和全局样式。
 
 electron/
-  Electron 桌面壳、内嵌浏览器、原生文件命令、图片资源、本地 PTY 终端和本地智能体桥接。
+  Electron 桌面壳、内嵌浏览器、原生文件命令、图片资源、本地 PTY 终端和 Pi Agent Worker。
 
 src-tauri/
   旧 Tauri 桌面壳，迁移期保留作为回退实现和能力对照。
@@ -255,7 +250,7 @@ src/components/ui/
   共享 UI 原语。
 
 src/features/mermaid-editor/components/
-  React UI、源码视图、渲染视图、Markdown 视图、终端面板、属性面板、浮动控件、Konva 和 Pixi 画布桥接。
+  React UI、源码视图、渲染视图、Markdown 视图、独立终端与 Agent 面板、属性面板、浮动控件、Konva 和 Pixi 画布桥接。
 
 src/features/mermaid-editor/lib/
   纯编辑器逻辑：解析、序列化、布局、交互状态、命中目标、
@@ -276,7 +271,7 @@ docs/
 - [docs/文档模型.mmd](docs/文档模型.mmd)：Mermaid 源码、`canvas-layout`、图状态、只渲染兜底和源码同步。
 - [docs/运行时文件与资源.mmd](docs/运行时文件与资源.mmd)：浏览器/桌面运行时适配、文件流程、项目文件夹扫描、草稿、图片资源和显示 URL。
 - [docs/交互管线.mmd](docs/交互管线.mmd)：输入标准化、意图解析、命令、事务、浮动控件和视觉反馈。
-- [docs/智能体桥接.mmd](docs/智能体桥接.mmd)：离线 CLI 命令和桌面实时桥接命令。
+- [docs/智能体桥接.mmd](docs/智能体桥接.mmd)：Pi Worker、JSONL RPC、实时文档工具与独立终端边界。
 - [docs/主题系统.mmd](docs/主题系统.mmd)：主题来源优先级、编译产物和 CSS/Konva/Mermaid 适配。
 - [docs/性能路径.mmd](docs/性能路径.mmd)：热路径、提交路径、重任务路径和性能观测。
 - [docs/演示图谱.mmd](docs/演示图谱.mmd)：用于展示节点形状、连线语义、子图、自动布局和编辑闭环的示例图。
@@ -299,7 +294,7 @@ docs/
 - `node-geometry.ts` 负责节点 frame、文本、锚点、路由、对齐和命中测试几何。
 - `edge-geometry.ts` 负责完成连线和草稿连线路由。
 - Konva/Pixi 组件只翻译事件、渲染图形、执行返回命令；不要在组件里分散业务规则。
-- 浏览器和桌面平台行为必须经过 `editor-runtime.ts`；编辑器组件不要直接调用 Electron / Tauri API、浏览器文件选择 API、PTY 终端或智能体桥接 endpoint。
+- 浏览器和桌面平台行为必须经过 `editor-runtime.ts`；编辑器组件不要直接调用 Electron / Tauri API、浏览器文件选择 API、PTY 终端或 Pi Worker。
 - 新节点 ID 默认使用 `N1`、`N2`、`N3` 序列，除非保留用户已有 ID。
 - 新增图标按钮必须沿用圆形 `size="icon"` 规则。
 
@@ -309,7 +304,8 @@ docs/
 - `src/features/mermaid-editor/components/konva-canvas.tsx`：Konva 渲染和事件桥接。
 - `src/features/mermaid-editor/components/canvas-document-editor.tsx`：`.canvas.json` 独立无限白板的 PixiJS 渲染和事件桥接。
 - `src/features/mermaid-editor/components/terminal-panel.tsx`：xterm 终端面板、尺寸适配和终端会话事件桥接。
-- `src/features/mermaid-editor/lib/editor-runtime.ts`：Web/desktop 文件、草稿、终端和智能体桥接运行时适配。
+- `src/features/mermaid-editor/components/agent/agent-panel.tsx`：基于 shadcn 的 Pi 对话与控制中心。
+- `src/features/mermaid-editor/lib/editor-runtime.ts`：Web/desktop 文件、草稿、终端和 Pi Agent 运行时适配。
 - `src/features/mermaid-editor/lib/mermaid-graph.ts`：Mermaid flowchart 解析与序列化。
 - `src/features/mermaid-editor/lib/mermaid-document.ts`：文档加载、构建和 `canvas-layout` 处理。
 - `src/features/mermaid-editor/lib/editor-types.ts`：共享编辑器数据模型。

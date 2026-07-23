@@ -11,7 +11,6 @@ const {
   isSupportedImagePath,
   resolveImageAssetPath
 } = require("./image-assets.cjs");
-const { createAiBridge } = require("./ai-bridge.cjs");
 const { resolveLinkPreview } = require("./link-preview.cjs");
 const { createProjectDocument, createProjectFile, createProjectTextFile, moveProjectFile } = require("./project-documents.cjs");
 const { readProjectCsvFile, writeProjectCsvFile } = require("./project-csv.cjs");
@@ -21,6 +20,8 @@ const {
   writeProjectMarkdownFoldState
 } = require("./markdown-fold-store.cjs");
 const { createTerminalManager } = require("./terminal.cjs");
+const { createPiAgentManager } = require("./pi-agent-manager.cjs");
+const { cleanupLegacyAiBridgeDiscovery, registerPiAgentIpc } = require("./pi-agent-ipc.cjs");
 const { listSystemFonts } = require("./system-fonts.cjs");
 const { createProjectFileWatcher } = require("./project-file-watcher.cjs");
 const { scanProjectFolder: scanProjectFolderSnapshot } = require("./project-workspace.cjs");
@@ -47,7 +48,7 @@ const browserToolWindows = new Map();
 const mainWindows = new Set();
 const windowFileRouter = createWindowFileRouter();
 
-const aiBridge = createAiBridge(app.getVersion());
+const piAgentManager = createPiAgentManager({ shell });
 const terminalManager = createTerminalManager({
   send(channel, payload) {
     for (const window of BrowserWindow.getAllWindows()) {
@@ -96,7 +97,7 @@ if (!hasSingleInstanceLock) {
     Menu.setApplicationMenu(null);
     registerAssetProtocol();
     registerIpc();
-    await aiBridge.start();
+    await cleanupLegacyAiBridgeDiscovery();
     mainWindowsReady = true;
     createMainWindow(startupOpenFiles);
     startupOpenFiles = [];
@@ -113,7 +114,7 @@ app.on("window-all-closed", () => {
 
 app.on("before-quit", () => {
   terminalManager.closeAll();
-  void aiBridge.close();
+  void piAgentManager.closeAll();
   void projectFileWatcher.closeAll();
 });
 
@@ -275,13 +276,7 @@ function registerIpc() {
   ipcMain.handle("mmm:image:resolve-src", (_event, request) => resolveImageAssetSrc(request?.documentPath, request?.src));
   ipcMain.handle("mmm:link-preview:resolve", (_event, request) => resolveLinkPreview(request));
   ipcMain.handle("mmm:pending-files:take", (event) => takePendingOpenFiles(event.sender.id));
-  ipcMain.handle("mmm:ai:publish-context", (_event, context) => aiBridge.publishContext(context));
-  ipcMain.handle("mmm:ai:take-next-command", () => ({
-    ok: true,
-    command: aiBridge.takeNextCommand(),
-    diagnostics: []
-  }));
-  ipcMain.handle("mmm:ai:finish-command", (_event, result) => aiBridge.finishCommand(result));
+  registerPiAgentIpc({ ipcMain, manager: piAgentManager });
   ipcMain.handle("mmm:terminal:list-shells", () => terminalManager.listShells());
   ipcMain.handle("mmm:terminal:open", (_event, request) => terminalManager.open(request));
   ipcMain.handle("mmm:terminal:write", (_event, request) => terminalManager.write(request?.sessionId, request?.data));
@@ -438,6 +433,7 @@ function attachWindowCleanup(window) {
     clearPendingClose(window.id);
     windowFileRouter.clear(webContentsId);
     void projectFileWatcher.removeSubscriber(webContentsId);
+    void piAgentManager.stop(webContentsId);
     if (mainWindows.delete(window) && mainWindow === window) {
       mainWindow = [...mainWindows].at(-1) || null;
     }

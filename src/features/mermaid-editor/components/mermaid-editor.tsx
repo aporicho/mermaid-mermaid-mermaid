@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { MotionPresence } from "@/features/mermaid-editor/components/floating-chrome";
-import { useEditorAiCommands } from "@/features/mermaid-editor/components/mermaid-editor/use-editor-ai-commands";
+import { useAgentSession } from "@/features/mermaid-editor/components/agent/use-agent-session";
+import { useEditorAgentDocuments } from "@/features/mermaid-editor/components/agent/use-editor-agent-documents";
 import { useEditorCommandActions } from "@/features/mermaid-editor/components/mermaid-editor/use-editor-command-actions";
 import { useEditorDesktopEvents } from "@/features/mermaid-editor/components/mermaid-editor/use-editor-desktop-events";
 import { useEditorDraftAutosave } from "@/features/mermaid-editor/components/mermaid-editor/use-editor-draft-autosave";
@@ -26,7 +27,7 @@ import { useProjectFileHotReload } from "@/features/mermaid-editor/components/me
 import { createMarkdownDocumentDropHandlers } from "@/features/mermaid-editor/components/mermaid-editor/markdown-document-drop";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { loadInitialState } from "@/features/mermaid-editor/lib/editor-state";
-import { createEditorRuntime } from "@/features/mermaid-editor/lib/editor-runtime";
+import { createEditorRuntime, type RuntimeAgentTextSelection } from "@/features/mermaid-editor/lib/editor-runtime";
 import type { EditorSnapshot } from "@/features/mermaid-editor/lib/editor-types";
 import { EditorMotionProvider } from "@/features/mermaid-editor/lib/use-gsap-motion";
 import { useDisableNativeContextMenu } from "@/features/mermaid-editor/lib/native-context-menu";
@@ -143,9 +144,12 @@ export function MermaidEditor() {
   } = useEditorThemeModel({ initial, setStatus });
   const { spec: canvasNodeGeometrySpec, routes: mermaidEdgeRoutes } = useCanvasNodeGeometryModel({ compiledTheme, fontRevision, edgeRouting, graph });
   const [draftPersistenceReady, setDraftPersistenceReady] = useState(runtime.kind !== "desktop");
+  const [agentOpen, setAgentOpen] = useState(false);
   const [terminalOpen, setTerminalOpen] = useState(false);
   const [themeSettingsOpen, setThemeSettingsOpen] = useState(false);
   const [detachedMarkdownWindows, setDetachedMarkdownWindows] = useState<DetachedMarkdownWindow[]>([]);
+  const [agentTextSelection, setAgentTextSelection] = useState<RuntimeAgentTextSelection | null>(null);
+  const [detachedAgentSelections, setDetachedAgentSelections] = useState<Record<string, RuntimeAgentTextSelection | null>>({});
   const markdownFolds = useMarkdownFoldPersistence({ runtime, projectWorkspace, currentFile: fileRef, detachedMarkdownWindows, onStatus: setStatus });
   const {
     activeWorkspacePanel,
@@ -157,6 +161,7 @@ export function MermaidEditor() {
   } = useWorkspacePanels({
     leftCollapsed,
     rightCollapsed,
+    agentOpen,
     terminalOpen,
     themeSettingsOpen,
     documentKind,
@@ -167,9 +172,10 @@ export function MermaidEditor() {
     setWorkspacePanelWindowState,
     setLeftCollapsed,
     setRightCollapsed,
+    setAgentOpen,
     setTerminalOpen
   });
-  const { recentActions, recordRecentAction } = useEditorRecentActions();
+  const { recordRecentAction } = useEditorRecentActions();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const workspaceSurfaceRef = useRef<HTMLDivElement>(null);
   const sourceEditBaseRef = useRef<EditorSnapshot | null>(null);
@@ -191,7 +197,6 @@ export function MermaidEditor() {
     applyMarkdownSource,
     applyCanvasDocument,
     flushSourceHistory,
-    snapshot,
     updateViewFilter,
     resetViewFilters,
     addNode,
@@ -431,50 +436,43 @@ export function MermaidEditor() {
     markMarkdownPreviewMissing: markMarkdownDocumentPreviewMissing,
     refreshImageAssets, showFileWorkflowError
   });
-  useEditorAiCommands({
-    nodeGeometrySpec: canvasNodeGeometrySpec,
+  const agentDocumentBridge = useEditorAgentDocuments({
     runtime,
-    sourceEditBaseRef,
-    isDirtyRef,
+    documentKind,
     source,
     currentDocument,
-    documentKind,
+    canvasDocument,
     graph,
     selection,
-    viewport,
+    textSelection: agentTextSelection,
     fileName,
     fileRef,
     isDirty,
-    diagramType,
-    editableKind,
-    mode,
-    workspaceView,
-    edgeRouting,
-    layoutMode,
-    diagnostics,
-    viewFilters,
-    canvasLiveState,
-    recentActions,
-    preferences,
-    snapshot,
+    projectWorkspace,
+    projectFiles,
+    documentGeneration: documentGenerationRef.current,
+    detachedMarkdownWindows,
+    detachedSelections: detachedAgentSelections,
+    activeWorkspacePanel,
+    applySource,
+    applyMarkdownSource,
+    applyCanvasDocument,
     flushSourceHistory,
-    recordRecentAction,
-    setHistory,
-    setSource,
-    setGraph,
-    setDiagramType,
-    setEditableKind,
-    setViewport,
-    setEdgeRouting,
-    setLayoutMode,
-    setWorkspaceView,
-    setSelection,
-    setDiagnostics,
-    setFileName,
     setFileRef,
+    setFileName,
     setRecentFiles,
     setLastSavedDocument,
-    setStatus
+    setDetachedMarkdownWindows,
+    setWorkspaceView,
+    setStatus,
+    bringWorkspacePanelToFront
+  });
+  const agentController = useAgentSession({
+    runtime,
+    enabled: agentOpen,
+    cwd: terminalCwd,
+    projectRoot: projectWorkspace?.rootPath,
+    documentBridge: agentDocumentBridge
   });
   useUnsavedPromptEscape(unsavedPrompt, resolveUnsavedPrompt);
 
@@ -577,6 +575,7 @@ export function MermaidEditor() {
             onCanvasDocumentChange={applyCanvasDocument}
             onStatus={setStatus}
             onMarkdownChange={applyMarkdownSource} markdownFoldState={markdownFolds.bindingFor(fileRef).foldState} onMarkdownFoldStateChange={markdownFolds.bindingFor(fileRef).onFoldStateChange}
+            onTextSelectionChange={setAgentTextSelection}
             onSourceChange={applySource}
             onRunSource={refreshFromSource}
             onEditorCommand={applyEditorCommand}
@@ -591,7 +590,7 @@ export function MermaidEditor() {
         <EditorWorkspacePanels
           runtime={runtime} documentKind={documentKind}
           leftCollapsed={leftCollapsed} rightCollapsed={rightCollapsed}
-          terminalOpen={terminalOpen} themeSettingsOpen={themeSettingsOpen}
+          agentOpen={agentOpen} agentController={agentController} terminalOpen={terminalOpen} themeSettingsOpen={themeSettingsOpen}
           activeWorkspacePanel={activeWorkspacePanel}
           graph={graph} selection={selection}
           projectWorkspace={projectWorkspace} projectFiles={projectFiles}
@@ -617,6 +616,7 @@ export function MermaidEditor() {
           closeDetachedMarkdownWindow={closeDetachedMarkdownWindow}
           saveDetachedMarkdownWindow={saveDetachedMarkdownWindow}
           updateDetachedMarkdownWindow={updateDetachedMarkdownWindow} markdownFoldBindingFor={markdownFolds.bindingFor}
+          onDetachedMarkdownSelectionChange={(panelId, selection) => setDetachedAgentSelections((current) => ({ ...current, [panelId]: selection }))}
           onStatus={setStatus}
         />
         <EditorFloatingChrome
@@ -631,6 +631,7 @@ export function MermaidEditor() {
           secondaryActionsOpen={secondaryActionsOpen}
           leftCollapsed={leftCollapsed}
           rightCollapsed={rightCollapsed}
+          agentOpen={agentOpen}
           terminalOpen={terminalOpen}
           recentFiles={recentFiles}
           projectBusy={projectBusy}

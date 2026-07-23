@@ -4,6 +4,7 @@ import { createDefaultSpecialNodeTheme, normalizeSpecialNodeTheme } from "./spec
 import { migrateLegacyReadingFontProfile } from "./reading-font-migration";
 import { migrateCanvasThemeV11, migrateInterfaceThemeV11, objectValue } from "./theme-v11-migration";
 import { normalizeEditorTypography } from "./typography";
+import { createDefaultAgentTheme, normalizeAgentTheme } from "./agent-theme";
 import { isHexColor } from "./color";
 import type { CanvasStrokeStyle, CssBorderStyle, EditorMotionTokens, EditorTheme } from "./types";
 
@@ -54,14 +55,16 @@ export function normalizeEditorTheme(value: unknown, fallback: EditorTheme = DEF
     raw.specialNode,
     createDefaultSpecialNodeTheme({ interface: interfaceTokens, canvas })
   );
+  const agent = normalizeAgentTheme(raw.agent, createDefaultAgentTheme({ interface: interfaceTokens, typography }));
 
   return {
-    version: 11,
+    version: 12,
     id: "custom",
     name: typeof raw.name === "string" && raw.name.trim() ? raw.name : fallback.name,
     description: typeof raw.description === "string" ? raw.description : fallback.description,
     baseThemeId,
     interface: interfaceTokens,
+    agent,
     canvas,
     specialNode,
     source: normalizeColorGroup(raw.source, fallback.source),

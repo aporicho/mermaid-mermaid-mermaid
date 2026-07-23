@@ -1,11 +1,13 @@
 const { contextBridge, ipcRenderer, webUtils } = require("electron");
 const { createProjectPreloadBridge } = require("./project-preload.cjs");
 const { createWindowFullscreenPreloadBridge } = require("./window-fullscreen-preload.cjs");
+const { createPiAgentPreloadBridge } = require("./pi-agent-preload.cjs");
 
 contextBridge.exposeInMainWorld("mmmElectron", {
   host: "electron",
   ...createProjectPreloadBridge(ipcRenderer),
   ...createWindowFullscreenPreloadBridge(ipcRenderer),
+  ...createPiAgentPreloadBridge(ipcRenderer),
   openExternalUrl(url) {
     return ipcRenderer.invoke("mmm:open-external-url", url);
   },
@@ -84,15 +86,6 @@ contextBridge.exposeInMainWorld("mmmElectron", {
   },
   onFileDrops(handler) {
     return listenForFileDrops(handler);
-  },
-  publishAiContext(context) {
-    return ipcRenderer.invoke("mmm:ai:publish-context", context);
-  },
-  pollAiCommand() {
-    return ipcRenderer.invoke("mmm:ai:take-next-command");
-  },
-  finishAiCommand(result) {
-    return ipcRenderer.invoke("mmm:ai:finish-command", result);
   },
   listTerminalShells() {
     return ipcRenderer.invoke("mmm:terminal:list-shells");

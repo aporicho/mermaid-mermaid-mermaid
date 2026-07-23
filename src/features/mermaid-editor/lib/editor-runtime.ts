@@ -4,7 +4,6 @@ import { isElectronRuntime } from "@/features/mermaid-editor/lib/editor-runtime/
 import { isTauriRuntime } from "@/features/mermaid-editor/lib/editor-runtime/tauri-bridge";
 import type { EditorRuntime } from "@/features/mermaid-editor/lib/editor-runtime/types";
 import { createWebRuntime } from "@/features/mermaid-editor/lib/editor-runtime/web-runtime";
-
 export {
   EDITOR_DRAFT_STORAGE_KEY,
   ensureRuntimeDocumentFileName,
@@ -34,6 +33,7 @@ export type {
   RuntimeTerminalSession,
   RuntimeTerminalShellOption
 } from "@/features/mermaid-editor/lib/editor-runtime/types";
+export type * from "@/features/mermaid-editor/lib/editor-runtime/agent-types";
 export type { RuntimeDesktopWindowAction } from "@/features/mermaid-editor/lib/editor-runtime/desktop-window-types";
 export type { RuntimeProjectFileChange, RuntimeProjectFileChangeBatch, RuntimeProjectFileWatchTargets } from "@/features/mermaid-editor/lib/editor-runtime/project-file-watch-types";
 export type {

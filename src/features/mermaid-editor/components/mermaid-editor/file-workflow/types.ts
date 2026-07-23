@@ -1,6 +1,6 @@
 import type { Dispatch, MutableRefObject, RefObject, SetStateAction } from "react";
 
-import type { AiCanvasSize, AiRecentAction } from "@/features/mermaid-editor/lib/ai-context";
+import type { EditorCanvasSize, EditorRecentAction } from "@/features/mermaid-editor/lib/editor-interaction-state";
 import type { CanvasDocument } from "@/features/mermaid-editor/lib/canvas-document";
 import type { EditorDiagnostic } from "@/features/mermaid-editor/lib/editor-diagnostics";
 import type { EditorPreferences } from "@/features/mermaid-editor/lib/editor-preferences";
@@ -39,7 +39,7 @@ export type UnsavedPromptState = {
 export type StateSetter<T> = Dispatch<SetStateAction<T>>;
 
 export type CanvasLiveState = {
-  canvasSize?: AiCanvasSize;
+  canvasSize?: EditorCanvasSize;
 };
 
 export type UseEditorFileWorkflowArgs = {
@@ -113,7 +113,7 @@ export type UseEditorFileWorkflowArgs = {
   discardLinkedFileWrites?: () => Promise<void>;
   applyCanvasDocument: (document: CanvasDocument, message?: string) => void;
   applyEditorCommand: (command: EditorCommand) => void;
-  recordRecentAction: (type: string, target?: AiRecentAction["target"], summary?: string) => void;
+  recordRecentAction: (type: string, target?: EditorRecentAction["target"], summary?: string) => void;
 };
 
 export type ApplyLoadedDocument = (

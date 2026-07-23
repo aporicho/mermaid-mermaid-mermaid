@@ -11,7 +11,7 @@ const TabsList = React.forwardRef<React.ElementRef<typeof TabsPrimitive.List>, R
 );
 TabsList.displayName = TabsPrimitive.List.displayName;
 const TabsTrigger = React.forwardRef<React.ElementRef<typeof TabsPrimitive.Trigger>, React.ComponentPropsWithoutRef<typeof TabsPrimitive.Trigger>>(
-  ({ className, ...props }, ref) => <TabsPrimitive.Trigger ref={ref} className={cn("editor-ui-focus type-interface-control min-h-[var(--ui-control-height-sm)] flex-1 rounded-[var(--theme-radius-control-sm)] px-3 text-muted-foreground data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-[0_1px_4px_hsl(var(--foreground)/calc(var(--ui-shadow-opacity)*.5))]", className)} {...props} />
+  ({ className, ...props }, ref) => <TabsPrimitive.Trigger ref={ref} className={cn("editor-ui-focus type-interface-control inline-flex min-h-[var(--ui-control-height-sm)] flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-[var(--theme-radius-control-sm)] px-3 text-muted-foreground data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-[0_1px_4px_hsl(var(--foreground)/calc(var(--ui-shadow-opacity)*.5))]", className)} {...props} />
 );
 TabsTrigger.displayName = TabsPrimitive.Trigger.displayName;
 const TabsContent = React.forwardRef<React.ElementRef<typeof TabsPrimitive.Content>, React.ComponentPropsWithoutRef<typeof TabsPrimitive.Content>>(

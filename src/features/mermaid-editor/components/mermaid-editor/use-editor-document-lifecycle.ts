@@ -2,7 +2,7 @@ import type { Dispatch, SetStateAction } from "react";
 
 import { applyDagreAutoLayout } from "@/features/mermaid-editor/lib/canvas-auto-layout";
 import { applyLayout, edgeRoutingFromLayout, layoutModeFromLayout, parseCanvasLayout } from "@/features/mermaid-editor/lib/canvas-layout";
-import type { AiRecentAction } from "@/features/mermaid-editor/lib/ai-context";
+import type { EditorRecentAction } from "@/features/mermaid-editor/lib/editor-interaction-state";
 import type { EditorDiagnostic } from "@/features/mermaid-editor/lib/editor-diagnostics";
 import { createHistory } from "@/features/mermaid-editor/lib/editor-history";
 import {
@@ -98,7 +98,7 @@ type UseEditorDocumentLifecycleArgs = {
   syncWorkspaceForOpenedFile: (file: RuntimeFileRef | null) => void;
   prepareFileSwitch: (targetName?: string) => Promise<boolean>;
   persistStoredEditorDraft: (overrides?: StoredEditorDraftOverrides) => Promise<void>;
-  recordRecentAction: (type: string, target?: AiRecentAction["target"], summary?: string) => void;
+  recordRecentAction: (type: string, target?: EditorRecentAction["target"], summary?: string) => void;
 };
 
 export function useEditorDocumentLifecycle({

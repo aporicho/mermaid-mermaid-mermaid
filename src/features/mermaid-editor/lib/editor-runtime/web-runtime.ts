@@ -206,14 +206,12 @@ export function createWebRuntime(): EditorRuntime {
     async listenForTerminalExit() {
       return () => undefined;
     },
-    async publishAiContext() {
-      // Static web builds intentionally do not expose the live AI bridge.
-    },
-    async pollAiCommand() {
-      return null;
-    },
-    async finishAiCommand() {
-      // Static web builds intentionally do not expose the live AI bridge.
-    }
+    async startAgent() { return { status: "unsupported", message: "Pi Agent 仅支持 Electron 桌面版。" }; },
+    async sendAgentRpc(command) { return { accepted: false, id: command.id || "unsupported" }; },
+    async runAgentControl() { throw new Error("Pi Agent 仅支持 Electron 桌面版。"); },
+    async respondAgentExtensionUi() {},
+    async respondAgentHost() {},
+    async stopAgent() {},
+    async listenForAgentEvents() { return () => undefined; }
   };
 }

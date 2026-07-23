@@ -1,8 +1,7 @@
 import type { EmbeddedBrowserLogicalRect } from "@/features/mermaid-editor/lib/embedded-browser-rect";
 import type { BrowserToolWindowRequest } from "@/features/mermaid-editor/lib/browser-tool-window";
 import type { DocumentKind } from "@/features/mermaid-editor/lib/document-kind";
-import type { AiApplyResult, AiEditorCommand } from "@/features/mermaid-editor/lib/ai-command-types";
-import type { AiEditorContext } from "@/features/mermaid-editor/lib/ai-context";
+import type { ElectronAgentBridge } from "@/features/mermaid-editor/lib/editor-runtime/electron-agent-bridge";
 import type {
   EditorDraftState,
   RuntimeBrowserToolWindowResult,
@@ -64,7 +63,7 @@ export type ElectronImageAsset = {
   copied?: boolean;
 };
 
-export type ElectronBridge = ElectronMarkdownFoldBridge & ElectronMonitoringBridge & {
+export type ElectronBridge = ElectronMarkdownFoldBridge & ElectronMonitoringBridge & ElectronAgentBridge & {
   host: "electron";
   openExternalUrl: (url: string) => Promise<void>;
   startWindowDrag: () => Promise<void>;
@@ -97,9 +96,6 @@ export type ElectronBridge = ElectronMarkdownFoldBridge & ElectronMonitoringBrid
   takePendingOpenFiles: () => Promise<RuntimeFileOpenRequest[]>;
   onExternalFileOpen: (handler: (files: RuntimeFileOpenRequest[]) => void) => () => void;
   onFileDrops: (handler: (request: RuntimeFileDropRequest) => void) => () => void;
-  publishAiContext: (context: AiEditorContext) => Promise<void>;
-  pollAiCommand: () => Promise<{ ok: boolean; command?: AiEditorCommand | null; diagnostics?: unknown[] }>;
-  finishAiCommand: (result: AiApplyResult) => Promise<void>;
   listTerminalShells: () => Promise<RuntimeTerminalShellOption[]>;
   openTerminal: (request: { cwd?: string; shellId?: string; cols: number; rows: number }) => Promise<RuntimeTerminalOpenResult>;
   writeTerminal: (sessionId: string, data: string) => Promise<void>;

@@ -1,7 +1,10 @@
 import type { CanvasThemeTokens, InterfaceThemeTokens } from "./appearance-types";
 
 export function migrateInterfaceThemeV11(raw: Record<string, unknown>, fallback: InterfaceThemeTokens): InterfaceThemeTokens {
-  if (isObjectValue(raw.interface)) return deepMerge(fallback, objectValue(raw.interface));
+  if (isObjectValue(raw.interface)) {
+    const rawInterface = objectValue(raw.interface);
+    return withV12SemanticColors(deepMerge(fallback, rawInterface), objectValue(rawInterface.colors), fallback);
+  }
 
   const ui = objectValue(raw.ui);
   const chrome = objectValue(raw.chrome);
@@ -18,7 +21,7 @@ export function migrateInterfaceThemeV11(raw: Record<string, unknown>, fallback:
   const border = stringValue(ui.border, fallback.colors.border);
   const shadowOpacity = numberValue(chrome.shadowOpacity, fallback.shadow.panel.opacity);
 
-  return {
+  const migrated: InterfaceThemeTokens = {
     colors: {
       background,
       foreground,
@@ -37,6 +40,12 @@ export function migrateInterfaceThemeV11(raw: Record<string, unknown>, fallback:
       accentForeground: stringValue(ui.accentForeground, fallback.colors.accentForeground),
       destructive,
       destructiveForeground: background,
+      success: fallback.colors.success,
+      successForeground: fallback.colors.successForeground,
+      warning: fallback.colors.warning,
+      warningForeground: fallback.colors.warningForeground,
+      info: fallback.colors.info,
+      infoForeground: fallback.colors.infoForeground,
       border,
       input: border,
       focusRing: primary
@@ -79,6 +88,34 @@ export function migrateInterfaceThemeV11(raw: Record<string, unknown>, fallback:
     },
     scrollbar: { ...fallback.scrollbar }
   };
+  return withV12SemanticColors(migrated, ui, fallback);
+}
+
+function withV12SemanticColors(
+  interfaceTokens: InterfaceThemeTokens,
+  sourceColors: Record<string, unknown>,
+  fallback: InterfaceThemeTokens
+): InterfaceThemeTokens {
+  const colors = { ...interfaceTokens.colors };
+  const semanticKeys = new Set(["success", "successForeground", "warning", "warningForeground", "info", "infoForeground"]);
+  const grayscale = Object.entries(colors)
+    .filter(([key]) => !semanticKeys.has(key))
+    .map(([, value]) => value)
+    .filter((value): value is string => typeof value === "string" && /^#[0-9a-f]{6}$/i.test(value))
+    .every(isGrayscaleHex);
+
+  if (typeof sourceColors.success !== "string") colors.success = grayscale ? colors.primary : fallback.colors.success;
+  if (typeof sourceColors.successForeground !== "string") colors.successForeground = grayscale ? colors.primaryForeground : fallback.colors.successForeground;
+  if (typeof sourceColors.warning !== "string") colors.warning = grayscale ? colors.primary : fallback.colors.warning;
+  if (typeof sourceColors.warningForeground !== "string") colors.warningForeground = grayscale ? colors.primaryForeground : fallback.colors.warningForeground;
+  if (typeof sourceColors.info !== "string") colors.info = grayscale ? colors.primary : fallback.colors.info;
+  if (typeof sourceColors.infoForeground !== "string") colors.infoForeground = grayscale ? colors.primaryForeground : fallback.colors.infoForeground;
+  return { ...interfaceTokens, colors };
+}
+
+function isGrayscaleHex(value: string) {
+  const red = value.slice(1, 3).toLowerCase();
+  return red === value.slice(3, 5).toLowerCase() && red === value.slice(5, 7).toLowerCase();
 }
 
 export function migrateCanvasThemeV11(raw: Record<string, unknown>, fallback: CanvasThemeTokens): CanvasThemeTokens {

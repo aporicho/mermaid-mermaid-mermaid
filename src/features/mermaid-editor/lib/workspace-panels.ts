@@ -8,7 +8,7 @@ import {
   type FloatingPanelWindowState
 } from "@/features/mermaid-editor/lib/floating-chrome";
 
-export type StaticWorkspacePanelId = "explorer" | "inspector" | "terminal" | "theme";
+export type StaticWorkspacePanelId = "explorer" | "inspector" | "terminal" | "agent" | "theme";
 export type ChromeWorkspacePanelId = Exclude<StaticWorkspacePanelId, "theme">;
 export type MarkdownWindowPanelId = `markdown:${string}`;
 export type BrowserWindowPanelId = `browser:${string}`;
@@ -25,11 +25,12 @@ export type DetachedMarkdownWindow = {
 
 export const MARKDOWN_WINDOW_A4_SIZE = { width: 1050, height: 1485 } as const;
 
-const DEFAULT_WORKSPACE_PANEL_STACK: WorkspaceFloatingPanelId[] = ["explorer", "inspector", "terminal", "theme"];
+const DEFAULT_WORKSPACE_PANEL_STACK: WorkspaceFloatingPanelId[] = ["explorer", "inspector", "terminal", "agent", "theme"];
 const DEFAULT_WORKSPACE_PANEL_WINDOW_STATES: Record<StaticWorkspacePanelId, FloatingPanelWindowState> = {
   explorer: "normal",
   inspector: "normal",
   terminal: "normal",
+  agent: "normal",
   theme: "normal"
 };
 
@@ -37,6 +38,7 @@ export const WORKSPACE_PANEL_DEFAULT_SIZES: Record<StaticWorkspacePanelId | "mar
   explorer: { width: 360, height: 640 },
   inspector: { width: 360, height: 640 },
   terminal: { width: 860, height: 320 },
+  agent: { width: 960, height: 720 },
   theme: { width: 620, height: 720 },
   markdown: MARKDOWN_WINDOW_A4_SIZE
 };
@@ -45,6 +47,7 @@ export const WORKSPACE_PANEL_MIN_SIZES: Record<StaticWorkspacePanelId | "markdow
   explorer: { width: 320, height: 220 },
   inspector: { width: 320, height: 220 },
   terminal: { width: 560, height: 260 },
+  agent: { width: 640, height: 420 },
   theme: { width: 480, height: 360 },
   markdown: { width: 420, height: 300 }
 };
@@ -56,6 +59,7 @@ export function markdownWindowPanelId(file: Pick<RuntimeFileRef, "name" | "path"
 export function useWorkspacePanels({
   leftCollapsed,
   rightCollapsed,
+  agentOpen,
   terminalOpen,
   themeSettingsOpen,
   documentKind,
@@ -63,6 +67,7 @@ export function useWorkspacePanels({
 }: {
   leftCollapsed: boolean;
   rightCollapsed: boolean;
+  agentOpen: boolean;
   terminalOpen: boolean;
   themeSettingsOpen: boolean;
   documentKind: DocumentKind;
@@ -78,10 +83,11 @@ export function useWorkspacePanels({
     if (!leftCollapsed) panelIds.push("explorer");
     if (!rightCollapsed && documentKind === "mermaid") panelIds.push("inspector");
     if (terminalOpen) panelIds.push("terminal");
+    if (agentOpen) panelIds.push("agent");
     if (themeSettingsOpen) panelIds.push("theme");
     panelIds.push(...detachedMarkdownWindows.map((window) => window.id));
     return panelIds;
-  }, [detachedMarkdownWindows, documentKind, leftCollapsed, rightCollapsed, terminalOpen, themeSettingsOpen]);
+  }, [agentOpen, detachedMarkdownWindows, documentKind, leftCollapsed, rightCollapsed, terminalOpen, themeSettingsOpen]);
 
   const activeWorkspacePanel = useMemo(() => {
     for (let index = workspacePanelStack.length - 1; index >= 0; index -= 1) {
@@ -96,7 +102,7 @@ export function useWorkspacePanels({
   }, []);
 
   const setWorkspacePanelWindowState = useCallback((panelId: WorkspaceFloatingPanelId, state: FloatingPanelWindowState) => {
-    const nextState = state === "fullscreen" && panelId !== "terminal" && !panelId.startsWith("markdown:") ? "normal" : state;
+    const nextState = state === "fullscreen" && panelId !== "agent" && panelId !== "terminal" && !panelId.startsWith("markdown:") ? "normal" : state;
     setWorkspacePanelWindowStates((current) => nextState === "fullscreen"
       ? Object.fromEntries([...Object.keys(current), panelId].map((id) => [id, id === panelId ? "fullscreen" : "normal"]))
       : { ...current, [panelId]: nextState });

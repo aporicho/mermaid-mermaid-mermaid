@@ -1,5 +1,4 @@
-import type { AiApplyResult, AiEditorCommand } from "@/features/mermaid-editor/lib/ai-command-types";
-import type { AiEditorContext } from "@/features/mermaid-editor/lib/ai-context";
+import type { RuntimeAgentOperations } from "@/features/mermaid-editor/lib/editor-runtime/agent-types";
 import type { BrowserToolWindowRequest } from "@/features/mermaid-editor/lib/browser-tool-window";
 import type { DocumentKind } from "@/features/mermaid-editor/lib/document-kind";
 import type { EmbeddedBrowserLogicalRect } from "@/features/mermaid-editor/lib/embedded-browser-rect";
@@ -175,7 +174,7 @@ export type RuntimeBrowserToolWindowResult =
 
 export type EditorRuntimeHost = "web" | "tauri" | "electron";
 
-export type EditorRuntime = RuntimeCsvFileOperations & RuntimeDesktopWindowOperations & RuntimeProjectFileWatchOperations & import("@/features/mermaid-editor/lib/editor-runtime/markdown-fold-types").RuntimeMarkdownFoldOperations & {
+export type EditorRuntime = RuntimeAgentOperations & RuntimeCsvFileOperations & RuntimeDesktopWindowOperations & RuntimeProjectFileWatchOperations & import("@/features/mermaid-editor/lib/editor-runtime/markdown-fold-types").RuntimeMarkdownFoldOperations & {
   kind: "web" | "desktop";
   host: EditorRuntimeHost;
   openExternalUrl: (url: string) => void;
@@ -218,7 +217,4 @@ export type EditorRuntime = RuntimeCsvFileOperations & RuntimeDesktopWindowOpera
   closeTerminal: (sessionId: string) => Promise<void>;
   listenForTerminalData: (handler: (event: RuntimeTerminalDataEvent) => void) => Promise<() => void>;
   listenForTerminalExit: (handler: (event: RuntimeTerminalExitEvent) => void) => Promise<() => void>;
-  publishAiContext: (context: AiEditorContext) => Promise<void>;
-  pollAiCommand: () => Promise<AiEditorCommand | null>;
-  finishAiCommand: (result: AiApplyResult) => Promise<void>;
 };

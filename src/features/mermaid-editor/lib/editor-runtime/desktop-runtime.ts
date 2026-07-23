@@ -1,5 +1,3 @@
-import type { AiEditorCommand } from "@/features/mermaid-editor/lib/ai-command-types";
-import type { EditorDiagnostic } from "@/features/mermaid-editor/lib/editor-diagnostics";
 import { browserToolShellUrl, browserToolWindowLabel, browserToolWindowTitle } from "@/features/mermaid-editor/lib/browser-tool-window";
 import { createDesktopEmbeddedBrowser } from "@/features/mermaid-editor/lib/editor-runtime/embedded-browser";
 import { resolveDesktopLinkPreview } from "@/features/mermaid-editor/lib/editor-runtime/link-preview";
@@ -36,11 +34,6 @@ type DesktopImageAsset = {
   src: string;
   path: string;
   copied?: boolean;
-};
-type AiNextCommandResponse = {
-  ok: boolean;
-  command?: AiEditorCommand;
-  diagnostics?: EditorDiagnostic[];
 };
 export function createDesktopRuntime(): EditorRuntime {
   return {
@@ -284,15 +277,12 @@ export function createDesktopRuntime(): EditorRuntime {
         handler(event.payload);
       });
     },
-    async publishAiContext(context) {
-      await tauriInvoke("publish_editor_context", { context });
-    },
-    async pollAiCommand() {
-      const response = await tauriInvoke<AiNextCommandResponse>("take_next_ai_command");
-      return response.command || null;
-    },
-    async finishAiCommand(result) {
-      await tauriInvoke("finish_ai_command", { result });
-    }
+    async startAgent() { return { status: "unsupported", message: "Pi Agent 仅支持 Electron 桌面版。" }; },
+    async sendAgentRpc(command) { return { accepted: false, id: command.id || "unsupported" }; },
+    async runAgentControl() { throw new Error("Pi Agent 仅支持 Electron 桌面版。"); },
+    async respondAgentExtensionUi() {},
+    async respondAgentHost() {},
+    async stopAgent() {},
+    async listenForAgentEvents() { return () => undefined; }
   };
 }

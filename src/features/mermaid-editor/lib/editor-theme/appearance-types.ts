@@ -41,6 +41,12 @@ export type InterfaceThemeTokens = {
     accentForeground: string;
     destructive: string;
     destructiveForeground: string;
+    success: string;
+    successForeground: string;
+    warning: string;
+    warningForeground: string;
+    info: string;
+    infoForeground: string;
     border: string;
     input: string;
     focusRing: string;

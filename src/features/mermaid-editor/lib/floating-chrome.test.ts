@@ -150,4 +150,19 @@ describe("floating chrome", () => {
       })
     ).toEqual({ x: 120, y: 90, width: 420, height: 300 });
   });
+
+  it("fits saved panel frames after the viewport becomes smaller", () => {
+    expect(
+      restoreFloatingPanelFrame({
+        frame: { x: 640, y: 420, width: 900, height: 760 },
+        viewport: { width: 800, height: 600 },
+        minSize: { width: 320, height: 220 }
+      })
+    ).toEqual({
+      x: FLOATING_PANEL_EDGE_MARGIN_PX,
+      y: FLOATING_PANEL_EDGE_MARGIN_PX,
+      width: 800 - FLOATING_PANEL_EDGE_MARGIN_PX * 2,
+      height: 600 - FLOATING_PANEL_EDGE_MARGIN_PX * 2
+    });
+  });
 });

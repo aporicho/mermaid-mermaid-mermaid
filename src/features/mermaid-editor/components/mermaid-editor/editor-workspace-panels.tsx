@@ -2,14 +2,15 @@ import { Suspense, lazy } from "react";
 import { Xmark } from "iconoir-react/regular";
 
 import { ExplorerPanel } from "@/features/mermaid-editor/components/explorer-panel";
+import type { AgentController } from "@/features/mermaid-editor/components/agent/use-agent-session";
 import { FloatingPanel } from "@/features/mermaid-editor/components/floating-chrome";
 import { InspectorPanel } from "@/features/mermaid-editor/components/inspector-panel";
 import { DetachedWorkspaceWindows } from "@/features/mermaid-editor/components/mermaid-editor/detached-workspace-windows";
-import { TerminalPanel } from "@/features/mermaid-editor/components/terminal-panel";
+import { AgentTerminalWorkspacePanels } from "@/features/mermaid-editor/components/mermaid-editor/agent-terminal-workspace-panels";
 import { WorkspacePanelControls } from "@/features/mermaid-editor/components/workspace-panel-controls";
 import type { DocumentKind } from "@/features/mermaid-editor/lib/document-kind";
 import { EDITOR_CHROME_CLASSES } from "@/features/mermaid-editor/lib/editor-chrome";
-import type { EditorRuntime, RuntimeFileRef, RuntimeProjectFileKind } from "@/features/mermaid-editor/lib/editor-runtime";
+import type { EditorRuntime, RuntimeAgentTextSelection, RuntimeFileRef, RuntimeProjectFileKind } from "@/features/mermaid-editor/lib/editor-runtime";
 import type { MarkdownFoldSnapshot } from "@/features/mermaid-editor/lib/markdown-fold-state";
 import type { CanvasNode, MermaidGraph, Selection } from "@/features/mermaid-editor/lib/editor-types";
 import type { EditorTheme, EditorThemeId, XtermThemeTokens } from "@/features/mermaid-editor/lib/editor-theme";
@@ -33,6 +34,8 @@ type EditorWorkspacePanelsProps = {
   documentKind: DocumentKind;
   leftCollapsed: boolean;
   rightCollapsed: boolean;
+  agentOpen: boolean;
+  agentController: AgentController;
   terminalOpen: boolean;
   themeSettingsOpen: boolean;
   activeWorkspacePanel: WorkspaceFloatingPanelId | null;
@@ -73,6 +76,7 @@ type EditorWorkspacePanelsProps = {
   executeCanvasNodeAction: (node: CanvasNode) => void | Promise<unknown>;
   editCanvasNodeAction: (node: CanvasNode) => void;
   closeDetachedMarkdownWindow: (panelId: MarkdownWindowPanelId) => void; saveDetachedMarkdownWindow: (panelId: MarkdownWindowPanelId) => void | Promise<unknown>; updateDetachedMarkdownWindow: (panelId: MarkdownWindowPanelId, value: string) => void;
+  onDetachedMarkdownSelectionChange: (panelId: MarkdownWindowPanelId, selection: RuntimeAgentTextSelection | null) => void;
   markdownFoldBindingFor: (file: RuntimeFileRef) => { foldState: MarkdownFoldSnapshot | null | undefined; onFoldStateChange?: (snapshot: MarkdownFoldSnapshot) => void };
   onStatus: (message: string) => void;
 };
@@ -80,7 +84,7 @@ type EditorWorkspacePanelsProps = {
 export function EditorWorkspacePanels({
   runtime, documentKind,
   leftCollapsed, rightCollapsed,
-  terminalOpen, themeSettingsOpen,
+  agentOpen, agentController, terminalOpen, themeSettingsOpen,
   activeWorkspacePanel, graph,
   selection, projectWorkspace,
   projectFiles, explorerTreeState,
@@ -115,6 +119,7 @@ export function EditorWorkspacePanels({
   closeDetachedMarkdownWindow,
   saveDetachedMarkdownWindow,
   updateDetachedMarkdownWindow, markdownFoldBindingFor,
+  onDetachedMarkdownSelectionChange,
   onStatus
 }: EditorWorkspacePanelsProps) {
   return (
@@ -156,6 +161,23 @@ export function EditorWorkspacePanels({
           onCollapse={() => closeWorkspacePanel("explorer")}
         />
       </FloatingPanel>
+      <AgentTerminalWorkspacePanels
+        runtime={runtime}
+        agentOpen={agentOpen}
+        terminalOpen={terminalOpen}
+        agentController={agentController}
+        terminalCwd={terminalCwd}
+        activeTheme={activeTheme}
+        terminalTheme={terminalTheme}
+        titlebarAutoHide={workspaceTitlebarAutoHide}
+        activePanel={activeWorkspacePanel}
+        stackPosition={workspacePanelStackPosition}
+        windowState={workspacePanelWindowState}
+        setWindowState={setWorkspacePanelWindowState}
+        bringToFront={bringWorkspacePanelToFront}
+        closePanel={closeWorkspacePanel}
+        onStatus={onStatus}
+      />
       <FloatingPanel
         open={!rightCollapsed && documentKind === "mermaid"}
         placement="right-panel"
@@ -225,42 +247,6 @@ export function EditorWorkspacePanels({
           />
         </Suspense>
       </FloatingPanel>
-      <FloatingPanel
-        open={terminalOpen}
-        placement="bottom-panel"
-        kind="workspace"
-        dismissMode="explicit"
-        panelId="terminal"
-        titlebarAutoHide={workspaceTitlebarAutoHide}
-        active={activeWorkspacePanel === "terminal"}
-        stackIndex={workspacePanelStackPosition("terminal")}
-        onFocusPanel={() => bringWorkspacePanelToFront("terminal")}
-        resetDragOnOpen={false}
-        defaultSize={WORKSPACE_PANEL_DEFAULT_SIZES.terminal}
-        minSize={WORKSPACE_PANEL_MIN_SIZES.terminal}
-        windowState={workspacePanelWindowState("terminal")}
-        onWindowStateChange={(state) => setWorkspacePanelWindowState("terminal", state)}
-        className="grid h-full w-full overflow-hidden"
-      >
-        <TerminalPanel
-          runtime={runtime}
-          cwd={terminalCwd}
-          theme={activeTheme}
-          terminalTheme={terminalTheme}
-          onClose={() => closeWorkspacePanel("terminal")}
-          onStatus={onStatus}
-          windowControls={
-            <WorkspacePanelControls
-              allowFullscreen windowState={workspacePanelWindowState("terminal")}
-              onWindowStateChange={(state) => setWorkspacePanelWindowState("terminal", state)}
-              onClose={() => closeWorkspacePanel("terminal")}
-              closeLabel="关闭终端"
-              closeTooltipSide="top"
-              closeIcon={<Xmark />}
-            />
-          }
-        />
-      </FloatingPanel>
       <DetachedWorkspaceWindows
         markdownWindows={detachedMarkdownWindows} markdownSpellcheckEnabled={markdownSpellcheckEnabled}
         markdownContentWidth={markdownContentWidth} markdownTextScale={markdownTextScale}
@@ -273,6 +259,7 @@ export function EditorWorkspacePanels({
         closeMarkdownWindow={closeDetachedMarkdownWindow}
         saveMarkdownWindow={saveDetachedMarkdownWindow}
         updateMarkdownWindow={updateDetachedMarkdownWindow} markdownFoldBindingFor={markdownFoldBindingFor}
+        onMarkdownSelectionChange={onDetachedMarkdownSelectionChange}
       />
     </>
   );

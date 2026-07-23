@@ -91,7 +91,7 @@ describe("editor theme", () => {
     expect(compiled.diagnostics).toEqual([]);
   });
 
-  it("loads the persisted Warm Paper v11 appearance snapshot", () => {
+  it("loads the persisted Warm Paper appearance snapshot", () => {
     const theme = resolveEditorTheme("warm-paper", null);
     const compiled = compileEditorTheme(theme);
 
@@ -148,7 +148,7 @@ describe("editor theme", () => {
 
     const theme = normalizeEditorTheme(legacy);
 
-    expect(theme.version).toBe(11);
+    expect(theme.version).toBe(12);
     expect(theme.id).toBe("custom");
     expect(theme.markdown.body.fontFamily).toBe(legacySans);
     expect(theme.markdown.heading.h1.fontFamily).toBe(founderSerif);
@@ -180,7 +180,7 @@ describe("editor theme", () => {
 
     const theme = normalizeEditorTheme(legacy);
 
-    expect(theme.version).toBe(11);
+    expect(theme.version).toBe(12);
     expect(theme.markdown.heading.h1.fontFamily).toBe(founderSerif);
     expect(theme.typography.markdownCard.title.family).toBe(founderSerif);
     expect(theme.typography.canvasDocument.card.family).toBe(founderSerif);
@@ -399,7 +399,7 @@ describe("editor theme", () => {
   it("derives Markdown defaults from each built-in theme palette", () => {
     const dracula = resolveEditorTheme("kitty-kovidgoyal-dracula", null);
 
-    expect(dracula.version).toBe(11);
+    expect(dracula.version).toBe(12);
     expect(dracula.markdown.body.color).toBe(dracula.interface.colors.foreground);
     expect(dracula.markdown.heading.h1.color).toBe(dracula.interface.colors.foreground);
     expect(dracula.markdown.link.color).toBe(dracula.interface.colors.primary);
@@ -409,7 +409,7 @@ describe("editor theme", () => {
     expectNoLegacyMarkdownFields(dracula);
   });
 
-  it.each([4, 5, 6, 7, 8, 9, 10])("migrates v%s themes into a clean v11 Markdown shape", (version) => {
+  it.each([4, 5, 6, 7, 8, 9, 10])("migrates v%s themes into the current Markdown shape", (version) => {
     const theme = normalizeEditorTheme({
       version,
       ui: {
@@ -428,7 +428,7 @@ describe("editor theme", () => {
       }
     });
 
-    expect(theme.version).toBe(11);
+    expect(theme.version).toBe(12);
     expect(theme.markdown.body).toMatchObject({ color: "#f0f0f0", fontFamily: "Example Sans" });
     expect(theme.markdown.link.color).toBe("#44aaff");
     expect(theme.markdown.codeBlock).toMatchObject({ background: "#202020", fontFamily: "Example Mono" });
@@ -449,7 +449,7 @@ describe("editor theme", () => {
       }
     });
 
-    expect(theme.version).toBe(11);
+    expect(theme.version).toBe(12);
     expect(theme.typography.canvas.node).toMatchObject({ family: "Legacy Sans, sans-serif", fontSize: 19 });
     expect(theme.typography.source.editor).toMatchObject({ family: "Legacy Mono, monospace", fontSize: 15, lineHeight: 32 });
     expect(theme.typography.terminal.content.family).toBe("Legacy Mono, monospace");
@@ -480,7 +480,7 @@ describe("editor theme", () => {
       }
     });
 
-    expect(theme.version).toBe(11);
+    expect(theme.version).toBe(12);
     expect(theme.markdown.table.bodyBackground).toBe("#112233");
     expect(theme.markdown.list.unordered.indent).toBe(8);
     expect(theme.specialNode.shared).toMatchObject({
@@ -900,7 +900,7 @@ describe("editor theme", () => {
 
     const terminalTheme = themeToTerminalTheme(theme);
 
-    expect(theme.version).toBe(11);
+    expect(theme.version).toBe(12);
     expect(theme.ansi.green).toBe("#00aa66");
     expect(theme.ansi.brightGreen).toBe(DEFAULT_EDITOR_THEME.ansi.brightGreen);
     expect(theme.terminal.background).toBe("#101010");
@@ -941,7 +941,7 @@ describe("editor theme", () => {
     });
     const compiled = compileEditorTheme(theme);
 
-    expect(theme.version).toBe(11);
+    expect(theme.version).toBe(12);
     expect(theme.motion.duration.fast).toBe(0.12);
     expect(theme.motion.duration.layout).toBe(1.6);
     expect(theme.motion.ease.standard).toBe("power1.out");
@@ -975,7 +975,7 @@ describe("editor theme", () => {
       }
     });
 
-    expect(theme.version).toBe(11);
+    expect(theme.version).toBe(12);
     expect(theme.interface.surface).toEqual({
       borderWidth: 2,
       borderStyle: "dashed",

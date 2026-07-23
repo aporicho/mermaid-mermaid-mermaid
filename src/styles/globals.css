@@ -10,6 +10,87 @@
   font-display: swap;
 }
 
+@layer components {
+  .agent-markdown {
+    --markdown-text-scale: 1;
+    color: var(--markdown-body-color);
+    font-family: var(--markdown-body-font-family);
+    font-size: calc(var(--markdown-body-font-size) * var(--markdown-text-scale));
+    font-weight: var(--markdown-body-font-weight);
+    letter-spacing: var(--markdown-body-letter-spacing);
+    line-height: calc(var(--markdown-body-line-height) * var(--markdown-text-scale));
+  }
+
+  .agent-markdown p {
+    margin: 0 0 calc(var(--markdown-paragraph-spacing) * var(--markdown-text-scale));
+  }
+
+  .agent-markdown p:last-child,
+  .agent-markdown > :last-child {
+    margin-bottom: 0;
+  }
+
+  .agent-markdown :is(h1, h2, h3, h4, h5, h6) {
+    color: var(--markdown-h1-color);
+    font-family: var(--markdown-h1-font-family);
+  }
+
+  .agent-markdown h1 { margin: calc(var(--markdown-h1-margin-top) * var(--markdown-text-scale)) 0 calc(var(--markdown-h1-margin-bottom) * var(--markdown-text-scale)); font-size: calc(var(--markdown-h1-font-size) * var(--markdown-text-scale)); font-weight: var(--markdown-h1-font-weight); line-height: calc(var(--markdown-h1-line-height) * var(--markdown-text-scale)); letter-spacing: var(--markdown-h1-letter-spacing); }
+  .agent-markdown h2 { margin: calc(var(--markdown-h2-margin-top) * var(--markdown-text-scale)) 0 calc(var(--markdown-h2-margin-bottom) * var(--markdown-text-scale)); color: var(--markdown-h2-color); font-family: var(--markdown-h2-font-family); font-size: calc(var(--markdown-h2-font-size) * var(--markdown-text-scale)); font-weight: var(--markdown-h2-font-weight); line-height: calc(var(--markdown-h2-line-height) * var(--markdown-text-scale)); letter-spacing: var(--markdown-h2-letter-spacing); }
+  .agent-markdown h3 { margin: calc(var(--markdown-h3-margin-top) * var(--markdown-text-scale)) 0 calc(var(--markdown-h3-margin-bottom) * var(--markdown-text-scale)); color: var(--markdown-h3-color); font-family: var(--markdown-h3-font-family); font-size: calc(var(--markdown-h3-font-size) * var(--markdown-text-scale)); font-weight: var(--markdown-h3-font-weight); line-height: calc(var(--markdown-h3-line-height) * var(--markdown-text-scale)); letter-spacing: var(--markdown-h3-letter-spacing); }
+  .agent-markdown h4 { margin: calc(var(--markdown-h4-margin-top) * var(--markdown-text-scale)) 0 calc(var(--markdown-h4-margin-bottom) * var(--markdown-text-scale)); color: var(--markdown-h4-color); font-family: var(--markdown-h4-font-family); font-size: calc(var(--markdown-h4-font-size) * var(--markdown-text-scale)); font-weight: var(--markdown-h4-font-weight); line-height: calc(var(--markdown-h4-line-height) * var(--markdown-text-scale)); letter-spacing: var(--markdown-h4-letter-spacing); }
+  .agent-markdown h5 { margin: calc(var(--markdown-h5-margin-top) * var(--markdown-text-scale)) 0 calc(var(--markdown-h5-margin-bottom) * var(--markdown-text-scale)); color: var(--markdown-h5-color); font-family: var(--markdown-h5-font-family); font-size: calc(var(--markdown-h5-font-size) * var(--markdown-text-scale)); font-weight: var(--markdown-h5-font-weight); line-height: calc(var(--markdown-h5-line-height) * var(--markdown-text-scale)); letter-spacing: var(--markdown-h5-letter-spacing); }
+  .agent-markdown h6 { margin: calc(var(--markdown-h6-margin-top) * var(--markdown-text-scale)) 0 calc(var(--markdown-h6-margin-bottom) * var(--markdown-text-scale)); color: var(--markdown-h6-color); font-family: var(--markdown-h6-font-family); font-size: calc(var(--markdown-h6-font-size) * var(--markdown-text-scale)); font-weight: var(--markdown-h6-font-weight); line-height: calc(var(--markdown-h6-line-height) * var(--markdown-text-scale)); letter-spacing: var(--markdown-h6-letter-spacing); }
+
+  .agent-markdown ul {
+    margin: calc(var(--markdown-unordered-list-margin-top) * var(--markdown-text-scale)) 0 calc(var(--markdown-unordered-list-margin-bottom) * var(--markdown-text-scale));
+    padding-left: var(--markdown-unordered-list-indent);
+    color: var(--markdown-unordered-list-color);
+    font-family: var(--markdown-unordered-list-font-family);
+    font-size: calc(var(--markdown-unordered-list-font-size) * var(--markdown-text-scale));
+    font-weight: var(--markdown-unordered-list-font-weight);
+    line-height: calc(var(--markdown-unordered-list-line-height) * var(--markdown-text-scale));
+    letter-spacing: var(--markdown-unordered-list-letter-spacing);
+  }
+
+  .agent-markdown ol {
+    margin-top: calc(var(--markdown-ordered-list-margin-top) * var(--markdown-text-scale));
+    margin-bottom: calc(var(--markdown-ordered-list-margin-bottom) * var(--markdown-text-scale));
+    padding-left: var(--markdown-ordered-list-indent);
+    color: var(--markdown-ordered-list-color);
+    font-family: var(--markdown-ordered-list-font-family);
+    font-size: calc(var(--markdown-ordered-list-font-size) * var(--markdown-text-scale));
+    font-weight: var(--markdown-ordered-list-font-weight);
+    line-height: calc(var(--markdown-ordered-list-line-height) * var(--markdown-text-scale));
+    letter-spacing: var(--markdown-ordered-list-letter-spacing);
+  }
+
+  .agent-markdown ul > li + li { margin-top: calc(var(--markdown-unordered-list-item-spacing) * var(--markdown-text-scale)); }
+  .agent-markdown ol > li + li { margin-top: calc(var(--markdown-ordered-list-item-spacing) * var(--markdown-text-scale)); }
+  .agent-markdown ul > li::marker { color: var(--markdown-unordered-list-marker-color); }
+  .agent-markdown ol > li::marker { color: var(--markdown-ordered-list-marker-color); }
+  .agent-markdown :is(ul, ol) :is(ul, ol) { margin-bottom: 0; }
+  .agent-markdown .contains-task-list { margin-top: calc(var(--markdown-task-list-margin-top) * var(--markdown-text-scale)); margin-bottom: calc(var(--markdown-task-list-margin-bottom) * var(--markdown-text-scale)); padding-left: var(--markdown-task-list-indent); list-style: none; }
+  .agent-markdown .task-list-item { color: var(--markdown-task-list-color); font-family: var(--markdown-task-list-font-family); font-size: calc(var(--markdown-task-list-font-size) * var(--markdown-text-scale)); font-weight: var(--markdown-task-list-font-weight); line-height: calc(var(--markdown-task-list-line-height) * var(--markdown-text-scale)); letter-spacing: var(--markdown-task-list-letter-spacing); }
+  .agent-markdown .task-list-item + .task-list-item { margin-top: calc(var(--markdown-task-list-item-spacing) * var(--markdown-text-scale)); }
+  .agent-markdown .task-list-item > input { width: var(--markdown-task-list-checkbox-size); height: var(--markdown-task-list-checkbox-size); margin: 0 var(--markdown-list-marker-gap) 0 0; accent-color: var(--markdown-task-list-checkbox-checked-background); }
+  .agent-markdown a { color: var(--markdown-link-color); font-family: var(--markdown-link-font-family); font-size: calc(var(--markdown-link-font-size) * var(--markdown-text-scale)); font-weight: var(--markdown-link-font-weight); line-height: calc(var(--markdown-link-line-height) * var(--markdown-text-scale)); letter-spacing: var(--markdown-link-letter-spacing); text-decoration-line: underline; text-decoration-thickness: var(--markdown-link-underline-thickness); text-underline-offset: var(--markdown-link-underline-offset); }
+  .agent-markdown a:hover { color: var(--markdown-link-hover-color); }
+  .agent-markdown em { color: var(--markdown-emphasis-color); font-family: var(--markdown-emphasis-font-family); font-size: calc(var(--markdown-emphasis-font-size) * var(--markdown-text-scale)); font-weight: var(--markdown-emphasis-font-weight); line-height: calc(var(--markdown-emphasis-line-height) * var(--markdown-text-scale)); letter-spacing: var(--markdown-emphasis-letter-spacing); }
+  .agent-markdown strong { color: var(--markdown-strong-color); font-family: var(--markdown-strong-font-family); font-size: calc(var(--markdown-strong-font-size) * var(--markdown-text-scale)); font-weight: var(--markdown-strong-font-weight); line-height: calc(var(--markdown-strong-line-height) * var(--markdown-text-scale)); letter-spacing: var(--markdown-strong-letter-spacing); }
+  .agent-markdown :is(del, s) { color: var(--markdown-strikethrough-color); font-family: var(--markdown-strikethrough-font-family); font-size: calc(var(--markdown-strikethrough-font-size) * var(--markdown-text-scale)); font-weight: var(--markdown-strikethrough-font-weight); line-height: calc(var(--markdown-strikethrough-line-height) * var(--markdown-text-scale)); letter-spacing: var(--markdown-strikethrough-letter-spacing); text-decoration-color: var(--markdown-strikethrough-decoration-color); text-decoration-thickness: var(--markdown-strikethrough-decoration-thickness); }
+  .agent-markdown code { border-radius: var(--markdown-inline-code-radius); background: var(--markdown-inline-code-background); padding: var(--markdown-inline-code-padding-y) var(--markdown-inline-code-padding-x); color: var(--markdown-inline-code-color); font-family: var(--markdown-inline-code-font-family); font-size: calc(var(--markdown-inline-code-font-size) * var(--markdown-text-scale)); font-weight: var(--markdown-inline-code-font-weight); line-height: calc(var(--markdown-inline-code-line-height) * var(--markdown-text-scale)); letter-spacing: var(--markdown-inline-code-letter-spacing); }
+  .agent-markdown pre { margin: calc(var(--markdown-code-block-margin-top) * var(--markdown-text-scale)) 0 calc(var(--markdown-code-block-margin-bottom) * var(--markdown-text-scale)); overflow-x: auto; border-radius: var(--markdown-code-block-radius); background: var(--markdown-code-block-background); padding: var(--markdown-code-block-padding-y) var(--markdown-code-block-padding-x); color: var(--markdown-code-block-color); font-family: var(--markdown-code-block-font-family); font-size: calc(var(--markdown-code-block-font-size) * var(--markdown-text-scale)); font-weight: var(--markdown-code-block-font-weight); line-height: calc(var(--markdown-code-block-line-height) * var(--markdown-text-scale)); letter-spacing: var(--markdown-code-block-letter-spacing); }
+  .agent-markdown pre code { border-radius: 0; background: transparent; padding: 0; color: inherit; font: inherit; }
+  .agent-markdown blockquote { margin: calc(var(--markdown-blockquote-margin-top) * var(--markdown-text-scale)) 0 calc(var(--markdown-blockquote-margin-bottom) * var(--markdown-text-scale)); border-left: var(--markdown-blockquote-border-width) var(--markdown-blockquote-border-style) var(--markdown-blockquote-border-color); border-radius: var(--markdown-blockquote-radius); background: var(--markdown-blockquote-background); padding: var(--markdown-blockquote-padding-y) var(--markdown-blockquote-padding-x); color: var(--markdown-blockquote-color); font-family: var(--markdown-blockquote-font-family); font-size: calc(var(--markdown-blockquote-font-size) * var(--markdown-text-scale)); font-weight: var(--markdown-blockquote-font-weight); line-height: calc(var(--markdown-blockquote-line-height) * var(--markdown-text-scale)); letter-spacing: var(--markdown-blockquote-letter-spacing); }
+  .agent-markdown table { width: 100%; margin: calc(var(--markdown-table-margin-top) * var(--markdown-text-scale)) 0 calc(var(--markdown-table-margin-bottom) * var(--markdown-text-scale)); border-collapse: collapse; border: var(--markdown-table-border-width) var(--markdown-table-border-style) var(--markdown-table-border-color); border-radius: var(--markdown-table-radius); color: var(--markdown-table-color); font-family: var(--markdown-table-font-family); font-size: calc(var(--markdown-table-font-size) * var(--markdown-text-scale)); font-weight: var(--markdown-table-font-weight); line-height: calc(var(--markdown-table-line-height) * var(--markdown-text-scale)); letter-spacing: var(--markdown-table-letter-spacing); }
+  .agent-markdown th { background: var(--markdown-table-header-background); font-weight: 600; text-align: left; }
+  .agent-markdown td { background: var(--markdown-table-body-background); }
+  .agent-markdown :is(th, td) { border: var(--markdown-table-border-width) var(--markdown-table-border-style) var(--markdown-table-border-color); padding: var(--markdown-table-cell-padding-y) var(--markdown-table-cell-padding-x); }
+  .agent-markdown hr { margin: calc(var(--markdown-divider-margin-top) * var(--markdown-text-scale)) 0 calc(var(--markdown-divider-margin-bottom) * var(--markdown-text-scale)); border: 0; border-top: var(--markdown-divider-thickness) solid var(--markdown-divider-color); }
+  .agent-markdown img { max-width: 100%; margin: calc(var(--markdown-image-margin-top) * var(--markdown-text-scale)) 0 calc(var(--markdown-image-margin-bottom) * var(--markdown-text-scale)); border: var(--markdown-image-border-width) var(--markdown-image-border-style) var(--markdown-image-border-color); border-radius: var(--markdown-image-radius); }
+}
+
 @font-face {
   font-family: "上图东观体";
   src: url("/fonts/shangtu-dongguan-regular.ttf") format("truetype");
@@ -55,6 +136,12 @@
     --accent-foreground: 356 72% 42%;
     --destructive: 355 72% 42%;
     --destructive-foreground: 0 0% 100%;
+    --success: 143 35% 33%;
+    --success-foreground: 33 100% 98%;
+    --warning: 38 100% 33%;
+    --warning-foreground: 33 100% 98%;
+    --info: 214 54% 40%;
+    --info-foreground: 33 100% 98%;
     --border: 30 16% 68%;
     --input: 30 16% 68%;
     --ring: 356 100% 63%;
@@ -129,6 +216,88 @@
     --ui-scrollbar-opacity: 0.3;
     --ui-scrollbar-hover-opacity: 0.48;
     --ui-scrollbar-active-opacity: 0.62;
+    --agent-sidebar-width: 248px;
+    --agent-transcript-max-width: 760px;
+    --agent-composer-max-width: 760px;
+    --agent-content-padding-x: 24px;
+    --agent-content-padding-y: 24px;
+    --agent-turn-gap: 24px;
+    --agent-part-gap: 8px;
+    --agent-type-body-family: var(--type-interface-body-family, var(--font-sans));
+    --agent-type-body-size: var(--type-interface-body-size, 14px);
+    --agent-type-body-weight: var(--type-interface-body-weight, 400);
+    --agent-type-body-line-height: var(--type-interface-body-line-height, 20px);
+    --agent-type-body-letter-spacing: var(--type-interface-body-letter-spacing, 0px);
+    --agent-type-heading-family: var(--type-interface-heading-family, var(--font-sans));
+    --agent-type-heading-size: var(--type-interface-heading-size, 14px);
+    --agent-type-heading-weight: var(--type-interface-heading-weight, 500);
+    --agent-type-heading-line-height: var(--type-interface-heading-line-height, 20px);
+    --agent-type-heading-letter-spacing: var(--type-interface-heading-letter-spacing, 0px);
+    --agent-type-metadata-family: var(--type-interface-metadata-family, var(--font-sans));
+    --agent-type-metadata-size: var(--type-interface-metadata-size, 12px);
+    --agent-type-metadata-weight: var(--type-interface-metadata-weight, 400);
+    --agent-type-metadata-line-height: var(--type-interface-metadata-line-height, 18px);
+    --agent-type-metadata-letter-spacing: var(--type-interface-metadata-letter-spacing, 0px);
+    --agent-type-technical-family: var(--type-interface-technical-family, var(--font-mono));
+    --agent-type-technical-size: var(--type-interface-technical-size, 12px);
+    --agent-type-technical-weight: var(--type-interface-technical-weight, 400);
+    --agent-type-technical-line-height: var(--type-interface-technical-line-height, 18px);
+    --agent-type-technical-letter-spacing: var(--type-interface-technical-letter-spacing, 0px);
+    --agent-message-metadata-foreground: 28 10% 38%;
+    --agent-message-user-background: 34 23% 92%;
+    --agent-message-user-foreground: 28 20% 8%;
+    --agent-message-user-border-color: 30 16% 68%;
+    --agent-message-user-border-width: 0px;
+    --agent-message-user-border-style: none;
+    --agent-message-user-radius: 14px;
+    --agent-message-user-shadow: 0 0 0 rgba(24,19,15,0);
+    --agent-message-user-padding-x: 14px;
+    --agent-message-user-padding-y: 10px;
+    --agent-message-assistant-background: 36 40% 97%;
+    --agent-message-assistant-foreground: 28 20% 8%;
+    --agent-message-assistant-border-color: 30 16% 68%;
+    --agent-message-assistant-border-width: 0px;
+    --agent-message-assistant-border-style: none;
+    --agent-message-assistant-radius: 0px;
+    --agent-message-assistant-shadow: 0 0 0 rgba(24,19,15,0);
+    --agent-message-assistant-padding-x: 0px;
+    --agent-message-assistant-padding-y: 0px;
+    --agent-message-notice-background: 34 23% 92%;
+    --agent-message-notice-foreground: 28 10% 38%;
+    --agent-message-notice-border-color: 30 16% 68%;
+    --agent-message-notice-border-width: 1px;
+    --agent-message-notice-border-style: solid;
+    --agent-message-notice-radius: 6px;
+    --agent-message-notice-shadow: 0 0 0 rgba(24,19,15,0);
+    --agent-message-notice-padding-x: 12px;
+    --agent-message-notice-padding-y: 9px;
+    --agent-composer-background: 36 40% 97%;
+    --agent-composer-foreground: 28 20% 8%;
+    --agent-composer-border-color: 30 16% 68%;
+    --agent-composer-border-width: 1px;
+    --agent-composer-border-style: solid;
+    --agent-composer-radius: 16px;
+    --agent-composer-shadow: 0 6px 20px rgba(24,19,15,0.081);
+    --agent-composer-padding-x: 12px;
+    --agent-composer-padding-y: 10px;
+    --agent-composer-placeholder: 28 10% 38%;
+    --agent-composer-min-height: 72px;
+    --agent-composer-max-height: 176px;
+    --agent-tool-background: 34 23% 92%;
+    --agent-tool-foreground: 28 20% 8%;
+    --agent-tool-border-color: 30 16% 68%;
+    --agent-tool-border-width: 1px;
+    --agent-tool-border-style: solid;
+    --agent-tool-radius: 8px;
+    --agent-tool-shadow: 0 0 0 rgba(24,19,15,0);
+    --agent-tool-padding-x: 12px;
+    --agent-tool-padding-y: 10px;
+    --agent-tool-muted-foreground: 28 10% 38%;
+    --agent-tool-error-foreground: 355 72% 42%;
+    --agent-tool-row-gap: 8px;
+    --agent-thinking-foreground: 28 10% 38%;
+    --agent-thinking-accent: 30 16% 68%;
+    --agent-thinking-opacity: 0.86;
   }
 
   * {

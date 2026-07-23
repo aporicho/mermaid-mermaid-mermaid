@@ -9,7 +9,7 @@ import type { DagreEdgeRoute } from "@/features/mermaid-editor/lib/canvas-auto-l
 import type { CanvasDocument } from "@/features/mermaid-editor/lib/canvas-document";
 import { documentKindLabel, type DocumentKind } from "@/features/mermaid-editor/lib/document-kind";
 import type { EditorDiagnostic } from "@/features/mermaid-editor/lib/editor-diagnostics";
-import type { EditorRuntime, RuntimeFileRef } from "@/features/mermaid-editor/lib/editor-runtime";
+import type { EditorRuntime, RuntimeAgentTextSelection, RuntimeFileRef } from "@/features/mermaid-editor/lib/editor-runtime";
 import type { CanvasVisualTokens } from "@/features/mermaid-editor/lib/canvas-visual-state";
 import type {
   CanvasNode,
@@ -65,6 +65,7 @@ type EditorWorkspaceSurfaceProps = {
   onCanvasDocumentChange: (document: CanvasDocument, status?: string) => void;
   onStatus: (status: string) => void;
   onMarkdownChange: (value: string) => void;
+  onTextSelectionChange?: (selection: RuntimeAgentTextSelection | null) => void;
   markdownFoldState: MarkdownFoldSnapshot | null | undefined;
   onMarkdownFoldStateChange?: (snapshot: MarkdownFoldSnapshot) => void;
   onSourceChange: (value: string) => void;
@@ -112,6 +113,7 @@ export function EditorWorkspaceSurface({
   onCanvasDocumentChange,
   onStatus,
   onMarkdownChange,
+  onTextSelectionChange,
   markdownFoldState,
   onMarkdownFoldStateChange,
   onSourceChange,
@@ -180,6 +182,7 @@ export function EditorWorkspaceSurface({
         foldState={markdownFoldState}
         onFoldStateChange={onMarkdownFoldStateChange}
         onChange={onMarkdownChange}
+        onSelectionChange={onTextSelectionChange}
       />
     );
   }
@@ -191,6 +194,7 @@ export function EditorWorkspaceSurface({
         title={`${documentKindLabel(documentKind)} 源码`}
         diagnostics={documentKind === "mermaid" ? diagnostics : []}
         onChange={onSourceChange}
+        onSelectionChange={onTextSelectionChange}
         onRun={documentKind === "mermaid" ? onRunSource : undefined}
         className="border-0"
       />

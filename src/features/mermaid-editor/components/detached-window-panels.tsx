@@ -13,6 +13,7 @@ import {
   markdownTextScalePercent
 } from "@/features/mermaid-editor/lib/markdown-text-scale";
 import type { MarkdownFoldSnapshot } from "@/features/mermaid-editor/lib/markdown-fold-state";
+import type { RuntimeAgentTextSelection } from "@/features/mermaid-editor/lib/editor-runtime";
 
 export function MarkdownWindowPanel({
   title,
@@ -29,7 +30,8 @@ export function MarkdownWindowPanel({
   onTextScaleChange,
   foldState,
   onFoldStateChange,
-  onChange
+  onChange,
+  onSelectionChange
 }: {
   title: string;
   path?: string;
@@ -46,6 +48,7 @@ export function MarkdownWindowPanel({
   foldState?: MarkdownFoldSnapshot | null;
   onFoldStateChange?: (snapshot: MarkdownFoldSnapshot) => void;
   onChange: (value: string) => void;
+  onSelectionChange?: (selection: RuntimeAgentTextSelection | null) => void;
 }) {
   const normalizedTextScale = clampMarkdownTextScale(textScale);
   const textScalePercent = markdownTextScalePercent(normalizedTextScale);
@@ -107,6 +110,7 @@ export function MarkdownWindowPanel({
         foldState={foldState}
         onFoldStateChange={onFoldStateChange}
         onChange={onChange}
+        onSelectionChange={onSelectionChange}
         className="markdown-editor-panel--window min-h-0 flex-1 bg-background/95"
       />
     </section>

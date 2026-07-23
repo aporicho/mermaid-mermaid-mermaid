@@ -7,7 +7,7 @@ import {
   type MarkdownTokenFieldKind
 } from "@/features/mermaid-editor/lib/editor-theme";
 
-export type ThemeSettingsCategoryId = "library" | "interface" | "canvas" | "specialNode" | "markdown" | "source" | "terminal" | "motion" | "diagnostics";
+export type ThemeSettingsCategoryId = "library" | "interface" | "agent" | "canvas" | "specialNode" | "markdown" | "source" | "terminal" | "motion" | "diagnostics";
 
 export type AppearanceTokenState = "editable" | "derived" | "fixed" | "legacy";
 export type AppearanceTokenLevel = "common" | "advanced";
@@ -48,6 +48,7 @@ export type ThemeTokenGroupDefinition = {
 export const THEME_SETTINGS_CATEGORIES = [
   { id: "library", label: "主题库", description: "选择预设或从当前外观开始定制" },
   { id: "interface", label: "界面", description: "应用框架、文字、密度与控件" },
+  { id: "agent", label: "Agent", description: "对话、消息、工具过程与输入器" },
   { id: "canvas", label: "画布", description: "节点、连线、分组、网格与交互" },
   { id: "specialNode", label: "特殊节点", description: "链接、Markdown、图片和表格节点" },
   { id: "markdown", label: "Markdown", description: "集中设置全部 Markdown 排版、色彩、间距和富文本外观" },
@@ -67,6 +68,13 @@ export const THEME_TOKEN_GROUPS: readonly ThemeTokenGroupDefinition[] = [
   group("interface-icon", "interface", "图标", ["interface", "icon"], "css", { hiddenKeys: ["family"] }),
   group("interface-scrollbar", "interface", "滚动条", ["interface", "scrollbar"], "css"),
   typographyGroup("typography-interface", "interface", "界面文字", "interface", "css"),
+
+  group("agent-layout", "agent", "布局", ["agent", "layout"], "css"),
+  group("agent-typography", "agent", "文字", ["agent", "typography"], "css"),
+  group("agent-message", "agent", "消息", ["agent", "message"], "css"),
+  group("agent-composer", "agent", "输入器", ["agent", "composer"], "css"),
+  group("agent-tool", "agent", "工具过程", ["agent", "tool"], "css"),
+  group("agent-thinking", "agent", "思考过程", ["agent", "thinking"], "css"),
 
   group("canvas-surface", "canvas", "画布表面", ["canvas", "surface"], "konva"),
   group("canvas-grid", "canvas", "网格", ["canvas", "grid"], "konva", { level: "advanced" }),
@@ -135,6 +143,12 @@ const TOKEN_LABELS: Record<string, string> = {
   primaryForeground: "主强调文字",
   secondaryForeground: "次级文字",
   destructiveForeground: "危险状态文字",
+  success: "成功状态",
+  successForeground: "成功状态文字",
+  warning: "警告状态",
+  warningForeground: "警告状态文字",
+  info: "信息状态",
+  infoForeground: "信息状态文字",
   input: "输入边框",
   focusRing: "焦点环",
   borderStyle: "边框样式",
@@ -255,6 +269,7 @@ const TOKEN_LABELS: Record<string, string> = {
   titleHeight: "标题高度",
   minWidth: "最小宽度",
   minHeight: "最小高度",
+  maxHeight: "最大高度",
   fallbackGap: "回退间距",
   fillOpacity: "填充透明度",
   minChars: "最小字符",
@@ -383,7 +398,17 @@ const TOKEN_LABELS: Record<string, string> = {
   selectedCellStrokeWidth: "选中单元格边框宽度",
   minColumnWidth: "最小列宽",
   minRowHeight: "最小行高",
-  resizeHandleWidth: "调整手柄宽度"
+  resizeHandleWidth: "调整手柄宽度",
+  sidebarWidth: "侧栏宽度",
+  transcriptMaxWidth: "对话最大宽度",
+  composerMaxWidth: "输入器最大宽度",
+  contentPaddingY: "内容纵向内边距",
+  turnGap: "对话轮次间距",
+  partGap: "消息内容间距",
+  metadataForeground: "元信息文字",
+  placeholder: "占位文字",
+  errorForeground: "错误文字",
+  rowGap: "行间距"
 };
 
 export function themeTokenLabel(key: string) {
@@ -531,7 +556,7 @@ const FIXED_CANVAS_DOCUMENT_TYPOGRAPHY = flattenTokenLeaves(DEFAULT_EDITOR_THEME
 });
 
 /**
- * Every canonical v11 appearance leaf has exactly one registry entry. The panel,
+ * Every canonical v12 appearance leaf has exactly one registry entry. The panel,
  * search and contract tests all consume this registry instead of maintaining
  * separate path lists.
  */
@@ -582,7 +607,7 @@ function controlFor(path: readonly string[], value: unknown): AppearanceTokenDef
   if (typeof value === "number") return { kind: "number", ...themeTokenNumberSpec(path, value) };
   if (key === "family") return { kind: "font" };
   if (key === "borderStyle" || key.endsWith("Style") || key === "style") {
-    return { kind: path[0] === "interface" ? "css-border-style" : "canvas-stroke-style" };
+    return { kind: path[0] === "interface" || path[0] === "agent" ? "css-border-style" : "canvas-stroke-style" };
   }
   if (typeof value === "string" && /^#[0-9a-f]{6}$/i.test(value)) return { kind: "color" };
   return { kind: "text" };

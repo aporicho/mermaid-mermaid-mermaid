@@ -138,11 +138,11 @@ export function FloatingPanel({
             {children}
           </WorkspacePanelHeaderProvider>
           {panel.framePanel && panel.resizablePanel && !panel.fullscreen ? (
-            <div aria-hidden data-floating-panel-drag-exclude>
+            <div className="pointer-events-none absolute inset-0" aria-hidden data-floating-panel-drag-exclude>
               {FLOATING_PANEL_RESIZE_HANDLES.map((handle) => (
                 <div
                   key={handle}
-                  className={cn("absolute z-40 touch-none", floatingPanelResizeHandleClass[handle])}
+                  className={cn("pointer-events-auto absolute z-40 touch-none", floatingPanelResizeHandleClass[handle])}
                   data-floating-panel-resize-handle={handle}
                   onPointerDown={(event) => panel.startResize(event, handle)}
                 />

@@ -30,7 +30,7 @@ import type {
   Selection,
   ViewportState
 } from "@/features/mermaid-editor/lib/editor-types";
-import type { AiRecentAction } from "@/features/mermaid-editor/lib/ai-context";
+import type { EditorRecentAction } from "@/features/mermaid-editor/lib/editor-interaction-state";
 import type { EditorCommand } from "@/features/mermaid-editor/lib/interaction/commands";
 import { applyEditorCommandTransaction } from "@/features/mermaid-editor/lib/interaction/transaction";
 import { loadMermaidDocument } from "@/features/mermaid-editor/lib/mermaid-document";
@@ -73,7 +73,7 @@ type UseEditorDocumentCommandsArgs = {
   setViewFilters: StateSetter<ViewFilters>;
   setDiagnostics: StateSetter<EditorDiagnostic[]>;
   setStatus: StateSetter<string>;
-  recordRecentAction: (type: string, target?: AiRecentAction["target"], summary?: string) => void;
+  recordRecentAction: (type: string, target?: EditorRecentAction["target"], summary?: string) => void;
 };
 
 export function useEditorDocumentCommands({
@@ -514,7 +514,7 @@ function selectionKey(selection: Selection) {
   return [selection.primaryId || "", ...selection.nodeIds, "|", ...selection.edgeIds, "|", ...(selection.subgraphIds || [])].join(",");
 }
 
-function targetFromSelection(selection: Selection): AiRecentAction["target"] {
+function targetFromSelection(selection: Selection): EditorRecentAction["target"] {
   if (selection.nodeIds[0]) return { kind: "node", id: selection.nodeIds[0] };
   if (selection.edgeIds[0]) return { kind: "edge", id: selection.edgeIds[0] };
   if (selection.subgraphIds?.[0]) return { kind: "subgraph", id: selection.subgraphIds[0] };

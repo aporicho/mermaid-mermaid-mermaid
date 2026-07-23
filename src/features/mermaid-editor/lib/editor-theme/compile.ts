@@ -4,6 +4,7 @@ import type { ShadowTokens } from "./appearance-types";
 import { ansiToCssVariables, contrastRatio, hexToHslTriplet, hexToRgba } from "./color";
 import { markdownToCssVariables } from "./markdown-css-variables";
 import { typographyToCssVariables } from "./typography";
+import { agentToCssVariables } from "./agent-theme";
 import type {
   CompiledEditorTheme,
   EditorMotionTokens,
@@ -23,6 +24,7 @@ export function compileEditorTheme(theme: EditorTheme): CompiledEditorTheme {
     terminalTheme: themeToTerminalTheme(theme),
     typography: theme.typography,
     specialNode: theme.specialNode,
+    agent: theme.agent,
     motion: theme.motion,
     geometry: themeToGeometryTokens(theme),
     diagnostics: themeDiagnostics(theme)
@@ -52,6 +54,12 @@ export function themeToCssVariables(theme: EditorTheme): Record<string, string> 
     "--accent-foreground": hexToHslTriplet(colors.accentForeground),
     "--destructive": hexToHslTriplet(colors.destructive),
     "--destructive-foreground": hexToHslTriplet(colors.destructiveForeground),
+    "--success": hexToHslTriplet(colors.success),
+    "--success-foreground": hexToHslTriplet(colors.successForeground),
+    "--warning": hexToHslTriplet(colors.warning),
+    "--warning-foreground": hexToHslTriplet(colors.warningForeground),
+    "--info": hexToHslTriplet(colors.info),
+    "--info-foreground": hexToHslTriplet(colors.infoForeground),
     "--border": hexToHslTriplet(colors.border),
     "--input": hexToHslTriplet(colors.input),
     "--ring": hexToHslTriplet(colors.focusRing),
@@ -115,6 +123,7 @@ export function themeToCssVariables(theme: EditorTheme): Record<string, string> 
     "--theme-terminal-font-size": `${theme.typography.terminal.content.fontSize}px`,
     "--theme-terminal-line-height": `${theme.typography.terminal.content.lineHeight}px`,
     ...markdownToCssVariables(theme),
+    ...agentToCssVariables(theme.agent),
     ...motionToCssVariables(theme.motion)
   };
 }
@@ -234,6 +243,10 @@ function themeDiagnostics(theme: EditorTheme): ThemeDiagnostic[] {
   addContrastDiagnostic(diagnostics, "APP_TEXT_CONTRAST", "应用文字与背景对比度不足。", colors.foreground, colors.background, theme.diagnostics.minTextContrast);
   addContrastDiagnostic(diagnostics, "MARKDOWN_TEXT_CONTRAST", "Markdown 正文与背景对比度不足。", theme.markdown.body.color, colors.background, theme.diagnostics.minTextContrast);
   addContrastDiagnostic(diagnostics, "MARKDOWN_CODE_CONTRAST", "Markdown 代码块文字与背景对比度不足。", theme.markdown.codeBlock.color, theme.markdown.codeBlock.background, theme.diagnostics.minTextContrast);
+  addContrastDiagnostic(diagnostics, "AGENT_USER_MESSAGE_CONTRAST", "Agent 用户消息文字与背景对比度不足。", theme.agent.message.user.foreground, theme.agent.message.user.background, theme.diagnostics.minTextContrast);
+  addContrastDiagnostic(diagnostics, "AGENT_ASSISTANT_MESSAGE_CONTRAST", "Agent 回复文字与背景对比度不足。", theme.agent.message.assistant.foreground, theme.agent.message.assistant.background, theme.diagnostics.minTextContrast);
+  addContrastDiagnostic(diagnostics, "AGENT_COMPOSER_CONTRAST", "Agent 输入器文字与背景对比度不足。", theme.agent.composer.foreground, theme.agent.composer.background, theme.diagnostics.minTextContrast);
+  addContrastDiagnostic(diagnostics, "AGENT_TOOL_CONTRAST", "Agent 工具过程文字与背景对比度不足。", theme.agent.tool.foreground, theme.agent.tool.background, theme.diagnostics.minTextContrast);
   addContrastDiagnostic(diagnostics, "CANVAS_NODE_TEXT_CONTRAST", "节点文字与节点表面对比度不足。", theme.canvas.ordinaryNode.textColor, theme.canvas.surface.background, theme.diagnostics.minTextContrast);
   addContrastDiagnostic(diagnostics, "TERMINAL_TEXT_CONTRAST", "终端文字与终端背景对比度不足。", theme.terminal.foreground, theme.terminal.background, theme.diagnostics.minTextContrast);
   addContrastDiagnostic(diagnostics, "TERMINAL_CURSOR_CONTRAST", "终端光标与终端背景对比度偏低。", theme.terminal.cursor, theme.terminal.background, theme.diagnostics.minFocusContrast);

@@ -35,6 +35,7 @@ import {
 } from "@/features/mermaid-editor/lib/markdown-folding";
 import { emptyMarkdownFoldSnapshot, markdownFoldSnapshotKey, type MarkdownFoldSnapshot } from "@/features/mermaid-editor/lib/markdown-fold-state";
 import { clampMarkdownTextScale } from "@/features/mermaid-editor/lib/markdown-text-scale";
+import type { RuntimeAgentTextSelection } from "@/features/mermaid-editor/lib/editor-runtime";
 import { cn } from "@/lib/utils";
 
 type MarkdownPanelProps = {
@@ -47,6 +48,7 @@ type MarkdownPanelProps = {
   foldState?: MarkdownFoldSnapshot | null;
   onFoldStateChange?: (snapshot: MarkdownFoldSnapshot) => void;
   onChange: (value: string) => void;
+  onSelectionChange?: (selection: RuntimeAgentTextSelection | null) => void;
 };
 
 type BlockStyleMenuState = {
@@ -79,7 +81,7 @@ const blockStyleGroups = [
   ]
 ] satisfies ReadonlyArray<ReadonlyArray<{ style: MarkdownBlockStyle; label: string; icon: typeof Text }>>;
 
-export function MarkdownPanel({ value, className, readOnly = false, spellCheck, contentWidth, textScale, foldState, onFoldStateChange, onChange }: MarkdownPanelProps) {
+export function MarkdownPanel({ value, className, readOnly = false, spellCheck, contentWidth, textScale, foldState, onFoldStateChange, onChange, onSelectionChange }: MarkdownPanelProps) {
   const panelRef = useRef<HTMLElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const crepeRef = useRef<Crepe | null>(null);
@@ -92,6 +94,7 @@ export function MarkdownPanel({ value, className, readOnly = false, spellCheck, 
   const spellCheckRef = useRef(spellCheck);
   const onChangeRef = useRef(onChange);
   const onFoldStateChangeRef = useRef(onFoldStateChange);
+  const onSelectionChangeRef = useRef(onSelectionChange);
   const foldStateRef = useRef(foldState);
   const foldRestoreAppliedRef = useRef(false);
   const foldPersistenceActiveRef = useRef(false);
@@ -179,6 +182,10 @@ export function MarkdownPanel({ value, className, readOnly = false, spellCheck, 
   }, [onFoldStateChange]);
 
   useEffect(() => {
+    onSelectionChangeRef.current = onSelectionChange;
+  }, [onSelectionChange]);
+
+  useEffect(() => {
     const root = rootRef.current;
     if (!root) return;
     let disposed = false;
@@ -217,6 +224,28 @@ export function MarkdownPanel({ value, className, readOnly = false, spellCheck, 
         lastEditorValueRef.current = markdown;
         onChangeRef.current(markdown);
         reportFoldState();
+      });
+      listener.selectionUpdated((ctx, selection) => {
+        if (selection.empty) {
+          onSelectionChangeRef.current?.(null);
+          return;
+        }
+        const view = ctx.get(editorViewCtx);
+        const text = view.state.doc.textBetween(selection.from, selection.to, "\n", "\n");
+        const markdown = lastEditorValueRef.current;
+        const sourceStart = markdown.indexOf(text);
+        if (sourceStart < 0) {
+          onSelectionChangeRef.current?.(null);
+          return;
+        }
+        const sourceEnd = sourceStart + text.length;
+        onSelectionChangeRef.current?.({
+          kind: "markdown",
+          start: sourceStart,
+          end: sourceEnd,
+          text,
+          surroundingText: markdown.slice(Math.max(0, sourceStart - 240), Math.min(markdown.length, sourceEnd + 240))
+        });
       });
     });
     crepeRef.current = crepe;

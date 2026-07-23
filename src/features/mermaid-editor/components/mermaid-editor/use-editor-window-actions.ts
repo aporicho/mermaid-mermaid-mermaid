@@ -14,7 +14,7 @@ import type {
   RuntimeFileOpenRequest,
   RuntimeFileRef
 } from "@/features/mermaid-editor/lib/editor-runtime";
-import type { AiRecentAction } from "@/features/mermaid-editor/lib/ai-context";
+import type { EditorRecentAction } from "@/features/mermaid-editor/lib/editor-interaction-state";
 import {
   browserToolWindowTitle,
   normalizeBrowserUrl
@@ -63,7 +63,7 @@ type UseEditorWindowActionsArgs = {
   openRuntimeFileRequest: (file: RuntimeFileOpenRequest, source: FileOpenSource) => Promise<void>;
   openInspectorPanel: () => void;
   applyEditorCommand: (command: EditorCommand) => void;
-  recordRecentAction: (type: string, target?: AiRecentAction["target"], summary?: string) => void;
+  recordRecentAction: (type: string, target?: EditorRecentAction["target"], summary?: string) => void;
   onMarkdownFileSaved?: (path: string, text: string) => void;
 };
 

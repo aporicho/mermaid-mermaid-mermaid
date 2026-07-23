@@ -135,16 +135,13 @@ export function createElectronRuntime(): EditorRuntime {
     async listenForFileDrops(handler) {
       return bridge.onFileDrops(handler);
     },
-    async publishAiContext(context) {
-      await bridge.publishAiContext(context);
-    },
-    async pollAiCommand() {
-      const response = await bridge.pollAiCommand();
-      return response.command || null;
-    },
-    async finishAiCommand(result) {
-      await bridge.finishAiCommand(result);
-    },
+    async startAgent(request) { return bridge.startAgent(request); },
+    async sendAgentRpc(command) { return bridge.sendAgentRpc(command); },
+    async runAgentControl(command) { return bridge.runAgentControl(command); },
+    async respondAgentExtensionUi(response) { await bridge.respondAgentExtensionUi(response); },
+    async respondAgentHost(response) { await bridge.respondAgentHost(response); },
+    async stopAgent() { await bridge.stopAgent(); },
+    async listenForAgentEvents(handler) { return bridge.onAgentEvent(handler); },
     async listTerminalShells() {
       return bridge.listTerminalShells();
     },

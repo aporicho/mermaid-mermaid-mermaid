@@ -119,6 +119,22 @@ describe("interaction architecture contract", () => {
     }
   });
 
+  it("keeps Agent controls on shared shadcn component boundaries", () => {
+    const panel = readProjectFile("src/features/mermaid-editor/components/agent/agent-panel.tsx");
+    const settings = readProjectFile("src/features/mermaid-editor/components/agent/agent-settings-dialog.tsx");
+    const scroller = readProjectFile("src/components/ui/message-scroller.tsx");
+
+    for (const source of [panel, settings]) {
+      expect(source).toContain('from "@/components/ui/button"');
+      expect(source).toContain('from "@/components/ui/dialog"');
+      expect(source).not.toMatch(/<(button|input|select|textarea)\b/);
+      expect(source).not.toContain('role="button"');
+    }
+    expect(panel).toContain('from "@/components/ui/sidebar"');
+    expect(panel).toContain('from "@/components/ui/message-scroller"');
+    expect(scroller).toContain('from "@shadcn/react/message-scroller"');
+  });
+
   it("keeps known oversized files on a no-growth budget", () => {
     const budgets = [
       { path: "src/features/mermaid-editor/components/mermaid-editor.tsx", maxLines: 700 },
@@ -207,7 +223,8 @@ describe("interaction architecture contract", () => {
       { path: "electron/main.cjs", maxLines: 650 },
       { path: "electron/preload.cjs", maxLines: 220 },
       { path: "electron/terminal.cjs", maxLines: 260 },
-      { path: "electron/ai-bridge.cjs", maxLines: 250 },
+      { path: "electron/pi-agent-manager.cjs", maxLines: 320 },
+      { path: "electron/pi-agent-worker.mjs", maxLines: 700 },
       { path: "src/features/mermaid-editor/lib/clipboard-image.ts", maxLines: 80 },
       { path: "src/features/mermaid-editor/lib/mermaid-patch.ts", maxLines: 80 },
       { path: "src/features/mermaid-editor/lib/mermaid-patch/apply.ts", maxLines: 90 },
@@ -365,7 +382,8 @@ describe("interaction architecture contract", () => {
     expect(web).toContain("export function createWebRuntime");
     expect(electronRuntime).toContain("export function createElectronRuntime");
     expect(electronBridge).toContain("export function getElectronBridge");
-    expect(electronMain).toContain("createAiBridge");
+    expect(electronMain).toContain("createPiAgentManager");
+    expect(electronMain).not.toContain("createAiBridge");
     expect(electronMain).toContain("createTerminalManager");
     expect(desktop).toContain("export function createDesktopRuntime");
     expect(browserFile).toContain("FILE_PICKER_TYPES");
@@ -874,11 +892,12 @@ describe("interaction architecture contract", () => {
     expect(editor).not.toContain("function syncCanvasFromAutoLayout(");
   });
 
-  it("keeps AI, desktop, and clipboard controllers outside the MermaidEditor composition file", () => {
+  it("keeps Agent, desktop, and clipboard controllers outside the MermaidEditor composition file", () => {
     const editor = readProjectFile("src/features/mermaid-editor/components/mermaid-editor.tsx");
     const actions = readProjectFile("src/features/mermaid-editor/components/mermaid-editor/use-editor-command-actions.ts");
 
-    expect(editor).toContain("useEditorAiCommands");
+    expect(editor).toContain("useAgentSession");
+    expect(editor).toContain("useEditorAgentDocuments");
     expect(editor).toContain("useEditorDesktopEvents");
     expect(actions).toContain("useEditorClipboardActions");
     expect(editor).not.toContain("function editorCommandDiagnostic(");

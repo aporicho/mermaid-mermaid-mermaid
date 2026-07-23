@@ -7,6 +7,7 @@ import type { MarkdownThemeTokens } from "./markdown-types";
 import type { SpecialNodeThemeTokens } from "./special-node-types";
 import type { EditorTypographyTokens } from "./typography-types";
 import type { CanvasThemeTokens, InterfaceThemeTokens } from "./appearance-types";
+import type { AgentThemeTokens } from "./agent-theme";
 
 export type {
   MarkdownBlockquoteTokens,
@@ -36,6 +37,7 @@ export type {
   SpecialNodeVisualState
 } from "./special-node-types";
 export type { CanvasBorderTokens, CanvasStrokeStyle, CanvasThemeTokens, CssBorderStyle, CssBorderTokens, InterfaceThemeTokens, ShadowTokens } from "./appearance-types";
+export type { AgentSurfaceTokens, AgentThemeTokens } from "./agent-theme";
 
 export const MERMAID_FONT_FAMILY = "Noto Sans SC Variable, Noto Sans SC, PingFang SC, Microsoft YaHei UI, Microsoft YaHei, system-ui, sans-serif";
 export const MONO_FONT_FAMILY = "Maple Mono, SF Mono, Cascadia Code, JetBrains Mono, Noto Sans SC Variable, ui-monospace, monospace";
@@ -119,12 +121,13 @@ export type XtermThemeTokens = TerminalColorTokens &
   };
 
 export type EditorTheme = {
-  version: 11;
+  version: 12;
   id: EditorThemeId;
   name: string;
   description: string;
   baseThemeId?: string;
   interface: InterfaceThemeTokens;
+  agent: AgentThemeTokens;
   canvas: CanvasThemeTokens;
   specialNode: SpecialNodeThemeTokens;
   source: {
@@ -159,6 +162,7 @@ export type CompiledEditorTheme = {
   terminalTheme: XtermThemeTokens;
   typography: EditorTypographyTokens;
   specialNode: SpecialNodeThemeTokens;
+  agent: AgentThemeTokens;
   motion: EditorMotionTokens;
   geometry: EditorThemeGeometryTokens;
   diagnostics: ThemeDiagnostic[];

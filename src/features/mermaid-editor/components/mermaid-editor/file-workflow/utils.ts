@@ -1,4 +1,4 @@
-import type { AiCanvasSize } from "@/features/mermaid-editor/lib/ai-context";
+import type { EditorCanvasSize } from "@/features/mermaid-editor/lib/editor-interaction-state";
 import type { ViewportState } from "@/features/mermaid-editor/lib/editor-types";
 import { isRuntimeAbortError } from "@/features/mermaid-editor/lib/editor-runtime";
 import {
@@ -14,7 +14,7 @@ export function imageLabelFromSrc(src: string) {
   return src.split(/[\\/]/).filter(Boolean).at(-1)?.replace(/\.[^.]+$/, "") || "图片";
 }
 
-export function viewportCenterPoint(viewport: ViewportState, canvasSize?: AiCanvasSize) {
+export function viewportCenterPoint(viewport: ViewportState, canvasSize?: EditorCanvasSize) {
   const width = canvasSize?.width || 840;
   const height = canvasSize?.height || 520;
   return {

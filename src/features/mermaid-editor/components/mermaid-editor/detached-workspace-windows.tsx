@@ -1,7 +1,7 @@
 import { MarkdownWindowPanel } from "@/features/mermaid-editor/components/detached-window-panels";
 import { FloatingPanel } from "@/features/mermaid-editor/components/floating-chrome";
 import type { FloatingPanelWindowState } from "@/features/mermaid-editor/lib/floating-chrome";
-import type { RuntimeFileRef } from "@/features/mermaid-editor/lib/editor-runtime";
+import type { RuntimeAgentTextSelection, RuntimeFileRef } from "@/features/mermaid-editor/lib/editor-runtime";
 import type { MarkdownFoldSnapshot } from "@/features/mermaid-editor/lib/markdown-fold-state";
 import {
   WORKSPACE_PANEL_DEFAULT_SIZES,
@@ -26,6 +26,7 @@ type DetachedWorkspaceWindowsProps = {
   closeMarkdownWindow: (panelId: MarkdownWindowPanelId) => void;
   saveMarkdownWindow: (panelId: MarkdownWindowPanelId) => void | Promise<unknown>;
   updateMarkdownWindow: (panelId: MarkdownWindowPanelId, value: string) => void;
+  onMarkdownSelectionChange?: (panelId: MarkdownWindowPanelId, selection: RuntimeAgentTextSelection | null) => void;
   markdownFoldBindingFor: (file: RuntimeFileRef) => {
     foldState: MarkdownFoldSnapshot | null | undefined;
     onFoldStateChange?: (snapshot: MarkdownFoldSnapshot) => void;
@@ -47,6 +48,7 @@ export function DetachedWorkspaceWindows({
   closeMarkdownWindow,
   saveMarkdownWindow,
   updateMarkdownWindow,
+  onMarkdownSelectionChange,
   markdownFoldBindingFor
 }: DetachedWorkspaceWindowsProps) {
   return (
@@ -87,6 +89,7 @@ export function DetachedWorkspaceWindows({
             foldState={foldBinding.foldState}
             onFoldStateChange={foldBinding.onFoldStateChange}
             onChange={(value) => updateMarkdownWindow(markdownWindow.id, value)}
+            onSelectionChange={(selection) => onMarkdownSelectionChange?.(markdownWindow.id, selection)}
           />
         </FloatingPanel>;
       })}

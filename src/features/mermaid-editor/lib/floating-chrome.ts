@@ -207,7 +207,7 @@ export function restoreFloatingPanelFrame({
   viewport: FloatingPanelViewport;
   minSize?: FloatingPanelSize;
 }): FloatingPanelFrame {
-  return constrainFloatingPanelFrame({ frame, viewport, minSize });
+  return fitFloatingPanelFrameToViewport({ frame, viewport, minSize });
 }
 
 function clamp(value: number, min: number, max: number) {
