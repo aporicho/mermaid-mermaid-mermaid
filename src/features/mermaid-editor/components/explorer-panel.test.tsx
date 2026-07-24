@@ -460,6 +460,7 @@ describe("ExplorerPanel", () => {
             projectFiles={projectWorkspace?.files ?? []}
             currentFileRef={activeFileRef}
             projectBusy={projectBusy}
+            openDocuments={[]}
             treeState={treeState}
             onTreeStateChange={(state) => setTreeState((current) => ({ ...current, ...state }))}
             onOpenProject={onOpenProject}
@@ -472,6 +473,7 @@ describe("ExplorerPanel", () => {
             onMoveProjectFile={onMoveProjectFile}
             onProjectDocumentPointerDrag={onProjectDocumentPointerDrag}
             onStatus={onStatus}
+            onOpenDocument={() => undefined}
           />
         </TooltipProvider>
       );

@@ -38,7 +38,7 @@ export function CanvasGrid({
   const { bounds, levels } = plan;
 
   return (
-    <Layer listening={false}>
+    <Layer listening={false} imageSmoothingEnabled>
       <Shape
         x={bounds.left}
         y={bounds.top}

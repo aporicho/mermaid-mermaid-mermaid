@@ -12,6 +12,7 @@ import { createElectronEmbeddedBrowserHandle } from "@/features/mermaid-editor/l
 import { createElectronCsvFileOperations } from "@/features/mermaid-editor/lib/editor-runtime/electron-csv-file";
 import { createElectronMarkdownFoldOperations } from "@/features/mermaid-editor/lib/editor-runtime/electron-markdown-fold";
 import { createElectronRuntimeMonitoring } from "@/features/mermaid-editor/lib/editor-runtime/electron-runtime-monitoring";
+import type { EditorDocumentSession } from "@/features/mermaid-editor/lib/editor-document-session";
 export function createElectronRuntime(): EditorRuntime {
   const bridge = getElectronBridge();
   const fallback = createWebRuntime();
@@ -43,20 +44,25 @@ export function createElectronRuntime(): EditorRuntime {
       return bridge.onDesktopWindowCloseRequest(handler);
     },
     async loadSavedState() {
-      return bridge.readAppState();
+      const [state, editorSession] = await Promise.all([bridge.readAppState(), bridge.readEditorSession()]);
+      return mergeEditorSessionIntoState(state, editorSession);
     },
     async listSystemFonts() {
       return bridge.listSystemFonts();
     },
     async saveDraft(draft) {
-      await bridge.writeAppState(draft);
+      const editorSession = draft.editorSession as EditorDocumentSession | undefined;
+      await Promise.all([
+        bridge.writeAppState({ ...draft, editorSession: undefined }),
+        editorSession ? bridge.writeEditorSession(editorSession) : Promise.resolve()
+      ]);
     },
     async openFile() {
       const opened = await bridge.openFile();
       if (!opened) return { status: "cancelled" };
       return {
         status: "opened",
-        file: { name: opened.name, path: opened.path },
+        file: { name: opened.name, path: opened.path, revision: opened.revision },
         text: opened.text
       };
     },
@@ -64,24 +70,36 @@ export function createElectronRuntime(): EditorRuntime {
       const opened = await bridge.openFilePath(path);
       return {
         status: "opened",
-        file: { name: opened.name, path: opened.path },
+        file: { name: opened.name, path: opened.path, revision: opened.revision },
         text: opened.text
       };
     },
-    async saveFile(file, documentText, suggestedName, documentKind) {
+    async saveFile(file, documentText, suggestedName, documentKind, options) {
       if (!file?.path) return this.saveFileAs(documentText, suggestedName, documentKind);
-      const saved = await bridge.saveFile(file.path, documentText);
+      const saved = await bridge.saveFile(file.path, documentText, {
+        expectedRevision: file.revision,
+        overwrite: options?.overwrite === true
+      });
+      if (saved.status === "conflict") {
+        return {
+          status: "conflict",
+          file: { name: ensureRuntimeDocumentFileName(saved.file.name, documentKind), path: saved.file.path, revision: saved.revision },
+          revision: saved.revision,
+          modifiedAt: saved.modifiedAt
+        };
+      }
       return {
         status: "saved",
-        file: { name: ensureRuntimeDocumentFileName(saved.name, documentKind), path: saved.path }
+        file: { name: ensureRuntimeDocumentFileName(saved.file.name, documentKind), path: saved.file.path, revision: saved.revision }
       };
     },
     async saveFileAs(documentText, suggestedName, documentKind) {
       const saved = await bridge.saveFileAs(ensureRuntimeDocumentFileName(suggestedName, documentKind), documentText);
       if (!saved) return { status: "cancelled" };
+      if (saved.status !== "saved") return { status: "cancelled" };
       return {
         status: "saved",
-        file: { name: ensureRuntimeDocumentFileName(saved.name, documentKind), path: saved.path }
+        file: { name: ensureRuntimeDocumentFileName(saved.file.name, documentKind), path: saved.file.path, revision: saved.revision }
       };
     },
     async createProjectDocument(request) {
@@ -171,6 +189,23 @@ export function createElectronRuntime(): EditorRuntime {
         browser: createElectronEmbeddedBrowserHandle(result.label || request.label, bridge)
       };
     }
+  };
+}
+
+function mergeEditorSessionIntoState(state: Record<string, unknown> | null, editorSession: EditorDocumentSession | null) {
+  if (!editorSession) return state;
+  const active = editorSession.buffers.find((buffer) => buffer.id === editorSession.activeBufferId);
+  if (!active) return { ...(state || {}), editorSession };
+  return {
+    ...(state || {}),
+    documentKind: active.documentKind,
+    source: active.content,
+    canvasDocument: undefined,
+    layout: undefined,
+    fileName: active.fileName,
+    fileRef: active.fileRef ? { ...active.fileRef, revision: active.revision || undefined } : null,
+    lastSavedDocument: active.savedContent,
+    editorSession
   };
 }
 

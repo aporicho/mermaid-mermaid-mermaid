@@ -24,6 +24,9 @@ const { createPiAgentManager } = require("./pi-agent-manager.cjs");
 const { cleanupLegacyAiBridgeDiscovery, registerPiAgentIpc } = require("./pi-agent-ipc.cjs");
 const { listSystemFonts } = require("./system-fonts.cjs");
 const { createProjectFileWatcher } = require("./project-file-watcher.cjs");
+const { readDocumentFile, writeDocumentFile } = require("./document-files.cjs");
+const { createEditorSessionStore } = require("./editor-sessions.cjs");
+const { writeJsonAtomically } = require("./atomic-json-file.cjs");
 const { scanProjectFolder: scanProjectFolderSnapshot } = require("./project-workspace.cjs");
 const { createWindowFileRouter } = require("./window-file-router.cjs");
 const { attachWindowFullscreenEvents, registerWindowFullscreenIpc } = require("./window-fullscreen.cjs");
@@ -45,6 +48,9 @@ const embeddedBrowsers = new Map();
 const forceCloseWindowIds = new Set();
 const pendingCloseWindowIds = new Set(), pendingCloseTimers = new Map();
 const mainWindows = new Set();
+const claimedEditorSessionIds = new Map();
+let editorSessionStoreInstance = null;
+let appStateWriteQueue = Promise.resolve();
 const windowFileRouter = createWindowFileRouter();
 
 const piAgentManager = createPiAgentManager({ shell });
@@ -224,9 +230,20 @@ function registerIpc() {
   ipcMain.handle("mmm:app-state:read", readAppState);
   ipcMain.handle("mmm:fonts:list", listSystemFonts);
   ipcMain.handle("mmm:app-state:write", (_event, state) => writeAppState(state));
+  ipcMain.handle("mmm:editor-session:read", async (event) => {
+    const existingId = claimedEditorSessionIds.get(event.sender.id);
+    const all = await editorSessions().readAll();
+    if (existingId && all.sessions[existingId]) return all.sessions[existingId].session;
+    const session = await editorSessions().claim(new Set(claimedEditorSessionIds.values()));
+    if (session?.windowId) claimedEditorSessionIds.set(event.sender.id, session.windowId);
+    return session;
+  });
+  ipcMain.handle("mmm:editor-session:write", async (event, session) => {
+    await editorSessions().write(session); claimedEditorSessionIds.set(event.sender.id, session.windowId);
+  });
   ipcMain.handle("mmm:file:open", (event) => openFileDialog(BrowserWindow.fromWebContents(event.sender)));
   ipcMain.handle("mmm:file:open-path", (_event, filePath) => openFilePath(filePath));
-  ipcMain.handle("mmm:file:save", (_event, request) => saveFilePath(request?.path, request?.text));
+  ipcMain.handle("mmm:file:save", (_event, request) => saveFilePath(request?.path, request?.text, { expectedRevision: request?.expectedRevision, overwrite: request?.overwrite === true }));
   ipcMain.handle("mmm:file:save-as", (event, request) => saveFileDialog(BrowserWindow.fromWebContents(event.sender), request?.suggestedName, request?.text));
   ipcMain.handle("mmm:project:create-document", (_event, request) => createProjectDocument(request));
   ipcMain.handle("mmm:project:create-text-file", (_event, request) => createProjectTextFile(request));
@@ -288,13 +305,15 @@ async function readAppState() {
 }
 
 async function writeAppState(state) {
-  const statePath = appStatePath();
-  await fsp.mkdir(path.dirname(statePath), { recursive: true });
-  await fsp.writeFile(statePath, JSON.stringify(state, null, 2), "utf8");
+  appStateWriteQueue = appStateWriteQueue.catch(() => undefined).then(() => writeJsonAtomically(appStatePath(), state));
+  return appStateWriteQueue;
 }
 
-function appStatePath() {
-  return path.join(app.getPath("userData"), "app-state.json");
+function appStatePath() { return path.join(app.getPath("userData"), "app-state.json"); }
+
+function editorSessions() {
+  if (!editorSessionStoreInstance) editorSessionStoreInstance = createEditorSessionStore(path.join(app.getPath("userData"), "editor-sessions.json"));
+  return editorSessionStoreInstance;
 }
 
 async function openFileDialog(owner) {
@@ -308,21 +327,12 @@ async function openFileDialog(owner) {
 
 async function openFilePath(filePath) {
   assertSupportedDocumentPath(filePath);
-  const text = await fsp.readFile(filePath, "utf8");
-  return {
-    name: path.basename(filePath),
-    path: filePath,
-    text
-  };
+  return readDocumentFile(filePath);
 }
 
-async function saveFilePath(filePath, text) {
+async function saveFilePath(filePath, text, options = {}) {
   assertSupportedDocumentPath(filePath);
-  await fsp.writeFile(filePath, typeof text === "string" ? text : "", "utf8");
-  return {
-    name: path.basename(filePath),
-    path: filePath
-  };
+  return writeDocumentFile(filePath, text, options);
 }
 
 async function saveFileDialog(owner, suggestedName, text) {
@@ -331,7 +341,7 @@ async function saveFileDialog(owner, suggestedName, text) {
     filters: DOCUMENT_FILTERS
   });
   if (result.canceled || !result.filePath) return null;
-  return saveFilePath(result.filePath, text);
+  return saveFilePath(result.filePath, text, { overwrite: true });
 }
 
 async function pickImageAssetDialog(owner, documentPath) {
@@ -400,6 +410,7 @@ function attachWindowCleanup(window) {
   window.on("closed", () => {
     clearPendingClose(window.id);
     windowFileRouter.clear(webContentsId);
+    claimedEditorSessionIds.delete(webContentsId);
     void projectFileWatcher.removeSubscriber(webContentsId);
     void piAgentManager.stop(webContentsId);
     if (mainWindows.delete(window) && mainWindow === window) {

@@ -1,7 +1,7 @@
 import { useEffect, useRef, type Dispatch, type SetStateAction } from "react";
 
-import type { FileOpenSource } from "@/features/mermaid-editor/components/mermaid-editor/use-editor-file-workflow";
 import { isSupportedMarkdownFilePath } from "@/features/mermaid-editor/lib/document-kind";
+import { isSupportedDocumentFilePath } from "@/features/mermaid-editor/lib/file-workflow";
 import type {
   EditorRuntime,
   RuntimeOpenFileResult,
@@ -20,7 +20,6 @@ type ProjectFileHotReloadArgs = {
   runtime: EditorRuntime;
   projectWorkspace: ProjectWorkspace | null;
   fileRef: RuntimeFileRef | null;
-  currentDocumentRef: { current: string };
   detachedMarkdownWindows: DetachedMarkdownWindow[];
   setDetachedMarkdownWindows: SetState<DetachedMarkdownWindow[]>;
   detachedHtmlWindows: DetachedHtmlWindow[];
@@ -29,9 +28,8 @@ type ProjectFileHotReloadArgs = {
   setDetachedImageWindows: SetState<DetachedImageWindow[]>;
   setFileRef: SetState<RuntimeFileRef | null>;
   setStatus: SetState<string>;
-  applyLoadedDocument: (text: string, name: string, file: RuntimeFileRef | null, source?: FileOpenSource) => void;
+  handleExternalDocumentChange: (opened: Extract<RuntimeOpenFileResult, { status: "opened" }>) => Promise<unknown>;
   refreshProjectWorkspace: (rootPath?: string) => Promise<void>;
-  discardLinkedFileWrites: () => Promise<void>;
   reloadExternalCsvFiles: (paths: ReadonlySet<string> | readonly string[]) => Promise<void>;
   updateMarkdownPreviewFromText: (path: string, text: string) => void;
   markMarkdownPreviewMissing: (path: string) => void;
@@ -126,61 +124,39 @@ async function handleProjectFileChanges(
         ? { name: current.name }
         : current);
       args.setStatus(`${args.fileRef?.name || "当前文档"} 已从磁盘移除；内容已保留，下次保存将另存为。`);
-    } else {
-      await reloadCurrentDocument(args, requestRevisions, currentChange.path, readFile);
     }
   }
 
   await Promise.all(fileChanges.flatMap((change) => {
-    if (!isSupportedMarkdownFilePath(change.path)) return [];
+    if (!isSupportedDocumentFilePath(change.path)) return [];
     if (change.kind === "removed") {
-      args.markMarkdownPreviewMissing(change.path);
-      args.setDetachedMarkdownWindows((current) => current.map((window) => comparablePath(window.file.path) === comparablePath(change.path)
-        ? { ...window, missing: true }
-        : window));
+      if (isSupportedMarkdownFilePath(change.path)) {
+        args.markMarkdownPreviewMissing(change.path);
+        args.setDetachedMarkdownWindows((current) => current.map((window) => comparablePath(window.file.path) === comparablePath(change.path)
+          ? { ...window, missing: true }
+          : window));
+      }
       return [];
     }
-    return [reloadMarkdownConsumers(args, requestRevisions, change.path, readFile)];
+    return [handleChangedDocument(args, requestRevisions, change.path, readFile)];
   }));
 }
 
-async function reloadCurrentDocument(
+async function handleChangedDocument(
   args: ProjectFileHotReloadArgs,
   requestRevisions: Map<string, number>,
   path: string,
   readFile: (path: string) => Promise<RuntimeOpenFileResult>
 ) {
-  const requestKey = `current:${path}`;
+  const requestKey = `document:${path}`;
   const revision = nextRequestRevision(requestRevisions, requestKey);
   try {
     const result = await readFile(path);
     if (result.status !== "opened" || !isLatestRequest(requestRevisions, requestKey, revision)) return;
-    if (result.text === args.currentDocumentRef.current) return;
-    await args.discardLinkedFileWrites();
-    if (!isLatestRequest(requestRevisions, requestKey, revision)) return;
-    args.applyLoadedDocument(result.text, result.file.name, result.file, "watch");
+    await args.handleExternalDocumentChange(result);
+    if (isSupportedMarkdownFilePath(path)) args.updateMarkdownPreviewFromText(path, result.text);
   } catch (error) {
-    args.showFileWorkflowError(error, `从磁盘刷新 ${args.fileRef?.name || "当前文档"} 失败。`);
-  }
-}
-
-async function reloadMarkdownConsumers(
-  args: ProjectFileHotReloadArgs,
-  requestRevisions: Map<string, number>,
-  path: string,
-  readFile: (path: string) => Promise<RuntimeOpenFileResult>
-) {
-  const requestKey = `markdown:${path}`;
-  const revision = nextRequestRevision(requestRevisions, requestKey);
-  try {
-    const result = await readFile(path);
-    if (result.status !== "opened" || !isLatestRequest(requestRevisions, requestKey, revision)) return;
-    args.updateMarkdownPreviewFromText(path, result.text);
-    args.setDetachedMarkdownWindows((current) => current.map((window) => comparablePath(window.file.path) === comparablePath(path)
-      ? { ...window, file: result.file, title: result.file.name || window.title, value: result.text, savedValue: result.text, missing: false }
-      : window));
-  } catch (error) {
-    args.showFileWorkflowError(error, `从磁盘刷新 Markdown 文档失败：${path}`);
+    args.showFileWorkflowError(error, `从磁盘刷新文档失败：${path}`);
   }
 }
 

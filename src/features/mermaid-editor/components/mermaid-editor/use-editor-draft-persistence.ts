@@ -39,6 +39,8 @@ import type { ViewFilters } from "@/features/mermaid-editor/lib/view-filters";
 import { workspaceViewForDocument, type WorkspaceView } from "@/features/mermaid-editor/lib/workspace-view";
 import { cleanCloseDocument } from "@/features/mermaid-editor/lib/desktop-close-workflow";
 import type { NodeGeometrySpec } from "@/features/mermaid-editor/lib/node-geometry";
+import type { EditorDocumentSession } from "@/features/mermaid-editor/lib/editor-document-session";
+import type { DetachedMarkdownWindow } from "@/features/mermaid-editor/lib/workspace-panels";
 
 export type UseEditorDraftPersistenceArgs = {
   runtime: EditorRuntime;
@@ -63,6 +65,8 @@ export type UseEditorDraftPersistenceArgs = {
   themeId: EditorThemeId;
   customTheme: EditorTheme | null;
   preferences: EditorPreferences;
+  editorSession: EditorDocumentSession;
+  detachedMarkdownWindows: DetachedMarkdownWindow[];
 };
 
 export function useEditorDraftPersistence({
@@ -87,7 +91,9 @@ export function useEditorDraftPersistence({
   lastSavedDocument,
   themeId,
   customTheme,
-  preferences
+  preferences,
+  editorSession,
+  detachedMarkdownWindows
 }: UseEditorDraftPersistenceArgs) {
   function buildStoredEditorDraft(overrides: StoredEditorDraftOverrides = {}): StoredEditor {
     const draftDocumentKind = overrides.documentKind ?? documentKind;
@@ -122,6 +128,11 @@ export function useEditorDraftPersistence({
       lastSavedDocument: overrides.lastSavedDocument ?? lastSavedDocument,
       themeId: draftThemeId,
       customTheme: draftCustomTheme ?? null,
+      editorSession: overrides.editorSession ?? editorSession,
+      detachedMarkdownWindows: detachedMarkdownWindows.map((window) => ({
+        ...window,
+        file: serializableRuntimeFileRef(window.file) || { name: window.title }
+      })),
       preferences
     };
   }
@@ -130,7 +141,7 @@ export function useEditorDraftPersistence({
     await runtime.saveDraft(buildStoredEditorDraft(overrides));
   }
 
-  async function persistDiscardedCloseDraft() {
+  async function persistDiscardedCloseDraft(editorSessionOverride?: EditorDocumentSession) {
     if (documentKind === "markdown") {
       const keepCurrentFile = Boolean(lastSavedDocument?.trim());
       await persistStoredEditorDraft({
@@ -140,6 +151,7 @@ export function useEditorDraftPersistence({
         fileName: keepCurrentFile ? fileName : FALLBACK_MARKDOWN_FILE_NAME,
         fileRef: keepCurrentFile ? fileRef : null,
         lastSavedDocument: keepCurrentFile ? lastSavedDocument : BLANK_MARKDOWN_SOURCE,
+        editorSession: editorSessionOverride,
         workspaceView: workspaceViewForDocument("render-only", workspaceView, "markdown")
       });
       return;
@@ -158,6 +170,7 @@ export function useEditorDraftPersistence({
         fileName: keepCurrentFile ? fileName : FALLBACK_CANVAS_FILE_NAME,
         fileRef: keepCurrentFile ? fileRef : null,
         lastSavedDocument: cleanSource,
+        editorSession: editorSessionOverride,
         workspaceView: "canvas"
       });
       return;
@@ -180,6 +193,7 @@ export function useEditorDraftPersistence({
       fileName: keepCurrentFile ? fileName : FALLBACK_FILE_NAME,
       fileRef: keepCurrentFile ? fileRef : null,
       lastSavedDocument: normalizedDocument,
+      editorSession: editorSessionOverride,
       workspaceView: workspaceViewForDocument(loaded.editableKind, workspaceView, "mermaid")
     });
   }

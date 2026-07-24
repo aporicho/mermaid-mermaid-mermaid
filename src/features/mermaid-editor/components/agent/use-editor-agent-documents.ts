@@ -17,6 +17,7 @@ import { applyMermaidPatch } from "@/features/mermaid-editor/lib/mermaid-patch";
 import type { ProjectFileEntry, ProjectWorkspace } from "@/features/mermaid-editor/lib/project-workspace";
 import type { WorkspaceView } from "@/features/mermaid-editor/lib/workspace-view";
 import type { DetachedMarkdownWindow, MarkdownWindowPanelId, WorkspaceFloatingPanelId } from "@/features/mermaid-editor/lib/workspace-panels";
+import type { EditorDocumentBuffer, EditorDocumentSession } from "@/features/mermaid-editor/lib/editor-document-session";
 
 type StateSetter<T> = React.Dispatch<React.SetStateAction<T>>;
 
@@ -50,6 +51,9 @@ type UseEditorAgentDocumentsArgs = {
   setWorkspaceView: StateSetter<WorkspaceView>;
   setStatus: StateSetter<string>;
   bringWorkspacePanelToFront: (panelId: WorkspaceFloatingPanelId) => void;
+  findFileDocumentBuffer: (file: RuntimeFileRef | null | undefined) => EditorDocumentBuffer | null;
+  updateDocumentBuffer: (bufferId: string, updates: Partial<Pick<EditorDocumentBuffer, "content" | "savedContent" | "revision" | "status" | "fileName" | "fileRef">>) => EditorDocumentSession;
+  saveDocumentBufferById: (bufferId: string) => Promise<boolean>;
 };
 
 export function useEditorAgentDocuments(args: UseEditorAgentDocumentsArgs): RuntimeAgentDocumentBridge {
@@ -158,7 +162,15 @@ export function useEditorAgentDocuments(args: UseEditorAgentDocumentsArgs): Runt
       if (!target) throw new Error("Markdown 浮动窗口已关闭。");
       let saved = false;
       let savedFile = target.file;
-      if (autoSave) {
+      const buffer = args.findFileDocumentBuffer(target.file);
+      if (buffer) {
+        args.updateDocumentBuffer(buffer.id, { content: nextText, status: nextText === buffer.savedContent ? "clean" : "dirty" });
+        if (autoSave) {
+          saved = await args.saveDocumentBufferById(buffer.id);
+          const latest = args.findFileDocumentBuffer(target.file);
+          if (latest?.fileRef) savedFile = { ...latest.fileRef, revision: latest.revision || undefined };
+        }
+      } else if (autoSave) {
         const result = await args.runtime.saveFile(target.file, nextText, target.title, "markdown");
         if (result.status === "saved") {
           saved = true;

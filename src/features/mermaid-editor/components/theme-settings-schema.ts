@@ -12,7 +12,7 @@ export type ThemeSettingsCategoryId = "library" | "interface" | "agent" | "canva
 export type AppearanceTokenState = "editable" | "derived" | "fixed" | "legacy";
 export type AppearanceTokenLevel = "common" | "advanced";
 export type AppearanceTokenConsumer = "css" | "konva" | "mermaid-svg" | "terminal" | "motion" | "diagnostics" | "theme-registry";
-export type AppearanceTokenControlKind = "boolean" | "color" | "font" | "number" | "text" | "css-border-style" | "canvas-stroke-style" | "tree-connector-style" | "dash";
+export type AppearanceTokenControlKind = "boolean" | "color" | "font" | "font-style" | "number" | "text" | "css-border-style" | "canvas-stroke-style" | "tree-connector-style" | "dash";
 
 export type AppearanceTokenDefinition = {
   path: readonly string[];
@@ -103,11 +103,20 @@ export const THEME_TOKEN_GROUPS: readonly ThemeTokenGroupDefinition[] = [
   group("special-node-markdown-document", "markdownNode", "节点外观与边距", ["specialNode", "markdownDocument"], "konva", {
     includeKeys: ["surface", "state", "width", "height", "contentPaddingTop", "contentPaddingRight", "contentPaddingBottom", "contentPaddingLeft", "titleGap", "excerptOpacity", "placeholderOpacity"]
   }),
-  group("special-node-markdown-preview-typography", "markdownNode", "预览文字", ["specialNode", "markdownDocument", "previewTypography"], "konva"),
-  group("special-node-markdown-preview-spacing", "markdownNode", "预览间距", ["specialNode", "markdownDocument", "previewSpacing"], "konva"),
+  group("special-node-markdown-preview-scale", "markdownNode", "轻量预览 · 整体字号", ["specialNode", "markdownDocument", "previewTypography"], "konva"),
+  group("special-node-markdown-preview-layout", "markdownNode", "轻量预览 · 布局", ["specialNode", "markdownDocument", "previewContent", "layout"], "konva"),
+  group("special-node-markdown-preview-title", "markdownNode", "轻量预览 · 文档标题", ["specialNode", "markdownDocument", "previewContent", "title"], "konva"),
+  group("special-node-markdown-preview-paragraph", "markdownNode", "轻量预览 · 正文", ["specialNode", "markdownDocument", "previewContent", "paragraph"], "konva"),
+  group("special-node-markdown-preview-heading", "markdownNode", "轻量预览 · 标题层级", ["specialNode", "markdownDocument", "previewContent", "heading"], "konva"),
+  group("special-node-markdown-preview-inline", "markdownNode", "轻量预览 · 加粗与强调", ["specialNode", "markdownDocument", "previewContent"], "konva", {
+    includeKeys: ["strong", "emphasis"]
+  }),
+  group("special-node-markdown-preview-list", "markdownNode", "轻量预览 · 列表", ["specialNode", "markdownDocument", "previewContent", "list"], "konva"),
+  group("special-node-markdown-preview-quote", "markdownNode", "轻量预览 · 引用", ["specialNode", "markdownDocument", "previewContent", "blockquote"], "konva"),
+  group("special-node-markdown-preview-divider", "markdownNode", "轻量预览 · 分隔线", ["specialNode", "markdownDocument", "previewContent", "divider"], "konva"),
   group("special-node-markdown-internal", "markdownNode", "Markdown 兼容字段", ["specialNode", "markdownDocument"], "konva", {
-    includeKeys: ["badgeSize", "badgeBackground", "badgeErrorBackground", "badgeColor", "badgeErrorColor", "badgeOpacity", "badgeErrorOpacity", "badgeRadius", "pathGap", "separatorColor", "separatorWidth", "separatorOpacity", "excerptGap", "pathOpacity"],
-    hiddenKeys: ["badgeSize", "badgeBackground", "badgeErrorBackground", "badgeColor", "badgeErrorColor", "badgeOpacity", "badgeErrorOpacity", "badgeRadius", "pathGap", "separatorColor", "separatorWidth", "separatorOpacity", "excerptGap", "pathOpacity"]
+    includeKeys: ["previewSpacing", "badgeSize", "badgeBackground", "badgeErrorBackground", "badgeColor", "badgeErrorColor", "badgeOpacity", "badgeErrorOpacity", "badgeRadius", "pathGap", "separatorColor", "separatorWidth", "separatorOpacity", "excerptGap", "pathOpacity"],
+    hiddenKeys: ["previewSpacing", "badgeSize", "badgeBackground", "badgeErrorBackground", "badgeColor", "badgeErrorColor", "badgeOpacity", "badgeErrorOpacity", "badgeRadius", "pathGap", "separatorColor", "separatorWidth", "separatorOpacity", "excerptGap", "pathOpacity"]
   }),
   group("special-node-html-document", "specialNode", "HTML 文件", ["specialNode", "htmlDocument"], "konva"),
   group("special-node-image", "specialNode", "图片节点", ["specialNode", "image"], "konva"),
@@ -320,10 +329,13 @@ const TOKEN_LABELS: Record<string, string> = {
   maxLines: "最大行数",
   height: "高度",
   fontSize: "字号",
+  fontFamily: "字体",
+  fontStyle: "字形",
   lineHeight: "行高",
   color: "颜色",
   fontWeight: "字重",
   paragraphSpacing: "段落间距",
+  paragraphGap: "段落间距",
   headingStackSpacing: "连续标题最小间距",
   listMarkerWidth: "列表标记栏宽度",
   listMarkerGap: "标记与正文间距",
@@ -441,6 +453,8 @@ const TOKEN_LABELS: Record<string, string> = {
   blockGap: "内容块间距",
   listItemGap: "列表项间距",
   indentationEnabled: "启用内容缩进",
+  enabled: "启用",
+  borderEnabled: "显示引用边线",
   interactionBorderColor: "交互边框",
   interactionBorderWidth: "交互边框宽度",
   dividerColor: "分隔线颜色",
@@ -466,6 +480,15 @@ export function themeTokenLabel(key: string) {
   return TOKEN_LABELS[key] ?? key.replace(/([a-z])([A-Z])/g, "$1 $2");
 }
 
+function appearanceTokenLabel(path: readonly string[]) {
+  const joined = path.join(".");
+  if (joined.endsWith("previewContent.blockquote.enabled")) return "启用引用样式";
+  if (joined.endsWith("previewContent.blockquote.backgroundEnabled")) return "显示引用背景";
+  if (joined.endsWith("previewContent.blockquote.borderEnabled")) return "显示引用边线";
+  if (joined.endsWith("previewContent.divider.enabled")) return "显示分隔线";
+  return themeTokenLabel(path.at(-1) || "");
+}
+
 export function themeTokenNumberSpec(path: readonly string[], value: number) {
   const key = path.at(-1) || "";
   const joined = path.join(".");
@@ -483,8 +506,8 @@ export function themeTokenNumberSpec(path: readonly string[], value: number) {
   if (joined.includes("motion.stagger")) return { min: 0, max: 0.16, step: 0.005, unit: "s" };
   if (joined.includes("diagnostics")) return { min: 1, max: 7, step: 0.1, unit: "" };
   if (/letterSpacing$/.test(key)) return { min: joined.includes("markdown") ? -3 : 0, max: 6, step: 0.1, unit: "px" };
-  if (/fontSize$/.test(key) || /^size/.test(key)) return { min: 8, max: key === "fontSize" && joined.includes("heading") ? 72 : 32, step: 1, unit: "px" };
-  if (/lineHeight/.test(key)) return { min: 10, max: joined.includes("heading") ? 88 : 52, step: 1, unit: "px" };
+  if (/fontSize$/.test(key) || /^size/.test(key)) return { min: joined.includes("previewContent") ? 6 : 8, max: joined.includes("previewContent") ? 96 : key === "fontSize" && joined.includes("heading") ? 72 : 32, step: 1, unit: "px" };
+  if (/lineHeight/.test(key)) return { min: joined.includes("previewContent") ? 6 : 10, max: joined.includes("previewContent") ? 128 : joined.includes("heading") ? 88 : 52, step: 1, unit: "px" };
   if (/radius|Radius|Corner/.test(key)) return { min: 0, max: key.includes("grid") ? 5 : 48, step: key.includes("grid") ? 0.1 : 1, unit: "px" };
   if (/StrokeWidth|strokeWidth|borderWidth|thickness|Thickness/.test(key) || ["node", "nodeEmphasized", "edge", "edgeThick", "overlay", "anchor"].includes(key)) return { min: 0, max: 14, step: 0.5, unit: "px" };
   if (/Alpha|Opacity/.test(key)) return { min: 0, max: 1, step: 0.01, unit: "" };
@@ -537,6 +560,14 @@ const EXACT_THEME_NUMBER_SPECS: Record<string, { min: number; max: number; step:
   "specialNode.markdownDocument.previewSpacing.headingBottomGap": spec(0, 48, 1),
   "specialNode.markdownDocument.previewSpacing.blockGap": spec(0, 48, 1),
   "specialNode.markdownDocument.previewSpacing.listItemGap": spec(0, 32, 1),
+  "specialNode.markdownDocument.previewContent.layout.titleBottomGap": spec(0, 64, 1),
+  "specialNode.markdownDocument.previewContent.layout.sectionTopGap": spec(0, 64, 1),
+  "specialNode.markdownDocument.previewContent.layout.headingBottomGap": spec(0, 48, 1),
+  "specialNode.markdownDocument.previewContent.layout.blockGap": spec(0, 48, 1),
+  "specialNode.markdownDocument.previewContent.layout.paragraphGap": spec(0, 48, 1),
+  "specialNode.markdownDocument.previewContent.layout.listItemGap": spec(0, 32, 1),
+  "specialNode.markdownDocument.previewContent.layout.listMarkerWidth": spec(0, 64, 1),
+  "specialNode.markdownDocument.previewContent.layout.listMarkerGap": spec(0, 32, 1),
   "motion.duration.fast": spec(0, 0.4, 0.01, "s"),
   "motion.duration.base": spec(0, 0.8, 0.01, "s"),
   "motion.duration.slow": spec(0, 1.2, 0.01, "s"),
@@ -570,11 +601,10 @@ const GROUP_TOKEN_DEFINITIONS = THEME_TOKEN_GROUPS.flatMap((definition) => {
   const value = valueAtPath(DEFAULT_EDITOR_THEME, definition.path);
   return flattenTokenLeaves(value).filter(({ path }) => !definition.includeKeys || definition.includeKeys.includes(path[0] || "")).map(({ path, value: leafValue }) => {
     const fullPath = [...definition.path, ...path];
-    const key = fullPath.at(-1) || "";
     const hidden = definition.hiddenKeys?.includes(path[0] || "") ?? false;
     return tokenDefinition({
       path: fullPath,
-      label: themeTokenLabel(key),
+      label: appearanceTokenLabel(fullPath),
       category: definition.category,
       groupId: definition.id,
       hierarchy: [definition.category, definition.id, ...path.slice(0, -1)],
@@ -668,7 +698,8 @@ function controlFor(path: readonly string[], value: unknown): AppearanceTokenDef
   if (typeof value === "boolean") return { kind: "boolean" };
   if (Array.isArray(value)) return { kind: "dash" };
   if (typeof value === "number") return { kind: "number", ...themeTokenNumberSpec(path, value) };
-  if (key === "family") return { kind: "font" };
+  if (key === "family" || key === "fontFamily") return { kind: "font" };
+  if (key === "fontStyle") return { kind: "font-style" };
   if (key === "connectorStyle" && path[0] === "interface") return { kind: "tree-connector-style" };
   if (key === "borderStyle" || key.endsWith("Style") || key === "style") {
     return { kind: path[0] === "interface" || path[0] === "agent" ? "css-border-style" : "canvas-stroke-style" };

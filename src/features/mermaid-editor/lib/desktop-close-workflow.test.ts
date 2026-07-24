@@ -12,7 +12,8 @@ describe("desktop close workflow", () => {
     expect(resolveWindowCloseChoice("cancel")).toEqual({
       shouldClose: false,
       shouldSave: false,
-      shouldPersistDiscard: false
+      shouldPreserve: false,
+      shouldDiscard: false
     });
   });
 
@@ -21,11 +22,21 @@ describe("desktop close workflow", () => {
     expect(resolveWindowCloseChoice("save", true)).toMatchObject({ shouldClose: true, shouldSave: true });
   });
 
-  it("closes and persists a clean draft when changes are discarded", () => {
+  it("closes and discards drafts when changes are discarded", () => {
     expect(resolveWindowCloseChoice("discard")).toEqual({
       shouldClose: true,
       shouldSave: false,
-      shouldPersistDiscard: true
+      shouldPreserve: false,
+      shouldDiscard: true
+    });
+  });
+
+  it("closes while preserving hot-exit drafts", () => {
+    expect(resolveWindowCloseChoice("preserve")).toEqual({
+      shouldClose: true,
+      shouldSave: false,
+      shouldPreserve: true,
+      shouldDiscard: false
     });
   });
 

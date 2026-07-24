@@ -353,6 +353,16 @@
     height: 100%;
   }
 
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  canvas {
+    image-rendering: auto;
+  }
+
   body :is(
     input,
     textarea,

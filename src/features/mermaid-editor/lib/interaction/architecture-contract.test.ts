@@ -784,10 +784,12 @@ describe("interaction architecture contract", () => {
     }
     expect(floatingButtons).toContain("EditorIconButton");
     expect(arrangementToolbar).toContain("EditorToolbar");
-    for (const dialog of [nodeDialog, projectDocumentDialog, imageDialog, unsavedDialog]) {
+    for (const dialog of [nodeDialog, projectDocumentDialog, imageDialog]) {
       expect(dialog).toContain("EditorDialog");
       expect(dialog).not.toContain('className="fixed inset-0');
     }
+    expect(unsavedDialog).toContain("EditorConfirmDialog");
+    expect(unsavedDialog).not.toContain('className="fixed inset-0');
     for (const dialog of [markdownDialog, htmlDialog, csvDialog]) {
       expect(dialog).toContain("ProjectDocumentNodeDialog");
       expect(dialog).not.toContain('className="fixed inset-0');

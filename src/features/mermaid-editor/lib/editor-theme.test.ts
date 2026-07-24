@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 
+import warmPaperDefinition from "@/features/mermaid-editor/lib/editor-theme/themes/local/warm-paper.theme.json";
+
 import {
   BUILT_IN_EDITOR_THEME_CATALOG,
   BUILT_IN_EDITOR_THEMES,
@@ -139,22 +141,53 @@ describe("editor theme", () => {
     expect(theme.canvas.edge).toMatchObject({ width: 1, pointerLength: 6, pointerWidth: 6, curveSegments: 120 });
     expect(theme.canvas.group).toMatchObject({ borderStyle: "solid", borderWidth: 1, radius: 0, title: { backgroundEnabled: false, borderWidth: 0 } });
     expect(theme.specialNode.linkCard.surface.radius).toBe(0);
-    expect(theme.specialNode.markdownDocument.surface).toMatchObject({ radius: 0, border: { width: 0 } });
+    expect(theme.specialNode.markdownDocument.surface).toMatchObject({
+      background: "#fffdfa",
+      radius: 18,
+      border: { width: 0 }
+    });
+    expect(theme.specialNode.markdownDocument.previewTypography).toEqual({ titleFontSize: 20, contentFontSize: 12 });
+    expect(theme.specialNode.markdownDocument.previewSpacing).toEqual({
+      indentationEnabled: false,
+      titleBottomGap: 8,
+      sectionTopGap: 16,
+      headingBottomGap: 6,
+      blockGap: 10,
+      listItemGap: 4
+    });
+    expect(theme.specialNode.markdownDocument).toMatchObject({
+      contentPaddingTop: 16,
+      contentPaddingRight: 16,
+      contentPaddingBottom: 16,
+      contentPaddingLeft: 16,
+      excerptOpacity: 0.75
+    });
     expect(theme.specialNode.markdownDocument.width / theme.specialNode.markdownDocument.height).toBeCloseTo(210 / 297, 6);
-    expect(theme.markdown.list.unordered.indent).toBe(8);
-    expect(theme.markdown.list.ordered.indent).toBe(8);
-    expect(theme.markdown.list.task.indent).toBe(8);
+    expect(theme.markdown.body).toMatchObject({ color: "#342a23", paragraphSpacing: 12 });
+    expect(theme.markdown.heading.h1).toMatchObject({ color: "#342a23", marginTop: 24, marginBottom: 8 });
+    expect(theme.markdown.list.unordered).toMatchObject({ indent: 16, marginBottom: 12 });
+    expect(theme.markdown.list.ordered).toMatchObject({ indent: 16, marginBottom: 12 });
+    expect(theme.markdown.list.task).toMatchObject({ indent: 16, marginBottom: 12 });
+    expect(theme.markdown.blockquote).toMatchObject({ borderStyle: "none", borderWidth: 4, marginTop: 8, marginBottom: 8 });
     expect(theme.markdown.codeBlock.fontFamily).toContain("Maple Mono");
     expect(theme.typography.markdownCard.title.family).toContain("方正屏显雅宋简体");
     expect(theme.typography.markdownCard.excerpt.family).toContain("Noto Sans SC Variable");
     expect(theme.typography.canvasDocument.card.family).toContain("方正屏显雅宋简体");
     expect(theme.typography.canvasDocument.shape.family).toContain("Noto Sans SC Variable");
+    expect(theme.typography.terminal.content).toMatchObject({ fontSize: 18, fontWeight: 500, lineHeight: 8 });
     expect(theme.motion.canvas.proximityMaxScale).toBe(1);
     expect(compiled.cssVariables["--markdown-body-line-height"]).toBe("26.4px");
     expect(compiled.diagnostics.map((diagnostic) => diagnostic.code)).toEqual([
       "ANSI_WHITE_CONTRAST",
       "ANSI_BRIGHTWHITE_CONTRAST"
     ]);
+  });
+
+  it("materializes every Warm Paper token instead of relying on theme defaults", () => {
+    const rawTokens = warmPaperDefinition.theme;
+    const normalizedTokens = pickEditorThemeTokens(resolveEditorTheme("warm-paper", null));
+
+    expect(collectLeafTokenPaths(rawTokens)).toEqual(collectLeafTokenPaths(normalizedTokens));
   });
 
   it("migrates saved document cards and group titles to the v15 presentation", () => {
@@ -398,8 +431,8 @@ describe("editor theme", () => {
     expect(variables["--markdown-list-marker-gap"]).toBe("8px");
     expect(variables["--markdown-h1-font-size"]).toBe(`${DEFAULT_EDITOR_THEME.markdown.heading.h1.fontSize}px`);
     expect(variables["--markdown-code-block-background"]).toBe(DEFAULT_EDITOR_THEME.markdown.codeBlock.background);
-    expect(variables["--markdown-code-block-margin-top"]).toBe("20px");
-    expect(variables["--markdown-code-block-margin-bottom"]).toBe("20px");
+    expect(variables["--markdown-code-block-margin-top"]).toBe(`${DEFAULT_EDITOR_THEME.markdown.codeBlock.marginTop}px`);
+    expect(variables["--markdown-code-block-margin-bottom"]).toBe(`${DEFAULT_EDITOR_THEME.markdown.codeBlock.marginBottom}px`);
     expect(variables["--markdown-table-border-color"]).toBe(DEFAULT_EDITOR_THEME.markdown.table.borderColor);
     expect(variables["--markdown-table-body-background"]).toBe(DEFAULT_EDITOR_THEME.markdown.table.bodyBackground);
     expect(variables["--markdown-unordered-list-nested-spacing"]).toBeUndefined();
@@ -1070,6 +1103,31 @@ function collectHexColors(value: unknown): string[] {
   if (typeof value === "string") return /^#[0-9a-f]{6}$/i.test(value) ? [value] : [];
   if (!value || typeof value !== "object") return [];
   return Object.values(value).flatMap(collectHexColors);
+}
+
+const EDITOR_THEME_TOKEN_GROUPS = [
+  "interface",
+  "agent",
+  "canvas",
+  "specialNode",
+  "source",
+  "markdown",
+  "ansi",
+  "terminal",
+  "typography",
+  "motion",
+  "diagnostics"
+] as const satisfies readonly (keyof EditorTheme)[];
+
+function pickEditorThemeTokens(theme: EditorTheme): Record<string, unknown> {
+  return Object.fromEntries(EDITOR_THEME_TOKEN_GROUPS.map((group) => [group, theme[group]]));
+}
+
+function collectLeafTokenPaths(value: unknown, path: readonly string[] = []): string[] {
+  if (Array.isArray(value) || !value || typeof value !== "object") return [path.join(".")];
+  const entries = Object.entries(value);
+  if (!entries.length) return [path.join(".")];
+  return entries.flatMap(([key, child]) => collectLeafTokenPaths(child, [...path, key])).sort();
 }
 
 function expectNoLegacyMarkdownFields(theme: unknown) {

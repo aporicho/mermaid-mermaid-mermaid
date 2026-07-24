@@ -1,32 +1,39 @@
 import {
   WINDOW_CLOSE_TARGET_NAME,
   resolveWindowCloseChoice,
-  unsavedPromptDescription,
   type UnsavedPromptChoice
 } from "@/features/mermaid-editor/lib/desktop-close-workflow";
+import { editorDocumentBufferIsDirty, type EditorDocumentSession } from "@/features/mermaid-editor/lib/editor-document-session";
+import type { StoredEditorDraftOverrides } from "@/features/mermaid-editor/lib/editor-state";
 import type { UnsavedPromptState, UseEditorFileWorkflowArgs } from "./types";
 export function useUnsavedFileSwitch(
   {
     isDirtyRef,
     setUnsavedPrompt,
     flushLinkedFileWrites,
-    discardLinkedFileWrites
+    discardLinkedFileWrites,
+    captureActiveDocumentBuffer,
+    discardAllDocumentChanges
   }: UseEditorFileWorkflowArgs,
   {
+    persistStoredEditorDraft,
     persistDiscardedCloseDraft,
-    saveMermaidFile
+    saveAllDocuments
   }: {
-    persistDiscardedCloseDraft: () => Promise<void>;
-    saveMermaidFile: () => Promise<boolean>;
+    persistStoredEditorDraft: (overrides?: StoredEditorDraftOverrides) => Promise<void>;
+    persistDiscardedCloseDraft: (editorSession?: EditorDocumentSession) => Promise<void>;
+    saveAllDocuments: () => Promise<boolean>;
   }
 ) {
-  function requestUnsavedChoice(targetName?: string): Promise<UnsavedPromptChoice> {
-    if (!isDirtyRef.current) return Promise.resolve("discard");
+
+  function requestUnsavedChoice(targetNames: string[]): Promise<UnsavedPromptChoice> {
     return new Promise((resolve) => {
       setUnsavedPrompt({
-        title: "当前文件有未保存修改",
-        description: unsavedPromptDescription(targetName),
-        targetName,
+        title: targetNames.length === 1 ? `保存对 ${targetNames[0]} 的修改？` : `保存 ${targetNames.length} 个文件的修改？`,
+        description: "关闭此画布窗口前选择处理方式。",
+        targetName: WINDOW_CLOSE_TARGET_NAME,
+        targetNames,
+        mode: "window-close",
         resolve
       } satisfies UnsavedPromptState);
     });
@@ -39,52 +46,40 @@ export function useUnsavedFileSwitch(
     });
   }
 
-  async function prepareLinkedFileWrites(targetName?: string) {
-    if (!flushLinkedFileWrites) return true;
-    let overwriteConflicts = false;
-    while (true) {
-      const flushed = await flushLinkedFileWrites({ overwriteConflicts });
-      overwriteConflicts = false;
-      if (flushed) return true;
-      const choice = await new Promise<UnsavedPromptChoice>((resolve) => setUnsavedPrompt({
-        title: "CSV 表格尚未写回",
-        description: "CSV 文件已在外部发生变化或写入失败。重试保存会以画布内容覆盖外部版本；也可以丢弃本次画布编辑或取消当前操作。",
-        targetName,
-        resolve
-      }));
-      if (choice === "cancel") return false;
-      if (choice === "discard") {
-        await discardLinkedFileWrites?.();
-        return true;
-      }
-      overwriteConflicts = true;
-    }
-  }
-
-  async function prepareFileSwitch(targetName?: string) {
-    if (!(await prepareLinkedFileWrites(targetName))) return false;
-    if (!isDirtyRef.current) return true;
-    const choice = await requestUnsavedChoice(targetName);
-    if (choice === "cancel") return false;
-    if (choice === "discard") return true;
-    return saveMermaidFile();
+  async function prepareFileSwitch() {
+    captureActiveDocumentBuffer();
+    return true;
   }
 
   async function prepareWindowClose() {
-    if (!(await prepareLinkedFileWrites(WINDOW_CLOSE_TARGET_NAME))) return false;
-    if (!isDirtyRef.current) return true;
-    const choice = await requestUnsavedChoice(WINDOW_CLOSE_TARGET_NAME);
+    const captured = captureActiveDocumentBuffer();
+    const dirtyBuffers = captured.openOrder
+      .map((id) => captured.buffers.find((buffer) => buffer.id === id))
+      .filter((buffer) => buffer && editorDocumentBufferIsDirty(buffer));
+    if (!dirtyBuffers.length && !isDirtyRef.current) return true;
+    const choice = await requestUnsavedChoice(dirtyBuffers.map((buffer) => buffer!.fileName));
     const decision = resolveWindowCloseChoice(choice);
     if (decision.shouldSave) {
-      const saved = await saveMermaidFile();
+      if (flushLinkedFileWrites && !(await flushLinkedFileWrites())) return false;
+      const saved = await saveAllDocuments();
       return resolveWindowCloseChoice(choice, saved).shouldClose;
     }
 
-    if (decision.shouldPersistDiscard) {
+    if (decision.shouldPreserve) {
       try {
-        await persistDiscardedCloseDraft();
+        await persistStoredEditorDraft({ editorSession: captured });
       } catch {
-        // Closing should not be blocked by best-effort draft cleanup.
+        return false;
+      }
+    }
+
+    if (decision.shouldDiscard) {
+      await discardLinkedFileWrites?.();
+      const cleanSession = discardAllDocumentChanges();
+      try {
+        await persistDiscardedCloseDraft(cleanSession);
+      } catch {
+        // The explicit discard decision should not be blocked by best-effort state cleanup.
       }
     }
 

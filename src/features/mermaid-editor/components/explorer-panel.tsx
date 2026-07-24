@@ -89,6 +89,14 @@ type ExplorerContextMenu = {
 
 export type ExplorerProjectFileKind = "markdown" | "mermaid" | "canvas" | "csv" | "html";
 
+export type ExplorerOpenDocument = {
+  id: string;
+  fileName: string;
+  documentKind: "markdown" | "mermaid" | "canvas";
+  status: "clean" | "dirty" | "saving" | "conflict" | "error";
+  active: boolean;
+};
+
 export type ExplorerCreateProjectFileRequest = {
   directoryPath: string;
   fileName: string;
@@ -109,6 +117,7 @@ export function ExplorerPanel({
   projectFiles,
   currentFileRef,
   projectBusy,
+  openDocuments,
   treeState,
   onTreeStateChange,
   onOpenProject,
@@ -120,13 +129,15 @@ export function ExplorerPanel({
   onCreateProjectFile,
   onMoveProjectFile,
   onProjectDocumentPointerDrag,
-  onStatus
+  onStatus,
+  onOpenDocument
 }: {
   runtimeKind: "web" | "desktop";
   projectWorkspace: ProjectWorkspace | null;
   projectFiles: ProjectFileEntry[];
   currentFileRef: RuntimeFileRef | null;
   projectBusy: boolean;
+  openDocuments: ExplorerOpenDocument[];
   treeState: ExplorerWorkspaceTreeState | null;
   onTreeStateChange: (state: Omit<ExplorerWorkspaceTreeState, "rootPath" | "updatedAt">) => void;
   onOpenProject: () => void;
@@ -139,6 +150,7 @@ export function ExplorerPanel({
   onMoveProjectFile: (file: ProjectResourceEntry, targetDirectoryPath: string) => void;
   onProjectDocumentPointerDrag: (file: ProjectFileEntry, kind: "markdown" | "html", point: { x: number; y: number }, phase: "move" | "drop" | "cancel") => void;
   onStatus: (message: string) => void;
+  onOpenDocument: (bufferId: string) => void;
 }) {
   const resources = useMemo(
     () => projectWorkspace?.resources ?? projectResourcesFromFiles(projectFiles),
@@ -158,6 +170,7 @@ export function ExplorerPanel({
   const [moveFileDialog, setMoveFileDialog] = useState<{ resource: ProjectResourceEntry; targetDirectoryPath: string } | null>(null);
   const [draggedResourcePath, setDraggedResourcePath] = useState<string | null>(null);
   const [dropTargetDirectoryPath, setDropTargetDirectoryPath] = useState<string | null>(null);
+  const [openDocumentsExpanded, setOpenDocumentsExpanded] = useState(true);
   const activeFile = useMemo(
     () => projectFiles.find((file) => isProjectFileActive(file, currentFileRef)),
     [currentFileRef, projectFiles]
@@ -414,6 +427,34 @@ export function ExplorerPanel({
       />
 
       <div className="min-h-0 flex-1 overflow-y-auto px-1 py-1.5">
+        {openDocuments.length ? (
+          <section className="mb-1" aria-label="打开的文件">
+            <button
+              type="button"
+              className="editor-ui-focus type-interface-metadata flex min-h-[var(--ui-control-height-sm)] w-full items-center justify-between px-2 text-left text-muted-foreground hover:text-foreground"
+              aria-expanded={openDocumentsExpanded}
+              onClick={() => setOpenDocumentsExpanded((expanded) => !expanded)}
+            >
+              <span>打开的文件</span>
+              <span className="type-interface-technical">{openDocuments.length}</span>
+            </button>
+            {openDocumentsExpanded ? (
+              <EditorList aria-label="打开的文件列表">
+                {openDocuments.map((document) => (
+                  <EditorListRow
+                    key={document.id}
+                    type="button"
+                    selected={document.active}
+                    icon={<OpenDocumentIcon kind={document.documentKind} />}
+                    title={document.fileName}
+                    trailing={<OpenDocumentStatus status={document.status} />}
+                    onClick={() => onOpenDocument(document.id)}
+                  />
+                ))}
+              </EditorList>
+            ) : null}
+          </section>
+        ) : null}
         {!projectWorkspace ? (
           <WorkspaceFolderEmptyState projectAvailable={projectAvailable} projectBusy={projectBusy} onOpenProject={onOpenProject} />
         ) : (
@@ -538,6 +579,30 @@ export function ExplorerPanel({
         ) : null}
       </div>
     </aside>
+  );
+}
+
+function OpenDocumentIcon({ kind }: { kind: ExplorerOpenDocument["documentKind"] }) {
+  const className = "size-4 shrink-0";
+  if (kind === "markdown") return <Text className={className} />;
+  if (kind === "canvas") return <Database className={className} />;
+  return <CodeBrackets className={className} />;
+}
+
+function OpenDocumentStatus({ status }: { status: ExplorerOpenDocument["status"] }) {
+  if (status === "clean") return null;
+  return (
+    <span
+      className={cn(
+        "size-1.5 shrink-0 rounded-full bg-muted-foreground",
+        status === "conflict" && "bg-destructive",
+        status === "error" && "bg-destructive",
+        status === "saving" && "animate-pulse bg-primary",
+        status === "dirty" && "bg-primary"
+      )}
+      title={status === "conflict" ? "外部冲突" : status === "error" ? "保存失败" : status === "saving" ? "正在保存" : "未保存"}
+      aria-label={status === "conflict" ? "外部冲突" : status === "error" ? "保存失败" : status === "saving" ? "正在保存" : "未保存"}
+    />
   );
 }
 

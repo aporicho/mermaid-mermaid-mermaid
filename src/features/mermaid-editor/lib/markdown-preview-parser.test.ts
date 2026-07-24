@@ -89,7 +89,18 @@ Setext
 
   it("degrades unsupported inline syntax to readable text", () => {
     expect(parseMarkdownPreviewRuns("[link](https://example.com), `code`, *em*, ~~old~~")).toEqual([
-      { text: "link, code, em, old", bold: false }
+      { text: "link, code, ", bold: false, italic: false },
+      { text: "em", bold: false, italic: true },
+      { text: ", old", bold: false, italic: false }
+    ]);
+  });
+
+  it("keeps strong and emphasis styles as independent preview runs", () => {
+    expect(parseMarkdownPreviewRuns("plain **strong** and _emphasis_")).toEqual([
+      { text: "plain ", bold: false, italic: false },
+      { text: "strong", bold: true, italic: false },
+      { text: " and ", bold: false, italic: false },
+      { text: "emphasis", bold: false, italic: true }
     ]);
   });
 });

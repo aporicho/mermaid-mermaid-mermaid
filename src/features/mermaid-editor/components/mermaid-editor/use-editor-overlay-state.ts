@@ -3,13 +3,14 @@ import { useCallback, useEffect, useState } from "react";
 import type { FileDropFeedback } from "@/features/mermaid-editor/components/file-workflow-feedback";
 import type { FileWorkflowError } from "@/features/mermaid-editor/lib/file-workflow";
 
-import type { UnsavedPromptState } from "./use-editor-file-workflow";
+import type { FileConflictPromptState, UnsavedPromptState } from "./use-editor-file-workflow";
 
 export function useEditorOverlayState() {
   const [status, setStatus] = useState("");
   const [fileMenuOpen, setFileMenuOpen] = useState(false);
   const [fileWorkflowError, setFileWorkflowError] = useState<FileWorkflowError | null>(null);
   const [unsavedPrompt, setUnsavedPrompt] = useState<UnsavedPromptState | null>(null);
+  const [fileConflictPrompt, setFileConflictPrompt] = useState<FileConflictPromptState | null>(null);
   const [secondaryActionsOpen, setSecondaryActionsOpen] = useState(false);
   const [viewFiltersOpen, setViewFiltersOpen] = useState(false);
   const [nodeActionEditor, setNodeActionEditor] = useState<{ nodeId: string } | null>(null);
@@ -68,6 +69,8 @@ export function useEditorOverlayState() {
     setFileWorkflowError,
     unsavedPrompt,
     setUnsavedPrompt,
+    fileConflictPrompt,
+    setFileConflictPrompt,
     secondaryActionsOpen,
     viewFiltersOpen,
     nodeActionEditor,

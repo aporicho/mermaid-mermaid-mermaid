@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import type { CanvasThemeTokens, InterfaceThemeTokens } from "./appearance-types";
+import type { MarkdownThemeTokens } from "./markdown-types";
+import { DEFAULT_EDITOR_THEME } from "./presets";
 import { cloneSpecialNodeTheme, createDefaultSpecialNodeTheme, normalizeSpecialNodeTheme, resolveSpecialNodeBorder, specialNodeBorderDash } from "./special-node-theme";
 
 const source = {
@@ -32,7 +34,27 @@ const source = {
       roundedRadius: 8,
       shadow: { color: "#2a251f", blur: 10, opacity: 0.16, offsetX: 0, offsetY: 4 }
     }
-  } as unknown as CanvasThemeTokens
+  } as unknown as CanvasThemeTokens,
+  markdown: {
+    ...DEFAULT_EDITOR_THEME.markdown,
+    blockquote: {
+      fontFamily: "Test Sans, sans-serif",
+      fontSize: 20,
+      fontWeight: 400,
+      lineHeight: 30,
+      letterSpacing: 0,
+      color: "#334455",
+      background: "#f1f2f3",
+      borderColor: "#445566",
+      borderWidth: 3,
+      borderStyle: "solid",
+      paddingX: 18,
+      paddingY: 7,
+      marginTop: 14,
+      marginBottom: 16,
+      radius: 6
+    }
+  } as unknown as MarkdownThemeTokens
 };
 
 describe("v11 special-node theme", () => {
@@ -66,6 +88,17 @@ describe("v11 special-node theme", () => {
       headingBottomGap: 6,
       blockGap: 10,
       listItemGap: 0
+    });
+    expect(theme.markdownDocument.previewContent.blockquote).toMatchObject({
+      enabled: true,
+      background: "#f1f2f3",
+      borderEnabled: false,
+      borderColor: "#445566",
+      paddingX: 18,
+      color: "#334455",
+      fontFamily: "Test Sans, sans-serif",
+      fontSize: 16,
+      lineHeight: 24
     });
   });
 
@@ -157,6 +190,35 @@ describe("v11 special-node theme", () => {
       contentPaddingRight: 19,
       contentPaddingBottom: 19,
       contentPaddingLeft: 19
+    });
+  });
+
+  it("normalizes independent Markdown preview quote appearance tokens", () => {
+    const fallback = createDefaultSpecialNodeTheme(source);
+    const theme = normalizeSpecialNodeTheme({
+      markdownDocument: {
+        previewContent: {
+          blockquote: {
+            borderStyle: "custom",
+            customDash: [9, 3],
+            fontFamily: "Example Serif, serif",
+            fontStyle: "italic",
+            fontSize: 120,
+            lineHeight: 2,
+            letterSpacing: -8
+          }
+        }
+      }
+    }, fallback);
+
+    expect(theme.markdownDocument.previewContent.blockquote).toMatchObject({
+      borderStyle: "custom",
+      customDash: [9, 3],
+      fontFamily: "Example Serif, serif",
+      fontStyle: "italic",
+      fontSize: 96,
+      lineHeight: 6,
+      letterSpacing: -3
     });
   });
 });

@@ -1,4 +1,5 @@
 import { Layer, Stage } from "react-konva";
+import { Konva } from "konva/lib/Global";
 
 import { AlignmentGuideOverlay, CanvasGrid } from "@/features/mermaid-editor/components/konva-canvas/canvas-overlays";
 import { KonvaEdgeLayer, KonvaEdgeOverlayLayer } from "@/features/mermaid-editor/components/konva-canvas/edge-layer";
@@ -11,7 +12,10 @@ import { normalizeNodeAction } from "@/features/mermaid-editor/lib/node-actions"
 import { cn } from "@/lib/utils";
 import { resolveNodeEditorTypography } from "./resolve-node-editor-typography";
 import type { KonvaCanvasStageProps } from "@/features/mermaid-editor/components/konva-canvas/konva-canvas-stage-types";
+import { canvasPixelRatio } from "@/features/mermaid-editor/lib/canvas-render-quality";
 export type { KonvaCanvasStageProps } from "@/features/mermaid-editor/components/konva-canvas/konva-canvas-stage-types";
+
+Konva.pixelRatio = canvasPixelRatio(globalThis.devicePixelRatio);
 
 export function KonvaCanvasStage({
   containerRef,
@@ -134,7 +138,7 @@ export function KonvaCanvasStage({
         >
           {viewFilters.grid ? <CanvasGrid dimensions={dimensions} viewport={viewport} visualTokens={visualTokens} gridSpec={gridSpec} /> : null}
 
-          <Layer>
+          <Layer imageSmoothingEnabled>
             {viewFilters.subgraphs ? (
               <KonvaSubgraphLayer
                 graph={graph}

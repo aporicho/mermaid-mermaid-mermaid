@@ -1,4 +1,4 @@
-import type { CanvasBorderTokens, ShadowTokens } from "./appearance-types";
+import type { CanvasBorderTokens, CanvasStrokeStyle, ShadowTokens } from "./appearance-types";
 
 export type SpecialNodeSharedTokens = {
   textColor: string;
@@ -23,6 +23,45 @@ export type SpecialNodeStateTokens = {
   errorBorderColor: string;
   editingBorderColor: string;
   emphasizedBorderWidth: number;
+};
+
+export type SpecialNodeMarkdownPreviewTextTokens = {
+  fontFamily: string;
+  fontSize: number;
+  fontWeight: number;
+  fontStyle: "normal" | "italic";
+  lineHeight: number;
+  letterSpacing: number;
+  color: string;
+};
+
+export type SpecialNodeMarkdownPreviewInlineTokens = {
+  fontFamily: string;
+  fontWeight: number;
+  fontStyle: "normal" | "italic";
+  letterSpacing: number;
+  color: string;
+};
+
+export type SpecialNodeMarkdownPreviewListTokens = SpecialNodeMarkdownPreviewTextTokens & {
+  markerColor: string;
+  indent: number;
+};
+
+export type SpecialNodeMarkdownPreviewQuoteTokens = SpecialNodeMarkdownPreviewTextTokens & {
+  enabled: boolean;
+  backgroundEnabled: boolean;
+  background: string;
+  borderEnabled: boolean;
+  borderColor: string;
+  borderWidth: number;
+  borderStyle: CanvasStrokeStyle;
+  customDash: number[];
+  radius: number;
+  paddingX: number;
+  paddingY: number;
+  marginTop: number;
+  marginBottom: number;
 };
 
 export type SpecialNodeVisualState =
@@ -68,6 +107,43 @@ export type SpecialNodeMarkdownDocumentTokens = {
     headingBottomGap: number;
     blockGap: number;
     listItemGap: number;
+  };
+  previewContent: {
+    layout: {
+      indentationEnabled: boolean;
+      titleBottomGap: number;
+      sectionTopGap: number;
+      headingBottomGap: number;
+      blockGap: number;
+      paragraphGap: number;
+      listItemGap: number;
+      listMarkerWidth: number;
+      listMarkerGap: number;
+    };
+    title: SpecialNodeMarkdownPreviewTextTokens;
+    paragraph: SpecialNodeMarkdownPreviewTextTokens;
+    heading: {
+      h1: SpecialNodeMarkdownPreviewTextTokens;
+      h2: SpecialNodeMarkdownPreviewTextTokens;
+      h3: SpecialNodeMarkdownPreviewTextTokens;
+      h4: SpecialNodeMarkdownPreviewTextTokens;
+      h5: SpecialNodeMarkdownPreviewTextTokens;
+      h6: SpecialNodeMarkdownPreviewTextTokens;
+    };
+    strong: SpecialNodeMarkdownPreviewInlineTokens;
+    emphasis: SpecialNodeMarkdownPreviewInlineTokens;
+    list: {
+      unordered: SpecialNodeMarkdownPreviewListTokens;
+      ordered: SpecialNodeMarkdownPreviewListTokens;
+    };
+    blockquote: SpecialNodeMarkdownPreviewQuoteTokens;
+    divider: {
+      enabled: boolean;
+      color: string;
+      thickness: number;
+      marginTop: number;
+      marginBottom: number;
+    };
   };
   width: number;
   height: number;

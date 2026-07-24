@@ -2,11 +2,12 @@ import type { ComponentProps } from "react";
 
 import {
   FileDropFeedbackBadge,
+  FileConflictPrompt,
   FileWorkflowErrorBanner,
   UnsavedFilePrompt,
   type FileDropFeedback
 } from "@/features/mermaid-editor/components/file-workflow-feedback";
-import type { UnsavedPromptState } from "@/features/mermaid-editor/components/mermaid-editor/use-editor-file-workflow";
+import type { FileConflictChoice, FileConflictPromptState, UnsavedPromptState } from "@/features/mermaid-editor/components/mermaid-editor/use-editor-file-workflow";
 import { NodeActionEditorDialog } from "@/features/mermaid-editor/components/node-action-editor-dialog";
 import { MarkdownDocumentDialog } from "@/features/mermaid-editor/components/markdown-document-dialog";
 import { CsvTableDialog } from "@/features/mermaid-editor/components/csv-table-dialog";
@@ -22,6 +23,7 @@ type EditorOverlaysProps = {
   fileDropFeedback: FileDropFeedback | null;
   fileWorkflowError: FileWorkflowError | null;
   unsavedPrompt: UnsavedPromptState | null;
+  fileConflictPrompt: FileConflictPromptState | null;
   nodeActionEditorNode?: CanvasNode;
   markdownDocumentDialog?: ComponentProps<typeof MarkdownDocumentDialog>;
   htmlDocumentDialog?: ComponentProps<typeof HtmlDocumentDialog>;
@@ -31,6 +33,7 @@ type EditorOverlaysProps = {
   statusMessages: boolean;
   onCloseFileWorkflowError: () => void;
   onResolveUnsavedPrompt: (choice: UnsavedPromptChoice) => void;
+  onResolveFileConflictPrompt: (choice: FileConflictChoice) => void;
   onCloseNodeActionEditor: () => void;
   onSaveCanvasNodeAction: (nodeId: string, action: CanvasNodeAction | undefined) => void;
   onExecuteNodeActionDraft: (action: CanvasNodeAction) => void;
@@ -40,6 +43,7 @@ export function EditorOverlays({
   fileDropFeedback,
   fileWorkflowError,
   unsavedPrompt,
+  fileConflictPrompt,
   nodeActionEditorNode,
   markdownDocumentDialog,
   htmlDocumentDialog,
@@ -49,6 +53,7 @@ export function EditorOverlays({
   statusMessages,
   onCloseFileWorkflowError,
   onResolveUnsavedPrompt,
+  onResolveFileConflictPrompt,
   onCloseNodeActionEditor,
   onSaveCanvasNodeAction,
   onExecuteNodeActionDraft
@@ -58,6 +63,7 @@ export function EditorOverlays({
       {fileDropFeedback ? <FileDropFeedbackBadge feedback={fileDropFeedback} /> : null}
       {fileWorkflowError ? <FileWorkflowErrorBanner error={fileWorkflowError} onClose={onCloseFileWorkflowError} /> : null}
       {unsavedPrompt ? <UnsavedFilePrompt prompt={unsavedPrompt} onResolve={onResolveUnsavedPrompt} /> : null}
+      {fileConflictPrompt ? <FileConflictPrompt fileName={fileConflictPrompt.fileName} path={fileConflictPrompt.path} onResolve={onResolveFileConflictPrompt} /> : null}
       {nodeActionEditorNode ? (
         <NodeActionEditorDialog
           node={nodeActionEditorNode}

@@ -29,8 +29,22 @@ export function useFileOpenWorkflow(
   const {
     runtime,
     fileInputRef,
+    findFileDocumentBuffer,
     setFileMenuOpen
   } = args;
+
+  function restoreBufferedDocument(file: { name: string; path?: string }) {
+    const buffer = findFileDocumentBuffer(file);
+    if (!buffer) return false;
+    applyLoadedDocument(
+      buffer.content,
+      buffer.fileName,
+      { ...file, revision: buffer.revision || undefined },
+      "buffer",
+      { savedContent: buffer.savedContent, bufferId: buffer.id, status: buffer.status }
+    );
+    return true;
+  }
 
   async function openMermaidFile() {
     try {
@@ -41,6 +55,7 @@ export function useFileOpenWorkflow(
       }
       if (result.status === "cancelled") return;
       if (!(await prepareFileSwitch(result.file.name))) return;
+      if (restoreBufferedDocument(result.file)) return;
       applyLoadedDocument(result.text, result.file.name, result.file);
     } catch (error) {
       if (!isAbortError(error)) showFileWorkflowError(error, "打开文件失败。");
@@ -53,8 +68,9 @@ export function useFileOpenWorkflow(
     if (!file) return;
 
     try {
-      if (!(await prepareFileSwitch(file.name))) return;
-      applyLoadedDocument(await file.text(), file.name, { name: file.name });
+    if (!(await prepareFileSwitch(file.name))) return;
+    if (restoreBufferedDocument({ name: file.name })) return;
+    applyLoadedDocument(await file.text(), file.name, { name: file.name });
     } catch (error) {
       showFileWorkflowError(error, "打开文件失败。");
     }
@@ -66,6 +82,7 @@ export function useFileOpenWorkflow(
       return;
     }
     if (!(await prepareFileSwitch(file.name))) return;
+    if (restoreBufferedDocument(file)) return;
 
     try {
       const result = await runtime.openFilePath(file.path);

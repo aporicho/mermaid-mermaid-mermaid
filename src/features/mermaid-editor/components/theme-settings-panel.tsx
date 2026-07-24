@@ -37,6 +37,7 @@ import {
   baseThemeFor,
   themeValueAtPath,
   toCustomTheme,
+  updateMarkdownPreviewTypography,
   updateThemeValueAtPath
 } from "./theme-settings-utils";
 
@@ -86,13 +87,25 @@ export function ThemeSettingsPanel({
 
   function updateGroupField(definition: ThemeTokenGroupDefinition, path: readonly string[], value: ThemeTokenValue) {
     const custom = toCustomTheme(activeTheme);
-    onPreview("custom", normalizeEditorTheme(updateThemeValueAtPath(custom, [...definition.path, ...path], value), custom));
+    const typographyKey = definition.id === "special-node-markdown-preview-scale" && path.length === 1 && typeof value === "number"
+      ? path[0] as "titleFontSize" | "contentFontSize"
+      : null;
+    const next = typographyKey
+      ? updateMarkdownPreviewTypography(custom, typographyKey, value as number)
+      : updateThemeValueAtPath(custom, [...definition.path, ...path], value);
+    onPreview("custom", normalizeEditorTheme(next, custom));
   }
 
   function resetGroup(definition: ThemeTokenGroupDefinition) {
     const custom = toCustomTheme(activeTheme);
     const base = baseThemeFor(activeTheme);
-    const next = definition.includeKeys?.length
+    const next = definition.id === "special-node-markdown-preview-scale"
+      ? updateMarkdownPreviewTypography(
+          updateMarkdownPreviewTypography(custom, "titleFontSize", base.specialNode.markdownDocument.previewTypography.titleFontSize),
+          "contentFontSize",
+          base.specialNode.markdownDocument.previewTypography.contentFontSize
+        )
+      : definition.includeKeys?.length
       ? definition.includeKeys.reduce((current, key) => updateThemeValueAtPath(current, [...definition.path, key], themeValueAtPath(base, [...definition.path, key])), custom)
       : updateThemeValueAtPath(custom, definition.path, themeValueAtPath(base, definition.path));
     onPreview("custom", normalizeEditorTheme(next, next));

@@ -58,8 +58,10 @@ import { normalizeEditorTheme } from "@/features/mermaid-editor/lib/editor-theme
 import { DEFAULT_VIEW_FILTERS, normalizeViewFilters, type ViewFilters } from "@/features/mermaid-editor/lib/view-filters";
 import { workspaceViewForDocument, type WorkspaceView } from "@/features/mermaid-editor/lib/workspace-view";
 import type { NodeGeometrySpec } from "@/features/mermaid-editor/lib/node-geometry";
+import { normalizeEditorDocumentSession } from "@/features/mermaid-editor/lib/editor-document-session";
+import type { EditorDocumentBuffer, EditorDocumentSession } from "@/features/mermaid-editor/lib/editor-document-session";
 
-type FileOpenSource = "picker" | "recent" | "project" | "drop" | "external" | "restore" | "watch";
+type FileOpenSource = "picker" | "recent" | "project" | "drop" | "external" | "restore" | "watch" | "buffer";
 type StateSetter<T> = Dispatch<SetStateAction<T>>;
 
 type UseEditorDocumentLifecycleArgs = {
@@ -99,6 +101,23 @@ type UseEditorDocumentLifecycleArgs = {
   prepareFileSwitch: (targetName?: string) => Promise<boolean>;
   persistStoredEditorDraft: (overrides?: StoredEditorDraftOverrides) => Promise<void>;
   recordRecentAction: (type: string, target?: EditorRecentAction["target"], summary?: string) => void;
+  activateDocumentBuffer: (input: {
+    documentKind: DocumentKind;
+    fileName: string;
+    fileRef: RuntimeFileRef | null;
+    content: string;
+    savedContent: string;
+    status?: EditorDocumentBuffer["status"];
+    bufferId?: string;
+  }) => EditorDocumentBuffer;
+  beginUntitledDocumentBuffer: (input: {
+    documentKind: DocumentKind;
+    fileName: string;
+    content: string;
+    savedContent: string;
+    status?: EditorDocumentBuffer["status"];
+  }) => EditorDocumentBuffer;
+  replaceEditorDocumentSession: (session: EditorDocumentSession) => EditorDocumentSession;
 };
 
 export function useEditorDocumentLifecycle({
@@ -137,9 +156,18 @@ export function useEditorDocumentLifecycle({
   syncWorkspaceForOpenedFile,
   prepareFileSwitch,
   persistStoredEditorDraft,
-  recordRecentAction
+  recordRecentAction,
+  activateDocumentBuffer,
+  beginUntitledDocumentBuffer,
+  replaceEditorDocumentSession
 }: UseEditorDocumentLifecycleArgs) {
-  function applyLoadedDocument(text: string, name: string, file: RuntimeFileRef | null, source: FileOpenSource = "picker") {
+  function applyLoadedDocument(
+    text: string,
+    name: string,
+    file: RuntimeFileRef | null,
+    source: FileOpenSource = "picker",
+    options: { savedContent?: string; bufferId?: string; status?: "clean" | "dirty" | "saving" | "conflict" | "error" } = {}
+  ) {
     flushSourceHistory();
     const nextDocumentKind = documentKindFromPath(file?.path || name) || "mermaid";
     if (nextDocumentKind === "canvas") {
@@ -151,8 +179,18 @@ export function useEditorDocumentLifecycle({
         return;
       }
       const savedDocument = serializeCanvasDocument(nextCanvasDocument);
+      const savedContent = options.savedContent ?? savedDocument;
 
       beginDocumentSession();
+      activateDocumentBuffer({
+        documentKind: "canvas",
+        fileName: ensureEditorDocumentFileName(name, "canvas"),
+        fileRef: file,
+        content: savedDocument,
+        savedContent,
+        status: options.status,
+        bufferId: options.bufferId
+      });
       setDocumentKind("canvas");
       setSource(savedDocument);
       setCanvasDocument(nextCanvasDocument);
@@ -168,8 +206,8 @@ export function useEditorDocumentLifecycle({
       setHistory(createHistory());
       setFileName(ensureEditorDocumentFileName(name, "canvas"));
       setFileRef(file);
-      setLastSavedDocument(savedDocument);
-      isDirtyRef.current = false;
+      setLastSavedDocument(savedContent);
+      isDirtyRef.current = savedDocument !== savedContent;
       setRecentFiles((current) => upsertRecentFile(current, file));
       setFileWorkflowError(null);
       setStatus(source === "watch" ? `已从磁盘刷新 ${name}。` : `已打开 ${name}。`);
@@ -180,8 +218,18 @@ export function useEditorDocumentLifecycle({
 
     if (nextDocumentKind === "markdown") {
       const savedDocument = text;
+      const savedContent = options.savedContent ?? savedDocument;
 
       beginDocumentSession();
+      activateDocumentBuffer({
+        documentKind: "markdown",
+        fileName: ensureEditorDocumentFileName(name, "markdown"),
+        fileRef: file,
+        content: savedDocument,
+        savedContent,
+        status: options.status,
+        bufferId: options.bufferId
+      });
       setDocumentKind("markdown");
       setSource(text);
       setCanvasDocument(createBlankCanvasDocument());
@@ -197,8 +245,8 @@ export function useEditorDocumentLifecycle({
       setHistory(createHistory());
       setFileName(ensureEditorDocumentFileName(name, "markdown"));
       setFileRef(file);
-      setLastSavedDocument(savedDocument);
-      isDirtyRef.current = false;
+      setLastSavedDocument(savedContent);
+      isDirtyRef.current = savedDocument !== savedContent;
       setRecentFiles((current) => upsertRecentFile(current, file));
       setFileWorkflowError(null);
       setStatus(source === "watch" ? `已从磁盘刷新 ${name}。` : `已打开 ${name}。`);
@@ -212,8 +260,18 @@ export function useEditorDocumentLifecycle({
     const nextLayoutMode = loaded.layoutMode;
     const loadedGraph = loaded.editableKind === "flowchart" && nextLayoutMode === "auto" ? applyDagreAutoLayout(loaded.graph, { spec: nodeGeometrySpec }) : loaded.graph;
     const savedDocument = buildMermaidDocument(loaded.source, loadedGraph, nextViewport, loaded.edgeRouting, nextLayoutMode);
+    const savedContent = options.savedContent ?? savedDocument;
 
     beginDocumentSession();
+    activateDocumentBuffer({
+      documentKind: "mermaid",
+      fileName: ensureEditorDocumentFileName(name, "mermaid"),
+      fileRef: file,
+      content: savedDocument,
+      savedContent,
+      status: options.status,
+      bufferId: options.bufferId
+    });
     setDocumentKind("mermaid");
     setSource(loaded.source);
     setCanvasDocument(createBlankCanvasDocument());
@@ -229,8 +287,8 @@ export function useEditorDocumentLifecycle({
     setHistory(createHistory());
     setFileName(ensureEditorDocumentFileName(name, "mermaid"));
     setFileRef(file);
-    setLastSavedDocument(savedDocument);
-    isDirtyRef.current = false;
+    setLastSavedDocument(savedContent);
+    isDirtyRef.current = savedDocument !== savedContent;
     setRecentFiles((current) => upsertRecentFile(current, file));
     setFileWorkflowError(null);
     setStatus(source === "watch"
@@ -242,6 +300,8 @@ export function useEditorDocumentLifecycle({
 
   function applyStoredEditorState(stored: StoredEditor): StoredEditorApplyResult {
     flushSourceHistory();
+    const restoredSession = normalizeEditorDocumentSession(stored.editorSession);
+    if (restoredSession) replaceEditorDocumentSession(restoredSession);
     beginDocumentSession();
     const storedDocumentKind = normalizeStoredDocumentKind(stored.documentKind, stored.fileName, stored.fileRef?.path);
     if (storedDocumentKind === "canvas") {
@@ -424,6 +484,7 @@ export function useEditorDocumentLifecycle({
     const nextViewport = { x: 160, y: 90, scale: 1 };
 
     beginDocumentSession();
+    beginUntitledDocumentBuffer({ documentKind: "mermaid", fileName: FALLBACK_FILE_NAME, content: nextSource, savedContent: "", status: "dirty" });
     setDocumentKind("mermaid");
     setSource(nextSource);
     setCanvasDocument(createBlankCanvasDocument());
@@ -471,6 +532,7 @@ export function useEditorDocumentLifecycle({
     const nextGraph = createEmptyDocumentGraph();
 
     beginDocumentSession();
+    beginUntitledDocumentBuffer({ documentKind: "markdown", fileName: FALLBACK_MARKDOWN_FILE_NAME, content: BLANK_MARKDOWN_SOURCE, savedContent: "", status: "dirty" });
     setDocumentKind("markdown");
     setSource(BLANK_MARKDOWN_SOURCE);
     setCanvasDocument(createBlankCanvasDocument());
@@ -519,6 +581,7 @@ export function useEditorDocumentLifecycle({
     const nextSource = serializeCanvasDocument(nextCanvasDocument);
 
     beginDocumentSession();
+    beginUntitledDocumentBuffer({ documentKind: "canvas", fileName: FALLBACK_CANVAS_FILE_NAME, content: nextSource, savedContent: "", status: "dirty" });
     setDocumentKind("canvas");
     setSource(nextSource);
     setCanvasDocument(nextCanvasDocument);

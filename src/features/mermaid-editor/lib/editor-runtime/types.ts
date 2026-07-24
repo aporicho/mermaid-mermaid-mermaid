@@ -25,6 +25,8 @@ export type RuntimeFileRef = {
   name: string;
   path?: string;
   handle?: BrowserFileHandle;
+  /** Content revision captured when the file was opened or last saved. */
+  revision?: string;
 };
 
 export type RuntimeOpenFileResult =
@@ -45,6 +47,12 @@ export type RuntimeSaveFileResult =
       status: "saved";
       file: RuntimeFileRef;
       downloaded?: boolean;
+    }
+  | {
+      status: "conflict";
+      file: RuntimeFileRef;
+      revision: string;
+      modifiedAt?: number;
     }
   | {
       status: "cancelled";
@@ -192,7 +200,8 @@ export type EditorRuntime = RuntimeAgentOperations & RuntimeCsvFileOperations & 
     file: RuntimeFileRef | null,
     documentText: string,
     suggestedName: string,
-    documentKind: DocumentKind
+    documentKind: DocumentKind,
+    options?: { overwrite?: boolean }
   ) => Promise<RuntimeSaveFileResult>;
   saveFileAs: (documentText: string, suggestedName: string, documentKind: DocumentKind) => Promise<RuntimeSaveFileResult>;
   createProjectDocument: (request: { rootPath: string; fileName: string; documentKind: DocumentKind; text: string }) => Promise<RuntimeCreateProjectDocumentResult>;

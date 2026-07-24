@@ -346,7 +346,7 @@ export const BASE_CANVAS: CanvasThemeTokens = {
 
 const BASE_TYPOGRAPHY = createDefaultEditorTypography();
 const BASE_MARKDOWN = createDefaultMarkdownTheme({ interface: BASE_INTERFACE, typography: BASE_TYPOGRAPHY });
-const BASE_SPECIAL_NODE = createDefaultSpecialNodeTheme({ interface: BASE_INTERFACE, canvas: BASE_CANVAS });
+const BASE_SPECIAL_NODE = createDefaultSpecialNodeTheme({ interface: BASE_INTERFACE, canvas: BASE_CANVAS, markdown: BASE_MARKDOWN });
 const BASE_AGENT = createDefaultAgentTheme({ interface: BASE_INTERFACE, typography: BASE_TYPOGRAPHY });
 
 export const EDITOR_THEME_BASE: Omit<EditorTheme, "id" | "name" | "description" | "baseThemeId"> = {
@@ -385,7 +385,7 @@ export function createEditorTheme(overrides: EditorThemeOverrides): EditorTheme 
     createDefaultMarkdownTheme({ interface: interfaceTokens, typography }),
     raw.markdown as DeepPartial<EditorTheme["markdown"]> | undefined
   );
-  const specialNode = normalizeSpecialNodeTheme(raw.specialNode, createDefaultSpecialNodeTheme({ interface: interfaceTokens, canvas }));
+  const specialNode = normalizeSpecialNodeTheme(raw.specialNode, createDefaultSpecialNodeTheme({ interface: interfaceTokens, canvas, markdown }));
   const agent = normalizeAgentTheme(raw.agent, createDefaultAgentTheme({ interface: interfaceTokens, typography }));
 
   return {

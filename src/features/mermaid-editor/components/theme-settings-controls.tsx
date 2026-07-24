@@ -107,6 +107,9 @@ function ThemeSettingsField({ path, value, onChange }: { path: readonly string[]
   if (typeof value === "boolean") {
     return <BooleanField label={label} path={fieldPath} value={value} onChange={onChange} />;
   }
+  if (control === "font-style") {
+    return <FontStyleField label={label} path={fieldPath} value={String(value)} onChange={onChange} />;
+  }
   if (control === "css-border-style" || control === "canvas-stroke-style" || control === "tree-connector-style") {
     return <BorderStyleField label={label} path={fieldPath} value={String(value)} kind={control} onChange={onChange} />;
   }
@@ -128,8 +131,23 @@ function ThemeSettingsField({ path, value, onChange }: { path: readonly string[]
 function inferredStringControl(path: readonly string[], value: ThemeTokenValue): AppearanceTokenControlKind | undefined {
   if (typeof value !== "string") return undefined;
   const key = path.at(-1) || "";
+  if (key === "fontStyle") return "font-style";
   if (key === "borderStyle" || key === "style" || key.endsWith("Style")) return path[0] === "interface" ? "css-border-style" : "canvas-stroke-style";
   return undefined;
+}
+
+function FontStyleField({ label, path, value, onChange }: { label: string; path: string; value: string; onChange: (value: string) => void }) {
+  return (
+    <FieldFrame label={label} path={path}>
+      <Select value={value} onValueChange={onChange}>
+        <SelectTrigger className="h-8" aria-label={label}><SelectValue /></SelectTrigger>
+        <SelectContent>
+          <SelectItem value="normal">常规</SelectItem>
+          <SelectItem value="italic">斜体</SelectItem>
+        </SelectContent>
+      </Select>
+    </FieldFrame>
+  );
 }
 
 function FieldFrame({ label, path, children }: { label: string; path: string; children: ReactNode }) {
@@ -473,7 +491,7 @@ const MONO_FONT_OPTIONS: readonly FontOption[] = [
 const MARKDOWN_TEXT_FONT_OPTIONS: readonly FontOption[] = [...SANS_FONT_OPTIONS, ...SERIF_FONT_OPTIONS];
 
 function isFontFamilyKey(key: string) {
-  return key === "familySans" || key === "familyMono" || key === "familyBody" || key === "familyHeading" || key === "familyCode";
+  return key === "fontFamily" || key === "familySans" || key === "familyMono" || key === "familyBody" || key === "familyHeading" || key === "familyCode";
 }
 
 function fontOptionsForKey(key: string) {

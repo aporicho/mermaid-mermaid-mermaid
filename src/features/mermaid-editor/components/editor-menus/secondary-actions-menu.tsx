@@ -24,6 +24,7 @@ import { Separator } from "@/components/ui/separator";
 import { EditorMenuItem, EditorMenuSurface } from "@/features/mermaid-editor/components/editor-ui";
 import { PreferenceToggle, directions, edgeRoutingOptions, layoutModeOptions } from "@/features/mermaid-editor/components/editor-menus/shared";
 import { MarkdownContentWidthPreference } from "@/features/mermaid-editor/components/editor-menus/markdown-content-width-preference";
+import { AutoSavePreference } from "@/features/mermaid-editor/components/editor-menus/auto-save-preference";
 import { FloatingIconButton, FloatingPopover } from "@/features/mermaid-editor/components/floating-chrome";
 import { APP_LOGOS, appLogoById, normalizeAppLogoId } from "@/features/mermaid-editor/lib/app-logo";
 import type { DocumentKind } from "@/features/mermaid-editor/lib/document-kind";
@@ -302,6 +303,7 @@ export function SecondaryActionsMenu({
                 )
               }
             />
+            <AutoSavePreference preferences={preferences} onChange={updatePreference} />
             <MarkdownContentWidthPreference preferences={preferences} onChange={updatePreference} />
           </div>
           <EditorMenuItem data-floating-action-item icon={<ColorWheel />} label="主题" onClick={() => runAndClose(onOpenThemeSettings)} />

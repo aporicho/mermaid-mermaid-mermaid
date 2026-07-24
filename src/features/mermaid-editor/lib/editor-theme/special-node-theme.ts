@@ -1,5 +1,6 @@
 import { isHexColor } from "./color";
 import type { CanvasBorderTokens, CanvasStrokeStyle, CanvasThemeTokens, InterfaceThemeTokens, ShadowTokens } from "./appearance-types";
+import type { MarkdownTextTokens, MarkdownThemeTokens } from "./markdown-types";
 import type {
   SpecialNodeStateTokens,
   SpecialNodeSurfaceTokens,
@@ -10,6 +11,7 @@ import type {
 type SpecialNodeThemeSource = {
   interface: InterfaceThemeTokens;
   canvas: CanvasThemeTokens;
+  markdown: MarkdownThemeTokens;
 };
 
 const CANVAS_STROKE_STYLES = new Set<CanvasStrokeStyle>(["none", "solid", "dashed", "dotted", "dash-dot", "custom"]);
@@ -24,6 +26,7 @@ export function createDefaultSpecialNodeTheme(source: SpecialNodeThemeSource): S
     ordinaryNode.customDash
   );
   const interaction = stateTokens(source.canvas);
+  const markdownQuote = source.markdown.blockquote;
 
   return {
     shared: {
@@ -64,6 +67,68 @@ export function createDefaultSpecialNodeTheme(source: SpecialNodeThemeSource): S
         headingBottomGap: 6,
         blockGap: 10,
         listItemGap: 0
+      },
+      previewContent: {
+        layout: {
+          indentationEnabled: true,
+          titleBottomGap: 18,
+          sectionTopGap: 16,
+          headingBottomGap: 6,
+          blockGap: 10,
+          paragraphGap: 10,
+          listItemGap: 0,
+          listMarkerWidth: source.markdown.layout.listMarkerWidth,
+          listMarkerGap: source.markdown.layout.listMarkerGap
+        },
+        title: previewText(source.markdown.heading.h1, 24),
+        paragraph: previewText(source.markdown.body, 16),
+        heading: {
+          h1: previewText(source.markdown.heading.h1, 24),
+          h2: previewText(source.markdown.heading.h2, 21.75),
+          h3: previewText(source.markdown.heading.h3, 20.5),
+          h4: previewText(source.markdown.heading.h4, 19.5),
+          h5: previewText(source.markdown.heading.h5, 18.25),
+          h6: previewText(source.markdown.heading.h6, 17)
+        },
+        strong: previewInline(source.markdown.strong),
+        emphasis: previewInline(source.markdown.emphasis, "italic"),
+        list: {
+          unordered: {
+            ...previewText(source.markdown.list.unordered, 16),
+            markerColor: source.markdown.list.unordered.markerColor,
+            indent: source.markdown.list.unordered.indent
+          },
+          ordered: {
+            ...previewText(source.markdown.list.ordered, 16),
+            markerColor: source.markdown.list.ordered.markerColor,
+            indent: source.markdown.list.ordered.indent
+          }
+        },
+        blockquote: {
+          ...previewText(markdownQuote, 16),
+          enabled: true,
+          backgroundEnabled: true,
+          background: markdownQuote.background,
+          borderEnabled: false,
+          borderColor: markdownQuote.borderColor,
+          borderWidth: markdownQuote.borderWidth,
+          borderStyle: markdownQuote.borderStyle === "dashed" || markdownQuote.borderStyle === "dotted" || markdownQuote.borderStyle === "none"
+            ? markdownQuote.borderStyle
+            : "solid",
+          customDash: [],
+          radius: markdownQuote.radius,
+          paddingX: markdownQuote.paddingX,
+          paddingY: markdownQuote.paddingY,
+          marginTop: 0,
+          marginBottom: 0
+        },
+        divider: {
+          enabled: true,
+          color: source.markdown.divider.color,
+          thickness: source.markdown.divider.thickness,
+          marginTop: 0,
+          marginBottom: 0
+        }
       },
       width: 280,
       height: 396,
@@ -143,6 +208,29 @@ export function createDefaultSpecialNodeTheme(source: SpecialNodeThemeSource): S
   };
 }
 
+function previewText(style: MarkdownTextTokens, fontSize: number, fontStyle: "normal" | "italic" = "normal") {
+  const ratio = style.fontSize > 0 ? fontSize / style.fontSize : 1;
+  return {
+    fontFamily: style.fontFamily,
+    fontSize,
+    fontWeight: style.fontWeight,
+    fontStyle,
+    lineHeight: style.lineHeight * ratio,
+    letterSpacing: style.letterSpacing,
+    color: style.color
+  };
+}
+
+function previewInline(style: MarkdownTextTokens, fontStyle: "normal" | "italic" = "normal") {
+  return {
+    fontFamily: style.fontFamily,
+    fontWeight: style.fontWeight,
+    fontStyle,
+    letterSpacing: style.letterSpacing,
+    color: style.color
+  };
+}
+
 export function normalizeSpecialNodeTheme(raw: unknown, fallback: SpecialNodeThemeTokens): SpecialNodeThemeTokens {
   return normalizeValue(migrateLegacySpecialNodeTheme(raw, fallback), fallback, "") as SpecialNodeThemeTokens;
 }
@@ -209,6 +297,8 @@ function migrateLegacySpecialNodeTheme(raw: unknown, fallback: SpecialNodeThemeT
   const linkCard = objectValue(source.linkCard);
   const markdownDocument = objectValue(source.markdownDocument);
   const markdownPreviewTypography = objectValue(markdownDocument.previewTypography);
+  const markdownPreviewSpacing = objectValue(markdownDocument.previewSpacing);
+  const markdownPreviewContent = objectValue(markdownDocument.previewContent);
   const htmlDocument = objectValue(source.htmlDocument);
   const image = objectValue(source.image);
   const table = objectValue(source.table);
@@ -243,6 +333,10 @@ function migrateLegacySpecialNodeTheme(raw: unknown, fallback: SpecialNodeThemeT
         ...markdownPreviewTypography,
         contentFontSize: markdownPreviewTypography.contentFontSize ?? markdownPreviewTypography.bodyFontSize
       },
+      previewContent: mergeObjects(
+        legacyPreviewContent(markdownPreviewTypography, markdownPreviewSpacing, fallback.markdownDocument.previewContent),
+        markdownPreviewContent
+      ),
       contentPaddingTop: markdownDocument.contentPaddingTop ?? markdownDocument.contentPadding,
       contentPaddingRight: markdownDocument.contentPaddingRight ?? markdownDocument.contentPadding,
       contentPaddingBottom: markdownDocument.contentPaddingBottom ?? markdownDocument.contentPadding,
@@ -282,6 +376,53 @@ function migrateLegacySpecialNodeTheme(raw: unknown, fallback: SpecialNodeThemeT
       grid: mergeObjects({ color: table.dividerColor, width: table.dividerWidth }, objectValue(table.grid))
     }
   };
+}
+
+function legacyPreviewContent(
+  typography: Record<string, unknown>,
+  spacing: Record<string, unknown>,
+  fallback: SpecialNodeThemeTokens["markdownDocument"]["previewContent"]
+): Record<string, unknown> {
+  const titleFontSize = numericValue(typography.titleFontSize);
+  const contentFontSize = numericValue(typography.contentFontSize ?? typography.bodyFontSize);
+  const headingSize = (progress: number) => titleFontSize === undefined || contentFontSize === undefined
+    ? undefined
+    : Math.round((contentFontSize + (titleFontSize - contentFontSize) * progress) * 4) / 4;
+  const scaledText = (style: MarkdownTextTokens, fontSize: number | undefined) => fontSize === undefined ? {} : {
+    fontSize,
+    lineHeight: style.fontSize > 0 ? style.lineHeight * (fontSize / style.fontSize) : style.lineHeight
+  };
+  const contentText = scaledText(fallback.paragraph, contentFontSize);
+  return {
+    layout: {
+      indentationEnabled: spacing.indentationEnabled,
+      titleBottomGap: spacing.titleBottomGap,
+      sectionTopGap: spacing.sectionTopGap,
+      headingBottomGap: spacing.headingBottomGap,
+      blockGap: spacing.blockGap,
+      paragraphGap: spacing.blockGap,
+      listItemGap: spacing.listItemGap
+    },
+    title: scaledText(fallback.title, titleFontSize),
+    paragraph: contentText,
+    heading: {
+      h1: scaledText(fallback.heading.h1, headingSize(1)),
+      h2: scaledText(fallback.heading.h2, headingSize(0.72)),
+      h3: scaledText(fallback.heading.h3, headingSize(0.56)),
+      h4: scaledText(fallback.heading.h4, headingSize(0.42)),
+      h5: scaledText(fallback.heading.h5, headingSize(0.28)),
+      h6: scaledText(fallback.heading.h6, headingSize(0.14))
+    },
+    list: {
+      unordered: scaledText(fallback.list.unordered, contentFontSize),
+      ordered: scaledText(fallback.list.ordered, contentFontSize)
+    },
+    blockquote: scaledText(fallback.blockquote, contentFontSize)
+  };
+}
+
+function numericValue(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
 }
 
 function legacySurface(raw: Record<string, unknown>, fallback: SpecialNodeSurfaceTokens, includeShadow = true): Record<string, unknown> {
@@ -326,7 +467,11 @@ function normalizeValue(raw: unknown, fallback: unknown, path: string): unknown 
     return numberValue(raw, fallback, range[0], range[1]);
   }
   if (typeof fallback === "string") {
-    if (path.endsWith(".style")) return typeof raw === "string" && CANVAS_STROKE_STYLES.has(raw as CanvasStrokeStyle) ? raw : fallback;
+    if (path.endsWith(".fontStyle")) return raw === "normal" || raw === "italic" ? raw : fallback;
+    if (path.endsWith(".fontFamily")) return typeof raw === "string" && raw.trim() ? raw : fallback;
+    if (path.endsWith(".style") || path.endsWith(".borderStyle")) {
+      return typeof raw === "string" && CANVAS_STROKE_STYLES.has(raw as CanvasStrokeStyle) ? raw : fallback;
+    }
     return typeof raw === "string" && isHexColor(raw) ? raw : fallback;
   }
   if (Array.isArray(fallback)) return dashValue(raw, fallback);
@@ -374,6 +519,10 @@ function numberValue(value: unknown, fallback: number, min: number, max: number)
 
 function numberRangeForPath(path: string): readonly [number, number] {
   if (path.endsWith(".opacity")) return [0, 1];
+  if (path.endsWith(".fontSize")) return [6, 96];
+  if (path.endsWith(".fontWeight")) return [100, 900];
+  if (path.endsWith(".lineHeight")) return [6, 128];
+  if (path.endsWith(".letterSpacing")) return [-3, 6];
   if (path.endsWith(".offsetX") || path.endsWith(".offsetY")) return [-32, 32];
   if (path.endsWith(".width") || path.endsWith("Width")) return [0, 12];
   if (path.endsWith(".radius") || path.endsWith("Radius")) return [0, 64];
@@ -401,6 +550,14 @@ const SPECIAL_NODE_NUMBER_RANGES: Record<string, readonly [number, number]> = {
   "markdownDocument.previewSpacing.headingBottomGap": [0, 48],
   "markdownDocument.previewSpacing.blockGap": [0, 48],
   "markdownDocument.previewSpacing.listItemGap": [0, 32],
+  "markdownDocument.previewContent.layout.listMarkerWidth": [0, 64],
+  "markdownDocument.previewContent.layout.listMarkerGap": [0, 32],
+  "markdownDocument.previewContent.blockquote.borderWidth": [0, 12],
+  "markdownDocument.previewContent.blockquote.radius": [0, 64],
+  "markdownDocument.previewContent.blockquote.paddingX": [0, 64],
+  "markdownDocument.previewContent.blockquote.paddingY": [0, 48],
+  "markdownDocument.previewContent.blockquote.marginTop": [0, 48],
+  "markdownDocument.previewContent.blockquote.marginBottom": [0, 48],
   "htmlDocument.width": [160, 960],
   "htmlDocument.height": [96, 720],
   "htmlDocument.badgeSize": [16, 128],

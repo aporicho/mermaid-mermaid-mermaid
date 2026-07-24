@@ -26,14 +26,26 @@ import type { WorkspaceView } from "@/features/mermaid-editor/lib/workspace-view
 import type { FileDropFeedback } from "@/features/mermaid-editor/components/file-workflow-feedback";
 import type { UnsavedPromptChoice } from "@/features/mermaid-editor/lib/desktop-close-workflow";
 import type { NodeGeometrySpec } from "@/features/mermaid-editor/lib/node-geometry";
+import type { EditorDocumentBuffer } from "@/features/mermaid-editor/lib/editor-document-session";
+import type { EditorDocumentSessionBindings } from "./session-types";
 
-export type FileOpenSource = "picker" | "recent" | "project" | "drop" | "external" | "restore" | "watch";
+export type FileOpenSource = "picker" | "recent" | "project" | "drop" | "external" | "restore" | "watch" | "buffer";
 
 export type UnsavedPromptState = {
   title: string;
   description: string;
   targetName?: string;
+  targetNames?: string[];
+  mode?: "single" | "window-close";
   resolve: (choice: UnsavedPromptChoice) => void;
+};
+
+export type FileConflictChoice = "overwrite" | "reload" | "save-as" | "cancel";
+
+export type FileConflictPromptState = {
+  fileName: string;
+  path?: string;
+  resolve: (choice: FileConflictChoice) => void;
 };
 
 export type StateSetter<T> = Dispatch<SetStateAction<T>>;
@@ -103,6 +115,7 @@ export type UseEditorFileWorkflowArgs = {
   setFileMenuOpen: StateSetter<boolean>;
   setFileWorkflowError: StateSetter<FileWorkflowError | null>;
   setUnsavedPrompt: StateSetter<UnsavedPromptState | null>;
+  setFileConflictPrompt: StateSetter<FileConflictPromptState | null>;
   setThemeId: StateSetter<EditorThemeId>;
   setCustomTheme: StateSetter<EditorTheme | null>;
   setPreferences: StateSetter<EditorPreferences>;
@@ -114,13 +127,14 @@ export type UseEditorFileWorkflowArgs = {
   applyCanvasDocument: (document: CanvasDocument, message?: string) => void;
   applyEditorCommand: (command: EditorCommand) => void;
   recordRecentAction: (type: string, target?: EditorRecentAction["target"], summary?: string) => void;
-};
+} & EditorDocumentSessionBindings;
 
 export type ApplyLoadedDocument = (
   text: string,
   name: string,
   file: RuntimeFileRef | null,
-  source?: FileOpenSource
+  source?: FileOpenSource,
+  options?: { savedContent?: string; bufferId?: string; status?: EditorDocumentBuffer["status"] }
 ) => void;
 
 export type ShowFileWorkflowError = (error: unknown, fallbackMessage?: string) => void;

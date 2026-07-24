@@ -31,6 +31,7 @@ import {
 } from "@/features/mermaid-editor/lib/editor-theme";
 import { themedNodeGeometrySpec } from "@/features/mermaid-editor/lib/node-geometry";
 import { DEFAULT_EDITOR_PREFERENCES, normalizeEditorPreferences, type EditorPreferences } from "@/features/mermaid-editor/lib/editor-preferences";
+import type { EditorDocumentSession } from "@/features/mermaid-editor/lib/editor-document-session";
 import { shouldCollapseExplorerOnStartup } from "@/features/mermaid-editor/lib/explorer-state";
 import {
   EMPTY_EXPLORER_TREE_STATE,
@@ -43,6 +44,8 @@ import { initialMermaidSource, parseMermaid, serializeMermaid } from "@/features
 import { normalizeProjectWorkspace, type ProjectWorkspace } from "@/features/mermaid-editor/lib/project-workspace";
 import { DEFAULT_VIEW_FILTERS, normalizeViewFilters, type ViewFilters } from "@/features/mermaid-editor/lib/view-filters";
 import { workspaceViewForDocument, type WorkspaceView } from "@/features/mermaid-editor/lib/workspace-view";
+import { normalizeEditorDocumentSession } from "@/features/mermaid-editor/lib/editor-document-session";
+import type { DetachedMarkdownWindow } from "@/features/mermaid-editor/lib/workspace-panels";
 
 export const FALLBACK_FILE_NAME = "diagram.mmd";
 export const FALLBACK_MARKDOWN_FILE_NAME = "document.md";
@@ -73,6 +76,8 @@ export type StoredEditor = {
   themeId?: EditorThemeId;
   customTheme?: EditorTheme | null;
   preferences?: Partial<EditorPreferences>;
+  editorSession?: EditorDocumentSession;
+  detachedMarkdownWindows?: DetachedMarkdownWindow[];
 };
 
 export type StoredEditorApplyResult = {
@@ -99,6 +104,7 @@ export type StoredEditorDraftOverrides = {
   workspaceView?: WorkspaceView;
   themeId?: EditorThemeId;
   customTheme?: EditorTheme | null;
+  editorSession?: EditorDocumentSession;
 };
 
 export function createEmptyDocumentGraph(): MermaidGraph {
@@ -163,6 +169,7 @@ export function loadInitialState() {
       lastSavedDocument: "",
       themeId: DEFAULT_EDITOR_THEME.id,
       customTheme: null,
+      editorSession: null,
       preferences: fallbackPreferences
     };
   }
@@ -211,6 +218,7 @@ export function loadInitialState() {
         lastSavedDocument: stored.lastSavedDocument || "",
         themeId,
         customTheme,
+        editorSession: normalizeEditorDocumentSession(stored.editorSession),
         preferences
       };
     }
@@ -253,6 +261,7 @@ export function loadInitialState() {
         lastSavedDocument: stored.lastSavedDocument || "",
         themeId: normalizeThemeId(stored.themeId),
         customTheme: stored.customTheme ? normalizeEditorTheme(stored.customTheme) : null,
+        editorSession: normalizeEditorDocumentSession(stored.editorSession),
         preferences
       };
     }
@@ -306,6 +315,7 @@ export function loadInitialState() {
       lastSavedDocument: stored.lastSavedDocument || "",
       themeId,
       customTheme,
+      editorSession: normalizeEditorDocumentSession(stored.editorSession),
       preferences
     };
   } catch {
@@ -331,6 +341,7 @@ export function loadInitialState() {
       lastSavedDocument: "",
       themeId: DEFAULT_EDITOR_THEME.id,
       customTheme: null,
+      editorSession: null,
       preferences: fallbackPreferences
     };
   }
@@ -355,7 +366,8 @@ export function serializableRuntimeFileRef(file: RuntimeFileRef | null): Runtime
   if (!file) return null;
   return {
     name: file.name,
-    ...(file.path ? { path: file.path } : {})
+    ...(file.path ? { path: file.path } : {}),
+    ...(file.revision ? { revision: file.revision } : {})
   };
 }
 

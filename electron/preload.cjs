@@ -43,15 +43,15 @@ contextBridge.exposeInMainWorld("mmmElectron", {
   writeAppState(state) {
     return ipcRenderer.invoke("mmm:app-state:write", state);
   },
+  readEditorSession() { return ipcRenderer.invoke("mmm:editor-session:read"); },
+  writeEditorSession(session) { return ipcRenderer.invoke("mmm:editor-session:write", session); },
   openFile() {
     return ipcRenderer.invoke("mmm:file:open");
   },
   openFilePath(path) {
     return ipcRenderer.invoke("mmm:file:open-path", path);
   },
-  saveFile(path, text) {
-    return ipcRenderer.invoke("mmm:file:save", { path, text });
-  },
+  saveFile(path, text, options) { return ipcRenderer.invoke("mmm:file:save", { path, text, ...options }); },
   saveFileAs(suggestedName, text) {
     return ipcRenderer.invoke("mmm:file:save-as", { suggestedName, text });
   },

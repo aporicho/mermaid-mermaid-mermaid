@@ -2,15 +2,42 @@ import { describe, expect, it } from "vitest";
 
 import {
   DEFAULT_EDITOR_PREFERENCES,
+  AUTO_SAVE_DELAY_MAX,
+  AUTO_SAVE_DELAY_MIN,
+  DEFAULT_AUTO_SAVE_DELAY,
   MARKDOWN_CONTENT_WIDTH_MAX,
   MARKDOWN_CONTENT_WIDTH_MIN,
+  normalizeAutoSaveDelay,
   normalizeMarkdownContentWidth,
+  normalizeEditorAutoSaveMode,
   normalizeEditorPreferences,
   normalizeMarkdownTextScale
 } from "@/features/mermaid-editor/lib/editor-preferences";
 import { MARKDOWN_TEXT_SCALE_MAX, MARKDOWN_TEXT_SCALE_MIN, MARKDOWN_TEXT_SCALE_STEP } from "@/features/mermaid-editor/lib/markdown-text-scale";
 
 describe("editor preferences", () => {
+  it("uses manual save and a one-second delayed-save interval by default", () => {
+    expect(DEFAULT_EDITOR_PREFERENCES.autoSave).toBe("off");
+    expect(DEFAULT_EDITOR_PREFERENCES.autoSaveDelay).toBe(1_000);
+    expect(normalizeEditorPreferences(undefined)).toMatchObject({ autoSave: "off", autoSaveDelay: 1_000 });
+  });
+
+  it("preserves every supported auto-save trigger and rejects unknown values", () => {
+    expect(normalizeEditorAutoSaveMode("afterDelay")).toBe("afterDelay");
+    expect(normalizeEditorAutoSaveMode("onFocusChange")).toBe("onFocusChange");
+    expect(normalizeEditorAutoSaveMode("onWindowChange")).toBe("onWindowChange");
+    expect(normalizeEditorAutoSaveMode("always")).toBe("off");
+    expect(normalizeEditorPreferences({ autoSave: "onFocusChange" }).autoSave).toBe("onFocusChange");
+  });
+
+  it("normalizes and clamps the delayed auto-save interval", () => {
+    expect(DEFAULT_AUTO_SAVE_DELAY).toBe(1_000);
+    expect(normalizeAutoSaveDelay("1250.4")).toBe(1_250);
+    expect(normalizeAutoSaveDelay(1)).toBe(AUTO_SAVE_DELAY_MIN);
+    expect(normalizeAutoSaveDelay(100_000)).toBe(AUTO_SAVE_DELAY_MAX);
+    expect(normalizeAutoSaveDelay(Number.NaN)).toBe(DEFAULT_AUTO_SAVE_DELAY);
+  });
+
   it("disables Markdown spellcheck by default", () => {
     expect(DEFAULT_EDITOR_PREFERENCES.markdownSpellcheckEnabled).toBe(false);
     expect(normalizeEditorPreferences(undefined).markdownSpellcheckEnabled).toBe(false);

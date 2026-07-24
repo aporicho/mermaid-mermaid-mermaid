@@ -21,25 +21,33 @@ describe("theme settings schema", () => {
     expect(APPEARANCE_TOKEN_DEFINITIONS.find((definition) => definition.path.join(".") === "typography.interface.tree.family")).toMatchObject({ groupId: "typography-interface-tree", control: { kind: "font" } });
     expect(APPEARANCE_TOKEN_DEFINITIONS.find((definition) => definition.path.join(".") === "interface.tree.connectorStyle")).toMatchObject({ groupId: "interface-tree-connector", control: { kind: "tree-connector-style" } });
     expect(APPEARANCE_TOKEN_DEFINITIONS.some((definition) => definition.path.join(".") === "typography.linkCard.title.family" && definition.category === "specialNode")).toBe(true);
-    expect(APPEARANCE_TOKEN_DEFINITIONS.find((definition) => definition.path.join(".") === "specialNode.markdownDocument.previewTypography.titleFontSize")).toMatchObject({
+    expect(APPEARANCE_TOKEN_DEFINITIONS.find((definition) => definition.path.join(".") === "specialNode.markdownDocument.previewContent.title.fontSize")).toMatchObject({
       category: "markdownNode",
-      groupId: "special-node-markdown-preview-typography",
-      control: { kind: "number", min: 8, max: 96, step: 1, unit: "px" }
+      groupId: "special-node-markdown-preview-title",
+      control: { kind: "number", min: 6, max: 96, step: 1, unit: "px" }
     });
-    expect(APPEARANCE_TOKEN_DEFINITIONS.find((definition) => definition.path.join(".") === "specialNode.markdownDocument.previewTypography.contentFontSize")).toMatchObject({
-      label: "文档内容字号",
-      groupId: "special-node-markdown-preview-typography",
-      control: { kind: "number", min: 8, max: 48, step: 1, unit: "px" }
+    expect(APPEARANCE_TOKEN_DEFINITIONS.find((definition) => definition.path.join(".") === "specialNode.markdownDocument.previewContent.paragraph.fontFamily")).toMatchObject({
+      label: "字体",
+      groupId: "special-node-markdown-preview-paragraph",
+      control: { kind: "font" }
     });
-    expect(APPEARANCE_TOKEN_DEFINITIONS.find((definition) => definition.path.join(".") === "specialNode.markdownDocument.previewSpacing.sectionTopGap")).toMatchObject({
-      groupId: "special-node-markdown-preview-spacing",
+    expect(APPEARANCE_TOKEN_DEFINITIONS.find((definition) => definition.path.join(".") === "specialNode.markdownDocument.previewContent.layout.sectionTopGap")).toMatchObject({
+      groupId: "special-node-markdown-preview-layout",
       control: { kind: "number", min: 0, max: 64, step: 1, unit: "px" }
     });
-    expect(APPEARANCE_TOKEN_DEFINITIONS.find((definition) => definition.path.join(".") === "specialNode.markdownDocument.previewSpacing.indentationEnabled")).toMatchObject({
+    expect(APPEARANCE_TOKEN_DEFINITIONS.find((definition) => definition.path.join(".") === "specialNode.markdownDocument.previewContent.layout.indentationEnabled")).toMatchObject({
       label: "启用内容缩进",
       category: "markdownNode",
-      groupId: "special-node-markdown-preview-spacing",
+      groupId: "special-node-markdown-preview-layout",
       control: { kind: "boolean" }
+    });
+    expect(APPEARANCE_TOKEN_DEFINITIONS.find((definition) => definition.path.join(".") === "specialNode.markdownDocument.previewContent.blockquote.fontStyle")).toMatchObject({
+      groupId: "special-node-markdown-preview-quote",
+      control: { kind: "font-style" }
+    });
+    expect(APPEARANCE_TOKEN_DEFINITIONS.find((definition) => definition.path.join(".") === "specialNode.markdownDocument.previewContent.blockquote.borderStyle")).toMatchObject({
+      groupId: "special-node-markdown-preview-quote",
+      control: { kind: "canvas-stroke-style" }
     });
     expect(APPEARANCE_TOKEN_DEFINITIONS.find((definition) => definition.path.join(".") === "specialNode.markdownDocument.contentPaddingLeft")).toMatchObject({
       label: "左侧内容边距",

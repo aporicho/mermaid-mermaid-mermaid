@@ -1,13 +1,13 @@
 import { WarningTriangle, Xmark } from "iconoir-react/regular";
 
-import { Button } from "@/components/ui/button";
-import { EditorDialog, EditorIconButton, EditorNotice } from "@/features/mermaid-editor/components/editor-ui";
+import { EditorConfirmDialog, EditorIconButton, EditorNotice } from "@/features/mermaid-editor/components/editor-ui";
 import {
   fileWorkflowErrorSuggestion,
   fileWorkflowErrorTitle,
   type FileWorkflowError
 } from "@/features/mermaid-editor/lib/file-workflow";
 import type { UnsavedPromptChoice } from "@/features/mermaid-editor/lib/desktop-close-workflow";
+import type { FileConflictChoice } from "@/features/mermaid-editor/components/mermaid-editor/file-workflow/types";
 import { OVERLAY_Z_INDEX } from "@/lib/overlay-layers";
 import { cn } from "@/lib/utils";
 
@@ -24,6 +24,8 @@ export type UnsavedPromptContent = {
   title: string;
   description: string;
   targetName?: string;
+  targetNames?: string[];
+  mode?: "single" | "window-close";
 };
 
 export function FileDropFeedbackBadge({ feedback }: { feedback: FileDropFeedback }) {
@@ -69,18 +71,62 @@ export function FileWorkflowErrorBanner({ error, onClose }: { error: FileWorkflo
 }
 
 export function UnsavedFilePrompt({ prompt, onResolve }: { prompt: UnsavedPromptContent; onResolve: (choice: UnsavedPromptChoice) => void }) {
+  const windowClose = prompt.mode === "window-close";
   return (
-    <EditorDialog
+    <EditorConfirmDialog
       open
-      onOpenChange={() => undefined}
       title={prompt.title}
       icon={<WarningTriangle className="editor-ui-icon mt-0.5 shrink-0 text-icon" />}
       size="sm"
-      dismissible={false}
-      footer={<><Button variant="ghost" onClick={() => onResolve("cancel")}>取消</Button><Button variant="outline" onClick={() => onResolve("discard")}>丢弃</Button><Button onClick={() => onResolve("save")}>保存</Button></>}
+      actions={[
+        { id: "discard", label: windowClose ? "丢弃全部" : "丢弃", tone: "danger" },
+        { id: "cancel", label: "取消" },
+        ...(windowClose ? [{ id: "preserve" as const, label: "保留草稿" }] : []),
+        { id: "save", label: windowClose ? "全部保存" : "保存", tone: "primary" }
+      ]}
+      primaryActionId="save"
+      cancelActionId="cancel"
+      onAction={onResolve}
+      handleEscape={false}
     >
-      <p className="type-interface-body text-muted-foreground">{prompt.description}</p>
-      {prompt.targetName ? <p className="type-interface-technical mt-2 truncate text-muted-foreground">{prompt.targetName}</p> : null}
-    </EditorDialog>
+      {prompt.description ? <p className="type-interface-body text-muted-foreground">{prompt.description}</p> : null}
+      {prompt.targetNames?.length ? (
+        <ul className="mt-1 max-h-48 overflow-y-auto" aria-label="未保存文件">
+          {prompt.targetNames.map((name, index) => (
+            <li key={`${index}:${name}`} className="type-interface-navigation flex min-h-[var(--ui-control-height-sm)] items-center gap-2 px-1">
+              <span className="size-1.5 shrink-0 rounded-full bg-primary" aria-hidden />
+              <span className="min-w-0 truncate">{name}</span>
+            </li>
+          ))}
+        </ul>
+      ) : prompt.targetName ? <p className="type-interface-technical mt-2 truncate text-muted-foreground">{prompt.targetName}</p> : null}
+    </EditorConfirmDialog>
+  );
+}
+
+export function FileConflictPrompt({ fileName, path, onResolve }: {
+  fileName: string;
+  path?: string;
+  onResolve: (choice: FileConflictChoice) => void;
+}) {
+  return (
+    <EditorConfirmDialog
+      open
+      title={`${fileName} 已在外部修改`}
+      icon={<WarningTriangle className="editor-ui-icon mt-0.5 shrink-0 text-icon" />}
+      size="sm"
+      actions={[
+        { id: "reload", label: "载入磁盘", tone: "danger" },
+        { id: "cancel", label: "取消" },
+        { id: "save-as", label: "另存为" },
+        { id: "overwrite", label: "覆盖磁盘", tone: "primary" }
+      ]}
+      primaryActionId="overwrite"
+      cancelActionId="cancel"
+      onAction={onResolve}
+    >
+      <p className="type-interface-body text-muted-foreground">本地修改仍然保留。请选择要保留的版本。</p>
+      {path ? <p className="type-interface-technical mt-2 truncate text-muted-foreground">{path}</p> : null}
+    </EditorConfirmDialog>
   );
 }

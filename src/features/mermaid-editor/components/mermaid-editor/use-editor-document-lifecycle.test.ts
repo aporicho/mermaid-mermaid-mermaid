@@ -32,6 +32,13 @@ import type { ProjectWorkspace } from "@/features/mermaid-editor/lib/project-wor
 import { EMPTY_EXPLORER_TREE_STATE, type StoredExplorerTreeState } from "@/features/mermaid-editor/lib/explorer-tree-state";
 import { DEFAULT_VIEW_FILTERS, type ViewFilters } from "@/features/mermaid-editor/lib/view-filters";
 import type { WorkspaceView } from "@/features/mermaid-editor/lib/workspace-view";
+import {
+  createEditorDocumentBuffer,
+  createEmptyEditorDocumentSession,
+  createFileDocumentIdentity,
+  createUntitledDocumentIdentity,
+  upsertEditorDocumentBuffer
+} from "@/features/mermaid-editor/lib/editor-document-session";
 
 type LifecycleState = {
   documentKind: DocumentKind;
@@ -96,6 +103,7 @@ function createLifecycleHarness() {
   const isDirtyRef = { current: true };
   const syncedFiles: (RuntimeFileRef | null)[] = [];
   const persistedDrafts: StoredEditorDraftOverrides[] = [];
+  let editorSession = createEmptyEditorDocumentSession("test-window");
 
   function setState<K extends keyof LifecycleState>(key: K) {
     return (next: LifecycleState[K] | ((current: LifecycleState[K]) => LifecycleState[K])) => {
@@ -144,7 +152,27 @@ function createLifecycleHarness() {
     persistStoredEditorDraft: async (draft = {}) => {
       persistedDrafts.push(draft);
     },
-    recordRecentAction: () => {}
+    recordRecentAction: () => {},
+    activateDocumentBuffer: (input) => {
+      const identity = input.fileRef?.path
+        ? createFileDocumentIdentity(input.fileRef.path)
+        : createUntitledDocumentIdentity(input.bufferId || "active");
+      const buffer = createEditorDocumentBuffer({ ...input, identity });
+      editorSession = upsertEditorDocumentBuffer(editorSession, buffer, { activate: true });
+      return buffer;
+    },
+    beginUntitledDocumentBuffer: (input) => {
+      const buffer = createEditorDocumentBuffer({
+        ...input,
+        identity: createUntitledDocumentIdentity(`untitled-${editorSession.buffers.length + 1}`)
+      });
+      editorSession = upsertEditorDocumentBuffer(editorSession, buffer, { activate: true });
+      return buffer;
+    },
+    replaceEditorDocumentSession: (session) => {
+      editorSession = session;
+      return session;
+    }
   });
 
   return { lifecycle, state, isDirtyRef, syncedFiles, persistedDrafts };

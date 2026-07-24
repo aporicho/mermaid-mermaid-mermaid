@@ -1,11 +1,10 @@
 // @vitest-environment jsdom
 
-import { act, useRef, useState } from "react";
+import { act, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { useProjectFileHotReload } from "@/features/mermaid-editor/components/mermaid-editor/use-project-file-hot-reload";
-import type { FileOpenSource } from "@/features/mermaid-editor/components/mermaid-editor/use-editor-file-workflow";
 import type { EditorRuntime, RuntimeFileRef, RuntimeProjectFileChangeBatch } from "@/features/mermaid-editor/lib/editor-runtime";
 import type { DetachedHtmlWindow, DetachedImageWindow, DetachedMarkdownWindow } from "@/features/mermaid-editor/lib/workspace-panels";
 
@@ -35,9 +34,8 @@ describe("useProjectFileHotReload", () => {
     container.remove();
   });
 
-  it("replaces dirty document and detached Markdown state with the latest disk versions", async () => {
-    const applyLoadedDocument = vi.fn<(text: string, name: string, file: RuntimeFileRef | null, source?: FileOpenSource) => void>();
-    const discardLinkedFileWrites = vi.fn(async () => undefined);
+  it("routes changed documents through revision-aware external-change handling", async () => {
+    const handleExternalDocumentChange = vi.fn(async () => undefined);
     const updateMarkdownPreviewFromText = vi.fn();
     const runtime = createRuntime(async (path) => ({
       status: "opened" as const,
@@ -48,9 +46,7 @@ describe("useProjectFileHotReload", () => {
     await act(async () => {
       root.render(<Probe
         runtime={runtime}
-        currentDocument="# Unsaved local"
-        applyLoadedDocument={applyLoadedDocument}
-        discardLinkedFileWrites={discardLinkedFileWrites}
+        handleExternalDocumentChange={handleExternalDocumentChange}
         updateMarkdownPreviewFromText={updateMarkdownPreviewFromText}
       />);
       await settle();
@@ -69,11 +65,15 @@ describe("useProjectFileHotReload", () => {
       await settle();
     });
 
-    expect(discardLinkedFileWrites).toHaveBeenCalledTimes(1);
-    expect(applyLoadedDocument).toHaveBeenCalledWith("# Current disk", "notes.md", { name: "notes.md", path: "/project/notes.md" }, "watch");
+    expect(handleExternalDocumentChange).toHaveBeenCalledTimes(2);
+    expect(handleExternalDocumentChange).toHaveBeenCalledWith(expect.objectContaining({
+      status: "opened",
+      file: { name: "notes.md", path: "/project/notes.md" },
+      text: "# Current disk"
+    }));
     expect(updateMarkdownPreviewFromText).toHaveBeenCalledWith("/project/notes.md", "# Current disk");
     expect(updateMarkdownPreviewFromText).toHaveBeenCalledWith("/project/floating.md", "# Floating disk");
-    expect(container.querySelector("[data-window-value]")?.getAttribute("data-window-value")).toBe("# Floating disk");
+    expect(container.querySelector("[data-window-value]")?.getAttribute("data-window-value")).toBe("# Floating local");
     expect(container.querySelector("[data-html-revision]")?.getAttribute("data-html-revision")).toBe("1");
     expect(runtime.setProjectFileWatchTargets).toHaveBeenCalledWith(expect.objectContaining({
       rootPath: "/project",
@@ -90,7 +90,6 @@ describe("useProjectFileHotReload", () => {
     await act(async () => {
       root.render(<Probe
         runtime={runtime}
-        currentDocument="# Current"
         markMarkdownPreviewMissing={markMarkdownPreviewMissing}
         reloadExternalCsvFiles={reloadExternalCsvFiles}
         refreshImageAssets={refreshImageAssets}
@@ -137,18 +136,14 @@ describe("useProjectFileHotReload", () => {
 
 function Probe({
   runtime,
-  currentDocument,
-  applyLoadedDocument = vi.fn<(text: string, name: string, file: RuntimeFileRef | null, source?: FileOpenSource) => void>(),
-  discardLinkedFileWrites = vi.fn(async () => undefined),
+  handleExternalDocumentChange = vi.fn(async () => undefined),
   updateMarkdownPreviewFromText = vi.fn(),
   markMarkdownPreviewMissing = vi.fn(),
   reloadExternalCsvFiles = vi.fn(async () => undefined),
   refreshImageAssets = vi.fn()
 }: {
   runtime: EditorRuntime;
-  currentDocument: string;
-  applyLoadedDocument?: (text: string, name: string, file: RuntimeFileRef | null, source?: FileOpenSource) => void;
-  discardLinkedFileWrites?: () => Promise<void>;
+  handleExternalDocumentChange?: (opened: Extract<Awaited<ReturnType<EditorRuntime["openFilePath"]>>, { status: "opened" }>) => Promise<unknown>;
   updateMarkdownPreviewFromText?: (path: string, text: string) => void;
   markMarkdownPreviewMissing?: (path: string) => void;
   reloadExternalCsvFiles?: (paths: ReadonlySet<string> | readonly string[]) => Promise<void>;
@@ -173,13 +168,10 @@ function Probe({
     file: { name: "image.png", path: "/project/image.png" },
     title: "image.png"
   }]);
-  const currentDocumentRef = useRef(currentDocument);
-  currentDocumentRef.current = currentDocument;
   useProjectFileHotReload({
     runtime,
     projectWorkspace: workspace,
     fileRef,
-    currentDocumentRef,
     detachedMarkdownWindows: windows,
     setDetachedMarkdownWindows: setWindows,
     detachedHtmlWindows: htmlWindows,
@@ -188,9 +180,8 @@ function Probe({
     setDetachedImageWindows: setImageWindows,
     setFileRef,
     setStatus: vi.fn(),
-    applyLoadedDocument,
+    handleExternalDocumentChange,
     refreshProjectWorkspace: vi.fn(async () => undefined),
-    discardLinkedFileWrites,
     reloadExternalCsvFiles,
     updateMarkdownPreviewFromText,
     markMarkdownPreviewMissing,

@@ -122,15 +122,44 @@ describe("ThemeSettingsPanel", () => {
     clickButton("Markdown 节点");
 
     expect(container?.textContent).toContain("节点外观与边距");
-    expect(container?.textContent).toContain("预览文字");
-    expect(container?.textContent).toContain("预览间距");
+    expect(container?.textContent).toContain("轻量预览 · 整体字号");
+    expect(container?.textContent).toContain("轻量预览 · 文档标题");
+    expect(container?.textContent).toContain("轻量预览 · 正文");
+    expect(container?.textContent).toContain("轻量预览 · 引用");
     expect(container?.textContent).toContain("加载与异常状态文字");
     clickButton("节点外观与边距");
     for (const key of ["Top", "Right", "Bottom", "Left"]) {
       expect(container?.querySelector(`[data-theme-token-path="specialNode.markdownDocument.contentPadding${key}"]`)).not.toBeNull();
     }
-    clickButton("预览间距");
-    expect(container?.querySelector('[data-theme-token-path="specialNode.markdownDocument.previewSpacing.indentationEnabled"] [role="switch"]')).not.toBeNull();
+    clickButton("轻量预览 · 布局");
+    expect(container?.querySelector('[data-theme-token-path="specialNode.markdownDocument.previewContent.layout.indentationEnabled"] [role="switch"]')).not.toBeNull();
+    clickButton("轻量预览 · 引用");
+    expect(container?.querySelector('[data-theme-token-path="specialNode.markdownDocument.previewContent.blockquote.borderEnabled"] [role="switch"]')).not.toBeNull();
+    expect(container?.querySelector('[data-theme-token-path="specialNode.markdownDocument.previewContent.blockquote.borderStyle"] [role="combobox"]')).not.toBeNull();
+    expect(container?.querySelector('[data-theme-token-path="specialNode.markdownDocument.previewContent.blockquote.fontStyle"] [role="combobox"]')).not.toBeNull();
+  });
+
+  it("scales every Markdown preview content level with the content-size control", () => {
+    const onPreview = vi.fn();
+    renderPanel({ onPreview });
+    clickButton("Markdown 节点");
+    clickButton("轻量预览 · 整体字号");
+    const contentSize = container?.querySelector<HTMLInputElement>('[aria-label="文档内容字号"]');
+    changeInput(contentSize, "20");
+
+    const next = onPreview.mock.calls.at(-1)?.[1];
+    const scale = 20 / DEFAULT_EDITOR_THEME.specialNode.markdownDocument.previewTypography.contentFontSize;
+    expect(next.specialNode.markdownDocument.previewContent.paragraph.fontSize).toBe(20);
+    expect(next.specialNode.markdownDocument.previewContent.heading.h2.fontSize).toBeCloseTo(
+      DEFAULT_EDITOR_THEME.specialNode.markdownDocument.previewContent.heading.h2.fontSize * scale
+    );
+    expect(next.specialNode.markdownDocument.previewContent.list.ordered.fontSize).toBe(20);
+    expect(next.specialNode.markdownDocument.previewContent.blockquote.lineHeight).toBeCloseTo(
+      DEFAULT_EDITOR_THEME.specialNode.markdownDocument.previewContent.blockquote.lineHeight * scale
+    );
+    expect(next.specialNode.markdownDocument.previewContent.title.fontSize).toBe(
+      DEFAULT_EDITOR_THEME.specialNode.markdownDocument.previewContent.title.fontSize
+    );
   });
 
   it("searches localized labels and token paths while expanding only matching groups", () => {

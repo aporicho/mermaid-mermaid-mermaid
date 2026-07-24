@@ -54,7 +54,7 @@ export function normalizeEditorTheme(value: unknown, fallback: EditorTheme = DEF
   migrateLegacyReadingFontProfile(markdown, typography, { version: raw.version, baseThemeId });
   const specialNode = normalizeSpecialNodeTheme(
     raw.specialNode,
-    createDefaultSpecialNodeTheme({ interface: interfaceTokens, canvas })
+    createDefaultSpecialNodeTheme({ interface: interfaceTokens, canvas, markdown })
   );
   migrateDocumentPresentationV15(raw.version, canvas, specialNode);
   const agent = normalizeAgentTheme(raw.agent, createDefaultAgentTheme({ interface: interfaceTokens, typography }));

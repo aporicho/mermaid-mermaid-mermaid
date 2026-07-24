@@ -6,6 +6,7 @@ import type { EditorRuntime, RuntimeFileDropRequest, RuntimeFileOpenRequest, Run
 import { normalizeRecentFiles, type RecentFileEntry } from "@/features/mermaid-editor/lib/file-workflow";
 import { normalizeProjectWorkspace, type ProjectWorkspace } from "@/features/mermaid-editor/lib/project-workspace";
 import { normalizeExplorerTreeState, type StoredExplorerTreeState } from "@/features/mermaid-editor/lib/explorer-tree-state";
+import type { DetachedMarkdownWindow } from "@/features/mermaid-editor/lib/workspace-panels";
 
 import type { FileOpenSource } from "./use-editor-file-workflow";
 
@@ -33,6 +34,7 @@ type UseEditorDesktopEventsArgs = {
   setFileRef: StateSetter<RuntimeFileRef | null>;
   setLastSavedDocument: StateSetter<string>;
   setStatus: StateSetter<string>;
+  setDetachedMarkdownWindows: StateSetter<DetachedMarkdownWindow[]>;
 };
 
 export function useEditorDesktopEvents({
@@ -56,7 +58,8 @@ export function useEditorDesktopEvents({
   setFileName,
   setFileRef,
   setLastSavedDocument,
-  setStatus
+  setStatus,
+  setDetachedMarkdownWindows
 }: UseEditorDesktopEventsArgs) {
   const desktopFileWorkflowInitializedRef = useRef(false);
   const canCloseWindowRef = useRef(false);
@@ -139,6 +142,7 @@ export function useEditorDesktopEvents({
         setRecentFiles(normalizeRecentFiles(stored.recentFiles));
         setProjectWorkspace(storedProjectWorkspace);
         setExplorerTreeState(normalizeExplorerTreeState(stored.explorerTreeState));
+        setDetachedMarkdownWindows(normalizeStoredMarkdownWindows(stored.detachedMarkdownWindows));
         if (storedProjectWorkspace) void refreshRestoredProjectWorkspace(storedProjectWorkspace.rootPath);
         if (!storedPreferences.restoreLastFile) {
           setFileName(FALLBACK_FILE_NAME);
@@ -239,8 +243,20 @@ export function useEditorDesktopEvents({
     setExplorerTreeState,
     setRecentFiles,
     setStatus,
+    setDetachedMarkdownWindows,
     showFileWorkflowError
   ]);
 
   return { startDesktopWindowDragHandle, toggleDesktopWindowMaximizeHandle };
+}
+
+function normalizeStoredMarkdownWindows(value: unknown): DetachedMarkdownWindow[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((candidate) => {
+    if (!candidate || typeof candidate !== "object") return [];
+    const record = candidate as Partial<DetachedMarkdownWindow>;
+    if (typeof record.id !== "string" || typeof record.title !== "string" || typeof record.value !== "string" || typeof record.savedValue !== "string") return [];
+    if (!record.file || typeof record.file.name !== "string") return [];
+    return [{ ...record, file: record.file } as DetachedMarkdownWindow];
+  });
 }

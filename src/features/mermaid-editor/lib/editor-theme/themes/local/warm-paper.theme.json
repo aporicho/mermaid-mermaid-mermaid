@@ -29,6 +29,12 @@
         "accentForeground": "#b91f31",
         "destructive": "#b91f31",
         "destructiveForeground": "#f8f3ec",
+        "success": "#36724f",
+        "successForeground": "#fffaf4",
+        "warning": "#a66a00",
+        "warningForeground": "#fffaf4",
+        "info": "#2f5f9f",
+        "infoForeground": "#fffaf4",
         "border": "#b8ada0",
         "input": "#b8ada0",
         "focusRing": "#ff4050"
@@ -108,6 +114,168 @@
         "opacity": 0.3,
         "hoverOpacity": 0.48,
         "activeOpacity": 0.62
+      },
+      "tree": {
+        "foreground": "#18130f",
+        "iconColor": "#66584d",
+        "connectorColor": "#80766b",
+        "connectorOpacity": 0.75,
+        "connectorStyle": "solid",
+        "hoverBackground": "#ffe7ea",
+        "hoverOpacity": 0.55,
+        "focusBackground": "#ffe7ea",
+        "focusOpacity": 0.7,
+        "selectedBackground": "#ffe7ea",
+        "selectedForeground": "#b91f31",
+        "rowHeight": 32,
+        "rowPaddingStart": 6,
+        "rowPaddingEnd": 8,
+        "rowPaddingY": 4,
+        "contentGap": 6,
+        "levelIndent": 20,
+        "connectorRailInset": 6,
+        "connectorWidth": 1,
+        "iconSize": 18
+      }
+    },
+    "agent": {
+      "layout": {
+        "sidebarWidth": 248,
+        "transcriptMaxWidth": 760,
+        "composerMaxWidth": 760,
+        "contentPaddingX": 24,
+        "contentPaddingY": 24,
+        "turnGap": 24,
+        "partGap": 8
+      },
+      "typography": {
+        "body": {
+          "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+          "fontSize": 14,
+          "fontWeight": 400,
+          "lineHeight": 20,
+          "letterSpacing": 0
+        },
+        "heading": {
+          "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+          "fontSize": 14,
+          "fontWeight": 500,
+          "lineHeight": 20,
+          "letterSpacing": 0
+        },
+        "metadata": {
+          "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+          "fontSize": 12,
+          "fontWeight": 400,
+          "lineHeight": 18,
+          "letterSpacing": 0
+        },
+        "technical": {
+          "family": "Maple Mono, SF Mono, Cascadia Code, JetBrains Mono, Noto Sans SC Variable, ui-monospace, monospace",
+          "fontSize": 12,
+          "fontWeight": 400,
+          "lineHeight": 18,
+          "letterSpacing": 0
+        }
+      },
+      "message": {
+        "user": {
+          "foreground": "#18130f",
+          "borderColor": "#b8ada0",
+          "borderWidth": 0,
+          "borderStyle": "none",
+          "radius": 14,
+          "shadow": {
+            "color": "#18130f",
+            "blur": 0,
+            "opacity": 0,
+            "offsetX": 0,
+            "offsetY": 0
+          },
+          "paddingX": 14,
+          "paddingY": 10,
+          "background": "#f0ebe4"
+        },
+        "assistant": {
+          "foreground": "#18130f",
+          "borderColor": "#b8ada0",
+          "borderWidth": 0,
+          "borderStyle": "none",
+          "radius": 0,
+          "shadow": {
+            "color": "#18130f",
+            "blur": 0,
+            "opacity": 0,
+            "offsetX": 0,
+            "offsetY": 0
+          },
+          "paddingX": 0,
+          "paddingY": 0,
+          "background": "#fcf8f2"
+        },
+        "notice": {
+          "foreground": "#6b625a",
+          "borderColor": "#b8ada0",
+          "borderWidth": 1,
+          "borderStyle": "solid",
+          "radius": 6,
+          "shadow": {
+            "color": "#18130f",
+            "blur": 0,
+            "opacity": 0,
+            "offsetX": 0,
+            "offsetY": 0
+          },
+          "paddingX": 12,
+          "paddingY": 9,
+          "background": "#f0ebe4"
+        },
+        "metadataForeground": "#6b625a"
+      },
+      "composer": {
+        "foreground": "#18130f",
+        "borderColor": "#b8ada0",
+        "borderWidth": 1,
+        "borderStyle": "solid",
+        "radius": 16,
+        "shadow": {
+          "color": "#18130f",
+          "blur": 20,
+          "opacity": 0.1152,
+          "offsetX": 0,
+          "offsetY": 6
+        },
+        "paddingX": 12,
+        "paddingY": 10,
+        "background": "#fcf8f2",
+        "placeholder": "#6b625a",
+        "minHeight": 72,
+        "maxHeight": 176
+      },
+      "tool": {
+        "foreground": "#18130f",
+        "borderColor": "#b8ada0",
+        "borderWidth": 1,
+        "borderStyle": "solid",
+        "radius": 8,
+        "shadow": {
+          "color": "#18130f",
+          "blur": 0,
+          "opacity": 0,
+          "offsetX": 0,
+          "offsetY": 0
+        },
+        "paddingX": 12,
+        "paddingY": 10,
+        "background": "#f0ebe4",
+        "mutedForeground": "#6b625a",
+        "errorForeground": "#b91f31",
+        "rowGap": 8
+      },
+      "thinking": {
+        "foreground": "#6b625a",
+        "accentColor": "#b8ada0",
+        "opacity": 0.86
       }
     },
     "canvas": {
@@ -236,6 +404,7 @@
         "minHeight": 128,
         "fallbackGap": 48,
         "title": {
+          "backgroundEnabled": false,
           "background": "#fbf6ef",
           "textColor": "#18130f",
           "borderColor": "#b8ada0",
@@ -384,6 +553,221 @@
       },
       "markdownDocument": {
         "surface": {
+          "background": "#fffdfa",
+          "border": {
+            "color": "#2a251f",
+            "width": 0,
+            "style": "solid",
+            "customDash": []
+          },
+          "radius": 18,
+          "shadow": {
+            "color": "#2a251f",
+            "blur": 0,
+            "opacity": 0,
+            "offsetX": 0,
+            "offsetY": 0
+          }
+        },
+        "state": {
+          "hoverBorderColor": "#b91f31",
+          "selectedBorderColor": "#ff4050",
+          "errorBorderColor": "#9b5a50",
+          "editingBorderColor": "#ff4050",
+          "emphasizedBorderWidth": 1.5
+        },
+        "previewTypography": {
+          "titleFontSize": 20,
+          "contentFontSize": 12
+        },
+        "previewSpacing": {
+          "indentationEnabled": false,
+          "titleBottomGap": 8,
+          "sectionTopGap": 16,
+          "headingBottomGap": 6,
+          "blockGap": 10,
+          "listItemGap": 4
+        },
+        "previewContent": {
+          "layout": {
+            "indentationEnabled": false,
+            "titleBottomGap": 8,
+            "sectionTopGap": 16,
+            "headingBottomGap": 6,
+            "blockGap": 10,
+            "paragraphGap": 10,
+            "listItemGap": 4,
+            "listMarkerWidth": 24,
+            "listMarkerGap": 8
+          },
+          "title": {
+            "fontFamily": "\"方正屏显雅宋简体\", \"Songti SC\", \"Noto Serif SC\", serif",
+            "fontSize": 20,
+            "fontWeight": 700,
+            "fontStyle": "normal",
+            "lineHeight": 22.666666666666668,
+            "letterSpacing": 0,
+            "color": "#342a23"
+          },
+          "paragraph": {
+            "fontFamily": "\"方正屏显雅宋简体\", system-ui, sans-serif",
+            "fontSize": 12,
+            "fontWeight": 400,
+            "fontStyle": "normal",
+            "lineHeight": 19.799999999999997,
+            "letterSpacing": 0,
+            "color": "#342a23"
+          },
+          "heading": {
+            "h1": {
+              "fontFamily": "\"方正屏显雅宋简体\", \"Songti SC\", \"Noto Serif SC\", serif",
+              "fontSize": 20,
+              "fontWeight": 700,
+              "fontStyle": "normal",
+              "lineHeight": 22.666666666666668,
+              "letterSpacing": 0,
+              "color": "#342a23"
+            },
+            "h2": {
+              "fontFamily": "\"方正屏显雅宋简体\", \"Songti SC\", \"Noto Serif SC\", serif",
+              "fontSize": 17.75,
+              "fontWeight": 700,
+              "fontStyle": "normal",
+              "lineHeight": 23.429999999999996,
+              "letterSpacing": 0,
+              "color": "#342a23"
+            },
+            "h3": {
+              "fontFamily": "\"方正屏显雅宋简体\", \"Songti SC\", \"Noto Serif SC\", serif",
+              "fontSize": 16.5,
+              "fontWeight": 700,
+              "fontStyle": "normal",
+              "lineHeight": 21.52173913043479,
+              "letterSpacing": 0,
+              "color": "#342a23"
+            },
+            "h4": {
+              "fontFamily": "\"方正屏显雅宋简体\", \"Songti SC\", \"Noto Serif SC\", serif",
+              "fontSize": 15.25,
+              "fontWeight": 700,
+              "fontStyle": "normal",
+              "lineHeight": 22.875,
+              "letterSpacing": 0,
+              "color": "#342a23"
+            },
+            "h5": {
+              "fontFamily": "\"方正屏显雅宋简体\", \"Songti SC\", \"Noto Serif SC\", serif",
+              "fontSize": 14.25,
+              "fontWeight": 600,
+              "fontStyle": "normal",
+              "lineHeight": 20.357142857142858,
+              "letterSpacing": 0,
+              "color": "#342a23"
+            },
+            "h6": {
+              "fontFamily": "\"方正屏显雅宋简体\", \"Songti SC\", \"Noto Serif SC\", serif",
+              "fontSize": 13,
+              "fontWeight": 600,
+              "fontStyle": "normal",
+              "lineHeight": 18.57142857142857,
+              "letterSpacing": 0,
+              "color": "#342a23"
+            }
+          },
+          "strong": {
+            "fontFamily": "\"方正屏显雅宋简体\", system-ui, sans-serif",
+            "fontWeight": 700,
+            "fontStyle": "normal",
+            "letterSpacing": 0,
+            "color": "#18130f"
+          },
+          "emphasis": {
+            "fontFamily": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+            "fontWeight": 400,
+            "fontStyle": "italic",
+            "letterSpacing": 0,
+            "color": "#18130f"
+          },
+          "list": {
+            "unordered": {
+              "fontFamily": "\"方正屏显雅宋简体\", system-ui, sans-serif",
+              "fontSize": 12,
+              "fontWeight": 400,
+              "fontStyle": "normal",
+              "lineHeight": 19.799999999999997,
+              "letterSpacing": 0,
+              "color": "#18130f",
+              "markerColor": "#6b625a",
+              "indent": 16
+            },
+            "ordered": {
+              "fontFamily": "\"方正屏显雅宋简体\", system-ui, sans-serif",
+              "fontSize": 12,
+              "fontWeight": 400,
+              "fontStyle": "normal",
+              "lineHeight": 19.799999999999997,
+              "letterSpacing": 0,
+              "color": "#18130f",
+              "markerColor": "#6b625a",
+              "indent": 16
+            }
+          },
+          "blockquote": {
+            "fontFamily": "\"方正屏显雅宋简体\", system-ui, sans-serif",
+            "fontSize": 12,
+            "fontWeight": 400,
+            "fontStyle": "normal",
+            "lineHeight": 19.799999999999997,
+            "letterSpacing": 0,
+            "color": "#6b625a",
+            "enabled": true,
+            "backgroundEnabled": true,
+            "background": "#fcf8f2",
+            "borderEnabled": false,
+            "borderColor": "#ff4050",
+            "borderWidth": 4,
+            "borderStyle": "none",
+            "customDash": [],
+            "radius": 4,
+            "paddingX": 20,
+            "paddingY": 8,
+            "marginTop": 0,
+            "marginBottom": 0
+          },
+          "divider": {
+            "enabled": true,
+            "color": "#b8ada0",
+            "thickness": 1,
+            "marginTop": 0,
+            "marginBottom": 0
+          }
+        },
+        "width": 280,
+        "height": 396,
+        "contentPaddingTop": 16,
+        "contentPaddingRight": 16,
+        "contentPaddingBottom": 16,
+        "contentPaddingLeft": 16,
+        "badgeSize": 38,
+        "badgeBackground": "#ff4050",
+        "badgeErrorBackground": "#b91f31",
+        "badgeColor": "#ff4050",
+        "badgeErrorColor": "#b91f31",
+        "badgeOpacity": 0.12,
+        "badgeErrorOpacity": 0.2,
+        "badgeRadius": 4,
+        "titleGap": 10,
+        "pathGap": 1,
+        "separatorColor": "#2a251f",
+        "separatorWidth": 1,
+        "separatorOpacity": 0.18,
+        "excerptGap": 10,
+        "pathOpacity": 0.62,
+        "excerptOpacity": 0.75,
+        "placeholderOpacity": 0.56
+      },
+      "htmlDocument": {
+        "surface": {
           "background": "#fcf8f2",
           "border": {
             "color": "#2a251f",
@@ -391,7 +775,7 @@
             "style": "solid",
             "customDash": []
           },
-          "radius": 0,
+          "radius": 14,
           "shadow": {
             "color": "#2a251f",
             "blur": 0,
@@ -408,18 +792,12 @@
           "emphasizedBorderWidth": 1.5
         },
         "width": 280,
-        "height": 396,
-        "contentPaddingTop": 12,
-        "contentPaddingRight": 12,
-        "contentPaddingBottom": 12,
-        "contentPaddingLeft": 12,
+        "height": 180,
+        "contentPadding": 12,
         "badgeSize": 38,
         "badgeBackground": "#ff4050",
-        "badgeErrorBackground": "#b91f31",
         "badgeColor": "#ff4050",
-        "badgeErrorColor": "#b91f31",
         "badgeOpacity": 0.12,
-        "badgeErrorOpacity": 0.2,
         "badgeRadius": 4,
         "titleGap": 10,
         "pathGap": 1,
@@ -428,8 +806,7 @@
         "separatorOpacity": 0.18,
         "excerptGap": 10,
         "pathOpacity": 0.62,
-        "excerptOpacity": 0.74,
-        "placeholderOpacity": 0.56
+        "excerptOpacity": 0.74
       },
       "image": {
         "surface": {
@@ -525,7 +902,7 @@
         "fontWeight": 400,
         "lineHeight": 26.4,
         "letterSpacing": 0,
-        "color": "#18130f",
+        "color": "#342a23",
         "paragraphSpacing": 12
       },
       "heading": {
@@ -535,9 +912,9 @@
           "fontWeight": 700,
           "lineHeight": 27.2,
           "letterSpacing": 0,
-          "color": "#18130f",
-          "marginTop": 40,
-          "marginBottom": 20
+          "color": "#342a23",
+          "marginTop": 24,
+          "marginBottom": 8
         },
         "h2": {
           "fontFamily": "\"方正屏显雅宋简体\", \"Songti SC\", \"Noto Serif SC\", serif",
@@ -545,9 +922,9 @@
           "fontWeight": 700,
           "lineHeight": 26.4,
           "letterSpacing": 0,
-          "color": "#18130f",
-          "marginTop": 36,
-          "marginBottom": 16
+          "color": "#342a23",
+          "marginTop": 24,
+          "marginBottom": 8
         },
         "h3": {
           "fontFamily": "\"方正屏显雅宋简体\", \"Songti SC\", \"Noto Serif SC\", serif",
@@ -555,9 +932,9 @@
           "fontWeight": 700,
           "lineHeight": 24,
           "letterSpacing": 0,
-          "color": "#18130f",
-          "marginTop": 32,
-          "marginBottom": 12
+          "color": "#342a23",
+          "marginTop": 20,
+          "marginBottom": 4
         },
         "h4": {
           "fontFamily": "\"方正屏显雅宋简体\", \"Songti SC\", \"Noto Serif SC\", serif",
@@ -565,9 +942,9 @@
           "fontWeight": 700,
           "lineHeight": 24,
           "letterSpacing": 0,
-          "color": "#18130f",
-          "marginTop": 28,
-          "marginBottom": 12
+          "color": "#342a23",
+          "marginTop": 20,
+          "marginBottom": 4
         },
         "h5": {
           "fontFamily": "\"方正屏显雅宋简体\", \"Songti SC\", \"Noto Serif SC\", serif",
@@ -575,9 +952,9 @@
           "fontWeight": 600,
           "lineHeight": 20,
           "letterSpacing": 0,
-          "color": "#18130f",
-          "marginTop": 24,
-          "marginBottom": 8
+          "color": "#342a23",
+          "marginTop": 20,
+          "marginBottom": 4
         },
         "h6": {
           "fontFamily": "\"方正屏显雅宋简体\", \"Songti SC\", \"Noto Serif SC\", serif",
@@ -585,9 +962,9 @@
           "fontWeight": 600,
           "lineHeight": 20,
           "letterSpacing": 0,
-          "color": "#18130f",
-          "marginTop": 24,
-          "marginBottom": 8
+          "color": "#342a23",
+          "marginTop": 20,
+          "marginBottom": 4
         }
       },
       "link": {
@@ -648,10 +1025,10 @@
           "letterSpacing": 0,
           "color": "#18130f",
           "markerColor": "#6b625a",
-          "indent": 8,
+          "indent": 16,
           "itemSpacing": 4,
           "marginTop": 12,
-          "marginBottom": 16
+          "marginBottom": 12
         },
         "ordered": {
           "fontFamily": "\"方正屏显雅宋简体\", system-ui, sans-serif",
@@ -661,10 +1038,10 @@
           "letterSpacing": 0,
           "color": "#18130f",
           "markerColor": "#6b625a",
-          "indent": 8,
+          "indent": 16,
           "itemSpacing": 4,
           "marginTop": 12,
-          "marginBottom": 16
+          "marginBottom": 12
         },
         "task": {
           "fontFamily": "\"方正屏显雅宋简体\", system-ui, sans-serif",
@@ -673,10 +1050,10 @@
           "lineHeight": 26.4,
           "letterSpacing": 0,
           "color": "#18130f",
-          "indent": 8,
+          "indent": 16,
           "itemSpacing": 4,
           "marginTop": 12,
-          "marginBottom": 16,
+          "marginBottom": 12,
           "checkboxSize": 16,
           "checkboxBorderWidth": 1,
           "checkboxBorderStyle": "solid",
@@ -696,12 +1073,12 @@
         "color": "#6b625a",
         "background": "#fcf8f2",
         "borderColor": "#ff4050",
-        "borderWidth": 0,
-        "borderStyle": "solid",
+        "borderWidth": 4,
+        "borderStyle": "none",
         "paddingX": 20,
         "paddingY": 8,
-        "marginTop": 16,
-        "marginBottom": 20,
+        "marginTop": 8,
+        "marginBottom": 8,
         "radius": 4
       },
       "codeBlock": {
@@ -714,8 +1091,8 @@
         "background": "#fcf8f2",
         "paddingX": 20,
         "paddingY": 16,
-        "marginTop": 20,
-        "marginBottom": 20,
+        "marginTop": 8,
+        "marginBottom": 8,
         "radius": 6
       },
       "table": {
@@ -733,22 +1110,22 @@
         "borderWidth": 1,
         "borderStyle": "solid",
         "radius": 6,
-        "marginTop": 20,
-        "marginBottom": 24
+        "marginTop": 8,
+        "marginBottom": 8
       },
       "divider": {
         "color": "#b8ada0",
         "thickness": 1,
-        "marginTop": 32,
-        "marginBottom": 32
+        "marginTop": 16,
+        "marginBottom": 16
       },
       "image": {
         "borderColor": "#b8ada0",
         "borderWidth": 0,
         "borderStyle": "solid",
         "radius": 8,
-        "marginTop": 24,
-        "marginBottom": 24
+        "marginTop": 12,
+        "marginBottom": 12
       }
     },
     "ansi": {
@@ -811,6 +1188,13 @@
           "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
           "fontSize": 12,
           "fontWeight": 400,
+          "lineHeight": 18,
+          "letterSpacing": 0
+        },
+        "tree": {
+          "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+          "fontSize": 14,
+          "fontWeight": 500,
           "lineHeight": 18,
           "letterSpacing": 0
         },
@@ -1098,9 +1482,9 @@
       "terminal": {
         "content": {
           "family": "Maple Mono, SF Mono, Cascadia Code, JetBrains Mono, Noto Sans SC Variable, ui-monospace, monospace",
-          "fontSize": 13,
-          "fontWeight": 400,
-          "lineHeight": 20,
+          "fontSize": 18,
+          "fontWeight": 500,
+          "lineHeight": 8,
           "letterSpacing": 0
         },
         "heading": {

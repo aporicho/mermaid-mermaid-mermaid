@@ -1,6 +1,7 @@
 export type MarkdownPreviewRun = {
   text: string;
   bold: boolean;
+  italic: boolean;
 };
 
 export type MarkdownPreviewListItem = {
@@ -138,33 +139,47 @@ export function parseMarkdownPreview(source: string, fallbackTitle = ""): Markdo
 
 export function parseMarkdownPreviewRuns(source: string): MarkdownPreviewRun[] {
   const runs: MarkdownPreviewRun[] = [];
-  let cursor = 0;
-  while (cursor < source.length) {
-    const asterisk = source.indexOf("**", cursor);
-    const underscore = source.indexOf("__", cursor);
-    const start = [asterisk, underscore].filter((index) => index >= 0).sort((left, right) => left - right)[0] ?? -1;
-    if (start < 0) {
-      pushRun(runs, cleanInlineMarkdown(source.slice(cursor)), false);
-      break;
-    }
-    const marker = source.slice(start, start + 2);
-    const end = source.indexOf(marker, start + 2);
-    if (end < 0) {
-      pushRun(runs, cleanInlineMarkdown(source.slice(cursor)), false);
-      break;
-    }
-    pushRun(runs, cleanInlineMarkdown(source.slice(cursor, start)), false);
-    pushRun(runs, cleanInlineMarkdown(source.slice(start + 2, end)), true);
-    cursor = end + 2;
-  }
+  parseStyledRuns(cleanInlineMarkdown(source), runs, false, false);
   return runs;
 }
 
-function pushRun(runs: MarkdownPreviewRun[], text: string, bold: boolean) {
+function parseStyledRuns(source: string, runs: MarkdownPreviewRun[], bold: boolean, italic: boolean) {
+  let cursor = 0;
+  while (cursor < source.length) {
+    const match = nextStyleMarker(source, cursor);
+    if (!match) {
+      pushRun(runs, source.slice(cursor), bold, italic);
+      return;
+    }
+    pushRun(runs, source.slice(cursor, match.start), bold, italic);
+    parseStyledRuns(
+      source.slice(match.start + match.marker.length, match.end),
+      runs,
+      bold || match.marker.length === 2,
+      italic || match.marker.length === 1
+    );
+    cursor = match.end + match.marker.length;
+  }
+}
+
+function nextStyleMarker(source: string, from: number) {
+  const pattern = /\*\*|__|\*|_/g;
+  pattern.lastIndex = from;
+  for (let match = pattern.exec(source); match; match = pattern.exec(source)) {
+    const marker = match[0];
+    const start = match.index;
+    if (marker.length === 1 && (source[start - 1] === marker || source[start + 1] === marker)) continue;
+    const end = source.indexOf(marker, start + marker.length);
+    if (end > start + marker.length) return { marker, start, end };
+  }
+  return undefined;
+}
+
+function pushRun(runs: MarkdownPreviewRun[], text: string, bold: boolean, italic: boolean) {
   if (!text) return;
   const previous = runs.at(-1);
-  if (previous?.bold === bold) previous.text += text;
-  else runs.push({ text, bold });
+  if (previous?.bold === bold && previous.italic === italic) previous.text += text;
+  else runs.push({ text, bold, italic });
 }
 
 function cleanInlineMarkdown(value: string) {
@@ -173,8 +188,6 @@ function cleanInlineMarkdown(value: string) {
     .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
     .replace(/`([^`]+)`/g, "$1")
     .replace(/~~([^~]+)~~/g, "$1")
-    .replace(/(^|[^*])\*([^*]+)\*(?!\*)/g, "$1$2")
-    .replace(/(^|[^_])_([^_]+)_(?!_)/g, "$1$2")
     .replace(/\\([\\`*_[\]{}()#+.!-])/g, "$1");
 }
 

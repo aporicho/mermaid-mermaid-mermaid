@@ -15,7 +15,6 @@ export function MarkdownDocumentCard({
   stroke,
   strokeWidth,
   typography,
-  markdownTokens,
   specialNode,
   visualState,
   preview,
@@ -77,9 +76,7 @@ export function MarkdownDocumentCard({
             fallbackTitle={preview.title || node.label || "Markdown 文档"}
             width={contentWidth}
             height={contentHeight}
-            theme={markdownTokens}
-            typography={tokens.previewTypography}
-            spacing={tokens.previewSpacing}
+            content={tokens.previewContent}
           />
         </Group>
       ) : (

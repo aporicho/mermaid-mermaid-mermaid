@@ -23,17 +23,21 @@ import type {
   RuntimeCsvFileSnapshot,
   RuntimeWriteCsvFileResult
 } from "@/features/mermaid-editor/lib/editor-runtime/csv-file-types";
+import type { EditorDocumentSession } from "@/features/mermaid-editor/lib/editor-document-session";
 
 export type ElectronOpenedFile = {
   name: string;
   path: string;
   text: string;
+  revision: string;
+  modifiedAt?: number;
 };
 
-export type ElectronSavedFile = {
-  name: string;
-  path: string;
-};
+export type ElectronSavedFile = { name: string; path: string };
+
+export type ElectronDocumentWriteResult =
+  | { status: "saved"; file: ElectronSavedFile; revision: string; modifiedAt?: number }
+  | { status: "conflict"; file: ElectronSavedFile; revision: string; modifiedAt?: number };
 
 export type ElectronCreateProjectDocumentResult =
   | { status: "created"; file: ElectronSavedFile; text: string }
@@ -56,10 +60,12 @@ export type ElectronBridge = ElectronMarkdownFoldBridge & ElectronMonitoringBrid
   readAppState: () => Promise<EditorDraftState | null>;
   listSystemFonts: () => Promise<RuntimeSystemFont[]>;
   writeAppState: (state: EditorDraftState) => Promise<void>;
+  readEditorSession: () => Promise<EditorDocumentSession | null>;
+  writeEditorSession: (session: EditorDocumentSession) => Promise<void>;
   openFile: () => Promise<ElectronOpenedFile | null>;
   openFilePath: (path: string) => Promise<ElectronOpenedFile>;
-  saveFile: (path: string, text: string) => Promise<ElectronSavedFile>;
-  saveFileAs: (suggestedName: string, text: string) => Promise<ElectronSavedFile | null>;
+  saveFile: (path: string, text: string, options?: { expectedRevision?: string; overwrite?: boolean }) => Promise<ElectronDocumentWriteResult>;
+  saveFileAs: (suggestedName: string, text: string) => Promise<ElectronDocumentWriteResult | null>;
   createProjectDocument: (request: {
     rootPath: string;
     fileName: string;

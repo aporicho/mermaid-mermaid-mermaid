@@ -50,6 +50,7 @@ import {
   type MarkdownWindowPanelId,
   type WorkspaceFloatingPanelId
 } from "@/features/mermaid-editor/lib/workspace-panels";
+import type { EditorDocumentBuffer, EditorDocumentSession } from "@/features/mermaid-editor/lib/editor-document-session";
 import type { FloatingPanelWindowState } from "@/features/mermaid-editor/lib/floating-chrome";
 import {
   isAbsoluteRuntimePath,
@@ -91,6 +92,10 @@ type UseEditorWindowActionsArgs = {
   applyEditorCommand: (command: EditorCommand) => void;
   recordRecentAction: (type: string, target?: EditorRecentAction["target"], summary?: string) => void;
   onMarkdownFileSaved?: (path: string, text: string) => void;
+  findFileDocumentBuffer: (file: RuntimeFileRef | null | undefined) => EditorDocumentBuffer | null;
+  registerDocumentBuffer: (input: { documentKind: "markdown"; fileName: string; fileRef: RuntimeFileRef | null; content: string; savedContent: string }) => EditorDocumentBuffer;
+  updateDocumentBuffer: (bufferId: string, updates: Partial<Pick<EditorDocumentBuffer, "content" | "savedContent" | "revision" | "status" | "fileName" | "fileRef">>) => EditorDocumentSession;
+  saveDocumentBufferById: (bufferId: string) => Promise<boolean>;
 };
 
 export function useEditorWindowActions({
@@ -116,7 +121,11 @@ export function useEditorWindowActions({
   openInspectorPanel,
   applyEditorCommand,
   recordRecentAction,
-  onMarkdownFileSaved
+  onMarkdownFileSaved,
+  findFileDocumentBuffer,
+  registerDocumentBuffer,
+  updateDocumentBuffer,
+  saveDocumentBufferById
 }: UseEditorWindowActionsArgs) {
   async function openProjectMarkdownWindow(file: ProjectFileEntry) {
     if (!isSupportedMarkdownFilePath(file.path)) return;
@@ -125,6 +134,22 @@ export function useEditorWindowActions({
     if (existingWindow) {
       bringWorkspacePanelToFront(panelId);
       setStatus(`已切换到 ${existingWindow.title} 窗口。`);
+      return;
+    }
+
+    const buffered = findFileDocumentBuffer(file);
+    if (buffered) {
+      const nextWindow: DetachedMarkdownWindow = {
+        id: panelId,
+        file: { ...file, revision: buffered.revision || undefined },
+        title: buffered.fileName,
+        value: buffered.content,
+        savedValue: buffered.savedContent
+      };
+      setDetachedMarkdownWindows((current) => [...current, nextWindow]);
+      bringWorkspacePanelToFront(panelId);
+      setWorkspacePanelWindowState(panelId, "normal");
+      setStatus(`已在窗口中恢复 ${buffered.fileName}。`);
       return;
     }
 
@@ -139,6 +164,7 @@ export function useEditorWindowActions({
         value: result.text,
         savedValue: result.text
       };
+      registerDocumentBuffer({ documentKind: "markdown", fileName: title, fileRef: result.file, content: result.text, savedContent: result.text });
       setDetachedMarkdownWindows((current) => [...current, nextWindow]);
       bringWorkspacePanelToFront(panelId);
       setWorkspacePanelWindowState(panelId, "normal");
@@ -150,6 +176,9 @@ export function useEditorWindowActions({
   }
 
   function updateDetachedMarkdownWindow(panelId: MarkdownWindowPanelId, value: string) {
+    const target = detachedMarkdownWindows.find((window) => window.id === panelId);
+    const buffer = findFileDocumentBuffer(target?.file);
+    if (buffer) updateDocumentBuffer(buffer.id, { content: value, status: value === buffer.savedContent ? "clean" : "dirty" });
     setDetachedMarkdownWindows((current) => current.map((window) => (window.id === panelId ? { ...window, value } : window)));
   }
 
@@ -274,11 +303,24 @@ export function useEditorWindowActions({
     const targetWindow = detachedMarkdownWindows.find((window) => window.id === panelId);
     if (!targetWindow) return;
 
+    const buffered = findFileDocumentBuffer(targetWindow.file);
+    if (buffered) {
+      if (!(await saveDocumentBufferById(buffered.id))) return;
+      setDetachedMarkdownWindows((current) => current.map((window) => window.id === panelId ? { ...window, savedValue: window.value, missing: false } : window));
+      if (targetWindow.file.path) onMarkdownFileSaved?.(targetWindow.file.path, targetWindow.value);
+      setStatus(`已保存 ${targetWindow.title}。`);
+      return;
+    }
+
     try {
       const result = targetWindow.missing
         ? await runtime.saveFileAs(targetWindow.value, targetWindow.title, "markdown")
         : await runtime.saveFile(targetWindow.file, targetWindow.value, targetWindow.title, "markdown");
       if (result.status === "cancelled") return;
+      if (result.status === "conflict") {
+        showFileWorkflowError({ code: "write_failed", message: `${targetWindow.title} 已在外部修改。`, path: targetWindow.file.path }, "保存 Markdown 窗口失败。");
+        return;
+      }
       const savedTitle = ensureEditorDocumentFileName(result.file.name, "markdown");
       const savedPanelId = markdownWindowPanelId(result.file);
       setDetachedMarkdownWindows((current) =>
