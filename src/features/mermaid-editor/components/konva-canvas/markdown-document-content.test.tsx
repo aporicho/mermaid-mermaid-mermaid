@@ -81,6 +81,7 @@ describe("native Markdown document content layout", () => {
     const theme = DEFAULT_EDITOR_THEME.markdown;
     const preview = DEFAULT_EDITOR_THEME.specialNode.markdownDocument;
     const source = "1. top ordered\n  1. nested ordered\n- top bullet\n  - nested bullet\n\n> quote";
+    const measure = (text: string, style: { fontSize: number }) => Array.from(text).length * style.fontSize * 0.5;
     const layout = (indentationEnabled: boolean) => layoutMarkdownDocumentContent({
       source,
       fallbackTitle: "",
@@ -89,13 +90,15 @@ describe("native Markdown document content layout", () => {
       theme,
       typography: preview.previewTypography,
       spacing: { ...preview.previewSpacing, indentationEnabled },
-      measure: (text, style) => Array.from(text).length * style.fontSize * 0.5
+      measure
     }).filter((item) => item.kind === "text");
 
     const indented = layout(true);
     const flat = layout(false);
     const indentedOrderedMarkers = indented.filter((item) => item.text === "1.");
     const flatOrderedMarkers = flat.filter((item) => item.text === "1.");
+    const orderedMarkerWidth = preview.previewTypography.contentFontSize;
+    const bulletMarkerWidth = preview.previewTypography.contentFontSize * 0.5;
 
     expect(indentedOrderedMarkers[0]).toMatchObject({ x: 0, fontWeight: theme.strong.fontWeight });
     expect(indented.find((item) => item.text === "top ordered")).toMatchObject({ fontWeight: theme.strong.fontWeight });
@@ -106,7 +109,43 @@ describe("native Markdown document content layout", () => {
 
     expect(flatOrderedMarkers[0]?.x).toBe(0);
     expect(flatOrderedMarkers[1]?.x).toBe(0);
-    expect(flat.find((item) => item.text === "nested bullet")?.x).toBe(theme.layout.listMarkerWidth + theme.layout.listMarkerGap);
+    for (const marker of flatOrderedMarkers) {
+      expect(marker).toMatchObject({ width: orderedMarkerWidth, align: "left" });
+    }
+    for (const marker of flat.filter((item) => item.text === "•")) {
+      expect(marker).toMatchObject({ x: 0, width: bulletMarkerWidth, align: "left" });
+    }
+    expect(flat.find((item) => item.text === "nested ordered")?.x).toBe(orderedMarkerWidth + theme.layout.listMarkerGap);
+    expect(flat.find((item) => item.text === "nested bullet")?.x).toBe(bulletMarkerWidth + theme.layout.listMarkerGap);
     expect(flat.find((item) => item.text === "quote")?.x).toBe(0);
+  });
+
+  it("returns wrapped list content to the left edge only when indentation is disabled", () => {
+    const theme = DEFAULT_EDITOR_THEME.markdown;
+    const preview = DEFAULT_EDITOR_THEME.specialNode.markdownDocument;
+    const layout = (indentationEnabled: boolean) => layoutMarkdownDocumentContent({
+      source: "- alpha beta gamma",
+      fallbackTitle: "",
+      width: 96,
+      height: 240,
+      theme,
+      typography: preview.previewTypography,
+      spacing: { ...preview.previewSpacing, indentationEnabled },
+      measure: (text, style) => Array.from(text).length * style.fontSize * 0.5
+    }).filter((item) => item.kind === "text");
+
+    const indented = layout(true);
+    const flat = layout(false);
+    const indentedMarker = indented.find((item) => item.text === "•");
+    const flatMarker = flat.find((item) => item.text === "•");
+    const indentedContinuation = indented.find((item) => item.text === "gamma");
+    const flatContinuation = flat.find((item) => item.text === "gamma");
+
+    expect(indentedMarker).toMatchObject({ x: 0, width: theme.layout.listMarkerWidth, align: "right" });
+    expect(indentedContinuation).toMatchObject({ x: theme.layout.listMarkerWidth + theme.layout.listMarkerGap });
+    expect(indentedContinuation?.y).toBeGreaterThan(indentedMarker?.y || 0);
+    expect(flatMarker).toMatchObject({ x: 0, width: preview.previewTypography.contentFontSize * 0.5, align: "left" });
+    expect(flatContinuation).toMatchObject({ x: 0 });
+    expect(flatContinuation?.y).toBeGreaterThan(flatMarker?.y || 0);
   });
 });

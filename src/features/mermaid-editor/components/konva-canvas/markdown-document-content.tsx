@@ -189,8 +189,9 @@ function layoutList(
     const style = resizeTextStyle(item.ordered ? theme.list.ordered : theme.list.unordered, typography.contentFontSize);
     const topLevelOrdered = item.ordered && item.depth === 0;
     const itemStyle = topLevelOrdered ? { ...style, fontWeight: theme.strong.fontWeight } : style;
+    const marker = item.ordered ? `${item.ordinal}.` : "•";
     const indent = spacing.indentationEnabled ? item.depth * style.indent : 0;
-    const markerWidth = theme.layout.listMarkerWidth;
+    const markerWidth = spacing.indentationEnabled ? theme.layout.listMarkerWidth : measure(marker, itemStyle);
     const textX = indent + markerWidth + theme.layout.listMarkerGap;
     if (y + style.lineHeight > height || textX >= width) {
       truncated = true;
@@ -202,12 +203,23 @@ function layoutList(
       x: indent,
       y,
       width: markerWidth,
-      align: "right",
+      align: spacing.indentationEnabled ? "right" : "left",
       color: itemStyle.markerColor,
-      text: item.ordered ? `${item.ordinal}.` : "•"
+      text: marker
     });
     const strong = resizeTextStyle(theme.strong, typography.contentFontSize);
-    const result = layoutRuns(item.runs, textX, y, width - textX, height, itemStyle, strong, items, measure);
+    const result = layoutRuns(
+      item.runs,
+      textX,
+      y,
+      width - textX,
+      height,
+      itemStyle,
+      strong,
+      items,
+      measure,
+      spacing.indentationEnabled ? undefined : { x: 0, width }
+    );
     y += Math.max(style.lineHeight, result.height) + spacing.listItemGap;
     if (result.truncated) {
       truncated = true;
@@ -271,24 +283,34 @@ function layoutRuns(
   regular: MarkdownTextTokens,
   strong: MarkdownTextTokens,
   items: PreviewItem[],
-  measure: (text: string, style: MarkdownTextTokens) => number
+  measure: (text: string, style: MarkdownTextTokens) => number,
+  continuation?: { x: number; width: number }
 ) {
+  let lineX = x;
+  let lineWidth = width;
   let cursorX = x;
   let lineY = y;
   let lineHeight = regular.lineHeight;
   let truncated = false;
+  const continuationX = continuation?.x ?? x;
+  const continuationWidth = continuation?.width ?? width;
+  const widestLine = Math.max(width, continuationWidth);
 
   outer: for (const run of runs) {
     const style = run.bold ? strong : regular;
     for (const token of inlineTokens(run.text)) {
-      const parts = measure(token, style) <= width ? [token] : Array.from(token);
+      const parts = measure(token, style) <= widestLine ? [token] : Array.from(token);
       for (const part of parts) {
         if (!part) continue;
-        if (/^\s+$/.test(part) && cursorX === x) continue;
+        if (/^\s+$/.test(part) && cursorX === lineX) continue;
         const partWidth = measure(part, style);
-        if (cursorX > x && cursorX + partWidth > x + width) {
+        const exceedsLine = cursorX + partWidth > lineX + lineWidth;
+        const canUseContinuationLine = lineX !== continuationX || lineWidth !== continuationWidth;
+        if (exceedsLine && (cursorX > lineX || canUseContinuationLine)) {
           lineY += lineHeight;
-          cursorX = x;
+          lineX = continuationX;
+          lineWidth = continuationWidth;
+          cursorX = lineX;
           lineHeight = regular.lineHeight;
           if (/^\s+$/.test(part)) continue;
         }
