@@ -41,6 +41,7 @@ export function useProjectFileActions({
   graph,
   detachedMarkdownWindows,
   detachedHtmlWindows,
+  detachedImageWindows,
   setProjectBusy,
   setFileRef,
   setFileName,
@@ -54,6 +55,7 @@ export function useProjectFileActions({
   applyEditorCommand,
   onDetachedMarkdownWindowMoved,
   onDetachedHtmlWindowMoved,
+  onDetachedImageWindowMoved,
   onMarkdownFileMoved,
   setStatus,
   showFileWorkflowError
@@ -64,6 +66,7 @@ export function useProjectFileActions({
   graph: MermaidGraph;
   detachedMarkdownWindows: DetachedMarkdownWindow[];
   detachedHtmlWindows: DetachedHtmlWindow[];
+  detachedImageWindows: DetachedImageWindow[];
   setProjectBusy: StateSetter<boolean>;
   setFileRef: StateSetter<RuntimeFileRef | null>;
   setFileName: StateSetter<string>;
@@ -77,6 +80,7 @@ export function useProjectFileActions({
   applyEditorCommand: (command: EditorCommand) => void;
   onDetachedMarkdownWindowMoved?: (source: RuntimeFileRef, target: RuntimeFileRef) => void;
   onDetachedHtmlWindowMoved?: (source: RuntimeFileRef, target: RuntimeFileRef) => void;
+  onDetachedImageWindowMoved?: (source: RuntimeFileRef, target: RuntimeFileRef) => void;
   onMarkdownFileMoved?: (sourcePath: string, targetPath: string) => void | Promise<void>;
   setStatus: (message: string) => void;
   showFileWorkflowError: (error: unknown, fallbackMessage?: string) => void;
@@ -165,6 +169,8 @@ export function useProjectFileActions({
         const detachedHtmlWindow = detachedHtmlWindows.find((window) => window.file.path === source.path);
         if (detachedHtmlWindow) onDetachedHtmlWindowMoved?.(detachedHtmlWindow.file, result.file);
         setDetachedHtmlWindows((current) => migrateDetachedHtmlWindows(current, migration));
+        const detachedImageWindow = detachedImageWindows.find((window) => window.file.path === source.path);
+        if (detachedImageWindow) onDetachedImageWindowMoved?.(detachedImageWindow.file, result.file);
         setDetachedImageWindows((current) => migrateDetachedImageWindows(current, migration));
         const updates = projectFileActionUpdates(graph, migration);
         if (updates.length) {

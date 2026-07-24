@@ -8,6 +8,7 @@ import { initialHtmlDocumentSource } from "@/features/mermaid-editor/lib/html-do
 import { runtimeFilePathToUrl } from "@/features/mermaid-editor/lib/html-document";
 import {
   htmlWindowPanelId,
+  imageWindowPanelId,
   markdownWindowPanelId,
   type DetachedHtmlWindow,
   type DetachedImageWindow,
@@ -97,6 +98,7 @@ export function migrateDetachedHtmlWindows(windows: DetachedHtmlWindow[], migrat
 
 export function migrateDetachedImageWindows(windows: DetachedImageWindow[], migration: ProjectFilePathMigration) {
   return windows.map((window) => {
+    const fileMatches = sameRuntimePath(window.file.path, migration.sourceAbsolutePath);
     const navigation = window.navigation ? {
       ...window.navigation,
       items: window.navigation.items.map((item) => sameRuntimePath(item.watchPath, migration.sourceAbsolutePath) ? {
@@ -113,6 +115,7 @@ export function migrateDetachedImageWindows(windows: DetachedImageWindow[], migr
     const file = { ...window.file, ...migration.targetFile, path: migration.targetFile.path };
     return {
       ...window,
+      ...(fileMatches ? { id: imageWindowPanelId(file) } : {}),
       file,
       title: migration.targetFile.name,
       source: window.source && sameRuntimePath(window.source, migration.sourceAbsolutePath) ? migration.targetFile.path : window.source,

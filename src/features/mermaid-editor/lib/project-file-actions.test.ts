@@ -127,7 +127,7 @@ describe("project file actions", () => {
     }], imageMigration);
 
     expect(windows[0]).toMatchObject({
-      id: "image:/project/images/cover.png",
+      id: "image:/project/archive/cover.png",
       file: imageMigration.targetFile,
       title: "cover.png",
       revision: 3,
