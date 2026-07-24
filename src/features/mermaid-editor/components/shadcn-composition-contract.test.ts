@@ -84,18 +84,22 @@ describe("shadcn composition contract", () => {
   });
 
   it("uses shadcn context menus for root, directory, and file explorer rows", () => {
-    const source = readFileSync(
+    const explorer = readFileSync(
       join(SOURCE_ROOT, "features/mermaid-editor/components/explorer-panel.tsx"),
       "utf8"
     );
+    const contextMenu = readFileSync(
+      join(SOURCE_ROOT, "features/mermaid-editor/components/explorer-panel-context-menu.tsx"),
+      "utf8"
+    );
 
-    expect(source.match(/<ProjectResourceContextMenu\b/g)).toHaveLength(3);
-    expect(source).toMatch(/<ContextMenuTrigger[^>]*\basChild\b[^>]*>/);
-    expect(source).toContain("<ContextMenuContent");
-    expect(source).toContain("<ContextMenuGroup>");
-    expect(source).toContain("<ContextMenuItem");
-    expect(source).toContain("<ContextMenuSeparator />");
-    expect(source).not.toContain("EditorPointMenu");
-    expect(source).not.toContain("setContextMenu");
+    expect(explorer.match(/<ProjectResourceContextMenu\b/g)).toHaveLength(3);
+    expect(contextMenu).toMatch(/<ContextMenuTrigger[^>]*\basChild\b[^>]*>/);
+    expect(contextMenu).toContain("<ContextMenuContent");
+    expect(contextMenu).toContain("<ContextMenuGroup>");
+    expect(contextMenu).toContain("<ContextMenuItem");
+    expect(contextMenu).toContain("<ContextMenuSeparator />");
+    expect(`${explorer}\n${contextMenu}`).not.toContain("EditorPointMenu");
+    expect(`${explorer}\n${contextMenu}`).not.toContain("setContextMenu");
   });
 });

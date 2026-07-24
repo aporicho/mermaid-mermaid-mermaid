@@ -17,6 +17,7 @@ import {
   migrateRecentProjectFiles,
   projectFileActionUpdates,
   projectRelativePathFromRuntimePath,
+  projectResourcePathMigrations,
   type ProjectFilePathMigration
 } from "@/features/mermaid-editor/lib/project-file-actions";
 import type {
@@ -24,6 +25,7 @@ import type {
   ProjectResourceEntry,
   ProjectWorkspace
 } from "@/features/mermaid-editor/lib/project-workspace";
+import { projectResourcesFromFiles } from "@/features/mermaid-editor/lib/project-workspace";
 import type { DetachedHtmlWindow, DetachedImageWindow, DetachedMarkdownWindow } from "@/features/mermaid-editor/lib/workspace-panels";
 
 type StateSetter<T> = Dispatch<SetStateAction<T>>;
@@ -32,6 +34,11 @@ export type ExplorerCreateProjectFileRequest = {
   directoryPath: string;
   fileName: string;
   kind: RuntimeProjectFileKind;
+};
+
+export type ExplorerCreateProjectDirectoryRequest = {
+  directoryPath: string;
+  directoryName: string;
 };
 
 export function useProjectFileActions({
@@ -121,72 +128,68 @@ export function useProjectFileActions({
     }
   }
 
-  async function moveProjectFile(source: ProjectResourceEntry, targetDirectoryPath: string) {
-    if (!projectWorkspace || source.kind !== "file") return;
+	  async function moveProjectFile(source: ProjectResourceEntry, targetDirectoryPath: string) {
+    await moveProjectResources([source], targetDirectoryPath);
+  }
+
+  async function createProjectDirectory(request: ExplorerCreateProjectDirectoryRequest) {
+    if (!projectWorkspace) return;
     setProjectBusy(true);
     try {
-      if (await beforeMove?.() === false) {
-        setStatus("存在尚未写回的 CSV 编辑，已取消移动。");
-        return;
-      }
-      const result = await runtime.moveProjectFile({
+      const result = await runtime.createProjectDirectory({
         rootPath: projectWorkspace.rootPath,
-        sourcePath: source.path,
-        targetDirectoryPath
+        directoryPath: request.directoryPath,
+        directoryName: request.directoryName
       });
       if (result.status === "unsupported") {
         setStatus(result.message);
         return;
       }
       if (result.status === "exists") {
-        setStatus(`${result.file.name} 已存在于目标文件夹。`);
+        setStatus(`${result.resource.name} 已存在。`);
+        return;
+      }
+      await refreshProjectWorkspace();
+      setStatus(`已创建文件夹 ${result.resource.name}。`);
+    } catch (error) {
+      showFileWorkflowError(error, "创建项目文件夹失败。");
+    } finally {
+      setProjectBusy(false);
+    }
+  }
+
+  async function renameProjectResource(resource: ProjectResourceEntry, name: string) {
+    if (!projectWorkspace) return;
+    setProjectBusy(true);
+    try {
+      if (await beforeMove?.() === false) {
+        setStatus("存在尚未写回的 CSV 编辑，已取消重命名。");
+        return;
+      }
+      const result = await runtime.renameProjectResource({
+        rootPath: projectWorkspace.rootPath,
+        sourcePath: resource.path,
+        name
+      });
+      if (result.status === "unsupported") {
+        setStatus(result.message);
+        return;
+      }
+      if (result.status === "exists") {
+        setStatus(`${result.resource.name} 已存在。`);
         return;
       }
       if (result.status === "noop") {
-        setStatus(`${result.file.name} 已在目标文件夹中。`);
+        setStatus(`${result.resource.name} 未变化。`);
         return;
       }
 
-      const targetPath = result.file.path;
-      if (targetPath) {
-        await onMarkdownFileMoved?.(source.path, targetPath);
-        const migration: ProjectFilePathMigration = {
-          sourceAbsolutePath: source.path,
-          sourceRelativePath: source.relativePath,
-          sourceName: source.name,
-          targetFile: { ...result.file, path: targetPath },
-          targetRelativePath: projectRelativePathFromRuntimePath(projectWorkspace.rootPath, targetPath)
-        };
-        const currentFile = migrateCurrentProjectFileRef(fileRef, migration);
-        if (currentFile !== fileRef) {
-          setFileRef(currentFile);
-          setFileName(result.file.name);
-        }
-        setRecentFiles((current) => migrateRecentProjectFiles(current, migration));
-        const detachedWindow = detachedMarkdownWindows.find((window) => window.file.path === source.path);
-        if (detachedWindow) onDetachedMarkdownWindowMoved?.(detachedWindow.file, result.file);
-        setDetachedMarkdownWindows((current) => migrateDetachedMarkdownWindows(current, migration));
-        const detachedHtmlWindow = detachedHtmlWindows.find((window) => window.file.path === source.path);
-        if (detachedHtmlWindow) onDetachedHtmlWindowMoved?.(detachedHtmlWindow.file, result.file);
-        setDetachedHtmlWindows((current) => migrateDetachedHtmlWindows(current, migration));
-        const detachedImageWindow = detachedImageWindows.find((window) => window.file.path === source.path);
-        if (detachedImageWindow) onDetachedImageWindowMoved?.(detachedImageWindow.file, result.file);
-        setDetachedImageWindows((current) => migrateDetachedImageWindows(current, migration));
-        const updates = projectFileActionUpdates(graph, migration);
-        if (updates.length) {
-          applyEditorCommand({
-            type: "graph.updateNodeActions",
-            updates,
-            message: "已更新移动文件的节点链接。",
-            source: "api"
-          });
-        }
-      }
+      await applyResourcePathChanges([{ sourcePath: result.sourcePath, targetPath: result.resource.path }], "已更新重命名资源的节点链接。");
 
       await refreshProjectWorkspace();
-      setStatus(`已移动 ${result.file.name}。`);
+      setStatus(`已重命名为 ${result.resource.name}。`);
     } catch (error) {
-      showFileWorkflowError(error, "移动项目文件失败。");
+      showFileWorkflowError(error, "重命名项目资源失败。");
       try {
         await refreshProjectWorkspace();
       } catch {
@@ -197,5 +200,197 @@ export function useProjectFileActions({
     }
   }
 
-  return { createProjectFile, moveProjectFile };
+  async function moveProjectResources(resources: ProjectResourceEntry[], targetDirectoryPath: string) {
+    if (!projectWorkspace || !resources.length) return;
+    setProjectBusy(true);
+    try {
+      if (await beforeMove?.() === false) {
+        setStatus("存在尚未写回的 CSV 编辑，已取消移动。");
+        return;
+      }
+      const result = await runtime.moveProjectResources({
+        rootPath: projectWorkspace.rootPath,
+        sourcePaths: resources.map((resource) => resource.path),
+        targetDirectoryPath
+      });
+      if (result.status === "unsupported") {
+        setStatus(result.message);
+        return;
+      }
+      const moved = result.results.filter((item) => item.status === "moved");
+      if (moved.length) {
+        await applyResourcePathChanges(moved.map((item) => ({ sourcePath: item.sourcePath, targetPath: item.resource.path })), "已更新移动资源的节点链接。");
+      }
+      await refreshProjectWorkspace();
+      setStatus(projectMutationStatus(result.results, "移动"));
+    } catch (error) {
+      showFileWorkflowError(error, "移动项目资源失败。");
+      try {
+        await refreshProjectWorkspace();
+      } catch {
+        // The mutation result is uncertain, so refresh is best-effort in the error path.
+      }
+    } finally {
+      setProjectBusy(false);
+    }
+  }
+
+  async function copyProjectResources(resources: ProjectResourceEntry[], targetDirectoryPath: string) {
+    if (!projectWorkspace || !resources.length) return;
+    setProjectBusy(true);
+    try {
+      const result = await runtime.copyProjectResources({
+        rootPath: projectWorkspace.rootPath,
+        sourcePaths: resources.map((resource) => resource.path),
+        targetDirectoryPath
+      });
+      if (result.status === "unsupported") {
+        setStatus(result.message);
+        return;
+      }
+      await refreshProjectWorkspace();
+      setStatus(projectMutationStatus(result.results, "复制"));
+    } catch (error) {
+      showFileWorkflowError(error, "复制项目资源失败。");
+    } finally {
+      setProjectBusy(false);
+    }
+  }
+
+  async function importProjectResources(externalPaths: string[], targetDirectoryPath: string) {
+    if (!projectWorkspace || !externalPaths.length) return;
+    setProjectBusy(true);
+    try {
+      const result = await runtime.importProjectResources({
+        rootPath: projectWorkspace.rootPath,
+        externalPaths,
+        targetDirectoryPath
+      });
+      if (result.status === "unsupported") {
+        setStatus(result.message);
+        return;
+      }
+      await refreshProjectWorkspace();
+      setStatus(projectMutationStatus(result.results, "导入"));
+    } catch (error) {
+      showFileWorkflowError(error, "导入项目资源失败。");
+    } finally {
+      setProjectBusy(false);
+    }
+  }
+
+  async function deleteProjectResources(resources: ProjectResourceEntry[]) {
+    if (!projectWorkspace || !resources.length) return;
+    setProjectBusy(true);
+    try {
+      const result = await runtime.deleteProjectResources({
+        rootPath: projectWorkspace.rootPath,
+        sourcePaths: resources.map((resource) => resource.path)
+      });
+      if (result.status === "unsupported") {
+        setStatus(result.message);
+        return;
+      }
+      detachDeletedCurrentFile(result.resources.map((resource) => resource.path));
+      await refreshProjectWorkspace();
+      setStatus(`已删除 ${result.resources.length} 项。`);
+    } catch (error) {
+      showFileWorkflowError(error, "删除项目资源失败。");
+      try {
+        await refreshProjectWorkspace();
+      } catch {
+        // The mutation result is uncertain, so refresh is best-effort in the error path.
+      }
+    } finally {
+      setProjectBusy(false);
+    }
+  }
+
+  async function showProjectResourceInFileManager(resource: ProjectResourceEntry) {
+    if (!projectWorkspace) return;
+    try {
+      const result = await runtime.showProjectResourceInFileManager({
+        rootPath: projectWorkspace.rootPath,
+        path: resource.path
+      });
+      if (result.status === "unsupported") setStatus(result.message);
+    } catch (error) {
+      showFileWorkflowError(error, "无法在 Finder 中显示项目资源。");
+    }
+  }
+
+  async function applyResourcePathChanges(changes: { sourcePath: string; targetPath: string }[], graphMessage: string) {
+    const resources = projectWorkspace?.resources ?? projectResourcesFromFiles(projectWorkspace?.files ?? []);
+    const migrations = changes.flatMap((change) => projectResourcePathMigrations(resources, projectWorkspace!.rootPath, change.sourcePath, change.targetPath));
+    if (!migrations.length) return;
+    await Promise.all(migrations.map((migration) => onMarkdownFileMoved?.(migration.sourceAbsolutePath, migration.targetFile.path)));
+    applyPathMigrations(migrations, graphMessage);
+  }
+
+  function applyPathMigrations(migrations: ProjectFilePathMigration[], graphMessage: string) {
+    const nextCurrentFile = migrations.reduce((current, migration) => migrateCurrentProjectFileRef(current, migration), fileRef);
+    if (nextCurrentFile !== fileRef) {
+      setFileRef(nextCurrentFile);
+      setFileName(nextCurrentFile?.name || "");
+    }
+    setRecentFiles((current) => migrations.reduce((files, migration) => migrateRecentProjectFiles(files, migration), current));
+    for (const migration of migrations) {
+      const detachedWindow = detachedMarkdownWindows.find((window) => window.file.path === migration.sourceAbsolutePath);
+      if (detachedWindow) onDetachedMarkdownWindowMoved?.(detachedWindow.file, migration.targetFile);
+      const detachedHtmlWindow = detachedHtmlWindows.find((window) => window.file.path === migration.sourceAbsolutePath);
+      if (detachedHtmlWindow) onDetachedHtmlWindowMoved?.(detachedHtmlWindow.file, migration.targetFile);
+      const detachedImageWindow = detachedImageWindows.find((window) => window.file.path === migration.sourceAbsolutePath);
+      if (detachedImageWindow) onDetachedImageWindowMoved?.(detachedImageWindow.file, migration.targetFile);
+    }
+    setDetachedMarkdownWindows((current) => migrations.reduce((windows, migration) => migrateDetachedMarkdownWindows(windows, migration), current));
+    setDetachedHtmlWindows((current) => migrations.reduce((windows, migration) => migrateDetachedHtmlWindows(windows, migration), current));
+    setDetachedImageWindows((current) => migrations.reduce((windows, migration) => migrateDetachedImageWindows(windows, migration), current));
+    const updates = migrations.flatMap((migration) => projectFileActionUpdates(graph, migration));
+    if (updates.length) {
+      applyEditorCommand({
+        type: "graph.updateNodeActions",
+        updates,
+        message: graphMessage,
+        source: "api"
+      });
+    }
+  }
+
+  function detachDeletedCurrentFile(paths: string[]) {
+    const currentPath = fileRef?.path;
+    if (!currentPath || !paths.some((path) => runtimePathInsideOrSame(currentPath, path))) return;
+    setFileRef({ name: fileRef.name });
+    setStatus(`${fileRef.name} 已从磁盘移除；内容已保留，下次保存将另存为。`);
+  }
+
+  return {
+    copyProjectResources,
+    createProjectDirectory,
+    createProjectFile,
+    deleteProjectResources,
+    importProjectResources,
+    moveProjectFile,
+    moveProjectResources,
+    renameProjectResource,
+    showProjectResourceInFileManager
+  };
+}
+
+function projectMutationStatus(results: readonly { status: string }[], verb: string) {
+  const changed = results.filter((item) => item.status === "moved" || item.status === "copied" || item.status === "imported").length;
+  const skipped = results.filter((item) => item.status === "exists" || item.status === "noop").length;
+  if (changed && skipped) return `已${verb} ${changed} 项，跳过 ${skipped} 项。`;
+  if (changed) return `已${verb} ${changed} 项。`;
+  if (skipped) return `${skipped} 项未${verb}，目标位置已存在或未变化。`;
+  return `没有可${verb}的项目资源。`;
+}
+
+function runtimePathInsideOrSame(path: string, rootPath: string) {
+  const resource = normalizeRuntimePath(path);
+  const root = normalizeRuntimePath(rootPath);
+  return resource === root || resource.startsWith(`${root}/`);
+}
+
+function normalizeRuntimePath(value: string) {
+  return value.trim().replaceAll("\\", "/").replace(/\/+$/, "");
 }

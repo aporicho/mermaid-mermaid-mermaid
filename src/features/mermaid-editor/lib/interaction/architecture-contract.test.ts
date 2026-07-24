@@ -680,11 +680,12 @@ describe("interaction architecture contract", () => {
     const editor = readProjectFile("src/features/mermaid-editor/components/mermaid-editor.tsx");
     const canvas = readProjectFile("src/features/mermaid-editor/components/konva-canvas/konva-canvas-stage.tsx");
     const explorer = readProjectFile("src/features/mermaid-editor/components/explorer-panel.tsx");
+    const explorerContextMenu = readProjectFile("src/features/mermaid-editor/components/explorer-panel-context-menu.tsx");
 
     expect(editor).not.toContain("useDisableNativeContextMenu");
     expect(canvas).toContain("onContextMenu={preventNativeContextMenu}");
     expect(explorer).toContain("event.preventDefault();");
-    expect(explorer).toContain("<ContextMenuTrigger ref={triggerRef} asChild>");
+    expect(explorerContextMenu).toContain("<ContextMenuTrigger ref={triggerRef} asChild>");
     expect(explorer).toContain("new MouseEvent(\"contextmenu\"");
     expect(explorer).not.toContain("EditorPointMenu");
     expect(explorer).not.toContain("onContextMenu={(event)");

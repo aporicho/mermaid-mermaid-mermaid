@@ -98,26 +98,82 @@ describe("ExplorerPanel", () => {
     expect(buttonNamed("cover.png")?.dataset.resourceSupported).toBe("true");
     expect(buttonNamed("README.txt")?.dataset.resourceSupported).toBe("false");
 
-    act(() => buttonNamed("README.txt")?.click());
+    act(() => buttonNamed("README.txt")?.dispatchEvent(new MouseEvent("dblclick", { bubbles: true })));
     expect(onStatus).toHaveBeenCalledWith("暂不支持打开 README.txt。");
     expect(onOpenProjectFile).not.toHaveBeenCalled();
 
-    act(() => buttonNamed("note.md")?.click());
+    act(() => buttonNamed("note.md")?.dispatchEvent(new MouseEvent("dblclick", { bubbles: true })));
     expect(onOpenProjectFile).toHaveBeenCalledWith(markdownFile);
+  });
+
+  it("selects a resource on single click and opens it on double click", () => {
+    const onOpenProjectFile = vi.fn();
+    renderExplorer({ onOpenProjectFile });
+    const source = buttonNamed("note.md");
+
+    act(() => source?.click());
+    expect(source?.getAttribute("aria-selected")).toBe("true");
+    expect(onOpenProjectFile).not.toHaveBeenCalled();
+
+    act(() => source?.dispatchEvent(new MouseEvent("dblclick", { bubbles: true })));
+    expect(onOpenProjectFile).toHaveBeenCalledWith(markdownFile);
+  });
+
+  it("renames a selected resource when its name is clicked again", async () => {
+    const onRenameProjectResource = vi.fn();
+    renderExplorer({ onRenameProjectResource });
+    const source = buttonNamed("note.md");
+
+    act(() => source?.click());
+    await act(async () => {
+      source?.querySelector("[data-project-resource-name]")?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await new Promise((resolve) => window.setTimeout(resolve, 280));
+    });
+    expect(document.body.textContent).toContain("重命名 note.md");
+
+    const input = document.body.querySelector<HTMLInputElement>("#explorer-rename-resource-name");
+    act(() => {
+      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+      setter?.call(input, "renamed.md");
+      input?.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    act(() => buttonWithText("重命名")?.click());
+    expect(onRenameProjectResource).toHaveBeenCalledWith(workspace.resources?.find((resource) => resource.name === "note.md"), "renamed.md");
+  });
+
+  it("filters resources by name without removing matching ancestors", () => {
+    renderExplorer();
+    const input = container.querySelector<HTMLInputElement>('input[aria-label="搜索资源"]');
+
+    act(() => {
+      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+      setter?.call(input, "cover");
+      input?.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+
+    expect(buttonNamed("docs")).not.toBeNull();
+    expect(buttonNamed("cover.png")).not.toBeNull();
+    expect(buttonNamed("note.md")).toBeNull();
   });
 
   it("opens image resources in the image viewer from the tree or context menu", () => {
     const onOpenProjectImageWindow = vi.fn();
     renderExplorer({ onOpenProjectImageWindow });
 
-    act(() => buttonNamed("cover.png")?.click());
+    act(() => buttonNamed("cover.png")?.dispatchEvent(new MouseEvent("dblclick", { bubbles: true })));
     expect(onOpenProjectImageWindow).toHaveBeenCalledWith(imageFile);
 
     act(() => buttonNamed("cover.png")?.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, clientX: 20, clientY: 30 })));
     const menu = document.body.querySelector('[aria-label="cover.png 操作"]');
     expect([...(menu?.querySelectorAll('[role="menuitem"]') ?? [])].map((item) => item.textContent)).toEqual([
       "在图片查看器中打开",
-      "移动到…"
+      "移动到…",
+      "重命名",
+      "删除",
+      "复制",
+      "复制路径",
+      "复制相对路径",
+      "在 Finder 中显示"
     ]);
     act(() => buttonWithText("在图片查看器中打开")?.click());
     expect(onOpenProjectImageWindow).toHaveBeenCalledTimes(2);
@@ -131,7 +187,7 @@ describe("ExplorerPanel", () => {
     const header = container.querySelector("header");
     const labels = [...(header?.querySelectorAll<HTMLButtonElement>("button") ?? [])]
       .map((button) => button.getAttribute("aria-label"));
-    expect(labels).toEqual(["打开文件夹", "新建文件", "刷新文件夹"]);
+    expect(labels).toEqual(["打开文件夹", "新建文件", "新建文件夹", "刷新文件夹", "全部展开", "全部折叠"]);
     expect(container.querySelector('button[aria-label="关闭文件夹"]')).toBeNull();
 
     act(() => container.querySelector<HTMLButtonElement>('button[aria-label="打开文件夹"]')?.click());
@@ -146,7 +202,7 @@ describe("ExplorerPanel", () => {
     renderExplorer({ onOpenProjectHtmlWindow, onProjectDocumentPointerDrag });
     const source = buttonNamed("index.html");
 
-    act(() => source?.click());
+    act(() => source?.dispatchEvent(new MouseEvent("dblclick", { bubbles: true })));
     expect(onOpenProjectHtmlWindow).toHaveBeenCalledWith(htmlFile);
 
     vi.mocked(document.elementFromPoint).mockReturnValue(null);
@@ -234,7 +290,13 @@ describe("ExplorerPanel", () => {
     expect([...(menu?.querySelectorAll('[role="menuitem"]') ?? [])].map((item) => item.textContent)).toEqual([
       "打开",
       "在浮窗中打开",
-      "移动到…"
+      "移动到…",
+      "重命名",
+      "删除",
+      "复制",
+      "复制路径",
+      "复制相对路径",
+      "在 Finder 中显示"
     ]);
     expect(menu?.querySelectorAll('[role="separator"]')).toHaveLength(1);
 
@@ -263,7 +325,7 @@ describe("ExplorerPanel", () => {
       document.activeElement?.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }));
       await Promise.resolve();
     });
-    expect(document.activeElement?.textContent).toBe("打开");
+    expect([...(menu?.querySelectorAll('[role="menuitem"]') ?? [])]).toContain(document.activeElement);
 
     await act(async () => {
       document.activeElement?.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
@@ -285,8 +347,8 @@ describe("ExplorerPanel", () => {
   });
 
   it("moves any resource file through the context menu", async () => {
-    const onMoveProjectFile = vi.fn();
-    renderExplorer({ onMoveProjectFile });
+    const onMoveProjectResources = vi.fn();
+    renderExplorer({ onMoveProjectResources });
 
     act(() => buttonNamed("cover.png")?.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, clientX: 20, clientY: 30 })));
     const fileMenu = document.body.querySelector('[aria-label="cover.png 操作"]');
@@ -300,12 +362,12 @@ describe("ExplorerPanel", () => {
     const destinationList = document.body.querySelector('[aria-label="目标文件夹"]');
     act(() => [...(destinationList?.querySelectorAll<HTMLButtonElement>("button") ?? [])].find((button) => button.textContent?.includes("empty"))?.click());
     act(() => buttonWithText("移动")?.click());
-    expect(onMoveProjectFile).toHaveBeenCalledWith(workspace.resources?.find((resource) => resource.name === "cover.png"), "empty");
+    expect(onMoveProjectResources).toHaveBeenCalledWith([workspace.resources?.find((resource) => resource.name === "cover.png")], "empty");
   });
 
   it("drags any project file onto a directory and highlights the valid target", () => {
-    const onMoveProjectFile = vi.fn();
-    renderExplorer({ onMoveProjectFile });
+    const onMoveProjectResources = vi.fn();
+    renderExplorer({ onMoveProjectResources });
     const source = buttonNamed("cover.png");
     const target = buttonNamed("empty");
     vi.mocked(document.elementFromPoint).mockReturnValue(target);
@@ -318,14 +380,14 @@ describe("ExplorerPanel", () => {
     expect(target?.dataset.projectDropTarget).toBe("true");
 
     act(() => dispatchPointer(source, "pointerup", 12, 0));
-    expect(onMoveProjectFile).toHaveBeenCalledWith(workspace.resources?.find((resource) => resource.name === "cover.png"), "empty");
+    expect(onMoveProjectResources).toHaveBeenCalledWith([workspace.resources?.find((resource) => resource.name === "cover.png")], "empty");
     expect(target?.hasAttribute("data-project-drop-target")).toBe(false);
   });
 
   it("moves Markdown to a tree directory but keeps its canvas drag outside the explorer", () => {
-    const onMoveProjectFile = vi.fn();
+    const onMoveProjectResources = vi.fn();
     const onProjectDocumentPointerDrag = vi.fn();
-    renderExplorer({ onMoveProjectFile, onProjectDocumentPointerDrag });
+    renderExplorer({ onMoveProjectResources, onProjectDocumentPointerDrag });
     const source = buttonNamed("note.md");
     const rootTarget = buttonNamed("project");
     vi.mocked(document.elementFromPoint).mockReturnValue(rootTarget);
@@ -335,10 +397,10 @@ describe("ExplorerPanel", () => {
       dispatchPointer(source, "pointermove", 12, 0);
       dispatchPointer(source, "pointerup", 12, 0);
     });
-    expect(onMoveProjectFile).toHaveBeenCalledWith(workspace.resources?.find((resource) => resource.name === "note.md"), "");
+    expect(onMoveProjectResources).toHaveBeenCalledWith([workspace.resources?.find((resource) => resource.name === "note.md")], "");
     expect(onProjectDocumentPointerDrag).not.toHaveBeenCalled();
 
-    onMoveProjectFile.mockClear();
+    onMoveProjectResources.mockClear();
     vi.mocked(document.elementFromPoint).mockReturnValue(null);
     act(() => {
       dispatchPointer(source, "pointerdown", 0, 0, 2);
@@ -349,7 +411,7 @@ describe("ExplorerPanel", () => {
     });
     expect(onProjectDocumentPointerDrag).toHaveBeenNthCalledWith(1, markdownFile, "markdown", { x: 12, y: 0 }, "move");
     expect(onProjectDocumentPointerDrag).toHaveBeenNthCalledWith(2, markdownFile, "markdown", { x: 18, y: 0 }, "cancel");
-    expect(onMoveProjectFile).toHaveBeenCalledWith(workspace.resources?.find((resource) => resource.name === "note.md"), "");
+    expect(onMoveProjectResources).toHaveBeenCalledWith([workspace.resources?.find((resource) => resource.name === "note.md")], "");
 
     onProjectDocumentPointerDrag.mockClear();
     vi.mocked(document.elementFromPoint).mockReturnValue(null);
@@ -492,7 +554,14 @@ describe("ExplorerPanel", () => {
     onOpenProject = vi.fn(),
     onRefreshProject = vi.fn(),
     onCreateProjectFile = vi.fn(),
+    onCreateProjectDirectory = vi.fn(),
+    onRenameProjectResource = vi.fn(),
     onMoveProjectFile = vi.fn(),
+    onMoveProjectResources = vi.fn(),
+    onCopyProjectResources = vi.fn(),
+    onImportProjectResources = vi.fn(),
+    onDeleteProjectResources = vi.fn(),
+    onShowProjectResourceInFileManager = vi.fn(),
     onOpenProjectMarkdownWindow = vi.fn(),
     onOpenProjectHtmlWindow = vi.fn(),
     onOpenProjectImageWindow = vi.fn(),
@@ -507,7 +576,14 @@ describe("ExplorerPanel", () => {
     onOpenProject?: () => void;
     onRefreshProject?: () => void;
     onCreateProjectFile?: (request: { directoryPath: string; fileName: string; kind: "markdown" | "mermaid" | "csv" | "html" }) => void;
+    onCreateProjectDirectory?: (request: { directoryPath: string; directoryName: string }) => void;
+    onRenameProjectResource?: (resource: ProjectResourceEntry, name: string) => void;
     onMoveProjectFile?: (file: ProjectResourceEntry, targetDirectoryPath: string) => void;
+    onMoveProjectResources?: (resources: ProjectResourceEntry[], targetDirectoryPath: string) => void;
+    onCopyProjectResources?: (resources: ProjectResourceEntry[], targetDirectoryPath: string) => void;
+    onImportProjectResources?: (externalPaths: string[], targetDirectoryPath: string) => void;
+    onDeleteProjectResources?: (resources: ProjectResourceEntry[]) => void;
+    onShowProjectResourceInFileManager?: (resource: ProjectResourceEntry) => void;
     onOpenProjectMarkdownWindow?: (file: ProjectFileEntry) => void;
     onOpenProjectHtmlWindow?: (file: ProjectFileEntry) => void;
     onOpenProjectImageWindow?: (file: ProjectFileEntry) => void;
@@ -544,7 +620,14 @@ describe("ExplorerPanel", () => {
             onOpenProjectHtmlWindow={onOpenProjectHtmlWindow}
             onOpenProjectImageWindow={onOpenProjectImageWindow}
             onCreateProjectFile={onCreateProjectFile}
+            onCreateProjectDirectory={onCreateProjectDirectory}
+            onRenameProjectResource={onRenameProjectResource}
             onMoveProjectFile={onMoveProjectFile}
+            onMoveProjectResources={onMoveProjectResources}
+            onCopyProjectResources={onCopyProjectResources}
+            onImportProjectResources={onImportProjectResources}
+            onDeleteProjectResources={onDeleteProjectResources}
+            onShowProjectResourceInFileManager={onShowProjectResourceInFileManager}
             onProjectDocumentPointerDrag={onProjectDocumentPointerDrag}
             onStatus={onStatus}
           />

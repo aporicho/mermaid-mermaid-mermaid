@@ -73,9 +73,10 @@ describe("shadcn foundation contract", () => {
   it("routes finite business choices through the shadcn toggle group", () => {
     const projectDocumentDialog = readProjectFile("src/features/mermaid-editor/components/project-document-node-dialog.tsx");
     const explorer = readProjectFile("src/features/mermaid-editor/components/explorer-panel.tsx");
+    const explorerDialogs = readProjectFile("src/features/mermaid-editor/components/explorer-panel-dialogs.tsx");
     const editorToolbar = readProjectFile("src/features/mermaid-editor/components/editor-ui/toolbar.tsx");
 
-    for (const source of [projectDocumentDialog, explorer]) {
+    for (const source of [projectDocumentDialog, explorerDialogs]) {
       expect(source).toContain('from "@/components/ui/toggle-group"');
       expect(source).toContain('type="single"');
       expect(source).toContain("if (value)");

@@ -3,10 +3,9 @@ import type { DocumentKind } from "@/features/mermaid-editor/lib/document-kind";
 import type { EmbeddedBrowserLogicalRect } from "@/features/mermaid-editor/lib/embedded-browser-rect";
 import type { RuntimeLinkPreviewRequest, RuntimeLinkPreviewResult } from "@/features/mermaid-editor/lib/editor-runtime/link-preview-types";
 import type { RuntimeCsvFileOperations } from "@/features/mermaid-editor/lib/editor-runtime/csv-file-types";
-import type { RuntimeCreateProjectFileRequest, RuntimeCreateProjectFileResult, RuntimeMoveProjectFileRequest, RuntimeMoveProjectFileResult } from "@/features/mermaid-editor/lib/editor-runtime/project-file-types";
+import type { RuntimeProjectFileOperations } from "@/features/mermaid-editor/lib/editor-runtime/project-file-types";
 import type { RuntimeDesktopWindowOperations } from "@/features/mermaid-editor/lib/editor-runtime/desktop-window-types";
 import type { RuntimeProjectFileWatchOperations } from "@/features/mermaid-editor/lib/editor-runtime/project-file-watch-types";
-import type { ProjectWorkspace } from "@/features/mermaid-editor/lib/project-workspace";
 export type { RuntimeLinkPreviewRequest, RuntimeLinkPreviewResult } from "@/features/mermaid-editor/lib/editor-runtime/link-preview-types";
 
 export type EditorDraftState = Record<string, unknown>;
@@ -57,11 +56,6 @@ export type RuntimeSaveFileResult =
   | {
       status: "cancelled";
     };
-
-export type RuntimeCreateProjectDocumentResult =
-  | { status: "created"; file: RuntimeFileRef; text: string }
-  | { status: "exists"; file: RuntimeFileRef }
-  | { status: "unsupported"; message: string };
 
 export type RuntimeFileOpenRequest = {
   name: string;
@@ -131,19 +125,6 @@ export type RuntimeTerminalExitEvent = {
   exitCode: number | null;
 };
 
-export type RuntimeProjectFolderResult =
-  | {
-      status: "opened";
-      workspace: ProjectWorkspace;
-    }
-  | {
-      status: "cancelled";
-    }
-  | {
-      status: "unsupported";
-      message: string;
-    };
-
 export type RuntimeEmbeddedBrowserHandle = {
   close: () => Promise<void>;
   hide: () => Promise<void>;
@@ -181,7 +162,7 @@ export type RuntimeEmbeddedBrowserResult =
 
 export type EditorRuntimeHost = "web" | "electron";
 
-export type EditorRuntime = RuntimeAgentOperations & RuntimeCsvFileOperations & RuntimeDesktopWindowOperations & RuntimeProjectFileWatchOperations & import("@/features/mermaid-editor/lib/editor-runtime/markdown-fold-types").RuntimeMarkdownFoldOperations & {
+export type EditorRuntime = RuntimeAgentOperations & RuntimeCsvFileOperations & RuntimeDesktopWindowOperations & RuntimeProjectFileOperations & RuntimeProjectFileWatchOperations & import("@/features/mermaid-editor/lib/editor-runtime/markdown-fold-types").RuntimeMarkdownFoldOperations & {
   kind: "web" | "desktop";
   host: EditorRuntimeHost;
   openExternalUrl: (url: string) => void;
@@ -204,16 +185,11 @@ export type EditorRuntime = RuntimeAgentOperations & RuntimeCsvFileOperations & 
     options?: { overwrite?: boolean }
   ) => Promise<RuntimeSaveFileResult>;
   saveFileAs: (documentText: string, suggestedName: string, documentKind: DocumentKind) => Promise<RuntimeSaveFileResult>;
-  createProjectDocument: (request: { rootPath: string; fileName: string; documentKind: DocumentKind; text: string }) => Promise<RuntimeCreateProjectDocumentResult>;
-  createProjectFile: (request: RuntimeCreateProjectFileRequest) => Promise<RuntimeCreateProjectFileResult>;
-  moveProjectFile: (request: RuntimeMoveProjectFileRequest) => Promise<RuntimeMoveProjectFileResult>;
   pickImageAsset: (file: RuntimeFileRef | null) => Promise<RuntimeImageAssetResult>;
   importImageAssetPath: (file: RuntimeFileRef | null, path: string) => Promise<RuntimeImageAssetResult>;
   importImageAssetFile: (file: RuntimeFileRef | null, image: File) => Promise<RuntimeImageAssetResult>;
   resolveImageAssetSrc: (file: RuntimeFileRef | null, src: string) => Promise<string>;
   resolveLinkPreview: (request: RuntimeLinkPreviewRequest) => Promise<RuntimeLinkPreviewResult>;
-  openProjectFolder: () => Promise<RuntimeProjectFolderResult>;
-  readProjectFolder: (rootPath: string) => Promise<RuntimeProjectFolderResult>;
   takePendingOpenFiles: () => Promise<RuntimeFileOpenRequest[]>;
   listenForExternalFileOpen: (handler: (files: RuntimeFileOpenRequest[]) => void) => Promise<() => void>;
   listenForFileDrops: (handler: (request: RuntimeFileDropRequest) => void) => Promise<() => void>;

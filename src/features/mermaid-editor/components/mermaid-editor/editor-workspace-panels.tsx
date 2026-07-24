@@ -1,11 +1,12 @@
 import { Suspense, lazy } from "react";
 
-import { ExplorerPanel } from "@/features/mermaid-editor/components/explorer-panel";
+import type { ExplorerResourceStatus } from "@/features/mermaid-editor/components/explorer-panel";
 import type { AgentController } from "@/features/mermaid-editor/components/agent/use-agent-session";
 import { WorkspaceFloatingWindow } from "@/features/mermaid-editor/components/floating-chrome";
 import { InspectorPanel } from "@/features/mermaid-editor/components/inspector-panel";
 import { DetachedWorkspaceWindows } from "@/features/mermaid-editor/components/mermaid-editor/detached-workspace-windows";
 import { AgentTerminalWorkspacePanels } from "@/features/mermaid-editor/components/mermaid-editor/agent-terminal-workspace-panels";
+import { ExplorerWorkspaceWindow } from "@/features/mermaid-editor/components/mermaid-editor/explorer-workspace-window";
 import { NativeWebWorkspaceWindows } from "@/features/mermaid-editor/components/mermaid-editor/native-web-workspace-windows";
 import type { DocumentKind } from "@/features/mermaid-editor/lib/document-kind";
 import { EDITOR_CHROME_CLASSES } from "@/features/mermaid-editor/lib/editor-chrome";
@@ -46,6 +47,7 @@ type EditorWorkspacePanelsProps = {
   selection: Selection;
   projectWorkspace: ProjectWorkspace | null;
   projectFiles: ProjectFileEntry[];
+  projectResourceStatuses: Record<string, ExplorerResourceStatus | undefined>;
   explorerTreeState: ExplorerWorkspaceTreeState | null;
   onExplorerTreeStateChange: (state: Omit<ExplorerWorkspaceTreeState, "rootPath" | "updatedAt">) => void;
   projectBusy: boolean;
@@ -74,7 +76,15 @@ type EditorWorkspacePanelsProps = {
   previewTheme: (themeId: EditorThemeId, customTheme: EditorTheme | null) => void;
   openProjectFolder: () => void | Promise<unknown>;
   refreshProjectWorkspace: () => void | Promise<unknown>;
-  createProjectFile: (request: { directoryPath: string; fileName: string; kind: RuntimeProjectFileKind }) => void | Promise<unknown>; moveProjectFile: (source: ProjectResourceEntry, targetDirectoryPath: string) => void | Promise<unknown>;
+  createProjectFile: (request: { directoryPath: string; fileName: string; kind: RuntimeProjectFileKind }) => void | Promise<unknown>;
+  createProjectDirectory: (request: { directoryPath: string; directoryName: string }) => void | Promise<unknown>;
+  renameProjectResource: (resource: ProjectResourceEntry, name: string) => void | Promise<unknown>;
+  moveProjectFile: (source: ProjectResourceEntry, targetDirectoryPath: string) => void | Promise<unknown>;
+  moveProjectResources: (resources: ProjectResourceEntry[], targetDirectoryPath: string) => void | Promise<unknown>;
+  copyProjectResources: (resources: ProjectResourceEntry[], targetDirectoryPath: string) => void | Promise<unknown>;
+  importProjectResources: (externalPaths: string[], targetDirectoryPath: string) => void | Promise<unknown>;
+  deleteProjectResources: (resources: ProjectResourceEntry[]) => void | Promise<unknown>;
+  showProjectResourceInFileManager: (resource: ProjectResourceEntry) => void | Promise<unknown>;
   openProjectFile: (file: ProjectFileEntry) => void | Promise<unknown>;
   openProjectMarkdownWindow: (file: ProjectFileEntry) => void | Promise<unknown>;
   openProjectHtmlWindow: (file: ProjectFileEntry) => void | Promise<unknown>; openProjectImageWindow: (file: ProjectFileEntry) => void | Promise<unknown>;
@@ -96,7 +106,7 @@ export function EditorWorkspacePanels({
   agentOpen, agentController, terminalOpen, themeSettingsOpen,
   activeWorkspacePanel, fullscreenWorkspacePanel, graph,
   selection, projectWorkspace,
-  projectFiles, explorerTreeState,
+  projectFiles, projectResourceStatuses, explorerTreeState,
   onExplorerTreeStateChange, projectBusy,
   fileRef,
   terminalCwd, terminalContextKey,
@@ -118,7 +128,9 @@ export function EditorWorkspacePanels({
   previewTheme,
   openProjectFolder,
   refreshProjectWorkspace,
-  createProjectFile, moveProjectFile,
+  createProjectFile, createProjectDirectory, renameProjectResource,
+  moveProjectFile, moveProjectResources, copyProjectResources, importProjectResources,
+  deleteProjectResources, showProjectResourceInFileManager,
   openProjectFile,
   openProjectMarkdownWindow,
   openProjectHtmlWindow, openProjectImageWindow,
@@ -136,42 +148,32 @@ export function EditorWorkspacePanels({
 }: EditorWorkspacePanelsProps) {
   return (
     <div className={cn("pointer-events-none absolute inset-0 isolate", fullscreenWorkspacePanel ? EDITOR_CHROME_CLASSES.fullscreenWorkspaceLayer : EDITOR_CHROME_CLASSES.workspaceLayer)} data-layer-group="workspace-windows" data-workspace-fullscreen-panel={fullscreenWorkspacePanel || undefined}>
-      <WorkspaceFloatingWindow
+      <ExplorerWorkspaceWindow
         open={!leftCollapsed}
-        placement="left-panel"
-        panelId="explorer"
+        runtimeKind={runtime.kind}
         titlebarAutoHide={workspaceTitlebarAutoHide}
         active={activeWorkspacePanel === "explorer"}
         stackIndex={workspacePanelStackPosition("explorer")}
         onFocusPanel={() => bringWorkspacePanelToFront("explorer")}
-        defaultSize={WORKSPACE_PANEL_DEFAULT_SIZES.explorer}
-        minSize={WORKSPACE_PANEL_MIN_SIZES.explorer}
-        allowFullscreen={false}
         windowState={workspacePanelWindowState("explorer")}
         onWindowStateChange={(state) => setWorkspacePanelWindowState("explorer", state)}
         onClose={() => closeWorkspacePanel("explorer")}
-        closeLabel="关闭资源管理器"
-        tooltipSide="right"
-        className={cn(EDITOR_CHROME_CLASSES.sidePanel, "relative")}
-      >
-        <ExplorerPanel
-          runtimeKind={runtime.kind}
-          projectWorkspace={projectWorkspace}
-          projectFiles={projectFiles}
-          treeState={explorerTreeState}
-          onTreeStateChange={onExplorerTreeStateChange}
-          currentFileRef={fileRef}
-          projectBusy={projectBusy}
-          onOpenProject={() => void openProjectFolder()}
-          onRefreshProject={() => void refreshProjectWorkspace()}
-          onCreateProjectFile={(request) => void createProjectFile(request)} onMoveProjectFile={(source, targetDirectoryPath) => void moveProjectFile(source, targetDirectoryPath)}
-          onOpenProjectFile={(file) => void openProjectFile(file)}
-          onOpenProjectMarkdownWindow={(file) => void openProjectMarkdownWindow(file)}
-          onOpenProjectHtmlWindow={(file) => void openProjectHtmlWindow(file)} onOpenProjectImageWindow={(file) => void openProjectImageWindow(file)}
-          onProjectDocumentPointerDrag={onProjectDocumentPointerDrag}
-          onStatus={onStatus}
-        />
-      </WorkspaceFloatingWindow>
+        projectWorkspace={projectWorkspace} projectFiles={projectFiles}
+        resourceStatuses={projectResourceStatuses} treeState={explorerTreeState}
+        onTreeStateChange={onExplorerTreeStateChange}
+        currentFileRef={fileRef} projectBusy={projectBusy}
+        onOpenProject={openProjectFolder} onRefreshProject={refreshProjectWorkspace}
+        onCreateProjectFile={createProjectFile} onCreateProjectDirectory={createProjectDirectory}
+        onRenameProjectResource={renameProjectResource}
+        onMoveProjectFile={moveProjectFile} onMoveProjectResources={moveProjectResources}
+        onCopyProjectResources={copyProjectResources} onImportProjectResources={importProjectResources}
+        onDeleteProjectResources={deleteProjectResources}
+        onShowProjectResourceInFileManager={showProjectResourceInFileManager}
+        onOpenProjectFile={openProjectFile} onOpenProjectMarkdownWindow={openProjectMarkdownWindow}
+        onOpenProjectHtmlWindow={openProjectHtmlWindow} onOpenProjectImageWindow={openProjectImageWindow}
+        onProjectDocumentPointerDrag={onProjectDocumentPointerDrag}
+        onStatus={onStatus}
+      />
       <AgentTerminalWorkspacePanels
         runtime={runtime}
         agentOpen={agentOpen}

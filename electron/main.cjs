@@ -12,7 +12,7 @@ const {
   resolveImageAssetPath
 } = require("./image-assets.cjs");
 const { resolveLinkPreview } = require("./link-preview.cjs");
-const { createProjectDocument, createProjectFile, createProjectTextFile, moveProjectFile } = require("./project-documents.cjs");
+const { registerProjectDocumentIpc } = require("./project-documents-ipc.cjs");
 const { readProjectCsvFile, writeProjectCsvFile } = require("./project-csv.cjs");
 const {
   moveProjectMarkdownFoldState,
@@ -246,10 +246,7 @@ function registerIpc() {
   ipcMain.handle("mmm:file:open-path", (_event, filePath) => openFilePath(filePath));
   ipcMain.handle("mmm:file:save", (_event, request) => saveFilePath(request?.path, request?.text, { expectedRevision: request?.expectedRevision, overwrite: request?.overwrite === true }));
   ipcMain.handle("mmm:file:save-as", (event, request) => saveFileDialog(BrowserWindow.fromWebContents(event.sender), request?.suggestedName, request?.text));
-  ipcMain.handle("mmm:project:create-document", (_event, request) => createProjectDocument(request));
-  ipcMain.handle("mmm:project:create-text-file", (_event, request) => createProjectTextFile(request));
-  ipcMain.handle("mmm:project:create-file", (_event, request) => createProjectFile(request));
-  ipcMain.handle("mmm:project:move-file", (_event, request) => moveProjectFile(request));
+  registerProjectDocumentIpc({ ipcMain, shell });
   ipcMain.handle("mmm:markdown-folds:read", (_event, request) => readProjectMarkdownFoldState(request));
   ipcMain.handle("mmm:markdown-folds:write", (_event, request) => writeProjectMarkdownFoldState(request));
   ipcMain.handle("mmm:markdown-folds:move", (_event, request) => moveProjectMarkdownFoldState(request));

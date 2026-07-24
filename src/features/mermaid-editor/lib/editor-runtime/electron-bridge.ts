@@ -15,7 +15,23 @@ import type {
 } from "@/features/mermaid-editor/lib/editor-runtime/types";
 import type { RuntimeDesktopWindowAction } from "@/features/mermaid-editor/lib/editor-runtime/desktop-window-types";
 import type { ElectronMonitoringBridge } from "@/features/mermaid-editor/lib/editor-runtime/electron-monitoring-bridge-types";
-import type { RuntimeCreateProjectFileRequest, RuntimeCreateProjectFileResult, RuntimeMoveProjectFileRequest, RuntimeMoveProjectFileResult } from "@/features/mermaid-editor/lib/editor-runtime/project-file-types";
+import type {
+  RuntimeCreateProjectDirectoryRequest,
+  RuntimeCreateProjectDirectoryResult,
+  RuntimeCreateProjectFileRequest,
+  RuntimeCreateProjectFileResult,
+  RuntimeDeleteProjectResourcesRequest,
+  RuntimeDeleteProjectResourcesResult,
+  RuntimeImportProjectResourcesRequest,
+  RuntimeMoveProjectFileRequest,
+  RuntimeMoveProjectFileResult,
+  RuntimeProjectResourceMutationRequest,
+  RuntimeProjectResourceMutationResult,
+  RuntimeRenameProjectResourceRequest,
+  RuntimeRenameProjectResourceResult,
+  RuntimeShowProjectResourceRequest,
+  RuntimeShowProjectResourceResult
+} from "@/features/mermaid-editor/lib/editor-runtime/project-file-types";
 import type { ElectronMarkdownFoldBridge } from "@/features/mermaid-editor/lib/editor-runtime/electron-markdown-fold";
 import type { ProjectWorkspace } from "@/features/mermaid-editor/lib/project-workspace";
 import type {
@@ -75,6 +91,13 @@ export type ElectronBridge = ElectronMarkdownFoldBridge & ElectronMonitoringBrid
   createProjectTextFile: (request: { rootPath: string; fileName: string; kind: "csv"; text: string }) => Promise<RuntimeCreateProjectTextFileResult>;
   createProjectFile: (request: RuntimeCreateProjectFileRequest) => Promise<RuntimeCreateProjectFileResult>;
   moveProjectFile: (request: RuntimeMoveProjectFileRequest) => Promise<RuntimeMoveProjectFileResult>;
+  createProjectDirectory: (request: RuntimeCreateProjectDirectoryRequest) => Promise<RuntimeCreateProjectDirectoryResult>;
+  renameProjectResource: (request: RuntimeRenameProjectResourceRequest) => Promise<RuntimeRenameProjectResourceResult>;
+  moveProjectResources: (request: RuntimeProjectResourceMutationRequest) => Promise<RuntimeProjectResourceMutationResult>;
+  copyProjectResources: (request: RuntimeProjectResourceMutationRequest) => Promise<RuntimeProjectResourceMutationResult>;
+  importProjectResources: (request: RuntimeImportProjectResourcesRequest) => Promise<RuntimeProjectResourceMutationResult>;
+  deleteProjectResources: (request: RuntimeDeleteProjectResourcesRequest) => Promise<RuntimeDeleteProjectResourcesResult>;
+  showProjectResourceInFileManager: (request: RuntimeShowProjectResourceRequest) => Promise<RuntimeShowProjectResourceResult>;
   readCsvFile: (request: { rootPath: string; path: string }) => Promise<RuntimeCsvFileSnapshot>;
   writeCsvFile: (request: { rootPath: string; path: string; text: string; expectedRevision: string }) => Promise<RuntimeWriteCsvFileResult>;
   pickImageAsset: (documentPath: string | null) => Promise<ElectronImageAsset | null>;

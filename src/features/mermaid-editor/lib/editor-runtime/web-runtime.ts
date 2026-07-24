@@ -120,6 +120,13 @@ export function createWebRuntime(): EditorRuntime {
     },
     async createProjectFile() { return { status: "unsupported", message: "网页版无法在项目文件夹中创建文件，请使用 Electron 桌面版。" }; },
     async moveProjectFile() { return { status: "unsupported", message: "网页版无法移动项目文件，请使用 Electron 桌面版。" }; },
+    async createProjectDirectory() { return { status: "unsupported", message: "网页版无法在项目文件夹中创建目录，请使用 Electron 桌面版。" }; },
+    async renameProjectResource() { return { status: "unsupported", message: "网页版无法重命名项目资源，请使用 Electron 桌面版。" }; },
+    async moveProjectResources() { return { status: "unsupported", message: "网页版无法移动项目资源，请使用 Electron 桌面版。" }; },
+    async copyProjectResources() { return { status: "unsupported", message: "网页版无法复制项目资源，请使用 Electron 桌面版。" }; },
+    async importProjectResources() { return { status: "unsupported", message: "网页版无法导入项目资源，请使用 Electron 桌面版。" }; },
+    async deleteProjectResources() { return { status: "unsupported", message: "网页版无法删除项目资源，请使用 Electron 桌面版。" }; },
+    async showProjectResourceInFileManager() { return { status: "unsupported", message: "网页版无法在系统文件管理器中显示项目资源，请使用 Electron 桌面版。" }; },
     async pickImageAsset() {
       return {
         status: "unsupported",

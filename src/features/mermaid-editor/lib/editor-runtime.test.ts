@@ -46,6 +46,35 @@ function electronBridge(): ElectronBridge {
       file: { name: "notes.md", path: "/tmp/archive/notes.md" },
       sourcePath: "/tmp/docs/notes.md"
     })),
+    createProjectDirectory: vi.fn(() => Promise.resolve({
+      status: "created" as const,
+      resource: { kind: "directory" as const, name: "docs", path: "/tmp/docs", relativePath: "docs" }
+    })),
+    renameProjectResource: vi.fn(() => Promise.resolve({
+      status: "renamed" as const,
+      resource: { kind: "file" as const, name: "renamed.md", path: "/tmp/docs/renamed.md", relativePath: "docs/renamed.md" },
+      sourcePath: "/tmp/docs/notes.md"
+    })),
+    moveProjectResources: vi.fn(() => Promise.resolve({
+      status: "completed" as const,
+      results: [{ status: "moved" as const, resource: { kind: "file" as const, name: "notes.md", path: "/tmp/archive/notes.md", relativePath: "archive/notes.md" }, sourcePath: "/tmp/docs/notes.md" }]
+    })),
+    copyProjectResources: vi.fn(() => Promise.resolve({
+      status: "completed" as const,
+      results: [{ status: "copied" as const, resource: { kind: "file" as const, name: "notes.md", path: "/tmp/archive/notes.md", relativePath: "archive/notes.md" }, sourcePath: "/tmp/docs/notes.md" }]
+    })),
+    importProjectResources: vi.fn(() => Promise.resolve({
+      status: "completed" as const,
+      results: [{ status: "imported" as const, resource: { kind: "file" as const, name: "notes.md", path: "/tmp/notes.md", relativePath: "notes.md" }, sourcePath: "/external/notes.md" }]
+    })),
+    deleteProjectResources: vi.fn(() => Promise.resolve({
+      status: "deleted" as const,
+      resources: [{ kind: "file" as const, name: "notes.md", path: "/tmp/docs/notes.md", relativePath: "docs/notes.md" }]
+    })),
+    showProjectResourceInFileManager: vi.fn(() => Promise.resolve({
+      status: "shown" as const,
+      resource: { kind: "file" as const, name: "notes.md", path: "/tmp/docs/notes.md", relativePath: "docs/notes.md" }
+    })),
     readMarkdownFoldState: vi.fn(() => Promise.resolve(null)),
     writeMarkdownFoldState: vi.fn(() => Promise.resolve({ status: "saved" as const })),
     moveMarkdownFoldState: vi.fn(() => Promise.resolve({ status: "moved" as const })),
@@ -158,11 +187,32 @@ describe("createEditorRuntime", () => {
     expect(bridge.moveProjectFile).toHaveBeenCalledWith(moveRequest);
   });
 
+  it("forwards project resource operations to Electron", async () => {
+    const bridge = electronBridge();
+    window.mmmElectron = bridge;
+    const runtime = createEditorRuntime();
+
+    await expect(runtime.createProjectDirectory({ rootPath: "/tmp", directoryPath: "", directoryName: "docs" })).resolves.toMatchObject({ status: "created" });
+    await expect(runtime.renameProjectResource({ rootPath: "/tmp", sourcePath: "/tmp/docs/notes.md", name: "renamed.md" })).resolves.toMatchObject({ status: "renamed" });
+    await expect(runtime.moveProjectResources({ rootPath: "/tmp", sourcePaths: ["/tmp/docs/notes.md"], targetDirectoryPath: "/tmp/archive" })).resolves.toMatchObject({ status: "completed" });
+    await expect(runtime.copyProjectResources({ rootPath: "/tmp", sourcePaths: ["/tmp/docs/notes.md"], targetDirectoryPath: "/tmp/archive" })).resolves.toMatchObject({ status: "completed" });
+    await expect(runtime.importProjectResources({ rootPath: "/tmp", externalPaths: ["/external/notes.md"], targetDirectoryPath: "" })).resolves.toMatchObject({ status: "completed" });
+    await expect(runtime.deleteProjectResources({ rootPath: "/tmp", sourcePaths: ["/tmp/docs/notes.md"] })).resolves.toMatchObject({ status: "deleted" });
+    await expect(runtime.showProjectResourceInFileManager({ rootPath: "/tmp", path: "/tmp/docs/notes.md" })).resolves.toMatchObject({ status: "shown" });
+  });
+
   it("keeps generic project file mutation unsupported on the web", async () => {
     const runtime = createEditorRuntime();
 
     await expect(runtime.createProjectFile({ rootPath: "/tmp", directoryPath: "", fileName: "notes.md", kind: "markdown", text: "" })).resolves.toMatchObject({ status: "unsupported" });
     await expect(runtime.moveProjectFile({ rootPath: "/tmp", sourcePath: "notes.md", targetDirectoryPath: "archive" })).resolves.toMatchObject({ status: "unsupported" });
+    await expect(runtime.createProjectDirectory({ rootPath: "/tmp", directoryPath: "", directoryName: "docs" })).resolves.toMatchObject({ status: "unsupported" });
+    await expect(runtime.renameProjectResource({ rootPath: "/tmp", sourcePath: "notes.md", name: "renamed.md" })).resolves.toMatchObject({ status: "unsupported" });
+    await expect(runtime.moveProjectResources({ rootPath: "/tmp", sourcePaths: ["notes.md"], targetDirectoryPath: "archive" })).resolves.toMatchObject({ status: "unsupported" });
+    await expect(runtime.copyProjectResources({ rootPath: "/tmp", sourcePaths: ["notes.md"], targetDirectoryPath: "archive" })).resolves.toMatchObject({ status: "unsupported" });
+    await expect(runtime.importProjectResources({ rootPath: "/tmp", externalPaths: ["/tmp/notes.md"], targetDirectoryPath: "" })).resolves.toMatchObject({ status: "unsupported" });
+    await expect(runtime.deleteProjectResources({ rootPath: "/tmp", sourcePaths: ["notes.md"] })).resolves.toMatchObject({ status: "unsupported" });
+    await expect(runtime.showProjectResourceInFileManager({ rootPath: "/tmp", path: "notes.md" })).resolves.toMatchObject({ status: "unsupported" });
   });
 
   it("forwards Markdown fold reads, writes and moves to Electron", async () => {

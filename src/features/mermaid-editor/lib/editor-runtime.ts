@@ -22,7 +22,6 @@ export type {
   RuntimeLinkPreviewRequest,
   RuntimeLinkPreviewResult,
   RuntimeOpenFileResult,
-  RuntimeProjectFolderResult,
   RuntimeSaveFileResult,
   RuntimeSystemFont,
   RuntimeTerminalDataEvent,
@@ -34,13 +33,7 @@ export type {
 export type * from "@/features/mermaid-editor/lib/editor-runtime/agent-types";
 export type { RuntimeDesktopWindowAction } from "@/features/mermaid-editor/lib/editor-runtime/desktop-window-types";
 export type { RuntimeProjectFileChange, RuntimeProjectFileChangeBatch, RuntimeProjectFileWatchTargets } from "@/features/mermaid-editor/lib/editor-runtime/project-file-watch-types";
-export type {
-  RuntimeCreateProjectFileRequest,
-  RuntimeCreateProjectFileResult,
-  RuntimeMoveProjectFileRequest,
-  RuntimeMoveProjectFileResult,
-  RuntimeProjectFileKind
-} from "@/features/mermaid-editor/lib/editor-runtime/project-file-types";
+export type * from "@/features/mermaid-editor/lib/editor-runtime/project-file-types";
 export type {
   RuntimeCreateProjectTextFileResult,
   RuntimeCsvFileOperations,

@@ -115,6 +115,13 @@ export function createElectronRuntime(): EditorRuntime {
     },
     async createProjectFile(request) { return bridge.createProjectFile(request); },
     async moveProjectFile(request) { return bridge.moveProjectFile(request); },
+    async createProjectDirectory(request) { return bridge.createProjectDirectory(request); },
+    async renameProjectResource(request) { return bridge.renameProjectResource(request); },
+    async moveProjectResources(request) { return bridge.moveProjectResources(request); },
+    async copyProjectResources(request) { return bridge.copyProjectResources(request); },
+    async importProjectResources(request) { return bridge.importProjectResources(request); },
+    async deleteProjectResources(request) { return bridge.deleteProjectResources(request); },
+    async showProjectResourceInFileManager(request) { return bridge.showProjectResourceInFileManager(request); },
     async pickImageAsset(file) {
       if (!file?.path) return { status: "needs-document" };
       const asset = await bridge.pickImageAsset(file.path);

@@ -1,12 +1,27 @@
 import { createRequire } from "node:module";
-import { mkdir, mkdtemp, readFile, realpath, rm, symlink, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, realpath, rm, stat, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
 
 const require = createRequire(import.meta.url);
-const { createProjectDocument, createProjectFile, createProjectTextFile, moveProjectFile } = require("../../../../../electron/project-documents.cjs") as {
+const {
+  copyProjectResources,
+  createProjectDirectory,
+  createProjectDocument,
+  createProjectFile,
+  createProjectTextFile,
+  deleteProjectResources,
+  importProjectResources,
+  moveProjectFile,
+  moveProjectResources,
+  renameProjectResource
+} = require("../../../../../electron/project-documents.cjs") as {
+  createProjectDirectory: (request: Record<string, unknown>) => Promise<{
+    status: "created" | "exists";
+    resource: { kind: "directory"; name: string; path: string; relativePath: string };
+  }>;
   createProjectDocument: (request: Record<string, unknown>) => Promise<{
     status: "created" | "exists";
     file: { name: string; path: string };
@@ -26,6 +41,27 @@ const { createProjectDocument, createProjectFile, createProjectTextFile, movePro
     status: "moved" | "exists" | "noop";
     file: { name: string; path: string };
     sourcePath?: string;
+  }>;
+  renameProjectResource: (request: Record<string, unknown>) => Promise<{
+    status: "renamed" | "exists" | "noop";
+    resource: { kind: "file" | "directory"; name: string; path: string; relativePath: string };
+    sourcePath: string;
+  }>;
+  moveProjectResources: (request: Record<string, unknown>) => Promise<{
+    status: "completed";
+    results: { status: "moved" | "exists" | "noop"; resource: { kind: "file" | "directory"; name: string; path: string; relativePath: string }; sourcePath: string }[];
+  }>;
+  copyProjectResources: (request: Record<string, unknown>) => Promise<{
+    status: "completed";
+    results: { status: "copied" | "exists" | "noop"; resource: { kind: "file" | "directory"; name: string; path: string; relativePath: string }; sourcePath: string }[];
+  }>;
+  importProjectResources: (request: Record<string, unknown>) => Promise<{
+    status: "completed";
+    results: { status: "imported" | "exists" | "noop"; resource: { kind: "file" | "directory"; name: string; path: string; relativePath: string }; sourcePath: string }[];
+  }>;
+  deleteProjectResources: (request: Record<string, unknown>, options?: { trashItem?: (path: string) => Promise<void> }) => Promise<{
+    status: "deleted";
+    resources: { kind: "file" | "directory"; name: string; path: string; relativePath: string }[];
   }>;
 };
 
@@ -150,5 +186,85 @@ describe("Electron project document creation", () => {
     await expect(moveProjectFile({ rootPath, sourcePath: path.join(outsidePath, "outside.md"), targetDirectoryPath: "target" })).rejects.toMatchObject({ code: "permission_denied" });
     await expect(moveProjectFile({ rootPath, sourcePath: "target", targetDirectoryPath: "" })).rejects.toMatchObject({ code: "unsupported_type" });
     await expect(moveProjectFile({ rootPath, sourcePath: "linked.md", targetDirectoryPath: "target" })).rejects.toMatchObject({ code: "permission_denied" });
+  });
+
+  it("creates project directories once without overwriting", async () => {
+    const rootPath = await mkdtemp(path.join(tmpdir(), "mmm-project-document-"));
+    roots.push(rootPath);
+    await mkdir(path.join(rootPath, "docs"));
+
+    const created = await createProjectDirectory({ rootPath, directoryPath: "docs", directoryName: "drafts" });
+    expect(created).toMatchObject({ status: "created", resource: { kind: "directory", name: "drafts", relativePath: "docs/drafts" } });
+    expect((await stat(path.join(rootPath, "docs", "drafts"))).isDirectory()).toBe(true);
+    expect((await createProjectDirectory({ rootPath, directoryPath: "docs", directoryName: "drafts" })).status).toBe("exists");
+    await expect(createProjectDirectory({ rootPath, directoryPath: "docs", directoryName: "../escape" })).rejects.toMatchObject({ code: "unsupported_type" });
+  });
+
+  it("renames project files and directories without overwriting", async () => {
+    const rootPath = await mkdtemp(path.join(tmpdir(), "mmm-project-document-"));
+    roots.push(rootPath);
+    await mkdir(path.join(rootPath, "docs"));
+    await writeFile(path.join(rootPath, "docs", "notes.md"), "notes", "utf8");
+    await writeFile(path.join(rootPath, "docs", "existing.md"), "existing", "utf8");
+
+    const renamedFile = await renameProjectResource({ rootPath, sourcePath: "docs/notes.md", name: "renamed.md" });
+    expect(renamedFile).toMatchObject({ status: "renamed", resource: { kind: "file", relativePath: "docs/renamed.md" } });
+    expect(await readFile(path.join(rootPath, "docs", "renamed.md"), "utf8")).toBe("notes");
+    expect((await renameProjectResource({ rootPath, sourcePath: "docs/renamed.md", name: "existing.md" })).status).toBe("exists");
+
+    const renamedDirectory = await renameProjectResource({ rootPath, sourcePath: "docs", name: "archive" });
+    expect(renamedDirectory).toMatchObject({ status: "renamed", resource: { kind: "directory", relativePath: "archive" } });
+    expect(await readFile(path.join(rootPath, "archive", "renamed.md"), "utf8")).toBe("notes");
+  });
+
+  it("moves directories as resources and rejects moving a directory into itself", async () => {
+    const rootPath = await mkdtemp(path.join(tmpdir(), "mmm-project-document-"));
+    roots.push(rootPath);
+    await mkdir(path.join(rootPath, "docs", "nested"), { recursive: true });
+    await mkdir(path.join(rootPath, "archive"));
+    await writeFile(path.join(rootPath, "docs", "nested", "notes.md"), "notes", "utf8");
+
+    await expect(moveProjectResources({ rootPath, sourcePaths: ["docs"], targetDirectoryPath: "docs/nested" })).rejects.toMatchObject({ code: "unsupported_type" });
+    const moved = await moveProjectResources({ rootPath, sourcePaths: ["docs"], targetDirectoryPath: "archive" });
+    expect(moved.results).toMatchObject([{ status: "moved", resource: { kind: "directory", relativePath: "archive/docs" } }]);
+    expect(await readFile(path.join(rootPath, "archive", "docs", "nested", "notes.md"), "utf8")).toBe("notes");
+  });
+
+  it("copies project resources and imports external resources without overwriting", async () => {
+    const rootPath = await mkdtemp(path.join(tmpdir(), "mmm-project-document-"));
+    const outsidePath = await mkdtemp(path.join(tmpdir(), "mmm-project-outside-"));
+    roots.push(rootPath, outsidePath);
+    await mkdir(path.join(rootPath, "docs"));
+    await mkdir(path.join(rootPath, "copies"));
+    await writeFile(path.join(rootPath, "docs", "notes.md"), "notes", "utf8");
+    await writeFile(path.join(outsidePath, "external.md"), "external", "utf8");
+
+    const copied = await copyProjectResources({ rootPath, sourcePaths: ["docs/notes.md"], targetDirectoryPath: "copies" });
+    expect(copied.results).toMatchObject([{ status: "copied", resource: { kind: "file", relativePath: "copies/notes.md" } }]);
+    expect(await readFile(path.join(rootPath, "copies", "notes.md"), "utf8")).toBe("notes");
+    expect((await copyProjectResources({ rootPath, sourcePaths: ["docs/notes.md"], targetDirectoryPath: "copies" })).results[0].status).toBe("exists");
+
+    const imported = await importProjectResources({ rootPath, externalPaths: [path.join(outsidePath, "external.md")], targetDirectoryPath: "docs" });
+    expect(imported.results).toMatchObject([{ status: "imported", resource: { kind: "file", relativePath: "docs/external.md" } }]);
+    expect(await readFile(path.join(rootPath, "docs", "external.md"), "utf8")).toBe("external");
+  });
+
+  it("deletes resources through the injected trash function", async () => {
+    const rootPath = await mkdtemp(path.join(tmpdir(), "mmm-project-document-"));
+    roots.push(rootPath);
+    await mkdir(path.join(rootPath, "docs"));
+    await writeFile(path.join(rootPath, "docs", "notes.md"), "notes", "utf8");
+    const trashed: string[] = [];
+
+    const deleted = await deleteProjectResources({ rootPath, sourcePaths: ["docs/notes.md"] }, {
+      trashItem: async (target) => {
+        trashed.push(target);
+        await rm(target, { force: true });
+      }
+    });
+
+    expect(deleted).toMatchObject({ status: "deleted", resources: [{ kind: "file", relativePath: "docs/notes.md" }] });
+    expect(trashed).toHaveLength(1);
+    await expect(readFile(path.join(rootPath, "docs", "notes.md"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
   });
 });

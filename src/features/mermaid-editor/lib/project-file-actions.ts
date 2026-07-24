@@ -13,6 +13,7 @@ import {
   type DetachedImageWindow,
   type DetachedMarkdownWindow
 } from "@/features/mermaid-editor/lib/workspace-panels";
+import type { ProjectResourceEntry } from "@/features/mermaid-editor/lib/project-workspace";
 
 export type ProjectFilePathMigration = {
   sourceAbsolutePath: string;
@@ -54,6 +55,35 @@ export function projectFileActionUpdates(graph: MermaidGraph, migration: Project
       action: { ...node.action, path: migration.targetRelativePath }
     }];
   });
+}
+
+export function projectResourcePathMigrations(
+  resources: readonly ProjectResourceEntry[],
+  rootPath: string,
+  sourcePath: string,
+  targetPath: string
+): ProjectFilePathMigration[] {
+  const source = normalizeRuntimePath(sourcePath);
+  const target = normalizeRuntimePath(targetPath);
+  const migrations: ProjectFilePathMigration[] = [];
+  const seen = new Set<string>();
+  for (const resource of resources) {
+    if (resource.kind !== "file" || !runtimePathInsideOrSame(resource.path, sourcePath)) continue;
+    const relativeUnderSource = relativeRuntimePath(source, resource.path);
+    const targetFilePath = relativeUnderSource ? `${target}/${relativeUnderSource}` : target;
+    const key = normalizeRuntimePath(targetFilePath);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const targetName = targetFilePath.split("/").filter(Boolean).at(-1) || resource.name;
+    migrations.push({
+      sourceAbsolutePath: resource.path,
+      sourceRelativePath: resource.relativePath,
+      sourceName: resource.name,
+      targetFile: { name: targetName, path: targetFilePath },
+      targetRelativePath: projectRelativePathFromRuntimePath(rootPath, targetFilePath)
+    });
+  }
+  return migrations;
 }
 
 export function migrateCurrentProjectFileRef(file: RuntimeFileRef | null, migration: ProjectFilePathMigration) {
@@ -129,6 +159,20 @@ function normalizeRuntimePath(value: string) {
   const normalized = value.trim().replaceAll("\\", "/").replace(/\/+$/, "");
   if (/^[A-Za-z]:$/.test(normalized)) return `${normalized}/`;
   return normalized || (value.startsWith("/") ? "/" : normalized);
+}
+
+function runtimePathInsideOrSame(path: string, rootPath: string) {
+  const resource = normalizeRuntimePath(path);
+  const root = normalizeRuntimePath(rootPath);
+  const ignoreCase = isWindowsLikePath(path) || isWindowsLikePath(rootPath);
+  const comparableResource = ignoreCase ? resource.toLocaleLowerCase() : resource;
+  const comparableRoot = ignoreCase ? root.toLocaleLowerCase() : root;
+  return comparableResource === comparableRoot || comparableResource.startsWith(`${comparableRoot}/`);
+}
+
+function relativeRuntimePath(rootPath: string, path: string) {
+  const resource = normalizeRuntimePath(path);
+  return resource === rootPath ? "" : resource.slice(rootPath.length).replace(/^\/+/, "");
 }
 
 function projectFileReferenceKey(value: string, platformPath: string) {
