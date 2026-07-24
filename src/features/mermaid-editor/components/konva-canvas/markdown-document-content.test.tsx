@@ -12,7 +12,7 @@ describe("native Markdown document content layout", () => {
     const theme = DEFAULT_EDITOR_THEME.markdown;
     const preview = DEFAULT_EDITOR_THEME.specialNode.markdownDocument;
     const items = layoutMarkdownDocumentContent({
-      source: "# Title\n\nBody **strong**.\n\n- item\n1. ordered\n\n> quoted",
+      source: "# Title\n\nBody **strong**.\n\n- item\n1. ordered\n\n> quoted\n\n---",
       fallbackTitle: "Document",
       width: 720,
       height: 1200,
@@ -43,6 +43,11 @@ describe("native Markdown document content layout", () => {
       fill: theme.blockquote.background,
       cornerRadius: theme.blockquote.radius
     });
+    expect(items.find((item) => item.kind === "rect" && item.fill === theme.divider.color)).toMatchObject({
+      width: 720,
+      height: theme.divider.thickness,
+      cornerRadius: 0
+    });
     expect(textItems.find((item) => item.text === "quoted")).toMatchObject({
       color: theme.blockquote.color,
       fontSize: preview.previewTypography.contentFontSize
@@ -70,5 +75,38 @@ describe("native Markdown document content layout", () => {
     expect(intro?.y).toBe((title?.y || 0) + (title?.lineHeight || 0) + preview.previewSpacing.titleBottomGap);
     expect(section?.y).toBe((intro?.y || 0) + (intro?.lineHeight || 0) + preview.previewSpacing.sectionTopGap);
     expect(body?.y).toBe((section?.y || 0) + (section?.lineHeight || 0) + preview.previewSpacing.headingBottomGap);
+  });
+
+  it("bolds only top-level ordered items and can disable all content indentation", () => {
+    const theme = DEFAULT_EDITOR_THEME.markdown;
+    const preview = DEFAULT_EDITOR_THEME.specialNode.markdownDocument;
+    const source = "1. top ordered\n  1. nested ordered\n- top bullet\n  - nested bullet\n\n> quote";
+    const layout = (indentationEnabled: boolean) => layoutMarkdownDocumentContent({
+      source,
+      fallbackTitle: "",
+      width: 720,
+      height: 1200,
+      theme,
+      typography: preview.previewTypography,
+      spacing: { ...preview.previewSpacing, indentationEnabled },
+      measure: (text, style) => Array.from(text).length * style.fontSize * 0.5
+    }).filter((item) => item.kind === "text");
+
+    const indented = layout(true);
+    const flat = layout(false);
+    const indentedOrderedMarkers = indented.filter((item) => item.text === "1.");
+    const flatOrderedMarkers = flat.filter((item) => item.text === "1.");
+
+    expect(indentedOrderedMarkers[0]).toMatchObject({ x: 0, fontWeight: theme.strong.fontWeight });
+    expect(indented.find((item) => item.text === "top ordered")).toMatchObject({ fontWeight: theme.strong.fontWeight });
+    expect(indentedOrderedMarkers[1]).toMatchObject({ x: theme.list.ordered.indent, fontWeight: theme.list.ordered.fontWeight });
+    expect(indented.find((item) => item.text === "nested ordered")).toMatchObject({ fontWeight: theme.list.ordered.fontWeight });
+    expect(indented.find((item) => item.text === "nested bullet")?.x).toBeGreaterThan(theme.layout.listMarkerWidth);
+    expect(indented.find((item) => item.text === "quote")?.x).toBe(theme.blockquote.paddingX);
+
+    expect(flatOrderedMarkers[0]?.x).toBe(0);
+    expect(flatOrderedMarkers[1]?.x).toBe(0);
+    expect(flat.find((item) => item.text === "nested bullet")?.x).toBe(theme.layout.listMarkerWidth + theme.layout.listMarkerGap);
+    expect(flat.find((item) => item.text === "quote")?.x).toBe(0);
   });
 });

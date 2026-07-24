@@ -167,6 +167,7 @@ export const CANVAS_VISUAL_TOKENS: CanvasVisualTokens = {
     minHeight: 128,
     fallbackGap: 48,
     title: {
+      backgroundEnabled: false,
       background: "#fbf6ef",
       textColor: "#18130f",
       borderColor: "#b8ada0",

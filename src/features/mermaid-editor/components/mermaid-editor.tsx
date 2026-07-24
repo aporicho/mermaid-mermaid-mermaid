@@ -205,7 +205,6 @@ export function MermaidEditor() {
     performCopy,
     performPaste,
     changeWorkspaceView,
-    changeToolMode,
     syncAutoLayout,
     resetCanvasView
   } = useEditorCommandActions({
@@ -224,7 +223,6 @@ export function MermaidEditor() {
     viewFilters,
     fileRef,
     isCanvasEditable,
-    mode,
     editableKind,
     resolvedMotion,
     nodeGeometrySpec: canvasNodeGeometrySpec,
@@ -642,7 +640,6 @@ export function MermaidEditor() {
           edgeRouting={edgeRouting}
           layoutMode={layoutMode}
           preferences={preferences}
-          mode={mode}
           onFileMenuOpenChange={updateFileMenuOpen}
           onViewFiltersOpenChange={updateViewFiltersOpen}
           onSecondaryActionsOpenChange={updateSecondaryActionsOpen}
@@ -674,7 +671,6 @@ export function MermaidEditor() {
           onSyncAutoLayout={syncAutoLayout}
           onResetView={resetCanvasView}
           onOpenThemeSettings={openThemeSettings}
-          onToolModeChange={changeToolMode}
         />
         <EditorOverlays
           fileDropFeedback={fileDropFeedback}

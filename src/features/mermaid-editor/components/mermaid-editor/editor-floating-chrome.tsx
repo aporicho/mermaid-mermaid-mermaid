@@ -9,10 +9,10 @@ import {
 
 import { FileMenu, SecondaryActionsMenu, ViewFilterMenu } from "@/features/mermaid-editor/components/editor-menus";
 import { FloatingChromeLayer, FloatingChromeSlot, FloatingIconButton } from "@/features/mermaid-editor/components/floating-chrome";
-import { DesktopWindowControls, ToolModeCluster, WorkspaceViewCluster } from "@/features/mermaid-editor/components/workspace-view-controls";
+import { DesktopWindowControls, WorkspaceViewCluster } from "@/features/mermaid-editor/components/workspace-view-controls";
 import type { DocumentKind } from "@/features/mermaid-editor/lib/document-kind";
 import type { EditorRuntime } from "@/features/mermaid-editor/lib/editor-runtime";
-import type { EditableKind, EdgeRouting, EditorMode, GraphDirection, LayoutMode } from "@/features/mermaid-editor/lib/editor-types";
+import type { EditableKind, EdgeRouting, GraphDirection, LayoutMode } from "@/features/mermaid-editor/lib/editor-types";
 import type { EditorPreferences } from "@/features/mermaid-editor/lib/editor-preferences";
 import type { RecentFileEntry } from "@/features/mermaid-editor/lib/file-workflow";
 import type { ChromeWorkspacePanelId } from "@/features/mermaid-editor/lib/workspace-panels";
@@ -43,7 +43,6 @@ type EditorFloatingChromeProps = {
   edgeRouting: EdgeRouting;
   layoutMode: LayoutMode;
   preferences: EditorPreferences;
-  mode: EditorMode;
   onFileMenuOpenChange: (open: boolean) => void;
   onViewFiltersOpenChange: (open: boolean) => void;
   onSecondaryActionsOpenChange: (open: boolean) => void;
@@ -75,7 +74,6 @@ type EditorFloatingChromeProps = {
   onSyncAutoLayout: () => void;
   onResetView: () => void;
   onOpenThemeSettings: () => void;
-  onToolModeChange: (mode: EditorMode) => void;
 };
 
 export function EditorFloatingChrome({
@@ -102,7 +100,6 @@ export function EditorFloatingChrome({
   edgeRouting,
   layoutMode,
   preferences,
-  mode,
   onFileMenuOpenChange,
   onViewFiltersOpenChange,
   onSecondaryActionsOpenChange,
@@ -133,8 +130,7 @@ export function EditorFloatingChrome({
   onRefreshSource,
   onSyncAutoLayout,
   onResetView,
-  onOpenThemeSettings,
-  onToolModeChange
+  onOpenThemeSettings
 }: EditorFloatingChromeProps) {
   return (
     <FloatingChromeLayer>
@@ -256,7 +252,7 @@ export function EditorFloatingChrome({
       </FloatingChromeSlot>
 
       {!agentOpen || !terminalOpen ? (
-        <FloatingChromeSlot placement="bottomCenter">
+        <FloatingChromeSlot placement="rightBottom">
           <div className="flex items-center gap-1">
             {!agentOpen ? <FloatingIconButton
               label="打开 Pi Agent"
@@ -273,12 +269,6 @@ export function EditorFloatingChrome({
               <Terminal />
             </FloatingIconButton> : null}
           </div>
-        </FloatingChromeSlot>
-      ) : null}
-
-      {isCanvasEditable && workspaceView === "canvas" ? (
-        <FloatingChromeSlot placement="rightBottom">
-          <ToolModeCluster mode={mode} onChange={onToolModeChange} />
         </FloatingChromeSlot>
       ) : null}
     </FloatingChromeLayer>

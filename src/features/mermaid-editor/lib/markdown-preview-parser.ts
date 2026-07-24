@@ -14,6 +14,7 @@ export type MarkdownPreviewBlock =
   | { kind: "heading"; level: 1 | 2 | 3 | 4 | 5 | 6; runs: MarkdownPreviewRun[] }
   | { kind: "paragraph"; runs: MarkdownPreviewRun[] }
   | { kind: "list"; items: MarkdownPreviewListItem[] }
+  | { kind: "divider" }
   | { kind: "blockquote"; paragraphs: MarkdownPreviewRun[][] };
 
 export function parseMarkdownPreview(source: string, fallbackTitle = ""): MarkdownPreviewBlock[] {
@@ -84,6 +85,13 @@ export function parseMarkdownPreview(source: string, fallbackTitle = ""): Markdo
       paragraph = [];
       flushList();
       blocks.push({ kind: "heading", level: setext[1][0] === "=" ? 1 : 2, runs: parseMarkdownPreviewRuns(text) });
+      continue;
+    }
+
+    if (isThematicBreak(line)) {
+      flushParagraph();
+      flushList();
+      blocks.push({ kind: "divider" });
       continue;
     }
 
@@ -168,6 +176,13 @@ function cleanInlineMarkdown(value: string) {
     .replace(/(^|[^*])\*([^*]+)\*(?!\*)/g, "$1$2")
     .replace(/(^|[^_])_([^_]+)_(?!_)/g, "$1$2")
     .replace(/\\([\\`*_[\]{}()#+.!-])/g, "$1");
+}
+
+function isThematicBreak(line: string) {
+  const leadingSpaces = /^ */.exec(line)?.[0].length ?? 0;
+  if (leadingSpaces > 3) return false;
+  const compact = line.trim().replace(/[ \t]/g, "");
+  return compact.length >= 3 && /^(?:\*+|-+|_+)$/.test(compact);
 }
 
 function stripFrontmatter(source: string) {

@@ -12,7 +12,7 @@ export type ThemeSettingsCategoryId = "library" | "interface" | "agent" | "canva
 export type AppearanceTokenState = "editable" | "derived" | "fixed" | "legacy";
 export type AppearanceTokenLevel = "common" | "advanced";
 export type AppearanceTokenConsumer = "css" | "konva" | "mermaid-svg" | "terminal" | "motion" | "diagnostics" | "theme-registry";
-export type AppearanceTokenControlKind = "color" | "font" | "number" | "text" | "css-border-style" | "canvas-stroke-style" | "tree-connector-style" | "dash";
+export type AppearanceTokenControlKind = "boolean" | "color" | "font" | "number" | "text" | "css-border-style" | "canvas-stroke-style" | "tree-connector-style" | "dash";
 
 export type AppearanceTokenDefinition = {
   path: readonly string[];
@@ -156,6 +156,7 @@ function typographyGroup(
 
 const TOKEN_LABELS: Record<string, string> = {
   cardForeground: "面板文字",
+  backgroundEnabled: "显示标题底色",
   family: "字体",
   size: "尺寸",
   blur: "模糊半径",
@@ -439,6 +440,7 @@ const TOKEN_LABELS: Record<string, string> = {
   headingBottomGap: "小标题与内容间距",
   blockGap: "内容块间距",
   listItemGap: "列表项间距",
+  indentationEnabled: "启用内容缩进",
   interactionBorderColor: "交互边框",
   interactionBorderWidth: "交互边框宽度",
   dividerColor: "分隔线颜色",
@@ -663,6 +665,7 @@ function markdownControl(
 
 function controlFor(path: readonly string[], value: unknown): AppearanceTokenDefinition["control"] {
   const key = path.at(-1) || "";
+  if (typeof value === "boolean") return { kind: "boolean" };
   if (Array.isArray(value)) return { kind: "dash" };
   if (typeof value === "number") return { kind: "number", ...themeTokenNumberSpec(path, value) };
   if (key === "family") return { kind: "font" };

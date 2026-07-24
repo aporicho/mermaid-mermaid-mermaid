@@ -129,6 +129,8 @@ describe("ThemeSettingsPanel", () => {
     for (const key of ["Top", "Right", "Bottom", "Left"]) {
       expect(container?.querySelector(`[data-theme-token-path="specialNode.markdownDocument.contentPadding${key}"]`)).not.toBeNull();
     }
+    clickButton("预览间距");
+    expect(container?.querySelector('[data-theme-token-path="specialNode.markdownDocument.previewSpacing.indentationEnabled"] [role="switch"]')).not.toBeNull();
   });
 
   it("searches localized labels and token paths while expanding only matching groups", () => {
@@ -160,6 +162,7 @@ describe("ThemeSettingsPanel", () => {
     clickButton("块级语义");
     clickButton("引用");
     expect(container?.querySelector('[data-theme-token-path="markdown.blockquote.borderStyle"] [role="combobox"]')).not.toBeNull();
+    expect(container?.querySelector('[data-theme-token-path="markdown.blockquote.borderStyle"] [role="switch"]')).not.toBeNull();
   });
 
   it("embeds typography in its owning object and renders Markdown element font controls", () => {

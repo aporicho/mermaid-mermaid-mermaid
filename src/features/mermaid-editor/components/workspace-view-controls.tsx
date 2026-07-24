@@ -4,7 +4,6 @@ import {
   Collapse,
   Expand,
   GitBranch as Workflow,
-  Link,
   Minus,
   SquareCursor as SquareDashedMousePointer,
   Text,
@@ -14,7 +13,7 @@ import {
 import { FloatingButtonCluster, FloatingIconButton } from "@/features/mermaid-editor/components/floating-chrome";
 import type { DocumentKind } from "@/features/mermaid-editor/lib/document-kind";
 import type { EditorRuntime } from "@/features/mermaid-editor/lib/editor-runtime";
-import type { EditableKind, EditorMode } from "@/features/mermaid-editor/lib/editor-types";
+import type { EditableKind } from "@/features/mermaid-editor/lib/editor-types";
 import { workspaceViewsForDocument, type WorkspaceView } from "@/features/mermaid-editor/lib/workspace-view";
 
 const workspaceViewLabels: Record<WorkspaceView, string> = {
@@ -57,31 +56,6 @@ export function WorkspaceViewCluster({
           </FloatingIconButton>
         );
       })}
-    </FloatingButtonCluster>
-  );
-}
-
-export function ToolModeCluster({ mode, onChange }: { mode: EditorMode; onChange: (mode: EditorMode) => void }) {
-  return (
-    <FloatingButtonCluster>
-      <FloatingIconButton
-        label="选择"
-        tooltipSide="top"
-        active={mode === "select"}
-        aria-pressed={mode === "select"}
-        onClick={() => onChange("select")}
-      >
-        <SquareDashedMousePointer />
-      </FloatingIconButton>
-      <FloatingIconButton
-        label="连接"
-        tooltipSide="top"
-        active={mode === "connect"}
-        aria-pressed={mode === "connect"}
-        onClick={() => onChange("connect")}
-      >
-        <Link />
-      </FloatingIconButton>
     </FloatingButtonCluster>
   );
 }

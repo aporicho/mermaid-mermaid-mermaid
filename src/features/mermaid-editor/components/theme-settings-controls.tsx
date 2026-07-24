@@ -4,6 +4,7 @@ import { NavArrowDown } from "iconoir-react/regular";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -24,7 +25,7 @@ import {
 } from "./theme-settings-schema";
 import { ThemeSettingsCollapsible } from "./theme-settings-collapsible";
 
-type ThemeTokenValue = string | number | readonly number[];
+type ThemeTokenValue = boolean | string | number | readonly number[];
 type ThemeTokenTree = ThemeTokenValue | { readonly [key: string]: ThemeTokenTree };
 
 export function ThemeSettingsGroup({
@@ -103,6 +104,9 @@ function ThemeSettingsField({ path, value, onChange }: { path: readonly string[]
   const fieldPath = path.join(".");
   const control = definition?.control.kind ?? inferredStringControl(path, value);
 
+  if (typeof value === "boolean") {
+    return <BooleanField label={label} path={fieldPath} value={value} onChange={onChange} />;
+  }
   if (control === "css-border-style" || control === "canvas-stroke-style" || control === "tree-connector-style") {
     return <BorderStyleField label={label} path={fieldPath} value={String(value)} kind={control} onChange={onChange} />;
   }
@@ -133,6 +137,15 @@ function FieldFrame({ label, path, children }: { label: string; path: string; ch
     <div className="grid gap-1.5 text-sm" data-theme-token-path={path}>
       <span className="text-xs text-muted-foreground">{label}</span>
       {children}
+    </div>
+  );
+}
+
+function BooleanField({ label, path, value, onChange }: { label: string; path: string; value: boolean; onChange: (value: boolean) => void }) {
+  return (
+    <div className="flex items-center justify-between gap-3 text-sm" data-theme-token-path={path}>
+      <span className="text-xs text-muted-foreground">{label}</span>
+      <Switch checked={value} onCheckedChange={onChange} aria-label={label} />
     </div>
   );
 }
@@ -397,7 +410,7 @@ function DashField({ label, path, value, onChange }: { label: string; path: stri
 }
 
 function isThemeTokenValue(value: unknown): value is ThemeTokenValue {
-  return typeof value === "string" || typeof value === "number" || (Array.isArray(value) && value.every((item) => typeof item === "number"));
+  return typeof value === "boolean" || typeof value === "string" || typeof value === "number" || (Array.isArray(value) && value.every((item) => typeof item === "number"));
 }
 
 function flattenFields(value: Record<string, ThemeTokenTree>, prefix: readonly string[] = []): { path: readonly string[]; value: ThemeTokenValue }[] {

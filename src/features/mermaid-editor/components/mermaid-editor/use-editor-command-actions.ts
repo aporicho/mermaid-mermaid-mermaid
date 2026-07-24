@@ -11,7 +11,7 @@ import { useEditorClipboardActions } from "@/features/mermaid-editor/components/
 import { useEditorClipboardImagePaste } from "@/features/mermaid-editor/components/mermaid-editor/use-editor-clipboard-image-paste";
 import { useEditorDocumentCommands } from "@/features/mermaid-editor/components/mermaid-editor/use-editor-document-commands";
 import { type DocumentKind } from "@/features/mermaid-editor/lib/document-kind";
-import { hasSelection, setMode as setEditorMode } from "@/features/mermaid-editor/lib/editor-actions";
+import { hasSelection } from "@/features/mermaid-editor/lib/editor-actions";
 import { normalizeFileWorkflowError } from "@/features/mermaid-editor/lib/file-workflow";
 import type { EditorDiagnostic } from "@/features/mermaid-editor/lib/editor-diagnostics";
 import type { RuntimeEditorMotion } from "@/features/mermaid-editor/lib/editor-motion";
@@ -54,7 +54,6 @@ type UseEditorCommandActionsArgs = {
   viewFilters: ViewFilters;
   fileRef: RuntimeFileRef | null;
   isCanvasEditable: boolean;
-  mode: EditorMode;
   editableKind: EditableKind;
   clipboard: ClipboardPayload | null;
   resolvedMotion: RuntimeEditorMotion;
@@ -99,7 +98,6 @@ export function useEditorCommandActions(args: UseEditorCommandActionsArgs) {
     viewFilters,
     fileRef,
     isCanvasEditable,
-    mode,
     editableKind,
     resolvedMotion,
     nodeGeometrySpec,
@@ -334,11 +332,6 @@ export function useEditorCommandActions(args: UseEditorCommandActionsArgs) {
     setWorkspaceView(resolvedView);
   }
 
-  function changeToolMode(nextMode: EditorMode) {
-    if (mode === nextMode) return;
-    applyEditorCommand({ type: "mode.set", mode: setEditorMode(nextMode), source: "menu" });
-  }
-
   function syncAutoLayout() {
     applyEditorCommand({ type: "layout.syncAuto", source: "menu" });
   }
@@ -377,7 +370,6 @@ export function useEditorCommandActions(args: UseEditorCommandActionsArgs) {
     performPaste,
     updateViewport,
     changeWorkspaceView,
-    changeToolMode,
     syncAutoLayout,
     resetCanvasView
   };

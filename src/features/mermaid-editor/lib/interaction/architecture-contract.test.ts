@@ -327,6 +327,18 @@ describe("interaction architecture contract", () => {
     expect(editor).not.toContain("function workspacePanelWindowState(");
   });
 
+  it("keeps only Agent and terminal launchers in the right-bottom chrome slot", () => {
+    const chrome = readProjectFile("src/features/mermaid-editor/components/mermaid-editor/editor-floating-chrome.tsx");
+    const workspaceControls = readProjectFile("src/features/mermaid-editor/components/workspace-view-controls.tsx");
+
+    expect(chrome).toContain('<FloatingChromeSlot placement="rightBottom">');
+    expect(chrome).not.toContain('<FloatingChromeSlot placement="bottomCenter">');
+    expect(chrome).toContain('label="打开 Pi Agent"');
+    expect(chrome).toContain('label="打开终端"');
+    expect(chrome).not.toContain("ToolModeCluster");
+    expect(workspaceControls).not.toContain("function ToolModeCluster");
+  });
+
   it("keeps editor menus behind focused menu modules", () => {
     const facade = readProjectFile("src/features/mermaid-editor/components/editor-menus.tsx");
     const fileMenu = readProjectFile("src/features/mermaid-editor/components/editor-menus/file-menu.tsx");

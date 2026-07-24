@@ -62,6 +62,7 @@ export type SpecialNodeMarkdownDocumentTokens = {
     contentFontSize: number;
   };
   previewSpacing: {
+    indentationEnabled: boolean;
     titleBottomGap: number;
     sectionTopGap: number;
     headingBottomGap: number;

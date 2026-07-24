@@ -58,6 +58,7 @@ export function createDefaultSpecialNodeTheme(source: SpecialNodeThemeSource): S
         contentFontSize: 16
       },
       previewSpacing: {
+        indentationEnabled: true,
         titleBottomGap: 18,
         sectionTopGap: 16,
         headingBottomGap: 6,
@@ -319,6 +320,7 @@ function legacyState(raw: Record<string, unknown>, fallback: SpecialNodeStateTok
 }
 
 function normalizeValue(raw: unknown, fallback: unknown, path: string): unknown {
+  if (typeof fallback === "boolean") return typeof raw === "boolean" ? raw : fallback;
   if (typeof fallback === "number") {
     const range = SPECIAL_NODE_NUMBER_RANGES[path] ?? numberRangeForPath(path);
     return numberValue(raw, fallback, range[0], range[1]);

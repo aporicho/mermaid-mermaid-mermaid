@@ -3,6 +3,7 @@ import { Refresh } from "iconoir-react/regular";
 
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { EditorIconButton, EditorSearchField } from "@/features/mermaid-editor/components/editor-ui";
 import { FontFamilyCombobox } from "@/features/mermaid-editor/components/theme-settings-typography";
 import type { RuntimeSystemFont } from "@/features/mermaid-editor/lib/editor-runtime";
@@ -150,12 +151,51 @@ function MarkdownTokenField({ definition, value, fonts, loading, error, monospac
       {definition.kind === "font" ? (
         <FontFamilyCombobox value={String(value)} fonts={fonts} loading={loading} error={error} monospacePreferred={monospacePreferred} onChange={onChange} />
       ) : definition.kind === "css-border-style" ? (
-        <CssBorderStyleField label={definition.label} value={String(value)} onChange={onChange} />
+        definition.path.join(".") === "blockquote.borderStyle"
+          ? <BlockquoteBorderStyleField value={String(value)} onChange={onChange} />
+          : <CssBorderStyleField label={definition.label} value={String(value)} onChange={onChange} />
       ) : definition.kind === "color" ? (
         <MarkdownColorField label={definition.label} value={String(value)} onChange={onChange} />
       ) : (
         <MarkdownNumberField definition={definition} value={Number(value)} onChange={onChange} />
       )}
+    </div>
+  );
+}
+
+function BlockquoteBorderStyleField({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+  const [lastStyle, setLastStyle] = useState(value === "none" ? "solid" : value);
+  const enabled = value !== "none";
+  useEffect(() => {
+    if (enabled) setLastStyle(value);
+  }, [enabled, value]);
+
+  return (
+    <div className="grid gap-2">
+      <div className="flex h-8 items-center justify-between gap-3">
+        <span className="type-interface-metadata text-muted-foreground">显示引用边线</span>
+        <Switch
+          checked={enabled}
+          onCheckedChange={(checked) => onChange(checked ? lastStyle : "none")}
+          aria-label="显示引用边线"
+        />
+      </div>
+      <Select
+        value={enabled ? value : lastStyle}
+        onValueChange={(next) => {
+          setLastStyle(next);
+          onChange(next);
+        }}
+        disabled={!enabled}
+      >
+        <SelectTrigger className="h-8" aria-label="引用边线样式"><SelectValue /></SelectTrigger>
+        <SelectContent>
+          <SelectItem value="solid">实线</SelectItem>
+          <SelectItem value="dashed">虚线</SelectItem>
+          <SelectItem value="dotted">点线</SelectItem>
+          <SelectItem value="double">双线</SelectItem>
+        </SelectContent>
+      </Select>
     </div>
   );
 }

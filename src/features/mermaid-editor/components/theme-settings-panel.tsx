@@ -40,7 +40,7 @@ import {
   updateThemeValueAtPath
 } from "./theme-settings-utils";
 
-type ThemeTokenValue = string | number | readonly number[];
+type ThemeTokenValue = boolean | string | number | readonly number[];
 
 export function ThemeSettingsPanel({
   themeId,

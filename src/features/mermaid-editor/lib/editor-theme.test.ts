@@ -137,7 +137,7 @@ describe("editor theme", () => {
     expect(theme.markdown.heading.h1.fontFamily).toContain("方正屏显雅宋简体");
     expect(theme.canvas.ordinaryNode).toMatchObject({ borderWidth: 0, radius: 0, forkRadius: 4 });
     expect(theme.canvas.edge).toMatchObject({ width: 1, pointerLength: 6, pointerWidth: 6, curveSegments: 120 });
-    expect(theme.canvas.group).toMatchObject({ borderStyle: "solid", borderWidth: 1, radius: 0, title: { borderWidth: 0 } });
+    expect(theme.canvas.group).toMatchObject({ borderStyle: "solid", borderWidth: 1, radius: 0, title: { backgroundEnabled: false, borderWidth: 0 } });
     expect(theme.specialNode.linkCard.surface.radius).toBe(0);
     expect(theme.specialNode.markdownDocument.surface).toMatchObject({ radius: 0, border: { width: 0 } });
     expect(theme.specialNode.markdownDocument.width / theme.specialNode.markdownDocument.height).toBeCloseTo(210 / 297, 6);

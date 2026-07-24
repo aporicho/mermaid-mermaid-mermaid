@@ -146,6 +146,23 @@ export function layoutMarkdownDocumentContent({
       continue;
     }
 
+    if (block.kind === "divider") {
+      const thickness = Math.max(0, theme.divider.thickness);
+      if (y + thickness > height) break;
+      items.push({
+        kind: "rect",
+        x: 0,
+        y,
+        width,
+        height: thickness,
+        fill: theme.divider.color,
+        cornerRadius: 0
+      });
+      y += thickness;
+      previous = block;
+      continue;
+    }
+
     const quoteResult = layoutBlockquote(block, y, width, height, theme, typography, spacing, items, measure);
     y = quoteResult.y;
     if (quoteResult.truncated) break;
@@ -170,7 +187,9 @@ function layoutList(
 
   for (const item of block.items) {
     const style = resizeTextStyle(item.ordered ? theme.list.ordered : theme.list.unordered, typography.contentFontSize);
-    const indent = item.depth * style.indent;
+    const topLevelOrdered = item.ordered && item.depth === 0;
+    const itemStyle = topLevelOrdered ? { ...style, fontWeight: theme.strong.fontWeight } : style;
+    const indent = spacing.indentationEnabled ? item.depth * style.indent : 0;
     const markerWidth = theme.layout.listMarkerWidth;
     const textX = indent + markerWidth + theme.layout.listMarkerGap;
     if (y + style.lineHeight > height || textX >= width) {
@@ -179,16 +198,16 @@ function layoutList(
     }
     items.push({
       kind: "text",
-      ...style,
+      ...itemStyle,
       x: indent,
       y,
       width: markerWidth,
       align: "right",
-      color: style.markerColor,
+      color: itemStyle.markerColor,
       text: item.ordered ? `${item.ordinal}.` : "•"
     });
     const strong = resizeTextStyle(theme.strong, typography.contentFontSize);
-    const result = layoutRuns(item.runs, textX, y, width - textX, height, style, strong, items, measure);
+    const result = layoutRuns(item.runs, textX, y, width - textX, height, itemStyle, strong, items, measure);
     y += Math.max(style.lineHeight, result.height) + spacing.listItemGap;
     if (result.truncated) {
       truncated = true;
@@ -212,8 +231,9 @@ function layoutBlockquote(
   measure: (text: string, style: MarkdownTextTokens) => number
 ) {
   const style = resizeTextStyle(theme.blockquote, typography.contentFontSize);
-  const contentX = style.paddingX;
-  const contentWidth = Math.max(0, width - style.paddingX * 2);
+  const horizontalPadding = spacing.indentationEnabled ? style.paddingX : 0;
+  const contentX = horizontalPadding;
+  const contentWidth = Math.max(0, width - horizontalPadding * 2);
   const backgroundIndex = items.length;
   let y = initialY + style.paddingY;
   let truncated = false;

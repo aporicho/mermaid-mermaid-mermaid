@@ -48,6 +48,13 @@ export function FloatingChromeSlot({
     };
   }, []);
 
+  useEffect(() => {
+    if (!focusWithin) return;
+    const activeElement = document.activeElement;
+    if (activeElement && contentRef.current?.contains(activeElement)) return;
+    setFocusWithin(false);
+  }, [children, focusWithin]);
+
   useGSAP(
     () => {
       const element = contentRef.current;
@@ -135,6 +142,7 @@ export function FloatingChromeSlot({
     <div className={cn("pointer-events-auto absolute", placementSpec.rootClassName, className)}>
       <div
         className={cn("flex", placementSpec.hotZoneClassName, hotZoneClassName)}
+        data-floating-chrome-state={visible ? "visible" : "hidden"}
         onPointerEnter={show}
         onPointerLeave={scheduleHide}
         onFocus={() => setFocusWithin(true)}

@@ -71,6 +71,22 @@ Setext
     });
   });
 
+  it("parses thematic breaks without overriding setext headings", () => {
+    const blocks = parseMarkdownPreview(`Before
+
+---
+
+***
+
+_ _ _
+
+Setext
+---`);
+
+    expect(blocks.map((block) => block.kind)).toEqual(["paragraph", "divider", "divider", "divider", "heading"]);
+    expect(blocks.at(-1)).toMatchObject({ kind: "heading", level: 2 });
+  });
+
   it("degrades unsupported inline syntax to readable text", () => {
     expect(parseMarkdownPreviewRuns("[link](https://example.com), `code`, *em*, ~~old~~")).toEqual([
       { text: "link, code, em, old", bold: false }

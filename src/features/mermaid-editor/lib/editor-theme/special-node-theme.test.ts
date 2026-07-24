@@ -60,6 +60,7 @@ describe("v11 special-node theme", () => {
       contentPaddingLeft: 12
     });
     expect(theme.markdownDocument.previewSpacing).toEqual({
+      indentationEnabled: true,
       titleBottomGap: 18,
       sectionTopGap: 16,
       headingBottomGap: 6,
@@ -133,12 +134,13 @@ describe("v11 special-node theme", () => {
     const theme = normalizeSpecialNodeTheme({
       markdownDocument: {
         previewTypography: { titleFontSize: 120, contentFontSize: 6 },
-        previewSpacing: { titleBottomGap: 70, sectionTopGap: 21, headingBottomGap: -1, blockGap: 13, listItemGap: 40 }
+        previewSpacing: { indentationEnabled: false, titleBottomGap: 70, sectionTopGap: 21, headingBottomGap: -1, blockGap: 13, listItemGap: 40 }
       }
     }, fallback);
 
     expect(theme.markdownDocument.previewTypography).toEqual({ titleFontSize: 96, contentFontSize: 8 });
     expect(theme.markdownDocument.previewSpacing).toEqual({
+      indentationEnabled: false,
       titleBottomGap: 64,
       sectionTopGap: 21,
       headingBottomGap: 0,

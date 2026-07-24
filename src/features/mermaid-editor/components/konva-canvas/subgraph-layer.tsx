@@ -148,7 +148,7 @@ export function KonvaSubgraphLayer({
                 width={geometry.titleBox.width}
                 height={geometry.titleBox.height}
                 cornerRadius={title.radius}
-                fill={title.background}
+                fill={title.backgroundEnabled ? title.background : "rgba(0, 0, 0, 0)"}
                 stroke={title.borderColor}
                 strokeWidth={title.borderWidth}
                 strokeEnabled={canvasStrokeEnabled(title.borderStyle)}

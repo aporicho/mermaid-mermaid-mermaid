@@ -35,11 +35,23 @@ describe("theme settings schema", () => {
       groupId: "special-node-markdown-preview-spacing",
       control: { kind: "number", min: 0, max: 64, step: 1, unit: "px" }
     });
+    expect(APPEARANCE_TOKEN_DEFINITIONS.find((definition) => definition.path.join(".") === "specialNode.markdownDocument.previewSpacing.indentationEnabled")).toMatchObject({
+      label: "启用内容缩进",
+      category: "markdownNode",
+      groupId: "special-node-markdown-preview-spacing",
+      control: { kind: "boolean" }
+    });
     expect(APPEARANCE_TOKEN_DEFINITIONS.find((definition) => definition.path.join(".") === "specialNode.markdownDocument.contentPaddingLeft")).toMatchObject({
       label: "左侧内容边距",
       category: "markdownNode",
       groupId: "special-node-markdown-document",
       control: { kind: "number", min: 0, max: 160, step: 1, unit: "px" }
+    });
+    expect(APPEARANCE_TOKEN_DEFINITIONS.find((definition) => definition.path.join(".") === "canvas.group.title.backgroundEnabled")).toMatchObject({
+      label: "显示标题底色",
+      category: "canvas",
+      groupId: "canvas-group",
+      control: { kind: "boolean" }
     });
   });
 

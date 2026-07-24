@@ -93,6 +93,7 @@ function normalizeBaseThemeId(value: unknown, fallback: EditorTheme["baseThemeId
 
 function normalizeAppearanceTree<T>(raw: unknown, fallback: T, path: readonly string[]): T {
   if (Array.isArray(fallback)) return dashValue(raw, fallback) as T;
+  if (typeof fallback === "boolean") return (typeof raw === "boolean" ? raw : fallback) as T;
   if (typeof fallback === "number") {
     const [min, max] = numberRange(path);
     return numberValue(raw, fallback, min, max) as T;

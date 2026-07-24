@@ -230,6 +230,7 @@ export type CanvasThemeTokens = {
     minHeight: number;
     fallbackGap: number;
     title: {
+      backgroundEnabled: boolean;
       background: string;
       textColor: string;
       borderColor: string;

@@ -263,6 +263,7 @@ export const BASE_CANVAS: CanvasThemeTokens = {
     minHeight: SUBGRAPH_GEOMETRY_TOKENS.minHeight,
     fallbackGap: SUBGRAPH_GEOMETRY_TOKENS.fallbackGap,
     title: {
+      backgroundEnabled: false,
       background: "#fbf6ef",
       textColor: BASE_COLORS.foreground,
       borderColor: "#b8ada0",
