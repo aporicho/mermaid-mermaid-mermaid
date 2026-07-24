@@ -40,4 +40,17 @@ describe("embedded browser rect", () => {
     expect(rect.borderRadius).toBe(8);
     expect(embeddedBrowserRectKey(rect)).toBe("12:64:520:360:r8");
   });
+
+  it("syncs the measured titlebar hot-zone height independently from bounds", () => {
+    const rect = embeddedBrowserLogicalRect({
+      left: 12,
+      top: 64,
+      width: 520,
+      height: 360,
+      titlebarHotZoneHeight: 39.2
+    });
+
+    expect(rect.titlebarHotZoneHeight).toBe(40);
+    expect(embeddedBrowserRectKey(rect)).toBe("12:64:520:360:h40");
+  });
 });

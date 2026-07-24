@@ -6,6 +6,7 @@ export type ElectronEmbeddedBrowserCreateResult =
   | { status: "unsupported" | "error"; message: string };
 
 export type ElectronEmbeddedBrowserStateEvent = RuntimeEmbeddedBrowserState & { label: string };
+export type ElectronEmbeddedBrowserTitlebarHotZoneEvent = { label: string; inside: boolean };
 
 export type ElectronEmbeddedBrowserBridge = {
   createEmbeddedBrowser: (request: {
@@ -23,4 +24,5 @@ export type ElectronEmbeddedBrowserBridge = {
   onEmbeddedBrowserError: (handler: (event: { label: string; message: string }) => void) => () => void;
   onEmbeddedBrowserFocus: (handler: (event: { label: string }) => void) => () => void;
   onEmbeddedBrowserState: (handler: (event: ElectronEmbeddedBrowserStateEvent) => void) => () => void;
+  onEmbeddedBrowserTitlebarHotZone: (handler: (event: ElectronEmbeddedBrowserTitlebarHotZoneEvent) => void) => () => void;
 };

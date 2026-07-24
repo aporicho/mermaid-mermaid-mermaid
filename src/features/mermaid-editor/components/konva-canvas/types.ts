@@ -69,6 +69,7 @@ export type KonvaCanvasProps = {
   motion?: RuntimeEditorMotion;
   onEditorCommand: (command: EditorCommand) => void;
   onOpenNodeAction?: (node: CanvasNode) => void;
+  onOpenNodeImage?: (node: CanvasNode) => void;
   onEditNodeAction?: (node: CanvasNode) => void;
   onRequestMarkdownDocumentPreview?: (node: CanvasNode) => void;
   onPointerWorldChange?: (point: CanvasPoint) => void;

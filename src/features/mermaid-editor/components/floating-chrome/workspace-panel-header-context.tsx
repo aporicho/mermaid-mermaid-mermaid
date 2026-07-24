@@ -11,13 +11,16 @@ import {
   type ReactNode
 } from "react";
 
+import { useWorkspacePanelHeaderHeight } from "./use-workspace-panel-header-height";
+
 export const WORKSPACE_PANEL_HEADER_HIDE_DELAY_MS = 800;
-export { FLOATING_PANEL_HEADER_HOT_ZONE_PX as WORKSPACE_PANEL_HEADER_HOT_ZONE_PX } from "@/features/mermaid-editor/lib/floating-chrome";
 
 type WorkspacePanelHeaderContextValue = {
   visible: boolean;
   autoHide: boolean;
   overridden: boolean;
+  headerHeightPx: number;
+  setHeaderElement: (element: HTMLElement | null) => void;
   toggleAutoHideOverride: () => void;
   onHeaderPointerEnter: (event: PointerEvent<HTMLElement>) => void;
   onHeaderPointerLeave: (event: PointerEvent<HTMLElement>) => void;
@@ -38,23 +41,17 @@ export function useWorkspacePanelHeader() {
 }
 
 export function useWorkspacePanelHeaderAutoHide({
-  enabled,
-  open,
-  dragging,
-  autoHide
-}: {
-  enabled: boolean;
-  open: boolean;
-  dragging: boolean;
-  autoHide: boolean;
-}) {
-  const [visible, setVisible] = useState(enabled && open);
+  enabled, open, dragging, autoHide
+}: { enabled: boolean; open: boolean; dragging: boolean; autoHide: boolean }) {
+  const [visible, setVisible] = useState(enabled && open && !autoHide);
   const [autoHideOverride, setAutoHideOverride] = useState<boolean | null>(null);
+  const { headerHeightPx, setHeaderElement } = useWorkspacePanelHeaderHeight();
   const resolvedAutoHide = autoHideOverride ?? autoHide;
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pointerInsideRef = useRef(false);
   const focusInsideRef = useRef(false);
   const hotZoneInsideRef = useRef(false);
+  const wasOpenRef = useRef(false);
   const openRef = useRef(open);
   const autoHideRef = useRef(resolvedAutoHide);
   const draggingRef = useRef(dragging);
@@ -104,6 +101,8 @@ export function useWorkspacePanelHeaderAutoHide({
   }, [clearHideTimer, enabled]);
 
   useEffect(() => {
+    const opening = open && !wasOpenRef.current;
+    wasOpenRef.current = open;
     if (!enabled || !open) {
       clearHideTimer();
       pointerInsideRef.current = false;
@@ -114,9 +113,15 @@ export function useWorkspacePanelHeaderAutoHide({
       return;
     }
 
-    setVisible(true);
-    if (resolvedAutoHide) scheduleHide();
-    else clearHideTimer();
+    if (!resolvedAutoHide) {
+      clearHideTimer();
+      setVisible(true);
+      return;
+    }
+    if (opening) {
+      clearHideTimer();
+      setVisible(false);
+    } else scheduleHide();
   }, [clearHideTimer, enabled, open, resolvedAutoHide, scheduleHide]);
 
   useEffect(() => {
@@ -137,6 +142,8 @@ export function useWorkspacePanelHeaderAutoHide({
       visible,
       autoHide: resolvedAutoHide,
       overridden: autoHideOverride !== null,
+      headerHeightPx,
+      setHeaderElement,
       toggleAutoHideOverride,
       onHeaderPointerEnter: () => {
         pointerInsideRef.current = true;
@@ -156,13 +163,14 @@ export function useWorkspacePanelHeaderAutoHide({
         scheduleHide();
       },
       showFromHotZone: () => {
-        hotZoneInsideRef.current = true;
+        hotZoneInsideRef.current = false;
         show();
+        scheduleHide();
       },
       leaveHotZone: () => {
         hotZoneInsideRef.current = false;
         scheduleHide();
       }
     };
-  }, [autoHideOverride, enabled, resolvedAutoHide, scheduleHide, show, toggleAutoHideOverride, visible]);
+  }, [autoHideOverride, enabled, headerHeightPx, resolvedAutoHide, scheduleHide, setHeaderElement, show, toggleAutoHideOverride, visible]);
 }

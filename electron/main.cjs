@@ -28,6 +28,7 @@ const { scanProjectFolder: scanProjectFolderSnapshot } = require("./project-work
 const { createWindowFileRouter } = require("./window-file-router.cjs");
 const { attachWindowFullscreenEvents, registerWindowFullscreenIpc } = require("./window-fullscreen.cjs");
 const { normalizeEmbeddedBrowserUrl, normalizeHttpUrl } = require("./embedded-browser-url.cjs");
+const { createEmbeddedBrowserTitlebarHotZone } = require("./embedded-browser-titlebar-hot-zone.cjs");
 const DEV_SERVER_URL = process.env.MMM_ELECTRON_DEV_SERVER_URL || "";
 const PROJECT_DIR = path.resolve(__dirname, "..");
 const DIST_INDEX = path.join(PROJECT_DIR, "dist", "index.html");
@@ -39,7 +40,7 @@ const DOCUMENT_FILTERS = [
     extensions: ["mmd", "mermaid", "md", "markdown", "json"]
   }
 ];
-const IMAGE_FILTERS = [{ name: "Images", extensions: ["png", "jpg", "jpeg", "webp", "gif", "svg"] }];
+const IMAGE_FILTERS = [{ name: "Images", extensions: ["png", "jpg", "jpeg", "webp", "gif", "svg", "avif", "ico"] }];
 const embeddedBrowsers = new Map();
 const forceCloseWindowIds = new Set();
 const pendingCloseWindowIds = new Set(), pendingCloseTimers = new Map();
@@ -488,6 +489,11 @@ function createEmbeddedBrowser(sender, request) {
     return { action: "deny" };
   });
   const sendState = () => sendEmbeddedBrowserEvent(sender, "mmm:browser:state", embeddedBrowserState(label, view, url));
+  const titlebarHotZone = createEmbeddedBrowserTitlebarHotZone({
+    webContents: view.webContents,
+    initialHeight: request.rect?.titlebarHotZoneHeight,
+    send: (inside) => sendEmbeddedBrowserEvent(sender, "mmm:browser:titlebar-hot-zone", { label, inside })
+  });
   view.webContents.on("did-start-loading", sendState);
   view.webContents.on("did-stop-loading", sendState);
   view.webContents.on("did-navigate", sendState);
@@ -526,6 +532,7 @@ function createEmbeddedBrowser(sender, request) {
     owner,
     ownerId: owner.id,
     view,
+    titlebarHotZone,
     visible: false
   });
   void view.webContents.loadURL(url).catch((error) => {
@@ -562,6 +569,7 @@ function closeEmbeddedBrowserByKey(key) {
   const record = embeddedBrowsers.get(key);
   if (!record) return;
   embeddedBrowsers.delete(key);
+  record.titlebarHotZone.dispose();
   try {
     record.owner.contentView.removeChildView(record.view);
   } catch {
@@ -576,6 +584,7 @@ function setEmbeddedBrowserVisible(sender, label, visible) {
   const record = embeddedBrowsers.get(embeddedBrowserKey(sender, label));
   if (!record) return;
   record.visible = visible;
+  if (!visible) record.titlebarHotZone.reset();
   record.view.setVisible(visible);
 }
 
@@ -605,6 +614,7 @@ function setEmbeddedBrowserRect(sender, label, rect) {
   if (!record) return;
   record.view.setBounds(normalizeBounds(rect));
   record.view.setBorderRadius(normalizeBorderRadius(rect?.borderRadius));
+  record.titlebarHotZone.setHeight(rect?.titlebarHotZoneHeight);
 }
 
 function normalizeBorderRadius(value) {

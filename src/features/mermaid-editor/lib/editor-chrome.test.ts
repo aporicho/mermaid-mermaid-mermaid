@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { EDITOR_CHROME_TOKENS, FLOATING_CHROME_PLACEMENTS } from "@/features/mermaid-editor/lib/editor-chrome";
+import { EDITOR_CHROME_CLASSES, EDITOR_CHROME_TOKENS, FLOATING_CHROME_PLACEMENTS } from "@/features/mermaid-editor/lib/editor-chrome";
 
 describe("editor chrome tokens", () => {
   it("defines stable semantic control sizes", () => {
@@ -15,5 +15,11 @@ describe("editor chrome tokens", () => {
     expect(FLOATING_CHROME_PLACEMENTS.topLeft.rootClassName).toContain("left-0");
     expect(FLOATING_CHROME_PLACEMENTS.topRight.rootClassName).toContain("right-0");
     expect(FLOATING_CHROME_PLACEMENTS.rightBottom.hotZoneClassName).toContain("w-36");
+  });
+
+  it("places fullscreen workspace windows above application chrome", () => {
+    expect(EDITOR_CHROME_CLASSES.workspaceLayer).toBe("z-[1]");
+    expect(EDITOR_CHROME_CLASSES.applicationChromeLayer).toBe("z-[2]");
+    expect(EDITOR_CHROME_CLASSES.fullscreenWorkspaceLayer).toBe("z-[3]");
   });
 });

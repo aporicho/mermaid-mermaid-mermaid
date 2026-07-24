@@ -27,6 +27,11 @@ import type { ViewFilters } from "@/features/mermaid-editor/lib/view-filters";
 import type { WorkspaceView } from "@/features/mermaid-editor/lib/workspace-view";
 import type { MarkdownDocumentPreview } from "@/features/mermaid-editor/lib/markdown-document";
 import type { MarkdownFoldSnapshot } from "@/features/mermaid-editor/lib/markdown-fold-state";
+import {
+  canvasDocumentImageNavigation,
+  mermaidGraphImageNavigation
+} from "@/features/mermaid-editor/lib/canvas-image-window";
+import type { ImageWindowOpenRequest } from "@/features/mermaid-editor/lib/workspace-panels";
 
 const KonvaCanvas = lazy(() => import("@/features/mermaid-editor/components/konva-canvas").then((mod) => ({ default: mod.KonvaCanvas })));
 
@@ -72,6 +77,7 @@ type EditorWorkspaceSurfaceProps = {
   onRunSource: () => void;
   onEditorCommand: (command: EditorCommand) => void;
   onOpenNodeAction: (node: CanvasNode) => void;
+  onOpenCanvasImage: (request: ImageWindowOpenRequest) => void;
   onEditNodeAction: (node: CanvasNode) => void;
   onPointerWorldChange: (point: { x: number; y: number }) => void;
   onLiveStateChange: (state: CanvasLiveState) => void;
@@ -120,12 +126,14 @@ export function EditorWorkspaceSurface({
   onRunSource,
   onEditorCommand,
   onOpenNodeAction,
+  onOpenCanvasImage,
   onEditNodeAction,
   onPointerWorldChange,
   onLiveStateChange,
   onRequestMarkdownDocumentPreview
 }: EditorWorkspaceSurfaceProps) {
   if (documentKind === "canvas") {
+    const documentIdentity = fileRef?.path || fileName;
     return (
       <CanvasDocumentEditor
         document={canvasDocument}
@@ -134,12 +142,18 @@ export function EditorWorkspaceSurface({
         typography={typography.canvasDocument}
         fontRevision={fontRevision}
         onChange={onCanvasDocumentChange}
+        onOpenImage={(image) => onOpenCanvasImage({
+          source: image.src,
+          identity: `canvas:${documentIdentity}:image:${image.id}`,
+          navigation: canvasDocumentImageNavigation(canvasDocument, documentIdentity)
+        })}
         onStatus={onStatus}
       />
     );
   }
 
   if (workspaceView === "canvas" && isCanvasEditable) {
+    const documentIdentity = fileRef?.path || fileName;
     return (
       <Suspense fallback={<div className="grid min-h-0 place-items-center bg-card text-sm text-muted-foreground">正在载入画布</div>}>
         <KonvaCanvas
@@ -162,6 +176,12 @@ export function EditorWorkspaceSurface({
           motion={motion}
           onEditorCommand={onEditorCommand}
           onOpenNodeAction={onOpenNodeAction}
+          onOpenNodeImage={(node) => node.asset?.kind === "image" && onOpenCanvasImage({
+            source: node.asset.src,
+            title: node.label,
+            identity: `mermaid:${documentIdentity}:image:${node.id}`,
+            navigation: mermaidGraphImageNavigation(graph, node.id, documentIdentity)
+          })}
           onEditNodeAction={onEditNodeAction}
           onPointerWorldChange={onPointerWorldChange}
           onLiveStateChange={onLiveStateChange}

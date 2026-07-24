@@ -12,7 +12,7 @@ import type {
 import { isSupportedImagePath } from "@/features/mermaid-editor/lib/node-assets";
 import { isHtmlDocumentFilePath } from "@/features/mermaid-editor/lib/html-document";
 import type { ProjectWorkspace } from "@/features/mermaid-editor/lib/project-workspace";
-import type { DetachedHtmlWindow, DetachedMarkdownWindow } from "@/features/mermaid-editor/lib/workspace-panels";
+import type { DetachedHtmlWindow, DetachedImageWindow, DetachedMarkdownWindow } from "@/features/mermaid-editor/lib/workspace-panels";
 
 type SetState<T> = Dispatch<SetStateAction<T>>;
 
@@ -25,6 +25,8 @@ type ProjectFileHotReloadArgs = {
   setDetachedMarkdownWindows: SetState<DetachedMarkdownWindow[]>;
   detachedHtmlWindows: DetachedHtmlWindow[];
   setDetachedHtmlWindows: SetState<DetachedHtmlWindow[]>;
+  detachedImageWindows: DetachedImageWindow[];
+  setDetachedImageWindows: SetState<DetachedImageWindow[]>;
   setFileRef: SetState<RuntimeFileRef | null>;
   setStatus: SetState<string>;
   applyLoadedDocument: (text: string, name: string, file: RuntimeFileRef | null, source?: FileOpenSource) => void;
@@ -42,7 +44,7 @@ export function useProjectFileHotReload(args: ProjectFileHotReloadArgs) {
   const requestRevisionRef = useRef(new Map<string, number>());
   argsRef.current = args;
 
-  const extraPaths = [args.fileRef?.path, ...args.detachedMarkdownWindows.map((window) => window.file.path), ...args.detachedHtmlWindows.map((window) => window.file.path)]
+  const extraPaths = [args.fileRef?.path, ...args.detachedMarkdownWindows.map((window) => window.file.path), ...args.detachedHtmlWindows.map((window) => window.file.path), ...args.detachedImageWindows.map(imageWindowWatchPath)]
     .filter((path): path is string => Boolean(path));
   const targetKey = `${args.projectWorkspace?.rootPath || ""}\0${[...new Set(extraPaths)].sort().join("\0")}`;
 
@@ -87,7 +89,14 @@ async function handleProjectFileChanges(
   const fileChanges = changes.filter((change) => !change.directory);
   const csvPaths = new Set(fileChanges.filter((change) => isCsvPath(change.path)).map((change) => change.path));
   if (csvPaths.size) void args.reloadExternalCsvFiles(csvPaths);
-  if (fileChanges.some((change) => isSupportedImagePath(change.path))) args.refreshImageAssets();
+  const imageChanges = fileChanges.filter((change) => isSupportedImagePath(change.path));
+  if (imageChanges.length) {
+    args.refreshImageAssets();
+    args.setDetachedImageWindows((current) => current.map((window) => {
+      const change = imageChanges.find((candidate) => comparablePath(candidate.path) === comparablePath(imageWindowWatchPath(window)));
+      return change ? { ...window, revision: (window.revision || 0) + 1, missing: change.kind === "removed" } : window;
+    }));
+  }
   const htmlChanges = fileChanges.filter((change) => isHtmlDocumentFilePath(change.path));
   if (htmlChanges.length) {
     args.setDetachedHtmlWindows((current) => current.map((window) => {
@@ -183,6 +192,10 @@ function collapseChanges(changes: RuntimeProjectFileChange[]) {
 
 function comparablePath(path: string | undefined) {
   return (path || "").replaceAll("\\", "/");
+}
+
+function imageWindowWatchPath(window: DetachedImageWindow) {
+  return window.watchPath || (window.source ? "" : window.file.path);
 }
 
 function isCsvPath(path: string) {

@@ -17,7 +17,10 @@ export type CanvasWheelNavigationInput = {
   timestamp?: number;
   intentTracker?: WheelIntentTracker;
   interactionKind: CanvasInteractionKind;
+  scaleBounds?: ViewportScaleBounds;
 };
+
+export type ViewportScaleBounds = { min: number; max: number };
 
 export type WheelNavigationIntent = "pan" | "zoom";
 export type WheelInputSource = "precision" | "discrete" | "unknown";
@@ -64,7 +67,7 @@ export function resolveWheelNavigation(input: CanvasWheelNavigationInput): Canva
   if (intent === "zoom" && Math.abs(deltaY) >= WHEEL_DELTA_EPSILON) {
     return {
       kind: "zoom",
-      viewport: zoomViewportAtPoint(input.viewport, input.pointer, input.viewport.scale * Math.exp(-deltaY * WHEEL_ZOOM_SENSITIVITY))
+      viewport: zoomViewportAtPoint(input.viewport, input.pointer, input.viewport.scale * Math.exp(-deltaY * WHEEL_ZOOM_SENSITIVITY), input.scaleBounds)
     };
   }
 
@@ -150,8 +153,8 @@ function resolvePanDelta(input: CanvasWheelNavigationInput, deltaX: number, delt
   };
 }
 
-export function zoomViewportAtPoint(viewport: ViewportState, pointer: CanvasPoint, nextScale: number): ViewportState {
-  const scale = clampScale(nextScale);
+export function zoomViewportAtPoint(viewport: ViewportState, pointer: CanvasPoint, nextScale: number, scaleBounds?: ViewportScaleBounds): ViewportState {
+  const scale = clampScale(nextScale, scaleBounds);
   const worldPoint = {
     x: (pointer.x - viewport.x) / viewport.scale,
     y: (pointer.y - viewport.y) / viewport.scale
@@ -184,6 +187,8 @@ function isNearMultiple(value: number, step: number) {
   return remainder <= 1 || step - remainder <= 1;
 }
 
-function clampScale(value: number) {
-  return Math.min(CANVAS_MAX_SCALE, Math.max(CANVAS_MIN_SCALE, value));
+function clampScale(value: number, scaleBounds?: ViewportScaleBounds) {
+  const min = scaleBounds?.min ?? CANVAS_MIN_SCALE;
+  const max = scaleBounds?.max ?? CANVAS_MAX_SCALE;
+  return Math.min(max, Math.max(min, value));
 }

@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useProjectFileHotReload } from "@/features/mermaid-editor/components/mermaid-editor/use-project-file-hot-reload";
 import type { FileOpenSource } from "@/features/mermaid-editor/components/mermaid-editor/use-editor-file-workflow";
 import type { EditorRuntime, RuntimeFileRef, RuntimeProjectFileChangeBatch } from "@/features/mermaid-editor/lib/editor-runtime";
-import type { DetachedHtmlWindow, DetachedMarkdownWindow } from "@/features/mermaid-editor/lib/workspace-panels";
+import type { DetachedHtmlWindow, DetachedImageWindow, DetachedMarkdownWindow } from "@/features/mermaid-editor/lib/workspace-panels";
 
 const workspace = {
   rootName: "project",
@@ -77,7 +77,7 @@ describe("useProjectFileHotReload", () => {
     expect(container.querySelector("[data-html-revision]")?.getAttribute("data-html-revision")).toBe("1");
     expect(runtime.setProjectFileWatchTargets).toHaveBeenCalledWith(expect.objectContaining({
       rootPath: "/project",
-      extraPaths: expect.arrayContaining(["/project/notes.md", "/project/floating.md", "/project/index.html"])
+      extraPaths: expect.arrayContaining(["/project/notes.md", "/project/floating.md", "/project/index.html", "/project/image.png"])
     }));
   });
 
@@ -106,7 +106,7 @@ describe("useProjectFileHotReload", () => {
           { directory: false, kind: "removed", path: "/project/notes.md" },
           { directory: false, kind: "removed", path: "/project/floating.md" },
           { directory: false, kind: "changed", path: "/project/table.csv" },
-          { directory: false, kind: "changed", path: "/project/image.png" }
+          { directory: false, kind: "removed", path: "/project/image.png" }
         ]
       });
       await settle();
@@ -118,6 +118,8 @@ describe("useProjectFileHotReload", () => {
     expect(refreshImageAssets).toHaveBeenCalledTimes(1);
     expect(container.querySelector("[data-current-path]")?.getAttribute("data-current-path")).toBe("");
     expect(container.querySelector("[data-window-missing]")?.getAttribute("data-window-missing")).toBe("true");
+    expect(container.querySelector("[data-image-revision]")?.getAttribute("data-image-revision")).toBe("1");
+    expect(container.querySelector("[data-image-missing]")?.getAttribute("data-image-missing")).toBe("true");
   });
 
   function createRuntime(openFilePath: EditorRuntime["openFilePath"]) {
@@ -166,6 +168,11 @@ function Probe({
     title: "index.html",
     url: "file:///project/index.html"
   }]);
+  const [imageWindows, setImageWindows] = useState<DetachedImageWindow[]>([{
+    id: "image:/project/image.png",
+    file: { name: "image.png", path: "/project/image.png" },
+    title: "image.png"
+  }]);
   const currentDocumentRef = useRef(currentDocument);
   currentDocumentRef.current = currentDocument;
   useProjectFileHotReload({
@@ -177,6 +184,8 @@ function Probe({
     setDetachedMarkdownWindows: setWindows,
     detachedHtmlWindows: htmlWindows,
     setDetachedHtmlWindows: setHtmlWindows,
+    detachedImageWindows: imageWindows,
+    setDetachedImageWindows: setImageWindows,
     setFileRef,
     setStatus: vi.fn(),
     applyLoadedDocument,
@@ -194,6 +203,8 @@ function Probe({
     data-window-value={windows[0]?.value || ""}
     data-window-missing={String(Boolean(windows[0]?.missing))}
     data-html-revision={String(htmlWindows[0]?.revision || 0)}
+    data-image-revision={String(imageWindows[0]?.revision || 0)}
+    data-image-missing={String(Boolean(imageWindows[0]?.missing))}
   />;
 }
 

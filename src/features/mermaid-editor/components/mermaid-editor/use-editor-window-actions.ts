@@ -6,6 +6,9 @@ import {
   type RecentFileEntry
 } from "@/features/mermaid-editor/lib/file-workflow";
 import { isSupportedMarkdownFilePath } from "@/features/mermaid-editor/lib/document-kind";
+import { isSupportedImagePath } from "@/features/mermaid-editor/lib/node-assets";
+import { imageViewerWatchPath } from "@/features/mermaid-editor/lib/image-viewer";
+import { adjacentImageNavigationIndex, projectDirectoryImageNavigation } from "@/features/mermaid-editor/lib/image-window-navigation";
 import {
   ensureEditorDocumentFileName
 } from "@/features/mermaid-editor/lib/editor-state";
@@ -32,12 +35,18 @@ import type {
 } from "@/features/mermaid-editor/lib/project-workspace";
 import {
   htmlWindowPanelId,
+  imageWindowPanelId,
   markdownWindowPanelId,
   type BrowserWindowPanelId,
   type DetachedBrowserWindow,
   type DetachedHtmlWindow,
+  type DetachedImageWindow,
   type DetachedMarkdownWindow,
   type HtmlWindowPanelId,
+  type ImageWindowPanelId,
+  type ImageWindowOpenRequest,
+  type ImageWindowNavigation,
+  type ImageWindowNavigationItem,
   type MarkdownWindowPanelId,
   type WorkspaceFloatingPanelId
 } from "@/features/mermaid-editor/lib/workspace-panels";
@@ -68,6 +77,8 @@ type UseEditorWindowActionsArgs = {
   setDetachedBrowserWindows: StateSetter<DetachedBrowserWindow[]>;
   detachedHtmlWindows: DetachedHtmlWindow[];
   setDetachedHtmlWindows: StateSetter<DetachedHtmlWindow[]>;
+  detachedImageWindows: DetachedImageWindow[];
+  setDetachedImageWindows: StateSetter<DetachedImageWindow[]>;
   setRecentFiles: StateSetter<RecentFileEntry[]>;
   setNodeActionEditor: StateSetter<{ nodeId: string } | null>;
   setStatus: StateSetter<string>;
@@ -92,6 +103,8 @@ export function useEditorWindowActions({
   setDetachedBrowserWindows,
   detachedHtmlWindows,
   setDetachedHtmlWindows,
+  detachedImageWindows,
+  setDetachedImageWindows,
   setRecentFiles,
   setNodeActionEditor,
   setStatus,
@@ -177,6 +190,83 @@ export function useEditorWindowActions({
 
   function closeDetachedHtmlWindow(panelId: HtmlWindowPanelId) {
     setDetachedHtmlWindows((current) => current.filter((window) => window.id !== panelId));
+    removeWorkspacePanel(panelId);
+  }
+
+  function openImageWindow(request: ImageWindowOpenRequest) {
+    const selectedItem = normalizeImageWindowItem(request, request);
+    if (!selectedItem) {
+      showFileWorkflowError({ code: "file_not_found", path: request.source }, "无法打开图片。");
+      return;
+    }
+    const navigation = normalizeImageWindowNavigation(request, selectedItem);
+    const runtimeFile = imageWindowRuntimeFile(selectedItem);
+    const panelId = imageWindowPanelId({ name: selectedItem.title, path: selectedItem.identity });
+    const existingWindow = detachedImageWindows.find((window) => window.id === panelId);
+    if (existingWindow) {
+      setDetachedImageWindows((current) => current.map((window) => window.id === panelId ? {
+        ...window,
+        file: runtimeFile,
+        title: selectedItem.title,
+        source: selectedItem.source,
+        documentFile: selectedItem.documentFile,
+        watchPath: selectedItem.watchPath,
+        revision: (window.revision || 0) + 1,
+        missing: false,
+        navigation
+      } : window));
+      bringWorkspacePanelToFront(panelId);
+      setStatus(`已切换到 ${selectedItem.title} 图片查看器。`);
+      return;
+    }
+    setDetachedImageWindows((current) => [...current, {
+      id: panelId,
+      file: runtimeFile,
+      title: selectedItem.title,
+      source: selectedItem.source,
+      documentFile: selectedItem.documentFile,
+      watchPath: selectedItem.watchPath,
+      navigation
+    }]);
+    bringWorkspacePanelToFront(panelId);
+    setWorkspacePanelWindowState(panelId, "normal");
+    setStatus(`已在图片查看器中打开 ${selectedItem.title}。`);
+  }
+
+  function openProjectImageWindow(file: ProjectFileEntry) {
+    if (!isSupportedImagePath(file.path)) return;
+    openImageWindow({
+      source: file.path,
+      title: file.name,
+      identity: file.path,
+      watchPath: file.path,
+      navigation: projectDirectoryImageNavigation(projectWorkspace, file)
+    });
+  }
+
+  function navigateDetachedImageWindow(panelId: ImageWindowPanelId, direction: -1 | 1) {
+    const targetWindow = detachedImageWindows.find((window) => window.id === panelId);
+    const navigation = targetWindow?.navigation;
+    if (!targetWindow || !navigation || navigation.items.length <= 1) return;
+    const index = adjacentImageNavigationIndex(navigation, direction);
+    const item = navigation.items[index];
+    setDetachedImageWindows((current) => current.map((window) => window.id === panelId ? {
+      ...window,
+      file: imageWindowRuntimeFile(item),
+      title: item.title,
+      source: item.source,
+      documentFile: item.documentFile,
+      watchPath: item.watchPath,
+      revision: (window.revision || 0) + 1,
+      missing: false,
+      navigation: { ...navigation, index }
+    } : window));
+    bringWorkspacePanelToFront(panelId);
+    setStatus(`已切换到 ${item.title}。`);
+  }
+
+  function closeDetachedImageWindow(panelId: ImageWindowPanelId) {
+    setDetachedImageWindows((current) => current.filter((window) => window.id !== panelId));
     removeWorkspacePanel(panelId);
   }
 
@@ -333,6 +423,11 @@ export function useEditorWindowActions({
       return;
     }
 
+    if (isSupportedImagePath(path)) {
+      openProjectImageWindow(file);
+      return;
+    }
+
     if (isSupportedDocumentFilePath(path)) {
       await openRuntimeFileRequest(file, "project");
       return;
@@ -368,14 +463,52 @@ export function useEditorWindowActions({
   return {
     openProjectMarkdownWindow,
     openProjectHtmlWindow,
+    openImageWindow,
+    openProjectImageWindow,
+    navigateDetachedImageWindow,
     updateDetachedMarkdownWindow,
     closeDetachedMarkdownWindow,
     saveDetachedMarkdownWindow,
     closeDetachedBrowserWindow,
     closeDetachedHtmlWindow,
+    closeDetachedImageWindow,
     executeCanvasNodeAction,
     executeNodeActionDraft,
     editCanvasNodeAction,
     saveCanvasNodeAction
   };
+}
+
+function normalizeImageWindowNavigation(request: ImageWindowOpenRequest, selectedItem: ImageWindowNavigationItem): ImageWindowNavigation {
+  const inheritedRequest = {
+    documentFile: request.documentFile,
+    watchPath: undefined
+  } satisfies Pick<ImageWindowOpenRequest, "documentFile" | "watchPath">;
+  const items = request.navigation?.items
+    .map((item) => normalizeImageWindowItem(item, inheritedRequest))
+    .filter((item): item is ImageWindowNavigationItem => Boolean(item)) || [];
+  if (!items.some((item) => item.identity === selectedItem.identity)) items.push(selectedItem);
+  const uniqueItems = items.filter((item, index) => items.findIndex((candidate) => candidate.identity === item.identity) === index);
+  return {
+    kind: request.navigation?.kind || "canvas",
+    items: uniqueItems,
+    index: Math.max(0, uniqueItems.findIndex((item) => item.identity === selectedItem.identity))
+  };
+}
+
+function normalizeImageWindowItem(
+  item: Pick<ImageWindowOpenRequest, "source" | "title" | "identity" | "documentFile" | "watchPath">,
+  fallback: Pick<ImageWindowOpenRequest, "documentFile" | "watchPath">
+): ImageWindowNavigationItem | null {
+  const source = item.source.trim();
+  if (!source) return null;
+  const documentFile = item.documentFile === undefined ? fallback.documentFile : item.documentFile;
+  const watchPath = item.watchPath?.trim() || imageViewerWatchPath(source, documentFile?.path) || undefined;
+  const identity = item.identity?.trim() || watchPath || source;
+  const title = item.title?.trim() || runtimeFileNameFromPath(watchPath || source) || "图片查看器";
+  return { source, title, identity, documentFile, watchPath };
+}
+
+function imageWindowRuntimeFile(item: ImageWindowNavigationItem) {
+  return { name: item.title, path: item.watchPath || item.identity };
 }

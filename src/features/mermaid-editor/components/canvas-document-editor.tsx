@@ -7,7 +7,7 @@ import { useCanvasDocumentActions } from "@/features/mermaid-editor/components/c
 import { useCanvasDocumentKeyboardShortcuts } from "@/features/mermaid-editor/components/canvas-document-editor/use-canvas-document-keyboard-shortcuts";
 import { useCanvasDocumentModel } from "@/features/mermaid-editor/components/canvas-document-editor/use-canvas-document-model";
 import { useCanvasDocumentPointerInteraction } from "@/features/mermaid-editor/components/canvas-document-editor/use-canvas-document-pointer-interaction";
-import type { CanvasDocument } from "@/features/mermaid-editor/lib/canvas-document";
+import type { CanvasDocument, CanvasImageElement } from "@/features/mermaid-editor/lib/canvas-document";
 import type { EditorRuntime, RuntimeFileRef } from "@/features/mermaid-editor/lib/editor-runtime";
 import type { EditorTypographyTokens } from "@/features/mermaid-editor/lib/editor-theme";
 import { cn } from "@/lib/utils";
@@ -19,13 +19,14 @@ type CanvasDocumentEditorProps = {
   typography: EditorTypographyTokens["canvasDocument"];
   fontRevision: number;
   onChange: (document: CanvasDocument, status?: string) => void;
+  onOpenImage?: (image: CanvasImageElement) => void;
   onStatus?: (status: string) => void;
 };
 
-export function CanvasDocumentEditor({ document, fileRef, runtime, typography, fontRevision, onChange, onStatus }: CanvasDocumentEditorProps) {
+export function CanvasDocumentEditor({ document, fileRef, runtime, typography, fontRevision, onChange, onOpenImage, onStatus }: CanvasDocumentEditorProps) {
   const model = useCanvasDocumentModel({ document, fileRef, runtime, typography, fontRevision, onChange, onStatus });
   const actions = useCanvasDocumentActions({ model, fileRef, runtime, onStatus });
-  const pointer = useCanvasDocumentPointerInteraction({ model, startInlineEdit: actions.startInlineEdit });
+  const pointer = useCanvasDocumentPointerInteraction({ model, startInlineEdit: actions.startInlineEdit, onOpenImage });
 
   useCanvasDocumentKeyboardShortcuts({
     selectedIdsRef: model.selectedIdsRef,

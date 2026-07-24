@@ -152,7 +152,8 @@ describe("interaction architecture contract", () => {
     expect(browser).toContain("WorkspaceNativeSurfaceFrame");
     expect(surface).toContain("isEmbeddedBrowserSurfaceOccluded");
     expect(surface).not.toContain("activeRef");
-    expect(nativeFrame).toContain("WORKSPACE_PANEL_HEADER_HOT_ZONE_PX");
+    expect(nativeFrame).toContain("workspaceHeader.headerHeightPx");
+    expect(nativeFrame).toContain('if (!headerVisible) return "0px"');
   });
 
   it("keeps known oversized files on a no-growth budget", () => {
@@ -719,7 +720,8 @@ describe("interaction architecture contract", () => {
       "src/features/mermaid-editor/components/mermaid-editor/agent-terminal-workspace-panels.tsx",
       "src/features/mermaid-editor/components/mermaid-editor/detached-workspace-windows.tsx",
       "src/features/mermaid-editor/components/mermaid-editor/browser-workspace-windows.tsx",
-      "src/features/mermaid-editor/components/mermaid-editor/html-workspace-windows.tsx"
+      "src/features/mermaid-editor/components/mermaid-editor/html-workspace-windows.tsx",
+      "src/features/mermaid-editor/components/mermaid-editor/image-workspace-windows.tsx"
     ].map(readProjectFile);
     const windowContents = [
       "src/features/mermaid-editor/components/explorer-panel.tsx",
@@ -730,6 +732,7 @@ describe("interaction architecture contract", () => {
       "src/features/mermaid-editor/components/agent/agent-settings-dialog.tsx",
       "src/features/mermaid-editor/components/browser-window-panel.tsx",
       "src/features/mermaid-editor/components/html-window-panel.tsx",
+      "src/features/mermaid-editor/components/image-window-panel.tsx",
       "src/features/mermaid-editor/components/detached-window-panels.tsx"
     ].map(readProjectFile);
 

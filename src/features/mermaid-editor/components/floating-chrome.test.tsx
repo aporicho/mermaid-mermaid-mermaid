@@ -17,7 +17,7 @@ import {
   WorkspaceFloatingWindow,
   WorkspaceWindowHeader
 } from "@/features/mermaid-editor/components/floating-chrome";
-import { WORKSPACE_PANEL_HEADER_HIDE_DELAY_MS, WORKSPACE_PANEL_HEADER_HOT_ZONE_PX } from "@/features/mermaid-editor/components/floating-chrome/workspace-panel-header-context";
+import { WORKSPACE_PANEL_HEADER_HIDE_DELAY_MS } from "@/features/mermaid-editor/components/floating-chrome/workspace-panel-header-context";
 
 describe("floating chrome", () => {
   let container: HTMLDivElement | null = null;
@@ -86,8 +86,9 @@ describe("floating chrome", () => {
   function renderWorkspaceHeaderPanel({
     open = true,
     titlebarAutoHide = true,
-    leadingActions
-  }: { open?: boolean; titlebarAutoHide?: boolean; leadingActions?: ReactNode } = {}) {
+    leadingActions,
+    center
+  }: { open?: boolean; titlebarAutoHide?: boolean; leadingActions?: ReactNode; center?: ReactNode } = {}) {
     createContainer();
 
     function render(next: { open: boolean; titlebarAutoHide: boolean }) {
@@ -113,6 +114,7 @@ describe("floating chrome", () => {
                 <WorkspaceWindowHeader
                   title="测试面板"
                   leadingActions={leadingActions}
+                  center={center}
                   actions={<button type="button" data-testid="business-action">业务操作</button>}
                 />
                 <button type="button" data-testid="workspace-content">内容</button>
@@ -127,6 +129,7 @@ describe("floating chrome", () => {
 
     return {
       rerender: render,
+      panel: () => requiredElement<HTMLElement>("[data-floating-panel-id='header-test']"),
       header: () => requiredElement<HTMLElement>("[data-workspace-panel-header='true']"),
       hotZone: () => container?.querySelector<HTMLElement>("[data-floating-panel-header-hot-zone]") ?? null,
       content: () => requiredElement<HTMLButtonElement>("[data-testid='workspace-content']"),
@@ -290,26 +293,34 @@ describe("floating chrome", () => {
     expect(container?.querySelector("[data-floating-panel-header-hot-zone]")).toBeNull();
   });
 
-  it("auto-hides workspace headers after 800ms and reveals them from the 8px drag zone", () => {
+  it("opens workspace headers hidden and reveals them from a full-titlebar drag zone", () => {
     vi.useFakeTimers();
     const panel = renderWorkspaceHeaderPanel();
 
-    expect(panel.header().dataset.workspacePanelHeaderState).toBe("visible");
+    expect(panel.header().dataset.workspacePanelHeaderState).toBe("hidden");
     expect(panel.header().className).toContain("absolute");
     expect(panel.header().className).toContain("motion-reduce:transition-none");
-    expect(panel.hotZone()?.style.height).toBe(`${WORKSPACE_PANEL_HEADER_HOT_ZONE_PX}px`);
+    expect(panel.hotZone()?.style.height).toBe("var(--theme-panel-header-height)");
     expect(panel.hotZone()?.hasAttribute("data-floating-panel-drag-handle")).toBe(true);
-
-    advanceHeaderDelay();
-    expect(panel.header().dataset.workspacePanelHeaderState).toBe("hidden");
 
     const hotZone = panel.hotZone();
     if (!hotZone) throw new Error("Expected the workspace titlebar hot zone.");
     dispatchPointer(hotZone, "pointerover");
     expect(panel.header().dataset.workspacePanelHeaderState).toBe("visible");
-    dispatchPointer(hotZone, "pointerout");
+    expect(panel.hotZone()).toBeNull();
     advanceHeaderDelay();
     expect(panel.header().dataset.workspacePanelHeaderState).toBe("hidden");
+  });
+
+  it("reopens keep-alive workspace headers in their hidden auto-hide state", () => {
+    const panel = renderWorkspaceHeaderPanel();
+    expect(panel.header().dataset.workspacePanelHeaderState).toBe("hidden");
+
+    panel.rerender({ open: false, titlebarAutoHide: true });
+    panel.rerender({ open: true, titlebarAutoHide: true });
+
+    expect(panel.header().dataset.workspacePanelHeaderState).toBe("hidden");
+    expect(panel.hotZone()).not.toBeNull();
   });
 
   it("keeps the titlebar visible while it has keyboard focus and lets Tab reveal it", () => {
@@ -355,6 +366,34 @@ describe("floating chrome", () => {
     ]);
   });
 
+  it("lets passive center content drag the full visible titlebar while keeping form controls interactive", () => {
+    const passivePanel = renderWorkspaceHeaderPanel({
+      titlebarAutoHide: false,
+      center: <><span data-testid="passive-titlebar-center">图片信息</span><input data-testid="titlebar-input" /></>
+    });
+    const panel = passivePanel.panel();
+    const initialLeft = Number.parseFloat(panel.style.left);
+    const passiveCenter = requiredElement<HTMLElement>("[data-testid='passive-titlebar-center']");
+
+    dispatchDragPointer(passiveCenter, "pointerdown", 100, 100);
+    dispatchDragPointer(panel, "pointermove", 132, 100);
+    dispatchDragPointer(panel, "pointerup", 132, 100);
+    expect(Number.parseFloat(panel.style.left)).toBe(initialLeft + 32);
+
+    const movedLeft = Number.parseFloat(panel.style.left);
+    const input = requiredElement<HTMLInputElement>("[data-testid='titlebar-input']");
+    dispatchDragPointer(input, "pointerdown", 132, 100);
+    dispatchDragPointer(panel, "pointermove", 180, 100);
+    dispatchDragPointer(panel, "pointerup", 180, 100);
+    expect(Number.parseFloat(panel.style.left)).toBe(movedLeft);
+  });
+
+  it("keeps the visible auto-hide header above window content", () => {
+    const panel = renderWorkspaceHeaderPanel({ titlebarAutoHide: true });
+    expect(panel.header().className).toContain("z-[3]");
+    expect(panel.header().className).toContain("touch-none");
+  });
+
   it("keeps the titlebar visible while dragging from the top hot zone", () => {
     vi.useFakeTimers();
     const panel = renderWorkspaceHeaderPanel();
@@ -380,9 +419,10 @@ describe("floating chrome", () => {
     expect(panel.header().dataset.workspacePanelHeaderState).toBe("fixed");
 
     act(() => panel.titlebarButton("启用自动隐藏").click());
-    expect(panel.hotZone()).not.toBeNull();
+    expect(panel.hotZone()).toBeNull();
     advanceHeaderDelay();
     expect(panel.header().dataset.workspacePanelHeaderState).toBe("hidden");
+    expect(panel.hotZone()).not.toBeNull();
   });
 
   it("can temporarily enable auto-hide when the global preference is off and clears the override on close", () => {
@@ -392,9 +432,10 @@ describe("floating chrome", () => {
     expect(panel.hotZone()).toBeNull();
     expect(panel.header().dataset.workspacePanelHeaderState).toBe("fixed");
     act(() => panel.titlebarButton("启用自动隐藏").click());
-    expect(panel.hotZone()).not.toBeNull();
+    expect(panel.hotZone()).toBeNull();
     advanceHeaderDelay();
     expect(panel.header().dataset.workspacePanelHeaderState).toBe("hidden");
+    expect(panel.hotZone()).not.toBeNull();
 
     panel.rerender({ open: false, titlebarAutoHide: false });
     panel.rerender({ open: true, titlebarAutoHide: false });

@@ -18,6 +18,9 @@ export const EDITOR_CHROME_TOKENS = {
 } as const;
 
 export const EDITOR_CHROME_CLASSES = {
+  workspaceLayer: "z-[1]",
+  applicationChromeLayer: "z-[2]",
+  fullscreenWorkspaceLayer: "z-[3]",
   floatingIconButton:
     "relative size-12 rounded-[var(--theme-radius-control-lg)] [backdrop-filter:blur(var(--ui-backdrop-blur))] [&_svg]:[height:var(--ui-icon-size-button)] [&_svg]:[width:var(--ui-icon-size-button)]",
   floatingIconInactive:

@@ -34,6 +34,12 @@ const htmlFile: ProjectFileEntry = {
   relativePath: "docs/index.html"
 };
 
+const imageFile: ProjectFileEntry = {
+  name: "cover.png",
+  path: "/project/docs/cover.png",
+  relativePath: "docs/cover.png"
+};
+
 const workspace: ProjectWorkspace = {
   rootName: "project",
   rootPath: "/project",
@@ -80,14 +86,32 @@ describe("ExplorerPanel", () => {
     expect(buttonNamed("docs")?.getAttribute("aria-expanded")).toBe("true");
     expect(buttonNamed("docs")?.textContent).toBe("docs");
     expect(buttonNamed("empty")).not.toBeNull();
-    expect(buttonNamed("cover.png")?.dataset.resourceSupported).toBe("false");
+    expect(buttonNamed("cover.png")?.dataset.resourceSupported).toBe("true");
+    expect(buttonNamed("README.txt")?.dataset.resourceSupported).toBe("false");
 
-    act(() => buttonNamed("cover.png")?.click());
-    expect(onStatus).toHaveBeenCalledWith("暂不支持打开 cover.png。");
+    act(() => buttonNamed("README.txt")?.click());
+    expect(onStatus).toHaveBeenCalledWith("暂不支持打开 README.txt。");
     expect(onOpenProjectFile).not.toHaveBeenCalled();
 
     act(() => buttonNamed("note.md")?.click());
     expect(onOpenProjectFile).toHaveBeenCalledWith(markdownFile);
+  });
+
+  it("opens image resources in the image viewer from the tree or context menu", () => {
+    const onOpenProjectImageWindow = vi.fn();
+    renderExplorer({ onOpenProjectImageWindow });
+
+    act(() => buttonNamed("cover.png")?.click());
+    expect(onOpenProjectImageWindow).toHaveBeenCalledWith(imageFile);
+
+    act(() => buttonNamed("cover.png")?.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, clientX: 20, clientY: 30 })));
+    const menu = document.body.querySelector('[aria-label="cover.png 操作"]');
+    expect([...(menu?.querySelectorAll('[role="menuitem"]') ?? [])].map((item) => item.textContent)).toEqual([
+      "在图片查看器中打开",
+      "移动到…"
+    ]);
+    act(() => buttonWithText("在图片查看器中打开")?.click());
+    expect(onOpenProjectImageWindow).toHaveBeenCalledTimes(2);
   });
 
   it("keeps project actions in the titlebar and removes the close-folder action", () => {
@@ -214,7 +238,7 @@ describe("ExplorerPanel", () => {
     act(() => buttonNamed("cover.png")?.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, clientX: 20, clientY: 30 })));
     const fileMenu = document.body.querySelector('[aria-label="cover.png 操作"]');
     expect(fileMenu?.textContent).toContain("移动到…");
-    expect(fileMenu?.textContent).not.toContain("打开");
+    expect(fileMenu?.textContent).toContain("在图片查看器中打开");
     act(() => buttonWithText("移动到…")?.click());
 
     const destinationList = document.body.querySelector('[aria-label="目标文件夹"]');
@@ -396,6 +420,7 @@ describe("ExplorerPanel", () => {
     onMoveProjectFile = vi.fn(),
     onOpenProjectMarkdownWindow = vi.fn(),
     onOpenProjectHtmlWindow = vi.fn(),
+    onOpenProjectImageWindow = vi.fn(),
     onProjectDocumentPointerDrag = vi.fn(),
     currentFileRef = null,
     initialExpandedPaths = ["docs"],
@@ -410,6 +435,7 @@ describe("ExplorerPanel", () => {
     onMoveProjectFile?: (file: ProjectResourceEntry, targetDirectoryPath: string) => void;
     onOpenProjectMarkdownWindow?: (file: ProjectFileEntry) => void;
     onOpenProjectHtmlWindow?: (file: ProjectFileEntry) => void;
+    onOpenProjectImageWindow?: (file: ProjectFileEntry) => void;
     onProjectDocumentPointerDrag?: (file: ProjectFileEntry, kind: "markdown" | "html", point: { x: number; y: number }, phase: "move" | "drop" | "cancel") => void;
     currentFileRef?: { name: string; path: string } | null;
     initialExpandedPaths?: string[];
@@ -441,6 +467,7 @@ describe("ExplorerPanel", () => {
             onOpenProjectFile={onOpenProjectFile}
             onOpenProjectMarkdownWindow={onOpenProjectMarkdownWindow}
             onOpenProjectHtmlWindow={onOpenProjectHtmlWindow}
+            onOpenProjectImageWindow={onOpenProjectImageWindow}
             onCreateProjectFile={onCreateProjectFile}
             onMoveProjectFile={onMoveProjectFile}
             onProjectDocumentPointerDrag={onProjectDocumentPointerDrag}

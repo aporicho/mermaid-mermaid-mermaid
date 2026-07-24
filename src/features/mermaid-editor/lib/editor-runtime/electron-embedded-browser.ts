@@ -9,6 +9,7 @@ export function createElectronEmbeddedBrowserHandle(
   let unlistenError: (() => void) | null = null;
   let unlistenFocus: (() => void) | null = null;
   let unlistenState: (() => void) | null = null;
+  let unlistenTitlebarHotZone: (() => void) | null = null;
 
   return {
     async close() {
@@ -17,9 +18,11 @@ export function createElectronEmbeddedBrowserHandle(
       unlistenError?.();
       unlistenFocus?.();
       unlistenState?.();
+      unlistenTitlebarHotZone?.();
       unlistenError = null;
       unlistenFocus = null;
       unlistenState = null;
+      unlistenTitlebarHotZone = null;
       await bridge.closeEmbeddedBrowser(label);
     },
     async hide() {
@@ -63,6 +66,12 @@ export function createElectronEmbeddedBrowserHandle(
         if (!closed && event.label === label) {
           handler({ url: event.url, title: event.title, loading: event.loading });
         }
+      });
+    },
+    async onTitlebarHotZoneChange(handler) {
+      unlistenTitlebarHotZone?.();
+      unlistenTitlebarHotZone = bridge.onEmbeddedBrowserTitlebarHotZone((event) => {
+        if (!closed && event.label === label) handler(event.inside);
       });
     }
   };

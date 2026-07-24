@@ -161,9 +161,10 @@ export function WorkspaceWindowHeader({
       }
       titleId={chrome.titleId}
       titleTooltip={titleTooltip}
+      headerRef={workspaceHeader.setHeaderElement}
       className={cn(
-        "cursor-grab active:cursor-grabbing",
-        workspaceHeader.autoHide && "absolute inset-x-0 top-0 z-[1] bg-card/[var(--ui-surface-opacity)] shadow-[var(--ui-shadow-toolbar)] [backdrop-filter:blur(var(--ui-backdrop-blur))] transition-[opacity,transform] [transition-duration:var(--motion-duration-fast)] ease-out motion-reduce:transition-none",
+        "cursor-grab touch-none active:cursor-grabbing",
+        workspaceHeader.autoHide && "absolute inset-x-0 top-0 z-[3] bg-card/[var(--ui-surface-opacity)] shadow-[var(--ui-shadow-toolbar)] [backdrop-filter:blur(var(--ui-backdrop-blur))] transition-[opacity,transform] [transition-duration:var(--motion-duration-fast)] ease-out motion-reduce:transition-none",
         workspaceHeader.autoHide && (workspaceHeader.visible ? "pointer-events-auto translate-y-0 opacity-100" : "pointer-events-none -translate-y-full opacity-0"),
         className
       )}

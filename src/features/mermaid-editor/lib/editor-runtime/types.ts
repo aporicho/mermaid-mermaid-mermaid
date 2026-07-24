@@ -148,6 +148,7 @@ export type RuntimeEmbeddedBrowserHandle = {
   onError: (handler: (error: unknown) => void) => Promise<void>;
   onFocus: (handler: () => void) => Promise<void>;
   onState: (handler: (state: RuntimeEmbeddedBrowserState) => void) => Promise<void>;
+  onTitlebarHotZoneChange: (handler: (inside: boolean) => void) => Promise<void>;
 };
 
 export type RuntimeEmbeddedBrowserState = {

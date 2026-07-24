@@ -10,6 +10,7 @@ import {
   htmlWindowPanelId,
   markdownWindowPanelId,
   type DetachedHtmlWindow,
+  type DetachedImageWindow,
   type DetachedMarkdownWindow
 } from "@/features/mermaid-editor/lib/workspace-panels";
 
@@ -90,6 +91,35 @@ export function migrateDetachedHtmlWindows(windows: DetachedHtmlWindow[], migrat
       file,
       title: migration.targetFile.name,
       url: runtimeFilePathToUrl(migration.targetFile.path)
+    };
+  });
+}
+
+export function migrateDetachedImageWindows(windows: DetachedImageWindow[], migration: ProjectFilePathMigration) {
+  return windows.map((window) => {
+    const navigation = window.navigation ? {
+      ...window.navigation,
+      items: window.navigation.items.map((item) => sameRuntimePath(item.watchPath, migration.sourceAbsolutePath) ? {
+        ...item,
+        source: sameRuntimePath(item.source, migration.sourceAbsolutePath) ? migration.targetFile.path : item.source,
+        title: migration.targetFile.name,
+        identity: sameRuntimePath(item.identity, migration.sourceAbsolutePath) ? migration.targetFile.path : item.identity,
+        watchPath: migration.targetFile.path
+      } : item)
+    } : undefined;
+    if (!sameRuntimePath(window.watchPath || window.file.path, migration.sourceAbsolutePath)) {
+      return navigation === window.navigation ? window : { ...window, navigation };
+    }
+    const file = { ...window.file, ...migration.targetFile, path: migration.targetFile.path };
+    return {
+      ...window,
+      file,
+      title: migration.targetFile.name,
+      source: window.source && sameRuntimePath(window.source, migration.sourceAbsolutePath) ? migration.targetFile.path : window.source,
+      watchPath: migration.targetFile.path,
+      revision: (window.revision || 0) + 1,
+      missing: false,
+      navigation
     };
   });
 }

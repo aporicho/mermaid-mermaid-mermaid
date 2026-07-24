@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FocusEvent, type ReactNode } from "react";
 
 import {
+  EDITOR_CHROME_CLASSES,
   FLOATING_CHROME_PLACEMENTS,
   type FloatingChromePlacement
 } from "@/features/mermaid-editor/lib/editor-chrome";
@@ -13,7 +14,7 @@ import { gsap, useEditorMotion, useGSAP } from "@/features/mermaid-editor/lib/us
 import { cn } from "@/lib/utils";
 
 export function FloatingChromeLayer({ children, className }: { children: ReactNode; className?: string }) {
-  return <div className={cn("pointer-events-none absolute inset-0 isolate z-[2]", className)} data-layer-group="application-chrome">{children}</div>;
+  return <div className={cn("pointer-events-none absolute inset-0 isolate", EDITOR_CHROME_CLASSES.applicationChromeLayer, className)} data-layer-group="application-chrome">{children}</div>;
 }
 
 export function FloatingChromeSlot({

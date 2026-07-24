@@ -149,17 +149,16 @@ contextBridge.exposeInMainWorld("mmmElectron", {
     ipcRenderer.on("mmm:browser:error", listener);
     return () => ipcRenderer.removeListener("mmm:browser:error", listener);
   },
-  onEmbeddedBrowserFocus(handler) {
-    const listener = (_event, payload) => handler(payload);
-    ipcRenderer.on("mmm:browser:focus", listener);
-    return () => ipcRenderer.removeListener("mmm:browser:focus", listener);
-  },
-  onEmbeddedBrowserState(handler) {
-    const listener = (_event, payload) => handler(payload);
-    ipcRenderer.on("mmm:browser:state", listener);
-    return () => ipcRenderer.removeListener("mmm:browser:state", listener);
-  }
+  onEmbeddedBrowserFocus(handler) { return listenForIpc("mmm:browser:focus", handler); },
+  onEmbeddedBrowserState(handler) { return listenForIpc("mmm:browser:state", handler); },
+  onEmbeddedBrowserTitlebarHotZone(handler) { return listenForIpc("mmm:browser:titlebar-hot-zone", handler); }
 });
+
+function listenForIpc(channel, handler) {
+  const listener = (_event, payload) => handler(payload);
+  ipcRenderer.on(channel, listener);
+  return () => ipcRenderer.removeListener(channel, listener);
+}
 
 function listenForFileDrops(handler) {
   const onDragEnter = (event) => {

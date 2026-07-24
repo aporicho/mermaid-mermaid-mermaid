@@ -11,7 +11,6 @@ import {
 } from "./shared";
 import type { useFloatingPanelController } from "./use-floating-panel-controller";
 import {
-  WORKSPACE_PANEL_HEADER_HOT_ZONE_PX,
   WorkspacePanelHeaderProvider,
   type useWorkspacePanelHeaderAutoHide
 } from "./workspace-panel-header-context";
@@ -56,10 +55,10 @@ export function FloatingPanelContents({
       style={{ opacity: open ? 1 : 0 }}
     >
       <WorkspacePanelHeaderProvider value={workspaceHeader}>
-        {workspaceHeader?.autoHide ? <div
+        {workspaceHeader?.autoHide && !workspaceHeader.visible ? <div
           aria-hidden
           className="absolute inset-x-0 top-0 z-[3] cursor-grab touch-none active:cursor-grabbing"
-          style={{ height: WORKSPACE_PANEL_HEADER_HOT_ZONE_PX }}
+          style={{ height: workspacePanelHeaderCssHeight(workspaceHeader.headerHeightPx) }}
           data-floating-panel-header-hot-zone
           data-floating-panel-drag-handle
           onPointerEnter={workspaceHeader.showFromHotZone}
@@ -77,4 +76,8 @@ export function FloatingPanelContents({
       </div> : null}
     </div>
   </div>;
+}
+
+export function workspacePanelHeaderCssHeight(headerHeightPx: number) {
+  return headerHeightPx > 0 ? `${headerHeightPx}px` : "var(--theme-panel-header-height)";
 }

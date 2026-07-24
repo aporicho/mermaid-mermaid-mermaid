@@ -3,6 +3,7 @@ import { OpenNewWindow, Refresh as RefreshCw, WarningTriangle } from "iconoir-re
 
 import { Button } from "@/components/ui/button";
 import { EditorNotice } from "@/features/mermaid-editor/components/editor-ui";
+import { useWorkspacePanelHeader } from "@/features/mermaid-editor/components/floating-chrome/workspace-panel-header-context";
 import { disposeRuntimeEmbeddedBrowserHandle } from "@/features/mermaid-editor/components/mermaid-editor/use-editor-embedded-browser-handles";
 import { embeddedBrowserLogicalRect, embeddedBrowserRectKey } from "@/features/mermaid-editor/lib/embedded-browser-rect";
 import { isEmbeddedBrowserSurfaceOccluded } from "@/features/mermaid-editor/lib/embedded-browser-visibility";
@@ -40,6 +41,8 @@ export function EmbeddedBrowserSurface({
 }: EmbeddedBrowserSurfaceProps) {
   const surfaceRef = useRef<HTMLDivElement | null>(null);
   const browserRef = useRef<RuntimeEmbeddedBrowserHandle | null>(null);
+  const workspaceHeader = useWorkspacePanelHeader();
+  const workspaceHeaderRef = useRef(workspaceHeader);
   const nativeCreatedRef = useRef(false);
   const desiredUrlRef = useRef(url);
   const loadedUrlRef = useRef(url);
@@ -49,6 +52,7 @@ export function EmbeddedBrowserSurface({
   const creationSeqRef = useRef(0);
   const [nativeState, setNativeState] = useState<"loading" | "ready" | "unavailable" | "error">("loading");
   const [nativeError, setNativeError] = useState("");
+  workspaceHeaderRef.current = workspaceHeader;
 
   if (instanceIdRef.current === null) {
     instanceIdRef.current = nextEmbeddedBrowserInstanceId();
@@ -98,7 +102,7 @@ export function EmbeddedBrowserSurface({
         result = await runtime.createEmbeddedBrowser({
           label: browserLabel,
           url: initialUrl,
-          rect: embeddedBrowserViewRect(surface)
+          rect: embeddedBrowserViewRect(surface, embeddedBrowserTitlebarHotZoneHeight(workspaceHeaderRef.current))
         });
       } catch (error) {
         if (disposed) return;
@@ -142,7 +146,11 @@ export function EmbeddedBrowserSurface({
         if (!nativeCreated) return;
         syncRuntimeEmbeddedBrowserRect(surfaceRef.current, browserRef.current, lastRectKey, (nextKey) => {
           lastRectKey = nextKey;
-        }, { force, onError: reportSyncError });
+        }, {
+          force,
+          onError: reportSyncError,
+          titlebarHotZoneHeight: embeddedBrowserTitlebarHotZoneHeight(workspaceHeaderRef.current)
+        });
       };
 
       const syncBrowserVisibility = (force = false) => {
@@ -187,6 +195,14 @@ export function EmbeddedBrowserSurface({
 
       void browser.onFocus(() => {
         if (!disposed) callbacksRef.current.onBrowserFocus();
+      });
+
+      void browser.onTitlebarHotZoneChange((inside) => {
+        if (disposed) return;
+        const header = workspaceHeaderRef.current;
+        if (!header) return;
+        if (inside && header.autoHide) header.showFromHotZone();
+        else if (!inside) header.leaveHotZone();
       });
 
       void browser.onState((state) => {
@@ -296,10 +312,14 @@ function syncRuntimeEmbeddedBrowserRect(
   browser: RuntimeEmbeddedBrowserHandle | null,
   lastRectKey: string,
   updateLastRectKey: (key: string) => void,
-  options: { force?: boolean; onError?: (operation: string, error: unknown) => void } = {}
+  options: {
+    force?: boolean;
+    onError?: (operation: string, error: unknown) => void;
+    titlebarHotZoneHeight?: number;
+  } = {}
 ) {
   if (!surface || !browser) return;
-  const rect = embeddedBrowserViewRect(surface);
+  const rect = embeddedBrowserViewRect(surface, options.titlebarHotZoneHeight);
   const rectKey = embeddedBrowserRectKey(rect);
   if (!options.force && rectKey === lastRectKey) return;
   updateLastRectKey(rectKey);
@@ -321,11 +341,22 @@ function formatEmbeddedBrowserError(error: unknown) {
   }
 }
 
-function embeddedBrowserViewRect(surface: HTMLElement) {
+function embeddedBrowserViewRect(surface: HTMLElement, titlebarHotZoneHeight = 0) {
   const bounds = surface.getBoundingClientRect();
   const panel = surface.closest<HTMLElement>(".editor-ui-panel");
   const borderRadius = panel ? Number.parseFloat(window.getComputedStyle(panel).borderTopLeftRadius) : 0;
-  return embeddedBrowserLogicalRect({ ...bounds, borderRadius: Number.isFinite(borderRadius) ? borderRadius : 0 });
+  return embeddedBrowserLogicalRect({
+    left: bounds.left,
+    top: bounds.top,
+    width: bounds.width,
+    height: bounds.height,
+    borderRadius: Number.isFinite(borderRadius) ? borderRadius : 0,
+    titlebarHotZoneHeight
+  });
+}
+
+export function embeddedBrowserTitlebarHotZoneHeight(header: { autoHide: boolean; visible: boolean; headerHeightPx: number } | null) {
+  return header?.autoHide && !header.visible ? header.headerHeightPx : 0;
 }
 
 let embeddedBrowserInstanceCounter = 0;

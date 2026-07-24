@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-
 import { MotionPresence } from "@/features/mermaid-editor/components/floating-chrome";
 import { useAgentSession } from "@/features/mermaid-editor/components/agent/use-agent-session";
 import { useEditorAgentDocuments } from "@/features/mermaid-editor/components/agent/use-editor-agent-documents";
@@ -31,13 +30,13 @@ import { createEditorRuntime, type RuntimeAgentTextSelection } from "@/features/
 import type { EditorSnapshot } from "@/features/mermaid-editor/lib/editor-types";
 import { EditorMotionProvider } from "@/features/mermaid-editor/lib/use-gsap-motion";
 import { useDisableNativeContextMenu } from "@/features/mermaid-editor/lib/native-context-menu";
-import { htmlWindowPanelId, markdownWindowPanelId, useWorkspacePanels, type DetachedBrowserWindow, type DetachedHtmlWindow, type DetachedMarkdownWindow } from "@/features/mermaid-editor/lib/workspace-panels";
+import { htmlWindowPanelId, markdownWindowPanelId, useWorkspacePanels, type DetachedBrowserWindow, type DetachedHtmlWindow, type DetachedImageWindow, type DetachedMarkdownWindow } from "@/features/mermaid-editor/lib/workspace-panels";
 import { OverlayLayerScopeProvider } from "@/lib/overlay-layer-context";
 import { useCanvasNodeGeometryModel } from "@/features/mermaid-editor/components/mermaid-editor/use-canvas-node-geometry-model";
 import { useCsvTableFileSync } from "@/features/mermaid-editor/components/mermaid-editor/use-csv-table-file-sync";
 import { normalizeFileWorkflowError } from "@/features/mermaid-editor/lib/file-workflow";
 import { clampMarkdownTextScale, markdownTextScalePercent } from "@/features/mermaid-editor/lib/markdown-text-scale";
-
+import { imageViewerWatchPath } from "@/features/mermaid-editor/lib/image-viewer";
 export function MermaidEditor() {
   useDisableNativeContextMenu();
   const runtime = useMemo(() => createEditorRuntime(), []);
@@ -146,12 +145,12 @@ export function MermaidEditor() {
   const [agentOpen, setAgentOpen] = useState(false);
   const [terminalOpen, setTerminalOpen] = useState(false);
   const [themeSettingsOpen, setThemeSettingsOpen] = useState(false);
-  const [detachedMarkdownWindows, setDetachedMarkdownWindows] = useState<DetachedMarkdownWindow[]>([]); const [detachedBrowserWindows, setDetachedBrowserWindows] = useState<DetachedBrowserWindow[]>([]); const [detachedHtmlWindows, setDetachedHtmlWindows] = useState<DetachedHtmlWindow[]>([]);
+  const [detachedMarkdownWindows, setDetachedMarkdownWindows] = useState<DetachedMarkdownWindow[]>([]); const [detachedBrowserWindows, setDetachedBrowserWindows] = useState<DetachedBrowserWindow[]>([]); const [detachedHtmlWindows, setDetachedHtmlWindows] = useState<DetachedHtmlWindow[]>([]); const [detachedImageWindows, setDetachedImageWindows] = useState<DetachedImageWindow[]>([]);
   const [agentTextSelection, setAgentTextSelection] = useState<RuntimeAgentTextSelection | null>(null);
   const [detachedAgentSelections, setDetachedAgentSelections] = useState<Record<string, RuntimeAgentTextSelection | null>>({});
   const markdownFolds = useMarkdownFoldPersistence({ runtime, projectWorkspace, currentFile: fileRef, detachedMarkdownWindows, onStatus: setStatus });
   const {
-    activeWorkspacePanel,
+    activeWorkspacePanel, fullscreenWorkspacePanel,
     bringWorkspacePanelToFront,
     removeWorkspacePanel,
     setWorkspacePanelWindowState,
@@ -159,7 +158,7 @@ export function MermaidEditor() {
     workspacePanelWindowState
   } = useWorkspacePanels({
     leftCollapsed, rightCollapsed, agentOpen, terminalOpen, themeSettingsOpen, documentKind,
-    detachedMarkdownWindows, detachedBrowserWindows, detachedHtmlWindows
+    detachedMarkdownWindows, detachedBrowserWindows, detachedHtmlWindows, detachedImageWindows
   });
   const { openWorkspacePanel, closeWorkspacePanel } = useEditorWorkspacePanelActions({
     bringWorkspacePanelToFront,
@@ -360,7 +359,7 @@ export function MermaidEditor() {
     applyEditorCommand,
     recordRecentAction
   });
-  const { createProjectFile, moveProjectFile } = useProjectFileActions({ runtime, projectWorkspace, fileRef, graph, detachedMarkdownWindows, detachedHtmlWindows, setProjectBusy, setFileRef, setFileName, setRecentFiles, setDetachedMarkdownWindows, setDetachedHtmlWindows, refreshProjectWorkspace, openProjectFile, beforeMove: flushLinkedFileWrites, applyEditorCommand, onDetachedMarkdownWindowMoved: (sourceFile, targetFile) => { const sourcePanelId = markdownWindowPanelId(sourceFile); const targetPanelId = markdownWindowPanelId(targetFile); const windowState = workspacePanelWindowState(sourcePanelId); removeWorkspacePanel(sourcePanelId); bringWorkspacePanelToFront(targetPanelId); setWorkspacePanelWindowState(targetPanelId, windowState); }, onDetachedHtmlWindowMoved: (sourceFile, targetFile) => { const sourcePanelId = htmlWindowPanelId(sourceFile); const targetPanelId = htmlWindowPanelId(targetFile); const windowState = workspacePanelWindowState(sourcePanelId); removeWorkspacePanel(sourcePanelId); bringWorkspacePanelToFront(targetPanelId); setWorkspacePanelWindowState(targetPanelId, windowState); }, onMarkdownFileMoved: markdownFolds.migrateMarkdownFoldState, setStatus, showFileWorkflowError });
+  const { createProjectFile, moveProjectFile } = useProjectFileActions({ runtime, projectWorkspace, fileRef, graph, detachedMarkdownWindows, detachedHtmlWindows, setProjectBusy, setFileRef, setFileName, setRecentFiles, setDetachedMarkdownWindows, setDetachedHtmlWindows, setDetachedImageWindows, refreshProjectWorkspace, openProjectFile, beforeMove: flushLinkedFileWrites, applyEditorCommand, onDetachedMarkdownWindowMoved: (sourceFile, targetFile) => { const sourcePanelId = markdownWindowPanelId(sourceFile); const targetPanelId = markdownWindowPanelId(targetFile); const windowState = workspacePanelWindowState(sourcePanelId); removeWorkspacePanel(sourcePanelId); bringWorkspacePanelToFront(targetPanelId); setWorkspacePanelWindowState(targetPanelId, windowState); }, onDetachedHtmlWindowMoved: (sourceFile, targetFile) => { const sourcePanelId = htmlWindowPanelId(sourceFile); const targetPanelId = htmlWindowPanelId(targetFile); const windowState = workspacePanelWindowState(sourcePanelId); removeWorkspacePanel(sourcePanelId); bringWorkspacePanelToFront(targetPanelId); setWorkspacePanelWindowState(targetPanelId, windowState); }, onMarkdownFileMoved: markdownFolds.migrateMarkdownFoldState, setStatus, showFileWorkflowError });
   const { markdownDocuments, htmlDocuments, csvTables } = useLinkedProjectDocuments({
     runtime, graph, viewport, canvasLiveState, projectWorkspace, applyEditorCommand,
     refreshProjectWorkspace, setStatus, showFileWorkflowError,
@@ -397,10 +396,10 @@ export function MermaidEditor() {
     setStatus
   });
   const {
-    openProjectMarkdownWindow, openProjectHtmlWindow,
+    openProjectMarkdownWindow, openProjectHtmlWindow, openProjectImageWindow, openImageWindow, navigateDetachedImageWindow,
     updateDetachedMarkdownWindow,
     closeDetachedMarkdownWindow,
-    closeDetachedBrowserWindow, closeDetachedHtmlWindow,
+    closeDetachedBrowserWindow, closeDetachedHtmlWindow, closeDetachedImageWindow,
     saveDetachedMarkdownWindow,
     executeCanvasNodeAction,
     executeNodeActionDraft,
@@ -413,6 +412,7 @@ export function MermaidEditor() {
     detachedMarkdownWindows, setDetachedMarkdownWindows,
     detachedBrowserWindows, setDetachedBrowserWindows,
     detachedHtmlWindows, setDetachedHtmlWindows,
+    detachedImageWindows, setDetachedImageWindows,
     setRecentFiles,
     setNodeActionEditor,
     setStatus,
@@ -428,7 +428,7 @@ export function MermaidEditor() {
   });
   useProjectFileHotReload({ runtime, projectWorkspace, fileRef, currentDocumentRef,
     detachedMarkdownWindows, setDetachedMarkdownWindows, setFileRef, setStatus,
-    detachedHtmlWindows, setDetachedHtmlWindows,
+    detachedHtmlWindows, setDetachedHtmlWindows, detachedImageWindows, setDetachedImageWindows,
     applyLoadedDocument, refreshProjectWorkspace, discardLinkedFileWrites, reloadExternalCsvFiles,
     updateMarkdownPreviewFromText: updateMarkdownDocumentPreviewFromText,
     markMarkdownPreviewMissing: markMarkdownDocumentPreviewMissing,
@@ -578,7 +578,7 @@ export function MermaidEditor() {
             onSourceChange={applySource}
             onRunSource={refreshFromSource}
             onEditorCommand={applyEditorCommand}
-            onOpenNodeAction={executeCanvasNodeAction}
+            onOpenNodeAction={executeCanvasNodeAction} onOpenCanvasImage={(request) => openImageWindow({ ...request, documentFile: fileRef, watchPath: imageViewerWatchPath(request.source, fileRef?.path) })}
             onEditNodeAction={editCanvasNodeAction}
             onPointerWorldChange={recordCanvasPointerWorld}
             onLiveStateChange={updateCanvasLiveState}
@@ -590,14 +590,14 @@ export function MermaidEditor() {
           runtime={runtime} documentKind={documentKind}
           leftCollapsed={leftCollapsed} rightCollapsed={rightCollapsed}
           agentOpen={agentOpen} agentController={agentController} terminalOpen={terminalOpen} themeSettingsOpen={themeSettingsOpen}
-          activeWorkspacePanel={activeWorkspacePanel}
+          activeWorkspacePanel={activeWorkspacePanel} fullscreenWorkspacePanel={fullscreenWorkspacePanel}
           graph={graph} selection={selection}
           projectWorkspace={projectWorkspace} projectFiles={projectFiles}
           explorerTreeState={activeExplorerTreeState} onExplorerTreeStateChange={updateExplorerTreeState}
           projectBusy={projectBusy} fileRef={fileRef}
           terminalCwd={terminalCwd} terminalContextKey={terminalContextKey} activeTheme={activeTheme} editingThemeId={editingThemeId}
           editingCustomTheme={editingCustomTheme} themeDraftDirty={themeDraftDirty}
-          terminalTheme={compiledTheme.terminalTheme} detachedMarkdownWindows={detachedMarkdownWindows} detachedBrowserWindows={detachedBrowserWindows} detachedHtmlWindows={detachedHtmlWindows}
+          terminalTheme={compiledTheme.terminalTheme} detachedMarkdownWindows={detachedMarkdownWindows} detachedBrowserWindows={detachedBrowserWindows} detachedHtmlWindows={detachedHtmlWindows} detachedImageWindows={detachedImageWindows}
           markdownSpellcheckEnabled={preferences.markdownSpellcheckEnabled} markdownContentWidth={preferences.markdownContentWidth}
           markdownTextScale={preferences.markdownTextScale} workspaceTitlebarAutoHide={preferences.workspaceTitlebarAutoHide}
           onMarkdownTextScaleChange={(value) => { const markdownTextScale = clampMarkdownTextScale(value); updatePreferences({ ...preferences, markdownTextScale }, `Markdown 正文字号已设为 ${markdownTextScalePercent(markdownTextScale)}。`); }}
@@ -608,12 +608,12 @@ export function MermaidEditor() {
           applyThemeSettings={saveThemeSettings} previewTheme={previewTheme}
           openProjectFolder={openProjectFolder} refreshProjectWorkspace={refreshProjectWorkspace}
           createProjectFile={createProjectFile} moveProjectFile={moveProjectFile} openProjectFile={openProjectFile}
-          openProjectMarkdownWindow={openProjectMarkdownWindow} openProjectHtmlWindow={openProjectHtmlWindow} onProjectDocumentPointerDrag={markdownDocumentDrop.pointer}
+          openProjectMarkdownWindow={openProjectMarkdownWindow} openProjectHtmlWindow={openProjectHtmlWindow} openProjectImageWindow={openProjectImageWindow} onProjectDocumentPointerDrag={markdownDocumentDrop.pointer}
           applyEditorCommand={applyEditorCommand}
           executeCanvasNodeAction={executeCanvasNodeAction}
           editCanvasNodeAction={editCanvasNodeAction}
           closeDetachedMarkdownWindow={closeDetachedMarkdownWindow} closeDetachedBrowserWindow={closeDetachedBrowserWindow}
-          closeDetachedHtmlWindow={closeDetachedHtmlWindow} saveDetachedMarkdownWindow={saveDetachedMarkdownWindow}
+          closeDetachedHtmlWindow={closeDetachedHtmlWindow} closeDetachedImageWindow={closeDetachedImageWindow} navigateDetachedImageWindow={navigateDetachedImageWindow} saveDetachedMarkdownWindow={saveDetachedMarkdownWindow}
           updateDetachedMarkdownWindow={updateDetachedMarkdownWindow} markdownFoldBindingFor={markdownFolds.bindingFor}
           onDetachedMarkdownSelectionChange={(panelId, selection) => setDetachedAgentSelections((current) => ({ ...current, [panelId]: selection }))}
           onStatus={setStatus}

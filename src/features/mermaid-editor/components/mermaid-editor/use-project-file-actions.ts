@@ -13,6 +13,7 @@ import {
   migrateCurrentProjectFileRef,
   migrateDetachedMarkdownWindows,
   migrateDetachedHtmlWindows,
+  migrateDetachedImageWindows,
   migrateRecentProjectFiles,
   projectFileActionUpdates,
   projectRelativePathFromRuntimePath,
@@ -23,7 +24,7 @@ import type {
   ProjectResourceEntry,
   ProjectWorkspace
 } from "@/features/mermaid-editor/lib/project-workspace";
-import type { DetachedHtmlWindow, DetachedMarkdownWindow } from "@/features/mermaid-editor/lib/workspace-panels";
+import type { DetachedHtmlWindow, DetachedImageWindow, DetachedMarkdownWindow } from "@/features/mermaid-editor/lib/workspace-panels";
 
 type StateSetter<T> = Dispatch<SetStateAction<T>>;
 
@@ -46,6 +47,7 @@ export function useProjectFileActions({
   setRecentFiles,
   setDetachedMarkdownWindows,
   setDetachedHtmlWindows,
+  setDetachedImageWindows,
   refreshProjectWorkspace,
   openProjectFile,
   beforeMove,
@@ -68,6 +70,7 @@ export function useProjectFileActions({
   setRecentFiles: StateSetter<RecentFileEntry[]>;
   setDetachedMarkdownWindows: StateSetter<DetachedMarkdownWindow[]>;
   setDetachedHtmlWindows: StateSetter<DetachedHtmlWindow[]>;
+  setDetachedImageWindows: StateSetter<DetachedImageWindow[]>;
   refreshProjectWorkspace: () => void | Promise<unknown>;
   openProjectFile: (file: ProjectFileEntry) => void | Promise<unknown>;
   beforeMove?: () => boolean | void | Promise<boolean | void>;
@@ -162,6 +165,7 @@ export function useProjectFileActions({
         const detachedHtmlWindow = detachedHtmlWindows.find((window) => window.file.path === source.path);
         if (detachedHtmlWindow) onDetachedHtmlWindowMoved?.(detachedHtmlWindow.file, result.file);
         setDetachedHtmlWindows((current) => migrateDetachedHtmlWindows(current, migration));
+        setDetachedImageWindows((current) => migrateDetachedImageWindows(current, migration));
         const updates = projectFileActionUpdates(graph, migration);
         if (updates.length) {
           applyEditorCommand({

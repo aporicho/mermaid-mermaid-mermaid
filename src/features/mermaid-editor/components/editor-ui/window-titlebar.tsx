@@ -1,4 +1,4 @@
-import type { HTMLAttributes, ReactNode } from "react";
+import type { HTMLAttributes, ReactNode, Ref } from "react";
 
 import { cn } from "@/lib/utils";
 
@@ -11,6 +11,7 @@ export function WindowTitlebarLayout({
   actions,
   titleId,
   titleTooltip,
+  headerRef,
   className,
   ...props
 }: Omit<HTMLAttributes<HTMLElement>, "title"> & {
@@ -22,9 +23,11 @@ export function WindowTitlebarLayout({
   actions?: ReactNode;
   titleId?: string;
   titleTooltip?: string;
+  headerRef?: Ref<HTMLElement>;
 }) {
   return (
     <header
+      ref={headerRef}
       {...props}
       className={cn("editor-ui-panel-header flex min-w-0 items-center gap-2", className)}
     >
@@ -41,7 +44,7 @@ export function WindowTitlebarLayout({
         {status}
       </div>
       {center ? (
-        <div className="flex min-w-0 flex-1 items-center" data-window-titlebar-drag-exclude>
+        <div className="flex min-w-0 flex-1 items-center">
           {center}
         </div>
       ) : <div className="min-w-4 flex-1" aria-hidden />}

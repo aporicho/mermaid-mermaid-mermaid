@@ -21,7 +21,8 @@ function createHandle(): RuntimeEmbeddedBrowserHandle {
     onCreated: vi.fn(() => Promise.resolve()),
     onError: vi.fn(() => Promise.resolve()),
     onFocus: vi.fn(() => Promise.resolve()),
-    onState: vi.fn(() => Promise.resolve())
+    onState: vi.fn(() => Promise.resolve()),
+    onTitlebarHotZoneChange: vi.fn(() => Promise.resolve())
   };
 }
 

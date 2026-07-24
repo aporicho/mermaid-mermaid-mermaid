@@ -50,6 +50,16 @@ describe("canvas viewport navigation", () => {
     expect(worldAt(pointer, result.viewport).y).toBeCloseTo(before.y);
   });
 
+  it("accepts viewer-specific scale bounds without changing canvas defaults", () => {
+    const result = wheel({
+      viewport: { x: 100, y: 80, scale: 8 },
+      deltaY: -120,
+      scaleBounds: { min: 0.05, max: 16 }
+    });
+    expect(result.kind).toBe("zoom");
+    if (result.kind === "zoom") expect(result.viewport.scale).toBeGreaterThan(8);
+  });
+
   it("pans vertically from precision trackpad pixel deltas", () => {
     const result = wheel({ deltaY: 24 });
 

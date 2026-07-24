@@ -47,6 +47,7 @@ import { EDITOR_CHROME_CLASSES } from "@/features/mermaid-editor/lib/editor-chro
 import type { RuntimeFileRef } from "@/features/mermaid-editor/lib/editor-runtime";
 import type { ExplorerWorkspaceTreeState } from "@/features/mermaid-editor/lib/explorer-tree-state";
 import { isHtmlDocumentFilePath } from "@/features/mermaid-editor/lib/html-document";
+import { isSupportedImagePath } from "@/features/mermaid-editor/lib/node-assets";
 import { projectDirectoryAncestors, validExpandedDirectoryPaths } from "@/features/mermaid-editor/lib/explorer-tree-state";
 import {
   buildProjectResourceTree,
@@ -115,6 +116,7 @@ export function ExplorerPanel({
   onOpenProjectFile,
   onOpenProjectMarkdownWindow,
   onOpenProjectHtmlWindow,
+  onOpenProjectImageWindow,
   onCreateProjectFile,
   onMoveProjectFile,
   onProjectDocumentPointerDrag,
@@ -132,6 +134,7 @@ export function ExplorerPanel({
   onOpenProjectFile: (file: ProjectFileEntry) => void;
   onOpenProjectMarkdownWindow: (file: ProjectFileEntry) => void;
   onOpenProjectHtmlWindow: (file: ProjectFileEntry) => void;
+  onOpenProjectImageWindow: (file: ProjectFileEntry) => void;
   onCreateProjectFile: (request: ExplorerCreateProjectFileRequest) => void;
   onMoveProjectFile: (file: ProjectResourceEntry, targetDirectoryPath: string) => void;
   onProjectDocumentPointerDrag: (file: ProjectFileEntry, kind: "markdown" | "html", point: { x: number; y: number }, phase: "move" | "drop" | "cancel") => void;
@@ -455,6 +458,7 @@ export function ExplorerPanel({
                       onOpenProjectFile={onOpenProjectFile}
                       onOpenProjectMarkdownWindow={onOpenProjectMarkdownWindow}
                       onOpenProjectHtmlWindow={onOpenProjectHtmlWindow}
+                      onOpenProjectImageWindow={onOpenProjectImageWindow}
                       onProjectDocumentPointerDrag={onProjectDocumentPointerDrag}
                       projectBusy={projectBusy}
                       draggedResourcePath={draggedResourcePath}
@@ -493,6 +497,7 @@ export function ExplorerPanel({
           onOpenProjectFile={(file) => { setContextMenu(null); onOpenProjectFile(file); }}
           onOpenProjectMarkdownWindow={(file) => { setContextMenu(null); onOpenProjectMarkdownWindow(file); }}
           onOpenProjectHtmlWindow={(file) => { setContextMenu(null); onOpenProjectHtmlWindow(file); }}
+          onOpenProjectImageWindow={(file) => { setContextMenu(null); onOpenProjectImageWindow(file); }}
           onMove={(resource) => {
             setContextMenu(null);
             setMoveFileDialog({ resource, targetDirectoryPath: parentResourceDirectory(resource.relativePath) });
@@ -571,6 +576,7 @@ function ProjectTreeNodeRow({
   onOpenProjectFile,
   onOpenProjectMarkdownWindow,
   onOpenProjectHtmlWindow,
+  onOpenProjectImageWindow,
   onProjectDocumentPointerDrag,
   projectBusy,
   draggedResourcePath,
@@ -598,6 +604,7 @@ function ProjectTreeNodeRow({
   onOpenProjectFile: (file: ProjectFileEntry) => void;
   onOpenProjectMarkdownWindow: (file: ProjectFileEntry) => void;
   onOpenProjectHtmlWindow: (file: ProjectFileEntry) => void;
+  onOpenProjectImageWindow: (file: ProjectFileEntry) => void;
   onProjectDocumentPointerDrag: (file: ProjectFileEntry, kind: "markdown" | "html", point: { x: number; y: number }, phase: "move" | "drop" | "cancel") => void;
   projectBusy: boolean;
   draggedResourcePath: string | null;
@@ -655,6 +662,7 @@ function ProjectTreeNodeRow({
                 onOpenProjectFile={onOpenProjectFile}
                 onOpenProjectMarkdownWindow={onOpenProjectMarkdownWindow}
                 onOpenProjectHtmlWindow={onOpenProjectHtmlWindow}
+                onOpenProjectImageWindow={onOpenProjectImageWindow}
                 onProjectDocumentPointerDrag={onProjectDocumentPointerDrag}
                 projectBusy={projectBusy}
                 draggedResourcePath={draggedResourcePath}
@@ -688,6 +696,7 @@ function ProjectTreeNodeRow({
       onTreeKeyDown={onTreeKeyDown}
       onOpenProjectFile={onOpenProjectFile}
       onOpenProjectHtmlWindow={onOpenProjectHtmlWindow}
+      onOpenProjectImageWindow={onOpenProjectImageWindow}
       projectBusy={projectBusy}
       dragging={draggedResourcePath === node.resource.path}
       onStartFilePointerDrag={onStartFilePointerDrag}
@@ -712,6 +721,7 @@ function ProjectFileRow({
   onTreeKeyDown,
   onOpenProjectFile,
   onOpenProjectHtmlWindow,
+  onOpenProjectImageWindow,
   projectBusy,
   dragging,
   onStartFilePointerDrag,
@@ -732,6 +742,7 @@ function ProjectFileRow({
   onTreeKeyDown: (event: ReactKeyboardEvent<HTMLButtonElement>, item: { id: string; kind: "root" | "directory" | "file"; parentPath?: string }) => void;
   onOpenProjectFile: (file: ProjectFileEntry) => void;
   onOpenProjectHtmlWindow: (file: ProjectFileEntry) => void;
+  onOpenProjectImageWindow: (file: ProjectFileEntry) => void;
   projectBusy: boolean;
   dragging: boolean;
   onStartFilePointerDrag: (resource: ProjectResourceEntry, file: ProjectFileEntry | undefined, event: ReactPointerEvent<HTMLButtonElement>) => void;
@@ -743,7 +754,8 @@ function ProjectFileRow({
   onUnsupportedResource: (resource: ProjectResourceEntry) => void;
 }) {
   const htmlFile = isHtmlDocumentFilePath(node.resource.path);
-  const file = node.file ?? (node.resource.documentKind || htmlFile ? resourceProjectFile(node.resource) : undefined);
+  const imageFile = isSupportedImagePath(node.resource.path);
+  const file = node.file ?? (node.resource.documentKind || htmlFile || imageFile ? resourceProjectFile(node.resource) : undefined);
   const active = file ? isProjectFileActive(file, currentFileRef) : false;
   const suppressClickRef = useRef(false);
 
@@ -779,7 +791,8 @@ function ProjectFileRow({
             event.preventDefault();
             return;
           }
-          if (file && htmlFile) onOpenProjectHtmlWindow(file);
+          if (file && imageFile) onOpenProjectImageWindow(file);
+          else if (file && htmlFile) onOpenProjectHtmlWindow(file);
           else if (file) onOpenProjectFile(file);
           else onUnsupportedResource(node.resource);
         }}
@@ -813,6 +826,7 @@ function ProjectResourceContextMenu({
   onOpenProjectFile,
   onOpenProjectMarkdownWindow,
   onOpenProjectHtmlWindow,
+  onOpenProjectImageWindow,
   onMove,
   onCreateFile
 }: {
@@ -824,6 +838,7 @@ function ProjectResourceContextMenu({
   onOpenProjectFile: (file: ProjectFileEntry) => void;
   onOpenProjectMarkdownWindow: (file: ProjectFileEntry) => void;
   onOpenProjectHtmlWindow: (file: ProjectFileEntry) => void;
+  onOpenProjectImageWindow: (file: ProjectFileEntry) => void;
   onMove: (resource: ProjectResourceEntry) => void;
   onCreateFile: (directoryPath: string) => void;
 }) {
@@ -832,6 +847,7 @@ function ProjectResourceContextMenu({
   const fileMenu = menu.kind === "file";
   const markdownFile = fileMenu && menu.resource.documentKind === "markdown" && Boolean(menu.file);
   const htmlFile = fileMenu && isHtmlDocumentFilePath(menu.resource.path) && Boolean(menu.file);
+  const imageFile = fileMenu && isSupportedImagePath(menu.resource.path) && Boolean(menu.file);
   const targetName = fileMenu
     ? menu.resource.name
     : menu.directoryPath.split("/").at(-1) || rootName;
@@ -844,7 +860,7 @@ function ProjectResourceContextMenu({
       ariaLabel={`${targetName} 操作`}
       restoreFocusRef={restoreFocusRef}
     >
-      {fileMenu && menu.file && !htmlFile ? (
+      {fileMenu && menu.file && !htmlFile && !imageFile ? (
         <DropdownMenuItem title={menu.file.path} onSelect={() => onOpenProjectFile(menu.file!)}>
           <Page className="size-4" />
           <span className="truncate">打开</span>
@@ -860,6 +876,12 @@ function ProjectResourceContextMenu({
         <DropdownMenuItem title={menu.file.path} onSelect={() => onOpenProjectHtmlWindow(menu.file!)}>
           <OpenNewWindow className="size-4" />
           <span className="truncate">在浮窗中预览</span>
+        </DropdownMenuItem>
+      ) : null}
+      {imageFile && menu.file ? (
+        <DropdownMenuItem title={menu.file.path} onSelect={() => onOpenProjectImageWindow(menu.file!)}>
+          <MediaImage className="size-4" />
+          <span className="truncate">在图片查看器中打开</span>
         </DropdownMenuItem>
       ) : null}
       {fileMenu ? (

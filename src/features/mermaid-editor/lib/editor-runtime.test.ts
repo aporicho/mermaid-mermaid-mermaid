@@ -96,6 +96,7 @@ function electronBridge(): ElectronBridge {
     onEmbeddedBrowserError: vi.fn(() => () => undefined),
     onEmbeddedBrowserFocus: vi.fn(() => () => undefined),
     onEmbeddedBrowserState: vi.fn(() => () => undefined),
+    onEmbeddedBrowserTitlebarHotZone: vi.fn(() => () => undefined),
   };
 }
 
@@ -204,9 +205,11 @@ describe("createEditorRuntime", () => {
     if (result.status !== "created") throw new Error("Expected a native browser handle.");
     const onFocus = vi.fn();
     const onState = vi.fn();
+    const onTitlebarHotZoneChange = vi.fn();
 
     await result.browser.onFocus(onFocus);
     await result.browser.onState(onState);
+    await result.browser.onTitlebarHotZoneChange(onTitlebarHotZoneChange);
     await result.browser.navigate("https://openai.com");
     await result.browser.reload();
     vi.mocked(bridge.onEmbeddedBrowserFocus).mock.calls[0][0]({ label: "another-browser" });
@@ -217,10 +220,12 @@ describe("createEditorRuntime", () => {
       title: "OpenAI",
       loading: false
     });
+    vi.mocked(bridge.onEmbeddedBrowserTitlebarHotZone).mock.calls[0][0]({ label: "browser-test", inside: true });
 
     expect(bridge.navigateEmbeddedBrowser).toHaveBeenCalledWith("browser-test", "https://openai.com");
     expect(bridge.reloadEmbeddedBrowser).toHaveBeenCalledWith("browser-test");
     expect(onFocus).toHaveBeenCalledTimes(1);
     expect(onState).toHaveBeenCalledWith({ url: "https://openai.com/", title: "OpenAI", loading: false });
+    expect(onTitlebarHotZoneChange).toHaveBeenCalledWith(true);
   });
 });

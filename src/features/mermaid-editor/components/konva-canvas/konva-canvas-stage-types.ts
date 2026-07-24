@@ -102,6 +102,7 @@ export type KonvaCanvasStageProps = {
   onNodeContextMenu: (event: KonvaEventObject<PointerEvent | MouseEvent>, node: CanvasNode) => void;
   onCloseNodeContextMenu: () => void;
   onOpenNodeAction?: (node: CanvasNode) => void;
+  onOpenNodeImage?: (node: CanvasNode) => void;
   onEditNodeAction?: (node: CanvasNode) => void;
   onRequestMarkdownDocumentPreview?: (node: CanvasNode) => void;
   onSelectTableCell: (selection: TableCellSelection | null) => void;

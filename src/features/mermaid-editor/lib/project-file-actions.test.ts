@@ -6,6 +6,7 @@ import {
   migrateCurrentProjectFileRef,
   migrateDetachedMarkdownWindows,
   migrateDetachedHtmlWindows,
+  migrateDetachedImageWindows,
   migrateRecentProjectFiles,
   projectFileActionUpdates,
   projectRelativePathFromRuntimePath,
@@ -101,6 +102,40 @@ describe("project file actions", () => {
       file: htmlMigration.targetFile,
       title: "index.html",
       url: "file:///project/archive/index.html"
+    });
+  });
+
+  it("migrates detached image viewers and invalidates their resolved source", () => {
+    const imageMigration: ProjectFilePathMigration = {
+      sourceAbsolutePath: "/project/images/cover.png",
+      sourceRelativePath: "images/cover.png",
+      sourceName: "cover.png",
+      targetFile: { name: "cover.png", path: "/project/archive/cover.png" },
+      targetRelativePath: "archive/cover.png"
+    };
+    const windows = migrateDetachedImageWindows([{
+      id: "image:/project/images/cover.png",
+      file: { name: "cover.png", path: "/project/images/cover.png" },
+      title: "cover.png",
+      revision: 2,
+      missing: true,
+      navigation: {
+        kind: "project-directory",
+        index: 0,
+        items: [{ source: "/project/images/cover.png", title: "cover.png", identity: "/project/images/cover.png", watchPath: "/project/images/cover.png" }]
+      }
+    }], imageMigration);
+
+    expect(windows[0]).toMatchObject({
+      id: "image:/project/images/cover.png",
+      file: imageMigration.targetFile,
+      title: "cover.png",
+      revision: 3,
+      missing: false,
+      navigation: {
+        index: 0,
+        items: [{ source: "/project/archive/cover.png", identity: "/project/archive/cover.png", watchPath: "/project/archive/cover.png" }]
+      }
     });
   });
 });

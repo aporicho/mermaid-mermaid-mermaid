@@ -4,7 +4,10 @@ import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { EmbeddedBrowserSurface } from "@/features/mermaid-editor/components/embedded-browser-surface";
+import {
+  EmbeddedBrowserSurface,
+  embeddedBrowserTitlebarHotZoneHeight
+} from "@/features/mermaid-editor/components/embedded-browser-surface";
 import type {
   EditorRuntime,
   RuntimeEmbeddedBrowserHandle,
@@ -26,7 +29,8 @@ function createHandle(): RuntimeEmbeddedBrowserHandle {
     onCreated: vi.fn(() => Promise.resolve()),
     onError: vi.fn(() => Promise.resolve()),
     onFocus: vi.fn(() => Promise.resolve()),
-    onState: vi.fn(() => Promise.resolve())
+    onState: vi.fn(() => Promise.resolve()),
+    onTitlebarHotZoneChange: vi.fn(() => Promise.resolve())
   };
 }
 
@@ -105,6 +109,25 @@ describe("EmbeddedBrowserSurface", () => {
 
     expect(onBrowserHandleChange).toHaveBeenLastCalledWith(panelId, null);
     expect(handle.close).toHaveBeenCalledTimes(1);
+  });
+
+  it("uses the complete measured titlebar only while auto-hide is hidden", () => {
+    expect(embeddedBrowserTitlebarHotZoneHeight({ autoHide: true, visible: false, headerHeightPx: 42 })).toBe(42);
+    expect(embeddedBrowserTitlebarHotZoneHeight({ autoHide: true, visible: true, headerHeightPx: 42 })).toBe(0);
+    expect(embeddedBrowserTitlebarHotZoneHeight({ autoHide: false, visible: false, headerHeightPx: 42 })).toBe(0);
+  });
+
+  it("passes an explicitly serialized DOMRect to the native browser", async () => {
+    const handle = createHandle();
+    const createEmbeddedBrowser = vi.fn(async (): Promise<RuntimeEmbeddedBrowserResult> => ({ status: "created", browser: handle }));
+    const getBoundingClientRect = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue(domRect(24, 36, 640, 480));
+
+    await renderSurface({ runtime: createRuntime(createEmbeddedBrowser) });
+
+    expect(createEmbeddedBrowser).toHaveBeenCalledWith(expect.objectContaining({
+      rect: expect.objectContaining({ x: 24, y: 36, width: 640, height: 480 })
+    }));
+    getBoundingClientRect.mockRestore();
   });
 
   it("keeps the native browser when parent callbacks change", async () => {
@@ -215,3 +238,14 @@ describe("EmbeddedBrowserSurface", () => {
     expect(container?.textContent).not.toContain("WebView2 内置浏览器不可用");
   });
 });
+
+function domRect(left: number, top: number, width: number, height: number): DOMRect {
+  const rect = {} as DOMRect;
+  Object.defineProperties(rect, {
+    left: { get: () => left },
+    top: { get: () => top },
+    width: { get: () => width },
+    height: { get: () => height }
+  });
+  return rect;
+}

@@ -10,6 +10,7 @@ import {
   type InteractionState
 } from "@/features/mermaid-editor/lib/canvas-interaction";
 import { resolveKonvaHitTarget } from "@/features/mermaid-editor/lib/canvas-hit-target";
+import { graphImageNodeForDoubleClick } from "@/features/mermaid-editor/lib/canvas-image-window";
 import { resolveConnectionPreview, resolveRetargetPreview } from "@/features/mermaid-editor/lib/connection-preview";
 import { selectOnlyNode } from "@/features/mermaid-editor/lib/editor-actions";
 import type { CanvasNode } from "@/features/mermaid-editor/lib/editor-types";
@@ -379,6 +380,14 @@ export function useKonvaCanvasPointerInteraction({
     closeNodeContextMenu();
     const pointer = viewportController.pointerScreenPoint() || viewportController.screenPointFromClient(event.evt.clientX, event.evt.clientY);
     if (!pointer) return;
+
+    const imageNode = graphImageNodeForDoubleClick(graph, hit);
+    if (imageNode && model.stageProps.onOpenNodeImage) {
+      invalidateBlankClickIntent();
+      onEditorCommand({ type: "selection.set", selection: selectOnlyNode(imageNode.id), source: "pointer" });
+      model.stageProps.onOpenNodeImage(imageNode);
+      return;
+    }
 
     const pointerInput = standardPointerInput("double-click", event, hit, pointer, viewportController.pointerWorldPoint() || undefined);
     applyPointerResolution(resolveCanvasPointerDoubleClick(pointerInput, interactionContextForPointer(hit, pointerInput.modifiers)));

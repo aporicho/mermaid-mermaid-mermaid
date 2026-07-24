@@ -4,6 +4,7 @@ export type EmbeddedBrowserRectInput = {
   width: number;
   height: number;
   borderRadius?: number;
+  titlebarHotZoneHeight?: number;
 };
 
 export type EmbeddedBrowserLogicalRect = {
@@ -12,6 +13,7 @@ export type EmbeddedBrowserLogicalRect = {
   width: number;
   height: number;
   borderRadius?: number;
+  titlebarHotZoneHeight?: number;
 };
 
 export function embeddedBrowserLogicalRect(rect: EmbeddedBrowserRectInput): EmbeddedBrowserLogicalRect {
@@ -20,11 +22,16 @@ export function embeddedBrowserLogicalRect(rect: EmbeddedBrowserRectInput): Embe
     y: Math.floor(rect.top),
     width: Math.max(1, Math.ceil(rect.width)),
     height: Math.max(1, Math.ceil(rect.height)),
-    ...(Number.isFinite(rect.borderRadius) ? { borderRadius: Math.max(0, rect.borderRadius || 0) } : {})
+    ...(Number.isFinite(rect.borderRadius) ? { borderRadius: Math.max(0, rect.borderRadius || 0) } : {}),
+    ...(Number.isFinite(rect.titlebarHotZoneHeight)
+      ? { titlebarHotZoneHeight: Math.max(0, Math.ceil(rect.titlebarHotZoneHeight || 0)) }
+      : {})
   };
 }
 
 export function embeddedBrowserRectKey(rect: EmbeddedBrowserLogicalRect) {
   const bounds = `${rect.x}:${rect.y}:${rect.width}:${rect.height}`;
-  return rect.borderRadius === undefined ? bounds : `${bounds}:r${rect.borderRadius}`;
+  const radius = rect.borderRadius === undefined ? "" : `:r${rect.borderRadius}`;
+  const hotZone = rect.titlebarHotZoneHeight === undefined ? "" : `:h${rect.titlebarHotZoneHeight}`;
+  return `${bounds}${radius}${hotZone}`;
 }
