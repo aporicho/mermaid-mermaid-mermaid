@@ -47,8 +47,8 @@ export function FloatingPanelContents({
         floatingPanelSurfaceClass[kind],
         panel.framePanel && "h-full w-full",
         panel.fullscreen && "!rounded-none !border-0 !shadow-none",
-        kind === "workspace" && active && "border-foreground/20",
-        kind === "workspace" && !active && "border-border/80",
+        kind === "workspace" && active && "border-[hsl(var(--foreground)/var(--ui-window-active-border-opacity))]",
+        kind === "workspace" && !active && "border-[hsl(var(--border)/var(--ui-window-inactive-border-opacity))]",
         open ? "pointer-events-auto" : "pointer-events-none",
         className
       )}

@@ -47,6 +47,16 @@
         "opacity": 0.96,
         "backdropBlur": 8
       },
+      "overlay": {
+        "background": "#18130f",
+        "opacity": 0.1,
+        "backdropBlur": 1
+      },
+      "window": {
+        "headerOpacity": 0.96,
+        "activeBorderOpacity": 0.2,
+        "inactiveBorderOpacity": 0.8
+      },
       "state": {
         "hoverOpacity": 0.9,
         "pressedOpacity": 0.82,
@@ -590,7 +600,7 @@
         },
         "previewContent": {
           "layout": {
-            "indentationEnabled": false,
+            "listIndentationEnabled": false,
             "titleBottomGap": 8,
             "sectionTopGap": 16,
             "headingBottomGap": 6,
@@ -1395,64 +1405,6 @@
           "fontSize": 14,
           "fontWeight": 400,
           "lineHeight": 20,
-          "letterSpacing": 0
-        }
-      },
-      "canvasDocument": {
-        "shape": {
-          "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
-          "fontSize": 14,
-          "fontWeight": 400,
-          "lineHeight": 18,
-          "letterSpacing": 0
-        },
-        "shapeEditor": {
-          "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
-          "fontSize": 14,
-          "fontWeight": 400,
-          "lineHeight": 18,
-          "letterSpacing": 0
-        },
-        "card": {
-          "family": "\"方正屏显雅宋简体\", \"Songti SC\", \"Noto Serif SC\", serif",
-          "fontSize": 16,
-          "fontWeight": 400,
-          "lineHeight": 21,
-          "letterSpacing": 0
-        },
-        "cardEditor": {
-          "family": "\"方正屏显雅宋简体\", \"Songti SC\", \"Noto Serif SC\", serif",
-          "fontSize": 16,
-          "fontWeight": 400,
-          "lineHeight": 21,
-          "letterSpacing": 0
-        },
-        "freeText": {
-          "family": "\"方正屏显雅宋简体\", \"Songti SC\", \"Noto Serif SC\", serif",
-          "fontSize": 18,
-          "fontWeight": 400,
-          "lineHeight": 23,
-          "letterSpacing": 0
-        },
-        "freeTextEditor": {
-          "family": "\"方正屏显雅宋简体\", \"Songti SC\", \"Noto Serif SC\", serif",
-          "fontSize": 18,
-          "fontWeight": 400,
-          "lineHeight": 23,
-          "letterSpacing": 0
-        },
-        "connector": {
-          "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
-          "fontSize": 12,
-          "fontWeight": 400,
-          "lineHeight": 15,
-          "letterSpacing": 0
-        },
-        "connectorEditor": {
-          "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
-          "fontSize": 12,
-          "fontWeight": 400,
-          "lineHeight": 15,
           "letterSpacing": 0
         }
       },

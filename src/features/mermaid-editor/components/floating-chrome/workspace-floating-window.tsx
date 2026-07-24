@@ -1,6 +1,5 @@
 import { useId, type ReactNode } from "react";
 import { Collapse, Expand, Pin, PinSlash, Xmark } from "iconoir-react/regular";
-
 import { EditorIconButton, WindowTitlebarLayout } from "@/features/mermaid-editor/components/editor-ui";
 import type {
   FloatingPanelPlacement,
@@ -16,6 +15,7 @@ import {
   useWorkspaceWindowChrome,
   type WorkspaceWindowChrome
 } from "./workspace-window-chrome-context";
+import { WorkspaceWindowActionMenu, type WorkspaceWindowAction } from "./workspace-window-action-menu";
 
 export function WorkspaceFloatingWindow({
   open,
@@ -113,6 +113,7 @@ export function WorkspaceWindowHeader({
   status,
   center,
   actions,
+  overflowActions,
   titleTooltip,
   className
 }: {
@@ -122,6 +123,7 @@ export function WorkspaceWindowHeader({
   status?: ReactNode;
   center?: ReactNode;
   actions?: ReactNode;
+  overflowActions?: readonly WorkspaceWindowAction[];
   titleTooltip?: string;
   className?: string;
 }) {
@@ -140,6 +142,7 @@ export function WorkspaceWindowHeader({
       actions={
         <>
           {actions}
+          {overflowActions?.length ? <WorkspaceWindowActionMenu actions={overflowActions} tooltipSide={chrome.tooltipSide} /> : null}
           <EditorIconButton
             context="panel"
             label={workspaceHeader.autoHide ? "固定标题栏" : "启用自动隐藏"}
@@ -148,7 +151,7 @@ export function WorkspaceWindowHeader({
             onClick={workspaceHeader.toggleAutoHideOverride}
             data-workspace-panel-titlebar-override={workspaceHeader.overridden ? "true" : "false"}
           >
-            {workspaceHeader.autoHide ? <Pin /> : <PinSlash />}
+            {workspaceHeader.autoHide ? <Pin data-icon /> : <PinSlash data-icon />}
           </EditorIconButton>
           {chrome.allowFullscreen ? (
             <EditorIconButton
@@ -157,11 +160,11 @@ export function WorkspaceWindowHeader({
               tooltipSide={chrome.tooltipSide}
               onClick={() => chrome.onWindowStateChange(fullscreen ? "normal" : "fullscreen")}
             >
-              {fullscreen ? <Collapse /> : <Expand />}
+              {fullscreen ? <Collapse data-icon /> : <Expand data-icon />}
             </EditorIconButton>
           ) : null}
           <EditorIconButton context="panel" label={chrome.closeLabel} tooltipSide={chrome.tooltipSide} onClick={chrome.onClose}>
-            <Xmark />
+            <Xmark data-icon />
           </EditorIconButton>
         </>
       }
@@ -170,7 +173,7 @@ export function WorkspaceWindowHeader({
       headerRef={workspaceHeader.setHeaderElement}
       className={cn(
         "cursor-grab touch-none active:cursor-grabbing",
-        workspaceHeader.autoHide && "absolute inset-x-0 top-0 z-[3] bg-card/[var(--ui-surface-opacity)] shadow-[var(--ui-shadow-toolbar)] [backdrop-filter:blur(var(--ui-backdrop-blur))] transition-[opacity,transform] [transition-duration:var(--motion-duration-fast)] ease-out motion-reduce:transition-none",
+        workspaceHeader.autoHide && "absolute inset-x-0 top-0 z-[3] bg-card/[var(--ui-window-header-opacity)] shadow-[var(--ui-shadow-toolbar)] [backdrop-filter:blur(var(--ui-backdrop-blur))] transition-[opacity,transform] [transition-duration:var(--motion-duration-fast)] ease-out motion-reduce:transition-none",
         workspaceHeader.autoHide && (workspaceHeader.visible ? "pointer-events-auto translate-y-0 opacity-100" : "pointer-events-none -translate-y-full opacity-0"),
         className
       )}

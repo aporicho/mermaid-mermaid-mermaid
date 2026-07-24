@@ -10,7 +10,7 @@
 | 基础原语 | `src/components/ui` | Button、Input、Textarea、Select、Popover、Dialog、DropdownMenu、Tabs、Switch、Collapsible、Badge、Tooltip、ScrollArea |
 | 编辑器语义组件 | `components/editor-ui` | 把基础原语组合成编辑器通用的按钮、工具栏、面板、弹窗、字段、列表、菜单和反馈 |
 | 功能界面 | `components` | 只组合语义组件并保留业务行为；避免再次定义通用外观 |
-| 画布交互控件 | `konva-canvas`、`canvas-document-editor` | 复用工具栏、按钮、菜单、提示和弹窗；坐标、命中区和编辑框几何仍属于画布实现 |
+| 画布交互控件 | `konva-canvas` | 复用工具栏、按钮、菜单、提示和弹窗；坐标、命中区和编辑框几何仍属于画布实现 |
 
 ## UI 分类与落点
 
@@ -19,13 +19,13 @@
 | 应用框架 | 浮动入口、窗口控制、工作区 Chrome | `EditorIconButton`、`FloatingPanel` | `floating-chrome`、`workspace-view-controls`、`workspace-panel-controls` |
 | 工作区面板 | 资源管理器、检查器、源码、终端、主题、Markdown 窗口 | `EditorPanelHeader`、`EditorPanelBody`、`EditorPanelFooter` | 各面板组件；可移动窗口仍由 `FloatingPanel` 负责位置和尺寸 |
 | 菜单与浮层 | 文件、更多、过滤、节点和项目文件上下文菜单 | `EditorMenuSurface`、`EditorMenuSection`、`EditorMenuItem`、`EditorMenuToggleItem` | `editor-menus`、`explorer-panel`、`konva-canvas/node-action-ui` |
-| 工具栏 | 多选排布、无限画布创建工具 | `EditorToolbar`、`EditorToolbarGroup`、`EditorIconButton` | `selection-arrangement-toolbar`、`canvas-document-toolbar` |
+| 工具栏 | 多选排布 | `EditorToolbar`、`EditorToolbarGroup`、`EditorIconButton` | `selection-arrangement-toolbar` |
 | 表单与设置 | 主题 token、字体、检查器属性、地址栏 | `EditorField`、`EditorSearchField`、`EditorNumberField` 及基础 Input/Select | `theme-settings-*`、`inspector-panel`、`browser-tool-window` |
 | 弹窗 | 节点链接、Markdown 文档、图片 URL、未保存确认 | `EditorDialog` | 对应四个业务组件；焦点圈定、Escape、外部点击和层级由 Radix 处理 |
 | 列表与导航 | 主题分类、主题库、Markdown 文件、项目资源树 | `EditorList`、`EditorListRow`、`EditorTree`、`EditorTreeGroup`、`EditorTreeRow` | 主题面板、文档弹窗、资源管理器；项目资源树在通用树语义上扩展文件拖动和上下文菜单 |
 | 状态反馈 | 错误横幅、诊断、空状态、状态消息、拖放徽标 | `EditorNotice`、`EditorEmptyState`、`EditorStatusBadge` | `file-workflow-feedback`、`diagnostic-panel`、`editor-overlays` |
 | 内容宿主 | Mermaid 预览、Markdown、源码、终端、WebView | 只统一外壳 | 内容渲染、编辑器和第三方运行时内部样式保持独立 |
-| 画布交互 | 多选工具、节点操作提示、上下文菜单、内联编辑 | DOM 部分复用语义层；几何部分使用画布 token | Konva/Pixi 组件目录 |
+| 画布交互 | 多选工具、节点操作提示、上下文菜单、内联编辑 | DOM 部分复用语义层；几何部分使用画布 token | Konva 组件目录 |
 
 ## 语义组件 API
 
@@ -56,7 +56,7 @@ Chrome token 版本为 v7，新增 `chrome` 组：`borderWidth`、`dividerWidth`
 
 ## 明确保留的例外
 
-- Mermaid SVG/Konva/Pixi 节点、分组、连线及卡片内容是文档语义，不强制套用 DOM 面板组件。
+- Mermaid SVG/Konva 节点、分组、连线及卡片内容是文档语义，不强制套用 DOM 面板组件。
 - xterm、Milkdown、WebView2 的内部 DOM/CSS 由各自适配层管理，仅统一宿主外壳。
 - 画布内联输入框的宽高、坐标和命中范围由几何模型决定；它们仍复用主题字体、边线、圆角和焦点 token。
 - 项目树文件行包含指针捕获和拖入画布行为，可保留专用实现，但尺寸和状态类必须来自共用 Chrome token。

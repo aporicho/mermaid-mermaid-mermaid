@@ -268,8 +268,8 @@ export function ImageWindowPanel({
     <div className="flex h-full min-h-0 flex-col bg-background" data-image-viewer-state={imageWindow.missing ? "missing" : loadState}>
       <WorkspaceWindowHeader
         leadingActions={<>
-          <EditorIconButton context="panel" label="上一张" disabled={!canNavigate} onClick={() => onNavigate(-1)}><NavArrowLeft /></EditorIconButton>
-          <EditorIconButton context="panel" label="下一张" disabled={!canNavigate} onClick={() => onNavigate(1)}><NavArrowRight /></EditorIconButton>
+          <EditorIconButton context="panel" label="上一张" disabled={!canNavigate} onClick={() => onNavigate(-1)}><NavArrowLeft data-icon /></EditorIconButton>
+          <EditorIconButton context="panel" label="下一张" disabled={!canNavigate} onClick={() => onNavigate(1)}><NavArrowRight data-icon /></EditorIconButton>
         </>}
         icon={<MediaImage className="size-4 shrink-0 text-icon" />}
         title={<span className="block max-w-56 truncate">{imageWindow.title}</span>}
@@ -279,14 +279,16 @@ export function ImageWindowPanel({
           : loadState === "loading" ? <span className="type-interface-status hidden items-center gap-1.5 text-muted-foreground xl:flex"><Spinner className="size-3.5" />载入中</span> : null}
         center={<span className="min-w-0 flex-1 truncate px-2 text-center text-xs tabular-nums text-muted-foreground" title={sourceLabel}>{[positionLabel, sizeLabel, scaleLabel].filter(Boolean).join(" · ")}</span>}
         actions={<>
-          <EditorIconButton context="panel" label="适应窗口" pressed={viewMode === "fit"} onClick={() => chooseMode("fit")}><Frame /></EditorIconButton>
-          <EditorIconButton context="panel" label="原始尺寸" pressed={viewMode === "actual"} onClick={() => chooseMode("actual")}><ScaleFrameEnlarge /></EditorIconButton>
-          <EditorIconButton context="panel" label="缩小画布" onClick={() => changeZoom(1 / 1.2)}><ZoomOut /></EditorIconButton>
-          <EditorIconButton context="panel" label="放大画布" onClick={() => changeZoom(1.2)}><ZoomIn /></EditorIconButton>
-          <EditorIconButton context="panel" label="顺时针旋转" onClick={() => setRotation((current) => current + 90)}><RotateCameraRight /></EditorIconButton>
-          <EditorIconButton context="panel" label="重新载入图片" onClick={reloadImage}><Refresh /></EditorIconButton>
-          <EditorIconButton context="panel" label="复制图片路径" onClick={copyPath}><Copy /></EditorIconButton>
+          <EditorIconButton context="panel" label="适应窗口" pressed={viewMode === "fit"} onClick={() => chooseMode("fit")}><Frame data-icon /></EditorIconButton>
+          <EditorIconButton context="panel" label="原始尺寸" pressed={viewMode === "actual"} onClick={() => chooseMode("actual")}><ScaleFrameEnlarge data-icon /></EditorIconButton>
         </>}
+        overflowActions={[
+          { id: "zoom-out", label: "缩小画布", icon: <ZoomOut data-icon />, onSelect: () => changeZoom(1 / 1.2) },
+          { id: "zoom-in", label: "放大画布", icon: <ZoomIn data-icon />, onSelect: () => changeZoom(1.2) },
+          { id: "rotate", label: "顺时针旋转", icon: <RotateCameraRight data-icon />, onSelect: () => setRotation((current) => current + 90) },
+          { id: "reload", label: "重新载入图片", icon: <Refresh data-icon />, onSelect: reloadImage },
+          { id: "copy-path", label: "复制图片路径", icon: <Copy data-icon />, onSelect: copyPath }
+        ]}
       />
       <div
         ref={viewportRef}

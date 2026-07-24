@@ -1,11 +1,6 @@
 import { describe, expect, it } from "vitest";
 
 import { useEditorDocumentLifecycle } from "@/features/mermaid-editor/components/mermaid-editor/use-editor-document-lifecycle";
-import {
-  createBlankCanvasDocument,
-  serializeCanvasDocument,
-  type CanvasDocument
-} from "@/features/mermaid-editor/lib/canvas-document";
 import { type EditorDiagnostic } from "@/features/mermaid-editor/lib/editor-diagnostics";
 import { createHistory } from "@/features/mermaid-editor/lib/editor-history";
 import {
@@ -43,7 +38,6 @@ import {
 type LifecycleState = {
   documentKind: DocumentKind;
   source: string;
-  canvasDocument: CanvasDocument;
   graph: MermaidGraph;
   diagramType: DiagramType;
   editableKind: EditableKind;
@@ -74,7 +68,6 @@ function createLifecycleHarness() {
   const state: LifecycleState = {
     documentKind: "mermaid",
     source: "",
-    canvasDocument: createBlankCanvasDocument(),
     graph: createEmptyDocumentGraph(),
     diagramType: "unknown",
     editableKind: "render-only",
@@ -119,7 +112,6 @@ function createLifecycleHarness() {
     isDirtyRef,
     setDocumentKind: setState("documentKind"),
     setSource: setState("source"),
-    setCanvasDocument: setState("canvasDocument"),
     setGraph: setState("graph"),
     setDiagramType: setState("diagramType"),
     setEditableKind: setState("editableKind"),
@@ -146,7 +138,6 @@ function createLifecycleHarness() {
     setPreferences: setState("preferences"),
     setStatus: setState("status"),
     flushSourceHistory: () => {},
-    showFileWorkflowError: () => {},
     syncWorkspaceForOpenedFile: (file) => syncedFiles.push(file),
     prepareFileSwitch: async () => true,
     persistStoredEditorDraft: async (draft = {}) => {
@@ -255,20 +246,4 @@ flowchart LR
     expect(syncedFiles).toEqual([file]);
   });
 
-  it("opens canvas documents into the canvas workspace", () => {
-    const { lifecycle, state, isDirtyRef, syncedFiles } = createLifecycleHarness();
-    const file = { name: "board.canvas.json", path: "/project/board.canvas.json" };
-    const document = createBlankCanvasDocument();
-    const serializedDocument = serializeCanvasDocument(document);
-
-    lifecycle.applyLoadedDocument(serializedDocument, file.name, file);
-
-    expect(state.documentKind).toBe("canvas");
-    expect(state.workspaceView).toBe("canvas");
-    expect(state.fileName).toBe("board.canvas.json");
-    expect(state.lastSavedDocument).toBe(serializedDocument);
-    expect(state.canvasDocument).toEqual(document);
-    expect(isDirtyRef.current).toBe(false);
-    expect(syncedFiles).toEqual([file]);
-  });
 });

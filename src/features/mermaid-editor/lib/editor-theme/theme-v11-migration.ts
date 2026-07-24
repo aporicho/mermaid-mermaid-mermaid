@@ -3,11 +3,11 @@ import type { CanvasThemeTokens, InterfaceThemeTokens } from "./appearance-types
 export function migrateInterfaceThemeV11(raw: Record<string, unknown>, fallback: InterfaceThemeTokens): InterfaceThemeTokens {
   if (isObjectValue(raw.interface)) {
     const rawInterface = objectValue(raw.interface);
-    return withV13Tree(
+    return withV16OverlayWindow(withV13Tree(
       withV12SemanticColors(deepMerge(fallback, rawInterface), objectValue(rawInterface.colors), fallback),
       rawInterface,
       fallback
-    );
+    ), rawInterface);
   }
 
   const ui = objectValue(raw.ui);
@@ -62,6 +62,8 @@ export function migrateInterfaceThemeV11(raw: Record<string, unknown>, fallback:
       opacity: numberValue(chrome.surfaceOpacity, fallback.surface.opacity),
       backdropBlur: numberValue(chrome.backdropBlur, fallback.surface.backdropBlur)
     },
+    overlay: { ...fallback.overlay },
+    window: { ...fallback.window },
     state: { ...fallback.state },
     radius: {
       app: numberValue(radius.app, fallback.radius.app),
@@ -93,7 +95,23 @@ export function migrateInterfaceThemeV11(raw: Record<string, unknown>, fallback:
     scrollbar: { ...fallback.scrollbar },
     tree: { ...fallback.tree }
   };
-  return withV13Tree(withV12SemanticColors(migrated, ui, fallback), {}, fallback);
+  return withV16OverlayWindow(withV13Tree(withV12SemanticColors(migrated, ui, fallback), {}, fallback), {});
+}
+
+function withV16OverlayWindow(
+  interfaceTokens: InterfaceThemeTokens,
+  sourceInterface: Record<string, unknown>
+): InterfaceThemeTokens {
+  const overlaySource = objectValue(sourceInterface.overlay);
+  return {
+    ...interfaceTokens,
+    overlay: {
+      ...interfaceTokens.overlay,
+      background: typeof overlaySource.background === "string"
+        ? interfaceTokens.overlay.background
+        : interfaceTokens.colors.foreground
+    }
+  };
 }
 
 function withV13Tree(

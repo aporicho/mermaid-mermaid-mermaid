@@ -74,15 +74,15 @@ export function MarkdownWindowPanel({
             tooltipSide="top"
             disabled={normalizedTextScale <= MARKDOWN_TEXT_SCALE_MIN}
             onClick={() => onTextScaleChange(adjustMarkdownTextScale(normalizedTextScale, -1))}
-          ><ZoomOut /></EditorIconButton>
+          ><ZoomOut data-icon /></EditorIconButton>
           <EditorIconButton
             context="panel"
             label={`放大 Markdown 文字（当前 ${textScalePercent}）`}
             tooltipSide="top"
             disabled={normalizedTextScale >= MARKDOWN_TEXT_SCALE_MAX}
             onClick={() => onTextScaleChange(adjustMarkdownTextScale(normalizedTextScale, 1))}
-          ><ZoomIn /></EditorIconButton>
-          <EditorIconButton context="panel" label="保存 Markdown 窗口" tooltipSide="top" onClick={onSave}><FloppyDisk /></EditorIconButton>
+          ><ZoomIn data-icon /></EditorIconButton>
+          <EditorIconButton context="panel" label="保存 Markdown 窗口" tooltipSide="top" onClick={onSave}><FloppyDisk data-icon /></EditorIconButton>
         </>}
       />
       <MarkdownPanel

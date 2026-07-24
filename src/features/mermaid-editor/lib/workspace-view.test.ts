@@ -22,15 +22,9 @@ describe("workspace view", () => {
     expect(workspaceViewForDocument("flowchart", "source", "markdown")).toBe("source");
   });
 
-  it("keeps canvas documents in their dedicated canvas viewer", () => {
-    expect(nextWorkspaceView("source", "render-only", "canvas")).toBe("canvas");
-    expect(workspaceViewForDocument("flowchart", "source", "canvas")).toBe("canvas");
-  });
-
   it("returns view button options from document kind registry", () => {
     expect(workspaceViewsForDocument("flowchart", "mermaid")).toEqual(["canvas", "render", "source"]);
     expect(workspaceViewsForDocument("render-only", "mermaid")).toEqual(["render", "source"]);
     expect(workspaceViewsForDocument("render-only", "markdown")).toEqual(["markdown", "source"]);
-    expect(workspaceViewsForDocument("flowchart", "canvas")).toEqual(["canvas"]);
   });
 });

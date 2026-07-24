@@ -426,7 +426,7 @@ export function PreviewPanel({
           <Input
             autoFocus
             value={inlineEdit.value}
-            className="absolute z-40 h-9 rounded-md border bg-card px-2 text-sm shadow-none"
+            className="absolute h-9 rounded-md border bg-card px-2 text-sm shadow-none"
             style={{
               left: inlineEdit.left,
               top: inlineEdit.top,

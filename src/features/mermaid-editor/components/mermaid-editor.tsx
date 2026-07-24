@@ -15,7 +15,7 @@ import { useEditorSessionWorkspace } from "@/features/mermaid-editor/components/
 import { useEditorFileWorkflow } from "@/features/mermaid-editor/components/mermaid-editor/use-editor-file-workflow";
 import { useEditorExplorerTreeModel } from "@/features/mermaid-editor/components/mermaid-editor/use-editor-explorer-tree-model";
 import { useEditorKeyboardShortcuts } from "@/features/mermaid-editor/components/mermaid-editor/use-editor-keyboard-shortcuts";
-import { useEditorOverlayState, useUnsavedPromptEscape } from "@/features/mermaid-editor/components/mermaid-editor/use-editor-overlay-state";
+import { useEditorOverlayState } from "@/features/mermaid-editor/components/mermaid-editor/use-editor-overlay-state";
 import { useEditorRecentActions } from "@/features/mermaid-editor/components/mermaid-editor/use-editor-recent-actions";
 import { useEditorThemeModel } from "@/features/mermaid-editor/components/mermaid-editor/use-editor-theme-model";
 import { useEditorWorkspacePanelActions } from "@/features/mermaid-editor/components/mermaid-editor/use-editor-workspace-panel-actions";
@@ -31,7 +31,6 @@ import { loadInitialState } from "@/features/mermaid-editor/lib/editor-state";
 import { createEditorRuntime, type RuntimeAgentTextSelection } from "@/features/mermaid-editor/lib/editor-runtime";
 import type { EditorSnapshot } from "@/features/mermaid-editor/lib/editor-types";
 import { EditorMotionProvider } from "@/features/mermaid-editor/lib/use-gsap-motion";
-import { useDisableNativeContextMenu } from "@/features/mermaid-editor/lib/native-context-menu";
 import { htmlWindowPanelId, imageWindowPanelId, markdownWindowPanelId, useWorkspacePanels, type DetachedBrowserWindow, type DetachedHtmlWindow, type DetachedImageWindow, type DetachedMarkdownWindow } from "@/features/mermaid-editor/lib/workspace-panels";
 import { OverlayLayerScopeProvider } from "@/lib/overlay-layer-context";
 import { useCanvasNodeGeometryModel } from "@/features/mermaid-editor/components/mermaid-editor/use-canvas-node-geometry-model";
@@ -40,7 +39,6 @@ import { normalizeFileWorkflowError } from "@/features/mermaid-editor/lib/file-w
 import { clampMarkdownTextScale, markdownTextScalePercent } from "@/features/mermaid-editor/lib/markdown-text-scale";
 import { imageViewerWatchPath } from "@/features/mermaid-editor/lib/image-viewer";
 export function MermaidEditor() {
-  useDisableNativeContextMenu();
   const runtime = useMemo(() => createEditorRuntime(), []);
   const initial = useMemo(loadInitialState, []);
   const {
@@ -48,8 +46,6 @@ export function MermaidEditor() {
     setDocumentKind,
     source,
     setSource,
-    canvasDocument,
-    setCanvasDocument,
     graph,
     setGraph,
     diagramType,
@@ -195,7 +191,7 @@ export function MermaidEditor() {
   }, [documentSession.dirtyBuffers.length, isDirty]);
   const {
     canvasLiveState, updateCanvasLiveState, recordCanvasPointerWorld,
-    applyEditorCommand, applySource, applyMarkdownSource, applyCanvasDocument, flushSourceHistory,
+    applyEditorCommand, applySource, applyMarkdownSource, flushSourceHistory,
     updateViewFilter, resetViewFilters, addNode, addImageNode, createGroupFromSelection,
     updateDirection, updateEdgeRouting, updateLayoutMode, refreshFromSource,
     performDelete, performUndo, performRedo, performCopy, performPaste,
@@ -204,7 +200,6 @@ export function MermaidEditor() {
     runtime,
     documentKind,
     source,
-    canvasDocument,
     graph,
     history,
     clipboard,
@@ -224,7 +219,6 @@ export function MermaidEditor() {
     lastWindowFocusAtRef,
     setDocumentKind,
     setSource,
-    setCanvasDocument,
     setGraph,
     setDiagramType,
     setEditableKind,
@@ -261,7 +255,7 @@ export function MermaidEditor() {
   const {
     showFileWorkflowError, resolveUnsavedPrompt, resolveFileConflictPrompt, prepareWindowClose,
     applyLoadedDocument, applyStoredEditorState,
-    openMermaidFile, newMermaidFile, newMarkdownFile, newCanvasFile, openFallbackFile,
+    openMermaidFile, newMermaidFile, newMarkdownFile, openFallbackFile,
     openRuntimeFileRequest, openProjectFolder, refreshProjectWorkspace,
     updateBrowserFileDragFeedback, handleBrowserFileDragLeave, handleBrowserFileDrop, handleRuntimeFileDropRequest,
     openRecentFile, openProjectFile, saveMermaidFile, saveMermaidFileAs,
@@ -273,7 +267,6 @@ export function MermaidEditor() {
     isDirtyRef,
     documentKind,
     source,
-    canvasDocument,
     graph,
     diagramType,
     editableKind,
@@ -307,7 +300,6 @@ export function MermaidEditor() {
     nodeGeometrySpec: canvasNodeGeometrySpec,
     setDocumentKind,
     setSource,
-    setCanvasDocument,
     setGraph,
     setDiagramType,
     setEditableKind,
@@ -340,13 +332,12 @@ export function MermaidEditor() {
     flushSourceHistory,
     flushLinkedFileWrites,
     discardLinkedFileWrites,
-    applyCanvasDocument,
     applyEditorCommand,
     recordRecentAction
   });
   applyLoadedDocumentRef.current = (text, name, file) => applyLoadedDocument(text, name, file, "watch");
-  const { openDocuments, openDocumentBuffer } = useEditorSessionWorkspace({
-    documentSession, preferences, applyLoadedDocument, saveAutoSaveEligibleDocuments, setDetachedMarkdownWindows
+  useEditorSessionWorkspace({
+    documentSession, preferences, saveAutoSaveEligibleDocuments, setDetachedMarkdownWindows
   });
   const { createProjectFile, moveProjectFile } = useProjectFileActions({ runtime, projectWorkspace, fileRef, graph, detachedMarkdownWindows, detachedHtmlWindows, detachedImageWindows, setProjectBusy, setFileRef, setFileName, setRecentFiles, setDetachedMarkdownWindows, setDetachedHtmlWindows, setDetachedImageWindows, refreshProjectWorkspace, openProjectFile, beforeMove: flushLinkedFileWrites, applyEditorCommand, onDetachedMarkdownWindowMoved: (sourceFile, targetFile) => { const sourcePanelId = markdownWindowPanelId(sourceFile); const targetPanelId = markdownWindowPanelId(targetFile); const windowState = workspacePanelWindowState(sourcePanelId); removeWorkspacePanel(sourcePanelId); bringWorkspacePanelToFront(targetPanelId); setWorkspacePanelWindowState(targetPanelId, windowState); }, onDetachedHtmlWindowMoved: (sourceFile, targetFile) => { const sourcePanelId = htmlWindowPanelId(sourceFile); const targetPanelId = htmlWindowPanelId(targetFile); const windowState = workspacePanelWindowState(sourcePanelId); removeWorkspacePanel(sourcePanelId); bringWorkspacePanelToFront(targetPanelId); setWorkspacePanelWindowState(targetPanelId, windowState); }, onDetachedImageWindowMoved: (sourceFile, targetFile) => { const sourcePanelId = imageWindowPanelId(sourceFile); const targetPanelId = imageWindowPanelId(targetFile); const windowState = workspacePanelWindowState(sourcePanelId); removeWorkspacePanel(sourcePanelId); bringWorkspacePanelToFront(targetPanelId); setWorkspacePanelWindowState(targetPanelId, windowState); }, onMarkdownFileMoved: markdownFolds.migrateMarkdownFoldState, setStatus, showFileWorkflowError });
   const { markdownDocuments, htmlDocuments, csvTables } = useLinkedProjectDocuments({
@@ -433,7 +424,6 @@ export function MermaidEditor() {
     documentKind,
     source,
     currentDocument,
-    canvasDocument,
     graph,
     selection,
     textSelection: agentTextSelection,
@@ -448,7 +438,6 @@ export function MermaidEditor() {
     activeWorkspacePanel,
     applySource,
     applyMarkdownSource,
-    applyCanvasDocument,
     flushSourceHistory,
     setFileRef,
     setFileName,
@@ -469,14 +458,11 @@ export function MermaidEditor() {
     projectRoot: projectWorkspace?.rootPath,
     documentBridge: agentDocumentBridge
   });
-  useUnsavedPromptEscape(unsavedPrompt, resolveUnsavedPrompt);
-
   useEditorDraftAutosave({
     ready: draftPersistenceReady,
     runtime,
     documentKind,
     source,
-    canvasDocument,
     graph,
     viewport,
     edgeRouting,
@@ -524,7 +510,7 @@ export function MermaidEditor() {
     <EditorMotionProvider value={resolvedMotion}>
     <TooltipProvider delayDuration={180}>
       <OverlayLayerScopeProvider scopeId="application" kind="application">
-      <input ref={fileInputRef} type="file" accept=".mmd,.mermaid,.md,.markdown,.canvas.json,text/plain,application/json" className="hidden" onChange={openFallbackFile} />
+      <input ref={fileInputRef} type="file" accept=".mmd,.mermaid,.md,.markdown,text/plain" className="hidden" onChange={openFallbackFile} />
       <main
         className="relative isolate z-0 h-screen overflow-hidden bg-background"
         onDragEnter={markdownDocumentDrop.enter}
@@ -542,10 +528,8 @@ export function MermaidEditor() {
         <div ref={workspaceSurfaceRef} className="h-full min-h-0">
           <EditorWorkspaceSurface
             documentKind={documentKind}
-            canvasDocument={canvasDocument}
             fileRef={fileRef}
             fileName={fileName}
-            runtime={runtime}
             workspaceView={workspaceView}
             isCanvasEditable={isCanvasEditable}
             graph={graph}
@@ -570,8 +554,6 @@ export function MermaidEditor() {
             previewSource={previewSource}
             diagnostics={diagnostics}
             mermaidThemeVariables={compiledTheme.mermaidThemeVariables}
-            onCanvasDocumentChange={applyCanvasDocument}
-            onStatus={setStatus}
             onMarkdownChange={applyMarkdownSource} markdownFoldState={markdownFolds.bindingFor(fileRef).foldState} onMarkdownFoldStateChange={markdownFolds.bindingFor(fileRef).onFoldStateChange}
             onTextSelectionChange={setAgentTextSelection}
             onSourceChange={applySource}
@@ -594,7 +576,6 @@ export function MermaidEditor() {
           projectWorkspace={projectWorkspace} projectFiles={projectFiles}
           explorerTreeState={activeExplorerTreeState} onExplorerTreeStateChange={updateExplorerTreeState}
           projectBusy={projectBusy} fileRef={fileRef}
-          openDocuments={openDocuments} onOpenDocument={openDocumentBuffer}
           terminalCwd={terminalCwd} terminalContextKey={terminalContextKey} activeTheme={activeTheme} editingThemeId={editingThemeId}
           editingCustomTheme={editingCustomTheme} themeDraftDirty={themeDraftDirty}
           terminalTheme={compiledTheme.terminalTheme} detachedMarkdownWindows={detachedMarkdownWindows} detachedBrowserWindows={detachedBrowserWindows} detachedHtmlWindows={detachedHtmlWindows} detachedImageWindows={detachedImageWindows}
@@ -647,7 +628,6 @@ export function MermaidEditor() {
           onSecondaryActionsOpenChange={updateSecondaryActionsOpen}
           onNewMermaidFile={newMermaidFile}
           onNewMarkdownFile={newMarkdownFile}
-          onNewCanvasFile={newCanvasFile}
           onOpenFile={openMermaidFile}
           onOpenRecent={openRecentFile}
           onOpenProject={openProjectFolder}

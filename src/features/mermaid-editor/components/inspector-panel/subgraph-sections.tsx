@@ -1,9 +1,10 @@
+import { useId } from "react";
 import { Trash as Trash2 } from "iconoir-react/regular";
 
 import { Button } from "@/components/ui/button";
+import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectSeparator, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectSeparator, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { INHERIT_VALUE, MIXED_VALUE, ROOT_VALUE, directionOptions } from "@/features/mermaid-editor/components/inspector-panel/constants";
 import type { SharedSelectionValue } from "@/features/mermaid-editor/components/inspector-panel/model";
@@ -34,15 +35,15 @@ export function SubgraphInspectorSection({
   onDeleteSelection
 }: SubgraphInspectorSectionProps) {
   return (
-    <>
-      <div className="grid gap-2">
-        <Label htmlFor="subgraph-id">组 ID</Label>
+    <FieldGroup className="gap-4">
+      <Field className="gap-2">
+        <FieldLabel htmlFor="subgraph-id">组 ID</FieldLabel>
         <Input id="subgraph-id" value={subgraph.id} onChange={(event) => onRenameSubgraph(subgraph, event.target.value)} />
-      </div>
-      <div className="grid gap-2">
-        <Label htmlFor="subgraph-title">组标题</Label>
+      </Field>
+      <Field className="gap-2">
+        <FieldLabel htmlFor="subgraph-title">组标题</FieldLabel>
         <Input id="subgraph-title" value={subgraph.title} onChange={(event) => onUpdateSubgraph(subgraph.id, { title: event.target.value })} />
-      </div>
+      </Field>
       <SubgraphDirectionSelect
         value={subgraph.direction || INHERIT_VALUE}
         onChange={(value) => onUpdateSubgraph(subgraph.id, { direction: value === INHERIT_VALUE ? undefined : value })}
@@ -54,10 +55,10 @@ export function SubgraphInspectorSection({
       />
       <Separator />
       <Button variant="destructive" size="sm" className="justify-start" onClick={onDeleteSelection}>
-        <Trash2 className="size-4" />
+        <Trash2 data-icon="inline-start" />
         解散组
       </Button>
-    </>
+    </FieldGroup>
   );
 }
 
@@ -69,7 +70,7 @@ export function MultiSubgraphInspectorSection({
   onDeleteSelection
 }: MultiSubgraphInspectorSectionProps) {
   return (
-    <>
+    <FieldGroup className="gap-4">
       <SubgraphDirectionSelect
         value={batchSubgraphDirection.mixed ? MIXED_VALUE : batchSubgraphDirection.value}
         mixed={batchSubgraphDirection.mixed}
@@ -83,10 +84,10 @@ export function MultiSubgraphInspectorSection({
       />
       <Separator />
       <Button variant="destructive" size="sm" className="justify-start" onClick={onDeleteSelection}>
-        <Trash2 className="size-4" />
+        <Trash2 data-icon="inline-start" />
         解散选中组
       </Button>
-    </>
+    </FieldGroup>
   );
 }
 
@@ -99,9 +100,11 @@ function SubgraphDirectionSelect({
   mixed?: boolean;
   onChange: (value: GraphDirection | typeof INHERIT_VALUE) => void;
 }) {
+  const controlId = useId();
+
   return (
-    <div className="grid gap-2">
-      <Label>组方向</Label>
+    <Field className="gap-2">
+      <FieldLabel htmlFor={controlId}>组方向</FieldLabel>
       <Select
         value={value}
         onValueChange={(nextValue) => {
@@ -109,21 +112,27 @@ function SubgraphDirectionSelect({
           onChange(nextValue as GraphDirection | typeof INHERIT_VALUE);
         }}
       >
-        <SelectTrigger>
+        <SelectTrigger id={controlId}>
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
-          <MixedSelectItem mixed={mixed} />
+          {mixed ? (
+            <SelectGroup>
+              <MixedSelectItem mixed />
+            </SelectGroup>
+          ) : null}
           {mixed ? <SelectSeparator /> : null}
-          <SelectItem value={INHERIT_VALUE}>继承全局方向</SelectItem>
-          {directionOptions.map((option) => (
-            <SelectItem key={option.value} value={option.value}>
-              {option.label}
-            </SelectItem>
-          ))}
+          <SelectGroup>
+            <SelectItem value={INHERIT_VALUE}>继承全局方向</SelectItem>
+            {directionOptions.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectGroup>
         </SelectContent>
       </Select>
-    </div>
+    </Field>
   );
 }
 
@@ -138,9 +147,11 @@ function SubgraphParentSelect({
   parentOptions: CanvasSubgraph[];
   onChange: (value: string) => void;
 }) {
+  const controlId = useId();
+
   return (
-    <div className="grid gap-2">
-      <Label>父组</Label>
+    <Field className="gap-2">
+      <FieldLabel htmlFor={controlId}>父组</FieldLabel>
       <Select
         value={value}
         onValueChange={(nextValue) => {
@@ -148,20 +159,26 @@ function SubgraphParentSelect({
           onChange(nextValue);
         }}
       >
-        <SelectTrigger>
+        <SelectTrigger id={controlId}>
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
-          <MixedSelectItem mixed={mixed} />
+          {mixed ? (
+            <SelectGroup>
+              <MixedSelectItem mixed />
+            </SelectGroup>
+          ) : null}
           {mixed ? <SelectSeparator /> : null}
-          <SelectItem value={ROOT_VALUE}>根层</SelectItem>
-          {parentOptions.map((option) => (
-            <SelectItem key={option.id} value={option.id}>
-              {option.title || option.id}
-            </SelectItem>
-          ))}
+          <SelectGroup>
+            <SelectItem value={ROOT_VALUE}>根层</SelectItem>
+            {parentOptions.map((option) => (
+              <SelectItem key={option.id} value={option.id}>
+                {option.title || option.id}
+              </SelectItem>
+            ))}
+          </SelectGroup>
         </SelectContent>
       </Select>
-    </div>
+    </Field>
   );
 }

@@ -6,14 +6,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
 import {
   EditorConfirmDialog,
   EditorDialog,
+  EditorField,
   EditorIconButton,
   EditorMenuToggleItem,
   EditorPointMenu,
-  EditorSegmentedControl,
-  EditorSegmentedControlItem,
   EditorToolbar
 } from "@/features/mermaid-editor/components/editor-ui";
 
@@ -49,24 +49,34 @@ describe("editor UI semantic components", () => {
     expect(container.querySelector('button[aria-label="对齐"]')?.getAttribute("aria-pressed")).toBe("true");
   });
 
-  it("shares selected and toggle semantics across controls", () => {
+  it("keeps explicit selected semantics on menu toggles", () => {
     const onCheckedChange = vi.fn();
     act(() => {
       root.render(
-        <>
-          <EditorSegmentedControl>
-            <EditorSegmentedControlItem active>当前</EditorSegmentedControlItem>
-            <EditorSegmentedControlItem active={false}>其他</EditorSegmentedControlItem>
-          </EditorSegmentedControl>
-          <EditorMenuToggleItem checked onCheckedChange={onCheckedChange} label="显示网格" />
-        </>
+        <EditorMenuToggleItem checked onCheckedChange={onCheckedChange} label="显示网格" />
       );
     });
 
     const buttons = Array.from(container.querySelectorAll("button"));
-    expect(buttons.map((button) => button.getAttribute("aria-pressed"))).toEqual(["true", "false", "true"]);
-    act(() => buttons[2].click());
+    expect(buttons.map((button) => button.getAttribute("aria-pressed"))).toEqual(["true"]);
+    act(() => buttons[0].click());
     expect(onCheckedChange).toHaveBeenCalledWith(false);
+  });
+
+  it("connects field descriptions and errors to a direct form control", () => {
+    act(() => {
+      root.render(
+        <EditorField label="文件名" htmlFor="field-file-name" description="需要扩展名" error="名称已存在">
+          <Input id="field-file-name" />
+        </EditorField>
+      );
+    });
+
+    const input = container.querySelector<HTMLInputElement>("#field-file-name");
+    const describedBy = input?.getAttribute("aria-describedby")?.split(" ") ?? [];
+    expect(describedBy).toHaveLength(2);
+    expect(describedBy.map((id) => document.getElementById(id)?.textContent)).toEqual(["需要扩展名", "名称已存在"]);
+    expect(input?.getAttribute("aria-invalid")).toBe("true");
   });
 
   it("uses the shared dialog structure and routes dismiss actions", () => {
@@ -107,15 +117,15 @@ describe("editor UI semantic components", () => {
       );
     });
 
-    const dialog = document.body.querySelector<HTMLElement>('[role="dialog"]');
-    const header = dialog?.querySelector("header");
-    const footer = dialog?.querySelector("footer");
+    const dialog = document.body.querySelector<HTMLElement>('[role="alertdialog"]');
+    const header = dialog?.querySelector("[data-editor-confirm-header]");
+    const footer = dialog?.querySelector("[data-editor-confirm-footer]");
     const buttons = Array.from(dialog?.querySelectorAll("button") ?? []);
     const discard = buttons.find((button) => button.textContent === "丢弃");
     const save = buttons.find((button) => button.textContent === "保存");
 
-    expect(header?.className).toContain("border-b-0");
-    expect(footer?.className).toContain("border-t-0");
+    expect(header?.className).not.toContain("border");
+    expect(footer?.className).not.toContain("border");
     expect(discard?.className).toContain("text-destructive");
     expect(discard?.className).not.toContain("bg-destructive text-destructive-foreground");
     expect(save?.className).toContain("bg-primary");
@@ -145,7 +155,7 @@ describe("editor UI semantic components", () => {
       );
     });
 
-    const dialog = document.body.querySelector<HTMLElement>('[role="dialog"]');
+    const dialog = document.body.querySelector<HTMLElement>('[role="alertdialog"]');
     act(() => dialog?.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true })));
     expect(onAction).toHaveBeenLastCalledWith("confirm");
 

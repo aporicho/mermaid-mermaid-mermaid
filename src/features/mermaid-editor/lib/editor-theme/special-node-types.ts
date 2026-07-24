@@ -110,7 +110,7 @@ export type SpecialNodeMarkdownDocumentTokens = {
   };
   previewContent: {
     layout: {
-      indentationEnabled: boolean;
+      listIndentationEnabled: boolean;
       titleBottomGap: number;
       sectionTopGap: number;
       headingBottomGap: number;

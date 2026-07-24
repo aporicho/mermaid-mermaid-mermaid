@@ -140,6 +140,30 @@ describe("editor document session", () => {
     });
   });
 
+  it("discards removed Pixi canvas documents during legacy migration and session restore", () => {
+    const migrated = migrateLegacySingleDocumentDraft({
+      documentKind: "canvas",
+      source: "{\"version\":1}",
+      fileName: "board.canvas.json"
+    }, { windowId: "window-legacy" });
+    const normalized = normalizeEditorDocumentSession({
+      version: 1,
+      windowId: "window-session",
+      buffers: [{
+        identity: { kind: "file", path: "/project/board.canvas.json" },
+        documentKind: "canvas",
+        fileName: "board.canvas.json",
+        content: "{\"version\":1}",
+        savedContent: "{\"version\":1}"
+      }],
+      openOrder: ["file:/project/board.canvas.json"],
+      activeBufferId: "file:/project/board.canvas.json"
+    });
+
+    expect(migrated).toMatchObject({ buffers: [], openOrder: [], activeBufferId: null });
+    expect(normalized).toMatchObject({ buffers: [], openOrder: [], activeBufferId: null });
+  });
+
   it("upserts, activates and closes buffers without mutating their open order", () => {
     const first = createEditorDocumentBuffer({
       identity: createUntitledDocumentIdentity("one"),

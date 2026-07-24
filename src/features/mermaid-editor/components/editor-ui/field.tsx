@@ -1,26 +1,57 @@
-import type { HTMLAttributes, InputHTMLAttributes, ReactNode } from "react";
+import { cloneElement, isValidElement, useId, type HTMLAttributes, type InputHTMLAttributes, type ReactNode } from "react";
 import { Search } from "iconoir-react/regular";
 
+import {
+  Field,
+  FieldDescription,
+  FieldError,
+  FieldLabel
+} from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { cn } from "@/lib/utils";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 
-export function EditorField({ label, htmlFor, description, error, children, className, ...props }: HTMLAttributes<HTMLDivElement> & {
+export function EditorField({ label, htmlFor, description, descriptionId: providedDescriptionId, error, errorId: providedErrorId, children, className, ...props }: HTMLAttributes<HTMLDivElement> & {
   label: ReactNode;
   htmlFor?: string;
   description?: ReactNode;
+  descriptionId?: string;
   error?: ReactNode;
+  errorId?: string;
   children: ReactNode;
 }) {
-  return <div className={cn("grid gap-2", className)} {...props}><Label htmlFor={htmlFor}>{label}</Label>{children}{description ? <div className="type-interface-metadata text-muted-foreground">{description}</div> : null}{error ? <EditorFieldError>{error}</EditorFieldError> : null}</div>;
+  const generatedId = useId();
+  const descriptionId = providedDescriptionId ?? `${generatedId}-description`;
+  const errorId = providedErrorId ?? `${generatedId}-error`;
+  const generatedDescribedBy = [description ? descriptionId : null, error ? errorId : null].filter(Boolean).join(" ");
+  const control = isValidElement<{ "aria-describedby"?: string; "aria-invalid"?: boolean | "true" | "false" }>(children)
+    ? cloneElement(children, {
+      "aria-describedby": [children.props["aria-describedby"], generatedDescribedBy].filter(Boolean).join(" ") || undefined,
+      "aria-invalid": children.props["aria-invalid"] ?? (error ? true : undefined)
+    })
+    : children;
+  return <Field
+    className={className}
+    data-invalid={error ? "true" : undefined}
+    data-description-id={description ? descriptionId : undefined}
+    data-error-id={error ? errorId : undefined}
+    {...props}
+  >
+    <FieldLabel htmlFor={htmlFor}>{label}</FieldLabel>
+    {control}
+    {description ? <FieldDescription id={descriptionId}>{description}</FieldDescription> : null}
+    {error ? <FieldError id={errorId}>{error}</FieldError> : null}
+  </Field>;
 }
 
 export function EditorFieldError({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
-  return <div role="alert" className={cn("type-interface-metadata text-destructive", className)} {...props} />;
+  return <FieldError className={className} {...props} />;
 }
 
 export function EditorSearchField({ className, ...props }: InputHTMLAttributes<HTMLInputElement>) {
-  return <label className="relative block"><Search className="editor-ui-icon pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" /><Input type="search" className={cn("pl-9", className)} {...props} /></label>;
+  return <InputGroup>
+    <InputGroupAddon><Search data-icon /></InputGroupAddon>
+    <InputGroupInput type="search" className={className} {...props} />
+  </InputGroup>;
 }
 
 export function EditorNumberField(props: InputHTMLAttributes<HTMLInputElement>) {

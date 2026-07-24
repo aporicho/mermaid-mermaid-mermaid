@@ -29,7 +29,7 @@ export function WindowTitlebarLayout({
     <header
       ref={headerRef}
       {...props}
-      className={cn("editor-ui-panel-header flex min-w-0 items-center gap-2", className)}
+      className={cn("editor-ui-panel-header flex min-w-0 items-center gap-2 [container-type:inline-size]", className)}
     >
       {leadingActions ? (
         <div className="flex shrink-0 items-center gap-1" data-window-titlebar-drag-exclude>

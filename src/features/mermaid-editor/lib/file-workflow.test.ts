@@ -4,6 +4,7 @@ import {
   fileNameFromPath,
   isSupportedDocumentFilePath,
   isSupportedMermaidFilePath,
+  normalizeRecentFiles,
   normalizeFileWorkflowError,
   RECENT_FILE_LIMIT,
   upsertRecentFile,
@@ -21,7 +22,7 @@ describe("file workflow", () => {
     expect(isSupportedDocumentFilePath("notes.md")).toBe(true);
     expect(isSupportedDocumentFilePath("notes.markdown")).toBe(true);
     expect(isSupportedDocumentFilePath("diagram.mmd")).toBe(true);
-    expect(isSupportedDocumentFilePath("board.canvas.json")).toBe(true);
+    expect(isSupportedDocumentFilePath("board.canvas.json")).toBe(false);
     expect(isSupportedDocumentFilePath("image.png")).toBe(false);
   });
 
@@ -41,6 +42,16 @@ describe("file workflow", () => {
       { name: "renamed.mmd", path: "/old.mmd", openedAt: 3 },
       { name: "a.mmd", path: "/a.mmd", openedAt: 2 }
     ]);
+  });
+
+  it("drops unsupported legacy canvas files from recent documents", () => {
+    expect(normalizeRecentFiles([
+      { name: "board.canvas.json", path: "/project/board.canvas.json", openedAt: 2 },
+      { name: "diagram.mmd", path: "/project/diagram.mmd", openedAt: 1 }
+    ])).toEqual([
+      { name: "diagram.mmd", path: "/project/diagram.mmd", openedAt: 1 }
+    ]);
+    expect(upsertRecentFile([], { name: "board.canvas.json", path: "/project/board.canvas.json" }, 3)).toEqual([]);
   });
 
   it("limits recent files", () => {

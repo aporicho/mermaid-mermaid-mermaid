@@ -3,16 +3,22 @@ import {
   FloppyDisk,
   FloppyDiskArrowOut,
   Folder,
-  FrameSimple,
   GitBranch as Workflow,
   Plus,
   Text
 } from "iconoir-react/regular";
 
-import { EditorMenuItem, EditorMenuSection, EditorMenuSurface } from "@/features/mermaid-editor/components/editor-ui";
-import { FloatingIconButton, FloatingPopover } from "@/features/mermaid-editor/components/floating-chrome";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger
+} from "@/components/ui/dropdown-menu";
+import { FloatingIconButton } from "@/features/mermaid-editor/components/floating-chrome";
 import type { RecentFileEntry } from "@/features/mermaid-editor/lib/file-workflow";
-import { useDismissableFloatingMenu } from "@/features/mermaid-editor/lib/use-dismissable-floating-menu";
 
 export function FileMenu({
   open,
@@ -23,7 +29,6 @@ export function FileMenu({
   onOpenChange,
   onNewMermaidFile,
   onNewMarkdownFile,
-  onNewCanvasFile,
   onOpenFile,
   onOpenRecent,
   onOpenProject,
@@ -38,64 +43,53 @@ export function FileMenu({
   onOpenChange: (open: boolean) => void;
   onNewMermaidFile: () => void;
   onNewMarkdownFile: () => void;
-  onNewCanvasFile: () => void;
   onOpenFile: () => void;
   onOpenRecent: (file: RecentFileEntry) => void;
   onOpenProject: () => void;
   onSaveFile: () => void;
   onSaveAs: () => void;
 }) {
-  const menuRef = useDismissableFloatingMenu<HTMLDivElement>({ open, onOpenChange });
   const projectAvailable = runtimeKind === "desktop";
 
-  function runAndClose(action: () => void) {
-    action();
-    onOpenChange(false);
-  }
-
   return (
-    <div ref={menuRef} className="relative">
-      <FloatingIconButton label="文件" dirty={isDirty} onClick={() => onOpenChange(!open)} aria-expanded={open}>
-        <Folder />
-      </FloatingIconButton>
-
-      <FloatingPopover open={open} placement="top-left" dismissMode="outside" className="w-72">
-        <EditorMenuSurface>
-          <EditorMenuSection>
-            <EditorMenuItem data-floating-action-item icon={<Plus />} label="新建 Mermaid" onClick={() => runAndClose(onNewMermaidFile)} />
-            <EditorMenuItem data-floating-action-item icon={<Text />} label="新建 Markdown" onClick={() => runAndClose(onNewMarkdownFile)} />
-            <EditorMenuItem data-floating-action-item icon={<FrameSimple />} label="新建画布" onClick={() => runAndClose(onNewCanvasFile)} />
-            <EditorMenuItem data-floating-action-item icon={<Folder />} label="打开文件" onClick={() => runAndClose(onOpenFile)} />
+    <DropdownMenu open={open} onOpenChange={onOpenChange}>
+      <DropdownMenuTrigger asChild>
+        <FloatingIconButton label="文件" dirty={isDirty} aria-expanded={open}>
+          <Folder data-icon />
+        </FloatingIconButton>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent side="top" align="start" className="w-72">
+        <DropdownMenuGroup>
+          <DropdownMenuItem onSelect={onNewMermaidFile}><Plus data-icon />新建 Mermaid</DropdownMenuItem>
+          <DropdownMenuItem onSelect={onNewMarkdownFile}><Text data-icon />新建 Markdown</DropdownMenuItem>
+          <DropdownMenuItem onSelect={onOpenFile}><Folder data-icon />打开文件</DropdownMenuItem>
             {projectAvailable ? (
-              <EditorMenuItem
-                data-floating-action-item
-                icon={<Workflow />}
-                label="打开文件夹"
+              <DropdownMenuItem
                 disabled={projectBusy}
-                onClick={() => runAndClose(onOpenProject)}
-              />
+                onSelect={onOpenProject}
+              ><Workflow data-icon />打开文件夹</DropdownMenuItem>
             ) : null}
-          </EditorMenuSection>
-          <EditorMenuSection className="border-t">
-            <EditorMenuItem data-floating-action-item icon={<FloppyDisk />} label="保存" onClick={() => runAndClose(onSaveFile)} />
-            <EditorMenuItem data-floating-action-item icon={<FloppyDiskArrowOut />} label="另存为" onClick={() => runAndClose(onSaveAs)} />
-          </EditorMenuSection>
+        </DropdownMenuGroup>
+        <DropdownMenuSeparator />
+        <DropdownMenuGroup>
+          <DropdownMenuItem onSelect={onSaveFile}><FloppyDisk data-icon />保存</DropdownMenuItem>
+          <DropdownMenuItem onSelect={onSaveAs}><FloppyDiskArrowOut data-icon />另存为</DropdownMenuItem>
+        </DropdownMenuGroup>
           {recentFiles.length ? (
-            <EditorMenuSection label="最近" className="border-t">
-              {recentFiles.map((file) => (
-              <EditorMenuItem
-                key={file.path}
-                data-floating-action-item
-                icon={<ClockRotateRight />}
-                label={file.name}
-                title={file.path}
-                onClick={() => runAndClose(() => onOpenRecent(file))}
-              />
-              ))}
-            </EditorMenuSection>
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuGroup>
+                <DropdownMenuLabel>最近</DropdownMenuLabel>
+                {recentFiles.map((file) => (
+                  <DropdownMenuItem key={file.path} title={file.path} onSelect={() => onOpenRecent(file)}>
+                    <ClockRotateRight data-icon />
+                    <span className="truncate">{file.name}</span>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuGroup>
+            </>
           ) : null}
-        </EditorMenuSurface>
-      </FloatingPopover>
-    </div>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

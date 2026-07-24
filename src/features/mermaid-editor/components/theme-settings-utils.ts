@@ -4,7 +4,7 @@ export function toCustomTheme(theme: EditorTheme): EditorTheme {
   const clone = structuredClone(theme);
   return {
     ...clone,
-    version: 15,
+    version: 16,
     id: "custom",
     name: theme.id === "custom" ? theme.name : "自定义主题",
     description: theme.description,

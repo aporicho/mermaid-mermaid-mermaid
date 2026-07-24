@@ -1,9 +1,10 @@
+import { useId } from "react";
 import { Trash as Trash2 } from "iconoir-react/regular";
 
 import { Button } from "@/components/ui/button";
+import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectSeparator, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectSeparator, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import {
   DEFAULT_CURVE_VALUE,
@@ -68,7 +69,7 @@ export function EdgeInspectorSection({
   onDeleteSelection
 }: EdgeInspectorSectionProps) {
   return (
-    <>
+    <FieldGroup className="gap-4">
       <EndpointSelect label="起点" value={edge.from} endpointOptions={endpointOptions} onChange={(value) => onUpdateEdge(edge.id, { from: value })} />
       <EndpointSelect label="终点" value={edge.to} endpointOptions={endpointOptions} onChange={(value) => onUpdateEdge(edge.id, { to: value })} />
       <EdgeAnchorSelect
@@ -85,10 +86,10 @@ export function EdgeInspectorSection({
         disabled={!hasToNode}
         onChange={(value) => onUpdateEdge(edge.id, { toAnchor: value === "auto" ? undefined : value })}
       />
-      <div className="grid gap-2">
-        <Label htmlFor="edge-label">连线文本</Label>
+      <Field className="gap-2">
+        <FieldLabel htmlFor="edge-label">连线文本</FieldLabel>
         <Input id="edge-label" value={edge.label} onChange={(event) => onUpdateEdge(edge.id, { label: event.target.value })} placeholder="可留空" />
-      </div>
+      </Field>
       <EdgeStyleSelect
         value={edge.style || "solid"}
         onChange={(style) =>
@@ -98,7 +99,7 @@ export function EdgeInspectorSection({
           })
         }
       />
-      <div className="grid grid-cols-2 gap-2">
+      <FieldGroup className="grid grid-cols-2 gap-2">
         <EdgeMarkerSelect label="起点端点" value={edge.markerStart || "none"} disabled={edge.style === "invisible"} onChange={(markerStart) => onUpdateEdge(edge.id, { markerStart })} />
         <EdgeMarkerSelect
           label="终点端点"
@@ -112,35 +113,35 @@ export function EdgeInspectorSection({
             })
           }
         />
-      </div>
-      <div className="grid grid-cols-2 gap-2">
-        <div className="grid gap-2">
-          <Label htmlFor="edge-min-length">最小长度</Label>
+      </FieldGroup>
+      <FieldGroup className="grid grid-cols-2 gap-2">
+        <Field className="gap-2">
+          <FieldLabel htmlFor="edge-min-length">最小长度</FieldLabel>
           <Input id="edge-min-length" type="number" min={1} value={edge.minLength || 1} onChange={(event) => updateSelectedEdgeNumber(onUpdateEdge, edge.id, "minLength", event.target.value)} />
-        </div>
-        <div className="grid gap-2">
-          <Label htmlFor="edge-mermaid-id">边 ID</Label>
+        </Field>
+        <Field className="gap-2">
+          <FieldLabel htmlFor="edge-mermaid-id">边 ID</FieldLabel>
           <Input id="edge-mermaid-id" value={edge.mermaidId || ""} placeholder="e1" onChange={(event) => onUpdateEdge(edge.id, { mermaidId: normalizeMermaidEdgeId(event.target.value) })} />
-        </div>
-      </div>
-      <div className="grid grid-cols-2 gap-2">
+        </Field>
+      </FieldGroup>
+      <FieldGroup className="grid grid-cols-2 gap-2">
         <EdgeAnimationSelect value={edge.animation || "none"} onChange={(animation) => onUpdateEdge(edge.id, { animation })} />
         <EdgeCurveSelect value={edge.curve || DEFAULT_CURVE_VALUE} onChange={(curve) => onUpdateEdge(edge.id, { curve: curve === DEFAULT_CURVE_VALUE ? undefined : curve })} />
-      </div>
-      <div className="grid gap-2">
-        <Label htmlFor="edge-classes">Class</Label>
+      </FieldGroup>
+      <Field className="gap-2">
+        <FieldLabel htmlFor="edge-classes">Class</FieldLabel>
         <Input id="edge-classes" value={edgeClassesInput(edge.classes)} placeholder="animate, primary" onChange={(event) => onUpdateEdge(edge.id, { classes: parseEdgeClasses(event.target.value) })} />
-      </div>
-      <div className="grid gap-2">
-        <Label htmlFor="edge-style-text">linkStyle</Label>
+      </Field>
+      <Field className="gap-2">
+        <FieldLabel htmlFor="edge-style-text">linkStyle</FieldLabel>
         <Input id="edge-style-text" value={edge.styleText || ""} placeholder="stroke:#f66,stroke-width:4px" onChange={(event) => onUpdateEdge(edge.id, { styleText: event.target.value.trim() || undefined })} />
-      </div>
+      </Field>
       <Separator />
       <Button variant="destructive" size="sm" className="justify-start" onClick={onDeleteSelection}>
-        <Trash2 className="size-4" />
+        <Trash2 data-icon="inline-start" />
         删除连线
       </Button>
-    </>
+    </FieldGroup>
   );
 }
 
@@ -157,7 +158,7 @@ export function MultiEdgeInspectorSection({
   onDeleteSelection
 }: MultiEdgeInspectorSectionProps) {
   return (
-    <>
+    <FieldGroup className="gap-4">
       <EdgeStyleSelect
         value={batchEdgeStyle.mixed ? MIXED_VALUE : batchEdgeStyle.value}
         mixed={batchEdgeStyle.mixed}
@@ -168,7 +169,7 @@ export function MultiEdgeInspectorSection({
           })
         }
       />
-      <div className="grid grid-cols-2 gap-2">
+      <FieldGroup className="grid grid-cols-2 gap-2">
         <EdgeMarkerSelect
           label="起点端点"
           value={batchEdgeMarkerStart.mixed ? MIXED_VALUE : batchEdgeMarkerStart.value}
@@ -187,10 +188,10 @@ export function MultiEdgeInspectorSection({
             })
           }
         />
-      </div>
-      <div className="grid grid-cols-2 gap-2">
-        <div className="grid gap-2">
-          <Label htmlFor="batch-edge-min-length">最小长度</Label>
+      </FieldGroup>
+      <FieldGroup className="grid grid-cols-2 gap-2">
+        <Field className="gap-2">
+          <FieldLabel htmlFor="batch-edge-min-length">最小长度</FieldLabel>
           <Input
             id="batch-edge-min-length"
             type="number"
@@ -199,80 +200,90 @@ export function MultiEdgeInspectorSection({
             placeholder={batchEdgeMinLength.mixed ? "混合" : undefined}
             onChange={(event) => updateBatchEdgeNumber(onUpdateSelectedEdges, "minLength", event.target.value)}
           />
-        </div>
+        </Field>
         <EdgeAnimationSelect
           value={batchEdgeAnimation.mixed ? MIXED_VALUE : batchEdgeAnimation.value}
           mixed={batchEdgeAnimation.mixed}
           onChange={(animation) => onUpdateSelectedEdges({ animation })}
         />
-      </div>
+      </FieldGroup>
       <EdgeCurveSelect
         value={batchEdgeCurve.mixed ? MIXED_VALUE : batchEdgeCurve.value}
         mixed={batchEdgeCurve.mixed}
         onChange={(curve) => onUpdateSelectedEdges({ curve: curve === DEFAULT_CURVE_VALUE ? undefined : curve })}
       />
-      <div className="grid gap-2">
-        <Label htmlFor="batch-edge-classes">Class</Label>
+      <Field className="gap-2">
+        <FieldLabel htmlFor="batch-edge-classes">Class</FieldLabel>
         <Input id="batch-edge-classes" value={batchEdgeClasses.mixed ? "" : batchEdgeClasses.value} placeholder={batchEdgeClasses.mixed ? "混合" : "animate, primary"} onChange={(event) => onUpdateSelectedEdges({ classes: parseEdgeClasses(event.target.value) })} />
-      </div>
-      <div className="grid gap-2">
-        <Label htmlFor="batch-edge-style-text">linkStyle</Label>
+      </Field>
+      <Field className="gap-2">
+        <FieldLabel htmlFor="batch-edge-style-text">linkStyle</FieldLabel>
         <Input id="batch-edge-style-text" value={batchEdgeStyleText.mixed ? "" : batchEdgeStyleText.value} placeholder={batchEdgeStyleText.mixed ? "混合" : "stroke:#f66"} onChange={(event) => onUpdateSelectedEdges({ styleText: event.target.value.trim() || undefined })} />
-      </div>
+      </Field>
       <Separator />
       <Button variant="destructive" size="sm" className="justify-start" onClick={onDeleteSelection}>
-        <Trash2 className="size-4" />
+        <Trash2 data-icon="inline-start" />
         删除选中连线
       </Button>
-    </>
+    </FieldGroup>
   );
 }
 
 function EndpointSelect({ label, value, endpointOptions, onChange }: { label: string; value: string; endpointOptions: { id: string; label: string }[]; onChange: (value: string) => void }) {
+  const controlId = useId();
+
   return (
-    <div className="grid gap-2">
-      <Label>{label}</Label>
+    <Field className="gap-2">
+      <FieldLabel htmlFor={controlId}>{label}</FieldLabel>
       <Select value={value} onValueChange={onChange}>
-        <SelectTrigger>
+        <SelectTrigger id={controlId}>
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
-          {endpointOptions.map((item) => (
-            <SelectItem key={item.id} value={item.id}>
-              {item.label}
-            </SelectItem>
-          ))}
+          <SelectGroup>
+            {endpointOptions.map((item) => (
+              <SelectItem key={item.id} value={item.id}>
+                {item.label}
+              </SelectItem>
+            ))}
+          </SelectGroup>
         </SelectContent>
       </Select>
-    </div>
+    </Field>
   );
 }
 
 function EdgeAnchorSelect({ label, value, options, disabled, onChange }: { label: string; value: string; options: { value: string; label: string }[]; disabled: boolean; onChange: (value: string) => void }) {
+  const controlId = useId();
+
   return (
-    <div className="grid gap-2">
-      <Label>{label}</Label>
+    <Field className="gap-2" data-disabled={disabled || undefined}>
+      <FieldLabel htmlFor={controlId}>{label}</FieldLabel>
       <Select value={value} onValueChange={onChange} disabled={disabled}>
-        <SelectTrigger>
+        <SelectTrigger id={controlId}>
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="auto">自动选择</SelectItem>
-          {options.map((option) => (
-            <SelectItem key={option.value} value={option.value}>
-              {option.label}
-            </SelectItem>
-          ))}
+          <SelectGroup>
+            <SelectItem value="auto">自动选择</SelectItem>
+            {options.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectGroup>
         </SelectContent>
       </Select>
-    </div>
+    </Field>
   );
 }
 
 function EdgeStyleSelect({ value, mixed = false, onChange }: { value: EdgeStyle | typeof MIXED_VALUE; mixed?: boolean; onChange: (style: EdgeStyle) => void }) {
+  const controlId = useId();
+
   return (
-    <div className="grid gap-2">
-      <Label>连线样式</Label>
+    <Field className="gap-2">
+      <FieldLabel htmlFor={controlId}>连线样式</FieldLabel>
       <Select
         value={value}
         onValueChange={(nextValue) => {
@@ -280,27 +291,35 @@ function EdgeStyleSelect({ value, mixed = false, onChange }: { value: EdgeStyle 
           onChange(nextValue as EdgeStyle);
         }}
       >
-        <SelectTrigger>
+        <SelectTrigger id={controlId}>
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
-          <MixedSelectItem mixed={mixed} />
+          {mixed ? (
+            <SelectGroup>
+              <MixedSelectItem mixed />
+            </SelectGroup>
+          ) : null}
           {mixed ? <SelectSeparator /> : null}
-          {edgeStyleOptions.map((option) => (
-            <SelectItem key={option.value} value={option.value}>
-              {option.label}
-            </SelectItem>
-          ))}
+          <SelectGroup>
+            {edgeStyleOptions.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectGroup>
         </SelectContent>
       </Select>
-    </div>
+    </Field>
   );
 }
 
 function EdgeMarkerSelect({ label, value, mixed = false, disabled = false, onChange }: { label: string; value: EdgeMarker | typeof MIXED_VALUE; mixed?: boolean; disabled?: boolean; onChange: (marker: EdgeMarker) => void }) {
+  const controlId = useId();
+
   return (
-    <div className="grid gap-2">
-      <Label>{label}</Label>
+    <Field className="gap-2" data-disabled={disabled || undefined}>
+      <FieldLabel htmlFor={controlId}>{label}</FieldLabel>
       <Select
         value={value}
         disabled={disabled}
@@ -309,27 +328,35 @@ function EdgeMarkerSelect({ label, value, mixed = false, disabled = false, onCha
           onChange(nextValue as EdgeMarker);
         }}
       >
-        <SelectTrigger>
+        <SelectTrigger id={controlId}>
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
-          <MixedSelectItem mixed={mixed} />
+          {mixed ? (
+            <SelectGroup>
+              <MixedSelectItem mixed />
+            </SelectGroup>
+          ) : null}
           {mixed ? <SelectSeparator /> : null}
-          {edgeMarkerOptions.map((option) => (
-            <SelectItem key={option.value} value={option.value}>
-              {option.label}
-            </SelectItem>
-          ))}
+          <SelectGroup>
+            {edgeMarkerOptions.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectGroup>
         </SelectContent>
       </Select>
-    </div>
+    </Field>
   );
 }
 
 function EdgeAnimationSelect({ value, mixed = false, onChange }: { value: EdgeAnimation | typeof MIXED_VALUE; mixed?: boolean; onChange: (animation: EdgeAnimation) => void }) {
+  const controlId = useId();
+
   return (
-    <div className="grid gap-2">
-      <Label>动画</Label>
+    <Field className="gap-2">
+      <FieldLabel htmlFor={controlId}>动画</FieldLabel>
       <Select
         value={value}
         onValueChange={(nextValue) => {
@@ -337,27 +364,35 @@ function EdgeAnimationSelect({ value, mixed = false, onChange }: { value: EdgeAn
           onChange(nextValue as EdgeAnimation);
         }}
       >
-        <SelectTrigger>
+        <SelectTrigger id={controlId}>
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
-          <MixedSelectItem mixed={mixed} />
+          {mixed ? (
+            <SelectGroup>
+              <MixedSelectItem mixed />
+            </SelectGroup>
+          ) : null}
           {mixed ? <SelectSeparator /> : null}
-          {edgeAnimationOptions.map((option) => (
-            <SelectItem key={option.value} value={option.value}>
-              {option.label}
-            </SelectItem>
-          ))}
+          <SelectGroup>
+            {edgeAnimationOptions.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectGroup>
         </SelectContent>
       </Select>
-    </div>
+    </Field>
   );
 }
 
 function EdgeCurveSelect({ value, mixed = false, onChange }: { value: MermaidCurve | typeof DEFAULT_CURVE_VALUE | typeof MIXED_VALUE; mixed?: boolean; onChange: (curve: MermaidCurve | typeof DEFAULT_CURVE_VALUE) => void }) {
+  const controlId = useId();
+
   return (
-    <div className="grid gap-2">
-      <Label>曲线</Label>
+    <Field className="gap-2">
+      <FieldLabel htmlFor={controlId}>曲线</FieldLabel>
       <Select
         value={value}
         onValueChange={(nextValue) => {
@@ -365,20 +400,26 @@ function EdgeCurveSelect({ value, mixed = false, onChange }: { value: MermaidCur
           onChange(nextValue as MermaidCurve | typeof DEFAULT_CURVE_VALUE);
         }}
       >
-        <SelectTrigger>
+        <SelectTrigger id={controlId}>
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
-          <MixedSelectItem mixed={mixed} />
+          {mixed ? (
+            <SelectGroup>
+              <MixedSelectItem mixed />
+            </SelectGroup>
+          ) : null}
           {mixed ? <SelectSeparator /> : null}
-          <SelectItem value={DEFAULT_CURVE_VALUE}>默认</SelectItem>
-          {edgeCurveOptions.map((option) => (
-            <SelectItem key={option.value} value={option.value}>
-              {option.label}
-            </SelectItem>
-          ))}
+          <SelectGroup>
+            <SelectItem value={DEFAULT_CURVE_VALUE}>默认</SelectItem>
+            {edgeCurveOptions.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectGroup>
         </SelectContent>
       </Select>
-    </div>
+    </Field>
   );
 }

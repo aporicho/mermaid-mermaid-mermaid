@@ -3,6 +3,7 @@ import { type ReactNode, type RefObject } from "react";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
@@ -50,14 +51,14 @@ export function EditorPointMenu({
         className={cn("w-52 p-1", className)}
         collisionPadding={8}
         onCloseAutoFocus={(event) => {
+          event.preventDefault();
           const focusTarget = restoreFocusRef?.current;
           if (!focusTarget) return;
-          event.preventDefault();
           focusTarget.focus({ preventScroll: true });
         }}
         side="right"
       >
-        {children}
+        <DropdownMenuGroup>{children}</DropdownMenuGroup>
       </DropdownMenuContent>
     </DropdownMenu>
   );

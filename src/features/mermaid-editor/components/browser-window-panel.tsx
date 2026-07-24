@@ -1,11 +1,9 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Copy, OpenNewWindow, Refresh as RefreshCw, WebWindow } from "iconoir-react/regular";
 
-import { Input } from "@/components/ui/input";
-import { Spinner } from "@/components/ui/spinner";
+import { InputGroup, InputGroupInput } from "@/components/ui/input-group";
 import { EditorIconButton } from "@/features/mermaid-editor/components/editor-ui";
-import { EmbeddedBrowserSurface } from "@/features/mermaid-editor/components/embedded-browser-surface";
-import { WorkspaceNativeSurfaceFrame, WorkspaceWindowHeader } from "@/features/mermaid-editor/components/floating-chrome";
+import { NativeWebWindowPanel } from "@/features/mermaid-editor/components/native-web-window-panel";
 import {
   browserToolWindowTitle,
   normalizeBrowserUrl
@@ -89,53 +87,48 @@ export function BrowserWindowPanel({
     reportStatus("已请求使用系统浏览器打开。");
   }
 
-  return (
-    <div className="flex h-full min-h-0 flex-col bg-card">
-      <WorkspaceWindowHeader
-        icon={<WebWindow className="size-4 shrink-0 text-icon" />}
-        title={<span className="block max-w-44 truncate">{pageTitle}</span>}
-        titleTooltip={pageTitle}
-        status={localStatus
-          ? <span className="type-interface-status hidden max-w-40 truncate text-muted-foreground xl:block" aria-live="polite">{localStatus}</span>
-          : loading ? <span className="type-interface-status hidden items-center gap-1.5 text-muted-foreground xl:flex"><Spinner className="size-3.5" />载入中</span> : null}
-        center={
-          <form className="flex min-w-0 flex-1 items-center" onSubmit={submitAddress}>
-            <Input
-              value={address}
-              className="h-[var(--ui-control-height-sm)] min-w-0 flex-1 bg-background/95"
-              spellCheck={false}
-              aria-label="浏览器地址"
-              onChange={(event) => setAddress(event.target.value)}
-              onFocus={() => { addressFocusedRef.current = true; }}
-              onBlur={() => { addressFocusedRef.current = false; setAddress(currentUrl); }}
-            />
-          </form>
-        }
-        actions={<>
-          <EditorIconButton context="panel" label="重新载入网页" onClick={reloadBrowser}><RefreshCw /></EditorIconButton>
-          <EditorIconButton context="panel" label="复制链接" onClick={copyAddress}><Copy /></EditorIconButton>
-          <EditorIconButton context="panel" label="系统浏览器打开" onClick={openInSystemBrowser}><OpenNewWindow /></EditorIconButton>
-        </>}
-      />
-      <WorkspaceNativeSurfaceFrame>
-        <EmbeddedBrowserSurface
-          panelId={browserWindow.id}
-          url={currentUrl}
-          runtime={runtime}
-          retryRevision={retryRevision}
-          onRetry={reloadBrowser}
-          onStatus={reportStatus}
-          onBrowserError={(url, message) => reportStatus(`${browserToolWindowTitle(url)} ${message}`.trim())}
-          onBrowserFocus={onFocusPanel}
-          onBrowserHandleChange={(_panelId, handle) => {
-            setBrowserHandle(handle);
-            onBrowserHandleChange(browserWindow.id, handle);
-          }}
-          onBrowserStateChange={updateBrowserState}
-        />
-      </WorkspaceNativeSurfaceFrame>
-    </div>
-  );
+  return <NativeWebWindowPanel
+    icon={<WebWindow className="size-4 shrink-0 text-icon" />}
+    title={<span className="block max-w-44 truncate">{pageTitle}</span>}
+    titleTooltip={pageTitle}
+    status={localStatus}
+    loading={loading}
+    center={
+      <form className="flex min-w-0 flex-1 items-center" onSubmit={submitAddress}>
+        <InputGroup className="min-h-[var(--ui-control-height-sm)] bg-background/95">
+          <InputGroupInput
+            value={address}
+            className="min-w-0"
+            spellCheck={false}
+            aria-label="浏览器地址"
+            onChange={(event) => setAddress(event.target.value)}
+            onFocus={() => { addressFocusedRef.current = true; }}
+            onBlur={() => { addressFocusedRef.current = false; setAddress(currentUrl); }}
+          />
+        </InputGroup>
+      </form>
+    }
+    actions={<EditorIconButton context="panel" label="重新载入网页" onClick={reloadBrowser}><RefreshCw data-icon /></EditorIconButton>}
+    overflowActions={[
+      { id: "copy-address", label: "复制链接", icon: <Copy data-icon />, onSelect: copyAddress },
+      { id: "open-external", label: "系统浏览器打开", icon: <OpenNewWindow data-icon />, onSelect: openInSystemBrowser }
+    ]}
+    surface={{
+      panelId: browserWindow.id,
+      url: currentUrl,
+      runtime,
+      retryRevision,
+      onRetry: reloadBrowser,
+      onStatus: reportStatus,
+      onBrowserError: (url, message) => reportStatus(`${browserToolWindowTitle(url)} ${message}`.trim()),
+      onBrowserFocus: onFocusPanel,
+      onBrowserHandleChange: (_panelId, handle) => {
+        setBrowserHandle(handle);
+        onBrowserHandleChange(browserWindow.id, handle);
+      },
+      onBrowserStateChange: updateBrowserState
+    }}
+  />;
 }
 
 function noopBrowserHandleChange() {

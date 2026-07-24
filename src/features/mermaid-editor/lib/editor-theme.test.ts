@@ -47,19 +47,46 @@ describe("editor theme", () => {
     delete legacy.interface.tree.connectorStyle;
 
     const migrated = normalizeEditorTheme(legacy);
-    expect(migrated.version).toBe(15);
+    expect(migrated.version).toBe(16);
     expect(migrated.typography.interface.tree).toEqual(migrated.typography.interface.menu);
     expect(migrated.interface.tree.connectorStyle).toBe("solid");
     expect(themeToCssVariables(migrated)).toMatchObject({
       "--type-interface-tree-family": "Legacy Tree Sans",
       "--type-interface-tree-size": "15px",
-      "--ui-tree-connector-style": "solid"
+      "--ui-tree-connector-style": "solid",
+      "--ui-overlay-backdrop-blur": "1px",
+      "--ui-window-header-opacity": "0.96"
     });
 
     const dotted = normalizeEditorTheme({ ...legacy, interface: { ...legacy.interface, tree: { ...legacy.interface.tree, connectorStyle: "dotted" } } });
     expect(dotted.interface.tree.connectorStyle).toBe("dotted");
     const invalid = normalizeEditorTheme({ ...legacy, interface: { ...legacy.interface, tree: { ...legacy.interface.tree, connectorStyle: "double" } } });
     expect(invalid.interface.tree.connectorStyle).toBe("solid");
+  });
+
+  it("migrates v15 overlay and window defaults and compiles every runtime variable", () => {
+    const legacy = structuredClone(DEFAULT_EDITOR_THEME) as any;
+    legacy.version = 15;
+    legacy.interface.colors.foreground = "#123456";
+    delete legacy.interface.overlay;
+    delete legacy.interface.window;
+
+    const migrated = normalizeEditorTheme(legacy);
+    const variables = themeToCssVariables(migrated);
+
+    expect(migrated.interface.overlay).toEqual({
+      ...DEFAULT_EDITOR_THEME.interface.overlay,
+      background: "#123456"
+    });
+    expect(migrated.interface.window).toEqual(DEFAULT_EDITOR_THEME.interface.window);
+    expect(variables).toMatchObject({
+      "--ui-overlay-background": variables["--foreground"],
+      "--ui-overlay-opacity": `${DEFAULT_EDITOR_THEME.interface.overlay.opacity}`,
+      "--ui-overlay-backdrop-blur": `${DEFAULT_EDITOR_THEME.interface.overlay.backdropBlur}px`,
+      "--ui-window-header-opacity": `${DEFAULT_EDITOR_THEME.interface.window.headerOpacity}`,
+      "--ui-window-active-border-opacity": `${DEFAULT_EDITOR_THEME.interface.window.activeBorderOpacity}`,
+      "--ui-window-inactive-border-opacity": `${DEFAULT_EDITOR_THEME.interface.window.inactiveBorderOpacity}`
+    });
   });
 
   it("loads the Claude Cream Chinese adaptation with sans body, serif headings and restrained chrome", () => {
@@ -155,6 +182,14 @@ describe("editor theme", () => {
       blockGap: 10,
       listItemGap: 4
     });
+    expect(theme.specialNode.markdownDocument.previewContent.layout.listIndentationEnabled).toBe(false);
+    expect(theme.specialNode.markdownDocument.previewContent.blockquote).toMatchObject({
+      paddingX: 20,
+      paddingY: 8,
+      borderEnabled: false,
+      borderStyle: "none",
+      radius: 4
+    });
     expect(theme.specialNode.markdownDocument).toMatchObject({
       contentPaddingTop: 16,
       contentPaddingRight: 16,
@@ -172,8 +207,6 @@ describe("editor theme", () => {
     expect(theme.markdown.codeBlock.fontFamily).toContain("Maple Mono");
     expect(theme.typography.markdownCard.title.family).toContain("方正屏显雅宋简体");
     expect(theme.typography.markdownCard.excerpt.family).toContain("Noto Sans SC Variable");
-    expect(theme.typography.canvasDocument.card.family).toContain("方正屏显雅宋简体");
-    expect(theme.typography.canvasDocument.shape.family).toContain("Noto Sans SC Variable");
     expect(theme.typography.terminal.content).toMatchObject({ fontSize: 18, fontWeight: 500, lineHeight: 8 });
     expect(theme.motion.canvas.proximityMaxScale).toBe(1);
     expect(compiled.cssVariables["--markdown-body-line-height"]).toBe("26.4px");
@@ -198,7 +231,7 @@ describe("editor theme", () => {
     legacy.specialNode.markdownDocument.height = 180;
 
     const migrated = normalizeEditorTheme(legacy);
-    expect(migrated.version).toBe(15);
+    expect(migrated.version).toBe(16);
     expect(migrated.canvas.group.title.borderWidth).toBe(0);
     expect(migrated.specialNode.markdownDocument).toMatchObject({ width: 280, height: 396 });
   });
@@ -224,7 +257,7 @@ describe("editor theme", () => {
 
     const theme = normalizeEditorTheme(legacy);
 
-    expect(theme.version).toBe(15);
+    expect(theme.version).toBe(16);
     expect(theme.id).toBe("custom");
     expect(theme.markdown.body.fontFamily).toBe(legacySans);
     expect(theme.markdown.heading.h1.fontFamily).toBe(founderSerif);
@@ -239,7 +272,6 @@ describe("editor theme", () => {
       markdown: { heading: Record<string, { fontFamily: string }> };
       typography: {
         markdownCard: { title: { family: string }; titleEditor: { family: string } };
-        canvasDocument: { card: { family: string }; cardEditor: { family: string } };
       };
     };
     const shangtu = '"上图东观体", "Noto Sans SC Variable", "Noto Sans SC", system-ui, sans-serif';
@@ -251,15 +283,12 @@ describe("editor theme", () => {
     for (const heading of Object.values(legacy.markdown.heading)) heading.fontFamily = shangtu;
     legacy.typography.markdownCard.title.family = shangtu;
     legacy.typography.markdownCard.titleEditor.family = shangtu;
-    legacy.typography.canvasDocument.card.family = shangtu;
-    legacy.typography.canvasDocument.cardEditor.family = shangtu;
 
     const theme = normalizeEditorTheme(legacy);
 
-    expect(theme.version).toBe(15);
+    expect(theme.version).toBe(16);
     expect(theme.markdown.heading.h1.fontFamily).toBe(founderSerif);
     expect(theme.typography.markdownCard.title.family).toBe(founderSerif);
-    expect(theme.typography.canvasDocument.card.family).toBe(founderSerif);
   });
 
   it("loads minimal monochrome theme with grayscale application colors", () => {
@@ -475,7 +504,7 @@ describe("editor theme", () => {
   it("derives Markdown defaults from each built-in theme palette", () => {
     const dracula = resolveEditorTheme("kitty-kovidgoyal-dracula", null);
 
-    expect(dracula.version).toBe(15);
+    expect(dracula.version).toBe(16);
     expect(dracula.markdown.body.color).toBe(dracula.interface.colors.foreground);
     expect(dracula.markdown.heading.h1.color).toBe(dracula.interface.colors.foreground);
     expect(dracula.markdown.link.color).toBe(dracula.interface.colors.primary);
@@ -504,7 +533,7 @@ describe("editor theme", () => {
       }
     });
 
-    expect(theme.version).toBe(15);
+    expect(theme.version).toBe(16);
     expect(theme.markdown.body).toMatchObject({ color: "#f0f0f0", fontFamily: "Example Sans" });
     expect(theme.markdown.link.color).toBe("#44aaff");
     expect(theme.markdown.codeBlock).toMatchObject({ background: "#202020", fontFamily: "Example Mono" });
@@ -525,7 +554,7 @@ describe("editor theme", () => {
       }
     });
 
-    expect(theme.version).toBe(15);
+    expect(theme.version).toBe(16);
     expect(theme.typography.canvas.node).toMatchObject({ family: "Legacy Sans, sans-serif", fontSize: 19 });
     expect(theme.typography.source.editor).toMatchObject({ family: "Legacy Mono, monospace", fontSize: 15, lineHeight: 32 });
     expect(theme.typography.terminal.content.family).toBe("Legacy Mono, monospace");
@@ -556,7 +585,7 @@ describe("editor theme", () => {
       }
     });
 
-    expect(theme.version).toBe(15);
+    expect(theme.version).toBe(16);
     expect(theme.markdown.table.bodyBackground).toBe("#112233");
     expect(theme.markdown.list.unordered.indent).toBe(8);
     expect(theme.specialNode.shared).toMatchObject({
@@ -976,7 +1005,7 @@ describe("editor theme", () => {
 
     const terminalTheme = themeToTerminalTheme(theme);
 
-    expect(theme.version).toBe(15);
+    expect(theme.version).toBe(16);
     expect(theme.ansi.green).toBe("#00aa66");
     expect(theme.ansi.brightGreen).toBe(DEFAULT_EDITOR_THEME.ansi.brightGreen);
     expect(theme.terminal.background).toBe("#101010");
@@ -1017,7 +1046,7 @@ describe("editor theme", () => {
     });
     const compiled = compileEditorTheme(theme);
 
-    expect(theme.version).toBe(15);
+    expect(theme.version).toBe(16);
     expect(theme.motion.duration.fast).toBe(0.12);
     expect(theme.motion.duration.layout).toBe(1.6);
     expect(theme.motion.ease.standard).toBe("power1.out");
@@ -1051,7 +1080,7 @@ describe("editor theme", () => {
       }
     });
 
-    expect(theme.version).toBe(15);
+    expect(theme.version).toBe(16);
     expect(theme.interface.surface).toEqual({
       borderWidth: 2,
       borderStyle: "dashed",

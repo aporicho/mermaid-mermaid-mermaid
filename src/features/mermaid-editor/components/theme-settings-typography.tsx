@@ -3,29 +3,30 @@ import { Check, NavArrowDown, Refresh } from "iconoir-react/regular";
 
 import { Button } from "@/components/ui/button";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator } from "@/components/ui/command";
+import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { InputGroup, InputGroupInput } from "@/components/ui/input-group";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Slider } from "@/components/ui/slider";
 import { EditorIconButton, EditorSearchField } from "@/features/mermaid-editor/components/editor-ui";
 import type { RuntimeSystemFont } from "@/features/mermaid-editor/lib/editor-runtime";
 import {
   type EditorTypographyTokens,
   type TypographyRoleTokens
 } from "@/features/mermaid-editor/lib/editor-theme";
-import { cn } from "@/lib/utils";
 import { ThemeSettingsCollapsible } from "./theme-settings-collapsible";
 
 type TypographyGroupKey = keyof EditorTypographyTokens;
 
-const TYPOGRAPHY_GROUPS: readonly { key: TypographyGroupKey; title: string; description: string }[] = [
-  { key: "interface", title: "界面基础", description: "应用正文、控件、导航、菜单和技术信息。" },
-  { key: "canvas", title: "Mermaid 编辑画布", description: "节点、连线标签、组标题、操作徽标和编辑态。" },
-  { key: "linkCard", title: "链接预览卡片", description: "品牌占位、平台名称、帖子标题和编辑态。" },
-  { key: "markdownCard", title: "Markdown 文档卡片", description: "徽标、标题、路径、摘要和编辑态。" },
-  { key: "tableNode", title: "表格节点", description: "表格单元格及其编辑态。" },
-  { key: "mermaid", title: "Mermaid SVG 渲染", description: "图表标题、节点、关系、分组和注释。" },
-  { key: "canvasDocument", title: "独立画布文档", description: "形状、卡片、自由文本、连接线及其编辑态。" },
-  { key: "source", title: "源码与诊断", description: "源码编辑器和两级诊断信息。" },
-  { key: "terminal", title: "终端", description: "终端内容、标题和工作目录。" }
+const TYPOGRAPHY_GROUPS: readonly { key: TypographyGroupKey; title: string }[] = [
+  { key: "interface", title: "界面基础" },
+  { key: "canvas", title: "Mermaid 编辑画布" },
+  { key: "linkCard", title: "链接预览卡片" },
+  { key: "markdownCard", title: "Markdown 文档卡片" },
+  { key: "tableNode", title: "表格节点" },
+  { key: "mermaid", title: "Mermaid SVG 渲染" },
+  { key: "source", title: "源码与诊断" },
+  { key: "terminal", title: "终端" }
 ];
 
 const ROLE_LABELS: Record<string, string> = {
@@ -102,9 +103,10 @@ export function ThemeSettingsTypography({
           <ThemeSettingsCollapsible
             key={definition.key}
             open={open}
-            onOpenChange={() => setOpenGroups((current) => toggleSetValue(current, definition.key))}
+            onOpenChange={() => {
+              if (!normalizedQuery) setOpenGroups((current) => toggleSetValue(current, definition.key));
+            }}
             title={groupTitle ?? definition.title}
-            description={definition.description}
             resetLabel={`重置${groupTitle ?? definition.title}`}
             resetDisabled={resetDisabled}
             onReset={() => visibleRoles?.length && onResetVisibleRoles ? onResetVisibleRoles(definition.key, visibleRoles) : onResetGroup(definition.key)}
@@ -147,15 +149,15 @@ function TypographyRoleEditor({ roleKey, label, value, fonts, loading, error, mo
   onReset: () => void;
 }) {
   return (
-    <article className="grid gap-2 border-l-2 border-border bg-card/45 p-3" data-typography-role={roleKey}>
+    <article className="grid gap-3 py-2" data-typography-role={roleKey}>
       <div className="flex items-center justify-between gap-3">
         <div className="type-interface-heading min-w-0 truncate" style={{ fontFamily: value.family }}>{label}</div>
         <EditorIconButton context="inline" label={`重置${label}`} onClick={onReset} disabled={resetDisabled}>
-          <Refresh />
+          <Refresh data-icon />
         </EditorIconButton>
       </div>
       <FontFamilyCombobox value={value.family} fonts={fonts} loading={loading} error={error} monospacePreferred={monospacePreferred} onChange={(family) => onChange({ ...value, family })} />
-      <div className="grid grid-cols-4 gap-2">
+      <div className="grid gap-3 sm:grid-cols-2">
         <TypographyNumber label="字号" value={value.fontSize} min={8} max={96} step={1} onChange={(fontSize) => onChange({ ...value, fontSize })} />
         <TypographyNumber label="字重" value={value.fontWeight} min={100} max={900} step={100} onChange={(fontWeight) => onChange({ ...value, fontWeight })} />
         <TypographyNumber label="行高" value={value.lineHeight} min={8} max={128} step={1} onChange={(lineHeight) => onChange({ ...value, lineHeight })} />
@@ -191,7 +193,7 @@ export function FontFamilyCombobox({ value, fonts, loading, error, monospacePref
         <PopoverTrigger asChild>
           <Button type="button" variant="outline" role="combobox" aria-expanded={open} className="w-full justify-between border border-input bg-background text-left" style={{ fontFamily: value }}>
             <span className="truncate">{familyName}</span>
-            <NavArrowDown className="size-3.5 shrink-0 text-icon" />
+            <NavArrowDown data-icon="inline-end" className="shrink-0 text-icon" />
           </Button>
         </PopoverTrigger>
         <PopoverContent align="start" className="w-[--radix-popover-trigger-width] min-w-[280px]">
@@ -202,7 +204,7 @@ export function FontFamilyCombobox({ value, fonts, loading, error, monospacePref
               <CommandGroup heading="字体">
                 {catalog.map((font) => (
                   <CommandItem key={font.family} value={font.family} onSelect={() => selectFont(font.family)} style={{ fontFamily: quoteCssFamily(font.family) }}>
-                    <Check className={cn("mr-2 size-3.5", sameFamily(font.family, familyName) ? "opacity-100" : "opacity-0")} />
+                    <Check data-icon className={sameFamily(font.family, familyName) ? "opacity-100" : "opacity-0"} />
                     <span className="min-w-0 flex-1 truncate">{font.family}</span>
                     {font.monospace ? <span className="ml-2 text-[9px] text-muted-foreground">等宽</span> : null}
                   </CommandItem>
@@ -233,11 +235,20 @@ export function FontFamilyCombobox({ value, fonts, loading, error, monospacePref
 }
 
 function TypographyNumber({ label, value, min, max, step, onChange }: { label: string; value: number; min: number; max: number; step: number; onChange: (value: number) => void }) {
+  const update = (next: number) => {
+    if (Number.isFinite(next)) onChange(Math.min(max, Math.max(min, next)));
+  };
+
   return (
-    <label className="type-interface-metadata grid gap-1 text-muted-foreground">
-      <span>{label}</span>
-      <Input type="number" value={value} min={min} max={max} step={step} onChange={(event) => { const next = Number(event.target.value); if (Number.isFinite(next)) onChange(Math.min(max, Math.max(min, next))); }} className="type-interface-technical min-w-0" />
-    </label>
+    <Field className="gap-1.5">
+      <FieldLabel className="type-interface-metadata text-muted-foreground">{label}</FieldLabel>
+      <div className="grid grid-cols-[minmax(56px,1fr)_72px] items-center gap-2">
+        <Slider value={[value]} min={min} max={max} step={step} className="h-8 min-w-0" onValueChange={([nextValue]) => update(nextValue)} aria-label={`${label}滑杆`} />
+        <InputGroup>
+          <InputGroupInput type="number" value={value} min={min} max={max} step={step} onChange={(event) => update(Number(event.target.value))} className="type-interface-technical min-w-0" aria-label={label} />
+        </InputGroup>
+      </div>
+    </Field>
   );
 }
 

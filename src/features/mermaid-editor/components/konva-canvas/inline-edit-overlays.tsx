@@ -88,7 +88,7 @@ export function InlineEditOverlays({
         <Textarea
           ref={nodeEditorRef}
           value={inlineEdit.value}
-          className="node-inline-editor absolute z-40 block min-h-0 resize-none overflow-x-hidden rounded-none border-0 bg-transparent p-0 text-center font-bold text-foreground shadow-none outline-none ring-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+        className="node-inline-editor absolute block min-h-0 resize-none overflow-x-hidden rounded-none border-0 bg-transparent p-0 text-center font-bold text-foreground shadow-none outline-none ring-0 focus-visible:ring-0 focus-visible:ring-offset-0"
           style={{
             left: editStyle.left,
             top: editStyle.top + nodeEditorLayout.insetTop,
@@ -124,7 +124,7 @@ export function InlineEditOverlays({
         aria-label={inlineEdit.type === "tableCell" ? "编辑表格单元格" : "编辑表头"}
         maxLength={inlineEdit.type === "tableCell" ? MAX_CANVAS_TABLE_CELL_LENGTH : MAX_CANVAS_TABLE_COLUMN_LABEL_LENGTH}
         value={inlineEdit.value}
-        className="absolute z-40 block min-h-0 resize-none rounded-none bg-card text-foreground shadow-none outline-none ring-0 focus-visible:ring-1 focus-visible:ring-accent focus-visible:ring-offset-0"
+        className="absolute block min-h-0 resize-none rounded-none bg-card text-foreground shadow-none outline-none ring-0 focus-visible:ring-1 focus-visible:ring-accent focus-visible:ring-offset-0"
         style={{
           left: editStyle.left,
           top: editStyle.top,
@@ -179,7 +179,7 @@ export function InlineEditOverlays({
       <Input
         autoFocus
         value={inlineEdit.value}
-        className="absolute z-40 h-auto min-h-0 border-0 bg-card py-0 text-left font-bold text-foreground shadow-none outline-none ring-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+        className="absolute h-auto min-h-0 border-0 bg-card py-0 text-left font-bold text-foreground shadow-none outline-none ring-0 focus-visible:ring-0 focus-visible:ring-offset-0"
         style={{
           left: editStyle.left,
           top: editStyle.top,
@@ -209,7 +209,7 @@ export function InlineEditOverlays({
       <Input
         autoFocus
         value={inlineEdit.value}
-        className="absolute z-40 h-auto min-h-0 rounded-none border bg-card p-0 text-center font-normal text-foreground shadow-none outline-none ring-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+        className="absolute h-auto min-h-0 rounded-none border bg-card p-0 text-center font-normal text-foreground shadow-none outline-none ring-0 focus-visible:ring-0 focus-visible:ring-offset-0"
         style={{
           left: editStyle.left,
           top: editStyle.top,

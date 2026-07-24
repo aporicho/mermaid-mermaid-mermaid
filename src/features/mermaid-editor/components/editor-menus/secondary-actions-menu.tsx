@@ -19,18 +19,19 @@ import {
   Translate
 } from "iconoir-react/regular";
 
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Field, FieldLabel } from "@/components/ui/field";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { EditorMenuItem, EditorMenuSurface } from "@/features/mermaid-editor/components/editor-ui";
 import { PreferenceToggle, directions, edgeRoutingOptions, layoutModeOptions } from "@/features/mermaid-editor/components/editor-menus/shared";
 import { MarkdownContentWidthPreference } from "@/features/mermaid-editor/components/editor-menus/markdown-content-width-preference";
 import { AutoSavePreference } from "@/features/mermaid-editor/components/editor-menus/auto-save-preference";
-import { FloatingIconButton, FloatingPopover } from "@/features/mermaid-editor/components/floating-chrome";
+import { FloatingIconButton } from "@/features/mermaid-editor/components/floating-chrome";
 import { APP_LOGOS, appLogoById, normalizeAppLogoId } from "@/features/mermaid-editor/lib/app-logo";
 import type { DocumentKind } from "@/features/mermaid-editor/lib/document-kind";
 import type { EdgeRouting, GraphDirection, LayoutMode } from "@/features/mermaid-editor/lib/editor-types";
 import type { EditorPreferences } from "@/features/mermaid-editor/lib/editor-preferences";
-import { useDismissableFloatingMenu } from "@/features/mermaid-editor/lib/use-dismissable-floating-menu";
 
 export function SecondaryActionsMenu({
   open,
@@ -81,9 +82,6 @@ export function SecondaryActionsMenu({
   onResetView: () => void;
   onOpenThemeSettings: () => void;
 }) {
-  const menuRef = useDismissableFloatingMenu<HTMLDivElement>({ open, onOpenChange });
-  const isCanvasDocument = documentKind === "canvas";
-
   function runAndClose(action: () => void) {
     action();
     onOpenChange(false);
@@ -94,15 +92,16 @@ export function SecondaryActionsMenu({
   }
 
   return (
-    <div ref={menuRef} className="relative">
-      <FloatingIconButton label="更多操作" tooltipSide="top" onClick={() => onOpenChange(!open)} aria-expanded={open}>
-        <MoreHoriz />
-      </FloatingIconButton>
-
-      <FloatingPopover
-        open={open}
-        placement="bottom-left"
-        dismissMode="outside"
+    <Popover open={open} onOpenChange={onOpenChange}>
+      <PopoverTrigger asChild>
+        <FloatingIconButton label="更多操作" tooltipSide="top" aria-expanded={open}>
+          <MoreHoriz data-icon />
+        </FloatingIconButton>
+      </PopoverTrigger>
+      <PopoverContent
+        side="top"
+        align="start"
+        sideOffset={8}
         className="max-h-[min(720px,calc(100vh-112px))] w-64 overflow-y-auto"
       >
         <EditorMenuSurface>
@@ -150,8 +149,8 @@ export function SecondaryActionsMenu({
           />
           <EditorMenuItem data-floating-action-item icon={<FloppyDiskArrowOut />} label="另存为" onClick={() => runAndClose(onSaveAs)} />
           <Separator className="my-1" />
-          <div data-floating-action-item className="grid gap-2 px-2 py-2">
-            <span className="text-xs text-muted-foreground">方向</span>
+          <Field data-floating-action-item className="gap-2 px-2 py-2">
+            <FieldLabel htmlFor="secondary-actions-direction" className="text-xs text-muted-foreground">方向</FieldLabel>
             <Select
               value={direction}
               onValueChange={(value) => {
@@ -159,24 +158,22 @@ export function SecondaryActionsMenu({
               }}
               disabled={!editable}
             >
-              <SelectTrigger>
+              <SelectTrigger id="secondary-actions-direction">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {directions.map((item) => (
-                  <SelectItem key={item} value={item}>
-                    {item}
-                  </SelectItem>
-                ))}
+                <SelectGroup>{directions.map((item) => (
+                  <SelectItem key={item} value={item}>{item}</SelectItem>
+                ))}</SelectGroup>
               </SelectContent>
             </Select>
-          </div>
+          </Field>
           <Separator className="my-1" />
-          <div data-floating-action-item className="grid gap-2 px-2 py-2">
-            <span className="flex items-center gap-2 text-xs text-muted-foreground">
+          <Field data-floating-action-item className="gap-2 px-2 py-2">
+            <FieldLabel htmlFor="secondary-actions-layout" className="flex items-center gap-2 text-xs text-muted-foreground">
               <PositionAlign className="size-4 text-icon" />
               布局模式
-            </span>
+            </FieldLabel>
             <Select
               value={layoutMode}
               onValueChange={(value) => {
@@ -184,24 +181,24 @@ export function SecondaryActionsMenu({
               }}
               disabled={!editable}
             >
-              <SelectTrigger>
+              <SelectTrigger id="secondary-actions-layout">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {layoutModeOptions.map((option) => (
+                <SelectGroup>{layoutModeOptions.map((option) => (
                   <SelectItem key={option.value} value={option.value}>
                     {option.label}
                   </SelectItem>
-                ))}
+                ))}</SelectGroup>
               </SelectContent>
             </Select>
-          </div>
+          </Field>
           <Separator className="my-1" />
-          <div data-floating-action-item className="grid gap-2 px-2 py-2">
-            <span className="flex items-center gap-2 text-xs text-muted-foreground">
+          <Field data-floating-action-item className="gap-2 px-2 py-2">
+            <FieldLabel htmlFor="secondary-actions-edge-routing" className="flex items-center gap-2 text-xs text-muted-foreground">
               <PathArrow className="size-4 text-icon" />
               连线形状
-            </span>
+            </FieldLabel>
             <Select
               value={edgeRouting}
               onValueChange={(value) => {
@@ -209,45 +206,45 @@ export function SecondaryActionsMenu({
               }}
               disabled={!editable}
             >
-              <SelectTrigger>
+              <SelectTrigger id="secondary-actions-edge-routing">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {edgeRoutingOptions.map((option) => (
+                <SelectGroup>{edgeRoutingOptions.map((option) => (
                   <SelectItem key={option.value} value={option.value}>
                     {option.label}
                   </SelectItem>
-                ))}
+                ))}</SelectGroup>
               </SelectContent>
             </Select>
-          </div>
+          </Field>
           <Separator className="my-1" />
           <div data-floating-action-item className="grid gap-0.5 px-1 py-1">
             <span className="flex items-center gap-2 px-1 py-1 text-xs text-muted-foreground">
               <Eye className="size-4 text-icon" />
               设置
             </span>
-            <div className="grid gap-2 px-1 py-1">
-              <span className="text-xs text-muted-foreground">图标</span>
+            <Field className="gap-2 px-1 py-1">
+              <FieldLabel htmlFor="secondary-actions-app-logo" className="text-xs text-muted-foreground">图标</FieldLabel>
               <Select
                 value={preferences.appLogo}
                 onValueChange={(value) => {
                   updatePreference({ ...preferences, appLogo: normalizeAppLogoId(value) }, "应用 LOGO 已切换。");
                 }}
               >
-                <SelectTrigger className="gap-2">
+                <SelectTrigger id="secondary-actions-app-logo" className="gap-2">
                   <img className="size-4 shrink-0 rounded-sm object-cover" src={appLogoById(preferences.appLogo).href} alt="" aria-hidden />
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {APP_LOGOS.map((logo) => (
+                  <SelectGroup>{APP_LOGOS.map((logo) => (
                     <SelectItem key={logo.id} value={logo.id}>
                       {logo.label}
                     </SelectItem>
-                  ))}
+                  ))}</SelectGroup>
                 </SelectContent>
               </Select>
-            </div>
+            </Field>
             <PreferenceToggle
               active={preferences.startWithPanelsCollapsed}
               icon={<PanelLeftOpen className="size-4" />}
@@ -320,10 +317,10 @@ export function SecondaryActionsMenu({
             icon={<Maximize2 />}
             label="重置视图"
             onClick={() => runAndClose(onResetView)}
-            disabled={!editable && !isCanvasDocument}
+            disabled={!editable}
           />
         </EditorMenuSurface>
-      </FloatingPopover>
-    </div>
+      </PopoverContent>
+    </Popover>
   );
 }

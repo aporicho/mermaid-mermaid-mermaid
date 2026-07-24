@@ -1,20 +1,20 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { NavArrowDown } from "iconoir-react/regular";
-
-import { Button } from "@/components/ui/button";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { InputGroup, InputGroupAddon, InputGroupInput, InputGroupText } from "@/components/ui/input-group";
+import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
   SelectSeparator,
   SelectTrigger,
   SelectValue
 } from "@/components/ui/select";
 import { isHexColor, MERMAID_FONT_FAMILY, MONO_FONT_FAMILY } from "@/features/mermaid-editor/lib/editor-theme";
-import { cn } from "@/lib/utils";
 
 import {
   appearanceTokenDefinition,
@@ -63,7 +63,7 @@ export function ThemeSettingsGroup({
   return (
     <ThemeSettingsCollapsible
       open={normalizedQuery ? true : open}
-      onOpenChange={setOpen}
+      onOpenChange={normalizedQuery ? () => {} : setOpen}
       title={definition.title}
       description={definition.description}
       resetLabel={`重置${definition.title}`}
@@ -76,26 +76,36 @@ export function ThemeSettingsGroup({
           <ThemeSettingsField key={path.join(".")} path={[...definition.path, ...path]} value={fieldValue} onChange={(nextValue) => onChange(path, nextValue)} />
         ))}
         {advancedEntries.length ? (
-          <Collapsible open={normalizedQuery ? true : advancedOpen} onOpenChange={setAdvancedOpen} className="border-t pt-2">
-            <CollapsibleTrigger asChild>
-              <Button type="button" variant="ghost" className="w-full justify-between text-muted-foreground" aria-label={`${advancedOpen ? "收起" : "展开"}${definition.title}高级选项`}>
-                <span>高级</span>
-                <NavArrowDown className={cn("transition-transform", advancedOpen && "rotate-180")} />
-              </Button>
-            </CollapsibleTrigger>
-            <CollapsibleContent>
+          <Accordion
+            type="multiple"
+            value={normalizedQuery || advancedOpen ? [ADVANCED_ITEM_VALUE] : []}
+            onValueChange={(items) => {
+              if (!normalizedQuery) setAdvancedOpen(items.includes(ADVANCED_ITEM_VALUE));
+            }}
+            className="border-t pt-2"
+            data-theme-settings-accordion
+            data-accordion-type="multiple"
+          >
+            <AccordionItem value={ADVANCED_ITEM_VALUE} className="border-0">
+              <AccordionTrigger className="text-muted-foreground" aria-label={`${advancedOpen ? "收起" : "展开"}${definition.title}高级选项`}>
+                高级
+              </AccordionTrigger>
+              <AccordionContent>
               <div className="grid gap-3 pt-2">
                 {advancedEntries.map(({ path, value: fieldValue }) => (
                   <ThemeSettingsField key={path.join(".")} path={[...definition.path, ...path]} value={fieldValue} onChange={(nextValue) => onChange(path, nextValue)} />
                 ))}
               </div>
-            </CollapsibleContent>
-          </Collapsible>
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
         ) : null}
       </div>
     </ThemeSettingsCollapsible>
   );
 }
+
+const ADVANCED_ITEM_VALUE = "advanced";
 
 function ThemeSettingsField({ path, value, onChange }: { path: readonly string[]; value: ThemeTokenValue; onChange: (value: ThemeTokenValue) => void }) {
   const key = path.at(-1) || "";
@@ -142,8 +152,10 @@ function FontStyleField({ label, path, value, onChange }: { label: string; path:
       <Select value={value} onValueChange={onChange}>
         <SelectTrigger className="h-8" aria-label={label}><SelectValue /></SelectTrigger>
         <SelectContent>
-          <SelectItem value="normal">常规</SelectItem>
-          <SelectItem value="italic">斜体</SelectItem>
+          <SelectGroup>
+            <SelectItem value="normal">常规</SelectItem>
+            <SelectItem value="italic">斜体</SelectItem>
+          </SelectGroup>
         </SelectContent>
       </Select>
     </FieldFrame>
@@ -152,19 +164,19 @@ function FontStyleField({ label, path, value, onChange }: { label: string; path:
 
 function FieldFrame({ label, path, children }: { label: string; path: string; children: ReactNode }) {
   return (
-    <div className="grid gap-1.5 text-sm" data-theme-token-path={path}>
-      <span className="text-xs text-muted-foreground">{label}</span>
+    <Field className="gap-1.5" data-theme-token-path={path}>
+      <FieldLabel className="type-interface-metadata text-muted-foreground">{label}</FieldLabel>
       {children}
-    </div>
+    </Field>
   );
 }
 
 function BooleanField({ label, path, value, onChange }: { label: string; path: string; value: boolean; onChange: (value: boolean) => void }) {
   return (
-    <div className="flex items-center justify-between gap-3 text-sm" data-theme-token-path={path}>
-      <span className="text-xs text-muted-foreground">{label}</span>
+    <Field orientation="horizontal" className="justify-between" data-theme-token-path={path}>
+      <FieldLabel className="type-interface-metadata text-muted-foreground">{label}</FieldLabel>
       <Switch checked={value} onCheckedChange={onChange} aria-label={label} />
-    </div>
+    </Field>
   );
 }
 
@@ -218,15 +230,19 @@ function FontFamilyField({
             <SelectValue />
           </SelectTrigger>
           <SelectContent className="max-h-[320px]">
-            {options.map((option) => (
-              <SelectItem key={option.value} value={option.value} style={{ fontFamily: option.value }}>
-                {option.label}
-              </SelectItem>
-            ))}
+            <SelectGroup>
+              {options.map((option) => (
+                <SelectItem key={option.value} value={option.value} style={{ fontFamily: option.value }}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectGroup>
             <SelectSeparator />
-            <SelectItem value={CUSTOM_FONT_OPTION_VALUE}>
-              {knownOption ? "自定义字体…" : `自定义 · ${primaryFontName(value)}`}
-            </SelectItem>
+            <SelectGroup>
+              <SelectItem value={CUSTOM_FONT_OPTION_VALUE}>
+                {knownOption ? "自定义字体…" : `自定义 · ${primaryFontName(value)}`}
+              </SelectItem>
+            </SelectGroup>
           </SelectContent>
         </Select>
         {customOpen ? (
@@ -266,15 +282,17 @@ function ColorField({ label, path, value, onChange }: { label: string; path: str
 
   return (
     <FieldFrame label={label} path={path}>
-      <div className="grid grid-cols-[34px_minmax(0,1fr)] gap-2">
-        <input
-          type="color"
-          value={value}
-          className="h-8 w-8 cursor-pointer rounded-[var(--theme-radius-control-sm)] border bg-background p-1"
-          onChange={(event) => commit(event.target.value)}
-          aria-label={`${label}色板`}
-        />
-        <Input
+      <InputGroup>
+        <InputGroupAddon className="p-1" aria-label={`${label}颜色选择器`}>
+          <input
+            type="color"
+            value={value}
+            className="size-6 cursor-pointer border-0 bg-transparent p-0"
+            onChange={(event) => commit(event.target.value)}
+            aria-label={`${label}色板`}
+          />
+        </InputGroupAddon>
+        <InputGroupInput
           type="text"
           value={draft}
           spellCheck={false}
@@ -286,7 +304,7 @@ function ColorField({ label, path, value, onChange }: { label: string; path: str
           }}
           aria-label={label}
         />
-      </div>
+      </InputGroup>
     </FieldFrame>
   );
 }
@@ -344,7 +362,11 @@ function BorderStyleField({
     <FieldFrame label={label} path={path}>
       <Select value={value} onValueChange={onChange}>
         <SelectTrigger className="h-8" aria-label={label}><SelectValue /></SelectTrigger>
-        <SelectContent>{options.map(([optionValue, optionLabel]) => <SelectItem key={optionValue} value={optionValue}>{optionLabel}</SelectItem>)}</SelectContent>
+        <SelectContent>
+          <SelectGroup>
+            {options.map(([optionValue, optionLabel]) => <SelectItem key={optionValue} value={optionValue}>{optionLabel}</SelectItem>)}
+          </SelectGroup>
+        </SelectContent>
       </Select>
     </FieldFrame>
   );
@@ -362,29 +384,32 @@ function NumberField({ label, path, value, onChange }: { label: string; path: re
   return (
     <FieldFrame label={label} path={path.join(".")}>
       <div className="grid grid-cols-[minmax(72px,1fr)_82px] items-center gap-2">
-        <input
-          type="range"
-          value={value}
+        <Slider
+          value={[value]}
           min={spec.min}
           max={spec.max}
           step={spec.step}
-          className="h-8 min-w-0 accent-primary"
-          onChange={(event) => update(Number(event.target.value))}
+          className="h-8 min-w-0"
+          onValueChange={([nextValue]) => update(nextValue)}
           aria-label={`${label}滑杆`}
         />
-        <label className="relative">
-          <Input
+        <InputGroup>
+          <InputGroupInput
             type="number"
             value={displayValue}
             min={spec.min}
             max={spec.max}
             step={spec.step}
-            className={cn("type-interface-technical w-full", spec.unit && "pr-7")}
+            className="type-interface-technical w-full"
             onChange={(event) => update(Number(event.target.value))}
             aria-label={label}
           />
-          {spec.unit ? <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">{spec.unit}</span> : null}
-        </label>
+          {spec.unit ? (
+            <InputGroupAddon align="inline-end">
+              <InputGroupText>{spec.unit}</InputGroupText>
+            </InputGroupAddon>
+          ) : null}
+        </InputGroup>
       </div>
     </FieldFrame>
   );

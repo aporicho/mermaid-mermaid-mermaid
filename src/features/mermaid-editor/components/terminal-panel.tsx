@@ -4,7 +4,7 @@ import { FitAddon } from "@xterm/addon-fit";
 import "@xterm/xterm/css/xterm.css";
 import { Erase, Restart, Terminal as TerminalIcon } from "iconoir-react/regular";
 
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { EditorIconButton } from "@/features/mermaid-editor/components/editor-ui";
 import { WorkspaceWindowHeader } from "@/features/mermaid-editor/components/floating-chrome";
 import type { EditorRuntime, RuntimeTerminalSession, RuntimeTerminalShellOption } from "@/features/mermaid-editor/lib/editor-runtime";
@@ -287,21 +287,21 @@ export function TerminalPanel({ runtime, cwd, contextKey, visible, theme, termin
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {shellOptions.map((option) => (
+                <SelectGroup>{shellOptions.map((option) => (
                   <SelectItem key={option.id} value={option.id}>
                     {option.label}
                   </SelectItem>
-                ))}
+                ))}</SelectGroup>
               </SelectContent>
             </Select>
           ) : null}
           <PanelIconButton label="重启终端" disabled={busy || runtime.kind !== "desktop"} onClick={() => void restartSession()}>
             <Restart />
           </PanelIconButton>
-          <PanelIconButton label="清空终端" onClick={clearTerminal}>
-            <Erase />
-          </PanelIconButton>
         </>}
+        overflowActions={[
+          { id: "clear-terminal", label: "清空终端", icon: <Erase data-icon />, onSelect: clearTerminal }
+        ]}
       />
       <div className="min-h-0 flex-1 p-2" style={{ backgroundColor: terminalTheme.background, color: terminalTheme.foreground }}>
         <div ref={containerRef} className={cn("h-full min-h-0 overflow-hidden rounded-sm", runtime.kind !== "desktop" && "opacity-80")} />

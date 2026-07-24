@@ -83,19 +83,3 @@ export function useEditorOverlayState() {
     closeFloatingOverlays
   };
 }
-
-export function useUnsavedPromptEscape(
-  unsavedPrompt: UnsavedPromptState | null,
-  resolveUnsavedPrompt: (choice: "cancel") => void
-) {
-  useEffect(() => {
-    if (!unsavedPrompt) return;
-
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") resolveUnsavedPrompt("cancel");
-    }
-
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [resolveUnsavedPrompt, unsavedPrompt]);
-}

@@ -23,7 +23,7 @@ const DialogContent = React.forwardRef<
   return (
   <DialogPrimitive.Portal container={scope.portalContainer || undefined}>
     <DialogPrimitive.Overlay
-      className={cn(resolvedContained ? "absolute" : "fixed", "pointer-events-auto inset-0 grid place-items-center bg-foreground/10 px-4 backdrop-blur-[1px]")}
+      className={cn(resolvedContained ? "absolute" : "fixed", "pointer-events-auto inset-0 grid place-items-center bg-[hsl(var(--ui-overlay-background)/var(--ui-overlay-opacity))] px-4 [backdrop-filter:blur(var(--ui-overlay-backdrop-blur))]")}
       style={{ zIndex: OVERLAY_Z_INDEX.modal }}
       data-overlay-layer="modal-backdrop"
       data-overlay-scope-id={scope.scopeId}

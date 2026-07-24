@@ -114,7 +114,6 @@ function shouldSkipProjectDirectory(name) {
 function isSupportedDocumentPath(filePath) {
   if (typeof filePath !== "string" || !filePath) return false;
   const lowerName = path.basename(filePath).toLowerCase();
-  if (lowerName.endsWith(".canvas.json")) return true;
   const extension = path.extname(lowerName).replace(/^\./, "");
   return ["mmd", "mermaid", "md", "markdown"].includes(extension);
 }

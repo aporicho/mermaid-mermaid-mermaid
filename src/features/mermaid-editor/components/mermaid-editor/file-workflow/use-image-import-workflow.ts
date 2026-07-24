@@ -18,7 +18,6 @@ import {
   viewportCenterPoint
 } from "./utils";
 import {
-  appendImportedCanvasImages,
   imageBatchImportStatus,
   importedGraphImageNodes,
   type ImportedImagePlacement
@@ -37,15 +36,12 @@ export function useImageImportWorkflow(
   const {
     runtime,
     workspaceSurfaceRef,
-    documentKind,
-    canvasDocument,
     viewport,
     workspaceView,
     fileRef,
     canvasLiveState,
     isCanvasEditable,
     setStatus,
-    applyCanvasDocument,
     applyEditorCommand
   } = args;
 
@@ -118,7 +114,7 @@ export function useImageImportWorkflow(
   }
 
   function canImportImages(identities: string[]) {
-    if ((!isCanvasEditable && documentKind !== "canvas") || workspaceView !== "canvas") {
+    if (!isCanvasEditable || workspaceView !== "canvas") {
       showFileWorkflowError(
         {
           code: "unsupported_type",
@@ -143,11 +139,7 @@ export function useImageImportWorkflow(
     failedCount: number
   ) {
     const point = windowPointToCanvasWorldPoint(dropPosition) || viewportCenterPoint(viewport, canvasLiveState.canvasSize);
-    const message = imageBatchImportStatus(imported, failedCount, documentKind === "canvas" ? "图片" : "图片节点");
-    if (documentKind === "canvas") {
-      applyCanvasDocument(appendImportedCanvasImages(canvasDocument, imported, point), message);
-      return;
-    }
+    const message = imageBatchImportStatus(imported, failedCount, "图片节点");
     applyEditorCommand({
       type: "graph.addNodesAt",
       nodes: importedGraphImageNodes(imported, point),

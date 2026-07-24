@@ -1,6 +1,6 @@
 import { Suspense, lazy } from "react";
 
-import { ExplorerPanel, type ExplorerOpenDocument } from "@/features/mermaid-editor/components/explorer-panel";
+import { ExplorerPanel } from "@/features/mermaid-editor/components/explorer-panel";
 import type { AgentController } from "@/features/mermaid-editor/components/agent/use-agent-session";
 import { WorkspaceFloatingWindow } from "@/features/mermaid-editor/components/floating-chrome";
 import { InspectorPanel } from "@/features/mermaid-editor/components/inspector-panel";
@@ -49,7 +49,6 @@ type EditorWorkspacePanelsProps = {
   explorerTreeState: ExplorerWorkspaceTreeState | null;
   onExplorerTreeStateChange: (state: Omit<ExplorerWorkspaceTreeState, "rootPath" | "updatedAt">) => void;
   projectBusy: boolean;
-  openDocuments: ExplorerOpenDocument[]; onOpenDocument: (bufferId: string) => void;
   fileRef: RuntimeFileRef | null;
   terminalCwd?: string;
   terminalContextKey: string;
@@ -98,7 +97,7 @@ export function EditorWorkspacePanels({
   activeWorkspacePanel, fullscreenWorkspacePanel, graph,
   selection, projectWorkspace,
   projectFiles, explorerTreeState,
-  onExplorerTreeStateChange, projectBusy, openDocuments, onOpenDocument,
+  onExplorerTreeStateChange, projectBusy,
   fileRef,
   terminalCwd, terminalContextKey,
   activeTheme,
@@ -163,7 +162,6 @@ export function EditorWorkspacePanels({
           onTreeStateChange={onExplorerTreeStateChange}
           currentFileRef={fileRef}
           projectBusy={projectBusy}
-          openDocuments={openDocuments} onOpenDocument={onOpenDocument}
           onOpenProject={() => void openProjectFolder()}
           onRefreshProject={() => void refreshProjectWorkspace()}
           onCreateProjectFile={(request) => void createProjectFile(request)} onMoveProjectFile={(source, targetDirectoryPath) => void moveProjectFile(source, targetDirectoryPath)}

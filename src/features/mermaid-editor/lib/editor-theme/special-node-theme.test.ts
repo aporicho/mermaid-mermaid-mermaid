@@ -89,6 +89,7 @@ describe("v11 special-node theme", () => {
       blockGap: 10,
       listItemGap: 0
     });
+    expect(theme.markdownDocument.previewContent.layout.listIndentationEnabled).toBe(true);
     expect(theme.markdownDocument.previewContent.blockquote).toMatchObject({
       enabled: true,
       background: "#f1f2f3",
@@ -180,6 +181,7 @@ describe("v11 special-node theme", () => {
       blockGap: 13,
       listItemGap: 32
     });
+    expect(theme.markdownDocument.previewContent.layout.listIndentationEnabled).toBe(false);
 
     const migrated = normalizeSpecialNodeTheme({
       markdownDocument: { contentPadding: 19, previewTypography: { titleFontSize: 28, bodyFontSize: 17 } }
@@ -191,6 +193,22 @@ describe("v11 special-node theme", () => {
       contentPaddingBottom: 19,
       contentPaddingLeft: 19
     });
+  });
+
+  it("migrates the old preview-content indentation key to list-only indentation", () => {
+    const fallback = createDefaultSpecialNodeTheme(source);
+    const migrated = normalizeSpecialNodeTheme({
+      markdownDocument: { previewContent: { layout: { indentationEnabled: false } } }
+    }, fallback);
+    const canonicalWins = normalizeSpecialNodeTheme({
+      markdownDocument: {
+        previewContent: { layout: { indentationEnabled: false, listIndentationEnabled: true } }
+      }
+    }, fallback);
+
+    expect(migrated.markdownDocument.previewContent.layout.listIndentationEnabled).toBe(false);
+    expect(migrated.markdownDocument.previewContent.layout).not.toHaveProperty("indentationEnabled");
+    expect(canonicalWins.markdownDocument.previewContent.layout.listIndentationEnabled).toBe(true);
   });
 
   it("normalizes independent Markdown preview quote appearance tokens", () => {

@@ -60,6 +60,16 @@ export type InterfaceThemeTokens = {
     opacity: number;
     backdropBlur: number;
   };
+  overlay: {
+    background: string;
+    opacity: number;
+    backdropBlur: number;
+  };
+  window: {
+    headerOpacity: number;
+    activeBorderOpacity: number;
+    inactiveBorderOpacity: number;
+  };
   state: {
     hoverOpacity: number;
     pressedOpacity: number;

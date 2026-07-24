@@ -151,6 +151,8 @@ describe("ExplorerPanel", () => {
 
     act(() => source?.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, clientX: 20, clientY: 30 })));
     expect(document.body.querySelector('[aria-label="index.html 操作"]')?.textContent).toContain("在浮窗中预览");
+    act(() => buttonWithText("在浮窗中预览")?.click());
+    expect(onOpenProjectHtmlWindow).toHaveBeenCalledTimes(2);
   });
 
   it("creates typed project files from the titlebar and completes their extensions", () => {
@@ -160,7 +162,17 @@ describe("ExplorerPanel", () => {
     act(() => container.querySelector<HTMLButtonElement>('button[aria-label="新建文件"]')?.click());
     expect(document.body.textContent).toContain("位置：project");
 
+    const fileTypeGroup = document.body.querySelector('[aria-label="文件类型"]');
+    const markdownType = buttonWithText("Markdown");
+    expect(fileTypeGroup).not.toBeNull();
+    expect(markdownType?.getAttribute("data-state")).toBe("on");
+    expect(markdownType?.className).not.toContain("border-");
+    act(() => markdownType?.click());
+    expect(markdownType?.getAttribute("data-state")).toBe("on");
+
     act(() => buttonWithText("Mermaid")?.click());
+    expect(buttonWithText("Mermaid")?.getAttribute("data-state")).toBe("on");
+    expect(markdownType?.getAttribute("data-state")).toBe("off");
     const input = document.body.querySelector<HTMLInputElement>("#explorer-new-file-name");
     act(() => {
       const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
@@ -172,14 +184,35 @@ describe("ExplorerPanel", () => {
     expect(onCreateProjectFile).toHaveBeenCalledWith({ directoryPath: "", fileName: "flow.mmd", kind: "mermaid" });
   });
 
-  it("opens file creation for a directory from the tree context menu", () => {
+  it("opens file creation for a directory from the tree context menu", async () => {
     renderExplorer();
 
     act(() => buttonNamed("docs")?.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, clientX: 20, clientY: 30 })));
     expect(document.body.querySelector('[aria-label="docs 操作"]')).not.toBeNull();
-    act(() => buttonWithText("新建文件…")?.click());
+    await act(async () => {
+      buttonWithText("新建文件…")?.click();
+      await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
+    });
 
     expect(document.body.textContent).toContain("位置：project/docs");
+  });
+
+  it("opens the project-root context menu and keeps its action disabled while busy", async () => {
+    renderExplorer({ projectBusy: true });
+    const source = buttonNamed("project");
+
+    act(() => source?.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, clientX: 20, clientY: 30 })));
+    const menu = document.body.querySelector('[role="menu"][aria-label="project 操作"]');
+    const createItem = buttonWithText("新建文件…");
+    expect(menu).not.toBeNull();
+    expect(createItem?.hasAttribute("data-disabled")).toBe(true);
+
+    await act(async () => {
+      document.activeElement?.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+      await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
+    });
+    expect(document.body.querySelector('[role="menu"][aria-label="project 操作"]')).toBeNull();
+    expect(document.activeElement).toBe(source);
   });
 
   it("uses one compact semantic menu for file actions", () => {
@@ -229,9 +262,20 @@ describe("ExplorerPanel", () => {
     });
     expect(document.body.querySelector('[role="menu"][aria-label="note.md 操作"]')).toBeNull();
     expect(document.activeElement).toBe(source);
+
+    await act(async () => {
+      source?.dispatchEvent(new KeyboardEvent("keydown", { key: "ContextMenu", bubbles: true }));
+      await Promise.resolve();
+    });
+    expect(document.body.querySelector('[role="menu"][aria-label="note.md 操作"]')).not.toBeNull();
+    await act(async () => {
+      document.activeElement?.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+      await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
+    });
+    expect(document.activeElement).toBe(source);
   });
 
-  it("moves any resource file through the context menu", () => {
+  it("moves any resource file through the context menu", async () => {
     const onMoveProjectFile = vi.fn();
     renderExplorer({ onMoveProjectFile });
 
@@ -239,7 +283,10 @@ describe("ExplorerPanel", () => {
     const fileMenu = document.body.querySelector('[aria-label="cover.png 操作"]');
     expect(fileMenu?.textContent).toContain("移动到…");
     expect(fileMenu?.textContent).toContain("在图片查看器中打开");
-    act(() => buttonWithText("移动到…")?.click());
+    await act(async () => {
+      buttonWithText("移动到…")?.click();
+      await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
+    });
 
     const destinationList = document.body.querySelector('[aria-label="目标文件夹"]');
     act(() => [...(destinationList?.querySelectorAll<HTMLButtonElement>("button") ?? [])].find((button) => button.textContent?.includes("empty"))?.click());
@@ -431,7 +478,7 @@ describe("ExplorerPanel", () => {
     onOpenProjectFile?: (file: ProjectFileEntry) => void;
     onOpenProject?: () => void;
     onRefreshProject?: () => void;
-    onCreateProjectFile?: (request: { directoryPath: string; fileName: string; kind: "markdown" | "mermaid" | "canvas" | "csv" | "html" }) => void;
+    onCreateProjectFile?: (request: { directoryPath: string; fileName: string; kind: "markdown" | "mermaid" | "csv" | "html" }) => void;
     onMoveProjectFile?: (file: ProjectResourceEntry, targetDirectoryPath: string) => void;
     onOpenProjectMarkdownWindow?: (file: ProjectFileEntry) => void;
     onOpenProjectHtmlWindow?: (file: ProjectFileEntry) => void;
@@ -460,7 +507,6 @@ describe("ExplorerPanel", () => {
             projectFiles={projectWorkspace?.files ?? []}
             currentFileRef={activeFileRef}
             projectBusy={projectBusy}
-            openDocuments={[]}
             treeState={treeState}
             onTreeStateChange={(state) => setTreeState((current) => ({ ...current, ...state }))}
             onOpenProject={onOpenProject}
@@ -473,7 +519,6 @@ describe("ExplorerPanel", () => {
             onMoveProjectFile={onMoveProjectFile}
             onProjectDocumentPointerDrag={onProjectDocumentPointerDrag}
             onStatus={onStatus}
-            onOpenDocument={() => undefined}
           />
         </TooltipProvider>
       );

@@ -1,24 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { createBlankCanvasDocument, createCanvasImageElement } from "@/features/mermaid-editor/lib/canvas-document";
 import {
-  canvasDocumentImageForDoubleClick,
-  canvasDocumentImageNavigation,
   graphImageNodeForDoubleClick,
   mermaidGraphImageNavigation
 } from "@/features/mermaid-editor/lib/canvas-image-window";
 import type { MermaidGraph } from "@/features/mermaid-editor/lib/editor-types";
 
 describe("canvas image window targets", () => {
-  it("recognizes image elements without replacing normal text double-click behavior", () => {
-    const document = createBlankCanvasDocument();
-    const image = createCanvasImageElement(document.elements, 0, 0, "assets/cover.png");
-    document.elements.push(image);
-
-    expect(canvasDocumentImageForDoubleClick(document, { kind: "item", id: image.id })).toBe(image);
-    expect(canvasDocumentImageForDoubleClick(document, { kind: "item", id: document.elements[0]!.id })).toBeNull();
-  });
-
   it("recognizes only Mermaid nodes carrying an image asset", () => {
     const graph: MermaidGraph = {
       direction: "LR",
@@ -31,21 +19,6 @@ describe("canvas image window targets", () => {
 
     expect(graphImageNodeForDoubleClick(graph, { kind: "node", id: "image" })?.id).toBe("image");
     expect(graphImageNodeForDoubleClick(graph, { kind: "node", id: "text" })).toBeNull();
-  });
-
-  it("orders canvas document images from top to bottom and then left to right", () => {
-    const document = createBlankCanvasDocument();
-    document.elements = [
-      createCanvasImageElement([], 300, 120, "c.png"),
-      createCanvasImageElement([{ id: "C1" }], 220, 20, "b.png"),
-      createCanvasImageElement([{ id: "C1" }, { id: "C2" }], 20, 20, "a.png")
-    ];
-
-    expect(canvasDocumentImageNavigation(document, "board.canvas").items.map((item) => item.title)).toEqual([
-      "a.png",
-      "b.png",
-      "c.png"
-    ]);
   });
 
   it("keeps Mermaid image navigation inside the selected node's direct group", () => {

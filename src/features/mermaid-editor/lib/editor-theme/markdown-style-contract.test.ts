@@ -104,7 +104,9 @@ describe("Markdown style contract", () => {
     expect(css).toContain("width: var(--markdown-task-list-checkbox-size)");
     expect(cssRule(".markdown-editor-panel .milkdown .ProseMirror ul")).toContain("padding-left: 0");
     expect(cssRule(".markdown-editor-panel .milkdown .ProseMirror ol")).toContain("padding-left: 0");
-    expect(css).toContain("padding: var(--markdown-blockquote-padding-y) var(--markdown-blockquote-padding-x)");
+    const blockquote = cssRule(".markdown-editor-panel .milkdown .ProseMirror blockquote");
+    expect(blockquote).toContain("padding: var(--markdown-blockquote-padding-y) var(--markdown-blockquote-padding-x)");
+    expect(blockquote).not.toContain("list-indent");
     expect(css).toContain("padding: var(--markdown-code-block-padding-y) var(--markdown-code-block-padding-x)");
     expect(css).toContain("padding: var(--markdown-table-cell-padding-y) var(--markdown-table-cell-padding-x)");
     expect(css).toContain("border-radius: var(--markdown-table-radius)");

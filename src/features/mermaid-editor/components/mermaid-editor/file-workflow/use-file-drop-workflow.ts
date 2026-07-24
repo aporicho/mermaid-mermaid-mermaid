@@ -44,7 +44,6 @@ export function useFileDropWorkflow(
 ) {
   const {
     workspaceSurfaceRef,
-    documentKind,
     workspaceView,
     fileRef,
     isCanvasEditable,
@@ -73,7 +72,7 @@ export function useFileDropWorkflow(
       return { message: `释放以打开 ${documentKindLabel(classification.documentKind)} 文件`, tone: "ready", position: localPosition };
     }
     if (classification.kind === "image") {
-      if ((!isCanvasEditable && documentKind !== "canvas") || workspaceView !== "canvas") {
+      if (!isCanvasEditable || workspaceView !== "canvas") {
         return { message: "请切换到无限画布后拖入图片", tone: "blocked", position: localPosition };
       }
       const imageCount = classification.files.length;

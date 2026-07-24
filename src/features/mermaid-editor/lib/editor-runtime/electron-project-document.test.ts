@@ -77,7 +77,6 @@ describe("Electron project document creation", () => {
     const cases = [
       ["mermaid", "diagram.mmd", "flowchart TD"],
       ["markdown", "notes.markdown", "# Notes\n"],
-      ["canvas", "board.canvas.json", "{}"],
       ["csv", "table.csv", "A\r\n1"],
       ["html", "index.html", "<!doctype html>"]
     ] as const;

@@ -72,7 +72,7 @@ export function ThemeSettingsLibrary({
       <div className="flex flex-wrap gap-2">
         <Button variant="outline" size="sm" onClick={() => onPreview("custom", toCustomTheme(activeTheme))}>复制当前</Button>
         <EditorIconButton context="inline" label="恢复默认主题" onClick={() => onPreview(DEFAULT_EDITOR_THEME.id, customTheme)}>
-          <Refresh />
+          <Refresh data-icon />
         </EditorIconButton>
       </div>
     </div>

@@ -694,9 +694,9 @@ export function MarkdownPanel({ value, className, readOnly = false, spellCheck, 
                         if (!changeBlockStyle(option.style)) event.preventDefault();
                       }}
                     >
-                      <Icon className="size-4" />
+                      <Icon data-icon />
                       <span className="truncate">{option.label}</span>
-                      {isCurrent ? <Check className="ml-auto size-4" /> : null}
+                      {isCurrent ? <Check data-icon="inline-end" className="ml-auto" /> : null}
                     </DropdownMenuItem>
                   );
                 })}

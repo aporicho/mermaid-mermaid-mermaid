@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { serializeCanvasDocument, type CanvasDocument } from "@/features/mermaid-editor/lib/canvas-document";
 import { type DocumentKind } from "@/features/mermaid-editor/lib/document-kind";
 import { emptySelection } from "@/features/mermaid-editor/lib/editor-actions";
 import { type EditorDiagnostic } from "@/features/mermaid-editor/lib/editor-diagnostics";
@@ -38,7 +37,6 @@ type UseEditorDocumentModelArgs = {
 export function useEditorDocumentModel({ initial, runtime }: UseEditorDocumentModelArgs) {
   const [documentKind, setDocumentKind] = useState<DocumentKind>(initial.documentKind);
   const [source, setSource] = useState(initial.source);
-  const [canvasDocument, setCanvasDocument] = useState<CanvasDocument>(initial.canvasDocument);
   const [graph, setGraph] = useState<MermaidGraph>(initial.graph);
   const [diagramType, setDiagramType] = useState<DiagramType>(initial.diagramType);
   const [editableKind, setEditableKind] = useState<EditableKind>(initial.editableKind);
@@ -76,10 +74,9 @@ export function useEditorDocumentModel({ initial, runtime }: UseEditorDocumentMo
   const currentDocument = useMemo(
     () => {
       if (documentKind === "markdown") return source;
-      if (documentKind === "canvas") return serializeCanvasDocument(canvasDocument);
       return buildMermaidDocument(source, graph, viewport, edgeRouting, layoutMode);
     },
-    [canvasDocument, documentKind, source, graph, viewport, edgeRouting, layoutMode]
+    [documentKind, source, graph, viewport, edgeRouting, layoutMode]
   );
   const previewSource = useMemo(
     () =>
@@ -143,8 +140,6 @@ export function useEditorDocumentModel({ initial, runtime }: UseEditorDocumentMo
     setDocumentKind,
     source,
     setSource,
-    canvasDocument,
-    setCanvasDocument,
     graph,
     setGraph,
     diagramType,

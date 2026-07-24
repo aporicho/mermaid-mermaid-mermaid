@@ -8,10 +8,8 @@ import { createHistory } from "@/features/mermaid-editor/lib/editor-history";
 import {
   BLANK_FLOWCHART_SOURCE,
   BLANK_MARKDOWN_SOURCE,
-  FALLBACK_CANVAS_FILE_NAME,
   FALLBACK_FILE_NAME,
   FALLBACK_MARKDOWN_FILE_NAME,
-  canvasDocumentFromStored,
   createEmptyDocumentGraph,
   ensureEditorDocumentFileName,
   normalizeStoredDocumentKind,
@@ -26,12 +24,6 @@ import { normalizeEditorPreferences } from "@/features/mermaid-editor/lib/editor
 import type { RuntimeFileRef } from "@/features/mermaid-editor/lib/editor-runtime";
 import { buildMermaidDocument, loadMermaidDocument } from "@/features/mermaid-editor/lib/mermaid-document";
 import { parseMermaid, serializeMermaid } from "@/features/mermaid-editor/lib/mermaid-graph";
-import {
-  createBlankCanvasDocument,
-  parseCanvasDocument,
-  serializeCanvasDocument,
-  type CanvasDocument
-} from "@/features/mermaid-editor/lib/canvas-document";
 import {
   normalizeRecentFiles,
   upsertRecentFile,
@@ -69,7 +61,6 @@ type UseEditorDocumentLifecycleArgs = {
   isDirtyRef: { current: boolean };
   setDocumentKind: StateSetter<DocumentKind>;
   setSource: StateSetter<string>;
-  setCanvasDocument: StateSetter<CanvasDocument>;
   setGraph: StateSetter<MermaidGraph>;
   setDiagramType: StateSetter<DiagramType>;
   setEditableKind: StateSetter<EditableKind>;
@@ -96,7 +87,6 @@ type UseEditorDocumentLifecycleArgs = {
   setPreferences: StateSetter<EditorPreferences>;
   setStatus: StateSetter<string>;
   flushSourceHistory: () => void;
-  showFileWorkflowError: (error: unknown, fallbackMessage?: string) => void;
   syncWorkspaceForOpenedFile: (file: RuntimeFileRef | null) => void;
   prepareFileSwitch: (targetName?: string) => Promise<boolean>;
   persistStoredEditorDraft: (overrides?: StoredEditorDraftOverrides) => Promise<void>;
@@ -125,7 +115,6 @@ export function useEditorDocumentLifecycle({
   isDirtyRef,
   setDocumentKind,
   setSource,
-  setCanvasDocument,
   setGraph,
   setDiagramType,
   setEditableKind,
@@ -152,7 +141,6 @@ export function useEditorDocumentLifecycle({
   setPreferences,
   setStatus,
   flushSourceHistory,
-  showFileWorkflowError,
   syncWorkspaceForOpenedFile,
   prepareFileSwitch,
   persistStoredEditorDraft,
@@ -170,52 +158,6 @@ export function useEditorDocumentLifecycle({
   ) {
     flushSourceHistory();
     const nextDocumentKind = documentKindFromPath(file?.path || name) || "mermaid";
-    if (nextDocumentKind === "canvas") {
-      let nextCanvasDocument = createBlankCanvasDocument();
-      try {
-        nextCanvasDocument = parseCanvasDocument(text);
-      } catch (error) {
-        showFileWorkflowError({ code: "read_failed", message: `画布 JSON 解析失败：${readableError(error)}`, path: file?.path }, "打开画布失败。");
-        return;
-      }
-      const savedDocument = serializeCanvasDocument(nextCanvasDocument);
-      const savedContent = options.savedContent ?? savedDocument;
-
-      beginDocumentSession();
-      activateDocumentBuffer({
-        documentKind: "canvas",
-        fileName: ensureEditorDocumentFileName(name, "canvas"),
-        fileRef: file,
-        content: savedDocument,
-        savedContent,
-        status: options.status,
-        bufferId: options.bufferId
-      });
-      setDocumentKind("canvas");
-      setSource(savedDocument);
-      setCanvasDocument(nextCanvasDocument);
-      setGraph(createEmptyDocumentGraph());
-      setDiagramType("unknown");
-      setEditableKind("render-only");
-      setViewport(nextCanvasDocument.viewport);
-      setEdgeRouting(DEFAULT_EDGE_ROUTING);
-      setLayoutMode(DEFAULT_LAYOUT_MODE);
-      setWorkspaceView("canvas");
-      setSelection(createEmptyDocumentSelection());
-      setDiagnostics([]);
-      setHistory(createHistory());
-      setFileName(ensureEditorDocumentFileName(name, "canvas"));
-      setFileRef(file);
-      setLastSavedDocument(savedContent);
-      isDirtyRef.current = savedDocument !== savedContent;
-      setRecentFiles((current) => upsertRecentFile(current, file));
-      setFileWorkflowError(null);
-      setStatus(source === "watch" ? `已从磁盘刷新 ${name}。` : `已打开 ${name}。`);
-      if (source !== "watch") recordRecentAction(source === "restore" ? "document.restore" : "document.open", { kind: "document" }, `打开 ${name}。`);
-      if (source !== "restore" && source !== "watch") void syncWorkspaceForOpenedFile(file);
-      return;
-    }
-
     if (nextDocumentKind === "markdown") {
       const savedDocument = text;
       const savedContent = options.savedContent ?? savedDocument;
@@ -232,7 +174,6 @@ export function useEditorDocumentLifecycle({
       });
       setDocumentKind("markdown");
       setSource(text);
-      setCanvasDocument(createBlankCanvasDocument());
       setGraph(createEmptyDocumentGraph());
       setDiagramType("unknown");
       setEditableKind("render-only");
@@ -274,7 +215,6 @@ export function useEditorDocumentLifecycle({
     });
     setDocumentKind("mermaid");
     setSource(loaded.source);
-    setCanvasDocument(createBlankCanvasDocument());
     setGraph(loadedGraph);
     setDiagramType(loaded.diagramType);
     setEditableKind(loaded.editableKind);
@@ -304,60 +244,6 @@ export function useEditorDocumentLifecycle({
     if (restoredSession) replaceEditorDocumentSession(restoredSession);
     beginDocumentSession();
     const storedDocumentKind = normalizeStoredDocumentKind(stored.documentKind, stored.fileName, stored.fileRef?.path);
-    if (storedDocumentKind === "canvas") {
-      const nextPreferences = normalizeEditorPreferences(stored.preferences);
-      const nextViewFilters = normalizeViewFilters(stored.viewFilters, { showGrid: stored.showGrid, showEdges: stored.showEdges });
-      const nextProjectWorkspace = normalizeProjectWorkspace(stored.projectWorkspace);
-      const nextRecentFiles = normalizeRecentFiles(stored.recentFiles);
-      const nextCanvasDocument = canvasDocumentFromStored(stored);
-      const nextSource = serializeCanvasDocument(nextCanvasDocument);
-      const nextFileName = ensureEditorDocumentFileName(stored.fileName || stored.fileRef?.name || FALLBACK_CANVAS_FILE_NAME, "canvas");
-
-      setDocumentKind("canvas");
-      setSource(nextSource);
-      setCanvasDocument(nextCanvasDocument);
-      setGraph(createEmptyDocumentGraph());
-      setDiagramType("unknown");
-      setEditableKind("render-only");
-      setViewport(nextCanvasDocument.viewport);
-      setEdgeRouting(DEFAULT_EDGE_ROUTING);
-      setLayoutMode(DEFAULT_LAYOUT_MODE);
-      setLeftCollapsed(shouldCollapseExplorerOnStartup({
-        startWithPanelsCollapsed: nextPreferences.startWithPanelsCollapsed,
-        storedCollapsed: stored.leftCollapsed,
-        projectWorkspace: nextProjectWorkspace,
-        recentFiles: nextRecentFiles,
-        fileRef: stored.fileRef || null,
-        fileName: nextFileName,
-        fallbackFileName: FALLBACK_CANVAS_FILE_NAME
-      }));
-      setRightCollapsed(true);
-      setWorkspaceView("canvas");
-      setViewFilters(nextViewFilters);
-      setSelection(createEmptyDocumentSelection());
-      setDiagnostics([]);
-      setHistory(createHistory());
-      setFileName(nextFileName);
-      setFileRef(stored.fileRef || null);
-      setRecentFiles(nextRecentFiles);
-      setProjectWorkspace(nextProjectWorkspace);
-      setExplorerTreeState(normalizeExplorerTreeState(stored.explorerTreeState));
-      setLastSavedDocument(stored.lastSavedDocument || "");
-      isDirtyRef.current = !stored.lastSavedDocument || nextSource !== stored.lastSavedDocument;
-      setThemeId(normalizeThemeId(stored.themeId));
-      setCustomTheme(stored.customTheme ? normalizeEditorTheme(stored.customTheme) : null);
-      setPreferences(nextPreferences);
-      setFileWorkflowError(null);
-
-      return {
-        documentKind: "canvas",
-        currentDocument: nextSource,
-        fileRef: stored.fileRef || null,
-        lastSavedDocument: stored.lastSavedDocument || "",
-        preferences: nextPreferences
-      };
-    }
-
     if (storedDocumentKind === "markdown") {
       const nextPreferences = normalizeEditorPreferences(stored.preferences);
       const nextViewFilters = normalizeViewFilters(stored.viewFilters, { showGrid: stored.showGrid, showEdges: stored.showEdges });
@@ -368,7 +254,6 @@ export function useEditorDocumentLifecycle({
 
       setDocumentKind("markdown");
       setSource(nextSource);
-      setCanvasDocument(createBlankCanvasDocument());
       setGraph(createEmptyDocumentGraph());
       setDiagramType("unknown");
       setEditableKind("render-only");
@@ -432,7 +317,6 @@ export function useEditorDocumentLifecycle({
 
     setDocumentKind("mermaid");
     setSource(loaded.source);
-    setCanvasDocument(createBlankCanvasDocument());
     setGraph(resolvedGraph);
     setDiagramType(loaded.diagramType);
     setEditableKind(loaded.editableKind);
@@ -487,7 +371,6 @@ export function useEditorDocumentLifecycle({
     beginUntitledDocumentBuffer({ documentKind: "mermaid", fileName: FALLBACK_FILE_NAME, content: nextSource, savedContent: "", status: "dirty" });
     setDocumentKind("mermaid");
     setSource(nextSource);
-    setCanvasDocument(createBlankCanvasDocument());
     setGraph(nextGraph);
     setDiagramType("flowchart");
     setEditableKind("flowchart");
@@ -535,7 +418,6 @@ export function useEditorDocumentLifecycle({
     beginUntitledDocumentBuffer({ documentKind: "markdown", fileName: FALLBACK_MARKDOWN_FILE_NAME, content: BLANK_MARKDOWN_SOURCE, savedContent: "", status: "dirty" });
     setDocumentKind("markdown");
     setSource(BLANK_MARKDOWN_SOURCE);
-    setCanvasDocument(createBlankCanvasDocument());
     setGraph(nextGraph);
     setDiagramType("unknown");
     setEditableKind("render-only");
@@ -573,71 +455,14 @@ export function useEditorDocumentLifecycle({
     }
   }
 
-  async function newCanvasFile() {
-    if (!(await prepareFileSwitch(FALLBACK_CANVAS_FILE_NAME))) return;
-
-    flushSourceHistory();
-    const nextCanvasDocument = createBlankCanvasDocument();
-    const nextSource = serializeCanvasDocument(nextCanvasDocument);
-
-    beginDocumentSession();
-    beginUntitledDocumentBuffer({ documentKind: "canvas", fileName: FALLBACK_CANVAS_FILE_NAME, content: nextSource, savedContent: "", status: "dirty" });
-    setDocumentKind("canvas");
-    setSource(nextSource);
-    setCanvasDocument(nextCanvasDocument);
-    setGraph(createEmptyDocumentGraph());
-    setDiagramType("unknown");
-    setEditableKind("render-only");
-    setViewport(nextCanvasDocument.viewport);
-    setEdgeRouting(DEFAULT_EDGE_ROUTING);
-    setLayoutMode(DEFAULT_LAYOUT_MODE);
-    setWorkspaceView("canvas");
-    setViewFilters(DEFAULT_VIEW_FILTERS);
-    setSelection(createEmptyDocumentSelection());
-    setDiagnostics([]);
-    setHistory(createHistory());
-    setFileName(FALLBACK_CANVAS_FILE_NAME);
-    setFileRef(null);
-    setLastSavedDocument("");
-    isDirtyRef.current = true;
-    setFileWorkflowError(null);
-    setStatus("已新建空白无限画布文件。");
-    recordRecentAction("document.new", { kind: "document" }, "新建空白无限画布文件。");
-
-    try {
-      await persistStoredEditorDraft({
-        documentKind: "canvas",
-        source: nextSource,
-        canvasDocument: nextCanvasDocument,
-        graph: createEmptyDocumentGraph(),
-        viewport: nextCanvasDocument.viewport,
-        edgeRouting: DEFAULT_EDGE_ROUTING,
-        layoutMode: DEFAULT_LAYOUT_MODE,
-        fileName: FALLBACK_CANVAS_FILE_NAME,
-        fileRef: null,
-        lastSavedDocument: "",
-        workspaceView: "canvas"
-      });
-    } catch {
-      // New document state is already applied; draft persistence is best-effort.
-    }
-  }
-
   return {
     applyLoadedDocument,
     applyStoredEditorState,
     newMermaidFile,
-    newMarkdownFile,
-    newCanvasFile
+    newMarkdownFile
   };
 }
 
 function createEmptyDocumentSelection(): Selection {
   return { nodeIds: [], edgeIds: [], subgraphIds: [], primaryId: undefined };
-}
-
-function readableError(error: unknown) {
-  if (error instanceof Error) return error.message;
-  if (typeof error === "string") return error;
-  return "未知错误";
 }

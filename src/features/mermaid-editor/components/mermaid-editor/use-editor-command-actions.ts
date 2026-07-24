@@ -34,7 +34,6 @@ import { DEFAULT_VIEW_FILTERS, type ViewFilters } from "@/features/mermaid-edito
 import { workspaceViewForDocument, type WorkspaceView } from "@/features/mermaid-editor/lib/workspace-view";
 import { createImageAsset } from "@/features/mermaid-editor/lib/node-assets";
 import { gsap } from "@/features/mermaid-editor/lib/use-gsap-motion";
-import type { CanvasDocument } from "@/features/mermaid-editor/lib/canvas-document";
 import type { NodeGeometrySpec } from "@/features/mermaid-editor/lib/node-geometry";
 
 type StateSetter<T> = Dispatch<SetStateAction<T>>;
@@ -43,7 +42,6 @@ type UseEditorCommandActionsArgs = {
   runtime: EditorRuntime;
   documentKind: DocumentKind;
   source: string;
-  canvasDocument: CanvasDocument;
   graph: MermaidGraph;
   history: EditorHistory;
   selection: Selection;
@@ -63,7 +61,6 @@ type UseEditorCommandActionsArgs = {
   lastWindowFocusAtRef: RefObject<number>;
   setDocumentKind: StateSetter<DocumentKind>;
   setSource: StateSetter<string>;
-  setCanvasDocument: StateSetter<CanvasDocument>;
   setGraph: StateSetter<MermaidGraph>;
   setDiagramType: StateSetter<DiagramType>;
   setEditableKind: StateSetter<EditableKind>;
@@ -87,7 +84,6 @@ export function useEditorCommandActions(args: UseEditorCommandActionsArgs) {
     runtime,
     documentKind,
     source,
-    canvasDocument,
     graph,
     history,
     selection,
@@ -106,7 +102,6 @@ export function useEditorCommandActions(args: UseEditorCommandActionsArgs) {
     lastWindowFocusAtRef,
     setDocumentKind,
     setSource,
-    setCanvasDocument,
     setGraph,
     setDiagramType,
     setEditableKind,
@@ -146,7 +141,6 @@ export function useEditorCommandActions(args: UseEditorCommandActionsArgs) {
     applyEditorCommand,
     applySource,
     applyMarkdownSource,
-    applyCanvasDocument,
     flushSourceHistory,
     snapshot
   } = useEditorDocumentCommands({
@@ -166,7 +160,6 @@ export function useEditorCommandActions(args: UseEditorCommandActionsArgs) {
     sourceEditTimerRef,
     setDocumentKind,
     setSource,
-    setCanvasDocument,
     setGraph,
     setDiagramType,
     setEditableKind,
@@ -337,10 +330,6 @@ export function useEditorCommandActions(args: UseEditorCommandActionsArgs) {
   }
 
   function resetCanvasView() {
-    if (documentKind === "canvas") {
-      applyCanvasDocument({ ...canvasDocument, viewport: { x: 160, y: 90, scale: 1 } }, "已重置画布视图。");
-      return;
-    }
     updateViewport({ x: 160, y: 90, scale: 1 }, "menu");
   }
 
@@ -351,7 +340,6 @@ export function useEditorCommandActions(args: UseEditorCommandActionsArgs) {
     applyEditorCommand,
     applySource,
     applyMarkdownSource,
-    applyCanvasDocument,
     flushSourceHistory,
     snapshot,
     updateViewFilter,

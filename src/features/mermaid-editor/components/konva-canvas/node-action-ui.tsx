@@ -1,8 +1,7 @@
-import { useCallback } from "react";
-import { createPortal } from "react-dom";
 import { Group, Rect, Text } from "react-konva";
 
-import { EditorMenuItem, EditorMenuSurface } from "@/features/mermaid-editor/components/editor-ui";
+import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
+import { EditorPointMenu } from "@/features/mermaid-editor/components/editor-ui";
 import {
   canvasStrokeDash,
   canvasStrokeEnabled,
@@ -16,8 +15,6 @@ import {
   nodeActionTarget,
   normalizeNodeAction
 } from "@/features/mermaid-editor/lib/node-actions";
-import { useDismissableFloatingMenu } from "@/features/mermaid-editor/lib/use-dismissable-floating-menu";
-import { useOverlayPortalContainer } from "@/lib/overlay-layer-context";
 import { OVERLAY_Z_INDEX } from "@/lib/overlay-layers";
 import type { TypographyRoleTokens } from "@/features/mermaid-editor/lib/editor-theme";
 import { isCsvTableDocumentNode } from "@/features/mermaid-editor/lib/csv-table-document";
@@ -130,58 +127,28 @@ export function NodeContextMenu({
   onOpenNodeAction?: (node: CanvasNode) => void;
   onEditNodeAction?: (node: CanvasNode) => void;
 }) {
-  const { portalContainer, scopeId } = useOverlayPortalContainer();
-  const handleOpenChange = useCallback((open: boolean) => {
-    if (!open) onClose();
-  }, [onClose]);
-  const menuRef = useDismissableFloatingMenu<HTMLDivElement>({
-    open: Boolean(node),
-    onOpenChange: handleOpenChange
-  });
-
   if (!node) return null;
 
   const action = normalizeNodeAction(node.action);
   const csvTable = isCsvTableDocumentNode(node);
-  const width = 220;
-  const height = 80;
-  const viewportWidth = typeof window === "undefined" ? menu.x + width + 16 : window.innerWidth;
-  const viewportHeight = typeof window === "undefined" ? menu.y + height + 16 : window.innerHeight;
-  const left = Math.max(8, Math.min(menu.x, viewportWidth - width - 8));
-  const top = Math.max(8, Math.min(menu.y, viewportHeight - height - 8));
 
-  const menuElement = (
-    <EditorMenuSurface
-      ref={menuRef}
-      className="editor-ui-popover pointer-events-auto fixed w-[220px] p-1 text-foreground"
-      style={{ left, top, zIndex: OVERLAY_Z_INDEX.contextMenu }}
-      data-overlay-layer="context-menu"
-      data-overlay-scope-id={scopeId}
-      onPointerDown={(event) => event.stopPropagation()}
-      onClick={(event) => event.stopPropagation()}
-      data-floating-panel-drag-exclude
-      data-editor-floating-menu-ignore
-    >
-      {csvTable ? <EditorMenuItem type="button" label="双击单元格进行编辑" disabled /> : <><EditorMenuItem
-        type="button"
-        label={nodeActionOpenLabel(action)}
-        disabled={!action}
-        onClick={() => {
-          if (node) onOpenNodeAction?.(node);
-          onClose();
-        }}
-      />
-      <EditorMenuItem
-        type="button"
-        label={action ? "编辑链接" : "添加链接"}
-        onClick={() => {
-          onEditNodeAction?.(node);
-          onClose();
-        }}
-      /></>}
-    </EditorMenuSurface>
-  );
-
-  if (typeof document === "undefined") return menuElement;
-  return createPortal(menuElement, portalContainer || document.body);
+  return <EditorPointMenu
+    open
+    point={menu}
+    onOpenChange={(open) => { if (!open) onClose(); }}
+    ariaLabel={`${node.label || node.id} 操作`}
+    className="w-[220px]"
+  >
+    {csvTable
+      ? <DropdownMenuItem disabled>双击单元格进行编辑</DropdownMenuItem>
+      : <>
+        <DropdownMenuItem
+          disabled={!action}
+          onSelect={() => onOpenNodeAction?.(node)}
+        >{nodeActionOpenLabel(action)}</DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => onEditNodeAction?.(node)}>
+          {action ? "编辑链接" : "添加链接"}
+        </DropdownMenuItem>
+      </>}
+  </EditorPointMenu>;
 }

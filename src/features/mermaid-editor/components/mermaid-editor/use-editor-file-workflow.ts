@@ -64,11 +64,9 @@ export function useEditorFileWorkflow(args: UseEditorFileWorkflowArgs) {
     applyLoadedDocument,
     applyStoredEditorState,
     newMermaidFile,
-    newMarkdownFile,
-    newCanvasFile
+    newMarkdownFile
   } = useEditorDocumentLifecycle({
     ...args,
-    showFileWorkflowError,
     syncWorkspaceForOpenedFile,
     prepareFileSwitch,
     persistStoredEditorDraft: persistStoredEditorDraft as (overrides?: StoredEditorDraftOverrides) => Promise<void>
@@ -110,7 +108,6 @@ export function useEditorFileWorkflow(args: UseEditorFileWorkflowArgs) {
     openMermaidFile,
     newMermaidFile,
     newMarkdownFile,
-    newCanvasFile,
     openFallbackFile,
     openRuntimeFileRequest,
     openProjectFolder,

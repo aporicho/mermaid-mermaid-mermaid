@@ -1,7 +1,6 @@
 import type { Dispatch, MutableRefObject, RefObject, SetStateAction } from "react";
 
 import type { EditorCanvasSize, EditorRecentAction } from "@/features/mermaid-editor/lib/editor-interaction-state";
-import type { CanvasDocument } from "@/features/mermaid-editor/lib/canvas-document";
 import type { EditorDiagnostic } from "@/features/mermaid-editor/lib/editor-diagnostics";
 import type { EditorPreferences } from "@/features/mermaid-editor/lib/editor-preferences";
 import type { EditorTheme, EditorThemeId } from "@/features/mermaid-editor/lib/editor-theme";
@@ -61,7 +60,6 @@ export type UseEditorFileWorkflowArgs = {
   isDirtyRef: { current: boolean };
   documentKind: DocumentKind;
   source: string;
-  canvasDocument: CanvasDocument;
   graph: MermaidGraph;
   diagramType: DiagramType;
   editableKind: EditableKind;
@@ -90,7 +88,6 @@ export type UseEditorFileWorkflowArgs = {
   nodeGeometrySpec: NodeGeometrySpec;
   setDocumentKind: StateSetter<DocumentKind>;
   setSource: StateSetter<string>;
-  setCanvasDocument: StateSetter<CanvasDocument>;
   setGraph: StateSetter<MermaidGraph>;
   setDiagramType: StateSetter<DiagramType>;
   setEditableKind: StateSetter<EditableKind>;
@@ -124,7 +121,6 @@ export type UseEditorFileWorkflowArgs = {
   flushSourceHistory: () => void;
   flushLinkedFileWrites?: (options?: { overwriteConflicts?: boolean }) => Promise<boolean>;
   discardLinkedFileWrites?: () => Promise<void>;
-  applyCanvasDocument: (document: CanvasDocument, message?: string) => void;
   applyEditorCommand: (command: EditorCommand) => void;
   recordRecentAction: (type: string, target?: EditorRecentAction["target"], summary?: string) => void;
 } & EditorDocumentSessionBindings;

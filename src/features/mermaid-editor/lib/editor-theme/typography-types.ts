@@ -52,16 +52,6 @@ export type EditorTypographyTokens = {
     groupTitle: TypographyRoleTokens;
     note: TypographyRoleTokens;
   };
-  canvasDocument: {
-    shape: TypographyRoleTokens;
-    shapeEditor: TypographyRoleTokens;
-    card: TypographyRoleTokens;
-    cardEditor: TypographyRoleTokens;
-    freeText: TypographyRoleTokens;
-    freeTextEditor: TypographyRoleTokens;
-    connector: TypographyRoleTokens;
-    connectorEditor: TypographyRoleTokens;
-  };
   source: {
     editor: TypographyRoleTokens;
     diagnosticSummary: TypographyRoleTokens;

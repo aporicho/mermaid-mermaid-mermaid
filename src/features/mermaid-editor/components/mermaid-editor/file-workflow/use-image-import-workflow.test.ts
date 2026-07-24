@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { createBlankCanvasDocument } from "@/features/mermaid-editor/lib/canvas-document";
 import type {
   EditorRuntime,
   RuntimeFileOpenRequest,
@@ -102,28 +101,6 @@ describe("useImageImportWorkflow", () => {
     );
   });
 
-  it("adds every image to a Canvas document in one document apply", async () => {
-    const canvasDocument = createBlankCanvasDocument();
-    const harness = createHarness({ documentKind: "canvas", canvasDocument, isCanvasEditable: false });
-    const workflow = useImageImportWorkflow(harness.args, harness.dependencies);
-
-    await workflow.importImageAssetRequests(imageRequests("one.png", "two.png", "three.png"), {
-      x: 320,
-      y: 240
-    });
-
-    expect(harness.applyEditorCommand).not.toHaveBeenCalled();
-    expect(harness.applyCanvasDocument).toHaveBeenCalledTimes(1);
-    const [nextDocument, message] = harness.applyCanvasDocument.mock.calls[0];
-    const images = nextDocument.elements.filter((element) => element.type === "image");
-    expect(images).toEqual([
-      expect.objectContaining({ id: "C3", x: -76, y: -46, src: "./assets/one.png" }),
-      expect.objectContaining({ id: "C4", x: 116, y: -46, src: "./assets/two.png" }),
-      expect.objectContaining({ id: "C5", x: 20, y: 106, src: "./assets/three.png" })
-    ]);
-    expect(message).toBe("已复制并添加 3 张图片。");
-  });
-
   it("imports every browser File when desktop paths are unavailable", async () => {
     const harness = createHarness();
     const workflow = useImageImportWorkflow(harness.args, harness.dependencies);
@@ -142,8 +119,6 @@ describe("useImageImportWorkflow", () => {
 
 function createHarness(options: {
   fileRef?: UseEditorFileWorkflowArgs["fileRef"];
-  documentKind?: UseEditorFileWorkflowArgs["documentKind"];
-  canvasDocument?: UseEditorFileWorkflowArgs["canvasDocument"];
   isCanvasEditable?: boolean;
   importResult?: (path: string) => RuntimeImageAssetResult;
 } = {}) {
@@ -151,10 +126,8 @@ function createHarness(options: {
   const importImageAssetPath = vi.fn(async (_file, path: string) => importResult(path));
   const importImageAssetFile = vi.fn(async (_file, file: File) => importResult(file.name));
   const applyEditorCommand = vi.fn<(command: EditorCommand) => void>();
-  const applyCanvasDocument = vi.fn<UseEditorFileWorkflowArgs["applyCanvasDocument"]>();
   const saveMermaidFileAsResult = vi.fn(async () => null as UseEditorFileWorkflowArgs["fileRef"]);
   const showFileWorkflowError = vi.fn();
-  const canvasDocument = options.canvasDocument ?? createBlankCanvasDocument();
   const runtime = {
     importImageAssetPath,
     importImageAssetFile
@@ -166,8 +139,7 @@ function createHarness(options: {
         getBoundingClientRect: () => ({ left: 100, top: 50 })
       }
     },
-    documentKind: options.documentKind ?? "mermaid",
-    canvasDocument,
+    documentKind: "mermaid",
     viewport: { x: 20, y: 10, scale: 2 },
     workspaceView: "canvas",
     fileRef: options.fileRef === undefined
@@ -176,7 +148,6 @@ function createHarness(options: {
     canvasLiveState: { canvasSize: { width: 840, height: 520 } },
     isCanvasEditable: options.isCanvasEditable ?? true,
     setStatus: vi.fn(),
-    applyCanvasDocument,
     applyEditorCommand
   } as unknown as UseEditorFileWorkflowArgs;
 
@@ -187,8 +158,7 @@ function createHarness(options: {
     importImageAssetFile,
     saveMermaidFileAsResult,
     showFileWorkflowError,
-    applyEditorCommand,
-    applyCanvasDocument
+    applyEditorCommand
   };
 }
 

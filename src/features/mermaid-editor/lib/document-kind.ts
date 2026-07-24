@@ -1,4 +1,4 @@
-export type DocumentKind = "mermaid" | "markdown" | "canvas";
+export type DocumentKind = "mermaid" | "markdown";
 
 export type DocumentWorkspaceView = "canvas" | "render" | "source" | "markdown";
 export type DocumentWorkspaceProfile = "default" | "flowchart";
@@ -21,7 +21,6 @@ export type DocumentKindDescriptor = {
 
 export const MERMAID_FILE_EXTENSIONS = [".mmd", ".mermaid"] as const;
 export const MARKDOWN_FILE_EXTENSIONS = [".md", ".markdown"] as const;
-export const CANVAS_FILE_EXTENSIONS = [".canvas.json"] as const;
 export const DOCUMENT_KIND_DESCRIPTORS = [
   {
     kind: "mermaid",
@@ -50,18 +49,6 @@ export const DOCUMENT_KIND_DESCRIPTORS = [
         views: ["markdown", "source"]
       }
     }
-  },
-  {
-    kind: "canvas",
-    label: "无限画布",
-    defaultFileName: "board.canvas.json",
-    extensions: CANVAS_FILE_EXTENSIONS,
-    workspace: {
-      default: {
-        defaultView: "canvas",
-        views: ["canvas"]
-      }
-    }
   }
 ] as const satisfies readonly DocumentKindDescriptor[];
 export const DOCUMENT_KIND_REGISTRY = DOCUMENT_KIND_DESCRIPTORS;
@@ -81,10 +68,6 @@ export function isSupportedMermaidFilePath(path: string | undefined) {
 
 export function isSupportedMarkdownFilePath(path: string | undefined) {
   return documentKindFromPath(path) === "markdown";
-}
-
-export function isSupportedCanvasFilePath(path: string | undefined) {
-  return documentKindFromPath(path) === "canvas";
 }
 
 export function isSupportedDocumentFilePath(path: string | undefined) {

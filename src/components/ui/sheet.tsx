@@ -33,13 +33,13 @@ const sheetVariants = cva(
 const SheetContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & VariantProps<typeof sheetVariants> & { container?: HTMLElement | null }
->(({ side, className, container, ...props }, ref) => {
+>(({ side, className, container, style, ...props }, ref) => {
   const scope = useOverlayPortalContainer(container);
   const contained = scope.kind === "workspace";
   return (
   <DialogPrimitive.Portal container={scope.portalContainer || undefined}>
     <DialogPrimitive.Overlay
-      className={cn(contained ? "absolute" : "fixed", "pointer-events-auto inset-0 bg-foreground/10 backdrop-blur-[1px]")}
+      className={cn(contained ? "absolute" : "fixed", "pointer-events-auto inset-0 bg-[hsl(var(--ui-overlay-background)/var(--ui-overlay-opacity))] [backdrop-filter:blur(var(--ui-overlay-backdrop-blur))]")}
       style={{ zIndex: OVERLAY_Z_INDEX.modal }}
       data-overlay-layer="modal-backdrop"
       data-overlay-scope-id={scope.scopeId}
@@ -49,7 +49,7 @@ const SheetContent = React.forwardRef<
     <DialogPrimitive.Content
       ref={ref}
       className={cn(contained ? "absolute" : "fixed", sheetVariants({ side }), className)}
-      style={{ zIndex: OVERLAY_Z_INDEX.modal + 1 }}
+      style={{ ...style, zIndex: OVERLAY_Z_INDEX.modal + 1 }}
       data-overlay-layer="sheet"
       data-overlay-scope-id={scope.scopeId}
       data-floating-panel-drag-exclude

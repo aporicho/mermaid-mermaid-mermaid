@@ -293,11 +293,11 @@ function EmbeddedBrowserUnavailable({
             </div>
             <div className="flex flex-wrap gap-2">
               <Button size="sm" variant="outline" onClick={onRetry}>
-                <RefreshCw className="mr-2 size-4" />
+                <RefreshCw data-icon="inline-start" />
                 重试
               </Button>
               <Button size="sm" variant="secondary" onClick={onOpenExternal}>
-                <OpenNewWindow className="mr-2 size-4" />
+                <OpenNewWindow data-icon="inline-start" />
                 系统浏览器打开
               </Button>
             </div>

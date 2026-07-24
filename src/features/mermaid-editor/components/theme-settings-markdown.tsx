@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import { Refresh } from "iconoir-react/regular";
 
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Field, FieldLabel } from "@/components/ui/field";
+import { InputGroup, InputGroupAddon, InputGroupInput, InputGroupText } from "@/components/ui/input-group";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { EditorIconButton, EditorSearchField } from "@/features/mermaid-editor/components/editor-ui";
 import { FontFamilyCombobox } from "@/features/mermaid-editor/components/theme-settings-typography";
@@ -13,21 +15,12 @@ import {
   MARKDOWN_TOKEN_DEFINITIONS,
   type MarkdownElementCategory,
   type MarkdownTokenDefinition,
-  type MarkdownTokenFieldSection,
   type MarkdownThemeTokens
 } from "@/features/mermaid-editor/lib/editor-theme";
 import { cn } from "@/lib/utils";
 import { ThemeSettingsCollapsible } from "./theme-settings-collapsible";
 
 type MarkdownTokenValue = string | number;
-
-const SECTION_LABELS: Record<MarkdownTokenFieldSection, string> = {
-  typography: "排版",
-  color: "色彩",
-  layout: "布局与间距",
-  border: "边框与几何",
-  state: "状态"
-};
 
 export function ThemeSettingsMarkdown({
   value,
@@ -66,7 +59,7 @@ export function ThemeSettingsMarkdown({
           className="min-w-0 flex-1"
         />
         <EditorIconButton context="inline" label="重置全部 Markdown 外观" disabled={resetDisabled} onClick={onResetAll}>
-          <Refresh />
+          <Refresh data-icon />
         </EditorIconButton>
       </div>
 
@@ -80,7 +73,9 @@ export function ThemeSettingsMarkdown({
           <div key={category.id} data-markdown-category={category.id} aria-label={`${category.title}：${category.description}`}>
             <ThemeSettingsCollapsible
               open={categoryOpen}
-              onOpenChange={() => setOpenCategories((current) => toggleSetValue(current, category.id))}
+              onOpenChange={() => {
+                if (!normalizedQuery) setOpenCategories((current) => toggleSetValue(current, category.id));
+              }}
               title={category.title}
               description={category.description}
               resetLabel={`重置${category.title}`}
@@ -88,44 +83,39 @@ export function ThemeSettingsMarkdown({
               onReset={() => onResetCategory(category.id)}
             >
               <div className="grid gap-3 p-3 pt-0">
-            {elements.map(({ element, fields }) => {
-              const open = normalizedQuery ? true : openElements.has(element.id);
-              return (
-                <ThemeSettingsCollapsible
-                  key={element.id}
-                  open={open}
-                  onOpenChange={() => setOpenElements((current) => toggleSetValue(current, element.id))}
-                  title={element.title}
-                  description={element.description}
-                  resetLabel={`重置${element.title}`}
-                  resetDisabled={resetDisabled}
-                  onReset={() => onResetPath(element.path)}
-                  markdownElement={element.id}
-                >
-                      <div className="editor-ui-panel-body grid gap-4">
-                        {sectionEntries(fields).map(([section, sectionFields]) => (
-                          <section key={section} className="grid gap-2">
-                            <h4 className="type-interface-metadata text-muted-foreground">{SECTION_LABELS[section]}</h4>
-                            <div className="grid gap-3 sm:grid-cols-2">
-                              {sectionFields.map((definition) => (
-                                <MarkdownTokenField
-                                  key={definition.path.join(".")}
-                                  definition={definition}
-                                  value={valueAtPath(value, definition.path) as MarkdownTokenValue}
-                                  fonts={systemFonts}
-                                  loading={loading}
-                                  error={error}
-                                  monospacePreferred={Boolean(element.monospace)}
-                                  onChange={(nextValue) => onChange(definition.path, nextValue)}
-                                />
-                              ))}
-                            </div>
-                          </section>
+                {elements.map(({ element, fields }) => {
+                  const open = normalizedQuery ? true : openElements.has(element.id);
+                  return (
+                    <ThemeSettingsCollapsible
+                      key={element.id}
+                      open={open}
+                      onOpenChange={() => {
+                        if (!normalizedQuery) setOpenElements((current) => toggleSetValue(current, element.id));
+                      }}
+                      title={element.title}
+                      description={element.description}
+                      resetLabel={`重置${element.title}`}
+                      resetDisabled={resetDisabled}
+                      onReset={() => onResetPath(element.path)}
+                      markdownElement={element.id}
+                    >
+                      <div className="editor-ui-panel-body grid gap-3 sm:grid-cols-2">
+                        {fields.map((definition) => (
+                          <MarkdownTokenField
+                            key={definition.path.join(".")}
+                            definition={definition}
+                            value={valueAtPath(value, definition.path) as MarkdownTokenValue}
+                            fonts={systemFonts}
+                            loading={loading}
+                            error={error}
+                            monospacePreferred={Boolean(element.monospace)}
+                            onChange={(nextValue) => onChange(definition.path, nextValue)}
+                          />
                         ))}
                       </div>
-                </ThemeSettingsCollapsible>
-              );
-            })}
+                    </ThemeSettingsCollapsible>
+                  );
+                })}
               </div>
             </ThemeSettingsCollapsible>
           </div>
@@ -146,8 +136,8 @@ function MarkdownTokenField({ definition, value, fonts, loading, error, monospac
 }) {
   const path = `markdown.${definition.path.join(".")}`;
   return (
-    <div className={cn("grid content-start gap-1.5", definition.kind === "font" && "sm:col-span-2")} data-theme-token-path={path}>
-      <span className="type-interface-metadata text-muted-foreground">{definition.label}</span>
+    <Field className={cn("content-start gap-1.5", definition.kind === "font" && "sm:col-span-2")} data-theme-token-path={path}>
+      <FieldLabel className="type-interface-metadata text-muted-foreground">{definition.label}</FieldLabel>
       {definition.kind === "font" ? (
         <FontFamilyCombobox value={String(value)} fonts={fonts} loading={loading} error={error} monospacePreferred={monospacePreferred} onChange={onChange} />
       ) : definition.kind === "css-border-style" ? (
@@ -159,7 +149,7 @@ function MarkdownTokenField({ definition, value, fonts, loading, error, monospac
       ) : (
         <MarkdownNumberField definition={definition} value={Number(value)} onChange={onChange} />
       )}
-    </div>
+    </Field>
   );
 }
 
@@ -172,14 +162,14 @@ function BlockquoteBorderStyleField({ value, onChange }: { value: string; onChan
 
   return (
     <div className="grid gap-2">
-      <div className="flex h-8 items-center justify-between gap-3">
-        <span className="type-interface-metadata text-muted-foreground">显示引用边线</span>
+      <Field orientation="horizontal" className="h-8 justify-between">
+        <FieldLabel className="type-interface-metadata text-muted-foreground">显示引用边线</FieldLabel>
         <Switch
           checked={enabled}
           onCheckedChange={(checked) => onChange(checked ? lastStyle : "none")}
           aria-label="显示引用边线"
         />
-      </div>
+      </Field>
       <Select
         value={enabled ? value : lastStyle}
         onValueChange={(next) => {
@@ -190,10 +180,12 @@ function BlockquoteBorderStyleField({ value, onChange }: { value: string; onChan
       >
         <SelectTrigger className="h-8" aria-label="引用边线样式"><SelectValue /></SelectTrigger>
         <SelectContent>
-          <SelectItem value="solid">实线</SelectItem>
-          <SelectItem value="dashed">虚线</SelectItem>
-          <SelectItem value="dotted">点线</SelectItem>
-          <SelectItem value="double">双线</SelectItem>
+          <SelectGroup>
+            <SelectItem value="solid">实线</SelectItem>
+            <SelectItem value="dashed">虚线</SelectItem>
+            <SelectItem value="dotted">点线</SelectItem>
+            <SelectItem value="double">双线</SelectItem>
+          </SelectGroup>
         </SelectContent>
       </Select>
     </div>
@@ -205,11 +197,13 @@ function CssBorderStyleField({ label, value, onChange }: { label: string; value:
     <Select value={value} onValueChange={onChange}>
       <SelectTrigger className="h-8" aria-label={label}><SelectValue /></SelectTrigger>
       <SelectContent>
-        <SelectItem value="none">无</SelectItem>
-        <SelectItem value="solid">实线</SelectItem>
-        <SelectItem value="dashed">虚线</SelectItem>
-        <SelectItem value="dotted">点线</SelectItem>
-        <SelectItem value="double">双线</SelectItem>
+        <SelectGroup>
+          <SelectItem value="none">无</SelectItem>
+          <SelectItem value="solid">实线</SelectItem>
+          <SelectItem value="dashed">虚线</SelectItem>
+          <SelectItem value="dotted">点线</SelectItem>
+          <SelectItem value="double">双线</SelectItem>
+        </SelectGroup>
       </SelectContent>
     </Select>
   );
@@ -225,10 +219,12 @@ function MarkdownColorField({ label, value, onChange }: { label: string; value: 
     onChange(normalized);
   }
   return (
-    <div className="grid grid-cols-[34px_minmax(0,1fr)] gap-2">
-      <input type="color" value={value} className="h-8 w-8 cursor-pointer rounded-[var(--theme-radius-control-sm)] border bg-background p-1" onChange={(event) => commit(event.target.value)} aria-label={`${label}色板`} />
-      <Input value={draft} spellCheck={false} className="type-interface-technical min-w-0" onChange={(event) => setDraft(event.target.value)} onBlur={(event) => commit(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") event.currentTarget.blur(); }} aria-label={label} />
-    </div>
+    <InputGroup>
+      <InputGroupAddon className="p-1" aria-label={`${label}颜色选择器`}>
+        <input type="color" value={value} className="size-6 cursor-pointer border-0 bg-transparent p-0" onChange={(event) => commit(event.target.value)} aria-label={`${label}色板`} />
+      </InputGroupAddon>
+      <InputGroupInput value={draft} spellCheck={false} className="type-interface-technical min-w-0" onChange={(event) => setDraft(event.target.value)} onBlur={(event) => commit(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") event.currentTarget.blur(); }} aria-label={label} />
+    </InputGroup>
   );
 }
 
@@ -239,11 +235,15 @@ function MarkdownNumberField({ definition, value, onChange }: { definition: Mark
   const update = (next: number) => Number.isFinite(next) && onChange(Math.min(max, Math.max(min, next)));
   return (
     <div className="grid grid-cols-[minmax(60px,1fr)_82px] items-center gap-2">
-      <input type="range" value={value} min={min} max={max} step={step} className="h-8 min-w-0 accent-primary" onChange={(event) => update(Number(event.target.value))} aria-label={`${definition.label}滑杆`} />
-      <label className="relative">
-        <Input type="number" value={Number.isInteger(value) ? value : Number(value.toFixed(3))} min={min} max={max} step={step} className={cn("type-interface-technical w-full", definition.unit && "pr-7")} onChange={(event) => update(Number(event.target.value))} aria-label={definition.label} />
-        {definition.unit ? <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">{definition.unit}</span> : null}
-      </label>
+      <Slider value={[value]} min={min} max={max} step={step} className="h-8 min-w-0" onValueChange={([nextValue]) => update(nextValue)} aria-label={`${definition.label}滑杆`} />
+      <InputGroup>
+        <InputGroupInput type="number" value={Number.isInteger(value) ? value : Number(value.toFixed(3))} min={min} max={max} step={step} className="type-interface-technical w-full" onChange={(event) => update(Number(event.target.value))} aria-label={definition.label} />
+        {definition.unit ? (
+          <InputGroupAddon align="inline-end">
+            <InputGroupText>{definition.unit}</InputGroupText>
+          </InputGroupAddon>
+        ) : null}
+      </InputGroup>
     </div>
   );
 }
@@ -252,12 +252,6 @@ function fieldsForElement(path: readonly string[], query: string, title: string)
   const fields = MARKDOWN_TOKEN_DEFINITIONS.filter((definition) => path.every((part, index) => definition.path[index] === part) && definition.path.length === path.length + 1);
   if (!query) return fields;
   return fields.filter((definition) => `${title} ${definition.label} markdown.${definition.path.join(".")} ${definition.defaultSource}`.toLocaleLowerCase().includes(query));
-}
-
-function sectionEntries(fields: readonly MarkdownTokenDefinition[]) {
-  return (["typography", "color", "layout", "border", "state"] as const)
-    .map((section) => [section, fields.filter((field) => field.section === section)] as const)
-    .filter(([, entries]) => entries.length > 0);
 }
 
 function valueAtPath(value: unknown, path: readonly string[]) {

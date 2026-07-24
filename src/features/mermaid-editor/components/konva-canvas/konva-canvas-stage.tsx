@@ -9,6 +9,7 @@ import { NodeActionTooltip, NodeContextMenu } from "@/features/mermaid-editor/co
 import { CanvasSelectionToolbars } from "@/features/mermaid-editor/components/konva-canvas/canvas-selection-toolbars";
 import { KonvaSubgraphLayer } from "@/features/mermaid-editor/components/konva-canvas/subgraph-layer";
 import { normalizeNodeAction } from "@/features/mermaid-editor/lib/node-actions";
+import { preventNativeContextMenu } from "@/features/mermaid-editor/lib/native-context-menu";
 import { cn } from "@/lib/utils";
 import { resolveNodeEditorTypography } from "./resolve-node-editor-typography";
 import type { KonvaCanvasStageProps } from "@/features/mermaid-editor/components/konva-canvas/konva-canvas-stage-types";
@@ -122,7 +123,7 @@ export function KonvaCanvasStage({
           cursorClassName
         )}
         onAuxClick={(event) => event.preventDefault()}
-        onContextMenu={(event) => event.preventDefault()}
+        onContextMenu={preventNativeContextMenu}
         onPointerMove={onCanvasPointerTracking}
         onPointerLeave={onCanvasPointerLeave}
       >

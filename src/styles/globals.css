@@ -191,6 +191,12 @@
     --ui-focus-ring-width: 1px;
     --ui-surface-opacity: 0.96;
     --ui-backdrop-blur: 8px;
+    --ui-overlay-background: 24 19 15;
+    --ui-overlay-opacity: 0.1;
+    --ui-overlay-backdrop-blur: 1px;
+    --ui-window-header-opacity: 0.96;
+    --ui-window-active-border-opacity: 0.2;
+    --ui-window-inactive-border-opacity: 0.8;
     --ui-shadow-opacity: 0.16;
     --ui-hover-opacity: 0.9;
     --ui-pressed-opacity: 0.82;
@@ -354,8 +360,8 @@
   }
 
   html {
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
+    -webkit-font-smoothing: auto;
+    -moz-osx-font-smoothing: auto;
     text-rendering: optimizeLegibility;
   }
 
@@ -377,7 +383,7 @@
   }
 
   body {
-    @apply overflow-hidden bg-background font-sans text-foreground antialiased;
+    @apply overflow-hidden bg-background font-sans text-foreground;
     -webkit-user-select: none;
     font-family: var(--type-interface-body-family, var(--font-sans));
     font-size: var(--type-interface-body-size, 14px);

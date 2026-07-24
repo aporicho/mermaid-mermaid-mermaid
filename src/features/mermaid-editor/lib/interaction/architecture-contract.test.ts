@@ -63,35 +63,6 @@ describe("interaction architecture contract", () => {
     expect(preview).not.toContain("zoomViewportAtPoint");
   });
 
-  it("keeps canvas document interactions on the standard canvas path", () => {
-    const canvasDocumentEditor = readProjectFile("src/features/mermaid-editor/components/canvas-document-editor.tsx");
-    const pointer = readProjectFile("src/features/mermaid-editor/components/canvas-document-editor/use-canvas-document-pointer-interaction.ts");
-
-    expect(canvasDocumentEditor).toContain("useCanvasDocumentPointerInteraction");
-    expect(pointer).toContain("dispatchStandardCanvasPointerDown");
-    expect(pointer).toContain("dispatchStandardCanvasPointerMove");
-    expect(pointer).toContain("dispatchStandardCanvasPointerUp");
-    expect(pointer).toContain("createStandardWheelInput");
-    expect(pointer).toContain("resolveInteractionIntent");
-    expect(pointer).toContain("commandFromInteractionIntent");
-    expect(canvasDocumentEditor).not.toContain("resolveWheelNavigation");
-    expect(canvasDocumentEditor).not.toContain("zoomViewportAtPoint");
-  });
-
-  it("keeps canvas document text editing inline instead of prompt-based", () => {
-    const canvasDocumentEditor = readProjectFile("src/features/mermaid-editor/components/canvas-document-editor.tsx");
-    const actions = readProjectFile("src/features/mermaid-editor/components/canvas-document-editor/use-canvas-document-actions.ts");
-    const inlineEditOverlays = readProjectFile("src/features/mermaid-editor/components/canvas-document-editor/inline-edit-overlays.tsx");
-
-    expect(canvasDocumentEditor).toContain("CanvasDocumentInlineEditOverlays");
-    expect(inlineEditOverlays).toContain("Textarea");
-    expect(inlineEditOverlays).toContain("Input");
-    expect(actions).toContain("commitInlineEdit");
-    expect(actions).toContain("editingItemText");
-    expect(actions).toContain("editingConnectionText");
-    expect(canvasDocumentEditor).not.toContain("window.prompt(");
-  });
-
   it("keeps Mermaid canvas interaction as a standard adapter", () => {
     const canvasInteraction = readProjectFile("src/features/mermaid-editor/lib/canvas-interaction.ts");
 
@@ -133,7 +104,7 @@ describe("interaction architecture contract", () => {
     expect(panel).toContain('from "@/components/ui/sidebar"');
     expect(panel).toContain('from "@/components/ui/message-scroller"');
     expect(panel).toContain("<AgentSettingsPanel");
-    expect(panel).not.toContain('from "@/components/ui/sheet"');
+    expect(panel).toContain('from "@/components/ui/sheet"');
     expect(scroller).toContain('from "@shadcn/react/message-scroller"');
   });
 
@@ -141,6 +112,7 @@ describe("interaction architecture contract", () => {
     const agent = readProjectFile("src/features/mermaid-editor/components/agent/agent-panel.tsx");
     const settings = readProjectFile("src/features/mermaid-editor/components/agent/agent-settings-dialog.tsx");
     const browser = readProjectFile("src/features/mermaid-editor/components/browser-window-panel.tsx");
+    const nativeWebPanel = readProjectFile("src/features/mermaid-editor/components/native-web-window-panel.tsx");
     const surface = readProjectFile("src/features/mermaid-editor/components/embedded-browser-surface.tsx");
     const nativeFrame = readProjectFile("src/features/mermaid-editor/components/floating-chrome/workspace-native-surface-frame.tsx");
 
@@ -149,7 +121,8 @@ describe("interaction architecture contract", () => {
     expect(agent).toContain('controller.status !== "ready"');
     expect(settings).toContain("flex h-full min-h-0 flex-col");
     expect(settings).toContain('controller.status !== "ready"');
-    expect(browser).toContain("WorkspaceNativeSurfaceFrame");
+    expect(browser).toContain("NativeWebWindowPanel");
+    expect(nativeWebPanel).toContain("WorkspaceNativeSurfaceFrame");
     expect(surface).toContain("isEmbeddedBrowserSurfaceOccluded");
     expect(surface).not.toContain("activeRef");
     expect(nativeFrame).toContain("workspaceHeader.headerHeightPx");
@@ -189,7 +162,6 @@ describe("interaction architecture contract", () => {
       { path: "src/features/mermaid-editor/components/floating-chrome/chrome-slot.tsx", maxLines: 180 },
       { path: "src/features/mermaid-editor/components/floating-chrome/floating-buttons.tsx", maxLines: 100 },
       { path: "src/features/mermaid-editor/components/floating-chrome/floating-panel.tsx", maxLines: 170 },
-      { path: "src/features/mermaid-editor/components/floating-chrome/floating-popover.tsx", maxLines: 20 },
       { path: "src/features/mermaid-editor/components/floating-chrome/floating-panel-frame.ts", maxLines: 90 },
       { path: "src/features/mermaid-editor/components/floating-chrome/motion-presence.tsx", maxLines: 120 },
       { path: "src/features/mermaid-editor/components/floating-chrome/shared.ts", maxLines: 70 },
@@ -197,6 +169,7 @@ describe("interaction architecture contract", () => {
       { path: "src/features/mermaid-editor/components/floating-chrome/use-floating-panel-frame-state.ts", maxLines: 130 },
       { path: "src/features/mermaid-editor/components/floating-chrome/use-floating-panel-motion.ts", maxLines: 130 },
       { path: "src/features/mermaid-editor/components/floating-chrome/workspace-floating-window.tsx", maxLines: 200 },
+      { path: "src/features/mermaid-editor/components/floating-chrome/workspace-window-action-menu.tsx", maxLines: 80 },
       { path: "src/features/mermaid-editor/components/floating-chrome/workspace-panel-header-context.tsx", maxLines: 180 },
       { path: "src/features/mermaid-editor/components/editor-ui/window-titlebar.tsx", maxLines: 70 },
       { path: "src/features/mermaid-editor/components/editor-menus.tsx", maxLines: 20 },
@@ -215,19 +188,6 @@ describe("interaction architecture contract", () => {
       { path: "src/features/mermaid-editor/components/konva-canvas/use-konva-canvas-model.ts", maxLines: 420 },
       { path: "src/features/mermaid-editor/components/konva-canvas/use-konva-canvas-pointer-interaction.ts", maxLines: 480 },
       { path: "src/features/mermaid-editor/components/konva-canvas/use-konva-drag-membership.ts", maxLines: 280 },
-      { path: "src/features/mermaid-editor/components/canvas-document-editor.tsx", maxLines: 120 },
-      { path: "src/features/mermaid-editor/components/canvas-document-editor/canvas-document-animation.ts", maxLines: 80 },
-      { path: "src/features/mermaid-editor/components/canvas-document-editor/image-url-dialog.tsx", maxLines: 100 },
-      { path: "src/features/mermaid-editor/components/canvas-document-editor/inline-edit-overlays.tsx", maxLines: 220 },
-      { path: "src/features/mermaid-editor/components/canvas-document-editor/inline-edit-style.ts", maxLines: 160 },
-      { path: "src/features/mermaid-editor/components/canvas-document-editor/interaction-context.ts", maxLines: 40 },
-      { path: "src/features/mermaid-editor/components/canvas-document-editor/use-canvas-document-actions.ts", maxLines: 240 },
-      { path: "src/features/mermaid-editor/components/canvas-document-editor/use-canvas-document-image-sources.ts", maxLines: 100 },
-      { path: "src/features/mermaid-editor/components/canvas-document-editor/use-canvas-document-keyboard-shortcuts.ts", maxLines: 100 },
-      { path: "src/features/mermaid-editor/components/canvas-document-editor/use-canvas-document-model.ts", maxLines: 300 },
-      { path: "src/features/mermaid-editor/components/canvas-document-editor/use-canvas-document-pointer-interaction.ts", maxLines: 220 },
-      { path: "src/features/mermaid-editor/components/canvas-document-editor/use-canvas-document-scene.ts", maxLines: 130 },
-      { path: "src/features/mermaid-editor/components/canvas-document-editor/use-canvas-document-standard-commands.ts", maxLines: 180 },
       { path: "src/features/mermaid-editor/lib/edge-geometry.ts", maxLines: 60 },
       { path: "src/features/mermaid-editor/lib/edge-geometry/types.ts", maxLines: 130 },
       { path: "src/features/mermaid-editor/lib/edge-geometry/vector.ts", maxLines: 140 },
@@ -638,61 +598,10 @@ describe("interaction architecture contract", () => {
     expect(canvas).not.toContain("function inlineEditStyle(");
   });
 
-  it("keeps Pixi canvas document rendering outside the CanvasDocumentEditor shell file", () => {
-    const canvasDocumentEditor = readProjectFile("src/features/mermaid-editor/components/canvas-document-editor.tsx");
-    const scene = readProjectFile("src/features/mermaid-editor/components/canvas-document-editor/use-canvas-document-scene.ts");
-
-    expect(canvasDocumentEditor).toContain("useCanvasDocumentModel");
-    expect(canvasDocumentEditor).toContain("useCanvasDocumentActions");
-    expect(canvasDocumentEditor).toContain("useCanvasDocumentPointerInteraction");
-    expect(scene).toContain("useCanvasDocumentImageSources");
-    expect(scene).toContain("createPixiCanvasRuntime");
-    expect(canvasDocumentEditor).not.toContain("function syncPixiScene(");
-    expect(canvasDocumentEditor).not.toContain("function getPixiElementView(");
-    expect(canvasDocumentEditor).not.toContain("function syncElementView(");
-    expect(canvasDocumentEditor).not.toContain("function drawShape(");
-    expect(canvasDocumentEditor).not.toContain("function drawCard(");
-    expect(canvasDocumentEditor).not.toContain("function drawConnector(");
-    expect(canvasDocumentEditor).not.toContain("function drawSelectionOverlay(");
-    expect(canvasDocumentEditor).not.toContain("function drawGrid(");
-    expect(canvasDocumentEditor).not.toContain("function ToolbarButton(");
-    expect(canvasDocumentEditor).not.toContain("function useContainerSize(");
-    expect(canvasDocumentEditor).not.toContain("function loadImageDimensions(");
-  });
-
-  it("keeps Pixi canvas document overlays and side effects outside the shell file", () => {
-    const canvasDocumentEditor = readProjectFile("src/features/mermaid-editor/components/canvas-document-editor.tsx");
-    const keyboard = readProjectFile("src/features/mermaid-editor/components/canvas-document-editor/use-canvas-document-keyboard-shortcuts.ts");
-    const model = readProjectFile("src/features/mermaid-editor/components/canvas-document-editor/use-canvas-document-model.ts");
-    const actions = readProjectFile("src/features/mermaid-editor/components/canvas-document-editor/use-canvas-document-actions.ts");
-    const pointer = readProjectFile("src/features/mermaid-editor/components/canvas-document-editor/use-canvas-document-pointer-interaction.ts");
-
-    expect(canvasDocumentEditor).toContain("useCanvasDocumentKeyboardShortcuts");
-    expect(canvasDocumentEditor).toContain("CanvasDocumentImageUrlDialog");
-    expect(canvasDocumentEditor).toContain("CanvasDocumentInlineEditOverlays");
-    expect(model).toContain("resolveCanvasDocumentInlineEditStyle");
-    expect(actions).toContain("function commitInlineEdit(");
-    expect(pointer).toContain("function handlePointerDown(");
-    expect(keyboard).toContain("window.addEventListener(\"keydown\"");
-    expect(canvasDocumentEditor).not.toContain("window.addEventListener(\"keydown\"");
-    expect(canvasDocumentEditor).not.toContain("useCanvasDocumentImageSources");
-    expect(canvasDocumentEditor).not.toContain("resolveCanvasDocumentInlineEditStyle");
-    expect(canvasDocumentEditor).not.toContain("function handlePointerDown(");
-    expect(canvasDocumentEditor).not.toContain("function commitInlineEdit(");
-    expect(canvasDocumentEditor).not.toContain("imageUrlDialogOpen ? (");
-    expect(canvasDocumentEditor).not.toContain("<Textarea");
-    expect(canvasDocumentEditor).not.toContain("<Input");
-    expect(canvasDocumentEditor).not.toContain("function inlineEditStyle(");
-    expect(canvasDocumentEditor).not.toContain("useLayoutEffect");
-    expect(canvasDocumentEditor).not.toContain("const CANVAS_DOCUMENT_INTERACTION_GRAPH");
-    expect(canvasDocumentEditor).not.toContain("gsap.to(view.container");
-  });
-
   it("keeps floating chrome components behind focused modules", () => {
     const barrel = readProjectFile("src/features/mermaid-editor/components/floating-chrome.tsx");
     const slot = readProjectFile("src/features/mermaid-editor/components/floating-chrome/chrome-slot.tsx");
     const panel = readProjectFile("src/features/mermaid-editor/components/floating-chrome/floating-panel.tsx");
-    const popover = readProjectFile("src/features/mermaid-editor/components/floating-chrome/floating-popover.tsx");
     const workspaceWindow = readProjectFile("src/features/mermaid-editor/components/floating-chrome/workspace-floating-window.tsx");
     const controller = readProjectFile("src/features/mermaid-editor/components/floating-chrome/use-floating-panel-controller.ts");
     const frame = readProjectFile("src/features/mermaid-editor/components/floating-chrome/use-floating-panel-frame-state.ts");
@@ -701,7 +610,6 @@ describe("interaction architecture contract", () => {
 
     expect(barrel).toContain("export * from \"./floating-chrome/chrome-slot\"");
     expect(barrel).toContain("export * from \"./floating-chrome/floating-buttons\"");
-    expect(barrel).toContain("export * from \"./floating-chrome/floating-popover\"");
     expect(barrel).toContain("export * from \"./floating-chrome/workspace-floating-window\"");
     expect(barrel).toContain("export * from \"./floating-chrome/motion-presence\"");
     expect(slot).toContain("export function FloatingChromeSlot");
@@ -711,8 +619,7 @@ describe("interaction architecture contract", () => {
     expect(controller).toContain("useFloatingPanelMotion");
     expect(frame).toContain("export function useFloatingPanelFrameState");
     expect(motion).toContain("export function useFloatingPanelMotion");
-    expect(buttons).toContain("export function FloatingIconButton");
-    expect(popover).toContain("export function FloatingPopover");
+    expect(buttons).toContain("export const FloatingIconButton");
     expect(workspaceWindow).toContain("export function WorkspaceFloatingWindow");
     expect(workspaceWindow).toContain("export function WorkspaceWindowHeader");
     expect(barrel).not.toContain("./floating-chrome/floating-panel\"");
@@ -726,6 +633,7 @@ describe("interaction architecture contract", () => {
     const app = readProjectFile("src/App.tsx");
     const electronMain = readProjectFile("electron/main.cjs");
     const agentWindows = readProjectFile("src/features/mermaid-editor/components/mermaid-editor/agent-terminal-workspace-panels.tsx");
+    const agentPanel = readProjectFile("src/features/mermaid-editor/components/agent/agent-panel.tsx");
     const titlebarLayout = readProjectFile("src/features/mermaid-editor/components/editor-ui/window-titlebar.tsx");
     const workspaceHosts = [
       "src/features/mermaid-editor/components/mermaid-editor/editor-workspace-panels.tsx",
@@ -742,8 +650,6 @@ describe("interaction architecture contract", () => {
       "src/features/mermaid-editor/components/terminal-panel.tsx",
       "src/features/mermaid-editor/components/agent/agent-panel.tsx",
       "src/features/mermaid-editor/components/agent/agent-settings-dialog.tsx",
-      "src/features/mermaid-editor/components/browser-window-panel.tsx",
-      "src/features/mermaid-editor/components/html-window-panel.tsx",
       "src/features/mermaid-editor/components/image-window-panel.tsx",
       "src/features/mermaid-editor/components/detached-window-panels.tsx"
     ].map(readProjectFile);
@@ -757,10 +663,31 @@ describe("interaction architecture contract", () => {
       expect(content).not.toContain("WorkspacePanelControls");
       expect(content).not.toContain("data-window-drag-handle");
     }
+    const nativeWebPanel = readProjectFile("src/features/mermaid-editor/components/native-web-window-panel.tsx");
+    expect(nativeWebPanel).toContain("WorkspaceWindowHeader");
+    expect(readProjectFile("src/features/mermaid-editor/components/browser-window-panel.tsx")).toContain("NativeWebWindowPanel");
+    expect(readProjectFile("src/features/mermaid-editor/components/html-window-panel.tsx")).toContain("NativeWebWindowPanel");
     expect(titlebarLayout).toContain("data-window-titlebar-drag-exclude");
+    expect(agentPanel).toContain("<Sheet");
+    expect(agentPanel).toContain("<SheetTitle");
+    expect(agentPanel).not.toContain('className="absolute inset-0 z-40 flex"');
     expect(agentWindows).not.toContain("agent-settings");
     expect(app).not.toContain("BrowserToolWindow");
     expect(electronMain).not.toContain("mmm:browser-tool:open");
+  });
+
+  it("keeps native context menus available outside surfaces with explicit custom menus", () => {
+    const editor = readProjectFile("src/features/mermaid-editor/components/mermaid-editor.tsx");
+    const canvas = readProjectFile("src/features/mermaid-editor/components/konva-canvas/konva-canvas-stage.tsx");
+    const explorer = readProjectFile("src/features/mermaid-editor/components/explorer-panel.tsx");
+
+    expect(editor).not.toContain("useDisableNativeContextMenu");
+    expect(canvas).toContain("onContextMenu={preventNativeContextMenu}");
+    expect(explorer).toContain("event.preventDefault();");
+    expect(explorer).toContain("<ContextMenuTrigger ref={triggerRef} asChild>");
+    expect(explorer).toContain("new MouseEvent(\"contextmenu\"");
+    expect(explorer).not.toContain("EditorPointMenu");
+    expect(explorer).not.toContain("onContextMenu={(event)");
   });
 
   it("keeps application chrome behind the editor UI semantic layer", () => {
@@ -773,7 +700,6 @@ describe("interaction architecture contract", () => {
     const csvDialog = readProjectFile("src/features/mermaid-editor/components/csv-table-dialog.tsx");
     const htmlDialog = readProjectFile("src/features/mermaid-editor/components/html-document-dialog.tsx");
     const projectDocumentDialog = readProjectFile("src/features/mermaid-editor/components/project-document-node-dialog.tsx");
-    const imageDialog = readProjectFile("src/features/mermaid-editor/components/canvas-document-editor/image-url-dialog.tsx");
     const unsavedDialog = readProjectFile("src/features/mermaid-editor/components/file-workflow-feedback.tsx");
 
     for (const moduleName of ["dialog", "feedback", "field", "icon-button", "list", "menu", "panel", "toolbar", "window-titlebar"]) {
@@ -784,7 +710,7 @@ describe("interaction architecture contract", () => {
     }
     expect(floatingButtons).toContain("EditorIconButton");
     expect(arrangementToolbar).toContain("EditorToolbar");
-    for (const dialog of [nodeDialog, projectDocumentDialog, imageDialog]) {
+    for (const dialog of [nodeDialog, projectDocumentDialog]) {
       expect(dialog).toContain("EditorDialog");
       expect(dialog).not.toContain('className="fixed inset-0');
     }
@@ -992,8 +918,7 @@ describe("interaction architecture contract", () => {
 
   it("keeps newly oversized frontend files out of the codebase", () => {
     const knownLargeFiles = new Set([
-      "src/features/mermaid-editor/components/mermaid-editor.tsx",
-      "src/features/mermaid-editor/components/canvas-document-editor.tsx"
+      "src/features/mermaid-editor/components/mermaid-editor.tsx"
     ]);
     const frontendFiles = projectFilesUnder("src/features/mermaid-editor", /\.[tj]sx?$/);
 

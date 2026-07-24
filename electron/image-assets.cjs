@@ -102,14 +102,13 @@ function imageAssetResult(documentDir, assetPath, copied) {
 
 function assertSupportedImageDocumentPath(documentPath) {
   if (!isSupportedImageDocumentPath(documentPath)) {
-    throw fileWorkflowError("unsupported_type", "请先保存为 .mmd、.mermaid 或 .canvas.json 文件，再插入本地图片。", documentPath);
+    throw fileWorkflowError("unsupported_type", "请先保存为 .mmd 或 .mermaid 文件，再插入本地图片。", documentPath);
   }
 }
 
 function isSupportedImageDocumentPath(filePath) {
   if (typeof filePath !== "string" || !filePath) return false;
   const lowerName = path.basename(filePath).toLowerCase();
-  if (lowerName.endsWith(".canvas.json")) return true;
   const extension = path.extname(lowerName).replace(/^\./, "").toLowerCase();
   return extension === "mmd" || extension === "mermaid";
 }

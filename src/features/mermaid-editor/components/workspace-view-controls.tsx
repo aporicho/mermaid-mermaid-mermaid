@@ -104,13 +104,13 @@ export function DesktopWindowControls({ runtime }: { runtime: EditorRuntime }) {
   return (
     <div className="flex items-center gap-2" data-window-drag-exclude>
       <FloatingIconButton type="button" label="最小化" tooltipSide="bottom" onClick={() => void runWindowAction("minimize")}>
-        <Minus />
+        <Minus data-icon />
       </FloatingIconButton>
       <FloatingIconButton type="button" label={fullscreen ? "退出系统全屏" : "进入系统全屏"} tooltipSide="bottom" onClick={() => void toggleFullscreen()}>
-        {fullscreen ? <Collapse /> : <Expand />}
+        {fullscreen ? <Collapse data-icon /> : <Expand data-icon />}
       </FloatingIconButton>
       <FloatingIconButton type="button" label="关闭" tooltipSide="bottom" danger onClick={() => void runWindowAction("close")}>
-        <Xmark />
+        <Xmark data-icon />
       </FloatingIconButton>
     </div>
   );

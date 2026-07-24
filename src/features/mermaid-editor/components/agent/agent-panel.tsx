@@ -27,15 +27,18 @@ import {
   Xmark
 } from "iconoir-react/regular";
 
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Bubble, BubbleContent } from "@/components/ui/bubble";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
+import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { Item, ItemActions, ItemContent, ItemDescription, ItemMedia, ItemTitle } from "@/components/ui/item";
 import { Message, MessageContent, MessageFooter } from "@/components/ui/message";
 import {
@@ -47,7 +50,8 @@ import {
   MessageScrollerViewport
 } from "@/components/ui/message-scroller";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Sheet, SheetContent, SheetDescription, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import {
   Sidebar,
   SidebarContent,
@@ -62,6 +66,7 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { EditorConfirmDialog } from "@/features/mermaid-editor/components/editor-ui";
 import { WorkspaceWindowHeader } from "@/features/mermaid-editor/components/floating-chrome";
 import type { EditorRuntime, RuntimeAgentReference } from "@/features/mermaid-editor/lib/editor-runtime";
 import { cn } from "@/lib/utils";
@@ -90,18 +95,13 @@ export function AgentPanel({ runtime, controller }: AgentPanelProps) {
     }
   }, [controller.sidebarOpen, controller.status, loadOverview, mobileSidebarOpen, setControllerError, wide]);
 
-  useEffect(() => {
-    if (!mobileSidebarOpen) return;
-    function closeOnEscape(event: KeyboardEvent) {
-      if (event.key === "Escape") setMobileSidebarOpen(false);
-    }
-    window.addEventListener("keydown", closeOnEscape);
-    return () => window.removeEventListener("keydown", closeOnEscape);
-  }, [mobileSidebarOpen]);
-
-  function toggleSidebar() {
-    if (wide) controller.setSidebarOpen(!controller.sidebarOpen);
-    else setMobileSidebarOpen(true);
+  function updateMobileSidebarOpen(open: boolean) {
+    setMobileSidebarOpen(open);
+    if (open) return;
+    window.setTimeout(() => {
+      const focusTarget = rootRef.current?.querySelector<HTMLButtonElement>("[data-agent-mobile-sidebar-trigger]");
+      if (focusTarget?.isConnected) focusTarget.focus({ preventScroll: true });
+    }, 0);
   }
 
   if (view === "settings") {
@@ -110,46 +110,69 @@ export function AgentPanel({ runtime, controller }: AgentPanelProps) {
 
   return (
     <TooltipProvider delayDuration={300}>
-      <div ref={rootRef} className="relative isolate flex h-full min-h-0 flex-col overflow-hidden bg-card font-[family-name:var(--agent-type-body-family)] text-[length:var(--agent-type-body-size)] font-[var(--agent-type-body-weight)] leading-[var(--agent-type-body-line-height)] [letter-spacing:var(--agent-type-body-letter-spacing)] text-card-foreground">
-        <WorkspaceWindowHeader
-          leadingActions={<IconButton label={wide && controller.sidebarOpen ? "收起会话侧栏" : "打开会话侧栏"} onClick={toggleSidebar}>{wide && controller.sidebarOpen ? <SidebarCollapse /> : <SidebarExpand />}</IconButton>}
-          icon={<Brain className="size-4 shrink-0" />}
-          title={sessionTitle(controller)}
-          status={controller.workerState?.scratch ? <Badge tone="neutral" className="shrink-0">临时画布</Badge> : null}
-          actions={<>
-            <IconButton label="新会话" onClick={() => void controller.createSession().catch((error) => controller.setError(readableError(error)))}><Plus /></IconButton>
-            <SessionActions controller={controller} onRename={() => setRenameOpen(true)} />
-            <IconButton label="Agent 设置" onClick={() => setView("settings")}><Settings /></IconButton>
-          </>}
-        />
+      <Sheet open={!wide && mobileSidebarOpen} onOpenChange={updateMobileSidebarOpen}>
+        <div ref={rootRef} className="relative isolate flex h-full min-h-0 flex-col overflow-hidden bg-card font-[family-name:var(--agent-type-body-family)] text-[length:var(--agent-type-body-size)] font-[var(--agent-type-body-weight)] leading-[var(--agent-type-body-line-height)] [letter-spacing:var(--agent-type-body-letter-spacing)] text-card-foreground">
+          <WorkspaceWindowHeader
+            leadingActions={wide ? (
+              <IconButton label={controller.sidebarOpen ? "收起会话侧栏" : "打开会话侧栏"} onClick={() => controller.setSidebarOpen(!controller.sidebarOpen)}>
+                {controller.sidebarOpen ? <SidebarCollapse data-icon="inline-start" /> : <SidebarExpand data-icon="inline-start" />}
+              </IconButton>
+            ) : (
+              <SheetTrigger asChild>
+                <IconButton label="打开会话侧栏" data-agent-mobile-sidebar-trigger><SidebarExpand data-icon="inline-start" /></IconButton>
+              </SheetTrigger>
+            )}
+            icon={<Brain className="size-4 shrink-0" />}
+            title={sessionTitle(controller)}
+            status={controller.workerState?.scratch ? <Badge tone="neutral" className="shrink-0">临时画布</Badge> : null}
+            actions={<>
+              <IconButton label="新会话" onClick={() => void controller.createSession().catch((error) => controller.setError(readableError(error)))}><Plus data-icon="inline-start" /></IconButton>
+              <SessionActions controller={controller} onRename={() => setRenameOpen(true)} />
+              <IconButton label="Agent 设置" onClick={() => setView("settings")}><Settings data-icon="inline-start" /></IconButton>
+            </>}
+          />
 
-        <AgentStatus controller={controller} />
+          <AgentStatus controller={controller} />
 
-        <SidebarProvider open={wide && controller.sidebarOpen} onOpenChange={controller.setSidebarOpen} className="min-h-0 flex-1">
-          {wide ? <Sidebar><AgentSessionSidebar controller={controller} onOpenSettings={() => setView("settings")} /></Sidebar> : null}
-          <SidebarInset className="grid min-h-0 grid-rows-[minmax(0,1fr)]">
-            <AgentConversation controller={controller} onOpenSettings={() => setView("settings")} onOpenLink={runtime.openExternalUrl} />
-          </SidebarInset>
-        </SidebarProvider>
+          <SidebarProvider open={wide && controller.sidebarOpen} onOpenChange={controller.setSidebarOpen} className="min-h-0 flex-1">
+            {wide ? <Sidebar><AgentSessionSidebar controller={controller} onOpenSettings={() => setView("settings")} /></Sidebar> : null}
+            <SidebarInset className="grid min-h-0 grid-rows-[minmax(0,1fr)]">
+              <AgentConversation controller={controller} onOpenSettings={() => setView("settings")} onOpenLink={runtime.openExternalUrl} />
+            </SidebarInset>
+          </SidebarProvider>
 
-        {!wide && mobileSidebarOpen ? <div className="absolute inset-0 z-40 flex" role="dialog" aria-modal="true" aria-label="Agent 会话">
-          <aside className="h-full w-[min(84%,320px)] border-r bg-card shadow-[var(--ui-shadow-panel)]">
-            <AgentSessionSidebar controller={controller} onOpenSettings={() => { setMobileSidebarOpen(false); setView("settings"); }} onSelectSession={() => setMobileSidebarOpen(false)} />
-          </aside>
-          <Button type="button" variant="ghost" className="h-full min-w-0 flex-1 rounded-none bg-background/55 p-0 backdrop-blur-[2px] hover:bg-background/65" aria-label="关闭会话侧栏" onClick={() => setMobileSidebarOpen(false)} />
-        </div> : null}
+          <SheetContent
+            side="left"
+            container={rootRef.current}
+            className="w-[min(84%,320px)] overflow-hidden p-0 shadow-[var(--ui-shadow-panel)]"
+            onCloseAutoFocus={(event) => {
+              const focusTarget = rootRef.current?.querySelector<HTMLButtonElement>("[data-agent-mobile-sidebar-trigger]");
+              if (!focusTarget) return;
+              event.preventDefault();
+              focusTarget.focus({ preventScroll: true });
+            }}
+          >
+            <SheetTitle className="sr-only">Agent 会话</SheetTitle>
+            <SheetDescription className="sr-only">浏览并切换 Agent 会话。</SheetDescription>
+            <AgentSessionSidebar
+              controller={controller}
+              onOpenSettings={() => { updateMobileSidebarOpen(false); setView("settings"); }}
+              onSelectSession={() => updateMobileSidebarOpen(false)}
+            />
+          </SheetContent>
 
-        <RenameSessionDialog controller={controller} open={renameOpen} onOpenChange={setRenameOpen} />
-        <AgentInteractionDialog controller={controller} request={controller.interaction} />
-      </div>
+          <RenameSessionDialog controller={controller} open={renameOpen} onOpenChange={setRenameOpen} />
+          <AgentInteractionDialog controller={controller} request={controller.interaction} />
+        </div>
+      </Sheet>
     </TooltipProvider>
   );
 }
 
 function AgentStatus({ controller }: { controller: AgentController }) {
-  if (controller.status === "starting") return <div className="flex items-center gap-2 border-b px-3 py-1.5 text-xs text-muted-foreground"><Spinner className="size-3.5" />正在启动 Pi Agent</div>;
-  if (controller.error) return <div className="flex items-center gap-2 border-b bg-destructive/8 px-3 py-1.5 text-xs text-destructive"><WarningTriangle className="size-3.5" /><span className="min-w-0 flex-1 truncate">{controller.error}</span><Button variant="ghost" size="icon" className="size-6" aria-label="关闭错误" onClick={() => controller.setError(null)}><Xmark className="size-3.5" /></Button></div>;
-  if (controller.activity || controller.busyAction) return <div className="flex items-center gap-2 border-b px-3 py-1.5 text-xs text-muted-foreground"><Spinner className="size-3.5" /><span className="truncate">{controller.activity || "正在处理"}</span></div>;
+  if (controller.status === "starting") return <Alert role="status" className="rounded-none border-x-0 border-t-0 py-1.5"><Spinner /><AlertDescription>正在启动 Pi Agent</AlertDescription></Alert>;
+  if (controller.error) return <Alert variant="destructive" className="rounded-none border-x-0 border-t-0 py-1.5"><WarningTriangle data-icon /><AlertDescription className="flex min-w-0 items-center gap-2"><span className="min-w-0 flex-1 truncate">{controller.error}</span><Button variant="ghost" size="icon" aria-label="关闭错误" onClick={() => controller.setError(null)}><Xmark data-icon="inline-start" /></Button></AlertDescription></Alert>;
+  if (controller.activity || controller.busyAction) return <Alert role="status" className="rounded-none border-x-0 border-t-0 py-1.5"><Spinner /><AlertDescription className="truncate">{controller.activity || "正在处理"}</AlertDescription></Alert>;
   return null;
 }
 
@@ -166,10 +189,15 @@ function AgentSessionSidebar({ controller, onOpenSettings, onSelectSession }: { 
 
   return <div className="flex h-full min-h-0 flex-col">
     <SidebarHeader>
-      <Button className="flex-1 justify-start" onClick={() => void controller.createSession().then(() => onSelectSession?.()).catch((error) => controller.setError(readableError(error)))}><Plus />新会话</Button>
-      <IconButton label="刷新会话" onClick={() => void Promise.all([controller.refreshConversation(), controller.loadOverview(true)]).catch((error) => controller.setError(readableError(error)))}><Refresh /></IconButton>
+      <Button className="flex-1 justify-start" onClick={() => void controller.createSession().then(() => onSelectSession?.()).catch((error) => controller.setError(readableError(error)))}><Plus data-icon="inline-start" />新会话</Button>
+      <IconButton label="刷新会话" onClick={() => void Promise.all([controller.refreshConversation(), controller.loadOverview(true)]).catch((error) => controller.setError(readableError(error)))}><Refresh data-icon="inline-start" /></IconButton>
     </SidebarHeader>
-    <div className="px-2 pt-2"><div className="relative"><Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" /><Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索会话" className="pl-8" /></div></div>
+    <div className="px-2 pt-2">
+      <InputGroup>
+        <InputGroupAddon><Search /></InputGroupAddon>
+        <InputGroupInput value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索会话" aria-label="搜索会话" />
+      </InputGroup>
+    </div>
     <SidebarContent>
       {controller.overviewBusy && !controller.overview ? <div className="grid place-items-center py-10"><Spinner className="text-muted-foreground" /></div> : null}
       {!controller.overviewBusy && !visibleSessions.length ? <Empty className="min-h-48 px-3 py-8"><EmptyMedia><Database /></EmptyMedia><EmptyHeader><EmptyTitle>没有会话</EmptyTitle><EmptyDescription>{query ? "没有匹配结果" : "新建一次对话开始工作"}</EmptyDescription></EmptyHeader></Empty> : null}
@@ -179,11 +207,11 @@ function AgentSessionSidebar({ controller, onOpenSettings, onSelectSession }: { 
         return <Item key={path || session.id} className={cn("cursor-default px-2 py-1.5", active ? "bg-accent text-accent-foreground" : "hover:bg-muted/55")}>
           <ItemMedia><Page /></ItemMedia>
           <Button variant="ghost" className="h-auto min-w-0 flex-1 justify-start rounded-none p-0 text-left hover:bg-transparent" onClick={() => { if (!active) void controller.switchSession(path).then(() => onSelectSession?.()).catch((error) => controller.setError(readableError(error))); else onSelectSession?.(); }}><ItemContent><ItemTitle>{sessionLabel(session)}</ItemTitle><ItemDescription>{relativeTime(session.modified)}</ItemDescription></ItemContent></Button>
-          {!active ? <ItemActions><IconButton label={`删除 ${sessionLabel(session)}`} className="size-7 opacity-0 group-hover/item:opacity-100 focus:opacity-100" onClick={() => setDeleteCandidate(session)}><Trash className="size-3.5" /></IconButton></ItemActions> : null}
+          {!active ? <ItemActions><IconButton label={`删除 ${sessionLabel(session)}`} className="size-7 opacity-0 group-hover/item:opacity-100 focus:opacity-100" onClick={() => setDeleteCandidate(session)}><Trash data-icon="inline-start" /></IconButton></ItemActions> : null}
         </Item>;
       })}</SidebarMenu></SidebarGroup>)}
     </SidebarContent>
-    <SidebarFooter><Button variant="ghost" className="w-full justify-start" onClick={onOpenSettings}><Settings />设置</Button></SidebarFooter>
+    <SidebarFooter><Button variant="ghost" className="w-full justify-start" onClick={onOpenSettings}><Settings data-icon="inline-start" />设置</Button></SidebarFooter>
     <DeleteSessionDialog controller={controller} session={deleteCandidate} onOpenChange={(open) => { if (!open) setDeleteCandidate(null); }} />
   </div>;
 }
@@ -231,7 +259,7 @@ function TranscriptItem({ item, mode, hiddenThinking, onOpenLink }: { item: Agen
           : "rounded-[var(--agent-message-assistant-radius)] border-[length:var(--agent-message-assistant-border-width)] border-[hsl(var(--agent-message-assistant-border-color))] [border-style:var(--agent-message-assistant-border-style)] bg-[hsl(var(--agent-message-assistant-background))] px-[var(--agent-message-assistant-padding-x)] py-[var(--agent-message-assistant-padding-y)] text-[hsl(var(--agent-message-assistant-foreground))] shadow-[var(--agent-message-assistant-shadow)]"}>
           <BubbleContent data-selectable-text className="agent-markdown"><MarkdownContent text={item.text} onOpenLink={onOpenLink} /></BubbleContent>
         </Bubble>
-        {!isUser && item.text ? <MessageFooter className="font-[family-name:var(--agent-type-metadata-family)] text-[length:var(--agent-type-metadata-size)] font-[var(--agent-type-metadata-weight)] leading-[var(--agent-type-metadata-line-height)] [letter-spacing:var(--agent-type-metadata-letter-spacing)] text-[hsl(var(--agent-message-metadata-foreground))] opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100"><IconButton label="复制回复" className="size-7" onClick={() => void copyText(item.text)}><Copy className="size-3.5" /></IconButton>{item.streaming ? <span>正在生成</span> : null}</MessageFooter> : null}
+        {!isUser && item.text ? <MessageFooter className="font-[family-name:var(--agent-type-metadata-family)] text-[length:var(--agent-type-metadata-size)] font-[var(--agent-type-metadata-weight)] leading-[var(--agent-type-metadata-line-height)] [letter-spacing:var(--agent-type-metadata-letter-spacing)] text-[hsl(var(--agent-message-metadata-foreground))] opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100"><IconButton label="复制回复" className="size-7" onClick={() => void copyText(item.text)}><Copy data-icon="inline-start" /></IconButton>{item.streaming ? <span>正在生成</span> : null}</MessageFooter> : null}
       </MessageContent>
     </Message>
   </MessageScrollerItem>;
@@ -269,7 +297,7 @@ function AgentComposer({ controller }: { controller: AgentController }) {
 
   return <div className="px-[var(--agent-content-padding-x)] pb-[var(--agent-content-padding-y)] pt-2">
     <div className="mx-auto max-w-[var(--agent-composer-max-width)] rounded-[var(--agent-composer-radius)] border-[length:var(--agent-composer-border-width)] border-[hsl(var(--agent-composer-border-color))] [border-style:var(--agent-composer-border-style)] bg-[hsl(var(--agent-composer-background))] px-[var(--agent-composer-padding-x)] py-[var(--agent-composer-padding-y)] text-[hsl(var(--agent-composer-foreground))] shadow-[var(--agent-composer-shadow)]">
-      {controller.explicitReferences.length ? <div className="mb-2 flex flex-wrap gap-1">{controller.explicitReferences.map((reference, index) => <Badge key={`${reference.kind}-${index}`} tone="neutral" className="gap-1"><span className="max-w-56 truncate">{referenceLabel(reference)}</span><Button type="button" variant="ghost" size="icon" className="size-4" aria-label="移除引用" onClick={() => controller.setExplicitReferences(controller.explicitReferences.filter((_, itemIndex) => itemIndex !== index))}><Xmark className="size-3" /></Button></Badge>)}</div> : null}
+      {controller.explicitReferences.length ? <div className="mb-2 flex flex-wrap gap-1">{controller.explicitReferences.map((reference, index) => <Badge key={`${reference.kind}-${index}`} tone="neutral" className="gap-1"><span className="max-w-56 truncate">{referenceLabel(reference)}</span><Button type="button" variant="ghost" size="icon" className="size-4" aria-label="移除引用" onClick={() => controller.setExplicitReferences(controller.explicitReferences.filter((_, itemIndex) => itemIndex !== index))}><Xmark data-icon="inline-start" /></Button></Badge>)}</div> : null}
       <Textarea
         aria-label="发送给 Pi Agent"
         value={controller.draft}
@@ -293,8 +321,8 @@ function AgentComposer({ controller }: { controller: AgentController }) {
         <ModelCombobox controller={controller} />
         <ThinkingSelect controller={controller} />
         <TranscriptModeSelect controller={controller} />
-        {isStreaming ? <IconButton label="停止生成" onClick={() => void controller.sendRpc({ type: "abort" }).catch((error) => controller.setError(readableError(error)))}><Xmark /></IconButton> : null}
-        <IconButton label="发送" variant="default" disabled={!canSend} onClick={() => void send()}><SendDiagonal /></IconButton>
+        {isStreaming ? <IconButton label="停止生成" onClick={() => void controller.sendRpc({ type: "abort" }).catch((error) => controller.setError(readableError(error)))}><Xmark data-icon="inline-start" /></IconButton> : null}
+        <IconButton label="发送" variant="default" disabled={!canSend} onClick={() => void send()}><SendDiagonal data-icon="inline-start" /></IconButton>
       </div>
     </div>
   </div>;
@@ -305,24 +333,24 @@ function ModelCombobox({ controller }: { controller: AgentController }) {
   const model = controller.sessionState?.model as Record<string, unknown> | null | undefined;
   const value = model ? `${String(model.provider)}::${String(model.id)}` : "";
   const label = model ? String(model.name || model.id || "模型") : "选择模型";
-  return <Popover open={open} onOpenChange={setOpen}><PopoverTrigger asChild><Button variant="ghost" size="sm" className="max-w-40 px-2"><span className="truncate">{label}</span><NavArrowDown /></Button></PopoverTrigger><PopoverContent align="end" className="w-80 p-0"><Command><CommandInput placeholder="搜索模型" /><CommandList><CommandEmpty>没有可用模型</CommandEmpty><CommandGroup>{controller.availableModels.map((item) => {
+  return <Popover open={open} onOpenChange={setOpen}><PopoverTrigger asChild><Button variant="ghost" size="sm" className="max-w-40 px-2"><span className="truncate">{label}</span><NavArrowDown data-icon="inline-end" /></Button></PopoverTrigger><PopoverContent align="end" className="w-80 p-0"><Command><CommandInput placeholder="搜索模型" /><CommandList><CommandEmpty>没有可用模型</CommandEmpty><CommandGroup>{controller.availableModels.map((item) => {
     const itemValue = `${String(item.provider)}::${String(item.id)}`;
     return <CommandItem key={itemValue} value={`${String(item.name || item.id)} ${String(item.provider)}`} onSelect={() => {
       const [provider, modelId] = itemValue.split("::");
       setOpen(false);
       void controller.sendRpc({ type: "set_model", provider, modelId }).then(() => Promise.all([controller.refreshSessionState(), controller.refreshAvailableThinkingLevels()])).catch((error) => controller.setError(readableError(error)));
-    }}><span className="min-w-0 flex-1 truncate">{String(item.name || item.id)}</span><span className="text-xs text-muted-foreground">{String(item.provider)}</span>{value === itemValue ? <CheckCircle className="size-4" /> : null}</CommandItem>;
+    }}><span className="min-w-0 flex-1 truncate">{String(item.name || item.id)}</span><span className="text-xs text-muted-foreground">{String(item.provider)}</span>{value === itemValue ? <CheckCircle data-icon /> : null}</CommandItem>;
   })}</CommandGroup></CommandList></Command></PopoverContent></Popover>;
 }
 
 function ThinkingSelect({ controller }: { controller: AgentController }) {
   if (controller.availableThinkingLevels.length <= 1 && controller.availableThinkingLevels[0] === "off") return null;
   const value = String(controller.sessionState?.thinkingLevel || controller.availableThinkingLevels[0] || "off");
-  return <Select value={value} onValueChange={(level) => void controller.sendRpc({ type: "set_thinking_level", level }).then(controller.refreshSessionState).catch((error) => controller.setError(readableError(error)))}><SelectTrigger aria-label="思考等级" className="h-8 w-24 border-0 bg-transparent px-2"><SelectValue /></SelectTrigger><SelectContent>{controller.availableThinkingLevels.map((level) => <SelectItem key={level} value={level}>{thinkingLabel(level)}</SelectItem>)}</SelectContent></Select>;
+  return <Select value={value} onValueChange={(level) => void controller.sendRpc({ type: "set_thinking_level", level }).then(controller.refreshSessionState).catch((error) => controller.setError(readableError(error)))}><SelectTrigger aria-label="思考等级" className="h-8 w-24 border-0 bg-transparent px-2"><SelectValue /></SelectTrigger><SelectContent><SelectGroup>{controller.availableThinkingLevels.map((level) => <SelectItem key={level} value={level}>{thinkingLabel(level)}</SelectItem>)}</SelectGroup></SelectContent></Select>;
 }
 
 function TranscriptModeSelect({ controller }: { controller: AgentController }) {
-  return <Select value={controller.transcriptMode} onValueChange={(value) => controller.setTranscriptMode(value as AgentController["transcriptMode"])}><SelectTrigger aria-label="对话详细程度" className="h-8 w-20 border-0 bg-transparent px-2"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="normal">普通</SelectItem><SelectItem value="verbose">详细</SelectItem><SelectItem value="summary">摘要</SelectItem></SelectContent></Select>;
+  return <Select value={controller.transcriptMode} onValueChange={(value) => controller.setTranscriptMode(value as AgentController["transcriptMode"])}><SelectTrigger aria-label="对话详细程度" className="h-8 w-20 border-0 bg-transparent px-2"><SelectValue /></SelectTrigger><SelectContent><SelectGroup><SelectItem value="normal">普通</SelectItem><SelectItem value="verbose">详细</SelectItem><SelectItem value="summary">摘要</SelectItem></SelectGroup></SelectContent></Select>;
 }
 
 function ReferencePicker({ controller, onPick }: { controller: AgentController; onPick: (reference: RuntimeAgentReference) => void }) {
@@ -337,7 +365,7 @@ function CommandPicker({ controller, onPick }: { controller: AgentController; on
 }
 
 function SessionActions({ controller, onRename }: { controller: AgentController; onRename: () => void }) {
-  return <DropdownMenu><Tooltip><TooltipTrigger asChild><DropdownMenuTrigger asChild><Button variant="ghost" size="icon" aria-label="会话操作"><MoreHoriz /></Button></DropdownMenuTrigger></TooltipTrigger><TooltipContent>会话操作</TooltipContent></Tooltip><DropdownMenuContent align="end"><DropdownMenuItem onSelect={onRename}><EditPencil />重命名</DropdownMenuItem><DropdownMenuItem onSelect={() => void controller.runControl<{ path: string }>({ type: "export_html" }).catch((error) => controller.setError(readableError(error)))}><Code />导出 HTML</DropdownMenuItem><DropdownMenuItem onSelect={() => void controller.runControl<{ path: string }>({ type: "export_jsonl" }).catch((error) => controller.setError(readableError(error)))}><Page />导出 JSONL</DropdownMenuItem><DropdownMenuSeparator /><DropdownMenuItem onSelect={() => void controller.refreshConversation().catch((error) => controller.setError(readableError(error)))}><Refresh />刷新会话</DropdownMenuItem></DropdownMenuContent></DropdownMenu>;
+  return <DropdownMenu><Tooltip><TooltipTrigger asChild><DropdownMenuTrigger asChild><Button variant="ghost" size="icon" aria-label="会话操作"><MoreHoriz data-icon="inline-start" /></Button></DropdownMenuTrigger></TooltipTrigger><TooltipContent>会话操作</TooltipContent></Tooltip><DropdownMenuContent align="end"><DropdownMenuGroup><DropdownMenuItem onSelect={onRename}><EditPencil data-icon />重命名</DropdownMenuItem><DropdownMenuItem onSelect={() => void controller.runControl<{ path: string }>({ type: "export_html" }).catch((error) => controller.setError(readableError(error)))}><Code data-icon />导出 HTML</DropdownMenuItem><DropdownMenuItem onSelect={() => void controller.runControl<{ path: string }>({ type: "export_jsonl" }).catch((error) => controller.setError(readableError(error)))}><Page data-icon />导出 JSONL</DropdownMenuItem></DropdownMenuGroup><DropdownMenuSeparator /><DropdownMenuGroup><DropdownMenuItem onSelect={() => void controller.refreshConversation().catch((error) => controller.setError(readableError(error)))}><Refresh data-icon />刷新会话</DropdownMenuItem></DropdownMenuGroup></DropdownMenuContent></DropdownMenu>;
 }
 
 function RenameSessionDialog({ controller, open, onOpenChange }: { controller: AgentController; open: boolean; onOpenChange: (open: boolean) => void }) {
@@ -348,12 +376,31 @@ function RenameSessionDialog({ controller, open, onOpenChange }: { controller: A
     await Promise.all([controller.refreshSessionState(), controller.loadOverview(true)]);
     onOpenChange(false);
   }
-  return <Dialog open={open} onOpenChange={onOpenChange}><DialogContent className="max-w-sm p-5"><DialogTitle>重命名会话</DialogTitle><DialogDescription className="sr-only">修改当前 Agent 会话名称。</DialogDescription><Input autoFocus className="mt-4" value={name} onChange={(event) => setName(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && name.trim()) void save(); }} /><div className="mt-4 flex justify-end gap-2"><DialogClose asChild><Button variant="ghost">取消</Button></DialogClose><Button disabled={!name.trim()} onClick={() => void save().catch((error) => controller.setError(readableError(error)))}>保存</Button></div></DialogContent></Dialog>;
+  return <Dialog open={open} onOpenChange={onOpenChange}><DialogContent className="max-w-sm p-5"><DialogTitle>重命名会话</DialogTitle><DialogDescription className="sr-only">修改当前 Agent 会话名称。</DialogDescription><Field className="mt-4"><FieldLabel className="sr-only" htmlFor="agent-session-name">会话名称</FieldLabel><Input id="agent-session-name" autoFocus value={name} onChange={(event) => setName(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && name.trim()) void save(); }} /></Field><div className="mt-4 flex justify-end gap-2"><DialogClose asChild><Button variant="ghost">取消</Button></DialogClose><Button disabled={!name.trim()} onClick={() => void save().catch((error) => controller.setError(readableError(error)))}>保存</Button></div></DialogContent></Dialog>;
 }
 
 function DeleteSessionDialog({ controller, session, onOpenChange }: { controller: AgentController; session: Record<string, any> | null; onOpenChange: (open: boolean) => void }) {
   if (!session) return null;
-  return <Dialog open onOpenChange={onOpenChange}><DialogContent className="max-w-sm p-5"><DialogTitle>删除会话？</DialogTitle><DialogDescription className="mt-2">“{sessionLabel(session)}”将移到系统回收站。</DialogDescription><div className="mt-5 flex justify-end gap-2"><DialogClose asChild><Button variant="ghost">取消</Button></DialogClose><Button variant="destructive" onClick={() => void controller.runControl({ type: "delete_session", path: session.path }).then(() => onOpenChange(false)).catch((error) => controller.setError(readableError(error)))}>删除</Button></div></DialogContent></Dialog>;
+  return <EditorConfirmDialog
+    open
+    title="删除会话？"
+    description={`“${sessionLabel(session)}”将移到系统回收站。`}
+    actions={[
+      { id: "delete", label: "删除", tone: "danger" },
+      { id: "cancel", label: "取消" }
+    ]}
+    primaryActionId="delete"
+    cancelActionId="cancel"
+    onAction={(action) => {
+      if (action === "cancel") {
+        onOpenChange(false);
+        return;
+      }
+      void controller.runControl({ type: "delete_session", path: session.path })
+        .then(() => onOpenChange(false))
+        .catch((error) => controller.setError(readableError(error)));
+    }}
+  />;
 }
 
 function AgentStarting() {
@@ -361,7 +408,7 @@ function AgentStarting() {
 }
 
 function AgentUnavailable({ error, onRetry }: { error: string | null; onRetry: () => Promise<void> }) {
-  return <Empty><EmptyMedia><WarningTriangle /></EmptyMedia><EmptyHeader><EmptyTitle>Agent 暂不可用</EmptyTitle><EmptyDescription>{error || "请在桌面版中重新打开 Agent。"}</EmptyDescription></EmptyHeader><EmptyContent><Button onClick={() => void onRetry()}><Refresh />重新启动</Button></EmptyContent></Empty>;
+  return <Empty><EmptyMedia><WarningTriangle /></EmptyMedia><EmptyHeader><EmptyTitle>Agent 暂不可用</EmptyTitle><EmptyDescription>{error || "请在桌面版中重新打开 Agent。"}</EmptyDescription></EmptyHeader><EmptyContent><Button onClick={() => void onRetry()}><Refresh data-icon="inline-start" />重新启动</Button></EmptyContent></Empty>;
 }
 
 function AgentNoModel({ onOpenSettings, composer }: { onOpenSettings: () => void; composer: ReactNode }) {
@@ -374,16 +421,16 @@ function AgentWelcome({ controller }: { controller: AgentController }) {
 }
 
 function ThinkingBlock({ text }: { text: string }) {
-  return <Collapsible><CollapsibleTrigger asChild><Button variant="ghost" size="sm" className="px-0 font-[family-name:var(--agent-type-metadata-family)] text-[length:var(--agent-type-metadata-size)] text-[hsl(var(--agent-thinking-foreground))]"><NavArrowDown />思考过程</Button></CollapsibleTrigger><CollapsibleContent><div data-selectable-text className="border-l border-[hsl(var(--agent-thinking-accent))] pl-3 font-[family-name:var(--agent-type-metadata-family)] text-[length:var(--agent-type-metadata-size)] font-[var(--agent-type-metadata-weight)] leading-[var(--agent-type-metadata-line-height)] [letter-spacing:var(--agent-type-metadata-letter-spacing)] text-[hsl(var(--agent-thinking-foreground))] opacity-[var(--agent-thinking-opacity)] whitespace-pre-wrap">{text}</div></CollapsibleContent></Collapsible>;
+  return <Collapsible><CollapsibleTrigger asChild><Button variant="ghost" size="sm" className="px-0 font-[family-name:var(--agent-type-metadata-family)] text-[length:var(--agent-type-metadata-size)] text-[hsl(var(--agent-thinking-foreground))]"><NavArrowDown data-icon="inline-start" />思考过程</Button></CollapsibleTrigger><CollapsibleContent><div data-selectable-text className="border-l border-[hsl(var(--agent-thinking-accent))] pl-3 font-[family-name:var(--agent-type-metadata-family)] text-[length:var(--agent-type-metadata-size)] font-[var(--agent-type-metadata-weight)] leading-[var(--agent-type-metadata-line-height)] [letter-spacing:var(--agent-type-metadata-letter-spacing)] text-[hsl(var(--agent-thinking-foreground))] opacity-[var(--agent-thinking-opacity)] whitespace-pre-wrap">{text}</div></CollapsibleContent></Collapsible>;
 }
 
 function ToolBlock({ tool, defaultOpen }: { tool: AgentToolActivity; defaultOpen: boolean }) {
   const details = printableToolValue(tool.result ?? tool.args);
-  return <Collapsible defaultOpen={defaultOpen} className="rounded-[var(--agent-tool-radius)] border-[length:var(--agent-tool-border-width)] border-[hsl(var(--agent-tool-border-color))] [border-style:var(--agent-tool-border-style)] bg-[hsl(var(--agent-tool-background))] text-[hsl(var(--agent-tool-foreground))] shadow-[var(--agent-tool-shadow)]"><CollapsibleTrigger asChild><Button variant="ghost" size="sm" className="w-full justify-start rounded-[var(--agent-tool-radius)] px-[var(--agent-tool-padding-x)]"><Code /><span className="truncate font-[family-name:var(--agent-type-technical-family)] text-[length:var(--agent-type-technical-size)]">{humanToolName(tool.name)}</span><span className={cn("ml-auto font-[family-name:var(--agent-type-metadata-family)] text-[length:var(--agent-type-metadata-size)]", tool.status === "error" ? "text-[hsl(var(--agent-tool-error-foreground))]" : "text-[hsl(var(--agent-tool-muted-foreground))]")}>{toolStatusLabel(tool.status)}</span><NavArrowDown /></Button></CollapsibleTrigger><CollapsibleContent className="grid gap-[var(--agent-tool-row-gap)] px-[var(--agent-tool-padding-x)] pb-[var(--agent-tool-padding-y)]"><div className="flex justify-end"><IconButton label="复制工具输出" className="size-7" onClick={() => void copyText(details.full)}><Copy className="size-3.5" /></IconButton></div><pre data-selectable-text className="max-h-64 overflow-auto whitespace-pre-wrap rounded-[calc(var(--agent-tool-radius)/2)] bg-card/55 p-3 font-[family-name:var(--agent-type-technical-family)] text-[length:var(--agent-type-technical-size)] font-[var(--agent-type-technical-weight)] leading-[var(--agent-type-technical-line-height)] [letter-spacing:var(--agent-type-technical-letter-spacing)]">{details.preview}</pre>{details.truncated ? <p className="font-[family-name:var(--agent-type-metadata-family)] text-[length:var(--agent-type-metadata-size)] text-[hsl(var(--agent-tool-muted-foreground))]">输出过长，仅显示前 20,000 个字符。</p> : null}</CollapsibleContent></Collapsible>;
+  return <Collapsible defaultOpen={defaultOpen} className="rounded-[var(--agent-tool-radius)] border-[length:var(--agent-tool-border-width)] border-[hsl(var(--agent-tool-border-color))] [border-style:var(--agent-tool-border-style)] bg-[hsl(var(--agent-tool-background))] text-[hsl(var(--agent-tool-foreground))] shadow-[var(--agent-tool-shadow)]"><CollapsibleTrigger asChild><Button variant="ghost" size="sm" className="w-full justify-start rounded-[var(--agent-tool-radius)] px-[var(--agent-tool-padding-x)]"><Code data-icon="inline-start" /><span className="truncate font-[family-name:var(--agent-type-technical-family)] text-[length:var(--agent-type-technical-size)]">{humanToolName(tool.name)}</span><span className={cn("ml-auto font-[family-name:var(--agent-type-metadata-family)] text-[length:var(--agent-type-metadata-size)]", tool.status === "error" ? "text-[hsl(var(--agent-tool-error-foreground))]" : "text-[hsl(var(--agent-tool-muted-foreground))]")}>{toolStatusLabel(tool.status)}</span><NavArrowDown data-icon="inline-end" /></Button></CollapsibleTrigger><CollapsibleContent className="grid gap-[var(--agent-tool-row-gap)] px-[var(--agent-tool-padding-x)] pb-[var(--agent-tool-padding-y)]"><div className="flex justify-end"><IconButton label="复制工具输出" className="size-7" onClick={() => void copyText(details.full)}><Copy data-icon="inline-start" /></IconButton></div><pre data-selectable-text className="max-h-64 overflow-auto whitespace-pre-wrap rounded-[calc(var(--agent-tool-radius)/2)] bg-card/55 p-3 font-[family-name:var(--agent-type-technical-family)] text-[length:var(--agent-type-technical-size)] font-[var(--agent-type-technical-weight)] leading-[var(--agent-type-technical-line-height)] [letter-spacing:var(--agent-type-technical-letter-spacing)]">{details.preview}</pre>{details.truncated ? <p className="font-[family-name:var(--agent-type-metadata-family)] text-[length:var(--agent-type-metadata-size)] text-[hsl(var(--agent-tool-muted-foreground))]">输出过长，仅显示前 20,000 个字符。</p> : null}</CollapsibleContent></Collapsible>;
 }
 
 function AgentNotice({ tone, icon, text }: { tone: "neutral" | "danger"; icon: ReactNode; text: string }) {
-  return <div className={cn("flex items-start gap-2 rounded-[var(--agent-message-notice-radius)] border-[length:var(--agent-message-notice-border-width)] border-[hsl(var(--agent-message-notice-border-color))] [border-style:var(--agent-message-notice-border-style)] bg-[hsl(var(--agent-message-notice-background))] px-[var(--agent-message-notice-padding-x)] py-[var(--agent-message-notice-padding-y)] text-sm", tone === "danger" ? "text-destructive" : "text-[hsl(var(--agent-message-notice-foreground))]")}>{icon}<span data-selectable-text>{text}</span></div>;
+  return <Alert variant={tone === "danger" ? "destructive" : "default"} className={cn("rounded-[var(--agent-message-notice-radius)] border-[length:var(--agent-message-notice-border-width)] border-[hsl(var(--agent-message-notice-border-color))] [border-style:var(--agent-message-notice-border-style)] bg-[hsl(var(--agent-message-notice-background))] px-[var(--agent-message-notice-padding-x)] py-[var(--agent-message-notice-padding-y)]", tone === "danger" ? "text-destructive" : "text-[hsl(var(--agent-message-notice-foreground))]")}>{icon}<AlertDescription data-selectable-text>{text}</AlertDescription></Alert>;
 }
 
 function MarkdownContent({ text, onOpenLink }: { text: string; onOpenLink: (url: string) => void }) {
@@ -397,7 +444,7 @@ function AgentInteractionDialog({ controller, request }: { controller: AgentCont
   useEffect(() => setValue(""), [request?.id]);
   if (!request) return null;
   const isConfirm = request.method === "confirm" || request.method === "trust";
-  return <Dialog open onOpenChange={(open) => { if (!open) void controller.resolveInteraction({ cancelled: true, confirmed: false }); }}><DialogContent className="max-w-md p-5"><DialogTitle className="text-base font-semibold">{request.title}</DialogTitle>{request.message ? <DialogDescription className="mt-2 whitespace-pre-wrap text-sm text-muted-foreground">{request.message}</DialogDescription> : null}{request.options?.length ? <div className="mt-4 grid gap-2">{request.options.map((option) => <Button key={option.id} variant="secondary" className="h-auto justify-start py-2 text-left" onClick={() => void controller.resolveInteraction(request.method === "trust" ? { index: Number(option.id) } : { value: option.id, confirmed: true })}><span><span className="block">{option.label}</span>{option.description ? <span className="block text-xs text-muted-foreground">{option.description}</span> : null}</span></Button>)}</div> : !isConfirm ? <Input className="mt-4" autoFocus type={request.secret ? "password" : "text"} value={value} placeholder={request.placeholder} onChange={(event) => setValue(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") void controller.resolveInteraction({ value, confirmed: true }); }} /> : null}<div className="mt-5 flex justify-end gap-2"><Button variant="ghost" onClick={() => void controller.resolveInteraction({ cancelled: true, confirmed: false })}>取消</Button>{!request.options?.length ? <Button onClick={() => void controller.resolveInteraction(isConfirm ? { confirmed: true } : { value, confirmed: true })}>确认</Button> : null}</div></DialogContent></Dialog>;
+  return <Dialog open onOpenChange={(open) => { if (!open) void controller.resolveInteraction({ cancelled: true, confirmed: false }); }}><DialogContent className="max-w-md p-5"><DialogTitle className="text-base font-semibold">{request.title}</DialogTitle>{request.message ? <DialogDescription className="mt-2 whitespace-pre-wrap text-sm text-muted-foreground">{request.message}</DialogDescription> : null}{request.options?.length ? <div className="mt-4 grid gap-2">{request.options.map((option) => <Button key={option.id} variant="secondary" className="h-auto justify-start py-2 text-left" onClick={() => void controller.resolveInteraction(request.method === "trust" ? { index: Number(option.id) } : { value: option.id, confirmed: true })}><span><span className="block">{option.label}</span>{option.description ? <span className="block text-xs text-muted-foreground">{option.description}</span> : null}</span></Button>)}</div> : !isConfirm ? <Field className="mt-4"><FieldLabel className="sr-only" htmlFor="agent-interaction-value">{request.title}</FieldLabel><Input id="agent-interaction-value" autoFocus type={request.secret ? "password" : "text"} value={value} placeholder={request.placeholder} onChange={(event) => setValue(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") void controller.resolveInteraction({ value, confirmed: true }); }} /></Field> : null}<div className="mt-5 flex justify-end gap-2"><Button variant="ghost" onClick={() => void controller.resolveInteraction({ cancelled: true, confirmed: false })}>取消</Button>{!request.options?.length ? <Button onClick={() => void controller.resolveInteraction(isConfirm ? { confirmed: true } : { value, confirmed: true })}>确认</Button> : null}</div></DialogContent></Dialog>;
 }
 
 function IconButton({ label, children, className, ...props }: Omit<React.ComponentProps<typeof Button>, "size"> & { label: string }) {

@@ -24,9 +24,7 @@ export function migrateLegacyReadingFontProfile(
   if (source.baseThemeId === "claude-cream") {
     for (const role of [
       typography.markdownCard.title,
-      typography.markdownCard.titleEditor,
-      typography.canvasDocument.card,
-      typography.canvasDocument.cardEditor
+      typography.markdownCard.titleEditor
     ]) {
       if (role.family === SHANGTU) role.family = FOUNDER_SERIF;
     }

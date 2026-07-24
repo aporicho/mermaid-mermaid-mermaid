@@ -1,14 +1,18 @@
 // @vitest-environment jsdom
 
-import { act, createElement } from "react";
+import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { preventNativeContextMenu, useDisableNativeContextMenu } from "@/features/mermaid-editor/lib/native-context-menu";
+import { preventNativeContextMenu } from "@/features/mermaid-editor/lib/native-context-menu";
 
 function Harness() {
-  useDisableNativeContextMenu();
-  return createElement("div");
+  return (
+    <>
+      <input aria-label="可编辑文本" />
+      <div data-testid="custom-surface" onContextMenu={preventNativeContextMenu}>自定义表面</div>
+    </>
+  );
 }
 
 function dispatchContextMenu(target: EventTarget = document.body) {
@@ -36,7 +40,7 @@ describe("native context menu", () => {
     root = createRoot(container);
 
     act(() => {
-      root?.render(createElement(Harness));
+      root?.render(<Harness />);
     });
   }
 
@@ -48,18 +52,18 @@ describe("native context menu", () => {
     expect(event.defaultPrevented).toBe(true);
   });
 
-  it("disables context menu events while mounted", () => {
+  it("keeps the native menu available outside an explicitly scoped custom surface", () => {
     renderHarness();
 
-    expect(dispatchContextMenu().defaultPrevented).toBe(true);
+    const input = container?.querySelector('input[aria-label="可编辑文本"]');
+    expect(dispatchContextMenu(input ?? undefined).defaultPrevented).toBe(false);
+    expect(dispatchContextMenu(document.body).defaultPrevented).toBe(false);
   });
 
-  it("removes the context menu listener when unmounted", () => {
+  it("prevents the native menu only on an explicitly scoped custom surface", () => {
     renderHarness();
 
-    act(() => root?.unmount());
-    root = null;
-
-    expect(dispatchContextMenu().defaultPrevented).toBe(false);
+    const customSurface = container?.querySelector('[data-testid="custom-surface"]');
+    expect(dispatchContextMenu(customSurface ?? undefined).defaultPrevented).toBe(true);
   });
 });

@@ -48,7 +48,6 @@ type EditorFloatingChromeProps = {
   onSecondaryActionsOpenChange: (open: boolean) => void;
   onNewMermaidFile: () => void | Promise<unknown>;
   onNewMarkdownFile: () => void | Promise<unknown>;
-  onNewCanvasFile: () => void | Promise<unknown>;
   onOpenFile: () => void | Promise<unknown>;
   onOpenRecent: (file: RecentFileEntry) => void | Promise<unknown>;
   onOpenProject: () => void | Promise<unknown>;
@@ -105,7 +104,6 @@ export function EditorFloatingChrome({
   onSecondaryActionsOpenChange,
   onNewMermaidFile,
   onNewMarkdownFile,
-  onNewCanvasFile,
   onOpenFile,
   onOpenRecent,
   onOpenProject,
@@ -144,7 +142,6 @@ export function EditorFloatingChrome({
           onOpenChange={onFileMenuOpenChange}
           onNewMermaidFile={() => void onNewMermaidFile()}
           onNewMarkdownFile={() => void onNewMarkdownFile()}
-          onNewCanvasFile={() => void onNewCanvasFile()}
           onOpenFile={() => void onOpenFile()}
           onOpenRecent={(file) => void onOpenRecent(file)}
           onOpenProject={() => void onOpenProject()}
@@ -162,7 +159,7 @@ export function EditorFloatingChrome({
             onPointerDown={onStartDesktopWindowDrag}
             onDoubleClick={() => void onToggleDesktopWindowMaximize()}
           >
-            <Grid3X3 />
+            <Grid3X3 data-icon />
           </FloatingIconButton>
         </FloatingChromeSlot>
       ) : null}
@@ -173,17 +170,15 @@ export function EditorFloatingChrome({
         </FloatingChromeSlot>
       ) : null}
 
-      {documentKind !== "canvas" ? (
-        <FloatingChromeSlot placement="rightView">
-          <WorkspaceViewCluster
-            workspaceView={workspaceView}
-            editableKind={editableKind}
-            documentKind={documentKind}
-            canvasViewTooltip={canvasViewTooltip}
-            onChange={onWorkspaceViewChange}
-          />
-        </FloatingChromeSlot>
-      ) : null}
+      <FloatingChromeSlot placement="rightView">
+        <WorkspaceViewCluster
+          workspaceView={workspaceView}
+          editableKind={editableKind}
+          documentKind={documentKind}
+          canvasViewTooltip={canvasViewTooltip}
+          onChange={onWorkspaceViewChange}
+        />
+      </FloatingChromeSlot>
 
       {documentKind === "mermaid" ? (
         <FloatingChromeSlot placement="rightFilter" pinned={viewFiltersOpen}>
@@ -206,7 +201,7 @@ export function EditorFloatingChrome({
             tooltipSide="right"
             onClick={() => onOpenWorkspacePanel("explorer")}
           >
-            <PanelLeftOpen />
+            <PanelLeftOpen data-icon />
           </FloatingIconButton>
         </FloatingChromeSlot>
       ) : null}
@@ -218,7 +213,7 @@ export function EditorFloatingChrome({
             tooltipSide="left"
             onClick={() => onOpenWorkspacePanel("inspector")}
           >
-            <PanelRightOpen />
+            <PanelRightOpen data-icon />
           </FloatingIconButton>
         </FloatingChromeSlot>
       ) : null}
@@ -259,14 +254,14 @@ export function EditorFloatingChrome({
               tooltipSide="top"
               onClick={() => onOpenWorkspacePanel("agent")}
             >
-              <ChatBubble />
+              <ChatBubble data-icon />
             </FloatingIconButton> : null}
             {!terminalOpen ? <FloatingIconButton
               label="打开终端"
               tooltipSide="top"
               onClick={() => onOpenWorkspacePanel("terminal")}
             >
-              <Terminal />
+              <Terminal data-icon />
             </FloatingIconButton> : null}
           </div>
         </FloatingChromeSlot>

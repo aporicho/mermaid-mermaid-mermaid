@@ -64,6 +64,8 @@ export const THEME_SETTINGS_CATEGORIES = [
 export const THEME_TOKEN_GROUPS: readonly ThemeTokenGroupDefinition[] = [
   group("interface-colors", "interface", "基础色彩", ["interface", "colors"], "css"),
   group("interface-surface", "interface", "边框与焦点", ["interface", "surface"], "css"),
+  group("interface-overlay", "interface", "浮层遮罩", ["interface", "overlay"], "css"),
+  group("interface-window", "interface", "浮动窗口", ["interface", "window"], "css"),
   group("interface-state", "interface", "交互状态", ["interface", "state"], "css"),
   group("interface-radius", "interface", "圆角", ["interface", "radius"], "css"),
   group("interface-shadow", "interface", "阴影", ["interface", "shadow"], "css"),
@@ -188,6 +190,9 @@ const TOKEN_LABELS: Record<string, string> = {
   pressedOpacity: "按下透明度",
   selectedOpacity: "选中透明度",
   disabledOpacity: "禁用透明度",
+  headerOpacity: "标题栏透明度",
+  activeBorderOpacity: "活动窗口边框透明度",
+  inactiveBorderOpacity: "非活动窗口边框透明度",
   offsetX: "横向偏移",
   offsetY: "纵向偏移",
   minThumbLength: "滑块最小长度",
@@ -453,6 +458,7 @@ const TOKEN_LABELS: Record<string, string> = {
   blockGap: "内容块间距",
   listItemGap: "列表项间距",
   indentationEnabled: "启用内容缩进",
+  listIndentationEnabled: "启用列表层级缩进",
   enabled: "启用",
   borderEnabled: "显示引用边线",
   interactionBorderColor: "交互边框",
@@ -535,6 +541,11 @@ const EXACT_THEME_NUMBER_SPECS: Record<string, { min: number; max: number; step:
   "interface.radius.controlLg": spec(0, 24, 1),
   "interface.surface.opacity": spec(0, 1, 0.01, ""),
   "interface.surface.backdropBlur": spec(0, 48, 1),
+  "interface.overlay.opacity": spec(0, 1, 0.01, ""),
+  "interface.overlay.backdropBlur": spec(0, 48, 1),
+  "interface.window.headerOpacity": spec(0, 1, 0.01, ""),
+  "interface.window.activeBorderOpacity": spec(0, 1, 0.01, ""),
+  "interface.window.inactiveBorderOpacity": spec(0, 1, 0.01, ""),
   "canvas.ordinaryNode.fillSaturation": spec(0, 1, 0.05, ""),
   "canvas.ordinaryNode.fillLuminanceSteps": spec(2, 256, 1, ""),
   "canvas.ordinaryNode.radius": spec(0, 48, 1),
@@ -632,21 +643,6 @@ const MARKDOWN_APPEARANCE_TOKEN_DEFINITIONS = MARKDOWN_TOKEN_DEFINITIONS.map((de
   });
 });
 
-const FIXED_CANVAS_DOCUMENT_TYPOGRAPHY = flattenTokenLeaves(DEFAULT_EDITOR_THEME.typography.canvasDocument).map(({ path, value }) => {
-  const fullPath = ["typography", "canvasDocument", ...path];
-  return tokenDefinition({
-    path: fullPath,
-    label: themeTokenLabel(fullPath.at(-1) || ""),
-    category: "canvas",
-    groupId: "canvas-document-fixed",
-    hierarchy: ["canvas", "canvas-document-fixed", ...path.slice(0, -1)],
-    state: "fixed",
-    level: "advanced",
-    consumer: "konva",
-    control: controlFor(fullPath, value)
-  });
-});
-
 /**
  * Every canonical v14 appearance leaf has exactly one registry entry. The panel,
  * search and contract tests all consume this registry instead of maintaining
@@ -655,8 +651,7 @@ const FIXED_CANVAS_DOCUMENT_TYPOGRAPHY = flattenTokenLeaves(DEFAULT_EDITOR_THEME
 export const APPEARANCE_TOKEN_DEFINITIONS: readonly AppearanceTokenDefinition[] = [
   ...FIXED_THEME_METADATA,
   ...GROUP_TOKEN_DEFINITIONS,
-  ...MARKDOWN_APPEARANCE_TOKEN_DEFINITIONS,
-  ...FIXED_CANVAS_DOCUMENT_TYPOGRAPHY
+  ...MARKDOWN_APPEARANCE_TOKEN_DEFINITIONS
 ];
 
 export function appearanceTokenDefinition(path: readonly string[]) {

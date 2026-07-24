@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useId, useMemo, useState, type ReactNode } from "react";
 import {
   CheckCircle,
   Copy,
@@ -12,6 +12,7 @@ import {
   Package,
   Plus,
   Refresh,
+  Search,
   Settings,
   Tools,
   Trash,
@@ -19,22 +20,26 @@ import {
   WarningTriangle
 } from "iconoir-react/regular";
 
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
+import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "@/components/ui/input-group";
 import { Item, ItemActions, ItemContent, ItemDescription, ItemMedia, ItemTitle } from "@/components/ui/item";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { EditorIconButton } from "@/features/mermaid-editor/components/editor-ui";
+import { EditorConfirmDialog, EditorIconButton } from "@/features/mermaid-editor/components/editor-ui";
 import { WorkspaceWindowHeader } from "@/features/mermaid-editor/components/floating-chrome";
 import { cn } from "@/lib/utils";
 
@@ -53,10 +58,10 @@ export function AgentSettingsPanel({ controller, onBack }: { controller: AgentCo
   return (
     <div className="flex h-full min-h-0 flex-col bg-card">
       <WorkspaceWindowHeader
-        leadingActions={<EditorIconButton context="panel" label="返回聊天" onClick={onBack}><NavArrowLeft /></EditorIconButton>}
+        leadingActions={<EditorIconButton context="panel" label="返回聊天" onClick={onBack}><NavArrowLeft data-icon="inline-start" /></EditorIconButton>}
         icon={<Settings className="size-4 shrink-0" />}
         title="Agent 设置"
-        status={controller.busyAction ? <span className="type-interface-status flex items-center gap-2 text-muted-foreground"><Spinner className="size-3.5" />正在处理</span> : null}
+        status={controller.busyAction ? <span className="type-interface-status flex items-center gap-2 text-muted-foreground"><Spinner />正在处理</span> : null}
       />
 
       {!controller.overview ? (
@@ -64,18 +69,17 @@ export function AgentSettingsPanel({ controller, onBack }: { controller: AgentCo
             <EmptyMedia>{controller.overviewBusy || controller.status === "starting" ? <Spinner /> : <Settings />}</EmptyMedia>
             <EmptyHeader>
               <EmptyTitle>{controller.status === "starting" ? "正在启动 Agent" : controller.overviewBusy ? "正在读取设置" : "设置尚未载入"}</EmptyTitle>
-              {!controller.overviewBusy && controller.status !== "starting" ? <EmptyDescription>重新读取 Pi 的模型与项目配置。</EmptyDescription> : null}
             </EmptyHeader>
             {!controller.overviewBusy && controller.status === "ready" ? <Button onClick={() => void controller.loadOverview(true)}>重新载入</Button> : null}
           </Empty>
       ) : (
           <Tabs orientation="vertical" value={page} onValueChange={setPage} className="grid min-h-0 flex-1 grid-cols-[11.5rem_minmax(0,1fr)] max-[700px]:grid-cols-[3.5rem_minmax(0,1fr)]">
             <TabsList className="h-full flex-col items-stretch justify-start rounded-none border-r bg-muted/25 p-2">
-              <SettingsTab value="models" icon={<User />} label="模型与账户" />
-              <SettingsTab value="tools" icon={<Tools />} label="工具与命令" />
-              <SettingsTab value="resources" icon={<Package />} label="资源与包" />
-              <SettingsTab value="settings" icon={<Settings />} label="设置" />
-              <SettingsTab value="trust" icon={<Key />} label="信任与诊断" />
+              <SettingsTab value="models" icon={<User data-icon="inline-start" />} label="模型与账户" />
+              <SettingsTab value="tools" icon={<Tools data-icon="inline-start" />} label="工具与命令" />
+              <SettingsTab value="resources" icon={<Package data-icon="inline-start" />} label="资源与包" />
+              <SettingsTab value="settings" icon={<Settings data-icon="inline-start" />} label="设置" />
+              <SettingsTab value="trust" icon={<Key data-icon="inline-start" />} label="信任与诊断" />
             </TabsList>
             <ScrollArea className="min-h-0">
               {controller.error ? <div className="mx-5 mt-4"><Notice tone="danger" icon={<WarningTriangle />} text={controller.error} /></div> : null}
@@ -112,10 +116,13 @@ function ModelsPage({ controller, overview }: ControlProps) {
   const available = visibleProviders.filter((provider: any) => !provider.configured);
   const visibleModels = models.filter((model: any) => `${model.name || ""} ${model.id || ""} ${model.provider || ""}`.toLowerCase().includes(normalizedQuery));
 
-  return <Section title="模型与账户" action={<div className="flex gap-1"><Button variant="ghost" size="sm" onClick={() => setProviderEditor({ custom: true })}><Plus />自定义</Button><Button variant="ghost" size="icon" aria-label="刷新模型" onClick={() => void controller.loadOverview(true)}><Refresh /></Button></div>}>
+  return <Section action={<div className="flex gap-1"><Button variant="ghost" size="sm" onClick={() => setProviderEditor({ custom: true })}><Plus data-icon="inline-start" />自定义</Button><Button variant="ghost" size="icon" aria-label="刷新模型" onClick={() => void controller.loadOverview(true)}><Refresh data-icon="inline-start" /></Button></div>}>
     <AuthFlowPanel controller={controller} />
     {overview.models?.config?.error ? <Notice tone="danger" icon={<WarningTriangle />} text={`models.json：${overview.models.config.error}`} /> : null}
-    <Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索服务商或模型" className="mb-4" />
+    <InputGroup className="mb-4">
+      <InputGroupAddon><Search /></InputGroupAddon>
+      <InputGroupInput value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索服务商或模型" aria-label="搜索服务商或模型" />
+    </InputGroup>
     {configured.length ? <div className="grid gap-1">{configured.map((provider: any) => <ProviderItem key={provider.id} provider={provider} config={providerConfigById.get(provider.id)} controller={controller} onEdit={() => setProviderEditor({ provider, config: providerConfigById.get(provider.id), custom: provider.origin === "custom" })} />)}</div> : null}
     {available.length ? <Collapsible defaultOpen={!configured.length} className="mt-2">
       <CollapsibleTrigger asChild><Button variant="ghost" className="w-full justify-between"><span>添加服务商</span><span className="text-xs text-muted-foreground">{available.length}</span></Button></CollapsibleTrigger>
@@ -123,7 +130,7 @@ function ModelsPage({ controller, overview }: ControlProps) {
     </Collapsible> : null}
     <Separator className="my-5" />
     <SectionLabel>可用模型</SectionLabel>
-    {visibleModels.length ? <div className="grid gap-0.5 sm:grid-cols-2">{visibleModels.map((model: any) => <Item key={`${model.provider}:${model.id}`} className="py-1.5"><ItemContent><ItemTitle>{model.name || model.id}</ItemTitle><ItemDescription>{model.provider}</ItemDescription></ItemContent><span className={cn("size-1.5 rounded-full", model.available ? "bg-[hsl(var(--success))]" : "bg-muted-foreground/30")} /></Item>)}</div> : <InlineEmpty text="没有匹配的模型" />}
+    {visibleModels.length ? <div className="grid gap-0.5 sm:grid-cols-2">{visibleModels.map((model: any) => <Item key={`${model.provider}:${model.id}`} className="py-1.5"><ItemContent><ItemTitle>{model.name || model.id}</ItemTitle><ItemDescription>{providerDisplayName(providers, model.provider)}</ItemDescription></ItemContent><span className={cn("size-1.5 rounded-full", model.available ? "bg-[hsl(var(--success))]" : "bg-muted-foreground/30")} /></Item>)}</div> : <InlineEmpty text="没有匹配的模型" />}
     <ProviderConfigDialog controller={controller} state={providerEditor} revision={overview.models?.config?.revision} onOpenChange={(open) => { if (!open) setProviderEditor(null); }} />
   </Section>;
 }
@@ -142,20 +149,20 @@ function ProviderItem({ provider, config, controller, onEdit }: { provider: any;
     <ItemMedia><User /></ItemMedia>
     <ItemContent><ItemTitle>{provider.name || provider.id}</ItemTitle><ItemDescription>{status}{config ? " · 已覆盖配置" : ""}</ItemDescription></ItemContent>
     <ItemActions>
-      <ProviderAction label={`配置 ${provider.name || provider.id}`} onClick={onEdit}><EditPencil /></ProviderAction>
+      <ProviderAction label={`配置 ${provider.name || provider.id}`} onClick={onEdit}><EditPencil data-icon="inline-start" /></ProviderAction>
       {provider.configured
-        ? <ProviderAction label={`退出 ${provider.name || provider.id}`} onClick={() => void controller.runControl({ type: "logout", providerId: provider.id }).catch((error) => handleControlError(controller, error))}><LogOut /></ProviderAction>
+        ? <ProviderAction label={`退出 ${provider.name || provider.id}`} onClick={() => void controller.runControl({ type: "logout", providerId: provider.id }).catch((error) => handleControlError(controller, error))}><LogOut data-icon="inline-start" /></ProviderAction>
         : interactiveAuth.length === 1
           ? <ProviderConnectButton label={`连接 ${provider.name || provider.id}：${interactiveAuth[0].label}`} onClick={() => login(interactiveAuth[0])} />
           : interactiveAuth.length > 1
             ? <DropdownMenu>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <DropdownMenuTrigger asChild><Button variant="secondary" size="icon" aria-label={`连接 ${provider.name || provider.id}`}><Key /></Button></DropdownMenuTrigger>
+                    <DropdownMenuTrigger asChild><Button variant="secondary" size="icon" aria-label={`连接 ${provider.name || provider.id}`}><Key data-icon="inline-start" /></Button></DropdownMenuTrigger>
                   </TooltipTrigger>
                   <TooltipContent>连接 {provider.name || provider.id}</TooltipContent>
                 </Tooltip>
-                <DropdownMenuContent align="end">{interactiveAuth.map((auth: any) => <DropdownMenuItem key={auth.type} onSelect={() => login(auth)}><Key />{auth.label}</DropdownMenuItem>)}</DropdownMenuContent>
+                <DropdownMenuContent align="end"><DropdownMenuGroup>{interactiveAuth.map((auth: any) => <DropdownMenuItem key={auth.type} onSelect={() => login(auth)}><Key data-icon />{auth.label}</DropdownMenuItem>)}</DropdownMenuGroup></DropdownMenuContent>
               </DropdownMenu>
             : null}
     </ItemActions>
@@ -163,7 +170,7 @@ function ProviderItem({ provider, config, controller, onEdit }: { provider: any;
 }
 
 function ProviderConnectButton({ label, onClick }: { label: string; onClick: () => void }) {
-  return <Tooltip><TooltipTrigger asChild><Button variant="secondary" size="icon" aria-label={label} onClick={onClick}><Key /></Button></TooltipTrigger><TooltipContent>{label}</TooltipContent></Tooltip>;
+  return <Tooltip><TooltipTrigger asChild><Button variant="secondary" size="icon" aria-label={label} onClick={onClick}><Key data-icon="inline-start" /></Button></TooltipTrigger><TooltipContent>{label}</TooltipContent></Tooltip>;
 }
 
 function ProviderAction({ label, onClick, children }: { label: string; onClick: () => void; children: ReactNode }) {
@@ -175,16 +182,18 @@ function AuthFlowPanel({ controller }: { controller: AgentController }) {
   if (!flow || flow.status === "success" || flow.status === "cancelled") return null;
   const url = flow.verificationUri || flow.url;
   const failed = flow.status === "error";
-  return <div className="mb-4 rounded-[var(--theme-radius-control-md)] bg-muted/45 p-3 text-sm">
-    <div className={cn("flex items-center gap-2", failed && "text-destructive")}>
-      {failed ? <WarningTriangle className="size-3.5" /> : <Spinner className="size-3.5" />}
-      <span className="min-w-0 flex-1">{flow.message || (failed ? "认证失败" : "正在认证")}</span>
-      {!failed ? <Button variant="ghost" size="sm" onClick={() => void controller.runControl({ type: "cancel_login", providerId: flow.providerId })}>取消</Button> : null}
-    </div>
-    {flow.deviceCode ? <div className="mt-2 flex items-center gap-2"><code className="rounded bg-background px-2 py-1 font-mono text-base tracking-widest">{flow.deviceCode}</code><Button variant="ghost" size="icon" aria-label="复制设备代码" onClick={() => void navigator.clipboard?.writeText(flow.deviceCode || "")}><Copy /></Button></div> : null}
-    {url ? <Button variant="link" className="mt-1 h-auto px-0" onClick={() => controller.openExternalUrl(url)}>在浏览器中继续</Button> : null}
-    {flow.links?.map((link) => <Button key={link.url} variant="link" className="mt-1 h-auto px-2" onClick={() => controller.openExternalUrl(link.url)}>{link.label || "打开链接"}</Button>)}
-  </div>;
+  return <Alert role={failed ? "alert" : "status"} variant={failed ? "destructive" : "default"} className="mb-4">
+    {failed ? <WarningTriangle data-icon /> : <Spinner />}
+    <AlertDescription>
+      <div className="flex min-w-0 items-center gap-2">
+        <span className="min-w-0 flex-1">{flow.message || (failed ? "认证失败" : "正在认证")}</span>
+        {!failed ? <Button variant="ghost" size="sm" onClick={() => void controller.runControl({ type: "cancel_login", providerId: flow.providerId })}>取消</Button> : null}
+      </div>
+      {flow.deviceCode ? <div className="mt-2 flex items-center gap-2"><code className="rounded bg-background px-2 py-1 font-mono text-base tracking-widest">{flow.deviceCode}</code><Button variant="ghost" size="icon" aria-label="复制设备代码" onClick={() => void navigator.clipboard?.writeText(flow.deviceCode || "")}><Copy data-icon="inline-start" /></Button></div> : null}
+      {url ? <Button variant="link" className="mt-1 h-auto px-0" onClick={() => controller.openExternalUrl(url)}>在浏览器中继续</Button> : null}
+      {flow.links?.map((link) => <Button key={link.url} variant="link" className="mt-1 h-auto px-2" onClick={() => controller.openExternalUrl(link.url)}>{link.label || "打开链接"}</Button>)}
+    </AlertDescription>
+  </Alert>;
 }
 
 type ProviderModelDraft = {
@@ -294,80 +303,104 @@ function ProviderConfigDialog({
     }
   }
 
-  return <Dialog open onOpenChange={onOpenChange}>
-    <DialogContent className="grid max-h-[min(760px,calc(100vh-40px))] max-w-2xl grid-rows-[auto_minmax(0,1fr)_auto] gap-0 overflow-hidden p-0">
+  return <>
+    <Dialog open onOpenChange={onOpenChange}>
+      <DialogContent className="grid max-h-[min(760px,calc(100vh-40px))] max-w-2xl grid-rows-[auto_minmax(0,1fr)_auto] gap-0 overflow-hidden p-0">
       <div className="border-b px-5 py-4">
         <DialogTitle className="text-base">{newCustomProvider ? "添加自定义 Provider" : `配置 ${state.provider?.name || state.config?.name || providerId}`}</DialogTitle>
         <DialogDescription className="sr-only">配置连接、认证、模型和兼容性。</DialogDescription>
       </div>
       <ScrollArea className="min-h-0">
         <div className="grid gap-5 p-5">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="Provider ID"><Input value={draft.id} disabled={!newCustomProvider} placeholder="my-provider" onChange={(event) => setDraft((current) => ({ ...current, id: event.target.value.toLowerCase() }))} /></Field>
-            <Field label="显示名称"><Input value={draft.name} placeholder="自定义服务商" onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))} /></Field>
-            <Field label="Base URL" className="sm:col-span-2"><Input value={draft.baseUrl} placeholder={state.custom ? "http://localhost:11434/v1" : "留空以使用默认端点"} onChange={(event) => setDraft((current) => ({ ...current, baseUrl: event.target.value }))} /></Field>
-            <Field label="API 协议">
-              <Select value={draft.api || "inherit"} onValueChange={(value) => setDraft((current) => ({ ...current, api: value === "inherit" ? "" : value }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{!state.custom ? <SelectItem value="inherit">跟随 Provider</SelectItem> : null}{MODEL_APIS.map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}</SelectContent></Select>
+          <FieldGroup className="grid gap-3 sm:grid-cols-2">
+            {newCustomProvider ? <Field>
+              <FieldLabel htmlFor="agent-provider-id">Provider ID</FieldLabel>
+              <Input id="agent-provider-id" value={draft.id} placeholder="my-provider" onChange={(event) => setDraft((current) => ({ ...current, id: event.target.value.toLowerCase() }))} />
+            </Field> : null}
+            <Field>
+              <FieldLabel htmlFor="agent-provider-name">显示名称</FieldLabel>
+              <Input id="agent-provider-name" value={draft.name} placeholder="自定义服务商" onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))} />
             </Field>
-            <Field label="认证方式">
-              <Select value={draft.authMode} onValueChange={(value) => setDraft((current) => ({ ...current, authMode: value as ProviderDraft["authMode"] }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>
+            <Field className="sm:col-span-2">
+              <FieldLabel htmlFor="agent-provider-base-url">Base URL</FieldLabel>
+              <Input id="agent-provider-base-url" value={draft.baseUrl} placeholder={state.custom ? "http://localhost:11434/v1" : "留空以使用默认端点"} onChange={(event) => setDraft((current) => ({ ...current, baseUrl: event.target.value }))} />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="agent-provider-api">API 协议</FieldLabel>
+              <Select value={draft.api || "inherit"} onValueChange={(value) => setDraft((current) => ({ ...current, api: value === "inherit" ? "" : value }))}><SelectTrigger id="agent-provider-api"><SelectValue /></SelectTrigger><SelectContent><SelectGroup>{!state.custom ? <SelectItem value="inherit">跟随 Provider</SelectItem> : null}{MODEL_APIS.map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}</SelectGroup></SelectContent></Select>
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="agent-provider-auth-mode">认证方式</FieldLabel>
+              <Select value={draft.authMode} onValueChange={(value) => setDraft((current) => ({ ...current, authMode: value as ProviderDraft["authMode"] }))}><SelectTrigger id="agent-provider-auth-mode"><SelectValue /></SelectTrigger><SelectContent><SelectGroup>
                 <SelectItem value="stored">安全存储 API Key</SelectItem>
                 <SelectItem value="environment">环境变量</SelectItem>
                 <SelectItem value="local">本地免认证</SelectItem>
                 <SelectItem value="radius">Radius OAuth</SelectItem>
                 <SelectItem value="preserve">保持现有来源</SelectItem>
-              </SelectContent></Select>
+              </SelectGroup></SelectContent></Select>
             </Field>
-            {draft.authMode === "environment" ? <Field label="环境变量"><Input value={draft.envName} placeholder="OPENAI_API_KEY" onChange={(event) => setDraft((current) => ({ ...current, envName: event.target.value }))} /></Field> : null}
-          </div>
+            {draft.authMode === "environment" ? <Field>
+              <FieldLabel htmlFor="agent-provider-env-name">环境变量</FieldLabel>
+              <Input id="agent-provider-env-name" value={draft.envName} placeholder="OPENAI_API_KEY" onChange={(event) => setDraft((current) => ({ ...current, envName: event.target.value }))} />
+            </Field> : null}
+          </FieldGroup>
 
           {state.custom ? <div>
-            <div className="mb-2 flex items-center"><SectionLabel>模型</SectionLabel><Button variant="ghost" size="sm" className="ml-auto" onClick={() => setDraft((current) => ({ ...current, models: [...current.models, blankProviderModel()] }))}><Plus />添加模型</Button></div>
-            <div className="grid gap-2">{draft.models.map((model, index) => <div key={index} className="grid gap-2 rounded-[var(--theme-radius-control-md)] bg-muted/35 p-3 sm:grid-cols-2">
-              <Field label="模型 ID"><Input value={model.id} placeholder="model-id" onChange={(event) => updateModel(index, { id: event.target.value })} /></Field>
-              <Field label="显示名称"><Input value={model.name} placeholder="可选" onChange={(event) => updateModel(index, { name: event.target.value })} /></Field>
-              <Field label="上下文长度"><Input type="number" min={1} value={model.contextWindow} onChange={(event) => updateModel(index, { contextWindow: Number(event.target.value) })} /></Field>
-              <Field label="最大输出"><Input type="number" min={1} value={model.maxTokens} onChange={(event) => updateModel(index, { maxTokens: Number(event.target.value) })} /></Field>
-              <Field label="模型 API 覆盖"><Select value={model.api || "inherit"} onValueChange={(value) => updateModel(index, { api: value === "inherit" ? "" : value })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="inherit">跟随 Provider</SelectItem>{MODEL_APIS.map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}</SelectContent></Select></Field>
-              <Field label="模型 Base URL"><Input value={model.baseUrl} placeholder="跟随 Provider" onChange={(event) => updateModel(index, { baseUrl: event.target.value })} /></Field>
+            <div className="mb-2 flex items-center"><SectionLabel>模型</SectionLabel><Button variant="ghost" size="sm" className="ml-auto" onClick={() => setDraft((current) => ({ ...current, models: [...current.models, blankProviderModel()] }))}><Plus data-icon="inline-start" />添加模型</Button></div>
+            <FieldGroup className="gap-2">{draft.models.map((model, index) => <FieldGroup key={index} className="grid gap-2 rounded-[var(--theme-radius-control-md)] bg-muted/35 p-3 sm:grid-cols-2">
+              <Field><FieldLabel htmlFor={`agent-provider-model-${index}-id`}>模型 ID</FieldLabel><Input id={`agent-provider-model-${index}-id`} value={model.id} placeholder="model-id" onChange={(event) => updateModel(index, { id: event.target.value })} /></Field>
+              <Field><FieldLabel htmlFor={`agent-provider-model-${index}-name`}>显示名称</FieldLabel><Input id={`agent-provider-model-${index}-name`} value={model.name} placeholder="可选" onChange={(event) => updateModel(index, { name: event.target.value })} /></Field>
+              <Field><FieldLabel htmlFor={`agent-provider-model-${index}-context`}>上下文长度</FieldLabel><Input id={`agent-provider-model-${index}-context`} type="number" min={1} value={model.contextWindow} onChange={(event) => updateModel(index, { contextWindow: Number(event.target.value) })} /></Field>
+              <Field><FieldLabel htmlFor={`agent-provider-model-${index}-max-output`}>最大输出</FieldLabel><Input id={`agent-provider-model-${index}-max-output`} type="number" min={1} value={model.maxTokens} onChange={(event) => updateModel(index, { maxTokens: Number(event.target.value) })} /></Field>
+              <Field><FieldLabel htmlFor={`agent-provider-model-${index}-api`}>模型 API 覆盖</FieldLabel><Select value={model.api || "inherit"} onValueChange={(value) => updateModel(index, { api: value === "inherit" ? "" : value })}><SelectTrigger id={`agent-provider-model-${index}-api`}><SelectValue /></SelectTrigger><SelectContent><SelectGroup><SelectItem value="inherit">跟随 Provider</SelectItem>{MODEL_APIS.map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}</SelectGroup></SelectContent></Select></Field>
+              <Field><FieldLabel htmlFor={`agent-provider-model-${index}-base-url`}>模型 Base URL</FieldLabel><Input id={`agent-provider-model-${index}-base-url`} value={model.baseUrl} placeholder="跟随 Provider" onChange={(event) => updateModel(index, { baseUrl: event.target.value })} /></Field>
               <SettingSwitch label="推理模型" checked={model.reasoning} onCheckedChange={(reasoning) => updateModel(index, { reasoning })} />
               <SettingSwitch label="支持图片" checked={model.input.includes("image")} onCheckedChange={(image) => updateModel(index, { input: image ? ["text", "image"] : ["text"] })} />
-              {draft.models.length > 1 ? <Button variant="ghost" size="sm" className="sm:col-span-2 sm:justify-self-end" onClick={() => setDraft((current) => ({ ...current, models: current.models.filter((_, modelIndex) => modelIndex !== index) }))}><Trash />移除模型</Button> : null}
-            </div>)}</div>
+              {draft.models.length > 1 ? <Button variant="ghost" size="sm" className="sm:col-span-2 sm:justify-self-end" onClick={() => setDraft((current) => ({ ...current, models: current.models.filter((_, modelIndex) => modelIndex !== index) }))}><Trash data-icon="inline-start" />移除模型</Button> : null}
+            </FieldGroup>)}</FieldGroup>
           </div> : null}
 
           <Collapsible>
             <CollapsibleTrigger asChild><Button variant="ghost" className="w-full justify-between">高级兼容性<span className="text-xs text-muted-foreground">{state.config?.headerKeys?.length ? `${state.config.headerKeys.length} 个保留 Header` : ""}</span></Button></CollapsibleTrigger>
-            <CollapsibleContent className="mt-2 grid gap-1">
+            <CollapsibleContent className="mt-2">
+              <FieldGroup className="gap-1">
               <SettingSwitch label="自动添加 Authorization Header" checked={draft.authHeader} onCheckedChange={(authHeader) => setDraft((current) => ({ ...current, authHeader }))} />
               <SettingSwitch label="支持 Developer Role" checked={draft.compat.supportsDeveloperRole} onCheckedChange={(value) => setDraft((current) => ({ ...current, compat: { ...current.compat, supportsDeveloperRole: value } }))} />
               <SettingSwitch label="支持 Reasoning Effort" checked={draft.compat.supportsReasoningEffort} onCheckedChange={(value) => setDraft((current) => ({ ...current, compat: { ...current.compat, supportsReasoningEffort: value } }))} />
-              <div className="mt-3 flex items-center"><SectionLabel>自定义 Headers</SectionLabel><Button variant="ghost" size="sm" className="ml-auto" onClick={() => setDraft((current) => ({ ...current, headers: [...current.headers, { name: "", value: "", preserve: false }] }))}><Plus />添加</Button></div>
-              {draft.headers.map((header, index) => <div key={index} className="grid grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)_auto] gap-2 px-2">
-                <Input aria-label="Header 名称" value={header.name} placeholder="X-Custom-Header" onChange={(event) => setDraft((current) => ({ ...current, headers: current.headers.map((item, itemIndex) => itemIndex === index ? { ...item, name: event.target.value } : item) }))} />
-                <Input aria-label={`${header.name || "Header"} 值`} type="password" value={header.value} placeholder={header.preserve ? "保持现有值" : "$ENV_OR_VALUE"} onChange={(event) => setDraft((current) => ({ ...current, headers: current.headers.map((item, itemIndex) => itemIndex === index ? { ...item, value: event.target.value } : item) }))} />
-                <Button variant="ghost" size="icon" aria-label={`移除 ${header.name || "Header"}`} onClick={() => setDraft((current) => ({ ...current, headers: current.headers.filter((_, itemIndex) => itemIndex !== index) }))}><Trash /></Button>
-              </div>)}
+              </FieldGroup>
+              <div className="mt-3 flex items-center"><SectionLabel>自定义 Headers</SectionLabel><Button variant="ghost" size="sm" className="ml-auto" onClick={() => setDraft((current) => ({ ...current, headers: [...current.headers, { name: "", value: "", preserve: false }] }))}><Plus data-icon="inline-start" />添加</Button></div>
+              <FieldGroup className="gap-2">{draft.headers.map((header, index) => <FieldGroup key={index} className="grid grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)_auto] gap-2 px-2">
+                <Field><FieldLabel className="sr-only" htmlFor={`agent-provider-header-${index}-name`}>Header 名称</FieldLabel><Input id={`agent-provider-header-${index}-name`} value={header.name} placeholder="X-Custom-Header" onChange={(event) => setDraft((current) => ({ ...current, headers: current.headers.map((item, itemIndex) => itemIndex === index ? { ...item, name: event.target.value } : item) }))} /></Field>
+                <Field><FieldLabel className="sr-only" htmlFor={`agent-provider-header-${index}-value`}>{header.name || "Header"} 值</FieldLabel><Input id={`agent-provider-header-${index}-value`} type="password" value={header.value} placeholder={header.preserve ? "保持现有值" : "$ENV_OR_VALUE"} onChange={(event) => setDraft((current) => ({ ...current, headers: current.headers.map((item, itemIndex) => itemIndex === index ? { ...item, value: event.target.value } : item) }))} /></Field>
+                <Button variant="ghost" size="icon" aria-label={`移除 ${header.name || "Header"}`} onClick={() => setDraft((current) => ({ ...current, headers: current.headers.filter((_, itemIndex) => itemIndex !== index) }))}><Trash data-icon="inline-start" /></Button>
+              </FieldGroup>)}</FieldGroup>
             </CollapsibleContent>
           </Collapsible>
-
-          {confirmDelete ? <Notice tone="danger" icon={<WarningTriangle />} text="只删除 models.json 中的配置；已安全存储的凭据需通过“退出”单独删除。" /> : null}
         </div>
       </ScrollArea>
       <div className="flex items-center gap-2 border-t px-5 py-3">
-        {existing ? confirmDelete
-          ? <><Button variant="destructive" disabled={saving} onClick={() => void remove()}>确认删除</Button><Button variant="ghost" onClick={() => setConfirmDelete(false)}>取消删除</Button></>
-          : <Button variant="ghost" className="text-destructive" disabled={saving} onClick={() => setConfirmDelete(true)}><Trash />删除配置</Button>
-          : null}
+        {existing ? <Button variant="ghost" className="text-destructive" disabled={saving} onClick={() => setConfirmDelete(true)}><Trash data-icon="inline-start" />删除配置</Button> : null}
         <Button variant="ghost" className="ml-auto" onClick={() => onOpenChange(false)}>取消</Button>
-        <Button disabled={saving || !draft.id.trim()} onClick={() => void save()}>{saving ? <Spinner className="size-3.5" /> : null}保存</Button>
+        <Button disabled={saving || !draft.id.trim()} onClick={() => void save()}>{saving ? <Spinner data-icon="inline-start" /> : null}保存</Button>
       </div>
-    </DialogContent>
-  </Dialog>;
-}
-
-function Field({ label, className, children }: { label: string; className?: string; children: ReactNode }) {
-  return <label className={cn("grid gap-1.5 text-xs text-muted-foreground", className)}><span>{label}</span>{children}</label>;
+      </DialogContent>
+    </Dialog>
+    <EditorConfirmDialog
+      open={confirmDelete}
+      title="删除 Provider 配置？"
+      description={<>只删除 {draft.name || draft.id || "当前 Provider"} 的 models.json 配置；安全存储的凭据需通过“退出”单独删除。</>}
+      actions={[
+        { id: "delete", label: "删除配置", tone: "danger", disabled: saving },
+        { id: "cancel", label: "取消" }
+      ]}
+      primaryActionId="delete"
+      cancelActionId="cancel"
+      onAction={(action) => {
+        setConfirmDelete(false);
+        if (action === "delete") void remove();
+      }}
+    />
+  </>;
 }
 
 function providerDraft(state: { provider?: any; config?: any; custom: boolean } | null): ProviderDraft {
@@ -390,6 +423,10 @@ function providerDraft(state: { provider?: any; config?: any; custom: boolean } 
   };
 }
 
+function providerDisplayName(providers: any[], providerId: unknown) {
+  return String(providers.find((provider) => provider.id === providerId)?.name || "服务商");
+}
+
 function blankProviderModel(): ProviderModelDraft {
   return { id: "", name: "", reasoning: false, input: ["text"], contextWindow: 128000, maxTokens: 32000, api: "", baseUrl: "" };
 }
@@ -399,7 +436,7 @@ function ToolsPage({ controller, overview }: ControlProps) {
   const active = new Set<string>(overview.tools?.active || []);
   const core = all.filter((tool: any) => toolName(tool).startsWith("mmm_"));
   const project = all.filter((tool: any) => !toolName(tool).startsWith("mmm_"));
-  return <Section title="工具与命令">
+  return <Section>
     <SectionLabel>编辑器上下文</SectionLabel>
     <div className="grid gap-0.5">{core.map((tool: any) => <ToolItem key={toolName(tool)} tool={tool} checked locked controller={controller} active={active} scratch={false} />)}</div>
     <Separator className="my-5" />
@@ -407,7 +444,7 @@ function ToolsPage({ controller, overview }: ControlProps) {
     {project.length ? <div className="grid gap-0.5">{project.map((tool: any) => <ToolItem key={toolName(tool)} tool={tool} checked={active.has(toolName(tool))} controller={controller} active={active} scratch={Boolean(overview.scratch)} />)}</div> : <InlineEmpty text="没有项目工具" />}
     <Separator className="my-5" />
     <SectionLabel>命令</SectionLabel>
-    {(overview.commands || []).length ? <div className="grid gap-0.5">{(overview.commands || []).map((command: any) => <Item key={`${command.source}:${command.name}`}><ItemContent><ItemTitle className="font-mono">/{command.name}</ItemTitle><ItemDescription>{command.description || command.source}</ItemDescription></ItemContent></Item>)}</div> : <InlineEmpty text="没有可用命令" />}
+    {(overview.commands || []).length ? <div className="grid gap-0.5">{(overview.commands || []).map((command: any) => <Item key={`${command.source}:${command.name}`}><ItemContent><ItemTitle className="font-mono">/{command.name}</ItemTitle>{command.description ? <ItemDescription>{command.description}</ItemDescription> : null}</ItemContent></Item>)}</div> : <InlineEmpty text="没有可用命令" />}
   </Section>;
 }
 
@@ -416,7 +453,7 @@ function ToolItem({ tool, checked, locked = false, controller, active, scratch }
   const disabled = locked || scratch;
   return <Item className={disabled ? "opacity-70" : "hover:bg-muted/45"}>
     <ItemMedia><Tools /></ItemMedia>
-    <ItemContent><ItemTitle>{humanToolLabel(name, tool)}</ItemTitle><ItemDescription>{locked ? "始终启用" : scratch ? "打开项目后可用" : name}</ItemDescription></ItemContent>
+    <ItemContent><ItemTitle>{humanToolLabel(name, tool)}</ItemTitle>{locked || scratch ? <ItemDescription>{locked ? "始终启用" : "打开项目后可用"}</ItemDescription> : null}</ItemContent>
     <Switch aria-label={`切换 ${name}`} checked={checked} disabled={disabled} onCheckedChange={(nextChecked) => {
       const next = new Set(active);
       if (nextChecked) next.add(name); else next.delete(name);
@@ -429,7 +466,7 @@ function ResourcesPage({ controller, overview }: ControlProps) {
   const resources = overview.resources || {};
   const [source, setSource] = useState("");
   const packages = overview.packages || [];
-  return <Section title="资源与包" action={<Button variant="ghost" size="icon" aria-label="重新载入资源" onClick={() => void controller.runControl({ type: "reload" })}><Refresh /></Button>}>
+  return <Section action={<Button variant="ghost" size="icon" aria-label="重新载入资源" onClick={() => void controller.runControl({ type: "reload" })}><Refresh data-icon="inline-start" /></Button>}>
     <ResourceGroup title="Skills" items={(resources.skills?.skills || []).map((item: any) => item.name || item.path)} />
     <ResourceGroup title="Extensions" items={(resources.extensions || []).filter((item: any) => !item.hidden).map((item: any) => item.path)} />
     <ResourceGroup title="Prompts" items={(resources.prompts?.prompts || []).map((item: any) => item.name || item.path)} />
@@ -437,9 +474,15 @@ function ResourcesPage({ controller, overview }: ControlProps) {
     <SectionLabel>Packages</SectionLabel>
     {packages.length ? <div className="grid gap-0.5">{packages.map((item: any, index: number) => {
       const packageSource = typeof item === "string" ? item : item.source || item.path || `package-${index}`;
-      return <Item key={`${packageSource}-${index}`}><ItemMedia><Package /></ItemMedia><ItemContent><ItemTitle>{packageSource}</ItemTitle></ItemContent><ItemActions><Button variant="ghost" size="icon" aria-label={`更新 ${packageSource}`} onClick={() => void controller.runControl({ type: "package_update", source: packageSource })}><Refresh /></Button><Button variant="ghost" size="icon" aria-label={`移除 ${packageSource}`} onClick={() => void controller.runControl({ type: "package_remove", source: packageSource })}><Trash /></Button></ItemActions></Item>;
+      return <Item key={`${packageSource}-${index}`}><ItemMedia><Package /></ItemMedia><ItemContent><ItemTitle>{packageSource}</ItemTitle></ItemContent><ItemActions><Button variant="ghost" size="icon" aria-label={`更新 ${packageSource}`} onClick={() => void controller.runControl({ type: "package_update", source: packageSource })}><Refresh data-icon="inline-start" /></Button><Button variant="ghost" size="icon" aria-label={`移除 ${packageSource}`} onClick={() => void controller.runControl({ type: "package_remove", source: packageSource })}><Trash data-icon="inline-start" /></Button></ItemActions></Item>;
     })}</div> : <InlineEmpty text="没有安装包" />}
-    <div className="mt-4 flex gap-2"><Input value={source} onChange={(event) => setSource(event.target.value)} placeholder="npm 包、Git URL 或本地路径" /><Button disabled={!source.trim()} onClick={() => void controller.runControl({ type: "package_install", source }).then(() => setSource("")).catch((error) => controller.setError(readableError(error)))}><Download />安装</Button></div>
+    <Field className="mt-4">
+      <FieldLabel className="sr-only" htmlFor="agent-package-source">安装包来源</FieldLabel>
+      <InputGroup>
+        <InputGroupInput id="agent-package-source" value={source} onChange={(event) => setSource(event.target.value)} placeholder="npm 包、Git URL 或本地路径" />
+        <InputGroupAddon align="inline-end"><InputGroupButton disabled={!source.trim()} onClick={() => void controller.runControl({ type: "package_install", source }).then(() => setSource("")).catch((error) => controller.setError(readableError(error)))}><Download data-icon="inline-start" />安装</InputGroupButton></InputGroupAddon>
+      </InputGroup>
+    </Field>
   </Section>;
 }
 
@@ -460,31 +503,37 @@ function PiSettingsPage({ controller, overview }: ControlProps) {
     setText(JSON.stringify(next, null, 2));
   }
 
-  return <Section title="设置">
-    <div className="mb-4 flex gap-1"><Button size="sm" variant={scope === "global" ? "secondary" : "ghost"} onClick={() => setScope("global")}>全局</Button><Button size="sm" variant={scope === "project" ? "secondary" : "ghost"} onClick={() => setScope("project")}>项目</Button></div>
-    <SettingSwitch label="隐藏思考过程" checked={Boolean(parsed.value?.hideThinkingBlock)} onCheckedChange={(value) => updateSetting("hideThinkingBlock", value)} />
-    <SettingSwitch label="启用 Skill 命令" checked={parsed.value?.enableSkillCommands !== false} onCheckedChange={(value) => updateSetting("enableSkillCommands", value)} />
-    <SettingSelect label="运行中消息" value={String(parsed.value?.steeringMode || "one-at-a-time")} values={["one-at-a-time", "all"]} onValueChange={(value) => updateSetting("steeringMode", value)} />
-    <SettingSelect label="后续消息" value={String(parsed.value?.followUpMode || "one-at-a-time")} values={["one-at-a-time", "all"]} onValueChange={(value) => updateSetting("followUpMode", value)} />
-    {scope === "global" ? <SettingSelect label="默认项目信任" value={String(parsed.value?.defaultProjectTrust || "ask")} values={["ask", "always", "never"]} onValueChange={(value) => updateSetting("defaultProjectTrust", value)} /> : null}
+  return <Section>
+    <ToggleGroup type="single" value={scope} variant="outline" size="sm" className="mb-4 w-fit" onValueChange={(value) => { if (value === "global" || value === "project") setScope(value); }} aria-label="设置范围">
+      <ToggleGroupItem value="global">全局</ToggleGroupItem>
+      <ToggleGroupItem value="project">项目</ToggleGroupItem>
+    </ToggleGroup>
+    <FieldGroup className="gap-1">
+      <SettingSwitch label="隐藏思考过程" checked={Boolean(parsed.value?.hideThinkingBlock)} onCheckedChange={(value) => updateSetting("hideThinkingBlock", value)} />
+      <SettingSwitch label="启用 Skill 命令" checked={parsed.value?.enableSkillCommands !== false} onCheckedChange={(value) => updateSetting("enableSkillCommands", value)} />
+      <SettingSelect label="运行中消息" value={String(parsed.value?.steeringMode || "one-at-a-time")} values={["one-at-a-time", "all"]} onValueChange={(value) => updateSetting("steeringMode", value)} />
+      <SettingSelect label="后续消息" value={String(parsed.value?.followUpMode || "one-at-a-time")} values={["one-at-a-time", "all"]} onValueChange={(value) => updateSetting("followUpMode", value)} />
+      {scope === "global" ? <SettingSelect label="默认项目信任" value={String(parsed.value?.defaultProjectTrust || "ask")} values={["ask", "always", "never"]} onValueChange={(value) => updateSetting("defaultProjectTrust", value)} /> : null}
+    </FieldGroup>
     <Separator className="my-5" />
-    <Collapsible><CollapsibleTrigger asChild><Button variant="ghost" className="w-full justify-between">高级 JSON<span className="text-xs text-muted-foreground">{parsed.error ? "格式错误" : ""}</span></Button></CollapsibleTrigger><CollapsibleContent className="mt-2"><Textarea value={text} onChange={(event) => setText(event.target.value)} spellCheck={false} className="min-h-72 font-mono text-xs" /></CollapsibleContent></Collapsible>
-    {parsed.error ? <p className="mt-2 text-xs text-destructive">{parsed.error}</p> : null}
+    <Collapsible><CollapsibleTrigger asChild><Button variant="ghost" className="w-full justify-between">高级 JSON<span className="text-xs text-muted-foreground">{parsed.error ? "格式错误" : ""}</span></Button></CollapsibleTrigger><CollapsibleContent className="mt-2"><Field data-invalid={Boolean(parsed.error)}><FieldLabel className="sr-only" htmlFor="agent-settings-json">高级 JSON</FieldLabel><Textarea id="agent-settings-json" value={text} onChange={(event) => setText(event.target.value)} spellCheck={false} className="min-h-72 font-mono text-xs" aria-invalid={Boolean(parsed.error)} />{parsed.error ? <FieldError>{parsed.error}</FieldError> : null}</Field></CollapsibleContent></Collapsible>
     <div className="mt-4 flex justify-end"><Button disabled={!parsed.value} onClick={() => void controller.runControl({ type: "replace_settings", scope, value: parsed.value, expectedRevision: overview.settings?.revisions?.[scope] }).catch((error) => controller.setError(readableError(error)))}>保存</Button></div>
   </Section>;
 }
 
 function SettingSwitch({ label, checked, onCheckedChange }: { label: string; checked: boolean; onCheckedChange: (checked: boolean) => void }) {
-  return <Item><ItemContent><ItemTitle>{label}</ItemTitle></ItemContent><Switch aria-label={label} checked={checked} onCheckedChange={onCheckedChange} /></Item>;
+  const id = useId();
+  return <Field orientation="horizontal"><FieldLabel htmlFor={id}>{label}</FieldLabel><Switch id={id} checked={checked} onCheckedChange={onCheckedChange} /></Field>;
 }
 
 function SettingSelect({ label, value, values, onValueChange }: { label: string; value: string; values: string[]; onValueChange: (value: string) => void }) {
-  return <Item><ItemContent><ItemTitle>{label}</ItemTitle></ItemContent><Select value={value} onValueChange={onValueChange}><SelectTrigger className="w-40"><SelectValue /></SelectTrigger><SelectContent>{values.map((item) => <SelectItem key={item} value={item}>{settingValueLabel(item)}</SelectItem>)}</SelectContent></Select></Item>;
+  const id = useId();
+  return <Field orientation="horizontal"><FieldLabel htmlFor={id}>{label}</FieldLabel><Select value={value} onValueChange={onValueChange}><SelectTrigger id={id} className="w-40"><SelectValue /></SelectTrigger><SelectContent><SelectGroup>{values.map((item) => <SelectItem key={item} value={item}>{settingValueLabel(item)}</SelectItem>)}</SelectGroup></SelectContent></Select></Field>;
 }
 
 function TrustPage({ controller, overview }: ControlProps) {
   const trust = overview.trust || {};
-  return <Section title="信任与诊断">
+  return <Section>
     <Item><ItemMedia><Key /></ItemMedia><ItemContent><ItemTitle>项目资源</ItemTitle><ItemDescription>{overview.scratch ? "临时画布不加载项目资源" : trust.trusted ? "已信任 .pi 资源" : "未信任项目资源"}</ItemDescription></ItemContent><Switch aria-label="信任项目资源" disabled={Boolean(overview.scratch)} checked={Boolean(trust.trusted)} onCheckedChange={(trusted) => void controller.runControl({ type: "trust_set", trusted }).catch((error) => controller.setError(readableError(error)))} /></Item>
     <Separator className="my-5" />
     <SectionLabel>诊断</SectionLabel>
@@ -492,8 +541,8 @@ function TrustPage({ controller, overview }: ControlProps) {
   </Section>;
 }
 
-function Section({ title, action, children }: { title: string; action?: ReactNode; children: ReactNode }) {
-  return <section><div className="mb-5 flex items-center gap-3"><h2 className="text-base font-semibold">{title}</h2><div className="ml-auto">{action}</div></div>{children}</section>;
+function Section({ action, children }: { action?: ReactNode; children: ReactNode }) {
+  return <section>{action ? <div className="mb-4 flex justify-end">{action}</div> : null}{children}</section>;
 }
 
 function SectionLabel({ children }: { children: ReactNode }) {
@@ -501,11 +550,11 @@ function SectionLabel({ children }: { children: ReactNode }) {
 }
 
 function InlineEmpty({ text }: { text: string }) {
-  return <div className="px-3 py-4 text-center text-xs text-muted-foreground">{text}</div>;
+  return <Empty className="min-h-0 flex-none px-3 py-4"><EmptyHeader><EmptyTitle>{text}</EmptyTitle></EmptyHeader></Empty>;
 }
 
 function Notice({ tone, icon, text }: { tone: "neutral" | "danger"; icon: ReactNode; text: string }) {
-  return <div className={cn("flex items-start gap-2 rounded-[var(--agent-message-notice-radius)] border-[length:var(--agent-message-notice-border-width)] border-[hsl(var(--agent-message-notice-border-color))] [border-style:var(--agent-message-notice-border-style)] bg-[hsl(var(--agent-message-notice-background))] px-[var(--agent-message-notice-padding-x)] py-[var(--agent-message-notice-padding-y)] text-sm", tone === "danger" ? "text-destructive" : "text-[hsl(var(--agent-message-notice-foreground))]")}>{icon}<span>{text}</span></div>;
+  return <Alert variant={tone === "danger" ? "destructive" : "default"} className={cn("rounded-[var(--agent-message-notice-radius)] border-[length:var(--agent-message-notice-border-width)] border-[hsl(var(--agent-message-notice-border-color))] [border-style:var(--agent-message-notice-border-style)] bg-[hsl(var(--agent-message-notice-background))] px-[var(--agent-message-notice-padding-x)] py-[var(--agent-message-notice-padding-y)]", tone === "danger" ? "text-destructive" : "text-[hsl(var(--agent-message-notice-foreground))]")}>{icon}<AlertDescription>{text}</AlertDescription></Alert>;
 }
 
 function toolName(tool: any) {

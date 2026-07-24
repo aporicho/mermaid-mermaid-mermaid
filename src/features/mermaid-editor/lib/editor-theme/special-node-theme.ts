@@ -70,7 +70,7 @@ export function createDefaultSpecialNodeTheme(source: SpecialNodeThemeSource): S
       },
       previewContent: {
         layout: {
-          indentationEnabled: true,
+          listIndentationEnabled: true,
           titleBottomGap: 18,
           sectionTopGap: 16,
           headingBottomGap: 6,
@@ -299,6 +299,7 @@ function migrateLegacySpecialNodeTheme(raw: unknown, fallback: SpecialNodeThemeT
   const markdownPreviewTypography = objectValue(markdownDocument.previewTypography);
   const markdownPreviewSpacing = objectValue(markdownDocument.previewSpacing);
   const markdownPreviewContent = objectValue(markdownDocument.previewContent);
+  const markdownPreviewLayout = objectValue(markdownPreviewContent.layout);
   const htmlDocument = objectValue(source.htmlDocument);
   const image = objectValue(source.image);
   const table = objectValue(source.table);
@@ -335,7 +336,13 @@ function migrateLegacySpecialNodeTheme(raw: unknown, fallback: SpecialNodeThemeT
       },
       previewContent: mergeObjects(
         legacyPreviewContent(markdownPreviewTypography, markdownPreviewSpacing, fallback.markdownDocument.previewContent),
-        markdownPreviewContent
+        {
+          ...markdownPreviewContent,
+          layout: {
+            ...markdownPreviewLayout,
+            listIndentationEnabled: markdownPreviewLayout.listIndentationEnabled ?? markdownPreviewLayout.indentationEnabled
+          }
+        }
       ),
       contentPaddingTop: markdownDocument.contentPaddingTop ?? markdownDocument.contentPadding,
       contentPaddingRight: markdownDocument.contentPaddingRight ?? markdownDocument.contentPadding,
@@ -395,7 +402,7 @@ function legacyPreviewContent(
   const contentText = scaledText(fallback.paragraph, contentFontSize);
   return {
     layout: {
-      indentationEnabled: spacing.indentationEnabled,
+      listIndentationEnabled: spacing.indentationEnabled,
       titleBottomGap: spacing.titleBottomGap,
       sectionTopGap: spacing.sectionTopGap,
       headingBottomGap: spacing.headingBottomGap,

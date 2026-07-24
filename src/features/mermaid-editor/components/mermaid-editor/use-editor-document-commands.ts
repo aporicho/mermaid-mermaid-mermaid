@@ -2,13 +2,6 @@ import { useCallback, type Dispatch, type SetStateAction } from "react";
 
 import { applyDagreAutoLayout } from "@/features/mermaid-editor/lib/canvas-auto-layout";
 import { parseCanvasLayout } from "@/features/mermaid-editor/lib/canvas-layout";
-import {
-  createBlankCanvasDocument,
-  normalizeCanvasDocument,
-  parseCanvasDocument,
-  serializeCanvasDocument,
-  type CanvasDocument
-} from "@/features/mermaid-editor/lib/canvas-document";
 import { documentKindLabel, type DocumentKind } from "@/features/mermaid-editor/lib/document-kind";
 import { copySelection, emptySelection } from "@/features/mermaid-editor/lib/editor-actions";
 import { normalizeMermaidError, type EditorDiagnostic } from "@/features/mermaid-editor/lib/editor-diagnostics";
@@ -58,7 +51,6 @@ type UseEditorDocumentCommandsArgs = {
   sourceEditTimerRef: { current: number | null };
   setDocumentKind: StateSetter<DocumentKind>;
   setSource: StateSetter<string>;
-  setCanvasDocument: StateSetter<CanvasDocument>;
   setGraph: StateSetter<MermaidGraph>;
   setDiagramType: StateSetter<DiagramType>;
   setEditableKind: StateSetter<EditableKind>;
@@ -93,7 +85,6 @@ export function useEditorDocumentCommands({
   sourceEditTimerRef,
   setDocumentKind,
   setSource,
-  setCanvasDocument,
   setGraph,
   setDiagramType,
   setEditableKind,
@@ -274,27 +265,9 @@ export function useEditorDocumentCommands({
   );
 
   function restoreSnapshot(next: EditorSnapshot) {
-    if (next.documentKind === "canvas") {
-      const document = parseCanvasDocument(next.source);
-      setDocumentKind("canvas");
-      setSource(serializeCanvasDocument(document));
-      setCanvasDocument(document);
-      setGraph(createEmptyDocumentGraph());
-      setDiagramType("unknown");
-      setEditableKind("render-only");
-      setDiagnostics([]);
-      setSelection(emptySelection);
-      setViewport(document.viewport);
-      setEdgeRouting(next.edgeRouting);
-      setLayoutMode(next.layoutMode);
-      setWorkspaceView(workspaceViewForDocument("render-only", workspaceView, "canvas"));
-      return;
-    }
-
     if (next.documentKind === "markdown") {
       setDocumentKind("markdown");
       setSource(next.source);
-      setCanvasDocument(createBlankCanvasDocument());
       setGraph(createEmptyDocumentGraph());
       setDiagramType("unknown");
       setEditableKind("render-only");
@@ -310,7 +283,6 @@ export function useEditorDocumentCommands({
     const loaded = loadMermaidDocument(next.source, next.graph);
     setDocumentKind("mermaid");
     setSource(next.source);
-    setCanvasDocument(createBlankCanvasDocument());
     setGraph(next.graph);
     setDiagramType(loaded.diagramType);
     setEditableKind(loaded.editableKind);
@@ -414,7 +386,6 @@ export function useEditorDocumentCommands({
     const startedSourceEdit = !sourceEditBaseRef.current;
     if (!sourceEditBaseRef.current) sourceEditBaseRef.current = snapshot();
     setSource(nextSource);
-    setCanvasDocument(createBlankCanvasDocument());
     setGraph(createEmptyDocumentGraph());
     setDiagramType("unknown");
     setEditableKind("render-only");
@@ -426,24 +397,6 @@ export function useEditorDocumentCommands({
     sourceEditTimerRef.current = window.setTimeout(() => {
       flushSourceHistory();
     }, 700);
-  }
-
-  function applyCanvasDocument(nextDocument: CanvasDocument, message?: string) {
-    flushSourceHistory();
-    setHistory((current) => pushHistory(current, snapshot()));
-    const normalized = normalizeCanvasDocument(nextDocument);
-    setCanvasDocument(normalized);
-    setSource(serializeCanvasDocument(normalized));
-    setViewport(normalized.viewport);
-    setGraph(createEmptyDocumentGraph());
-    setDiagramType("unknown");
-    setEditableKind("render-only");
-    setSelection(emptySelection);
-    setDiagnostics([]);
-    if (message) {
-      setStatus(message);
-      recordRecentAction("canvas.edit", { kind: "canvas" }, message);
-    }
   }
 
   async function syncCanvasFromAutoLayout() {
@@ -493,7 +446,6 @@ export function useEditorDocumentCommands({
     applyEditorCommand,
     applySource,
     applyMarkdownSource,
-    applyCanvasDocument,
     flushSourceHistory,
     snapshot
   };

@@ -1,7 +1,9 @@
-import type { ReactNode } from "react";
+import { useId, type ReactNode } from "react";
 import { Eye, EyeClosed, Text } from "iconoir-react/regular";
 
-import { EditorMenuItem } from "@/features/mermaid-editor/components/editor-ui";
+import { ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Field, FieldLabel } from "@/components/ui/field";
+import { Switch } from "@/components/ui/switch";
 import type { EdgeRouting, EdgeStyle, FlowchartArrowType, GraphDirection, LayoutMode } from "@/features/mermaid-editor/lib/editor-types";
 import { cn } from "@/lib/utils";
 
@@ -35,32 +37,35 @@ export const arrowTypeFilterLabels: Record<FlowchartArrowType, string> = {
 
 export function FilterToggle({ active, label, icon, compact = false, onClick }: { active: boolean; label: string; icon?: ReactNode; compact?: boolean; onClick: () => void }) {
   return (
-    <EditorMenuItem
-      data-floating-action-item
-      type="button"
-      className={cn(compact && "type-interface-status", !active && "text-muted-foreground")}
-      icon={<><span className={cn("flex size-4 shrink-0 items-center justify-center", active ? "text-icon" : "text-muted-foreground")}>{active ? <Eye /> : <EyeClosed />}</span>{icon}</>}
-      label={label}
-      aria-pressed={active}
+    <ToggleGroupItem
+      value={label}
+      className={cn("w-full justify-start px-2", compact && "type-interface-status", !active && "text-muted-foreground")}
       onClick={onClick}
-    />
+    >
+      <span className={cn("flex size-4 shrink-0 items-center justify-center", active ? "text-icon" : "text-muted-foreground")}>{active ? <Eye data-icon /> : <EyeClosed data-icon />}</span>
+      {icon}
+      <span className="truncate">{label}</span>
+    </ToggleGroupItem>
   );
 }
 
 export function LabelIcon() {
-  return <Text className="size-4" />;
+  return <Text data-icon />;
 }
 
 export function PreferenceToggle({ active, label, icon, onClick }: { active: boolean; label: string; icon: ReactNode; onClick: () => void }) {
+  const id = useId();
   return (
-    <EditorMenuItem
+    <Field
       data-floating-action-item
-      type="button"
-      className={cn(!active && "text-muted-foreground")}
-      icon={<><span className={cn("flex size-4 shrink-0 items-center justify-center", active ? "text-icon" : "text-muted-foreground")}>{active ? <Eye /> : <EyeClosed />}</span>{icon}</>}
-      label={label}
-      aria-pressed={active}
-      onClick={onClick}
-    />
+      orientation="horizontal"
+      className={cn("min-h-[var(--ui-control-height-sm)] px-2", !active && "text-muted-foreground")}
+    >
+      <FieldLabel htmlFor={id} className="min-w-0 flex-1 cursor-pointer">
+        {icon}
+        <span className="truncate">{label}</span>
+      </FieldLabel>
+      <Switch id={id} checked={active} onCheckedChange={onClick} />
+    </Field>
   );
 }

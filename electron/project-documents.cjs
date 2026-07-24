@@ -6,7 +6,6 @@ const MAX_PROJECT_FILE_BYTES = 16 * 1_048_576;
 const PROJECT_FILE_EXTENSIONS = {
   mermaid: [".mmd", ".mermaid"],
   markdown: [".md", ".markdown"],
-  canvas: [".canvas.json"],
   csv: [".csv"],
   html: [".html", ".htm"]
 };
@@ -184,7 +183,7 @@ async function assertNoSymbolicLinkComponents(root, candidate) {
 function normalizeProjectFileKind(kind) {
   const value = String(kind || "");
   if (!Object.hasOwn(PROJECT_FILE_EXTENSIONS, value)) {
-    throw projectFileError("unsupported_type", "Project file kind must be mermaid, markdown, canvas, csv, or html.");
+    throw projectFileError("unsupported_type", "Project file kind must be mermaid, markdown, csv, or html.");
   }
   return value;
 }

@@ -70,16 +70,6 @@ export function createDefaultEditorTypography(): EditorTypographyTokens {
       groupTitle: sans(14, 600, 20),
       note: sans(14, 400, 20)
     },
-    canvasDocument: {
-      shape: sans(14, 400, 18),
-      shapeEditor: sans(14, 400, 18),
-      card: sans(16, 400, 21),
-      cardEditor: sans(16, 400, 21),
-      freeText: sans(18, 400, 23),
-      freeTextEditor: sans(18, 400, 23),
-      connector: sans(12, 400, 15),
-      connectorEditor: sans(12, 400, 15)
-    },
     source: {
       editor: mono(13, 400, 30),
       diagnosticSummary: mono(12, 400, 20),

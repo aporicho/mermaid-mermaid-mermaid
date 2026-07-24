@@ -26,7 +26,6 @@ describe("project file actions", () => {
     expect(initialProjectFileText("mermaid")).toBe("flowchart LR\n");
     expect(initialProjectFileText("markdown")).toContain("# 未命名文档");
     expect(initialProjectFileText("markdown", "design-notes.md")).toBe("# design-notes\n\n");
-    expect(JSON.parse(initialProjectFileText("canvas"))).toMatchObject({ schema: "mmm.canvas", version: 1 });
     expect(initialProjectFileText("csv")).toBe("");
     expect(initialProjectFileText("html", "index.html")).toContain("<title>index</title>");
   });

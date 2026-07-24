@@ -3,8 +3,8 @@ import { OpenNewWindow } from "iconoir-react/regular";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { EditorDialog, EditorField, EditorFieldError } from "@/features/mermaid-editor/components/editor-ui";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { EditorDialog, EditorField } from "@/features/mermaid-editor/components/editor-ui";
 import type { CanvasNode, CanvasNodeAction } from "@/features/mermaid-editor/lib/editor-types";
 import {
   inferNodeActionKindFromTarget,
@@ -86,41 +86,49 @@ export function NodeActionEditorDialog({
         <div className="flex w-full flex-wrap justify-between gap-2">
           <Button variant="ghost" size="sm" onClick={() => onSave(node.id, undefined)}>清除</Button>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={testOpen} disabled={!normalizedAction}><OpenNewWindow />测试</Button>
+            <Button variant="outline" size="sm" onClick={testOpen} disabled={!normalizedAction}><OpenNewWindow data-icon="inline-start" />测试</Button>
             <Button size="sm" onClick={saveDraft} disabled={!normalizedAction}>保存</Button>
           </div>
         </div>
       }
     >
       <div className="grid gap-4">
-        <EditorField label="类型">
+        <EditorField label="类型" htmlFor="node-action-editor-kind">
           <Select value={draft.kind} onValueChange={(value) => updateKind(value as CanvasNodeAction["kind"])}>
-            <SelectTrigger>
+            <SelectTrigger id="node-action-editor-kind">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="url">网页链接</SelectItem>
-              <SelectItem value="file">文件链接</SelectItem>
+              <SelectGroup>
+                <SelectItem value="url">网页链接</SelectItem>
+                <SelectItem value="file">文件链接</SelectItem>
+              </SelectGroup>
             </SelectContent>
           </Select>
         </EditorField>
 
-        <EditorField label={draft.kind === "url" ? "网页 URL" : "文件路径"} htmlFor="node-action-editor-target">
+        <EditorField
+          label={draft.kind === "url" ? "网页 URL" : "文件路径"}
+          htmlFor="node-action-editor-target"
+          errorId="node-action-editor-target-error"
+          error={targetInvalid ? (draft.kind === "url" ? "网页链接需要以 http:// 或 https:// 开头。" : "请输入可解析的文件路径。") : undefined}
+        >
           <Input
             id="node-action-editor-target"
             value={draft.target}
             placeholder={draft.kind === "url" ? "https://example.com" : "./docs/spec.md"}
             autoFocus
+            aria-invalid={targetInvalid || undefined}
+            aria-describedby={targetInvalid ? "node-action-editor-target-error" : undefined}
             onChange={(event) => updateTarget(event.target.value)}
             onKeyDown={(event) => {
               if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) saveDraft();
             }}
           />
-          {targetInvalid ? <EditorFieldError>{draft.kind === "url" ? "网页链接需要以 http:// 或 https:// 开头。" : "请输入可解析的文件路径。"}</EditorFieldError> : null}
         </EditorField>
 
         {draft.kind === "file" && projectFiles.length ? (
-          <EditorField label="项目文件">
+          <EditorField label="项目文件" htmlFor="node-action-editor-project-file">
             <Select
               value={projectFileSelectValue}
               onValueChange={(path) => {
@@ -128,32 +136,36 @@ export function NodeActionEditorDialog({
                 if (file) updateTarget(file.relativePath || file.path);
               }}
             >
-              <SelectTrigger>
+              <SelectTrigger id="node-action-editor-project-file">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent className="max-h-[280px]">
-                <SelectItem value="__pick_project_file__" disabled>
-                  选择项目文件
-                </SelectItem>
-                {projectFiles.map((file) => (
-                  <SelectItem key={file.path} value={file.path}>
-                    {file.relativePath || file.name}
+                <SelectGroup>
+                  <SelectItem value="__pick_project_file__" disabled>
+                    选择项目文件
                   </SelectItem>
-                ))}
+                  {projectFiles.map((file) => (
+                    <SelectItem key={file.path} value={file.path}>
+                      {file.relativePath || file.name}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
               </SelectContent>
             </Select>
           </EditorField>
         ) : null}
 
         {draft.kind === "url" ? (
-          <EditorField label="打开方式">
+          <EditorField label="打开方式" htmlFor="node-action-editor-open-mode">
             <Select value={draft.openMode} onValueChange={(value) => setDraft((current) => ({ ...current, openMode: value as NodeActionEditorDraft["openMode"] }))}>
-              <SelectTrigger>
+              <SelectTrigger id="node-action-editor-open-mode">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="app-browser">应用内浏览器</SelectItem>
-                <SelectItem value="system">系统浏览器</SelectItem>
+                <SelectGroup>
+                  <SelectItem value="app-browser">应用内浏览器</SelectItem>
+                  <SelectItem value="system">系统浏览器</SelectItem>
+                </SelectGroup>
               </SelectContent>
             </Select>
           </EditorField>

@@ -1,5 +1,7 @@
-import type { ComponentProps } from "react";
+import { useEffect, type ComponentProps } from "react";
+import { toast } from "sonner";
 
+import { Toaster } from "@/components/ui/sonner";
 import {
   FileDropFeedbackBadge,
   FileConflictPrompt,
@@ -12,12 +14,10 @@ import { NodeActionEditorDialog } from "@/features/mermaid-editor/components/nod
 import { MarkdownDocumentDialog } from "@/features/mermaid-editor/components/markdown-document-dialog";
 import { CsvTableDialog } from "@/features/mermaid-editor/components/csv-table-dialog";
 import { HtmlDocumentDialog } from "@/features/mermaid-editor/components/html-document-dialog";
-import { EditorStatusBadge } from "@/features/mermaid-editor/components/editor-ui";
 import type { UnsavedPromptChoice } from "@/features/mermaid-editor/lib/desktop-close-workflow";
 import type { CanvasNode, CanvasNodeAction } from "@/features/mermaid-editor/lib/editor-types";
 import type { FileWorkflowError } from "@/features/mermaid-editor/lib/file-workflow";
 import type { ProjectFileEntry } from "@/features/mermaid-editor/lib/project-workspace";
-import { OVERLAY_Z_INDEX } from "@/lib/overlay-layers";
 
 type EditorOverlaysProps = {
   fileDropFeedback: FileDropFeedback | null;
@@ -58,6 +58,11 @@ export function EditorOverlays({
   onSaveCanvasNodeAction,
   onExecuteNodeActionDraft
 }: EditorOverlaysProps) {
+  useEffect(() => {
+    if (!statusMessages || !status) return;
+    toast(status, { id: "editor-status", duration: 2400 });
+  }, [status, statusMessages]);
+
   return (
     <>
       {fileDropFeedback ? <FileDropFeedbackBadge feedback={fileDropFeedback} /> : null}
@@ -76,16 +81,7 @@ export function EditorOverlays({
       {markdownDocumentDialog ? <MarkdownDocumentDialog {...markdownDocumentDialog} /> : null}
       {htmlDocumentDialog ? <HtmlDocumentDialog {...htmlDocumentDialog} /> : null}
       {csvTableDialog ? <CsvTableDialog {...csvTableDialog} /> : null}
-      {statusMessages && status ? (
-        <EditorStatusBadge
-          className="editor-ui-surface pointer-events-none fixed bottom-3 left-1/2 -translate-x-1/2 px-3 py-2 text-muted-foreground"
-          style={{ zIndex: OVERLAY_Z_INDEX.statusToast }}
-          data-overlay-layer="status"
-          data-overlay-scope-id="application"
-        >
-          {status}
-        </EditorStatusBadge>
-      ) : null}
+      <Toaster position="bottom-center" visibleToasts={1} />
     </>
   );
 }

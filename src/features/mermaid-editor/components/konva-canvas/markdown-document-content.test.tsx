@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("react-konva", () => ({ Group: () => null, Line: () => null, Rect: () => null, Text: () => null }));
 
 import { layoutMarkdownDocumentContent } from "@/features/mermaid-editor/components/konva-canvas/markdown-document-content";
-import { DEFAULT_EDITOR_THEME } from "@/features/mermaid-editor/lib/editor-theme";
+import { DEFAULT_EDITOR_THEME, resolveEditorTheme } from "@/features/mermaid-editor/lib/editor-theme";
 
 describe("native Markdown document content layout", () => {
   it("uses the opened document heading, body, strong, and list theme tokens", () => {
@@ -73,17 +73,17 @@ describe("native Markdown document content layout", () => {
     expect(body?.y).toBe((section?.y || 0) + (section?.lineHeight || 0) + content.layout.headingBottomGap);
   });
 
-  it("bolds only top-level ordered items and can disable all content indentation", () => {
+  it("flattens list hierarchy without removing quote component padding", () => {
     const preview = DEFAULT_EDITOR_THEME.specialNode.markdownDocument;
     const content = preview.previewContent;
     const source = "1. top ordered\n  1. nested ordered\n- top bullet\n  - nested bullet\n\n> quote";
     const measure = (text: string, style: { fontSize: number }) => Array.from(text).length * style.fontSize * 0.5;
-    const layout = (indentationEnabled: boolean) => layoutMarkdownDocumentContent({
+    const layout = (listIndentationEnabled: boolean) => layoutMarkdownDocumentContent({
       source,
       fallbackTitle: "",
       width: 720,
       height: 1200,
-      content: { ...content, layout: { ...content.layout, indentationEnabled } },
+      content: { ...content, layout: { ...content.layout, listIndentationEnabled } },
       measure
     }).filter((item) => item.kind === "text");
 
@@ -111,17 +111,17 @@ describe("native Markdown document content layout", () => {
     }
     expect(flat.find((item) => item.text === "nested ordered")?.x).toBe(orderedMarkerWidth + content.layout.listMarkerGap);
     expect(flat.find((item) => item.text === "nested bullet")?.x).toBe(bulletMarkerWidth + content.layout.listMarkerGap);
-    expect(flat.find((item) => item.text === "quote")?.x).toBe(0);
+    expect(flat.find((item) => item.text === "quote")?.x).toBe(content.blockquote.paddingX);
   });
 
   it("returns wrapped list content to the left edge only when indentation is disabled", () => {
     const preview = DEFAULT_EDITOR_THEME.specialNode.markdownDocument;
-    const layout = (indentationEnabled: boolean) => layoutMarkdownDocumentContent({
+    const layout = (listIndentationEnabled: boolean) => layoutMarkdownDocumentContent({
       source: "- alpha beta gamma",
       fallbackTitle: "",
       width: 96,
       height: 240,
-      content: { ...preview.previewContent, layout: { ...preview.previewContent.layout, indentationEnabled } },
+      content: { ...preview.previewContent, layout: { ...preview.previewContent.layout, listIndentationEnabled } },
       measure: (text, style) => Array.from(text).length * style.fontSize * 0.5
     }).filter((item) => item.kind === "text");
 
@@ -138,6 +138,81 @@ describe("native Markdown document content layout", () => {
     expect(flatMarker).toMatchObject({ x: 0, width: preview.previewContent.list.unordered.fontSize * 0.5, align: "left" });
     expect(flatContinuation).toMatchObject({ x: 0 });
     expect(flatContinuation?.y).toBeGreaterThan(flatMarker?.y || 0);
+  });
+
+  it("keeps quote padding and decorations independent from list indentation", () => {
+    const content = structuredClone(DEFAULT_EDITOR_THEME.specialNode.markdownDocument.previewContent);
+    content.layout.listIndentationEnabled = false;
+    Object.assign(content.blockquote, {
+      enabled: true,
+      backgroundEnabled: true,
+      borderEnabled: true,
+      borderStyle: "custom",
+      customDash: [7, 2],
+      borderColor: "#505152",
+      borderWidth: 3,
+      paddingX: 17,
+      paddingY: 6,
+      marginTop: 5,
+      marginBottom: 7,
+      radius: 9
+    });
+    const measure = (text: string, style: { fontSize: number }) => Array.from(text).length * style.fontSize * 0.5;
+    const items = layoutMarkdownDocumentContent({
+      source: "> quote",
+      fallbackTitle: "",
+      width: 240,
+      height: 300,
+      content,
+      measure
+    });
+    const quoteText = items.find((item) => item.kind === "text" && item.text === "quote");
+    const background = items.find((item) => item.kind === "rect");
+    const border = items.find((item) => item.kind === "line");
+
+    expect(quoteText).toMatchObject({ x: 17, y: 11 });
+    expect(background).toMatchObject({ x: 0, y: 5, width: 240, cornerRadius: 9 });
+    expect(border).toMatchObject({
+      points: [1.5, 5, 1.5, 5 + (background?.kind === "rect" ? background.height : 0)],
+      stroke: "#505152",
+      strokeWidth: 3,
+      dash: [7, 2]
+    });
+
+    content.blockquote.enabled = false;
+    const plainItems = layoutMarkdownDocumentContent({
+      source: "> quote",
+      fallbackTitle: "",
+      width: 240,
+      height: 300,
+      content,
+      measure
+    });
+    expect(plainItems.find((item) => item.kind === "text" && item.text === "quote")).toMatchObject({ x: 0, y: 0 });
+    expect(plainItems.some((item) => item.kind === "rect" || item.kind === "line")).toBe(false);
+  });
+
+  it("keeps Warm Paper quotes padded while its list hierarchy and quote border are disabled", () => {
+    const content = resolveEditorTheme("warm-paper", null).specialNode.markdownDocument.previewContent;
+    const items = layoutMarkdownDocumentContent({
+      source: "> quote",
+      fallbackTitle: "",
+      width: 240,
+      height: 300,
+      content,
+      measure: (text, style) => Array.from(text).length * style.fontSize * 0.5
+    });
+
+    expect(content.layout.listIndentationEnabled).toBe(false);
+    expect(items.find((item) => item.kind === "text" && item.text === "quote")).toMatchObject({
+      x: content.blockquote.paddingX
+    });
+    expect(items.find((item) => item.kind === "rect")).toMatchObject({
+      x: 0,
+      width: 240,
+      cornerRadius: content.blockquote.radius
+    });
+    expect(items.some((item) => item.kind === "line")).toBe(false);
   });
 
   it("renders every lightweight content family from Markdown-node preview tokens", () => {

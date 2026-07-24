@@ -74,9 +74,12 @@ describe("NodeContextMenu", () => {
     return onClose;
   }
 
-  it("closes when pointer interaction starts outside the menu", () => {
+  it("closes when pointer interaction starts outside the menu", async () => {
     const onClose = renderMenu();
 
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
     act(() => dispatchPointerDown(document.body));
 
     expect(onClose).toHaveBeenCalledTimes(1);

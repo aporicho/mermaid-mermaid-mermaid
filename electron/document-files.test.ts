@@ -45,7 +45,7 @@ describe("document file revisions", () => {
 
   it("allows an explicit overwrite after conflict review", async () => {
     const directory = await temporaryDirectory();
-    const filePath = path.join(directory, "board.canvas.json");
+    const filePath = path.join(directory, "diagram.mmd");
     await writeFile(filePath, "external", "utf8");
 
     const result = await writeDocumentFile(filePath, "local", { expectedRevision: "stale", overwrite: true });

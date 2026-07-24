@@ -14,8 +14,7 @@ export const FILE_PICKER_TYPES = [
   {
     description: "项目文档",
     accept: {
-      "text/plain": DOCUMENT_FILE_EXTENSIONS.filter((extension) => extension !== ".canvas.json"),
-      "application/json": [".canvas.json"]
+      "text/plain": DOCUMENT_FILE_EXTENSIONS
     }
   }
 ];

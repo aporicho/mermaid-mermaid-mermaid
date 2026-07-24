@@ -1,9 +1,16 @@
-import type { KeyboardEvent, ReactNode } from "react";
+import { useEffect, useRef, type KeyboardEvent, type ReactNode } from "react";
 
-import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle
+} from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
-
-import { EditorDialog } from "./dialog";
 
 export type EditorConfirmActionTone = "primary" | "neutral" | "danger";
 
@@ -58,6 +65,11 @@ export function EditorConfirmDialog<ActionId extends string>({
   const primaryAction = actions.find((action) => action.id === primaryActionId);
   const dangerActions = actions.filter((action) => action.tone === "danger");
   const standardActions = actions.filter((action) => action.tone !== "danger");
+  const resolvingRef = useRef(false);
+
+  useEffect(() => {
+    if (open) resolvingRef.current = false;
+  }, [open]);
 
   function resolve(actionId: ActionId) {
     const action = actions.find((candidate) => candidate.id === actionId);
@@ -75,8 +87,9 @@ export function EditorConfirmDialog<ActionId extends string>({
 
   function renderAction(action: EditorConfirmAction<ActionId>) {
     const tone = action.tone ?? "neutral";
+    const Action = action.id === cancelActionId ? AlertDialogCancel : AlertDialogAction;
     return (
-      <Button
+      <Action
         key={action.id}
         variant={tone === "primary" ? "default" : "ghost"}
         className={cn(
@@ -84,43 +97,50 @@ export function EditorConfirmDialog<ActionId extends string>({
         )}
         disabled={action.disabled}
         autoFocus={action.id === primaryActionId && !primaryAction?.disabled}
-        onClick={() => resolve(action.id)}
+        onClick={() => {
+          resolvingRef.current = true;
+          resolve(action.id);
+        }}
       >
         {action.label}
-      </Button>
+      </Action>
     );
   }
 
   return (
-    <EditorDialog
+    <AlertDialog
       open={open}
       onOpenChange={(nextOpen) => {
         onOpenChange?.(nextOpen);
+        if (!nextOpen && resolvingRef.current) {
+          resolvingRef.current = false;
+          return;
+        }
         if (!nextOpen) resolve(cancelActionId);
       }}
-      title={title}
-      description={description}
-      icon={icon}
-      size={size}
-      dismissible={handleEscape}
-      showCloseButton={false}
-      chrome="quiet"
-      contained={contained}
-      container={container}
-      className={className}
-      onKeyDown={handleKeyDown}
-      footer={(
-        <div className="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-[var(--ui-control-gap)]">
+    >
+      <AlertDialogContent
+        contained={contained}
+        container={container}
+        className={cn(size === "sm" && "max-w-[420px]", size === "lg" && "max-w-[760px]", className)}
+        onEscapeKeyDown={(event) => { if (!handleEscape) event.preventDefault(); }}
+        onKeyDown={handleKeyDown}
+      >
+        <AlertDialogHeader data-editor-confirm-header className={cn(icon && "grid grid-cols-[auto_minmax(0,1fr)] gap-x-3")}>
+          {icon ? <div className="row-span-2">{icon}</div> : null}
+          <AlertDialogTitle>{title}</AlertDialogTitle>
+          {description ? <AlertDialogDescription>{description}</AlertDialogDescription> : null}
+        </AlertDialogHeader>
+        {children}
+        <AlertDialogFooter data-editor-confirm-footer className="justify-between">
           <div className="flex flex-wrap items-center gap-[var(--ui-control-gap)]">
             {dangerActions.map(renderAction)}
           </div>
           <div className="ml-auto flex flex-wrap items-center justify-end gap-[var(--ui-control-gap)]">
             {standardActions.map(renderAction)}
           </div>
-        </div>
-      )}
-    >
-      {children}
-    </EditorDialog>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }

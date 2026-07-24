@@ -1,6 +1,5 @@
 import { useMemo } from "react";
 
-import { parseCanvasDocument, serializeCanvasDocument, type CanvasDocument, type CanvasDocumentElement } from "@/features/mermaid-editor/lib/canvas-document";
 import type { DocumentKind } from "@/features/mermaid-editor/lib/document-kind";
 import type {
   EditorRuntime,
@@ -26,7 +25,6 @@ type UseEditorAgentDocumentsArgs = {
   documentKind: DocumentKind;
   source: string;
   currentDocument: string;
-  canvasDocument: CanvasDocument;
   graph: MermaidGraph;
   selection: Selection;
   textSelection: RuntimeAgentTextSelection | null;
@@ -41,7 +39,6 @@ type UseEditorAgentDocumentsArgs = {
   activeWorkspacePanel: WorkspaceFloatingPanelId | null;
   applySource: (value: string) => void;
   applyMarkdownSource: (value: string) => void;
-  applyCanvasDocument: (document: CanvasDocument, status?: string) => void;
   flushSourceHistory: () => void;
   setFileRef: StateSetter<RuntimeFileRef | null>;
   setFileName: StateSetter<string>;
@@ -131,9 +128,7 @@ export function useEditorAgentDocuments(args: UseEditorAgentDocumentsArgs): Runt
       }
 
       args.flushSourceHistory();
-      if (args.documentKind === "canvas") {
-        args.applyCanvasDocument(parseCanvasDocument(nextText), "Agent 已更新无限画布。");
-      } else if (args.documentKind === "markdown") {
+      if (args.documentKind === "markdown") {
         args.applyMarkdownSource(nextText);
         args.flushSourceHistory();
       } else {
@@ -247,11 +242,7 @@ function nextDocumentText(current: RuntimeAgentDocumentSnapshot, request: Record
     }
     return patched.result.source;
   }
-  if (Array.isArray(request.canvasOperations)) {
-    if (current.kind !== "canvas") throw new Error("Canvas 操作只能用于无限画布文档。");
-    return applyCanvasOperations(current.content, request.canvasOperations);
-  }
-  throw new Error("修改请求必须包含 replacement、edits、mermaidOperations 或 canvasOperations。 ");
+  throw new Error("修改请求必须包含 replacement、edits 或 mermaidOperations。");
 }
 
 export function applyTextEdits(content: string, input: unknown[]) {
@@ -269,34 +260,6 @@ export function applyTextEdits(content: string, input: unknown[]) {
     if (edits[index - 1].start < edits[index].end) throw new Error("文本编辑范围不能重叠。");
   }
   return edits.reduce((result, edit) => `${result.slice(0, edit.start)}${edit.text}${result.slice(edit.end)}`, content);
-}
-
-export function applyCanvasOperations(content: string, input: unknown[]) {
-  let document = parseCanvasDocument(content);
-  for (const value of input) {
-    if (!value || typeof value !== "object") throw new Error("Canvas 操作格式无效。");
-    const operation = value as Record<string, unknown>;
-    const type = String(operation.type || "");
-    if (type === "addElement") {
-      const element = operation.element as CanvasDocumentElement | undefined;
-      if (!element?.id || document.elements.some((item) => item.id === element.id)) throw new Error("Canvas 元素 ID 无效或已存在。");
-      document = { ...document, elements: [...document.elements, element] };
-    } else if (type === "updateElement") {
-      const id = String(operation.id || "");
-      if (!document.elements.some((item) => item.id === id)) throw new Error(`找不到 Canvas 元素 ${id}。`);
-      const patch = operation.patch && typeof operation.patch === "object" ? operation.patch as Record<string, unknown> : {};
-      document = { ...document, elements: document.elements.map((item) => item.id === id ? { ...item, ...patch, id, type: item.type } as CanvasDocumentElement : item) };
-    } else if (type === "deleteElement") {
-      const id = String(operation.id || "");
-      document = { ...document, elements: document.elements.filter((item) => item.id !== id) };
-    } else if (type === "setViewport") {
-      if (!operation.viewport || typeof operation.viewport !== "object") throw new Error("Canvas viewport 无效。");
-      document = { ...document, viewport: { ...document.viewport, ...(operation.viewport as CanvasDocument["viewport"]) } };
-    } else {
-      throw new Error(`不支持的 Canvas 操作：${type || "unknown"}`);
-    }
-  }
-  return serializeCanvasDocument(document);
 }
 
 async function revisionFor(content: string) {

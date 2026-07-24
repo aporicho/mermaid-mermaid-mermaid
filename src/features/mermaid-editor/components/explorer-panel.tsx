@@ -4,14 +4,12 @@ import {
   useRef,
   useState,
   type KeyboardEvent as ReactKeyboardEvent,
-  type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
-  type RefObject
+  type ReactElement
 } from "react";
 import {
   Archive,
   CodeBrackets,
-  Database,
   EmptyPage,
   Folder,
   OpenNewWindow,
@@ -25,8 +23,16 @@ import {
 } from "iconoir-react/regular";
 
 import { Button } from "@/components/ui/button";
-import { DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuGroup,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger
+} from "@/components/ui/context-menu";
 import { Input } from "@/components/ui/input";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
   EditorDialog,
   EditorEmptyState,
@@ -34,9 +40,6 @@ import {
   EditorIconButton,
   EditorList,
   EditorListRow,
-  EditorPointMenu,
-  EditorSegmentedControl,
-  EditorSegmentedControlItem,
   EditorTree,
   EditorTreeGroup,
   EditorTreeItem,
@@ -80,22 +83,15 @@ type ExplorerDirectoryDropTarget = {
 };
 
 type ExplorerContextMenu = {
-  x: number;
-  y: number;
-} & (
-  | { kind: "file"; resource: ProjectResourceEntry; file?: ProjectFileEntry }
-  | { kind: "directory"; directoryPath: string }
-);
-
-export type ExplorerProjectFileKind = "markdown" | "mermaid" | "canvas" | "csv" | "html";
-
-export type ExplorerOpenDocument = {
-  id: string;
-  fileName: string;
-  documentKind: "markdown" | "mermaid" | "canvas";
-  status: "clean" | "dirty" | "saving" | "conflict" | "error";
-  active: boolean;
+  kind: "file";
+  resource: ProjectResourceEntry;
+  file?: ProjectFileEntry;
+} | {
+  kind: "directory";
+  directoryPath: string;
 };
+
+export type ExplorerProjectFileKind = "markdown" | "mermaid" | "csv" | "html";
 
 export type ExplorerCreateProjectFileRequest = {
   directoryPath: string;
@@ -106,7 +102,6 @@ export type ExplorerCreateProjectFileRequest = {
 const EXPLORER_FILE_KINDS = [
   { kind: "markdown", label: "Markdown", defaultFileName: "document.md", extension: ".md" },
   { kind: "mermaid", label: "Mermaid", defaultFileName: "diagram.mmd", extension: ".mmd" },
-  { kind: "canvas", label: "画布", defaultFileName: "board.canvas.json", extension: ".canvas.json" },
   { kind: "csv", label: "CSV", defaultFileName: "table.csv", extension: ".csv" },
   { kind: "html", label: "HTML", defaultFileName: "index.html", extension: ".html" }
 ] as const satisfies readonly { kind: ExplorerProjectFileKind; label: string; defaultFileName: string; extension: string }[];
@@ -117,7 +112,6 @@ export function ExplorerPanel({
   projectFiles,
   currentFileRef,
   projectBusy,
-  openDocuments,
   treeState,
   onTreeStateChange,
   onOpenProject,
@@ -129,15 +123,13 @@ export function ExplorerPanel({
   onCreateProjectFile,
   onMoveProjectFile,
   onProjectDocumentPointerDrag,
-  onStatus,
-  onOpenDocument
+  onStatus
 }: {
   runtimeKind: "web" | "desktop";
   projectWorkspace: ProjectWorkspace | null;
   projectFiles: ProjectFileEntry[];
   currentFileRef: RuntimeFileRef | null;
   projectBusy: boolean;
-  openDocuments: ExplorerOpenDocument[];
   treeState: ExplorerWorkspaceTreeState | null;
   onTreeStateChange: (state: Omit<ExplorerWorkspaceTreeState, "rootPath" | "updatedAt">) => void;
   onOpenProject: () => void;
@@ -150,7 +142,6 @@ export function ExplorerPanel({
   onMoveProjectFile: (file: ProjectResourceEntry, targetDirectoryPath: string) => void;
   onProjectDocumentPointerDrag: (file: ProjectFileEntry, kind: "markdown" | "html", point: { x: number; y: number }, phase: "move" | "drop" | "cancel") => void;
   onStatus: (message: string) => void;
-  onOpenDocument: (bufferId: string) => void;
 }) {
   const resources = useMemo(
     () => projectWorkspace?.resources ?? projectResourcesFromFiles(projectFiles),
@@ -165,12 +156,10 @@ export function ExplorerPanel({
   const expandedDirectoryPaths = treeState?.expandedDirectoryPaths ?? EMPTY_EXPANDED_DIRECTORY_PATHS;
   const expandedDirectoryPathKey = expandedDirectoryPaths.join("\n");
   const expandedDirectorySet = useMemo(() => new Set(expandedDirectoryPaths), [expandedDirectoryPaths]);
-  const [contextMenu, setContextMenu] = useState<ExplorerContextMenu | null>(null);
   const [createFileDialog, setCreateFileDialog] = useState<{ directoryPath: string } | null>(null);
   const [moveFileDialog, setMoveFileDialog] = useState<{ resource: ProjectResourceEntry; targetDirectoryPath: string } | null>(null);
   const [draggedResourcePath, setDraggedResourcePath] = useState<string | null>(null);
   const [dropTargetDirectoryPath, setDropTargetDirectoryPath] = useState<string | null>(null);
-  const [openDocumentsExpanded, setOpenDocumentsExpanded] = useState(true);
   const activeFile = useMemo(
     () => projectFiles.find((file) => isProjectFileActive(file, currentFileRef)),
     [currentFileRef, projectFiles]
@@ -182,7 +171,6 @@ export function ExplorerPanel({
   const lastActiveRevealKeyRef = useRef<string | null>(null);
   const pendingActiveRevealKeyRef = useRef<string | null>(null);
   const filePointerDragRef = useRef<ExplorerFilePointerDrag | null>(null);
-  const contextMenuAnchorRef = useRef<HTMLElement | null>(null);
   const projectAvailable = runtimeKind === "desktop";
   const activeRevealKey = projectWorkspace && activeFile
     ? `${projectWorkspace.rootPath}\n${activeFile.path}`
@@ -251,34 +239,12 @@ export function ExplorerPanel({
     updateExpansion(rootExpanded, [...next]);
   }
 
-  function openFileContextMenu(resource: ProjectResourceEntry, file: ProjectFileEntry | undefined, event: ReactMouseEvent) {
-    event.preventDefault();
-    contextMenuAnchorRef.current = event.currentTarget as HTMLButtonElement;
-    setContextMenu({ kind: "file", resource, file, x: event.clientX, y: event.clientY });
+  function createFileInDirectory(directoryPath: string) {
+    setCreateFileDialog({ directoryPath });
   }
 
-  function openDirectoryContextMenu(directoryPath: string, event: ReactMouseEvent) {
-    event.preventDefault();
-    contextMenuAnchorRef.current = event.currentTarget as HTMLButtonElement;
-    setContextMenu({ kind: "directory", directoryPath, x: event.clientX, y: event.clientY });
-  }
-
-  function openFileContextMenuFromKeyboard(resource: ProjectResourceEntry, file: ProjectFileEntry | undefined, event: ReactKeyboardEvent<HTMLButtonElement>) {
-    if (event.key !== "ContextMenu" && !(event.shiftKey && event.key === "F10")) return false;
-    event.preventDefault();
-    const bounds = event.currentTarget.getBoundingClientRect();
-    contextMenuAnchorRef.current = event.currentTarget;
-    setContextMenu({ kind: "file", resource, file, x: bounds.left + 20, y: bounds.top + bounds.height / 2 });
-    return true;
-  }
-
-  function openDirectoryContextMenuFromKeyboard(directoryPath: string, event: ReactKeyboardEvent<HTMLButtonElement>) {
-    if (event.key !== "ContextMenu" && !(event.shiftKey && event.key === "F10")) return false;
-    event.preventDefault();
-    const bounds = event.currentTarget.getBoundingClientRect();
-    contextMenuAnchorRef.current = event.currentTarget;
-    setContextMenu({ kind: "directory", directoryPath, x: bounds.left + 20, y: bounds.top + bounds.height / 2 });
-    return true;
+  function moveResource(resource: ProjectResourceEntry) {
+    setMoveFileDialog({ resource, targetDirectoryPath: parentResourceDirectory(resource.relativePath) });
   }
 
   function startFilePointerDrag(resource: ProjectResourceEntry, file: ProjectFileEntry | undefined, event: ReactPointerEvent<HTMLButtonElement>) {
@@ -411,15 +377,15 @@ export function ExplorerPanel({
         title="资源管理器"
         actions={<>
           <EditorIconButton context="panel" label="打开文件夹" tooltipSide="right" disabled={!projectAvailable || projectBusy} onClick={onOpenProject}>
-            <Folder />
+            <Folder data-icon />
           </EditorIconButton>
           {projectWorkspace ? (
             <>
               <EditorIconButton context="panel" label="新建文件" tooltipSide="right" disabled={projectBusy} onClick={() => setCreateFileDialog({ directoryPath: "" })}>
-                <Plus />
+                <Plus data-icon />
               </EditorIconButton>
               <EditorIconButton context="panel" label="刷新文件夹" tooltipSide="right" disabled={projectBusy} onClick={onRefreshProject}>
-                <RefreshCw className={cn(projectBusy && "animate-spin")} />
+                <RefreshCw data-icon className={cn(projectBusy && "animate-spin")} />
               </EditorIconButton>
             </>
           ) : null}
@@ -427,60 +393,43 @@ export function ExplorerPanel({
       />
 
       <div className="min-h-0 flex-1 overflow-y-auto px-1 py-1.5">
-        {openDocuments.length ? (
-          <section className="mb-1" aria-label="打开的文件">
-            <button
-              type="button"
-              className="editor-ui-focus type-interface-metadata flex min-h-[var(--ui-control-height-sm)] w-full items-center justify-between px-2 text-left text-muted-foreground hover:text-foreground"
-              aria-expanded={openDocumentsExpanded}
-              onClick={() => setOpenDocumentsExpanded((expanded) => !expanded)}
-            >
-              <span>打开的文件</span>
-              <span className="type-interface-technical">{openDocuments.length}</span>
-            </button>
-            {openDocumentsExpanded ? (
-              <EditorList aria-label="打开的文件列表">
-                {openDocuments.map((document) => (
-                  <EditorListRow
-                    key={document.id}
-                    type="button"
-                    selected={document.active}
-                    icon={<OpenDocumentIcon kind={document.documentKind} />}
-                    title={document.fileName}
-                    trailing={<OpenDocumentStatus status={document.status} />}
-                    onClick={() => onOpenDocument(document.id)}
-                  />
-                ))}
-              </EditorList>
-            ) : null}
-          </section>
-        ) : null}
         {!projectWorkspace ? (
           <WorkspaceFolderEmptyState projectAvailable={projectAvailable} projectBusy={projectBusy} onOpenProject={onOpenProject} />
         ) : (
           <EditorTree ref={treeRef} aria-label={`${projectWorkspace.rootName} 资源树`}>
             <EditorTreeItem root>
-              <EditorTreeRow
-                data-tree-item-id={rootItemId}
-                data-project-directory-path=""
-                data-project-drop-target={dropTargetDirectoryPath === "" || undefined}
-                aria-level={1}
-                aria-expanded={rootExpanded}
-                tabIndex={focusedItemId === rootItemId ? 0 : -1}
-                className={cn(dropTargetDirectoryPath === "" && "text-[hsl(var(--ui-tree-selected-foreground))] before:bg-[hsl(var(--ui-tree-selected-background))]")}
-                title={projectWorkspace.rootPath}
-                onFocus={() => setFocusedItemId(rootItemId)}
-                onKeyDown={(event) => {
-                  if (!openDirectoryContextMenuFromKeyboard("", event)) {
-                    handleTreeKeyDown(event, { id: rootItemId, kind: "root", expanded: rootExpanded });
-                  }
-                }}
-                onClick={() => updateExpansion(!rootExpanded, expandedDirectoryPaths)}
-                onContextMenu={(event) => openDirectoryContextMenu("", event)}
+              <ProjectResourceContextMenu
+                menu={{ kind: "directory", directoryPath: "" }}
+                rootName={projectWorkspace.rootName}
+                projectBusy={projectBusy}
+                onOpenProjectFile={onOpenProjectFile}
+                onOpenProjectMarkdownWindow={onOpenProjectMarkdownWindow}
+                onOpenProjectHtmlWindow={onOpenProjectHtmlWindow}
+                onOpenProjectImageWindow={onOpenProjectImageWindow}
+                onMove={moveResource}
+                onCreateFile={createFileInDirectory}
               >
-                <Folder className="size-4 shrink-0" />
-                <span className="type-interface-navigation min-w-0 truncate">{projectWorkspace.rootName}</span>
-              </EditorTreeRow>
+                <EditorTreeRow
+                  data-tree-item-id={rootItemId}
+                  data-project-directory-path=""
+                  data-project-drop-target={dropTargetDirectoryPath === "" || undefined}
+                  aria-level={1}
+                  aria-expanded={rootExpanded}
+                  tabIndex={focusedItemId === rootItemId ? 0 : -1}
+                  className={cn(dropTargetDirectoryPath === "" && "text-[hsl(var(--ui-tree-selected-foreground))] before:bg-[hsl(var(--ui-tree-selected-background))]")}
+                  title={projectWorkspace.rootPath}
+                  onFocus={() => setFocusedItemId(rootItemId)}
+                  onKeyDown={(event) => {
+                    if (!openContextMenuFromKeyboard(event)) {
+                      handleTreeKeyDown(event, { id: rootItemId, kind: "root", expanded: rootExpanded });
+                    }
+                  }}
+                  onClick={() => updateExpansion(!rootExpanded, expandedDirectoryPaths)}
+                >
+                  <Folder className="size-4 shrink-0" />
+                  <span className="type-interface-navigation min-w-0 truncate">{projectWorkspace.rootName}</span>
+                </EditorTreeRow>
+              </ProjectResourceContextMenu>
               {rootExpanded ? (
                 <EditorTreeGroup>
                   {tree.length ? tree.map((node) => (
@@ -508,10 +457,9 @@ export function ExplorerPanel({
                       onMoveFilePointerDrag={moveFilePointerDrag}
                       onFinishFilePointerDrag={finishFilePointerDrag}
                       onCancelFilePointerDrag={cancelFilePointerDrag}
-                      onOpenFileContextMenu={openFileContextMenu}
-                      onOpenDirectoryContextMenu={openDirectoryContextMenu}
-                      onOpenFileContextMenuFromKeyboard={openFileContextMenuFromKeyboard}
-                      onOpenDirectoryContextMenuFromKeyboard={openDirectoryContextMenuFromKeyboard}
+                      rootName={projectWorkspace.rootName}
+                      onMoveResource={moveResource}
+                      onCreateFile={createFileInDirectory}
                       onUnsupportedResource={(resource) => onStatus(`暂不支持打开 ${resource.name}。`)}
                     />
                   )) : <EditorEmptyState className="border-0" title="此文件夹为空" />}
@@ -523,32 +471,6 @@ export function ExplorerPanel({
             ) : null}
           </EditorTree>
         )}
-        <ProjectResourceContextMenu
-          menu={contextMenu}
-          rootName={projectWorkspace?.rootName ?? "项目根目录"}
-          restoreFocusRef={contextMenuAnchorRef}
-          onOpenChange={(open) => {
-            if (open) return;
-            const focusTarget = contextMenuAnchorRef.current;
-            setContextMenu(null);
-            window.requestAnimationFrame(() => {
-              if (focusTarget?.isConnected) focusTarget.focus({ preventScroll: true });
-            });
-          }}
-          onOpenProjectFile={(file) => { setContextMenu(null); onOpenProjectFile(file); }}
-          onOpenProjectMarkdownWindow={(file) => { setContextMenu(null); onOpenProjectMarkdownWindow(file); }}
-          onOpenProjectHtmlWindow={(file) => { setContextMenu(null); onOpenProjectHtmlWindow(file); }}
-          onOpenProjectImageWindow={(file) => { setContextMenu(null); onOpenProjectImageWindow(file); }}
-          onMove={(resource) => {
-            setContextMenu(null);
-            setMoveFileDialog({ resource, targetDirectoryPath: parentResourceDirectory(resource.relativePath) });
-          }}
-          projectBusy={projectBusy}
-          onCreateFile={(directoryPath) => {
-            setContextMenu(null);
-            setCreateFileDialog({ directoryPath });
-          }}
-        />
         {projectWorkspace && createFileDialog ? (
           <CreateProjectFileDialog
             directoryPath={createFileDialog.directoryPath}
@@ -582,30 +504,6 @@ export function ExplorerPanel({
   );
 }
 
-function OpenDocumentIcon({ kind }: { kind: ExplorerOpenDocument["documentKind"] }) {
-  const className = "size-4 shrink-0";
-  if (kind === "markdown") return <Text className={className} />;
-  if (kind === "canvas") return <Database className={className} />;
-  return <CodeBrackets className={className} />;
-}
-
-function OpenDocumentStatus({ status }: { status: ExplorerOpenDocument["status"] }) {
-  if (status === "clean") return null;
-  return (
-    <span
-      className={cn(
-        "size-1.5 shrink-0 rounded-full bg-muted-foreground",
-        status === "conflict" && "bg-destructive",
-        status === "error" && "bg-destructive",
-        status === "saving" && "animate-pulse bg-primary",
-        status === "dirty" && "bg-primary"
-      )}
-      title={status === "conflict" ? "外部冲突" : status === "error" ? "保存失败" : status === "saving" ? "正在保存" : "未保存"}
-      aria-label={status === "conflict" ? "外部冲突" : status === "error" ? "保存失败" : status === "saving" ? "正在保存" : "未保存"}
-    />
-  );
-}
-
 function WorkspaceFolderEmptyState({ projectAvailable, projectBusy, onOpenProject }: {
   projectAvailable: boolean;
   projectBusy: boolean;
@@ -620,7 +518,7 @@ function WorkspaceFolderEmptyState({ projectAvailable, projectBusy, onOpenProjec
         disabled={!projectAvailable || projectBusy}
         onClick={onOpenProject}
       >
-        <Folder className="size-4" />
+        <Folder data-icon />
         打开文件夹
       </Button>
     </div>
@@ -650,10 +548,9 @@ function ProjectTreeNodeRow({
   onMoveFilePointerDrag,
   onFinishFilePointerDrag,
   onCancelFilePointerDrag,
-  onOpenFileContextMenu,
-  onOpenDirectoryContextMenu,
-  onOpenFileContextMenuFromKeyboard,
-  onOpenDirectoryContextMenuFromKeyboard,
+  rootName,
+  onMoveResource,
+  onCreateFile,
   onUnsupportedResource
 }: {
   node: ProjectTreeNode;
@@ -678,37 +575,47 @@ function ProjectTreeNodeRow({
   onMoveFilePointerDrag: (event: ReactPointerEvent<HTMLButtonElement>) => void;
   onFinishFilePointerDrag: (event: ReactPointerEvent<HTMLButtonElement>) => boolean;
   onCancelFilePointerDrag: (event: ReactPointerEvent<HTMLButtonElement>) => void;
-  onOpenFileContextMenu: (resource: ProjectResourceEntry, file: ProjectFileEntry | undefined, event: ReactMouseEvent) => void;
-  onOpenDirectoryContextMenu: (relativePath: string, event: ReactMouseEvent) => void;
-  onOpenFileContextMenuFromKeyboard: (resource: ProjectResourceEntry, file: ProjectFileEntry | undefined, event: ReactKeyboardEvent<HTMLButtonElement>) => boolean;
-  onOpenDirectoryContextMenuFromKeyboard: (relativePath: string, event: ReactKeyboardEvent<HTMLButtonElement>) => boolean;
+  rootName: string;
+  onMoveResource: (resource: ProjectResourceEntry) => void;
+  onCreateFile: (directoryPath: string) => void;
   onUnsupportedResource: (resource: ProjectResourceEntry) => void;
 }) {
   if (node.kind === "directory") {
     const expanded = expandedDirectoryPaths.has(node.relativePath);
     return (
       <EditorTreeItem>
-        <EditorTreeRow
-          data-tree-item-id={node.id}
-          data-project-directory-path={node.relativePath}
-          data-project-drop-target={dropTargetDirectoryPath === node.relativePath || undefined}
-          aria-level={level}
-          aria-expanded={expanded}
-          tabIndex={focusedItemId === node.id ? 0 : -1}
-          className={cn(dropTargetDirectoryPath === node.relativePath && "text-[hsl(var(--ui-tree-selected-foreground))] before:bg-[hsl(var(--ui-tree-selected-background))]")}
-          title={node.path}
-          onFocus={() => onFocusItem(node.id)}
-          onKeyDown={(event) => {
-            if (!onOpenDirectoryContextMenuFromKeyboard(node.relativePath, event)) {
-              onTreeKeyDown(event, { id: node.id, kind: "directory", expanded, relativePath: node.relativePath, parentPath });
-            }
-          }}
-          onClick={() => onToggleDirectory(node.relativePath)}
-          onContextMenu={(event) => onOpenDirectoryContextMenu(node.relativePath, event)}
+        <ProjectResourceContextMenu
+          menu={{ kind: "directory", directoryPath: node.relativePath }}
+          rootName={rootName}
+          projectBusy={projectBusy}
+          onOpenProjectFile={onOpenProjectFile}
+          onOpenProjectMarkdownWindow={onOpenProjectMarkdownWindow}
+          onOpenProjectHtmlWindow={onOpenProjectHtmlWindow}
+          onOpenProjectImageWindow={onOpenProjectImageWindow}
+          onMove={onMoveResource}
+          onCreateFile={onCreateFile}
         >
-          <Folder className="size-4 shrink-0" />
-          <span className="min-w-0 truncate">{node.name}</span>
-        </EditorTreeRow>
+          <EditorTreeRow
+            data-tree-item-id={node.id}
+            data-project-directory-path={node.relativePath}
+            data-project-drop-target={dropTargetDirectoryPath === node.relativePath || undefined}
+            aria-level={level}
+            aria-expanded={expanded}
+            tabIndex={focusedItemId === node.id ? 0 : -1}
+            className={cn(dropTargetDirectoryPath === node.relativePath && "text-[hsl(var(--ui-tree-selected-foreground))] before:bg-[hsl(var(--ui-tree-selected-background))]")}
+            title={node.path}
+            onFocus={() => onFocusItem(node.id)}
+            onKeyDown={(event) => {
+              if (!openContextMenuFromKeyboard(event)) {
+                onTreeKeyDown(event, { id: node.id, kind: "directory", expanded, relativePath: node.relativePath, parentPath });
+              }
+            }}
+            onClick={() => onToggleDirectory(node.relativePath)}
+          >
+            <Folder className="size-4 shrink-0" />
+            <span className="min-w-0 truncate">{node.name}</span>
+          </EditorTreeRow>
+        </ProjectResourceContextMenu>
         {expanded ? (
           <EditorTreeGroup>
             {node.children.map((child) => (
@@ -736,10 +643,9 @@ function ProjectTreeNodeRow({
                 onMoveFilePointerDrag={onMoveFilePointerDrag}
                 onFinishFilePointerDrag={onFinishFilePointerDrag}
                 onCancelFilePointerDrag={onCancelFilePointerDrag}
-                onOpenFileContextMenu={onOpenFileContextMenu}
-                onOpenDirectoryContextMenu={onOpenDirectoryContextMenu}
-                onOpenFileContextMenuFromKeyboard={onOpenFileContextMenuFromKeyboard}
-                onOpenDirectoryContextMenuFromKeyboard={onOpenDirectoryContextMenuFromKeyboard}
+                rootName={rootName}
+                onMoveResource={onMoveResource}
+                onCreateFile={onCreateFile}
                 onUnsupportedResource={onUnsupportedResource}
               />
             ))}
@@ -760,6 +666,7 @@ function ProjectTreeNodeRow({
       onFocusItem={onFocusItem}
       onTreeKeyDown={onTreeKeyDown}
       onOpenProjectFile={onOpenProjectFile}
+      onOpenProjectMarkdownWindow={onOpenProjectMarkdownWindow}
       onOpenProjectHtmlWindow={onOpenProjectHtmlWindow}
       onOpenProjectImageWindow={onOpenProjectImageWindow}
       projectBusy={projectBusy}
@@ -768,8 +675,9 @@ function ProjectTreeNodeRow({
       onMoveFilePointerDrag={onMoveFilePointerDrag}
       onFinishFilePointerDrag={onFinishFilePointerDrag}
       onCancelFilePointerDrag={onCancelFilePointerDrag}
-      onOpenFileContextMenu={onOpenFileContextMenu}
-      onOpenFileContextMenuFromKeyboard={onOpenFileContextMenuFromKeyboard}
+      rootName={rootName}
+      onMoveResource={onMoveResource}
+      onCreateFile={onCreateFile}
       onUnsupportedResource={onUnsupportedResource}
     />
   );
@@ -785,6 +693,7 @@ function ProjectFileRow({
   onFocusItem,
   onTreeKeyDown,
   onOpenProjectFile,
+  onOpenProjectMarkdownWindow,
   onOpenProjectHtmlWindow,
   onOpenProjectImageWindow,
   projectBusy,
@@ -793,8 +702,9 @@ function ProjectFileRow({
   onMoveFilePointerDrag,
   onFinishFilePointerDrag,
   onCancelFilePointerDrag,
-  onOpenFileContextMenu,
-  onOpenFileContextMenuFromKeyboard,
+  rootName,
+  onMoveResource,
+  onCreateFile,
   onUnsupportedResource
 }: {
   node: Extract<ProjectTreeNode, { kind: "file" }>;
@@ -806,6 +716,7 @@ function ProjectFileRow({
   onFocusItem: (id: string) => void;
   onTreeKeyDown: (event: ReactKeyboardEvent<HTMLButtonElement>, item: { id: string; kind: "root" | "directory" | "file"; parentPath?: string }) => void;
   onOpenProjectFile: (file: ProjectFileEntry) => void;
+  onOpenProjectMarkdownWindow: (file: ProjectFileEntry) => void;
   onOpenProjectHtmlWindow: (file: ProjectFileEntry) => void;
   onOpenProjectImageWindow: (file: ProjectFileEntry) => void;
   projectBusy: boolean;
@@ -814,8 +725,9 @@ function ProjectFileRow({
   onMoveFilePointerDrag: (event: ReactPointerEvent<HTMLButtonElement>) => void;
   onFinishFilePointerDrag: (event: ReactPointerEvent<HTMLButtonElement>) => boolean;
   onCancelFilePointerDrag: (event: ReactPointerEvent<HTMLButtonElement>) => void;
-  onOpenFileContextMenu: (resource: ProjectResourceEntry, file: ProjectFileEntry | undefined, event: ReactMouseEvent) => void;
-  onOpenFileContextMenuFromKeyboard: (resource: ProjectResourceEntry, file: ProjectFileEntry | undefined, event: ReactKeyboardEvent<HTMLButtonElement>) => boolean;
+  rootName: string;
+  onMoveResource: (resource: ProjectResourceEntry) => void;
+  onCreateFile: (directoryPath: string) => void;
   onUnsupportedResource: (resource: ProjectResourceEntry) => void;
 }) {
   const htmlFile = isHtmlDocumentFilePath(node.resource.path);
@@ -826,46 +738,57 @@ function ProjectFileRow({
 
   return (
     <EditorTreeItem>
-      <EditorTreeRow
-        ref={(element) => { if (active) activeRowRef.current = element; }}
-        active={active}
-        data-tree-item-id={node.id}
-        data-resource-supported={Boolean(file)}
-        data-project-resource-dragging={dragging || undefined}
-        aria-level={level}
-        aria-selected={active}
-        tabIndex={focused ? 0 : -1}
-        className={cn(!projectBusy && "cursor-grab active:cursor-grabbing", dragging && "opacity-60", !file && "text-muted-foreground")}
-        title={file ? node.resource.path : `${node.resource.path}\n当前文件类型暂不支持打开`}
-        onFocus={() => onFocusItem(node.id)}
-        onKeyDown={(event) => {
-          if (!onOpenFileContextMenuFromKeyboard(node.resource, file, event)) {
-            onTreeKeyDown(event, { id: node.id, kind: "file", parentPath });
-          }
-        }}
-        onPointerDown={(event) => onStartFilePointerDrag(node.resource, file, event)}
-        onPointerMove={onMoveFilePointerDrag}
-        onPointerUp={(event) => {
-          if (onFinishFilePointerDrag(event)) suppressClickRef.current = true;
-        }}
-        onPointerCancel={onCancelFilePointerDrag}
-        onLostPointerCapture={onCancelFilePointerDrag}
-        onClick={(event) => {
-          if (suppressClickRef.current) {
-            suppressClickRef.current = false;
-            event.preventDefault();
-            return;
-          }
-          if (file && imageFile) onOpenProjectImageWindow(file);
-          else if (file && htmlFile) onOpenProjectHtmlWindow(file);
-          else if (file) onOpenProjectFile(file);
-          else onUnsupportedResource(node.resource);
-        }}
-        onContextMenu={(event) => onOpenFileContextMenu(node.resource, file, event)}
+      <ProjectResourceContextMenu
+        menu={{ kind: "file", resource: node.resource, file }}
+        rootName={rootName}
+        projectBusy={projectBusy}
+        onOpenProjectFile={onOpenProjectFile}
+        onOpenProjectMarkdownWindow={onOpenProjectMarkdownWindow}
+        onOpenProjectHtmlWindow={onOpenProjectHtmlWindow}
+        onOpenProjectImageWindow={onOpenProjectImageWindow}
+        onMove={onMoveResource}
+        onCreateFile={onCreateFile}
       >
-        <ProjectResourceIcon resource={node.resource} />
-        <span className="min-w-0 truncate">{node.name}</span>
-      </EditorTreeRow>
+        <EditorTreeRow
+          ref={(element) => { if (active) activeRowRef.current = element; }}
+          active={active}
+          data-tree-item-id={node.id}
+          data-resource-supported={Boolean(file)}
+          data-project-resource-dragging={dragging || undefined}
+          aria-level={level}
+          aria-selected={active}
+          tabIndex={focused ? 0 : -1}
+          className={cn(!projectBusy && "cursor-grab active:cursor-grabbing", dragging && "opacity-60", !file && "text-muted-foreground")}
+          title={file ? node.resource.path : `${node.resource.path}\n当前文件类型暂不支持打开`}
+          onFocus={() => onFocusItem(node.id)}
+          onKeyDown={(event) => {
+            if (!openContextMenuFromKeyboard(event)) {
+              onTreeKeyDown(event, { id: node.id, kind: "file", parentPath });
+            }
+          }}
+          onPointerDown={(event) => onStartFilePointerDrag(node.resource, file, event)}
+          onPointerMove={onMoveFilePointerDrag}
+          onPointerUp={(event) => {
+            if (onFinishFilePointerDrag(event)) suppressClickRef.current = true;
+          }}
+          onPointerCancel={onCancelFilePointerDrag}
+          onLostPointerCapture={onCancelFilePointerDrag}
+          onClick={(event) => {
+            if (suppressClickRef.current) {
+              suppressClickRef.current = false;
+              event.preventDefault();
+              return;
+            }
+            if (file && imageFile) onOpenProjectImageWindow(file);
+            else if (file && htmlFile) onOpenProjectHtmlWindow(file);
+            else if (file) onOpenProjectFile(file);
+            else onUnsupportedResource(node.resource);
+          }}
+        >
+          <ProjectResourceIcon resource={node.resource} />
+          <span className="min-w-0 truncate">{node.name}</span>
+        </EditorTreeRow>
+      </ProjectResourceContextMenu>
     </EditorTreeItem>
   );
 }
@@ -874,7 +797,6 @@ function ProjectResourceIcon({ resource }: { resource: ProjectResourceEntry }) {
   const className = "size-4 shrink-0";
   if (resource.documentKind === "mermaid") return <CodeBrackets className={className} />;
   if (resource.documentKind === "markdown") return <Text className={className} />;
-  if (resource.documentKind === "canvas") return <Database className={className} />;
   if (isHtmlDocumentFilePath(resource.path)) return <CodeBrackets className={className} />;
   const extension = resource.name.toLocaleLowerCase().split(".").at(-1) || "";
   if (["png", "jpg", "jpeg", "gif", "webp", "svg", "avif", "ico"].includes(extension)) return <MediaImage className={className} />;
@@ -885,30 +807,27 @@ function ProjectResourceIcon({ resource }: { resource: ProjectResourceEntry }) {
 function ProjectResourceContextMenu({
   menu,
   rootName,
-  restoreFocusRef,
   projectBusy,
-  onOpenChange,
   onOpenProjectFile,
   onOpenProjectMarkdownWindow,
   onOpenProjectHtmlWindow,
   onOpenProjectImageWindow,
   onMove,
-  onCreateFile
+  onCreateFile,
+  children
 }: {
-  menu: ExplorerContextMenu | null;
+  menu: ExplorerContextMenu;
   rootName: string;
-  restoreFocusRef: RefObject<HTMLElement | null>;
   projectBusy: boolean;
-  onOpenChange: (open: boolean) => void;
   onOpenProjectFile: (file: ProjectFileEntry) => void;
   onOpenProjectMarkdownWindow: (file: ProjectFileEntry) => void;
   onOpenProjectHtmlWindow: (file: ProjectFileEntry) => void;
   onOpenProjectImageWindow: (file: ProjectFileEntry) => void;
   onMove: (resource: ProjectResourceEntry) => void;
   onCreateFile: (directoryPath: string) => void;
+  children: ReactElement;
 }) {
-  if (!menu) return null;
-
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
   const fileMenu = menu.kind === "file";
   const markdownFile = fileMenu && menu.resource.documentKind === "markdown" && Boolean(menu.file);
   const htmlFile = fileMenu && isHtmlDocumentFilePath(menu.resource.path) && Boolean(menu.file);
@@ -918,52 +837,74 @@ function ProjectResourceContextMenu({
     : menu.directoryPath.split("/").at(-1) || rootName;
 
   return (
-    <EditorPointMenu
-      open
-      point={{ x: menu.x, y: menu.y }}
-      onOpenChange={onOpenChange}
-      ariaLabel={`${targetName} 操作`}
-      restoreFocusRef={restoreFocusRef}
-    >
-      {fileMenu && menu.file && !htmlFile && !imageFile ? (
-        <DropdownMenuItem title={menu.file.path} onSelect={() => onOpenProjectFile(menu.file!)}>
-          <Page className="size-4" />
-          <span className="truncate">打开</span>
-        </DropdownMenuItem>
-      ) : null}
-      {markdownFile && menu.file ? (
-        <DropdownMenuItem title={menu.file.path} onSelect={() => onOpenProjectMarkdownWindow(menu.file!)}>
-          <OpenNewWindow className="size-4" />
-          <span className="truncate">在浮窗中打开</span>
-        </DropdownMenuItem>
-      ) : null}
-      {htmlFile && menu.file ? (
-        <DropdownMenuItem title={menu.file.path} onSelect={() => onOpenProjectHtmlWindow(menu.file!)}>
-          <OpenNewWindow className="size-4" />
-          <span className="truncate">在浮窗中预览</span>
-        </DropdownMenuItem>
-      ) : null}
-      {imageFile && menu.file ? (
-        <DropdownMenuItem title={menu.file.path} onSelect={() => onOpenProjectImageWindow(menu.file!)}>
-          <MediaImage className="size-4" />
-          <span className="truncate">在图片查看器中打开</span>
-        </DropdownMenuItem>
-      ) : null}
-      {fileMenu ? (
-        <>
-          {menu.file ? <DropdownMenuSeparator /> : null}
-          <DropdownMenuItem title={menu.resource.path} disabled={projectBusy} onSelect={() => onMove(menu.resource)}>
-            <PathArrow className="size-4" />
-            <span className="truncate">移动到…</span>
-          </DropdownMenuItem>
-        </>
-      ) : (
-        <DropdownMenuItem disabled={projectBusy} onSelect={() => onCreateFile(menu.directoryPath)}>
-          <PagePlus className="size-4" />
-          <span className="truncate">新建文件…</span>
-        </DropdownMenuItem>
-      )}
-    </EditorPointMenu>
+    <ContextMenu>
+      <ContextMenuTrigger ref={triggerRef} asChild>{children}</ContextMenuTrigger>
+      <ContextMenuContent
+        aria-label={`${targetName} 操作`}
+        onCloseAutoFocus={(event) => {
+          event.preventDefault();
+          if (triggerRef.current?.isConnected) triggerRef.current.focus({ preventScroll: true });
+        }}
+      >
+        {fileMenu ? (
+          <>
+            {menu.file ? (
+              <ContextMenuGroup>
+                {!htmlFile && !imageFile ? (
+                  <ContextMenuItem title={menu.file.path} onSelect={() => onOpenProjectFile(menu.file!)}>
+                    <Page data-icon />
+                    <span className="truncate">打开</span>
+                  </ContextMenuItem>
+                ) : null}
+                {markdownFile ? (
+                  <ContextMenuItem title={menu.file.path} onSelect={() => onOpenProjectMarkdownWindow(menu.file!)}>
+                    <OpenNewWindow data-icon />
+                    <span className="truncate">在浮窗中打开</span>
+                  </ContextMenuItem>
+                ) : null}
+                {htmlFile ? (
+                  <ContextMenuItem title={menu.file.path} onSelect={() => onOpenProjectHtmlWindow(menu.file!)}>
+                    <OpenNewWindow data-icon />
+                    <span className="truncate">在浮窗中预览</span>
+                  </ContextMenuItem>
+                ) : null}
+                {imageFile ? (
+                  <ContextMenuItem title={menu.file.path} onSelect={() => onOpenProjectImageWindow(menu.file!)}>
+                    <MediaImage data-icon />
+                    <span className="truncate">在图片查看器中打开</span>
+                  </ContextMenuItem>
+                ) : null}
+              </ContextMenuGroup>
+            ) : null}
+            {menu.file ? <ContextMenuSeparator /> : null}
+            <ContextMenuGroup>
+              <ContextMenuItem
+                title={menu.resource.path}
+                disabled={projectBusy}
+                onSelect={() => {
+                  window.requestAnimationFrame(() => onMove(menu.resource));
+                }}
+              >
+                <PathArrow data-icon />
+                <span className="truncate">移动到…</span>
+              </ContextMenuItem>
+            </ContextMenuGroup>
+          </>
+        ) : (
+          <ContextMenuGroup>
+            <ContextMenuItem
+              disabled={projectBusy}
+              onSelect={() => {
+                window.requestAnimationFrame(() => onCreateFile(menu.directoryPath));
+              }}
+            >
+              <PagePlus data-icon />
+              <span className="truncate">新建文件…</span>
+            </ContextMenuItem>
+          </ContextMenuGroup>
+        )}
+      </ContextMenuContent>
+    </ContextMenu>
   );
 }
 
@@ -1003,18 +944,26 @@ function CreateProjectFileDialog({ directoryPath, rootName, projectBusy, onClose
       footer={
         <>
           <Button type="button" variant="ghost" onClick={onClose} disabled={projectBusy}>取消</Button>
-          <Button type="button" onClick={submit} disabled={projectBusy || !fileName.trim()}><Plus />新建</Button>
+          <Button type="button" onClick={submit} disabled={projectBusy || !fileName.trim()}><Plus data-icon="inline-start" />新建</Button>
         </>
       }
     >
       <form className="grid gap-4" onSubmit={(event) => { event.preventDefault(); submit(); }}>
-        <EditorSegmentedControl aria-label="文件类型">
+        <ToggleGroup
+          type="single"
+          size="sm"
+          value={kind}
+          className="w-full justify-stretch"
+          aria-label="文件类型"
+          disabled={projectBusy}
+          onValueChange={(value) => { if (value) selectKind(value as ExplorerProjectFileKind); }}
+        >
           {EXPLORER_FILE_KINDS.map((item) => (
-            <EditorSegmentedControlItem key={item.kind} type="button" active={kind === item.kind} onClick={() => selectKind(item.kind)} disabled={projectBusy}>
+            <ToggleGroupItem key={item.kind} type="button" value={item.kind} className="flex-1">
               {item.label}
-            </EditorSegmentedControlItem>
+            </ToggleGroupItem>
           ))}
-        </EditorSegmentedControl>
+        </ToggleGroup>
         <EditorField label="文件名" htmlFor="explorer-new-file-name" description={`未填写扩展名时自动添加 ${descriptor.extension}`}>
           <Input
             id="explorer-new-file-name"
@@ -1064,7 +1013,7 @@ function MoveProjectFileDialog({
       footer={
         <>
           <Button type="button" variant="ghost" onClick={onClose} disabled={projectBusy}>取消</Button>
-          <Button type="button" onClick={onMove} disabled={projectBusy || destinationUnchanged}><PathArrow />移动</Button>
+          <Button type="button" onClick={onMove} disabled={projectBusy || destinationUnchanged}><PathArrow data-icon="inline-start" />移动</Button>
         </>
       }
     >
@@ -1085,6 +1034,21 @@ function MoveProjectFileDialog({
       </EditorList>
     </EditorDialog>
   );
+}
+
+function openContextMenuFromKeyboard(event: ReactKeyboardEvent<HTMLButtonElement>) {
+  if (event.key !== "ContextMenu" && !(event.shiftKey && event.key === "F10")) return false;
+  event.preventDefault();
+  const trigger = event.currentTarget;
+  const bounds = trigger.getBoundingClientRect();
+  trigger.dispatchEvent(new MouseEvent("contextmenu", {
+    bubbles: true,
+    cancelable: true,
+    button: 2,
+    clientX: bounds.left + 20,
+    clientY: bounds.top + bounds.height / 2
+  }));
+  return true;
 }
 
 function visibleTreeItems(root: HTMLDivElement | null) {

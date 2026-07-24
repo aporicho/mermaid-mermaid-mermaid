@@ -151,6 +151,9 @@ export function migrateLegacySingleDocumentDraft(
 ): EditorDocumentSession {
   const fileRef = normalizeDocumentFileRef(stored.fileRef);
   const rawFileName = typeof stored.fileName === "string" ? stored.fileName : fileRef?.name || "diagram.mmd";
+  if (stored.documentKind === "canvas" || [fileRef?.path, rawFileName].some((candidate) => candidate?.toLowerCase().endsWith(".canvas.json"))) {
+    return createEmptyEditorDocumentSession(options.windowId);
+  }
   const documentKind = normalizeDocumentKind(stored.documentKind, fileRef?.path || rawFileName);
   const fileName = normalizeFileName(rawFileName, documentKind);
   const identity = fileRef
@@ -216,7 +219,9 @@ function normalizeEditorDocumentBuffer(value: unknown): EditorDocumentBuffer | n
   const identity = normalizeEditorDocumentIdentity(value.identity);
   if (!identity) return null;
   const fileRef = normalizeDocumentFileRef(value.fileRef);
-  const documentKind = normalizeDocumentKind(value.documentKind, fileRef?.path || (typeof value.fileName === "string" ? value.fileName : identity.kind === "file" ? identity.path : undefined));
+  const path = fileRef?.path || (typeof value.fileName === "string" ? value.fileName : identity.kind === "file" ? identity.path : undefined);
+  if (value.documentKind === "canvas" || path?.toLowerCase().endsWith(".canvas.json")) return null;
+  const documentKind = normalizeDocumentKind(value.documentKind, path);
   return createEditorDocumentBuffer({
     identity,
     documentKind,
@@ -247,7 +252,7 @@ function normalizeDocumentFileRef(value: unknown): EditorDocumentFileRef | null 
 }
 
 function normalizeDocumentKind(value: unknown, filePath?: string): DocumentKind {
-  if (value === "markdown" || value === "canvas" || value === "mermaid") return value;
+  if (value === "markdown" || value === "mermaid") return value;
   return documentKindFromPath(filePath) || "mermaid";
 }
 
@@ -275,7 +280,6 @@ function normalizeFileName(value: string, documentKind: DocumentKind) {
 
 function defaultFileName(documentKind: DocumentKind) {
   if (documentKind === "markdown") return "document.md";
-  if (documentKind === "canvas") return "board.canvas.json";
   return "diagram.mmd";
 }
 

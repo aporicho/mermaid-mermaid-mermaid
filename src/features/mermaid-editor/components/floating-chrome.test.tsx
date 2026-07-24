@@ -8,12 +8,11 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
-import { EditorSectionHeader } from "@/features/mermaid-editor/components/editor-ui";
 import {
-  FloatingPopover,
   WorkspaceFloatingWindow,
   WorkspaceWindowHeader
 } from "@/features/mermaid-editor/components/floating-chrome";
@@ -351,7 +350,7 @@ describe("floating chrome", () => {
         >
           <DropdownMenu open>
             <DropdownMenuTrigger>打开</DropdownMenuTrigger>
-            <DropdownMenuContent><DropdownMenuItem>菜单项</DropdownMenuItem></DropdownMenuContent>
+            <DropdownMenuContent><DropdownMenuGroup><DropdownMenuItem>菜单项</DropdownMenuItem></DropdownMenuGroup></DropdownMenuContent>
           </DropdownMenu>
         </WorkspaceFloatingWindow>
       );
@@ -360,9 +359,13 @@ describe("floating chrome", () => {
     const panel = requiredElement<HTMLElement>("[data-floating-panel-id='menu-owner']");
     const host = panel.querySelector<HTMLElement>("[data-overlay-layer-host='workspace']");
     const menu = host?.querySelector<HTMLElement>("[data-overlay-layer='dropdown']");
+    const surface = panel.querySelector<HTMLElement>(".editor-ui-panel");
     expect(host?.dataset.overlayScopeId).toBe("workspace:menu-owner");
     expect(menu?.dataset.overlayScopeId).toBe("workspace:menu-owner");
     expect(document.body.querySelector("[data-overlay-layer='dropdown']")).toBe(menu);
+    expect(surface?.contains(host ?? null)).toBe(false);
+    expect(surface?.className).toContain("z-0");
+    expect(host?.className).toContain("z-[1]");
   });
 
   it("labels workspace windows from their shared titlebar and moves them by that titlebar", () => {
@@ -380,22 +383,6 @@ describe("floating chrome", () => {
 
     expect(Number.parseFloat(panel.style.left)).toBe(initialLeft + 40);
     expect(Number.parseFloat(panel.style.top)).toBe(initialTop + 25);
-  });
-
-  it("leaves non-workspace panel headers in their ordinary layout", () => {
-    createContainer();
-    act(() => {
-      root?.render(
-        <FloatingPopover open placement="right">
-          <EditorSectionHeader title="普通浮层" />
-        </FloatingPopover>
-      );
-    });
-
-    const header = requiredElement<HTMLElement>("header");
-    expect(header.hasAttribute("data-workspace-panel-header")).toBe(false);
-    expect(header.className).not.toContain("absolute");
-    expect(container?.querySelector("[data-floating-panel-header-hot-zone]")).toBeNull();
   });
 
   it("opens workspace headers hidden and reveals them from a full-titlebar drag zone", () => {

@@ -1,15 +1,13 @@
 import { Suspense, lazy } from "react";
 
-import { CanvasDocumentEditor } from "@/features/mermaid-editor/components/canvas-document-editor";
 import { MarkdownPanel } from "@/features/mermaid-editor/components/markdown-panel";
 import { PreviewPanel } from "@/features/mermaid-editor/components/preview-panel";
 import { SourcePanel } from "@/features/mermaid-editor/components/source-panel";
 import type { CanvasLiveState } from "@/features/mermaid-editor/components/mermaid-editor/editor-shell-utils";
 import type { DagreEdgeRoute } from "@/features/mermaid-editor/lib/canvas-auto-layout";
-import type { CanvasDocument } from "@/features/mermaid-editor/lib/canvas-document";
 import { documentKindLabel, type DocumentKind } from "@/features/mermaid-editor/lib/document-kind";
 import type { EditorDiagnostic } from "@/features/mermaid-editor/lib/editor-diagnostics";
-import type { EditorRuntime, RuntimeAgentTextSelection, RuntimeFileRef } from "@/features/mermaid-editor/lib/editor-runtime";
+import type { RuntimeAgentTextSelection, RuntimeFileRef } from "@/features/mermaid-editor/lib/editor-runtime";
 import type { CanvasVisualTokens } from "@/features/mermaid-editor/lib/canvas-visual-state";
 import type {
   CanvasNode,
@@ -27,20 +25,15 @@ import type { ViewFilters } from "@/features/mermaid-editor/lib/view-filters";
 import type { WorkspaceView } from "@/features/mermaid-editor/lib/workspace-view";
 import type { MarkdownDocumentPreview } from "@/features/mermaid-editor/lib/markdown-document";
 import type { MarkdownFoldSnapshot } from "@/features/mermaid-editor/lib/markdown-fold-state";
-import {
-  canvasDocumentImageNavigation,
-  mermaidGraphImageNavigation
-} from "@/features/mermaid-editor/lib/canvas-image-window";
+import { mermaidGraphImageNavigation } from "@/features/mermaid-editor/lib/canvas-image-window";
 import type { ImageWindowOpenRequest } from "@/features/mermaid-editor/lib/workspace-panels";
 
 const KonvaCanvas = lazy(() => import("@/features/mermaid-editor/components/konva-canvas").then((mod) => ({ default: mod.KonvaCanvas })));
 
 type EditorWorkspaceSurfaceProps = {
   documentKind: DocumentKind;
-  canvasDocument: CanvasDocument;
   fileRef: RuntimeFileRef | null;
   fileName: string;
-  runtime: EditorRuntime;
   workspaceView: WorkspaceView;
   isCanvasEditable: boolean;
   graph: MermaidGraph;
@@ -68,8 +61,6 @@ type EditorWorkspaceSurfaceProps = {
   previewSource: string;
   diagnostics: EditorDiagnostic[];
   mermaidThemeVariables: MermaidThemeVariables;
-  onCanvasDocumentChange: (document: CanvasDocument, status?: string) => void;
-  onStatus: (status: string) => void;
   onMarkdownChange: (value: string) => void;
   onTextSelectionChange?: (selection: RuntimeAgentTextSelection | null) => void;
   markdownFoldState: MarkdownFoldSnapshot | null | undefined;
@@ -87,10 +78,8 @@ type EditorWorkspaceSurfaceProps = {
 
 export function EditorWorkspaceSurface({
   documentKind,
-  canvasDocument,
   fileRef,
   fileName,
-  runtime,
   workspaceView,
   isCanvasEditable,
   graph,
@@ -118,8 +107,6 @@ export function EditorWorkspaceSurface({
   previewSource,
   diagnostics,
   mermaidThemeVariables,
-  onCanvasDocumentChange,
-  onStatus,
   onMarkdownChange,
   onTextSelectionChange,
   markdownFoldState,
@@ -134,26 +121,6 @@ export function EditorWorkspaceSurface({
   onLiveStateChange,
   onRequestMarkdownDocumentPreview
 }: EditorWorkspaceSurfaceProps) {
-  if (documentKind === "canvas") {
-    const documentIdentity = fileRef?.path || fileName;
-    return (
-      <CanvasDocumentEditor
-        document={canvasDocument}
-        fileRef={fileRef}
-        runtime={runtime}
-        typography={typography.canvasDocument}
-        fontRevision={fontRevision}
-        onChange={onCanvasDocumentChange}
-        onOpenImage={(image) => onOpenCanvasImage({
-          source: image.src,
-          identity: `canvas:${documentIdentity}:image:${image.id}`,
-          navigation: canvasDocumentImageNavigation(canvasDocument, documentIdentity)
-        })}
-        onStatus={onStatus}
-      />
-    );
-  }
-
   if (workspaceView === "canvas" && isCanvasEditable) {
     const documentIdentity = fileRef?.path || fileName;
     return (

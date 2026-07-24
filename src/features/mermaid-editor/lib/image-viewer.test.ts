@@ -127,8 +127,8 @@ describe("image viewer", () => {
   });
 
   it("resolves local canvas image sources for file watching without treating URLs as files", () => {
-    expect(imageViewerWatchPath("assets/cover.png", "/project/board.canvas.json")).toBe("/project/assets/cover.png");
-    expect(imageViewerWatchPath("/project/cover.png", "/project/board.canvas.json")).toBe("/project/cover.png");
-    expect(imageViewerWatchPath("https://example.com/cover.png", "/project/board.canvas.json")).toBe("");
+    expect(imageViewerWatchPath("assets/cover.png", "/project/diagram.mmd")).toBe("/project/assets/cover.png");
+    expect(imageViewerWatchPath("/project/cover.png", "/project/diagram.mmd")).toBe("/project/cover.png");
+    expect(imageViewerWatchPath("https://example.com/cover.png", "/project/diagram.mmd")).toBe("");
   });
 });

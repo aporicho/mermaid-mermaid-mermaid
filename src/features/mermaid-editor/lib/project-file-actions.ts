@@ -1,4 +1,3 @@
-import { createBlankCanvasDocument, serializeCanvasDocument } from "@/features/mermaid-editor/lib/canvas-document";
 import type { RuntimeFileRef, RuntimeProjectFileKind } from "@/features/mermaid-editor/lib/editor-runtime";
 import { BLANK_FLOWCHART_SOURCE, BLANK_MARKDOWN_SOURCE } from "@/features/mermaid-editor/lib/editor-state";
 import type { CanvasNodeAction, MermaidGraph } from "@/features/mermaid-editor/lib/editor-types";
@@ -26,7 +25,6 @@ export type ProjectFilePathMigration = {
 export function initialProjectFileText(kind: RuntimeProjectFileKind, fileName?: string) {
   if (kind === "mermaid") return `${BLANK_FLOWCHART_SOURCE}\n`;
   if (kind === "markdown") return fileName ? initialMarkdownDocumentSource(fileName) : BLANK_MARKDOWN_SOURCE;
-  if (kind === "canvas") return serializeCanvasDocument(createBlankCanvasDocument());
   if (kind === "html") return initialHtmlDocumentSource(fileName || "index.html");
   return "";
 }

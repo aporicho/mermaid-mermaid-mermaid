@@ -200,7 +200,6 @@ function mergeEditorSessionIntoState(state: Record<string, unknown> | null, edit
     ...(state || {}),
     documentKind: active.documentKind,
     source: active.content,
-    canvasDocument: undefined,
     layout: undefined,
     fileName: active.fileName,
     fileRef: active.fileRef ? { ...active.fileRef, revision: active.revision || undefined } : null,

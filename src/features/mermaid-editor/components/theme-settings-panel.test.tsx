@@ -22,6 +22,11 @@ describe("ThemeSettingsPanel", () => {
 
   beforeEach(() => {
     (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    vi.stubGlobal("ResizeObserver", class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    });
     container = document.createElement("div");
     document.body.appendChild(container);
     root = createRoot(container);
@@ -32,6 +37,7 @@ describe("ThemeSettingsPanel", () => {
     root = null;
     container?.remove();
     container = null;
+    vi.unstubAllGlobals();
   });
 
   it("renders as workspace content with a category tree and no embedded preview", () => {
@@ -96,7 +102,7 @@ describe("ThemeSettingsPanel", () => {
     expect(onPreview).toHaveBeenCalledWith(
       "custom",
       expect.objectContaining({
-        version: 15,
+        version: 16,
         markdown: expect.objectContaining({
           heading: expect.objectContaining({ h1: DEFAULT_EDITOR_THEME.markdown.heading.h1 })
         })
@@ -132,7 +138,7 @@ describe("ThemeSettingsPanel", () => {
       expect(container?.querySelector(`[data-theme-token-path="specialNode.markdownDocument.contentPadding${key}"]`)).not.toBeNull();
     }
     clickButton("轻量预览 · 布局");
-    expect(container?.querySelector('[data-theme-token-path="specialNode.markdownDocument.previewContent.layout.indentationEnabled"] [role="switch"]')).not.toBeNull();
+    expect(container?.querySelector('[data-theme-token-path="specialNode.markdownDocument.previewContent.layout.listIndentationEnabled"] [role="switch"]')).not.toBeNull();
     clickButton("轻量预览 · 引用");
     expect(container?.querySelector('[data-theme-token-path="specialNode.markdownDocument.previewContent.blockquote.borderEnabled"] [role="switch"]')).not.toBeNull();
     expect(container?.querySelector('[data-theme-token-path="specialNode.markdownDocument.previewContent.blockquote.borderStyle"] [role="combobox"]')).not.toBeNull();
@@ -171,6 +177,24 @@ describe("ThemeSettingsPanel", () => {
     expect(container?.querySelector('[data-theme-settings-group="canvas-node"] button[aria-expanded="true"]')).not.toBeNull();
     expect(container?.querySelector('[data-theme-token-path="canvas.ordinaryNode.radius"]')).not.toBeNull();
     expect(container?.querySelector('[data-theme-settings-group="canvas-edge"]')).toBeNull();
+  });
+
+  it("temporarily expands search matches and restores the user's expanded groups when cleared", () => {
+    renderPanel();
+    clickButton("画布");
+    clickButton("普通节点");
+
+    const search = container?.querySelector<HTMLInputElement>('[aria-label="搜索外观 token"]');
+    changeInput(search, "canvas.edge.parallelSpacing");
+    const searchExpandedEdge = container?.querySelector<HTMLButtonElement>('[data-theme-settings-group="canvas-edge"] button[aria-expanded="true"]');
+    expect(searchExpandedEdge).not.toBeNull();
+    expect(container?.querySelector('[data-theme-settings-group="canvas-node"]')).toBeNull();
+    act(() => searchExpandedEdge?.click());
+    expect(searchExpandedEdge?.getAttribute("aria-expanded")).toBe("true");
+
+    changeInput(search, "");
+    expect(container?.querySelector('[data-theme-settings-group="canvas-node"] button[aria-expanded="true"]')).not.toBeNull();
+    expect(container?.querySelector('[data-theme-settings-group="canvas-edge"] button[aria-expanded="false"]')).not.toBeNull();
   });
 
   it("renders semantic border style selects and hides custom dash until it is selected", () => {
@@ -245,6 +269,18 @@ describe("ThemeSettingsPanel", () => {
 
     clickButton("特殊节点");
     expect(expandedStates('[data-typography-group] > header > button[aria-expanded]')).not.toContain("true");
+    expect([...(container?.querySelectorAll('[data-theme-settings-accordion]') ?? [])].every((accordion) => accordion.getAttribute("data-accordion-type") === "multiple")).toBe(true);
+  });
+
+  it("uses shadcn sliders alongside numeric inputs instead of native range controls", () => {
+    renderPanel();
+    clickButton("画布");
+    clickButton("普通节点");
+
+    const radius = container?.querySelector('[data-theme-token-path="canvas.ordinaryNode.radius"]');
+    expect(radius?.querySelector('[role="slider"]')).not.toBeNull();
+    expect(radius?.querySelector('input[type="number"]')).not.toBeNull();
+    expect(container?.querySelector('input[type="range"]')).toBeNull();
   });
 
   it("keeps reset actions disabled until a built-in theme becomes a custom draft", () => {

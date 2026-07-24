@@ -344,16 +344,6 @@
         "groupTitle": { "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif" },
         "note": { "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif" }
       },
-      "canvasDocument": {
-        "shape": { "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif" },
-        "shapeEditor": { "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif" },
-        "card": { "family": "\"方正屏显雅宋简体\", \"Songti SC\", \"Noto Serif SC\", serif" },
-        "cardEditor": { "family": "\"方正屏显雅宋简体\", \"Songti SC\", \"Noto Serif SC\", serif" },
-        "freeText": { "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif" },
-        "freeTextEditor": { "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif" },
-        "connector": { "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif" },
-        "connectorEditor": { "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif" }
-      },
       "source": {
         "editor": { "family": "Maple Mono, SF Mono, Cascadia Code, JetBrains Mono, Noto Sans SC Variable, ui-monospace, monospace" },
         "diagnosticSummary": { "family": "Maple Mono, SF Mono, Cascadia Code, JetBrains Mono, Noto Sans SC Variable, ui-monospace, monospace" },

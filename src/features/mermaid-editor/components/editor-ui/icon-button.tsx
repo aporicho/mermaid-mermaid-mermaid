@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { forwardRef, type ReactNode } from "react";
 import { cva, type VariantProps } from "class-variance-authority";
 
 import { Badge } from "@/components/ui/badge";
@@ -23,19 +23,20 @@ const editorIconButtonVariants = cva("relative shrink-0", {
   defaultVariants: { context: "panel", tone: "neutral" }
 });
 
-export function EditorIconButton({ label, tooltipSide = "bottom", context, tone, pressed, dirty, badgeCount, className, children, ...props }: Omit<ButtonProps, "size"> & VariantProps<typeof editorIconButtonVariants> & {
+export const EditorIconButton = forwardRef<HTMLButtonElement, Omit<ButtonProps, "size"> & VariantProps<typeof editorIconButtonVariants> & {
   label: string;
   tooltipSide?: "top" | "right" | "bottom" | "left";
   pressed?: boolean;
   dirty?: boolean;
   badgeCount?: number;
   children: ReactNode;
-}) {
+}>(function EditorIconButton({ label, tooltipSide = "bottom", context, tone, pressed, dirty, badgeCount, className, children, ...props }, ref) {
   const resolvedTone = pressed && tone !== "danger" ? "active" : tone;
   return (
     <Tooltip>
       <TooltipTrigger asChild>
         <Button
+          ref={ref}
           size="icon"
           variant={pressed ? "default" : "ghost"}
           className={cn(editorIconButtonVariants({ context, tone: resolvedTone }), dirty && "text-primary", className)}
@@ -51,6 +52,6 @@ export function EditorIconButton({ label, tooltipSide = "bottom", context, tone,
       <TooltipContent side={tooltipSide}>{label}</TooltipContent>
     </Tooltip>
   );
-}
+});
 
 export { editorIconButtonVariants };

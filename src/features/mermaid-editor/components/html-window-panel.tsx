@@ -1,10 +1,8 @@
 import { useEffect, useState } from "react";
 import { CodeBrackets, Copy, Refresh as RefreshCw } from "iconoir-react/regular";
 
-import { Spinner } from "@/components/ui/spinner";
 import { EditorIconButton } from "@/features/mermaid-editor/components/editor-ui";
-import { EmbeddedBrowserSurface } from "@/features/mermaid-editor/components/embedded-browser-surface";
-import { WorkspaceNativeSurfaceFrame, WorkspaceWindowHeader } from "@/features/mermaid-editor/components/floating-chrome";
+import { NativeWebWindowPanel } from "@/features/mermaid-editor/components/native-web-window-panel";
 import type { EditorRuntime, RuntimeEmbeddedBrowserHandle, RuntimeEmbeddedBrowserState } from "@/features/mermaid-editor/lib/editor-runtime";
 import type { DetachedHtmlWindow } from "@/features/mermaid-editor/lib/workspace-panels";
 
@@ -65,37 +63,30 @@ export function HtmlWindowPanel({
     reportStatus("已复制 HTML 文件路径。");
   }
 
-  return (
-    <div className="flex h-full min-h-0 flex-col bg-card">
-      <WorkspaceWindowHeader
-        icon={<CodeBrackets className="size-4 shrink-0 text-icon" />}
-        title={<span className="block max-w-56 truncate">{pageTitle}</span>}
-        titleTooltip={`${pageTitle}\n${htmlWindow.file.path}`}
-        status={localStatus
-          ? <span className="type-interface-status hidden max-w-40 truncate text-muted-foreground xl:block" aria-live="polite">{localStatus}</span>
-          : loading ? <span className="type-interface-status hidden items-center gap-1.5 text-muted-foreground xl:flex"><Spinner className="size-3.5" />载入中</span> : null}
-        center={<span className="min-w-0 flex-1 truncate px-2 text-xs text-muted-foreground" title={htmlWindow.file.path}>{htmlWindow.file.path}</span>}
-        actions={<>
-          <EditorIconButton context="panel" label="重新载入 HTML" onClick={reloadPreview}><RefreshCw /></EditorIconButton>
-          <EditorIconButton context="panel" label="复制文件路径" onClick={copyPath}><Copy /></EditorIconButton>
-        </>}
-      />
-      <WorkspaceNativeSurfaceFrame>
-        <EmbeddedBrowserSurface
-          panelId={htmlWindow.id}
-          url={htmlWindow.url}
-          runtime={runtime}
-          retryRevision={retryRevision}
-          onRetry={reloadPreview}
-          onStatus={reportStatus}
-          onBrowserError={(_url, message) => reportStatus(`HTML 预览失败：${message}`)}
-          onBrowserFocus={onFocusPanel}
-          onBrowserHandleChange={(_panelId, handle) => setBrowserHandle(handle)}
-          onBrowserStateChange={updateBrowserState}
-        />
-      </WorkspaceNativeSurfaceFrame>
-    </div>
-  );
+  return <NativeWebWindowPanel
+    icon={<CodeBrackets className="size-4 shrink-0 text-icon" />}
+    title={<span className="block max-w-56 truncate">{pageTitle}</span>}
+    titleTooltip={`${pageTitle}\n${htmlWindow.file.path}`}
+    status={localStatus}
+    loading={loading}
+    center={<span className="min-w-0 flex-1 truncate px-2 text-xs text-muted-foreground" title={htmlWindow.file.path}>{htmlWindow.file.path}</span>}
+    actions={<EditorIconButton context="panel" label="重新载入 HTML" onClick={reloadPreview}><RefreshCw data-icon /></EditorIconButton>}
+    overflowActions={[
+      { id: "copy-path", label: "复制文件路径", icon: <Copy data-icon />, onSelect: copyPath }
+    ]}
+    surface={{
+      panelId: htmlWindow.id,
+      url: htmlWindow.url,
+      runtime,
+      retryRevision,
+      onRetry: reloadPreview,
+      onStatus: reportStatus,
+      onBrowserError: (_url, message) => reportStatus(`HTML 预览失败：${message}`),
+      onBrowserFocus: onFocusPanel,
+      onBrowserHandleChange: (_panelId, handle) => setBrowserHandle(handle),
+      onBrowserStateChange: updateBrowserState
+    }}
+  />;
 }
 
 function readableError(error: unknown) {

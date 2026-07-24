@@ -34,13 +34,13 @@ export function SourcePanel({ value, title = "Mermaid", className, diagnostics =
   }
 
   return (
-    <section className={cn("relative z-10 grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)_auto] border-r bg-card", className)}>
+    <section className={cn("relative grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)_auto] border-r bg-card", className)}>
       <EditorSectionHeader title={title} actions={<div className="flex items-center gap-1">
           {onRun ? (
-            <EditorIconButton context="panel" label="刷新画布" tooltipSide="right" onClick={onRun}><RefreshCw /></EditorIconButton>
+            <EditorIconButton context="panel" label="刷新画布" tooltipSide="right" onClick={onRun}><RefreshCw data-icon /></EditorIconButton>
           ) : null}
           {onCollapse ? (
-            <EditorIconButton context="panel" label="收起源码面板" tooltipSide="right" onClick={onCollapse}><PanelLeftClose /></EditorIconButton>
+            <EditorIconButton context="panel" label="收起源码面板" tooltipSide="right" onClick={onCollapse}><PanelLeftClose data-icon /></EditorIconButton>
           ) : null}
         </div>} />
       <Textarea

@@ -2,7 +2,6 @@ import { applyDagreAutoLayout } from "@/features/mermaid-editor/lib/canvas-auto-
 import { layoutFromGraph } from "@/features/mermaid-editor/lib/canvas-layout";
 import {
   BLANK_MARKDOWN_SOURCE,
-  FALLBACK_CANVAS_FILE_NAME,
   FALLBACK_FILE_NAME,
   FALLBACK_MARKDOWN_FILE_NAME,
   buildFallbackCleanDocument,
@@ -17,12 +16,6 @@ import type {
   RuntimeFileRef
 } from "@/features/mermaid-editor/lib/editor-runtime";
 import { buildMermaidDocument, loadMermaidDocument } from "@/features/mermaid-editor/lib/mermaid-document";
-import {
-  createBlankCanvasDocument,
-  parseCanvasDocument,
-  serializeCanvasDocument,
-  type CanvasDocument
-} from "@/features/mermaid-editor/lib/canvas-document";
 import type {
   EdgeRouting,
   LayoutMode,
@@ -46,7 +39,6 @@ export type UseEditorDraftPersistenceArgs = {
   runtime: EditorRuntime;
   documentKind: DocumentKind;
   source: string;
-  canvasDocument: CanvasDocument;
   graph: MermaidGraph;
   viewport: ViewportState;
   edgeRouting: EdgeRouting;
@@ -73,7 +65,6 @@ export function useEditorDraftPersistence({
   runtime,
   documentKind,
   source,
-  canvasDocument,
   graph,
   viewport,
   edgeRouting,
@@ -98,7 +89,6 @@ export function useEditorDraftPersistence({
   function buildStoredEditorDraft(overrides: StoredEditorDraftOverrides = {}): StoredEditor {
     const draftDocumentKind = overrides.documentKind ?? documentKind;
     const draftSource = overrides.source ?? source;
-    const draftCanvasDocument = overrides.canvasDocument ?? canvasDocument;
     const draftGraph = overrides.graph ?? graph;
     const draftViewport = overrides.viewport ?? viewport;
     const draftEdgeRouting = overrides.edgeRouting ?? edgeRouting;
@@ -110,10 +100,9 @@ export function useEditorDraftPersistence({
 
     return {
       documentKind: draftDocumentKind,
-      source: draftDocumentKind === "canvas" ? serializeCanvasDocument(draftCanvasDocument) : draftSource,
-      ...(draftDocumentKind === "canvas" ? { canvasDocument: draftCanvasDocument } : {}),
+      source: draftSource,
       ...(draftDocumentKind === "mermaid" ? { layout: layoutFromGraph(draftGraph, draftViewport, draftEdgeRouting, draftLayoutMode) } : {}),
-      viewport: draftDocumentKind === "canvas" ? draftCanvasDocument.viewport : draftViewport,
+      viewport: draftViewport,
       edgeRouting: draftEdgeRouting,
       layoutMode: draftLayoutMode,
       leftCollapsed,
@@ -153,25 +142,6 @@ export function useEditorDraftPersistence({
         lastSavedDocument: keepCurrentFile ? lastSavedDocument : BLANK_MARKDOWN_SOURCE,
         editorSession: editorSessionOverride,
         workspaceView: workspaceViewForDocument("render-only", workspaceView, "markdown")
-      });
-      return;
-    }
-
-    if (documentKind === "canvas") {
-      const keepCurrentFile = Boolean(lastSavedDocument?.trim());
-      const cleanDocument = keepCurrentFile ? parseCanvasDocument(lastSavedDocument) : createBlankCanvasDocument();
-      const cleanSource = serializeCanvasDocument(cleanDocument);
-      await persistStoredEditorDraft({
-        documentKind: "canvas",
-        source: cleanSource,
-        canvasDocument: cleanDocument,
-        graph: createEmptyDocumentGraph(),
-        viewport: cleanDocument.viewport,
-        fileName: keepCurrentFile ? fileName : FALLBACK_CANVAS_FILE_NAME,
-        fileRef: keepCurrentFile ? fileRef : null,
-        lastSavedDocument: cleanSource,
-        editorSession: editorSessionOverride,
-        workspaceView: "canvas"
       });
       return;
     }

@@ -3,15 +3,14 @@ import { Plus } from "iconoir-react/regular";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
   EditorDialog,
   EditorEmptyState,
   EditorField,
   EditorList,
   EditorListRow,
-  EditorSearchField,
-  EditorSegmentedControl,
-  EditorSegmentedControlItem
+  EditorSearchField
 } from "@/features/mermaid-editor/components/editor-ui";
 import type { ProjectFileEntry } from "@/features/mermaid-editor/lib/project-workspace";
 
@@ -69,17 +68,24 @@ export function ProjectDocumentNodeDialog({
           <Button type="button" variant="ghost" onClick={onClose} disabled={creating}>取消</Button>
           {projectAvailable && mode === "new" ? (
             <Button type="button" onClick={() => onCreate(fileName)} disabled={creating || !fileName.trim()}>
-              <Plus />{creating ? "创建中…" : "创建"}
+              <Plus data-icon="inline-start" />{creating ? "创建中…" : "创建"}
             </Button>
           ) : null}
         </>
       }
     >
       <div className="grid min-h-0 gap-4">
-        <EditorSegmentedControl>
-          <EditorSegmentedControlItem type="button" active={mode === "existing"} onClick={() => setMode("existing")}>已有</EditorSegmentedControlItem>
-          <EditorSegmentedControlItem type="button" active={mode === "new"} onClick={() => setMode("new")}>新建</EditorSegmentedControlItem>
-        </EditorSegmentedControl>
+        <ToggleGroup
+          type="single"
+          size="sm"
+          value={mode}
+          className="w-full justify-stretch"
+          aria-label="文档来源"
+          onValueChange={(value) => { if (value) setMode(value as typeof mode); }}
+        >
+          <ToggleGroupItem type="button" value="existing" className="flex-1">已有</ToggleGroupItem>
+          <ToggleGroupItem type="button" value="new" className="flex-1">新建</ToggleGroupItem>
+        </ToggleGroup>
 
         {!projectAvailable ? (
           <EditorEmptyState title="请先打开项目文件夹" />
@@ -101,8 +107,8 @@ export function ProjectDocumentNodeDialog({
           </div>
         ) : (
           <div className="grid content-start gap-3 border p-4">
-            <EditorField label="文件名">
-              <Input value={fileName} onChange={(event) => setFileName(event.target.value)} placeholder={fileNamePlaceholder} autoFocus disabled={creating} />
+            <EditorField label="文件名" htmlFor="project-document-file-name">
+              <Input id="project-document-file-name" value={fileName} onChange={(event) => setFileName(event.target.value)} placeholder={fileNamePlaceholder} autoFocus disabled={creating} />
             </EditorField>
             {existingCollision ? (
               <div className="type-interface-status flex items-center justify-between gap-3 border px-3 py-2">

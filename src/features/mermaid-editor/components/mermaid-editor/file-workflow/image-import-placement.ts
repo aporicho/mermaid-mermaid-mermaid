@@ -1,8 +1,4 @@
 import { layoutBatchImageCenters } from "@/features/mermaid-editor/lib/batch-image-layout";
-import {
-  createCanvasImageElement,
-  type CanvasDocument
-} from "@/features/mermaid-editor/lib/canvas-document";
 import type { RuntimeImageAssetResult } from "@/features/mermaid-editor/lib/editor-runtime";
 import type { DropPoint } from "@/features/mermaid-editor/lib/file-drop";
 import { createImageAsset } from "@/features/mermaid-editor/lib/node-assets";
@@ -15,27 +11,6 @@ export type ImportedImagePlacement = {
   asset: ReadyImageAsset;
   dimensions: { width: number; height: number };
 };
-
-export function appendImportedCanvasImages(
-  document: CanvasDocument,
-  imported: readonly ImportedImagePlacement[],
-  dropCenter: DropPoint
-): CanvasDocument {
-  const elements = [...document.elements];
-  const centers = layoutBatchImageCenters(imported.map((item) => item.dimensions), dropCenter);
-  imported.forEach((item, index) => {
-    const center = centers[index];
-    elements.push(createCanvasImageElement(
-      elements,
-      center.x - item.dimensions.width / 2,
-      center.y - item.dimensions.height / 2,
-      item.asset.src,
-      item.dimensions.width,
-      item.dimensions.height
-    ));
-  });
-  return { ...document, elements };
-}
 
 export function importedGraphImageNodes(
   imported: readonly ImportedImagePlacement[],

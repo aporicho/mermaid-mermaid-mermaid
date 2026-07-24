@@ -20,6 +20,8 @@ describe("theme settings schema", () => {
     expect(APPEARANCE_TOKEN_DEFINITIONS.some((definition) => definition.path.join(".") === "typography.interface.body.family" && definition.category === "interface")).toBe(true);
     expect(APPEARANCE_TOKEN_DEFINITIONS.find((definition) => definition.path.join(".") === "typography.interface.tree.family")).toMatchObject({ groupId: "typography-interface-tree", control: { kind: "font" } });
     expect(APPEARANCE_TOKEN_DEFINITIONS.find((definition) => definition.path.join(".") === "interface.tree.connectorStyle")).toMatchObject({ groupId: "interface-tree-connector", control: { kind: "tree-connector-style" } });
+    expect(APPEARANCE_TOKEN_DEFINITIONS.find((definition) => definition.path.join(".") === "interface.overlay.backdropBlur")).toMatchObject({ groupId: "interface-overlay", control: { kind: "number", min: 0, max: 48 } });
+    expect(APPEARANCE_TOKEN_DEFINITIONS.find((definition) => definition.path.join(".") === "interface.window.headerOpacity")).toMatchObject({ groupId: "interface-window", control: { kind: "number", min: 0, max: 1 } });
     expect(APPEARANCE_TOKEN_DEFINITIONS.some((definition) => definition.path.join(".") === "typography.linkCard.title.family" && definition.category === "specialNode")).toBe(true);
     expect(APPEARANCE_TOKEN_DEFINITIONS.find((definition) => definition.path.join(".") === "specialNode.markdownDocument.previewContent.title.fontSize")).toMatchObject({
       category: "markdownNode",
@@ -35,8 +37,8 @@ describe("theme settings schema", () => {
       groupId: "special-node-markdown-preview-layout",
       control: { kind: "number", min: 0, max: 64, step: 1, unit: "px" }
     });
-    expect(APPEARANCE_TOKEN_DEFINITIONS.find((definition) => definition.path.join(".") === "specialNode.markdownDocument.previewContent.layout.indentationEnabled")).toMatchObject({
-      label: "启用内容缩进",
+    expect(APPEARANCE_TOKEN_DEFINITIONS.find((definition) => definition.path.join(".") === "specialNode.markdownDocument.previewContent.layout.listIndentationEnabled")).toMatchObject({
+      label: "启用列表层级缩进",
       category: "markdownNode",
       groupId: "special-node-markdown-preview-layout",
       control: { kind: "boolean" }
@@ -98,7 +100,7 @@ describe("theme settings schema", () => {
       typography: Record<string, unknown>;
     };
 
-    expect(DEFAULT_EDITOR_THEME.version).toBe(15);
+    expect(DEFAULT_EDITOR_THEME.version).toBe(16);
     expect(theme.markdown).not.toHaveProperty("typography");
     expect(theme.markdown).not.toHaveProperty("font");
     expect(theme.markdown).not.toHaveProperty("quote");

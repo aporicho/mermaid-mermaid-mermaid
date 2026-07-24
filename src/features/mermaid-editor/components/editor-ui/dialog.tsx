@@ -41,7 +41,7 @@ export function EditorDialog({ open, onOpenChange, title, description, icon, chi
           quiet && "min-h-0 border-b-0 pb-0 pt-[var(--theme-panel-padding)]"
         )}>
           <div className="flex min-w-0 items-start gap-2">{icon}<div className="min-w-0"><DialogTitle className="type-interface-heading">{title}</DialogTitle>{description ? <DialogDescription className="type-interface-metadata mt-1 text-muted-foreground">{description}</DialogDescription> : null}</div></div>
-          {showCloseButton ? <Button size="icon" variant="ghost" className="editor-ui-icon-button shrink-0" onClick={() => onOpenChange(false)} aria-label="关闭"><Xmark /></Button> : null}
+          {showCloseButton ? <Button size="icon" variant="ghost" className="editor-ui-icon-button shrink-0" onClick={() => onOpenChange(false)} aria-label="关闭"><Xmark data-icon /></Button> : null}
         </header>
         <div className={cn(
           "editor-ui-panel-body min-h-0 overflow-y-auto",

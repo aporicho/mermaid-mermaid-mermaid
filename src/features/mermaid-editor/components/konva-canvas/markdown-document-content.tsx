@@ -203,8 +203,8 @@ function layoutList(
     const topLevelOrdered = item.ordered && item.depth === 0;
     const itemStyle = topLevelOrdered ? { ...style, fontWeight: content.strong.fontWeight } : style;
     const marker = item.ordered ? `${item.ordinal}.` : "•";
-    const indent = content.layout.indentationEnabled ? item.depth * style.indent : 0;
-    const markerWidth = content.layout.indentationEnabled ? content.layout.listMarkerWidth : measure(marker, itemStyle);
+    const indent = content.layout.listIndentationEnabled ? item.depth * style.indent : 0;
+    const markerWidth = content.layout.listIndentationEnabled ? content.layout.listMarkerWidth : measure(marker, itemStyle);
     const textX = indent + markerWidth + content.layout.listMarkerGap;
     if (y + style.lineHeight > height || textX >= width) {
       truncated = true;
@@ -216,7 +216,7 @@ function layoutList(
       x: indent,
       y,
       width: markerWidth,
-      align: content.layout.indentationEnabled ? "right" : "left",
+      align: content.layout.listIndentationEnabled ? "right" : "left",
       color: itemStyle.markerColor,
       text: marker
     });
@@ -230,7 +230,7 @@ function layoutList(
       content,
       items,
       measure,
-      content.layout.indentationEnabled ? undefined : { x: 0, width }
+      content.layout.listIndentationEnabled ? undefined : { x: 0, width }
     );
     y += Math.max(style.lineHeight, result.height) + content.layout.listItemGap;
     if (result.truncated) {
@@ -254,7 +254,7 @@ function layoutBlockquote(
 ) {
   const quote = content.blockquote;
   const style = quote.enabled ? quote : content.paragraph;
-  const horizontalPadding = quote.enabled && content.layout.indentationEnabled ? quote.paddingX : 0;
+  const horizontalPadding = quote.enabled ? quote.paddingX : 0;
   const verticalPadding = quote.enabled ? quote.paddingY : 0;
   const marginTop = quote.enabled ? quote.marginTop : 0;
   const marginBottom = quote.enabled ? quote.marginBottom : 0;
