@@ -11,6 +11,7 @@ import { ColorGrid, MixedSelectItem } from "@/features/mermaid-editor/components
 import type { CanvasNode, CanvasNodeAction, CanvasNodeBatchPatch, FlowchartNodeShape } from "@/features/mermaid-editor/lib/editor-types";
 import { DEFAULT_FLOWCHART_NODE_SHAPE, FLOWCHART_SHAPE_GROUPS, FLOWCHART_SHAPES } from "@/features/mermaid-editor/lib/flowchart-shapes";
 import { NODE_ACTION_NONE_VALUE, nodeActionLabel, nodeActionTarget } from "@/features/mermaid-editor/lib/node-actions";
+import { resolveCanvasNodeKind } from "@/features/mermaid-editor/lib/canvas-node-kind";
 
 type NodeInspectorSectionProps = {
   node: CanvasNode;
@@ -29,7 +30,6 @@ type NodeInspectorSectionProps = {
 };
 
 type MultiNodeInspectorSectionProps = {
-  selectedNodes: CanvasNode[];
   batchNodeShape: SharedSelectionValue<FlowchartNodeShape>;
   batchNodeFill: SharedSelectionValue<string>;
   canBatchNodeAsset: boolean;
@@ -57,6 +57,26 @@ export function NodeInspectorSection({
   onOpenNodeAction,
   onEditNodeAction
 }: NodeInspectorSectionProps) {
+  if (resolveCanvasNodeKind(node) === "table") {
+    return (
+      <>
+        <div className="grid gap-2">
+          <Label htmlFor="node-id">节点 ID</Label>
+          <Input id="node-id" value={node.id} onChange={(event) => onRenameNode(node, event.target.value)} />
+        </div>
+        <div className="text-sm text-muted-foreground">{node.content?.kind === "table" ? `${node.content.columns.length} 列 · ${node.content.rows.length} 行` : node.csvStatus === "error" ? "CSV 读取失败" : "正在加载 CSV…"}</div>
+        <Separator />
+        <Button variant="outline" size="sm" className="justify-start" onClick={() => onAddEdgeFrom(node)} disabled={graphNodeCount < 2}>
+          <PathArrow className="size-4" />
+          从此表格连线
+        </Button>
+        <Button variant="destructive" size="sm" className="justify-start" onClick={onDeleteSelection}>
+          <Trash2 className="size-4" />
+          删除表格
+        </Button>
+      </>
+    );
+  }
   return (
     <>
       <div className="grid gap-2">
@@ -82,11 +102,11 @@ export function NodeInspectorSection({
         onEditNodeAction={onEditNodeAction}
       />
       <Separator />
-      <Button variant="outline" className="h-8 justify-start px-2" onClick={() => onAddEdgeFrom(node)} disabled={graphNodeCount < 2}>
+      <Button variant="outline" size="sm" className="justify-start" onClick={() => onAddEdgeFrom(node)} disabled={graphNodeCount < 2}>
         <PathArrow className="size-4" />
         从此节点连线
       </Button>
-      <Button variant="destructive" className="h-8 justify-start px-2" onClick={onDeleteSelection}>
+      <Button variant="destructive" size="sm" className="justify-start" onClick={onDeleteSelection}>
         <Trash2 className="size-4" />
         删除节点
       </Button>
@@ -95,7 +115,6 @@ export function NodeInspectorSection({
 }
 
 export function MultiNodeInspectorSection({
-  selectedNodes,
   batchNodeShape,
   batchNodeFill,
   canBatchNodeAsset,
@@ -109,9 +128,6 @@ export function MultiNodeInspectorSection({
 }: MultiNodeInspectorSectionProps) {
   return (
     <>
-      <div className="rounded-md border bg-muted/35 p-3 text-sm">
-        已选择 <strong>{selectedNodes.length}</strong> 个节点
-      </div>
       <NodeShapeSelect
         value={batchNodeShape.mixed ? MIXED_VALUE : batchNodeShape.value}
         mixed={batchNodeShape.mixed}
@@ -188,7 +204,7 @@ export function MultiNodeInspectorSection({
         </>
       ) : null}
       <Separator />
-      <Button variant="destructive" className="h-8 justify-start px-2" onClick={onDeleteSelection}>
+      <Button variant="destructive" size="sm" className="justify-start" onClick={onDeleteSelection}>
         <Trash2 className="size-4" />
         删除选中节点
       </Button>
@@ -268,7 +284,7 @@ function NodeImageFields({ node, onUpdateNodeAsset }: { node: CanvasNode; onUpda
               </SelectContent>
             </Select>
           </div>
-          <Button variant="outline" className="h-8 justify-start px-2" onClick={() => onUpdateNodeAsset(node, { preserveAspectRatio: !node.asset?.preserveAspectRatio })}>
+          <Button variant="outline" size="sm" className="justify-start" onClick={() => onUpdateNodeAsset(node, { preserveAspectRatio: !node.asset?.preserveAspectRatio })}>
             {node.asset.preserveAspectRatio ? "保持比例" : "不保持比例"}
           </Button>
         </>
@@ -358,11 +374,11 @@ function NodeActionFields({
             />
           </div>
           <div className="grid grid-cols-2 gap-2">
-            <Button variant="outline" className="h-8 justify-start px-2" onClick={() => onOpenNodeAction?.(node)}>
+            <Button variant="outline" size="sm" className="justify-start" onClick={() => onOpenNodeAction?.(node)}>
               <OpenNewWindow className="size-4" />
               测试打开
             </Button>
-            <Button variant="outline" className="h-8 justify-start px-2" onClick={() => onEditNodeAction?.(node)}>
+            <Button variant="outline" size="sm" className="justify-start" onClick={() => onEditNodeAction?.(node)}>
               <Link className="size-4" />
               链接编辑器
             </Button>

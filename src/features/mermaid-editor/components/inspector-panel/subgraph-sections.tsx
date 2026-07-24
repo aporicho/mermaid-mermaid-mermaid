@@ -1,4 +1,4 @@
-import { PathArrow, Trash as Trash2 } from "iconoir-react/regular";
+import { Trash as Trash2 } from "iconoir-react/regular";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,12 +15,10 @@ type SubgraphInspectorSectionProps = {
   parentOptions: CanvasSubgraph[];
   onRenameSubgraph: (subgraph: CanvasSubgraph, value: string) => void;
   onUpdateSubgraph: (id: string, patch: Partial<CanvasSubgraph>) => void;
-  onSelectSubgraph: (subgraphId: string) => void;
   onDeleteSelection: () => void;
 };
 
 type MultiSubgraphInspectorSectionProps = {
-  selectedSubgraphs: CanvasSubgraph[];
   batchSubgraphDirection: SharedSelectionValue<GraphDirection | typeof INHERIT_VALUE>;
   batchSubgraphParent: SharedSelectionValue<string>;
   parentOptions: CanvasSubgraph[];
@@ -33,7 +31,6 @@ export function SubgraphInspectorSection({
   parentOptions,
   onRenameSubgraph,
   onUpdateSubgraph,
-  onSelectSubgraph,
   onDeleteSelection
 }: SubgraphInspectorSectionProps) {
   return (
@@ -56,11 +53,7 @@ export function SubgraphInspectorSection({
         onChange={(value) => onUpdateSubgraph(subgraph.id, { parentId: value === ROOT_VALUE ? undefined : value })}
       />
       <Separator />
-      <Button variant="outline" className="h-8 justify-start px-2" onClick={() => onSelectSubgraph(subgraph.id)}>
-        <PathArrow className="size-4" />
-        选中组
-      </Button>
-      <Button variant="destructive" className="h-8 justify-start px-2" onClick={onDeleteSelection}>
+      <Button variant="destructive" size="sm" className="justify-start" onClick={onDeleteSelection}>
         <Trash2 className="size-4" />
         解散组
       </Button>
@@ -69,7 +62,6 @@ export function SubgraphInspectorSection({
 }
 
 export function MultiSubgraphInspectorSection({
-  selectedSubgraphs,
   batchSubgraphDirection,
   batchSubgraphParent,
   parentOptions,
@@ -78,9 +70,6 @@ export function MultiSubgraphInspectorSection({
 }: MultiSubgraphInspectorSectionProps) {
   return (
     <>
-      <div className="rounded-md border bg-muted/35 p-3 text-sm">
-        已选择 <strong>{selectedSubgraphs.length}</strong> 个组
-      </div>
       <SubgraphDirectionSelect
         value={batchSubgraphDirection.mixed ? MIXED_VALUE : batchSubgraphDirection.value}
         mixed={batchSubgraphDirection.mixed}
@@ -93,7 +82,7 @@ export function MultiSubgraphInspectorSection({
         onChange={(value) => onUpdateSelectedSubgraphs({ parentId: value === ROOT_VALUE ? undefined : value })}
       />
       <Separator />
-      <Button variant="destructive" className="h-8 justify-start px-2" onClick={onDeleteSelection}>
+      <Button variant="destructive" size="sm" className="justify-start" onClick={onDeleteSelection}>
         <Trash2 className="size-4" />
         解散选中组
       </Button>

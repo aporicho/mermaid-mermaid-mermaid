@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { createEditorRuntime } from "@/features/mermaid-editor/lib/editor-runtime";
 import type { ElectronBridge } from "@/features/mermaid-editor/lib/editor-runtime/electron-bridge";
+import type { MarkdownFoldSnapshot } from "@/features/mermaid-editor/lib/markdown-fold-state";
 
 function electronBridge(): ElectronBridge {
   return {
@@ -11,18 +12,54 @@ function electronBridge(): ElectronBridge {
     openExternalUrl: vi.fn(() => Promise.resolve()),
     startWindowDrag: vi.fn(() => Promise.resolve()),
     toggleWindowMaximize: vi.fn(() => Promise.resolve()),
+    getWindowFullscreen: vi.fn(() => Promise.resolve(false)),
+    toggleWindowFullscreen: vi.fn(() => Promise.resolve(true)),
+    onWindowFullscreenChange: vi.fn(() => () => undefined),
     runWindowAction: vi.fn(() => Promise.resolve()),
     onDesktopWindowCloseRequest: vi.fn(() => () => undefined),
     readAppState: vi.fn(() => Promise.resolve(null)),
+    listSystemFonts: vi.fn(() => Promise.resolve([])),
     writeAppState: vi.fn(() => Promise.resolve()),
+    readEditorSession: vi.fn(() => Promise.resolve(null)),
+    writeEditorSession: vi.fn(() => Promise.resolve()),
     openFile: vi.fn(() => Promise.resolve(null)),
-    openFilePath: vi.fn(() => Promise.resolve({ name: "diagram.mmd", path: "/tmp/diagram.mmd", text: "flowchart TD" })),
-    saveFile: vi.fn(() => Promise.resolve({ name: "diagram.mmd", path: "/tmp/diagram.mmd" })),
-    saveFileAs: vi.fn(() => Promise.resolve({ name: "diagram.mmd", path: "/tmp/diagram.mmd" })),
+    openFilePath: vi.fn(() => Promise.resolve({ name: "diagram.mmd", path: "/tmp/diagram.mmd", text: "flowchart TD", revision: "opened-revision" })),
+    saveFile: vi.fn(() => Promise.resolve({ status: "saved" as const, file: { name: "diagram.mmd", path: "/tmp/diagram.mmd" }, revision: "saved-revision" })),
+    saveFileAs: vi.fn(() => Promise.resolve({ status: "saved" as const, file: { name: "diagram.mmd", path: "/tmp/diagram.mmd" }, revision: "saved-revision" })),
     createProjectDocument: vi.fn(() => Promise.resolve({
       status: "created" as const,
       file: { name: "notes.md", path: "/tmp/notes.md" },
       text: "# notes\n"
+    })),
+    createProjectTextFile: vi.fn(() => Promise.resolve({
+      status: "created" as const,
+      file: { name: "table.csv", path: "/tmp/table.csv" },
+      text: "A\r\n"
+    })),
+    createProjectFile: vi.fn(() => Promise.resolve({
+      status: "created" as const,
+      file: { name: "notes.md", path: "/tmp/docs/notes.md" },
+      text: "# Notes\n"
+    })),
+    moveProjectFile: vi.fn(() => Promise.resolve({
+      status: "moved" as const,
+      file: { name: "notes.md", path: "/tmp/archive/notes.md" },
+      sourcePath: "/tmp/docs/notes.md"
+    })),
+    readMarkdownFoldState: vi.fn(() => Promise.resolve(null)),
+    writeMarkdownFoldState: vi.fn(() => Promise.resolve({ status: "saved" as const })),
+    moveMarkdownFoldState: vi.fn(() => Promise.resolve({ status: "moved" as const })),
+    readCsvFile: vi.fn(() => Promise.resolve({
+      file: { name: "table.csv", path: "/tmp/table.csv" },
+      text: "A\r\n1",
+      revision: "abc",
+      modifiedAt: 1
+    })),
+    writeCsvFile: vi.fn(() => Promise.resolve({
+      status: "saved" as const,
+      file: { name: "table.csv", path: "/tmp/table.csv" },
+      revision: "def",
+      modifiedAt: 2
     })),
     pickImageAsset: vi.fn(() => Promise.resolve(null)),
     importImageAssetPath: vi.fn(() => Promise.resolve({ src: "assets/demo.png", displaySrc: "mmm-asset://local/?path=%2Ftmp%2Fdemo.png", path: "/tmp/demo.png" })),
@@ -32,9 +69,13 @@ function electronBridge(): ElectronBridge {
     takePendingOpenFiles: vi.fn(() => Promise.resolve([])),
     onExternalFileOpen: vi.fn(() => () => undefined),
     onFileDrops: vi.fn(() => () => undefined),
-    publishAiContext: vi.fn(() => Promise.resolve()),
-    pollAiCommand: vi.fn(() => Promise.resolve({ ok: true, command: null })),
-    finishAiCommand: vi.fn(() => Promise.resolve()),
+    startAgent: vi.fn(() => Promise.resolve({ status: "unsupported" as const })),
+    sendAgentRpc: vi.fn((command) => Promise.resolve({ accepted: false, id: command.id || "test" })),
+    runAgentControl: (async () => undefined) as ElectronBridge["runAgentControl"],
+    respondAgentExtensionUi: vi.fn(() => Promise.resolve()),
+    respondAgentHost: vi.fn(() => Promise.resolve()),
+    stopAgent: vi.fn(() => Promise.resolve()),
+    onAgentEvent: vi.fn(() => () => undefined),
     listTerminalShells: vi.fn(() => Promise.resolve([])),
     openTerminal: vi.fn(() => Promise.resolve({ status: "unsupported" as const, message: "unsupported" })),
     writeTerminal: vi.fn(() => Promise.resolve()),
@@ -44,14 +85,20 @@ function electronBridge(): ElectronBridge {
     onTerminalExit: vi.fn(() => () => undefined),
     openProjectFolder: vi.fn(() => Promise.resolve(null)),
     readProjectFolder: vi.fn(() => Promise.resolve({ rootName: "tmp", rootPath: "/tmp", files: [], scannedAt: 0 })),
+    setProjectFileWatchTargets: vi.fn(() => Promise.resolve()),
+    onProjectFileChanges: vi.fn(() => () => undefined),
     createEmbeddedBrowser: vi.fn(() => Promise.resolve({ status: "created" as const, label: "browser-test" })),
     closeEmbeddedBrowser: vi.fn(() => Promise.resolve()),
     hideEmbeddedBrowser: vi.fn(() => Promise.resolve()),
     showEmbeddedBrowser: vi.fn(() => Promise.resolve()),
     focusEmbeddedBrowser: vi.fn(() => Promise.resolve()),
+    navigateEmbeddedBrowser: vi.fn(() => Promise.resolve()),
+    reloadEmbeddedBrowser: vi.fn(() => Promise.resolve()),
     setEmbeddedBrowserRect: vi.fn(() => Promise.resolve()),
     onEmbeddedBrowserError: vi.fn(() => () => undefined),
-    openBrowserToolWindow: vi.fn(() => Promise.resolve({ status: "opened" as const }))
+    onEmbeddedBrowserFocus: vi.fn(() => () => undefined),
+    onEmbeddedBrowserState: vi.fn(() => () => undefined),
+    onEmbeddedBrowserTitlebarHotZone: vi.fn(() => () => undefined),
   };
 }
 
@@ -74,5 +121,113 @@ describe("createEditorRuntime", () => {
 
     expect(runtime.kind).toBe("web");
     expect(runtime.host).toBe("web");
+  });
+
+  it("forwards project CSV reads, conflict-safe writes and creation to Electron", async () => {
+    const bridge = electronBridge();
+    window.mmmElectron = bridge;
+    const runtime = createEditorRuntime();
+    const file = { name: "table.csv", path: "/tmp/table.csv" };
+
+    await expect(runtime.readCsvFile({ rootPath: "/tmp", file })).resolves.toMatchObject({ status: "opened", snapshot: { revision: "abc" } });
+    await expect(runtime.writeCsvFile({ rootPath: "/tmp", file, text: "A\r\n2", expectedRevision: "abc" })).resolves.toMatchObject({ status: "saved", revision: "def" });
+    await expect(runtime.createProjectTextFile({ rootPath: "/tmp", fileName: "table.csv", kind: "csv", text: "A\r\n" })).resolves.toMatchObject({ status: "created" });
+    expect(bridge.readCsvFile).toHaveBeenCalledWith({ rootPath: "/tmp", path: "/tmp/table.csv" });
+    expect(bridge.writeCsvFile).toHaveBeenCalledWith(expect.objectContaining({ expectedRevision: "abc" }));
+  });
+
+  it("keeps path-only CSV project access unsupported on the web", async () => {
+    const runtime = createEditorRuntime();
+    const file = { name: "table.csv", path: "/tmp/table.csv" };
+
+    await expect(runtime.readCsvFile({ rootPath: "/tmp", file })).resolves.toMatchObject({ status: "unsupported" });
+    await expect(runtime.writeCsvFile({ rootPath: "/tmp", file, text: "A", expectedRevision: "abc" })).resolves.toMatchObject({ status: "unsupported" });
+    await expect(runtime.createProjectTextFile({ rootPath: "/tmp", fileName: "table.csv", kind: "csv", text: "A" })).resolves.toMatchObject({ status: "unsupported" });
+  });
+
+  it("forwards generic project file creation and movement to Electron", async () => {
+    const bridge = electronBridge();
+    window.mmmElectron = bridge;
+    const runtime = createEditorRuntime();
+    const createRequest = { rootPath: "/tmp", directoryPath: "/tmp/docs", fileName: "notes.md", kind: "markdown" as const, text: "# Notes\n" };
+    const moveRequest = { rootPath: "/tmp", sourcePath: "/tmp/docs/notes.md", targetDirectoryPath: "/tmp/archive" };
+
+    await expect(runtime.createProjectFile(createRequest)).resolves.toMatchObject({ status: "created" });
+    await expect(runtime.moveProjectFile(moveRequest)).resolves.toMatchObject({ status: "moved" });
+    expect(bridge.createProjectFile).toHaveBeenCalledWith(createRequest);
+    expect(bridge.moveProjectFile).toHaveBeenCalledWith(moveRequest);
+  });
+
+  it("keeps generic project file mutation unsupported on the web", async () => {
+    const runtime = createEditorRuntime();
+
+    await expect(runtime.createProjectFile({ rootPath: "/tmp", directoryPath: "", fileName: "notes.md", kind: "markdown", text: "" })).resolves.toMatchObject({ status: "unsupported" });
+    await expect(runtime.moveProjectFile({ rootPath: "/tmp", sourcePath: "notes.md", targetDirectoryPath: "archive" })).resolves.toMatchObject({ status: "unsupported" });
+  });
+
+  it("forwards Markdown fold reads, writes and moves to Electron", async () => {
+    const bridge = electronBridge();
+    const snapshot = {
+      version: 1,
+      documentFingerprint: "document",
+      folds: [{ kind: "heading", outline: [{ level: 1, label: "Notes", occurrence: 0 }] }]
+    } satisfies MarkdownFoldSnapshot;
+    vi.mocked(bridge.readMarkdownFoldState).mockResolvedValueOnce(snapshot);
+    window.mmmElectron = bridge;
+    const runtime = createEditorRuntime();
+    const request = { rootPath: "/tmp", documentPath: "/tmp/notes.md" };
+
+    await expect(runtime.readMarkdownFoldState(request)).resolves.toEqual({ status: "loaded", snapshot });
+    await expect(runtime.writeMarkdownFoldState({ ...request, snapshot })).resolves.toEqual({ status: "saved" });
+    await expect(runtime.moveMarkdownFoldState({ rootPath: "/tmp", sourcePath: "/tmp/notes.md", targetPath: "/tmp/archive/notes.md" })).resolves.toEqual({ status: "moved" });
+    expect(bridge.readMarkdownFoldState).toHaveBeenCalledWith(request);
+    expect(bridge.writeMarkdownFoldState).toHaveBeenCalledWith({ ...request, snapshot });
+    expect(bridge.moveMarkdownFoldState).toHaveBeenCalledWith({ rootPath: "/tmp", sourcePath: "/tmp/notes.md", targetPath: "/tmp/archive/notes.md" });
+  });
+
+  it("keeps project Markdown fold persistence session-only on the web", async () => {
+    const runtime = createEditorRuntime();
+    const request = { rootPath: "/tmp", documentPath: "/tmp/notes.md" };
+    const snapshot = { version: 1, documentFingerprint: "document", folds: [] } satisfies MarkdownFoldSnapshot;
+
+    await expect(runtime.readMarkdownFoldState(request)).resolves.toMatchObject({ status: "unsupported" });
+    await expect(runtime.writeMarkdownFoldState({ ...request, snapshot })).resolves.toMatchObject({ status: "unsupported" });
+    await expect(runtime.moveMarkdownFoldState({ rootPath: "/tmp", sourcePath: "/tmp/notes.md", targetPath: "/tmp/archive/notes.md" })).resolves.toMatchObject({ status: "unsupported" });
+  });
+
+  it("keeps embedded browser navigation and state on one Electron handle", async () => {
+    const bridge = electronBridge();
+    window.mmmElectron = bridge;
+    const runtime = createEditorRuntime();
+    const result = await runtime.createEmbeddedBrowser({
+      label: "browser-test",
+      url: "https://example.com",
+      rect: { x: 10, y: 20, width: 640, height: 480 }
+    });
+    if (result.status !== "created") throw new Error("Expected a native browser handle.");
+    const onFocus = vi.fn();
+    const onState = vi.fn();
+    const onTitlebarHotZoneChange = vi.fn();
+
+    await result.browser.onFocus(onFocus);
+    await result.browser.onState(onState);
+    await result.browser.onTitlebarHotZoneChange(onTitlebarHotZoneChange);
+    await result.browser.navigate("https://openai.com");
+    await result.browser.reload();
+    vi.mocked(bridge.onEmbeddedBrowserFocus).mock.calls[0][0]({ label: "another-browser" });
+    vi.mocked(bridge.onEmbeddedBrowserFocus).mock.calls[0][0]({ label: "browser-test" });
+    vi.mocked(bridge.onEmbeddedBrowserState).mock.calls[0][0]({
+      label: "browser-test",
+      url: "https://openai.com/",
+      title: "OpenAI",
+      loading: false
+    });
+    vi.mocked(bridge.onEmbeddedBrowserTitlebarHotZone).mock.calls[0][0]({ label: "browser-test", inside: true });
+
+    expect(bridge.navigateEmbeddedBrowser).toHaveBeenCalledWith("browser-test", "https://openai.com");
+    expect(bridge.reloadEmbeddedBrowser).toHaveBeenCalledWith("browser-test");
+    expect(onFocus).toHaveBeenCalledTimes(1);
+    expect(onState).toHaveBeenCalledWith({ url: "https://openai.com/", title: "OpenAI", loading: false });
+    expect(onTitlebarHotZoneChange).toHaveBeenCalledWith(true);
   });
 });

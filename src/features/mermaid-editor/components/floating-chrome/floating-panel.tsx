@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useId, type AriaRole, type ReactNode } from "react";
 
 import type {
   FloatingPanelDismissMode,
@@ -7,16 +7,13 @@ import type {
   FloatingPanelSize,
   FloatingPanelWindowState
 } from "@/features/mermaid-editor/lib/floating-chrome";
+import { OverlayLayerScopeProvider, useOverlayLayerScope } from "@/lib/overlay-layer-context";
 import { cn } from "@/lib/utils";
 
-import {
-  FLOATING_PANEL_RESIZE_HANDLES,
-  floatingPanelAnchorClass,
-  floatingPanelPlacementClass,
-  floatingPanelResizeHandleClass,
-  floatingPanelSurfaceClass
-} from "./shared";
+import { floatingPanelPlacementClass } from "./shared";
+import { FloatingPanelContents } from "./floating-panel-contents";
 import { useFloatingPanelController } from "./use-floating-panel-controller";
+import { useWorkspacePanelHeaderAutoHide } from "./workspace-panel-header-context";
 
 export function FloatingPanel({
   open,
@@ -27,16 +24,22 @@ export function FloatingPanel({
   resizable,
   minSize,
   defaultSize,
-  maximizable,
+  initialFrameSize,
+  initialFrameSizeKey,
+  fullscreenable,
   windowState = "normal",
   onWindowStateChange,
   panelId,
+  titlebarAutoHide = true,
   active = false,
   stackIndex = 0,
   onFocusPanel,
   resetDragOnOpen = true,
+  mountStrategy = "unmount",
   frameClassName,
   className,
+  role,
+  ariaLabelledBy,
   children
 }: {
   open: boolean;
@@ -47,16 +50,22 @@ export function FloatingPanel({
   resizable?: boolean;
   minSize?: FloatingPanelSize;
   defaultSize?: FloatingPanelSize;
-  maximizable?: boolean;
+  initialFrameSize?: FloatingPanelSize;
+  initialFrameSizeKey?: string;
+  fullscreenable?: boolean;
   windowState?: FloatingPanelWindowState;
   onWindowStateChange?: (state: FloatingPanelWindowState) => void;
   panelId?: string;
+  titlebarAutoHide?: boolean;
   active?: boolean;
   stackIndex?: number;
   onFocusPanel?: () => void;
   resetDragOnOpen?: boolean;
+  mountStrategy?: "unmount" | "keep-alive";
   frameClassName?: string;
   className?: string;
+  role?: AriaRole;
+  ariaLabelledBy?: string;
   children: ReactNode;
 }) {
   const panel = useFloatingPanelController({
@@ -68,15 +77,34 @@ export function FloatingPanel({
     resizable,
     minSize,
     defaultSize,
-    maximizable,
+    initialFrameSize,
+    initialFrameSizeKey,
+    fullscreenable,
     windowState,
     onWindowStateChange,
     stackIndex,
     onFocusPanel,
-    resetDragOnOpen
+    resetDragOnOpen,
+    mountStrategy
   });
+  const workspaceHeader = useWorkspacePanelHeaderAutoHide({ enabled: kind === "workspace", open, dragging: panel.dragging, autoHide: titlebarAutoHide });
+  const parentOverlayScope = useOverlayLayerScope();
+  const generatedScopeId = useId().replaceAll(":", "");
+  const overlayScopeId = kind === "workspace"
+    ? `workspace:${panelId || generatedScopeId}`
+    : parentOverlayScope.scopeId;
 
   if (!panel.mounted) return null;
+
+  const panelContents = <FloatingPanelContents
+    panel={panel}
+    workspaceHeader={workspaceHeader}
+    kind={kind}
+    placement={placement}
+    open={open}
+    active={active}
+    className={className}
+  >{children}</FloatingPanelContents>;
 
   return (
     <div
@@ -101,38 +129,19 @@ export function FloatingPanel({
       data-floating-panel-active={active ? "true" : "false"}
       data-floating-panel-dismiss-mode={panel.resolvedDismissMode}
       data-floating-panel-window-state={windowState}
+      data-floating-panel-titlebar-auto-hide={workspaceHeader ? (workspaceHeader.autoHide ? "true" : "false") : undefined}
+      data-overlay-layer={kind === "popover" && open ? "floating-popover" : undefined}
+      data-overlay-scope-id={overlayScopeId}
+      aria-hidden={!open || undefined}
+      inert={!open || undefined}
+      role={role}
+      aria-labelledby={ariaLabelledBy}
     >
-      <div className={cn(panel.framePanel && "h-full w-full", !panel.framePanel && floatingPanelAnchorClass[placement])}>
-        <div
-          ref={panel.surfaceRef}
-          className={cn(
-            "relative",
-            kind !== "workspace" && "will-change-transform",
-            floatingPanelSurfaceClass[kind],
-            panel.framePanel && "h-full w-full",
-            kind === "workspace" && "shadow-lg",
-            kind === "workspace" && active && "border-foreground/20 shadow-xl ring-1 ring-foreground/10",
-            kind === "workspace" && !active && "border-border/80 shadow-sm",
-            open ? "pointer-events-auto" : "pointer-events-none",
-            className
-          )}
-          style={{ opacity: open ? 1 : 0 }}
-        >
-          {children}
-          {panel.framePanel && panel.resizablePanel && !panel.maximized ? (
-            <div aria-hidden data-floating-panel-drag-exclude>
-              {FLOATING_PANEL_RESIZE_HANDLES.map((handle) => (
-                <div
-                  key={handle}
-                  className={cn("absolute z-40 touch-none", floatingPanelResizeHandleClass[handle])}
-                  data-floating-panel-resize-handle={handle}
-                  onPointerDown={(event) => panel.startResize(event, handle)}
-                />
-              ))}
-            </div>
-          ) : null}
-        </div>
-      </div>
+      {kind === "workspace" ? (
+        <OverlayLayerScopeProvider scopeId={overlayScopeId} kind="workspace">
+          {panelContents}
+        </OverlayLayerScopeProvider>
+      ) : panelContents}
     </div>
   );
 }

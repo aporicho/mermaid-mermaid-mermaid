@@ -1,6 +1,6 @@
-import type { Dispatch, RefObject, SetStateAction } from "react";
+import type { Dispatch, MutableRefObject, RefObject, SetStateAction } from "react";
 
-import type { AiCanvasSize, AiRecentAction } from "@/features/mermaid-editor/lib/ai-context";
+import type { EditorCanvasSize, EditorRecentAction } from "@/features/mermaid-editor/lib/editor-interaction-state";
 import type { CanvasDocument } from "@/features/mermaid-editor/lib/canvas-document";
 import type { EditorDiagnostic } from "@/features/mermaid-editor/lib/editor-diagnostics";
 import type { EditorPreferences } from "@/features/mermaid-editor/lib/editor-preferences";
@@ -9,6 +9,7 @@ import type { RuntimeFileOpenRequest, RuntimeFileRef, EditorRuntime } from "@/fe
 import type { FileWorkflowError, RecentFileEntry } from "@/features/mermaid-editor/lib/file-workflow";
 import type { DocumentKind } from "@/features/mermaid-editor/lib/document-kind";
 import type { ProjectWorkspace } from "@/features/mermaid-editor/lib/project-workspace";
+import type { StoredExplorerTreeState } from "@/features/mermaid-editor/lib/explorer-tree-state";
 import type {
   DiagramType,
   EdgeRouting,
@@ -24,20 +25,33 @@ import type { ViewFilters } from "@/features/mermaid-editor/lib/view-filters";
 import type { WorkspaceView } from "@/features/mermaid-editor/lib/workspace-view";
 import type { FileDropFeedback } from "@/features/mermaid-editor/components/file-workflow-feedback";
 import type { UnsavedPromptChoice } from "@/features/mermaid-editor/lib/desktop-close-workflow";
+import type { NodeGeometrySpec } from "@/features/mermaid-editor/lib/node-geometry";
+import type { EditorDocumentBuffer } from "@/features/mermaid-editor/lib/editor-document-session";
+import type { EditorDocumentSessionBindings } from "./session-types";
 
-export type FileOpenSource = "picker" | "recent" | "project" | "drop" | "external" | "restore";
+export type FileOpenSource = "picker" | "recent" | "project" | "drop" | "external" | "restore" | "watch" | "buffer";
 
 export type UnsavedPromptState = {
   title: string;
   description: string;
   targetName?: string;
+  targetNames?: string[];
+  mode?: "single" | "window-close";
   resolve: (choice: UnsavedPromptChoice) => void;
+};
+
+export type FileConflictChoice = "overwrite" | "reload" | "save-as" | "cancel";
+
+export type FileConflictPromptState = {
+  fileName: string;
+  path?: string;
+  resolve: (choice: FileConflictChoice) => void;
 };
 
 export type StateSetter<T> = Dispatch<SetStateAction<T>>;
 
 export type CanvasLiveState = {
-  canvasSize?: AiCanvasSize;
+  canvasSize?: EditorCanvasSize;
 };
 
 export type UseEditorFileWorkflowArgs = {
@@ -64,13 +78,16 @@ export type UseEditorFileWorkflowArgs = {
   fileRef: RuntimeFileRef | null;
   recentFiles: RecentFileEntry[];
   projectWorkspace: ProjectWorkspace | null;
+  explorerTreeState: StoredExplorerTreeState;
   lastSavedDocument: string;
+  documentGenerationRef: MutableRefObject<number>;
   themeId: EditorThemeId;
   customTheme: EditorTheme | null;
   preferences: EditorPreferences;
   currentDocument: string;
   canvasLiveState: CanvasLiveState;
   isCanvasEditable: boolean;
+  nodeGeometrySpec: NodeGeometrySpec;
   setDocumentKind: StateSetter<DocumentKind>;
   setSource: StateSetter<string>;
   setCanvasDocument: StateSetter<CanvasDocument>;
@@ -91,27 +108,33 @@ export type UseEditorFileWorkflowArgs = {
   setFileRef: StateSetter<RuntimeFileRef | null>;
   setRecentFiles: StateSetter<RecentFileEntry[]>;
   setProjectWorkspace: StateSetter<ProjectWorkspace | null>;
+  setExplorerTreeState: StateSetter<StoredExplorerTreeState>;
   setProjectBusy: StateSetter<boolean>;
   setLastSavedDocument: StateSetter<string>;
+  beginDocumentSession: () => void;
   setFileMenuOpen: StateSetter<boolean>;
   setFileWorkflowError: StateSetter<FileWorkflowError | null>;
   setUnsavedPrompt: StateSetter<UnsavedPromptState | null>;
+  setFileConflictPrompt: StateSetter<FileConflictPromptState | null>;
   setThemeId: StateSetter<EditorThemeId>;
   setCustomTheme: StateSetter<EditorTheme | null>;
   setPreferences: StateSetter<EditorPreferences>;
   setStatus: StateSetter<string>;
   setFileDropFeedback: StateSetter<FileDropFeedback | null>;
   flushSourceHistory: () => void;
+  flushLinkedFileWrites?: (options?: { overwriteConflicts?: boolean }) => Promise<boolean>;
+  discardLinkedFileWrites?: () => Promise<void>;
   applyCanvasDocument: (document: CanvasDocument, message?: string) => void;
   applyEditorCommand: (command: EditorCommand) => void;
-  recordRecentAction: (type: string, target?: AiRecentAction["target"], summary?: string) => void;
-};
+  recordRecentAction: (type: string, target?: EditorRecentAction["target"], summary?: string) => void;
+} & EditorDocumentSessionBindings;
 
 export type ApplyLoadedDocument = (
   text: string,
   name: string,
   file: RuntimeFileRef | null,
-  source?: FileOpenSource
+  source?: FileOpenSource,
+  options?: { savedContent?: string; bufferId?: string; status?: EditorDocumentBuffer["status"] }
 ) => void;
 
 export type ShowFileWorkflowError = (error: unknown, fallbackMessage?: string) => void;

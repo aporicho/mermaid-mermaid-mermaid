@@ -6,8 +6,10 @@ import {
 } from "@/features/mermaid-editor/lib/edge-label-geometry";
 import {
   defaultNodeGeometrySpec,
+  themedNodeGeometrySpec,
   type NodeGeometryTokens
 } from "@/features/mermaid-editor/lib/node-geometry";
+import type { SpecialNodeThemeTokens, TypographyRoleTokens } from "@/features/mermaid-editor/lib/editor-theme";
 
 let textMeasureCanvas: HTMLCanvasElement | null = null;
 
@@ -20,7 +22,7 @@ export type SelectionBox = {
 
 const PROXIMITY_SCALE_EPSILON = 0.001;
 
-export function measureTextWidth(value: string, tokens: { fontSize: number; fontFamily: string; fontWeight: number }) {
+export function measureTextWidth(value: string, tokens: { fontSize: number; fontFamily: string; fontWeight: number; letterSpacing: number }) {
   if (typeof document === "undefined") return value.length * tokens.fontSize * 0.58;
 
   textMeasureCanvas ??= document.createElement("canvas");
@@ -28,7 +30,7 @@ export function measureTextWidth(value: string, tokens: { fontSize: number; font
   if (!context) return value.length * tokens.fontSize * 0.58;
 
   context.font = `${tokens.fontWeight} ${tokens.fontSize}px ${tokens.fontFamily}`;
-  return context.measureText(value).width;
+  return context.measureText(value).width + Math.max(0, Array.from(value).length - 1) * tokens.letterSpacing;
 }
 
 export function measureNodeTextWidth(value: string, tokens: NodeGeometryTokens) {
@@ -39,7 +41,8 @@ export function measureEdgeLabelTextWidth(value: string, tokens: EdgeLabelGeomet
   return measureTextWidth(value, tokens);
 }
 
-export function nodeGeometrySpec(tokens: NodeGeometryTokens) {
+export function nodeGeometrySpec(tokens: NodeGeometryTokens, specialNode?: SpecialNodeThemeTokens, tableTypography?: TypographyRoleTokens) {
+  if (specialNode && tableTypography) return themedNodeGeometrySpec(tokens, specialNode, tableTypography);
   return defaultNodeGeometrySpec((value) => measureNodeTextWidth(value, tokens), tokens);
 }
 

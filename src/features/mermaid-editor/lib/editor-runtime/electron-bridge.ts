@@ -1,48 +1,43 @@
-import type { EmbeddedBrowserLogicalRect } from "@/features/mermaid-editor/lib/embedded-browser-rect";
-import type { BrowserToolWindowRequest } from "@/features/mermaid-editor/lib/browser-tool-window";
 import type { DocumentKind } from "@/features/mermaid-editor/lib/document-kind";
-import type { AiApplyResult, AiEditorCommand } from "@/features/mermaid-editor/lib/ai-command-types";
-import type { AiEditorContext } from "@/features/mermaid-editor/lib/ai-context";
+import type { ElectronAgentBridge } from "@/features/mermaid-editor/lib/editor-runtime/electron-agent-bridge";
+import type { ElectronEmbeddedBrowserBridge } from "@/features/mermaid-editor/lib/editor-runtime/electron-embedded-browser-bridge";
 import type {
   EditorDraftState,
-  RuntimeBrowserToolWindowResult,
-  RuntimeDesktopWindowAction,
   RuntimeFileDropRequest,
   RuntimeFileOpenRequest,
   RuntimeLinkPreviewRequest,
   RuntimeLinkPreviewResult,
+  RuntimeSystemFont,
   RuntimeTerminalDataEvent,
   RuntimeTerminalExitEvent,
   RuntimeTerminalOpenResult,
   RuntimeTerminalShellOption
 } from "@/features/mermaid-editor/lib/editor-runtime/types";
+import type { RuntimeDesktopWindowAction } from "@/features/mermaid-editor/lib/editor-runtime/desktop-window-types";
+import type { ElectronMonitoringBridge } from "@/features/mermaid-editor/lib/editor-runtime/electron-monitoring-bridge-types";
+import type { RuntimeCreateProjectFileRequest, RuntimeCreateProjectFileResult, RuntimeMoveProjectFileRequest, RuntimeMoveProjectFileResult } from "@/features/mermaid-editor/lib/editor-runtime/project-file-types";
+import type { ElectronMarkdownFoldBridge } from "@/features/mermaid-editor/lib/editor-runtime/electron-markdown-fold";
 import type { ProjectWorkspace } from "@/features/mermaid-editor/lib/project-workspace";
-
-export type ElectronEmbeddedBrowserCreateResult =
-  | {
-      status: "created";
-      label: string;
-    }
-  | {
-      status: "unsupported" | "error";
-      message: string;
-    };
-
-export type ElectronEmbeddedBrowserErrorEvent = {
-  label: string;
-  message: string;
-};
+import type {
+  RuntimeCreateProjectTextFileResult,
+  RuntimeCsvFileSnapshot,
+  RuntimeWriteCsvFileResult
+} from "@/features/mermaid-editor/lib/editor-runtime/csv-file-types";
+import type { EditorDocumentSession } from "@/features/mermaid-editor/lib/editor-document-session";
 
 export type ElectronOpenedFile = {
   name: string;
   path: string;
   text: string;
+  revision: string;
+  modifiedAt?: number;
 };
 
-export type ElectronSavedFile = {
-  name: string;
-  path: string;
-};
+export type ElectronSavedFile = { name: string; path: string };
+
+export type ElectronDocumentWriteResult =
+  | { status: "saved"; file: ElectronSavedFile; revision: string; modifiedAt?: number }
+  | { status: "conflict"; file: ElectronSavedFile; revision: string; modifiedAt?: number };
 
 export type ElectronCreateProjectDocumentResult =
   | { status: "created"; file: ElectronSavedFile; text: string }
@@ -55,7 +50,7 @@ export type ElectronImageAsset = {
   copied?: boolean;
 };
 
-export type ElectronBridge = {
+export type ElectronBridge = ElectronMarkdownFoldBridge & ElectronMonitoringBridge & ElectronAgentBridge & ElectronEmbeddedBrowserBridge & {
   host: "electron";
   openExternalUrl: (url: string) => Promise<void>;
   startWindowDrag: () => Promise<void>;
@@ -63,17 +58,25 @@ export type ElectronBridge = {
   runWindowAction: (action: RuntimeDesktopWindowAction) => Promise<void>;
   onDesktopWindowCloseRequest: (handler: () => boolean | Promise<boolean>) => () => void;
   readAppState: () => Promise<EditorDraftState | null>;
+  listSystemFonts: () => Promise<RuntimeSystemFont[]>;
   writeAppState: (state: EditorDraftState) => Promise<void>;
+  readEditorSession: () => Promise<EditorDocumentSession | null>;
+  writeEditorSession: (session: EditorDocumentSession) => Promise<void>;
   openFile: () => Promise<ElectronOpenedFile | null>;
   openFilePath: (path: string) => Promise<ElectronOpenedFile>;
-  saveFile: (path: string, text: string) => Promise<ElectronSavedFile>;
-  saveFileAs: (suggestedName: string, text: string) => Promise<ElectronSavedFile | null>;
+  saveFile: (path: string, text: string, options?: { expectedRevision?: string; overwrite?: boolean }) => Promise<ElectronDocumentWriteResult>;
+  saveFileAs: (suggestedName: string, text: string) => Promise<ElectronDocumentWriteResult | null>;
   createProjectDocument: (request: {
     rootPath: string;
     fileName: string;
     documentKind: DocumentKind;
     text: string;
   }) => Promise<ElectronCreateProjectDocumentResult>;
+  createProjectTextFile: (request: { rootPath: string; fileName: string; kind: "csv"; text: string }) => Promise<RuntimeCreateProjectTextFileResult>;
+  createProjectFile: (request: RuntimeCreateProjectFileRequest) => Promise<RuntimeCreateProjectFileResult>;
+  moveProjectFile: (request: RuntimeMoveProjectFileRequest) => Promise<RuntimeMoveProjectFileResult>;
+  readCsvFile: (request: { rootPath: string; path: string }) => Promise<RuntimeCsvFileSnapshot>;
+  writeCsvFile: (request: { rootPath: string; path: string; text: string; expectedRevision: string }) => Promise<RuntimeWriteCsvFileResult>;
   pickImageAsset: (documentPath: string | null) => Promise<ElectronImageAsset | null>;
   importImageAssetPath: (documentPath: string, imagePath: string) => Promise<ElectronImageAsset>;
   importImageAssetBytes: (documentPath: string, fileName: string, bytes: number[]) => Promise<ElectronImageAsset>;
@@ -82,9 +85,6 @@ export type ElectronBridge = {
   takePendingOpenFiles: () => Promise<RuntimeFileOpenRequest[]>;
   onExternalFileOpen: (handler: (files: RuntimeFileOpenRequest[]) => void) => () => void;
   onFileDrops: (handler: (request: RuntimeFileDropRequest) => void) => () => void;
-  publishAiContext: (context: AiEditorContext) => Promise<void>;
-  pollAiCommand: () => Promise<{ ok: boolean; command?: AiEditorCommand | null; diagnostics?: unknown[] }>;
-  finishAiCommand: (result: AiApplyResult) => Promise<void>;
   listTerminalShells: () => Promise<RuntimeTerminalShellOption[]>;
   openTerminal: (request: { cwd?: string; shellId?: string; cols: number; rows: number }) => Promise<RuntimeTerminalOpenResult>;
   writeTerminal: (sessionId: string, data: string) => Promise<void>;
@@ -94,18 +94,6 @@ export type ElectronBridge = {
   onTerminalExit: (handler: (event: RuntimeTerminalExitEvent) => void) => () => void;
   openProjectFolder: () => Promise<ProjectWorkspace | null>;
   readProjectFolder: (rootPath: string) => Promise<ProjectWorkspace>;
-  createEmbeddedBrowser: (request: {
-    label: string;
-    url: string;
-    rect: EmbeddedBrowserLogicalRect;
-  }) => Promise<ElectronEmbeddedBrowserCreateResult>;
-  closeEmbeddedBrowser: (label: string) => Promise<void>;
-  hideEmbeddedBrowser: (label: string) => Promise<void>;
-  showEmbeddedBrowser: (label: string) => Promise<void>;
-  focusEmbeddedBrowser: (label: string) => Promise<void>;
-  setEmbeddedBrowserRect: (label: string, rect: EmbeddedBrowserLogicalRect) => Promise<void>;
-  onEmbeddedBrowserError: (handler: (event: ElectronEmbeddedBrowserErrorEvent) => void) => () => void;
-  openBrowserToolWindow: (request: BrowserToolWindowRequest) => Promise<RuntimeBrowserToolWindowResult>;
 };
 
 declare global {

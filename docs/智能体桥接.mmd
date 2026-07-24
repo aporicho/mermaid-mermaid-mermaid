@@ -1,80 +1,41 @@
-%% 离线 CLI 与实时桌面智能体桥接
+%% Pi Agent 与编辑器实时文档桥接
 flowchart LR
-  subgraph AgentSide[智能体或 shell 调用方]
-    direction TB
-    Agent["智能体"]
-    Cli["npm run mmm -- ..."]
+  subgraph Surface[独立工作表面]
+    AgentPanel["Pi Agent 浮动面板<br/>shadcn Chat / 控制中心"]
+    TerminalPanel["终端浮动面板<br/>xterm / node-pty"]
+    OfflineCli["离线 mmm CLI<br/>read / validate / diff / patch / layout / fixture"]
   end
 
-  subgraph OfflineCli[离线文件 CLI]
-    direction TB
-    Read["read"]
-    Validate["validate"]
-    Diff["diff"]
-    Patch["patch"]
-    Layout["layout"]
-    Fixture["fixture"]
-    CliEnvelope["JSON envelope<br/>ok / result / diagnostics"]
+  subgraph Renderer[React 编辑器]
+    SessionHook["useAgentSession<br/>RPC 流 / 交互请求"]
+    DocumentBridge["实时文档适配<br/>revision / selection / references"]
+    EditorState["打开的主文档与 Markdown 窗口"]
+    UndoSave["单次 undo 事务<br/>可选自动保存"]
   end
 
-  subgraph LiveCli[实时桌面 CLI]
-    direction TB
-    Discovery["~/.mermaid-canvas-editor/bridge.json<br/>port + token"]
-    Ping["ping"]
-    Context["context"]
-    Apply["apply"]
-    HttpBridge["loopback HTTP<br/>Bearer token"]
+  subgraph Electron[Electron 边界]
+    Preload["contextBridge IPC"]
+    Manager["Pi Agent Manager<br/>每窗口 Worker / 会话所有权"]
+    Worker["Pi SDK Worker<br/>官方 JSONL RPC"]
+    Safety["安全扩展<br/>信任 / 风险确认 / 打开文档保护"]
+    Pty["Terminal Manager<br/>独立 PTY 生命周期"]
   end
 
-  subgraph DesktopBridge[桌面 bridge 与编辑器会话]
-    direction TB
-    ElectronBridge["Electron bridge server"]
-    ContextStore["最新智能体上下文"]
-    CommandQueue["apply 命令队列"]
-    EditorSession["打开的编辑器会话"]
-    Transaction["EditorCommand / transaction"]
-    ResultStore["命令结果轮询"]
+  subgraph Pi[Pi 原生能力]
+    Sessions["JSONL Sessions / tree / fork"]
+    Models["Providers / OAuth / API Key / Models"]
+    Resources["Tools / Skills / Extensions / Prompts / Packages"]
+    Settings["Global + Project settings"]
   end
 
-  subgraph SharedLogic[共享文档逻辑]
-    direction TB
-    LoadDoc["loadMermaidDocument"]
-    PatchDoc["applyMermaidPatch"]
-    AutoLayout["applyDagreAutoLayout"]
-    ValidateSyntax["官方 Mermaid parser"]
-  end
-
-  Agent --> Cli
-  Cli --> Read
-  Cli --> Validate
-  Cli --> Diff
-  Cli --> Patch
-  Cli --> Layout
-  Cli --> Fixture
-  Cli --> Discovery
-  Discovery --> Ping
-  Discovery --> Context
-  Discovery --> Apply
-
-  Read --> LoadDoc
-  Validate --> ValidateSyntax
-  Diff --> LoadDoc
-  Patch --> PatchDoc
-  Layout --> AutoLayout
-  Fixture --> CliEnvelope
-  LoadDoc --> CliEnvelope
-  PatchDoc --> CliEnvelope
-  AutoLayout --> CliEnvelope
-  ValidateSyntax --> CliEnvelope
-
-  Ping --> HttpBridge
-  Context --> HttpBridge
-  Apply --> HttpBridge
-  HttpBridge --> ElectronBridge
-  ElectronBridge --> ContextStore
-  ElectronBridge --> CommandQueue
-  ContextStore --> EditorSession
-  CommandQueue --> EditorSession
-  EditorSession --> Transaction
-  Transaction --> ResultStore
-  ResultStore --> HttpBridge
+  AgentPanel --> SessionHook --> Preload --> Manager --> Worker
+  Worker --> Safety
+  Worker --> Sessions
+  Worker --> Models
+  Worker --> Resources
+  Worker --> Settings
+  Worker -->|document.list/read/apply/reveal| DocumentBridge
+  DocumentBridge --> EditorState
+  DocumentBridge --> UndoSave
+  TerminalPanel --> Preload --> Pty
+  OfflineCli -->|只处理磁盘文件| EditorState

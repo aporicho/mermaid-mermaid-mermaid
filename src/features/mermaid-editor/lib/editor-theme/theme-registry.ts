@@ -37,10 +37,10 @@ function themeCatalogEntryFromDefinition(definition: EditorThemeDefinition): Edi
     id: theme.id,
     name: theme.name,
     description: theme.description,
-    mode: definition.mode ?? inferThemeMode(theme.ui.background),
+    mode: definition.mode ?? inferThemeMode(theme.interface.colors.background),
     source: definition.source ?? LOCAL_THEME_SOURCE,
     order: definition.order ?? sourceOrder(definition.source?.id),
-    swatches: [theme.ui.background, theme.ui.primary, theme.terminal.foreground],
+    swatches: [theme.interface.colors.background, theme.interface.colors.primary, theme.terminal.foreground],
     theme
   };
 }

@@ -5,7 +5,6 @@ import {
   addImageNodeAt,
   addNodeAt,
   addNodesAt,
-  applyNodeLabelPatch,
   createEdge,
   createSubgraphFromSelection,
   deleteSelection,
@@ -20,6 +19,7 @@ import {
   updateEdges,
   updateNodeFill,
   updateNodeLabel,
+  updateNode,
   updateNodes,
   updateSubgraph,
   updateSubgraphs
@@ -60,6 +60,16 @@ export type EditorTransactionResult = {
 };
 
 export function applyEditorCommandTransaction(state: EditorTransactionState, command: EditorCommand): EditorTransactionResult {
+  const commitGraphState = (nextState: EditorTransactionState, message: string): EditorTransactionResult => {
+    if (state.graph === nextState.graph) {
+      return {
+        state: nextState,
+        effect: { history: "none", sourceSync: "none" }
+      };
+    }
+    return createCommittedGraphState(nextState, message);
+  };
+
   if (command.type === "mode.set") {
     return {
       state,
@@ -128,7 +138,7 @@ export function applyEditorCommandTransaction(state: EditorTransactionState, com
   }
 
   if (command.type === "graph.addNodeAt") {
-    const result = addNodeAt(state.graph, command.point.x, command.point.y, { label: command.label, action: command.action, preview: command.preview });
+    const result = addNodeAt(state.graph, command.point.x, command.point.y, { label: command.label, action: command.action, preview: command.preview, content: command.content });
     const graph = command.point.parentId ? setNodeParent(result.graph, result.selection.nodeIds[0], command.point.parentId) : result.graph;
     const message = command.message || "已在画布中新增节点。";
     return commitGraphState({ ...state, graph, selection: result.selection }, message);
@@ -142,7 +152,9 @@ export function applyEditorCommandTransaction(state: EditorTransactionState, com
         y: node.point.y,
         label: node.label,
         action: node.action,
-        preview: node.preview
+        preview: node.preview,
+        content: node.content,
+        asset: node.asset
       }))
     );
     const graph = command.nodes.reduce((currentGraph, node, index) => {
@@ -222,14 +234,7 @@ export function applyEditorCommandTransaction(state: EditorTransactionState, com
   }
 
   if (command.type === "graph.updateNode") {
-    const graph = {
-      ...state.graph,
-      nodes: state.graph.nodes.map((node) => {
-        if (node.id !== command.nodeId) return node;
-        const nextNode = { ...node, ...command.patch };
-        return "label" in command.patch && !("action" in command.patch) ? applyNodeLabelPatch(nextNode, command.patch.label ?? node.label) : nextNode;
-      })
-    };
+    const graph = updateNode(state.graph, command.nodeId, command.patch);
     return commitGraphState({ ...state, graph }, command.message || "已更新节点。");
   }
 
@@ -241,6 +246,18 @@ export function applyEditorCommandTransaction(state: EditorTransactionState, com
       },
       command.message || "已批量更新节点。"
     );
+  }
+
+  if (command.type === "graph.updateNodeActions") {
+    const actions = new Map(command.updates.map((update) => [update.nodeId, update.action]));
+    const nodes = state.graph.nodes.map((node) => {
+      const action = actions.get(node.id);
+      return action && action !== node.action ? { ...node, action } : node;
+    });
+    const graph = nodes.some((node, index) => node !== state.graph.nodes[index])
+      ? { ...state.graph, nodes }
+      : state.graph;
+    return commitGraphState({ ...state, graph }, command.message || "已更新文件链接。");
   }
 
   if (command.type === "graph.updateNodeFill") {
@@ -421,7 +438,7 @@ export function applyEditorCommandTransaction(state: EditorTransactionState, com
   };
 }
 
-function commitGraphState(state: EditorTransactionState, message: string): EditorTransactionResult {
+function createCommittedGraphState(state: EditorTransactionState, message: string): EditorTransactionResult {
   return {
     state,
     effect: {

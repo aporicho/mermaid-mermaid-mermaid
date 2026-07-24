@@ -3,8 +3,8 @@ import { useCallback, useRef, useState, type Dispatch, type SetStateAction } fro
 import type { EditorRuntime, RuntimeFileRef } from "@/features/mermaid-editor/lib/editor-runtime";
 import type { CanvasNode } from "@/features/mermaid-editor/lib/editor-types";
 import {
-  extractMarkdownDocumentExcerpt,
   markdownDocumentAction,
+  markdownDocumentPreviewFromText,
   markdownDocumentReferenceKey,
   resolveMarkdownDocumentFile,
   type MarkdownDocumentPreview
@@ -68,7 +68,7 @@ export function useMarkdownDocumentPreviews({
               message: "当前运行环境无法读取此 Markdown 文档。"
             } satisfies MarkdownDocumentPreview;
           }
-          return previewFromText(file.relativePath || action.path, result.text);
+          return markdownDocumentPreviewFromText(file.relativePath || action.path, result.text);
         } catch (error) {
           const message = errorMessage(error);
           return {
@@ -93,8 +93,26 @@ export function useMarkdownDocumentPreviews({
 
   const updatePreviewFromText = useCallback((path: string, text: string) => {
     const pathKey = markdownDocumentReferenceKey(path);
-    const preview = previewFromText(path, text);
+    const preview = markdownDocumentPreviewFromText(path, text);
     cacheRef.current.set(pathKey, { signature: `${pathKey}:saved`, preview });
+    setPreviewByNodeId((current) => {
+      const next = { ...current };
+      for (const [nodeId, nodePathKey] of nodePathKeyRef.current) {
+        if (nodePathKey === pathKey) next[nodeId] = preview;
+      }
+      return next;
+    });
+  }, []);
+
+  const markPreviewMissing = useCallback((path: string) => {
+    const pathKey = markdownDocumentReferenceKey(path);
+    const preview = {
+      status: "missing",
+      path,
+      excerpt: "",
+      message: "Markdown 文档已从磁盘移除。"
+    } satisfies MarkdownDocumentPreview;
+    cacheRef.current.set(pathKey, { signature: `${pathKey}:missing`, preview });
     setPreviewByNodeId((current) => {
       const next = { ...current };
       for (const [nodeId, nodePathKey] of nodePathKeyRef.current) {
@@ -107,16 +125,8 @@ export function useMarkdownDocumentPreviews({
   return {
     previewByNodeId,
     requestPreview,
-    updatePreviewFromText
-  };
-}
-
-function previewFromText(path: string, text: string): MarkdownDocumentPreview {
-  const excerpt = extractMarkdownDocumentExcerpt(text);
-  return {
-    status: excerpt ? "ready" : "empty",
-    path,
-    excerpt
+    updatePreviewFromText,
+    markPreviewMissing
   };
 }
 
@@ -129,7 +139,7 @@ function setNodePreview(
 }
 
 function samePreview(left: MarkdownDocumentPreview | undefined, right: MarkdownDocumentPreview) {
-  return left?.status === right.status && left.path === right.path && left.excerpt === right.excerpt && left.message === right.message;
+  return left?.status === right.status && left.path === right.path && left.excerpt === right.excerpt && left.source === right.source && left.title === right.title && left.message === right.message;
 }
 
 function errorMessage(error: unknown) {

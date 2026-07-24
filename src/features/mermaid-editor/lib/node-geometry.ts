@@ -1,15 +1,24 @@
 import type { AlignmentRect } from "@/features/mermaid-editor/lib/alignment-guides";
 import type { RoutedNodeRect } from "@/features/mermaid-editor/lib/edge-geometry";
 import type { CanvasNode } from "@/features/mermaid-editor/lib/editor-types";
+import type { SpecialNodeThemeTokens, TypographyRoleTokens } from "@/features/mermaid-editor/lib/editor-theme";
+import { resolveCanvasNodeKind } from "@/features/mermaid-editor/lib/canvas-node-kind";
 import { flowchartPortPoints, isEllipseLikeFlowchartShape, opticalWeightScaleForShape, type ShapeGeometryPortKind } from "@/features/mermaid-editor/lib/flowchart-shape-geometry";
 import { DEFAULT_FLOWCHART_NODE_SHAPE, isEqualAspectFlowchartShape, normalizeFlowchartShape, type FlowchartNodeShape } from "@/features/mermaid-editor/lib/flowchart-shapes";
 import { normalizeImageAsset } from "@/features/mermaid-editor/lib/node-assets";
-import { LINK_CARD_NODE_WIDTH, linkCardNodeHeight, normalizeCanvasNodePreview } from "@/features/mermaid-editor/lib/node-preview";
+import { LINK_CARD_NODE_WIDTH, linkCardNodeHeight, normalizeCanvasNodePreview, themedLinkCardLayout } from "@/features/mermaid-editor/lib/node-preview";
 import {
-  isMarkdownDocumentNode,
   MARKDOWN_DOCUMENT_NODE_HEIGHT,
   MARKDOWN_DOCUMENT_NODE_WIDTH
 } from "@/features/mermaid-editor/lib/markdown-document";
+import { HTML_DOCUMENT_NODE_HEIGHT, HTML_DOCUMENT_NODE_WIDTH } from "@/features/mermaid-editor/lib/html-document";
+import {
+  buildTableNodeLayout,
+  DEFAULT_TABLE_NODE_TOKENS,
+  DEFAULT_TABLE_NODE_TYPOGRAPHY,
+  type TableNodeLayout,
+  type TableNodeLayoutSpec
+} from "@/features/mermaid-editor/lib/table-node";
 
 export type NodeAnchorKey = string;
 
@@ -36,6 +45,8 @@ export type NodeGeometrySpec = {
   lineHeight: number;
   maxLines: number;
   measureText: (value: string) => number;
+  table?: TableNodeLayoutSpec;
+  specialNode?: SpecialNodeThemeTokens;
 };
 
 export type NodeGeometryTokens = {
@@ -48,6 +59,7 @@ export type NodeGeometryTokens = {
   maxLines: number;
   fontFamily: string;
   fontWeight: number;
+  letterSpacing: number;
 };
 
 export type NodeGeometry = {
@@ -55,11 +67,15 @@ export type NodeGeometry = {
   frame: Rect;
   textBox: Rect;
   imageBox?: Rect;
+  table?: TableNodeLayout;
   anchorsLocal: NodeAnchorPoint[];
   anchorsWorld: NodeAnchorPoint[];
   alignmentRect: AlignmentRect;
   routedRect: RoutedNodeRect;
 };
+
+export const TABLE_LOADING_NODE_WIDTH = 240;
+export const TABLE_LOADING_NODE_HEIGHT = 72;
 
 export const DEFAULT_NODE_GEOMETRY_TOKENS: NodeGeometryTokens = {
   minChars: 6,
@@ -70,7 +86,8 @@ export const DEFAULT_NODE_GEOMETRY_TOKENS: NodeGeometryTokens = {
   lineHeight: 18,
   maxLines: 12,
   fontFamily: "'Noto Sans SC Variable', 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei UI', system-ui, sans-serif",
-  fontWeight: 700
+  fontWeight: 700,
+  letterSpacing: 0
 };
 
 let defaultTextMeasureCanvas: HTMLCanvasElement | null = null;
@@ -83,7 +100,7 @@ export function measureDefaultNodeTextWidth(value: string, tokens: NodeGeometryT
   if (!context) return value.length * tokens.fontSize * 0.58;
 
   context.font = `${tokens.fontWeight} ${tokens.fontSize}px ${tokens.fontFamily}`;
-  return context.measureText(value).width;
+  return context.measureText(value).width + Math.max(0, Array.from(value).length - 1) * tokens.letterSpacing;
 }
 
 export function defaultNodeGeometrySpec(measureText: (value: string) => number = measureDefaultNodeTextWidth, tokens: NodeGeometryTokens = DEFAULT_NODE_GEOMETRY_TOKENS): NodeGeometrySpec {
@@ -94,18 +111,57 @@ export function defaultNodeGeometrySpec(measureText: (value: string) => number =
     paddingY: tokens.paddingY,
     lineHeight: tokens.lineHeight,
     maxLines: tokens.maxLines,
-    measureText
+    measureText,
+    table: {
+      tokens: DEFAULT_TABLE_NODE_TOKENS,
+      typography: DEFAULT_TABLE_NODE_TYPOGRAPHY,
+      measureText
+    }
+  };
+}
+
+export function themedNodeGeometrySpec(
+  nodeTokens: NodeGeometryTokens,
+  specialNode: SpecialNodeThemeTokens,
+  tableTypography: TypographyRoleTokens
+): NodeGeometrySpec {
+  const nodeMeasure = (value: string) => measureDefaultNodeTextWidth(value, nodeTokens);
+  const tableMeasureTokens: NodeGeometryTokens = {
+    ...nodeTokens,
+    fontFamily: tableTypography.family,
+    fontSize: tableTypography.fontSize,
+    fontWeight: tableTypography.fontWeight,
+    lineHeight: tableTypography.lineHeight,
+    letterSpacing: tableTypography.letterSpacing
+  };
+  return {
+    ...defaultNodeGeometrySpec(nodeMeasure, nodeTokens),
+    table: {
+      tokens: specialNode.table,
+      typography: tableTypography,
+      measureText: (value) => measureDefaultNodeTextWidth(value, tableMeasureTokens)
+    },
+    specialNode
   };
 }
 
 export function buildNodeGeometry(node: CanvasNode, spec: NodeGeometrySpec): NodeGeometry {
-  if (isMarkdownDocumentNode(node)) return buildMarkdownDocumentNodeGeometry(node);
+  const kind = resolveCanvasNodeKind(node);
+  if (kind === "table" && spec.table) {
+    const table = buildTableNodeLayout(node.content, spec.table);
+    if (table) return buildTableNodeGeometry(node, table);
+    return buildTableLoadingNodeGeometry(node, spec.table);
+  }
+  if (kind === "table") return buildTableLoadingNodeGeometry(node);
+  if (kind === "markdown-document") return buildMarkdownDocumentNodeGeometry(node, spec.specialNode);
+  if (kind === "html-document") return buildHtmlDocumentNodeGeometry(node, spec.specialNode);
 
-  const preview = normalizeCanvasNodePreview(node.preview);
-  if (preview) return buildLinkCardNodeGeometry(node);
+  if (kind === "link-card") return buildLinkCardNodeGeometry(node, spec.specialNode);
 
-  const asset = normalizeImageAsset(node.asset);
-  if (asset) return buildImageNodeGeometry(node, asset);
+  if (kind === "image") {
+    const asset = normalizeImageAsset(node.asset);
+    if (asset) return buildImageNodeGeometry(node, asset);
+  }
 
   const shape = normalizeFlowchartShape(node.shape) || DEFAULT_FLOWCHART_NODE_SHAPE;
   const textWidth = nodeTextWidth(node, spec);
@@ -141,17 +197,56 @@ export function buildNodeGeometry(node: CanvasNode, spec: NodeGeometrySpec): Nod
   };
 }
 
-function buildMarkdownDocumentNodeGeometry(node: CanvasNode): NodeGeometry {
+function buildTableNodeGeometry(node: CanvasNode, table: TableNodeLayout): NodeGeometry {
+  const frame = { x: node.x, y: node.y, width: table.width, height: table.height };
+  const textBox = { x: 0, y: 0, width: 0, height: 0 };
+  const anchorsLocal = localAnchorPoints(DEFAULT_FLOWCHART_NODE_SHAPE, frame.width, frame.height);
+  const anchorsWorld = anchorsLocal.map((anchor) => ({ ...anchor, x: frame.x + anchor.x, y: frame.y + anchor.y }));
+  return {
+    id: node.id,
+    frame,
+    textBox,
+    table,
+    anchorsLocal,
+    anchorsWorld,
+    alignmentRect: { id: node.id, ...frame },
+    routedRect: { id: node.id, ...frame, shape: DEFAULT_FLOWCHART_NODE_SHAPE }
+  };
+}
+
+function buildTableLoadingNodeGeometry(node: CanvasNode, tableSpec?: TableNodeLayoutSpec): NodeGeometry {
+  const width = Math.max(TABLE_LOADING_NODE_WIDTH, (tableSpec?.tokens.minColumnWidth ?? 0) * 2);
+  const height = Math.max(TABLE_LOADING_NODE_HEIGHT, (tableSpec?.tokens.minRowHeight ?? 0) * 2);
+  const frame = { x: node.x, y: node.y, width, height };
+  const textBox = { x: 12, y: 12, width: Math.max(0, width - 24), height: Math.max(0, height - 24) };
+  const anchorsLocal = localAnchorPoints(DEFAULT_FLOWCHART_NODE_SHAPE, frame.width, frame.height);
+  const anchorsWorld = anchorsLocal.map((anchor) => ({ ...anchor, x: frame.x + anchor.x, y: frame.y + anchor.y }));
+  return {
+    id: node.id,
+    frame,
+    textBox,
+    anchorsLocal,
+    anchorsWorld,
+    alignmentRect: { id: node.id, ...frame },
+    routedRect: { id: node.id, ...frame, shape: DEFAULT_FLOWCHART_NODE_SHAPE }
+  };
+}
+
+function buildMarkdownDocumentNodeGeometry(node: CanvasNode, specialNode?: SpecialNodeThemeTokens): NodeGeometry {
+  const tokens = specialNode?.markdownDocument;
   const frame = {
     x: node.x,
     y: node.y,
-    width: MARKDOWN_DOCUMENT_NODE_WIDTH,
-    height: MARKDOWN_DOCUMENT_NODE_HEIGHT
+    width: tokens?.width ?? MARKDOWN_DOCUMENT_NODE_WIDTH,
+    height: tokens?.height ?? MARKDOWN_DOCUMENT_NODE_HEIGHT
   };
+  const paddingTop = tokens?.contentPaddingTop ?? 12;
+  const paddingRight = tokens?.contentPaddingRight ?? 12;
+  const paddingLeft = tokens?.contentPaddingLeft ?? 12;
   const textBox = {
-    x: 60,
-    y: 12,
-    width: frame.width - 72,
+    x: paddingLeft,
+    y: paddingTop,
+    width: Math.max(0, frame.width - paddingLeft - paddingRight),
     height: 22
   };
   const anchorsLocal = localAnchorPoints(DEFAULT_FLOWCHART_NODE_SHAPE, frame.width, frame.height);
@@ -172,20 +267,59 @@ function buildMarkdownDocumentNodeGeometry(node: CanvasNode): NodeGeometry {
   };
 }
 
-function buildLinkCardNodeGeometry(node: CanvasNode): NodeGeometry {
-  const preview = normalizeCanvasNodePreview(node.preview);
-  const height = linkCardNodeHeight(preview);
+function buildHtmlDocumentNodeGeometry(node: CanvasNode, specialNode?: SpecialNodeThemeTokens): NodeGeometry {
+  const tokens = specialNode?.htmlDocument;
   const frame = {
     x: node.x,
     y: node.y,
-    width: LINK_CARD_NODE_WIDTH,
+    width: tokens?.width ?? HTML_DOCUMENT_NODE_WIDTH,
+    height: tokens?.height ?? HTML_DOCUMENT_NODE_HEIGHT
+  };
+  const padding = tokens?.contentPadding ?? 12;
+  const badgeSize = tokens?.badgeSize ?? 38;
+  const titleGap = tokens?.titleGap ?? 10;
+  const textBox = {
+    x: padding + badgeSize + titleGap,
+    y: padding,
+    width: Math.max(0, frame.width - (padding * 2 + badgeSize + titleGap)),
+    height: 22
+  };
+  const anchorsLocal = localAnchorPoints(DEFAULT_FLOWCHART_NODE_SHAPE, frame.width, frame.height);
+  const anchorsWorld = anchorsLocal.map((anchor) => ({
+    ...anchor,
+    x: frame.x + anchor.x,
+    y: frame.y + anchor.y
+  }));
+
+  return {
+    id: node.id,
+    frame,
+    textBox,
+    anchorsLocal,
+    anchorsWorld,
+    alignmentRect: { id: node.id, ...frame },
+    routedRect: { id: node.id, ...frame, shape: DEFAULT_FLOWCHART_NODE_SHAPE }
+  };
+}
+
+function buildLinkCardNodeGeometry(node: CanvasNode, specialNode?: SpecialNodeThemeTokens): NodeGeometry {
+  const preview = normalizeCanvasNodePreview(node.preview);
+  const layout = specialNode ? themedLinkCardLayout(preview, specialNode.linkCard) : undefined;
+  const width = layout?.width ?? LINK_CARD_NODE_WIDTH;
+  const height = layout?.height ?? linkCardNodeHeight(preview);
+  const frame = {
+    x: node.x,
+    y: node.y,
+    width,
     height
   };
+  const paddingX = specialNode?.linkCard.contentPaddingX ?? 12;
+  const titleHeight = specialNode?.linkCard.titleHeight ?? 48;
   const textBox = {
-    x: 12,
-    y: height - 76,
-    width: LINK_CARD_NODE_WIDTH - 24,
-    height: 48
+    x: paddingX,
+    y: layout?.titleY ?? height - 76,
+    width: Math.max(0, width - paddingX * 2),
+    height: titleHeight
   };
   const anchorsLocal = localAnchorPoints(DEFAULT_FLOWCHART_NODE_SHAPE, frame.width, frame.height);
   const anchorsWorld = anchorsLocal.map((anchor) => ({

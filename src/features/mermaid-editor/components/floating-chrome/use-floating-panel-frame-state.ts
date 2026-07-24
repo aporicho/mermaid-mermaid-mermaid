@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 
 import {
-  maximizedFloatingPanelFrame,
+  fitFloatingPanelFrameToViewport,
+  fullscreenFloatingPanelFrame,
   restoreFloatingPanelFrame,
   type FloatingPanelFrame,
   type FloatingPanelPlacement,
@@ -18,6 +19,8 @@ import {
 export function useFloatingPanelFrameState({
   placement,
   resolvedDefaultSize,
+  initialFrameSize,
+  initialFrameSizeKey,
   resolvedMinSize,
   framePanel,
   open,
@@ -26,6 +29,8 @@ export function useFloatingPanelFrameState({
 }: {
   placement: FloatingPanelPlacement;
   resolvedDefaultSize: FloatingPanelSize;
+  initialFrameSize?: FloatingPanelSize;
+  initialFrameSizeKey?: string;
   resolvedMinSize: FloatingPanelSize;
   framePanel: boolean;
   open: boolean;
@@ -34,17 +39,13 @@ export function useFloatingPanelFrameState({
 }) {
   const [viewport, setViewport] = useState<FloatingPanelViewport>(() => currentFloatingPanelViewport());
   const [panelFrame, setPanelFrame] = useState<FloatingPanelFrame>(() =>
-    initialFloatingPanelFrame({
-      placement,
-      size: resolvedDefaultSize,
-      minSize: resolvedMinSize,
-      viewport: currentFloatingPanelViewport()
-    })
+    centeredInitialFrame(placement, initialFrameSize ?? resolvedDefaultSize, resolvedMinSize, currentFloatingPanelViewport())
   );
+  const appliedInitialFrameSizeKeyRef = useRef<string | null>(initialFrameSize ? initialFrameSizeKey ?? "initial" : null);
   const normalFrameRef = useRef<FloatingPanelFrame | null>(null);
   const previousWindowStateRef = useRef<FloatingPanelWindowState>(windowState);
-  const maximized = framePanel && windowState === "maximized";
-  const renderedFrame = maximized ? maximizedFloatingPanelFrame({ viewport }) : panelFrame;
+  const fullscreen = framePanel && windowState === "fullscreen";
+  const renderedFrame = fullscreen ? fullscreenFloatingPanelFrame({ viewport }) : panelFrame;
 
   useEffect(() => {
     if (!framePanel || !open || !resetFrameOnOpen) return;
@@ -83,10 +84,10 @@ export function useFloatingPanelFrameState({
       return;
     }
     const previousWindowState = previousWindowStateRef.current;
-    if (windowState === "maximized" && previousWindowState !== "maximized") {
+    if (windowState === "fullscreen" && previousWindowState !== "fullscreen") {
       normalFrameRef.current = panelFrame;
     }
-    if (windowState === "normal" && previousWindowState === "maximized" && normalFrameRef.current) {
+    if (windowState === "normal" && previousWindowState === "fullscreen" && normalFrameRef.current) {
       setPanelFrame(
         restoreFloatingPanelFrame({
           frame: normalFrameRef.current,
@@ -99,11 +100,30 @@ export function useFloatingPanelFrameState({
     previousWindowStateRef.current = windowState;
   }, [framePanel, open, panelFrame, resolvedMinSize, viewport, windowState]);
 
+  useEffect(() => {
+    const requestKey = initialFrameSizeKey ?? "initial";
+    if (appliedInitialFrameSizeKeyRef.current === requestKey || !framePanel || !open || !initialFrameSize) return;
+    const nextFrame = centeredInitialFrame(placement, initialFrameSize, resolvedMinSize, currentFloatingPanelViewport());
+    appliedInitialFrameSizeKeyRef.current = requestKey;
+    setPanelFrame(nextFrame);
+    if (fullscreen && normalFrameRef.current) normalFrameRef.current = nextFrame;
+  }, [framePanel, fullscreen, initialFrameSize, initialFrameSizeKey, open, placement, resolvedMinSize]);
+
   return {
     viewport,
     panelFrame,
     setPanelFrame,
     renderedFrame,
-    maximized
+    fullscreen
   };
+}
+
+function centeredInitialFrame(placement: FloatingPanelPlacement, size: FloatingPanelSize, minSize: FloatingPanelSize, viewport: FloatingPanelViewport) {
+  const frame = initialFloatingPanelFrame({ placement, size, minSize, viewport });
+  if (placement !== "center-panel") return frame;
+  return fitFloatingPanelFrameToViewport({
+    frame: { ...frame, x: (viewport.width - frame.width) / 2, y: (viewport.height - frame.height) / 2 },
+    viewport,
+    minSize
+  });
 }

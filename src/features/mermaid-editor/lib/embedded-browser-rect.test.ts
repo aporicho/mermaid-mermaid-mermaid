@@ -33,4 +33,24 @@ describe("embedded browser rect", () => {
   it("builds a stable sync key", () => {
     expect(embeddedBrowserRectKey({ x: -10, y: 20, width: 520, height: 360 })).toBe("-10:20:520:360");
   });
+
+  it("carries the themed border radius into the native view geometry", () => {
+    const rect = embeddedBrowserLogicalRect({ left: 12, top: 64, width: 520, height: 360, borderRadius: 8 });
+
+    expect(rect.borderRadius).toBe(8);
+    expect(embeddedBrowserRectKey(rect)).toBe("12:64:520:360:r8");
+  });
+
+  it("syncs the measured titlebar hot-zone height independently from bounds", () => {
+    const rect = embeddedBrowserLogicalRect({
+      left: 12,
+      top: 64,
+      width: 520,
+      height: 360,
+      titlebarHotZoneHeight: 39.2
+    });
+
+    expect(rect.titlebarHotZoneHeight).toBe(40);
+    expect(embeddedBrowserRectKey(rect)).toBe("12:64:520:360:h40");
+  });
 });

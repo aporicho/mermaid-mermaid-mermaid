@@ -11,34 +11,49 @@ const {
   isSupportedImagePath,
   resolveImageAssetPath
 } = require("./image-assets.cjs");
-const { createAiBridge } = require("./ai-bridge.cjs");
 const { resolveLinkPreview } = require("./link-preview.cjs");
-const { createProjectDocument } = require("./project-documents.cjs");
+const { createProjectDocument, createProjectFile, createProjectTextFile, moveProjectFile } = require("./project-documents.cjs");
+const { readProjectCsvFile, writeProjectCsvFile } = require("./project-csv.cjs");
+const {
+  moveProjectMarkdownFoldState,
+  readProjectMarkdownFoldState,
+  writeProjectMarkdownFoldState
+} = require("./markdown-fold-store.cjs");
 const { createTerminalManager } = require("./terminal.cjs");
-const BROWSER_TOOL_WINDOW_KIND = "browser-tool";
-const BROWSER_TOOL_WINDOW_PARAM = "mmmWindow";
+const { createPiAgentManager } = require("./pi-agent-manager.cjs");
+const { cleanupLegacyAiBridgeDiscovery, registerPiAgentIpc } = require("./pi-agent-ipc.cjs");
+const { listSystemFonts } = require("./system-fonts.cjs");
+const { createProjectFileWatcher } = require("./project-file-watcher.cjs");
+const { readDocumentFile, writeDocumentFile } = require("./document-files.cjs");
+const { createEditorSessionStore } = require("./editor-sessions.cjs");
+const { writeJsonAtomically } = require("./atomic-json-file.cjs");
+const { scanProjectFolder: scanProjectFolderSnapshot } = require("./project-workspace.cjs");
+const { createWindowFileRouter } = require("./window-file-router.cjs");
+const { attachWindowFullscreenEvents, registerWindowFullscreenIpc } = require("./window-fullscreen.cjs");
+const { normalizeEmbeddedBrowserUrl, normalizeHttpUrl } = require("./embedded-browser-url.cjs");
+const { createEmbeddedBrowserTitlebarHotZone } = require("./embedded-browser-titlebar-hot-zone.cjs");
 const DEV_SERVER_URL = process.env.MMM_ELECTRON_DEV_SERVER_URL || "";
 const PROJECT_DIR = path.resolve(__dirname, "..");
 const DIST_INDEX = path.join(PROJECT_DIR, "dist", "index.html");
 const PRELOAD_PATH = path.join(__dirname, "preload.cjs");
 const CLOSE_REQUEST_TIMEOUT_MS = 3000;
-const PROJECT_FILE_LIMIT = 500;
-
 const DOCUMENT_FILTERS = [
   {
     name: "Project Documents",
     extensions: ["mmd", "mermaid", "md", "markdown", "json"]
   }
 ];
-const IMAGE_FILTERS = [{ name: "Images", extensions: ["png", "jpg", "jpeg", "webp", "gif", "svg"] }];
-
+const IMAGE_FILTERS = [{ name: "Images", extensions: ["png", "jpg", "jpeg", "webp", "gif", "svg", "avif", "ico"] }];
 const embeddedBrowsers = new Map();
 const forceCloseWindowIds = new Set();
 const pendingCloseWindowIds = new Set(), pendingCloseTimers = new Map();
-const browserToolWindows = new Map();
-const pendingOpenFiles = [];
+const mainWindows = new Set();
+const claimedEditorSessionIds = new Map();
+let editorSessionStoreInstance = null;
+let appStateWriteQueue = Promise.resolve();
+const windowFileRouter = createWindowFileRouter();
 
-const aiBridge = createAiBridge(app.getVersion());
+const piAgentManager = createPiAgentManager({ shell });
 const terminalManager = createTerminalManager({
   send(channel, payload) {
     for (const window of BrowserWindow.getAllWindows()) {
@@ -46,8 +61,17 @@ const terminalManager = createTerminalManager({
     }
   }
 });
+const projectFileWatcher = createProjectFileWatcher({
+  send(webContents, payload) {
+    webContents.send("mmm:project-files:changed", payload);
+  }
+});
+// Keep one Electron main process for shared services, but allow every launch request to create its own editor window.
 const hasSingleInstanceLock = app.requestSingleInstanceLock();
 let mainWindow = null;
+let startupOpenFiles = collectDocumentFileArgs(process.argv.slice(1));
+let mainWindowsReady = false;
+const deferredMainWindowRequests = [];
 protocol.registerSchemesAsPrivileged([
   {
     scheme: ASSET_PROTOCOL,
@@ -63,29 +87,28 @@ protocol.registerSchemesAsPrivileged([
 if (!hasSingleInstanceLock) {
   app.quit();
 } else {
-  queuePendingFileOpens(collectDocumentFileArgs(process.argv.slice(1)), false);
-
   app.on("second-instance", (_event, argv) => {
-    queuePendingFileOpens(collectDocumentFileArgs(argv.slice(1)), true);
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      if (mainWindow.isMinimized()) mainWindow.restore();
-      mainWindow.focus();
-    }
+    requestMainWindow(collectDocumentFileArgs(argv.slice(1)));
   });
 
   app.on("open-file", (event, filePath) => {
     event.preventDefault();
-    queuePendingFileOpens(collectDocumentFileArgs([filePath]), true);
+    const files = collectDocumentFileArgs([filePath]);
+    if (mainWindowsReady) createMainWindow(files);
+    else startupOpenFiles = mergeDocumentFiles(startupOpenFiles, files);
   });
 
   app.whenReady().then(async () => {
     Menu.setApplicationMenu(null);
     registerAssetProtocol();
     registerIpc();
-    await aiBridge.start();
-    mainWindow = createMainWindow();
+    await cleanupLegacyAiBridgeDiscovery();
+    mainWindowsReady = true;
+    createMainWindow(startupOpenFiles);
+    startupOpenFiles = [];
+    for (const files of deferredMainWindowRequests.splice(0)) createMainWindow(files);
     app.on("activate", () => {
-      if (BrowserWindow.getAllWindows().length === 0) mainWindow = createMainWindow();
+      if (mainWindows.size === 0) createMainWindow();
     });
   });
 }
@@ -96,10 +119,11 @@ app.on("window-all-closed", () => {
 
 app.on("before-quit", () => {
   terminalManager.closeAll();
-  void aiBridge.close();
+  void piAgentManager.closeAll();
+  void projectFileWatcher.closeAll();
 });
 
-function createMainWindow() {
+function createMainWindow(openFiles = []) {
   const window = new BrowserWindow({
     title: "Mermaid Canvas Editor",
     width: 1280,
@@ -112,44 +136,26 @@ function createMainWindow() {
     webPreferences: secureWebPreferences()
   });
 
+  mainWindows.add(window);
+  mainWindow = window;
+  queuePendingFileOpens(window.webContents.id, openFiles);
   attachWindowCloseGuard(window);
   attachWindowCleanup(window);
+  window.on("focus", () => {
+    mainWindow = window;
+  });
   loadAppUrl(window, appUrl());
 
   window.once("ready-to-show", () => window.show());
   return window;
 }
 
-function createBrowserToolWindow(owner, request) {
-  const label = browserToolWindowLabel(request.url);
-  const existing = browserToolWindows.get(label);
-  if (existing && !existing.isDestroyed()) {
-    existing.show();
-    existing.focus();
-    return { status: "opened", reused: true };
+function requestMainWindow(openFiles = []) {
+  if (!mainWindowsReady) {
+    deferredMainWindowRequests.push(openFiles);
+    return null;
   }
-
-  const window = new BrowserWindow({
-    title: `MMM Browser - ${browserToolWindowTitle(request.url, request.title)}`,
-    width: 1040,
-    height: 720,
-    minWidth: 640,
-    minHeight: 420,
-    show: false,
-    frame: false,
-    parent: owner ?? mainWindow ?? undefined,
-    modal: false,
-    skipTaskbar: true,
-    backgroundColor: "#ffffff",
-    webPreferences: secureWebPreferences()
-  });
-
-  browserToolWindows.set(label, window);
-  attachWindowCleanup(window);
-  window.on("closed", () => browserToolWindows.delete(label));
-  loadAppUrl(window, browserToolShellUrl(request, appUrl()));
-  window.once("ready-to-show", () => window.show());
-  return { status: "opened" };
+  return createMainWindow(openFiles);
 }
 
 function secureWebPreferences() {
@@ -193,6 +199,8 @@ function registerIpc() {
     else window.maximize();
   });
 
+  registerWindowFullscreenIpc({ ipcMain, BrowserWindow });
+
   ipcMain.handle("mmm:window:action", (event, action) => {
     const window = BrowserWindow.fromWebContents(event.sender);
     if (!window) return;
@@ -220,25 +228,39 @@ function registerIpc() {
   });
 
   ipcMain.handle("mmm:app-state:read", readAppState);
+  ipcMain.handle("mmm:fonts:list", listSystemFonts);
   ipcMain.handle("mmm:app-state:write", (_event, state) => writeAppState(state));
+  ipcMain.handle("mmm:editor-session:read", async (event) => {
+    const existingId = claimedEditorSessionIds.get(event.sender.id);
+    const all = await editorSessions().readAll();
+    if (existingId && all.sessions[existingId]) return all.sessions[existingId].session;
+    const session = await editorSessions().claim(new Set(claimedEditorSessionIds.values()));
+    if (session?.windowId) claimedEditorSessionIds.set(event.sender.id, session.windowId);
+    return session;
+  });
+  ipcMain.handle("mmm:editor-session:write", async (event, session) => {
+    await editorSessions().write(session); claimedEditorSessionIds.set(event.sender.id, session.windowId);
+  });
   ipcMain.handle("mmm:file:open", (event) => openFileDialog(BrowserWindow.fromWebContents(event.sender)));
   ipcMain.handle("mmm:file:open-path", (_event, filePath) => openFilePath(filePath));
-  ipcMain.handle("mmm:file:save", (_event, request) => saveFilePath(request?.path, request?.text));
+  ipcMain.handle("mmm:file:save", (_event, request) => saveFilePath(request?.path, request?.text, { expectedRevision: request?.expectedRevision, overwrite: request?.overwrite === true }));
   ipcMain.handle("mmm:file:save-as", (event, request) => saveFileDialog(BrowserWindow.fromWebContents(event.sender), request?.suggestedName, request?.text));
   ipcMain.handle("mmm:project:create-document", (_event, request) => createProjectDocument(request));
+  ipcMain.handle("mmm:project:create-text-file", (_event, request) => createProjectTextFile(request));
+  ipcMain.handle("mmm:project:create-file", (_event, request) => createProjectFile(request));
+  ipcMain.handle("mmm:project:move-file", (_event, request) => moveProjectFile(request));
+  ipcMain.handle("mmm:markdown-folds:read", (_event, request) => readProjectMarkdownFoldState(request));
+  ipcMain.handle("mmm:markdown-folds:write", (_event, request) => writeProjectMarkdownFoldState(request));
+  ipcMain.handle("mmm:markdown-folds:move", (_event, request) => moveProjectMarkdownFoldState(request));
+  ipcMain.handle("mmm:csv:read", (_event, request) => readProjectCsvFile(request));
+  ipcMain.handle("mmm:csv:write", (_event, request) => writeProjectCsvFile(request));
   ipcMain.handle("mmm:image:pick", (event, documentPath) => pickImageAssetDialog(BrowserWindow.fromWebContents(event.sender), documentPath));
   ipcMain.handle("mmm:image:import-path", (_event, request) => importImageAssetPath(request?.documentPath, request?.imagePath));
   ipcMain.handle("mmm:image:import-bytes", (_event, request) => importImageAssetBytes(request?.documentPath, request?.fileName, request?.bytes));
   ipcMain.handle("mmm:image:resolve-src", (_event, request) => resolveImageAssetSrc(request?.documentPath, request?.src));
   ipcMain.handle("mmm:link-preview:resolve", (_event, request) => resolveLinkPreview(request));
-  ipcMain.handle("mmm:pending-files:take", takePendingOpenFiles);
-  ipcMain.handle("mmm:ai:publish-context", (_event, context) => aiBridge.publishContext(context));
-  ipcMain.handle("mmm:ai:take-next-command", () => ({
-    ok: true,
-    command: aiBridge.takeNextCommand(),
-    diagnostics: []
-  }));
-  ipcMain.handle("mmm:ai:finish-command", (_event, result) => aiBridge.finishCommand(result));
+  ipcMain.handle("mmm:pending-files:take", (event) => takePendingOpenFiles(event.sender.id));
+  registerPiAgentIpc({ ipcMain, manager: piAgentManager });
   ipcMain.handle("mmm:terminal:list-shells", () => terminalManager.listShells());
   ipcMain.handle("mmm:terminal:open", (_event, request) => terminalManager.open(request));
   ipcMain.handle("mmm:terminal:write", (_event, request) => terminalManager.write(request?.sessionId, request?.data));
@@ -246,13 +268,15 @@ function registerIpc() {
   ipcMain.handle("mmm:terminal:close", (_event, sessionId) => terminalManager.close(sessionId));
   ipcMain.handle("mmm:project:open-folder", (event) => openProjectFolderDialog(BrowserWindow.fromWebContents(event.sender)));
   ipcMain.handle("mmm:project:read-folder", (_event, rootPath) => scanProjectFolder(rootPath));
+  ipcMain.handle("mmm:project-watch:set", (event, request) => projectFileWatcher.setTargets(event.sender, request));
   ipcMain.handle("mmm:browser:create", (event, request) => createEmbeddedBrowser(event.sender, request));
-  ipcMain.handle("mmm:browser:close", (_event, label) => closeEmbeddedBrowser(label));
-  ipcMain.handle("mmm:browser:hide", (_event, label) => setEmbeddedBrowserVisible(label, false));
-  ipcMain.handle("mmm:browser:show", (_event, label) => setEmbeddedBrowserVisible(label, true));
-  ipcMain.handle("mmm:browser:focus", (_event, label) => focusEmbeddedBrowser(label));
-  ipcMain.handle("mmm:browser:set-rect", (_event, label, rect) => setEmbeddedBrowserRect(label, rect));
-  ipcMain.handle("mmm:browser-tool:open", (event, request) => createBrowserToolWindow(BrowserWindow.fromWebContents(event.sender), request));
+  ipcMain.handle("mmm:browser:close", (event, label) => closeEmbeddedBrowser(event.sender, label));
+  ipcMain.handle("mmm:browser:hide", (event, label) => setEmbeddedBrowserVisible(event.sender, label, false));
+  ipcMain.handle("mmm:browser:show", (event, label) => setEmbeddedBrowserVisible(event.sender, label, true));
+  ipcMain.handle("mmm:browser:focus", (event, label) => focusEmbeddedBrowser(event.sender, label));
+  ipcMain.handle("mmm:browser:navigate", (event, label, url) => navigateEmbeddedBrowser(event.sender, label, url));
+  ipcMain.handle("mmm:browser:reload", (event, label) => reloadEmbeddedBrowser(event.sender, label));
+  ipcMain.handle("mmm:browser:set-rect", (event, label, rect) => setEmbeddedBrowserRect(event.sender, label, rect));
 }
 
 function registerAssetProtocol() {
@@ -281,13 +305,15 @@ async function readAppState() {
 }
 
 async function writeAppState(state) {
-  const statePath = appStatePath();
-  await fsp.mkdir(path.dirname(statePath), { recursive: true });
-  await fsp.writeFile(statePath, JSON.stringify(state, null, 2), "utf8");
+  appStateWriteQueue = appStateWriteQueue.catch(() => undefined).then(() => writeJsonAtomically(appStatePath(), state));
+  return appStateWriteQueue;
 }
 
-function appStatePath() {
-  return path.join(app.getPath("userData"), "app-state.json");
+function appStatePath() { return path.join(app.getPath("userData"), "app-state.json"); }
+
+function editorSessions() {
+  if (!editorSessionStoreInstance) editorSessionStoreInstance = createEditorSessionStore(path.join(app.getPath("userData"), "editor-sessions.json"));
+  return editorSessionStoreInstance;
 }
 
 async function openFileDialog(owner) {
@@ -301,21 +327,12 @@ async function openFileDialog(owner) {
 
 async function openFilePath(filePath) {
   assertSupportedDocumentPath(filePath);
-  const text = await fsp.readFile(filePath, "utf8");
-  return {
-    name: path.basename(filePath),
-    path: filePath,
-    text
-  };
+  return readDocumentFile(filePath);
 }
 
-async function saveFilePath(filePath, text) {
+async function saveFilePath(filePath, text, options = {}) {
   assertSupportedDocumentPath(filePath);
-  await fsp.writeFile(filePath, typeof text === "string" ? text : "", "utf8");
-  return {
-    name: path.basename(filePath),
-    path: filePath
-  };
+  return writeDocumentFile(filePath, text, options);
 }
 
 async function saveFileDialog(owner, suggestedName, text) {
@@ -324,7 +341,7 @@ async function saveFileDialog(owner, suggestedName, text) {
     filters: DOCUMENT_FILTERS
   });
   if (result.canceled || !result.filePath) return null;
-  return saveFilePath(result.filePath, text);
+  return saveFilePath(result.filePath, text, { overwrite: true });
 }
 
 async function pickImageAssetDialog(owner, documentPath) {
@@ -341,17 +358,12 @@ function resolveImageAssetSrc(documentPath, src) {
   return assetPath ? filePathToAssetUrl(assetPath) : src;
 }
 
-function takePendingOpenFiles() {
-  return pendingOpenFiles.splice(0, pendingOpenFiles.length);
+function takePendingOpenFiles(webContentsId) {
+  return windowFileRouter.take(webContentsId);
 }
 
-function queuePendingFileOpens(files, emit) {
-  for (const file of files) {
-    if (!pendingOpenFiles.some((item) => item.path === file.path)) pendingOpenFiles.push(file);
-  }
-  if (emit && files.length > 0 && mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.webContents.send("mmm:file:external-open", files);
-  }
+function queuePendingFileOpens(webContentsId, files) {
+  windowFileRouter.enqueue(webContentsId, files);
 }
 
 async function openProjectFolderDialog(owner) {
@@ -363,65 +375,7 @@ async function openProjectFolderDialog(owner) {
 }
 
 async function scanProjectFolder(rootPath) {
-  const root = await fsp.realpath(rootPath);
-  const files = [];
-  const state = { truncated: false };
-  await collectProjectFiles(root, root, files, state);
-  files.sort((left, right) => left.relativePath.toLowerCase().localeCompare(right.relativePath.toLowerCase()));
-  return {
-    rootName: path.basename(root) || root,
-    rootPath: root,
-    files,
-    scannedAt: Date.now(),
-    truncated: state.truncated
-  };
-}
-
-async function collectProjectFiles(root, directory, files, state) {
-  if (files.length >= PROJECT_FILE_LIMIT) {
-    state.truncated = true;
-    return;
-  }
-
-  let entries = [];
-  try {
-    entries = await fsp.readdir(directory, { withFileTypes: true });
-  } catch (error) {
-    if (directory === root) throw readableError(error);
-    return;
-  }
-  entries.sort((left, right) => left.name.localeCompare(right.name));
-
-  for (const entry of entries) {
-    if (files.length >= PROJECT_FILE_LIMIT) {
-      state.truncated = true;
-      return;
-    }
-
-    const fullPath = path.join(directory, entry.name);
-    if (entry.isDirectory()) {
-      if (!shouldSkipProjectDirectory(entry.name)) await collectProjectFiles(root, fullPath, files, state);
-      continue;
-    }
-    if (!entry.isFile() || !isSupportedDocumentPath(fullPath)) continue;
-
-    let modifiedAt;
-    try {
-      modifiedAt = (await fsp.stat(fullPath)).mtimeMs;
-    } catch {
-      modifiedAt = undefined;
-    }
-    files.push({
-      name: path.basename(fullPath),
-      path: fullPath,
-      relativePath: path.relative(root, fullPath).split(path.sep).join("/"),
-      modifiedAt
-    });
-  }
-}
-
-function shouldSkipProjectDirectory(name) {
-  return new Set([".git", ".hg", ".svn", "node_modules", "dist", "build", ".vite", ".next", "target", "dist-electron"]).has(name.toLowerCase());
+  return scanProjectFolderSnapshot(rootPath);
 }
 
 function attachWindowCloseGuard(window) {
@@ -451,10 +405,19 @@ function attachWindowCloseGuard(window) {
 }
 
 function attachWindowCleanup(window) {
+  const webContentsId = window.webContents.id;
+  attachWindowFullscreenEvents(window);
   window.on("closed", () => {
     clearPendingClose(window.id);
-    for (const [label, record] of embeddedBrowsers) {
-      if (record.ownerId === window.id) closeEmbeddedBrowser(label);
+    windowFileRouter.clear(webContentsId);
+    claimedEditorSessionIds.delete(webContentsId);
+    void projectFileWatcher.removeSubscriber(webContentsId);
+    void piAgentManager.stop(webContentsId);
+    if (mainWindows.delete(window) && mainWindow === window) {
+      mainWindow = [...mainWindows].at(-1) || null;
+    }
+    for (const [key, record] of embeddedBrowsers) {
+      if (record.ownerId === window.id) closeEmbeddedBrowserByKey(key);
     }
   });
 }
@@ -491,6 +454,14 @@ function collectDocumentFileArgs(args) {
     }));
 }
 
+function mergeDocumentFiles(current, incoming) {
+  const merged = [...current];
+  for (const file of incoming) {
+    if (!merged.some((item) => item.path === file.path)) merged.push(file);
+  }
+  return merged;
+}
+
 function fileWorkflowError(code, message, filePath) {
   const error = new Error(message);
   error.code = code;
@@ -509,10 +480,10 @@ function createEmbeddedBrowser(sender, request) {
   if (!owner.contentView?.addChildView) return { status: "unsupported", message: "Electron WebContentsView is unavailable in this runtime." };
 
   const label = typeof request?.label === "string" ? request.label : "";
-  const url = normalizeHttpUrl(request?.url);
+  const url = normalizeEmbeddedBrowserUrl(request?.url);
   if (!label || !url) return { status: "error", message: "Invalid embedded browser request." };
 
-  closeEmbeddedBrowser(label);
+  closeEmbeddedBrowser(sender, label);
 
   const view = new WebContentsView({
     webPreferences: {
@@ -528,15 +499,34 @@ function createEmbeddedBrowser(sender, request) {
     if (normalizeHttpUrl(nextUrl)) shell.openExternal(nextUrl);
     return { action: "deny" };
   });
+  const sendState = () => sendEmbeddedBrowserEvent(sender, "mmm:browser:state", embeddedBrowserState(label, view, url));
+  const titlebarHotZone = createEmbeddedBrowserTitlebarHotZone({
+    webContents: view.webContents,
+    initialHeight: request.rect?.titlebarHotZoneHeight,
+    send: (inside) => sendEmbeddedBrowserEvent(sender, "mmm:browser:titlebar-hot-zone", { label, inside })
+  });
+  view.webContents.on("did-start-loading", sendState);
+  view.webContents.on("did-stop-loading", sendState);
+  view.webContents.on("did-navigate", sendState);
+  view.webContents.on("did-navigate-in-page", sendState);
+  view.webContents.on("page-title-updated", sendState);
+  view.webContents.on("focus", () => {
+    try {
+      owner.contentView.addChildView(view);
+    } catch {
+      // The owner may already be closing.
+    }
+    sendEmbeddedBrowserEvent(sender, "mmm:browser:focus", { label });
+  });
   view.webContents.on("did-fail-load", (_event, errorCode, errorDescription, validatedURL) => {
     if (errorCode === -3) return;
-    sender.send("mmm:browser:error", {
+    sendEmbeddedBrowserEvent(sender, "mmm:browser:error", {
       label,
       message: errorDescription || `Failed to load ${validatedURL || url}`
     });
   });
   view.webContents.on("render-process-gone", (_event, details) => {
-    sender.send("mmm:browser:error", {
+    sendEmbeddedBrowserEvent(sender, "mmm:browser:error", {
       label,
       message: details.reason || "Embedded browser renderer exited."
     });
@@ -544,23 +534,53 @@ function createEmbeddedBrowser(sender, request) {
 
   owner.contentView.addChildView(view);
   view.setBounds(normalizeBounds(request.rect));
-  view.webContents.loadURL(url);
+  view.setBorderRadius(normalizeBorderRadius(request.rect?.borderRadius));
+  view.setVisible(false);
 
-  embeddedBrowsers.set(label, {
+  const key = embeddedBrowserKey(sender, label);
+  embeddedBrowsers.set(key, {
     label,
     owner,
     ownerId: owner.id,
     view,
-    visible: true
+    titlebarHotZone,
+    visible: false
+  });
+  void view.webContents.loadURL(url).catch((error) => {
+    sendEmbeddedBrowserEvent(sender, "mmm:browser:error", { label, message: readableError(error).message });
   });
 
   return { status: "created", label };
 }
 
-function closeEmbeddedBrowser(label) {
-  const record = embeddedBrowsers.get(label);
+function embeddedBrowserState(label, view, fallbackUrl) {
+  const contents = view.webContents;
+  return {
+    label,
+    url: contents.getURL() || fallbackUrl,
+    title: contents.getTitle() || "",
+    loading: contents.isLoading()
+  };
+}
+
+function sendEmbeddedBrowserEvent(sender, channel, payload) {
+  if (sender.isDestroyed()) return;
+  sender.send(channel, payload);
+}
+
+function embeddedBrowserKey(sender, label) {
+  return `${sender.id}:${label}`;
+}
+
+function closeEmbeddedBrowser(sender, label) {
+  closeEmbeddedBrowserByKey(embeddedBrowserKey(sender, label));
+}
+
+function closeEmbeddedBrowserByKey(key) {
+  const record = embeddedBrowsers.get(key);
   if (!record) return;
-  embeddedBrowsers.delete(label);
+  embeddedBrowsers.delete(key);
+  record.titlebarHotZone.dispose();
   try {
     record.owner.contentView.removeChildView(record.view);
   } catch {
@@ -571,23 +591,45 @@ function closeEmbeddedBrowser(label) {
   }
 }
 
-function setEmbeddedBrowserVisible(label, visible) {
-  const record = embeddedBrowsers.get(label);
+function setEmbeddedBrowserVisible(sender, label, visible) {
+  const record = embeddedBrowsers.get(embeddedBrowserKey(sender, label));
   if (!record) return;
   record.visible = visible;
+  if (!visible) record.titlebarHotZone.reset();
   record.view.setVisible(visible);
 }
 
-function focusEmbeddedBrowser(label) {
-  const record = embeddedBrowsers.get(label);
+function focusEmbeddedBrowser(sender, label) {
+  const record = embeddedBrowsers.get(embeddedBrowserKey(sender, label));
   if (!record) return;
+  record.owner.contentView.addChildView(record.view);
   record.view.webContents.focus();
 }
 
-function setEmbeddedBrowserRect(label, rect) {
-  const record = embeddedBrowsers.get(label);
+function navigateEmbeddedBrowser(sender, label, value) {
+  const record = embeddedBrowsers.get(embeddedBrowserKey(sender, label));
+  if (!record) return;
+  const url = normalizeEmbeddedBrowserUrl(value);
+  if (!url) throw new Error("Invalid embedded browser URL.");
+  return record.view.webContents.loadURL(url);
+}
+
+function reloadEmbeddedBrowser(sender, label) {
+  const record = embeddedBrowsers.get(embeddedBrowserKey(sender, label));
+  if (!record) return;
+  record.view.webContents.reload();
+}
+
+function setEmbeddedBrowserRect(sender, label, rect) {
+  const record = embeddedBrowsers.get(embeddedBrowserKey(sender, label));
   if (!record) return;
   record.view.setBounds(normalizeBounds(rect));
+  record.view.setBorderRadius(normalizeBorderRadius(rect?.borderRadius));
+  record.titlebarHotZone.setHeight(rect?.titlebarHotZoneHeight);
+}
+
+function normalizeBorderRadius(value) {
+  return Math.max(0, finiteNumber(value, 0));
 }
 
 function normalizeBounds(rect) {
@@ -601,49 +643,4 @@ function normalizeBounds(rect) {
 
 function finiteNumber(value, fallback) {
   return Number.isFinite(value) ? Math.round(value) : fallback;
-}
-
-function normalizeHttpUrl(value) {
-  if (typeof value !== "string") return "";
-  try {
-    const url = new URL(value.trim());
-    if (url.protocol !== "http:" && url.protocol !== "https:") return "";
-    return url.toString();
-  } catch {
-    return "";
-  }
-}
-
-function browserToolWindowTitle(url, fallback) {
-  const normalizedFallback = typeof fallback === "string" ? fallback.trim() : "";
-  if (normalizedFallback) return normalizedFallback;
-  try {
-    return new URL(url).hostname || url;
-  } catch {
-    return url;
-  }
-}
-
-function browserToolWindowLabel(url) {
-  return `browser-tool-${hashText(url)}`;
-}
-
-function browserToolShellUrl(request, baseHref) {
-  const url = new URL(baseHref);
-  url.search = "";
-  url.hash = "";
-  url.searchParams.set(BROWSER_TOOL_WINDOW_PARAM, BROWSER_TOOL_WINDOW_KIND);
-  url.searchParams.set("url", request.url);
-  if (request.title) url.searchParams.set("title", request.title);
-  if (request.sourceNodeId) url.searchParams.set("sourceNodeId", request.sourceNodeId);
-  if (request.sourceLabel) url.searchParams.set("sourceLabel", request.sourceLabel);
-  return url.toString();
-}
-
-function hashText(value) {
-  let hash = 0;
-  for (let index = 0; index < value.length; index += 1) {
-    hash = (hash * 31 + value.charCodeAt(index)) >>> 0;
-  }
-  return hash.toString(36);
 }

@@ -168,7 +168,13 @@ function resolveTerminalCwd(cwd) {
       return cwd;
     }
   }
-  return os.homedir() || process.cwd();
+  try {
+    const currentWorkingDirectory = process.cwd();
+    if (isDirectory(currentWorkingDirectory)) return fs.realpathSync(currentWorkingDirectory);
+  } catch {
+    // The launch directory may have been removed after the app started.
+  }
+  return os.homedir();
 }
 
 function commandExists(program) {
@@ -231,5 +237,6 @@ function isFile(value) {
 
 module.exports = {
   createTerminalManager,
+  resolveTerminalCwd,
   terminalShellOptions
 };

@@ -15,6 +15,7 @@ type AutoLayoutOptions = {
   edgeRouting: EdgeRouting;
   mermaidThemeVariables?: MermaidThemeVariables;
   viewport?: ViewportState;
+  spec?: NodeGeometrySpec;
 };
 
 type LayoutFromCentersOptions = {
@@ -46,7 +47,8 @@ export async function deriveLayoutFromMermaidRender(source: string, graph: Merma
 
   return canvasLayoutFromRenderedNodeCenters(graph, centers, {
     edgeRouting: options.edgeRouting,
-    viewport: options.viewport
+    viewport: options.viewport,
+    spec: options.spec
   });
 }
 

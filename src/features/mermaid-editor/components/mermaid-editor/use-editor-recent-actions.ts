@@ -1,13 +1,13 @@
 import { useCallback, useRef, useState } from "react";
 
-import type { AiRecentAction } from "@/features/mermaid-editor/lib/ai-context";
+import type { EditorRecentAction } from "@/features/mermaid-editor/lib/editor-interaction-state";
 
 export function useEditorRecentActions() {
   const actionCounterRef = useRef(0);
-  const [recentActions, setRecentActions] = useState<AiRecentAction[]>([]);
+  const [recentActions, setRecentActions] = useState<EditorRecentAction[]>([]);
 
-  const recordRecentAction = useCallback((type: string, target?: AiRecentAction["target"], summary?: string) => {
-    const action: AiRecentAction = {
+  const recordRecentAction = useCallback((type: string, target?: EditorRecentAction["target"], summary?: string) => {
+    const action: EditorRecentAction = {
       id: `${Date.now().toString(36)}-${actionCounterRef.current++}`,
       at: new Date().toISOString(),
       type,

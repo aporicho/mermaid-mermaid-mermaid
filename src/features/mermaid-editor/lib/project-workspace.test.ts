@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildProjectFileTree,
+  buildProjectResourceTree,
   filterProjectFiles,
   isRuntimePathInsideProjectWorkspace,
   isProjectFileActive,
@@ -9,6 +10,7 @@ import {
   normalizeProjectWorkspace,
   parentDirectoryFromRuntimePath,
   projectTreeDirectoryIds,
+  projectWorkspaceForStorage,
   PROJECT_FILE_LIMIT,
   workspaceRootForOpenedFile,
   type ProjectFileEntry
@@ -93,6 +95,48 @@ describe("project workspace", () => {
         ]
       }),
       expect.objectContaining({ kind: "file", name: "zeta.mmd" })
+    ]);
+  });
+
+  it("builds a complete resource tree with empty directories and unsupported files", () => {
+    const files: ProjectFileEntry[] = [
+      { name: "diagram.mmd", path: "/project/docs/diagram.mmd", relativePath: "docs/diagram.mmd" }
+    ];
+    const tree = buildProjectResourceTree([
+      { kind: "directory", name: "docs", path: "/project/docs", relativePath: "docs" },
+      { kind: "directory", name: "empty", path: "/project/empty", relativePath: "empty" },
+      { kind: "file", name: "diagram.mmd", path: "/project/docs/diagram.mmd", relativePath: "docs/diagram.mmd", documentKind: "mermaid" },
+      { kind: "file", name: "cover.png", path: "/project/docs/cover.png", relativePath: "docs/cover.png" }
+    ], files);
+
+    expect(tree).toEqual([
+      expect.objectContaining({
+        kind: "directory",
+        name: "docs",
+        fileCount: 1,
+        resourceCount: 2,
+        children: [
+          expect.objectContaining({ kind: "file", name: "cover.png" }),
+          expect.objectContaining({ kind: "file", name: "diagram.mmd", file: files[0] })
+        ]
+      }),
+      expect.objectContaining({ kind: "directory", name: "empty", resourceCount: 0, children: [] })
+    ]);
+    expect(tree[0]?.kind === "directory" ? tree[0].children[0] : null).not.toHaveProperty("file");
+  });
+
+  it("keeps full resources out of persisted workspace snapshots", () => {
+    const workspace = normalizeProjectWorkspace({
+      rootName: "project",
+      rootPath: "/project",
+      files: [{ name: "diagram.mmd", path: "/project/diagram.mmd", relativePath: "diagram.mmd" }],
+      resources: [{ kind: "file", name: "cover.png", path: "/project/cover.png", relativePath: "cover.png" }],
+      scannedAt: 10
+    });
+
+    expect(projectWorkspaceForStorage(workspace)?.resources).toBeUndefined();
+    expect(normalizeProjectWorkspace(projectWorkspaceForStorage(workspace))?.resources).toEqual([
+      expect.objectContaining({ kind: "file", name: "diagram.mmd", documentKind: "mermaid" })
     ]);
   });
 

@@ -1,4 +1,4 @@
-import { PathArrow, Trash as Trash2 } from "iconoir-react/regular";
+import { Trash as Trash2 } from "iconoir-react/regular";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,12 +41,10 @@ type EdgeInspectorSectionProps = {
   hasFromNode: boolean;
   hasToNode: boolean;
   onUpdateEdge: (id: string, patch: Partial<CanvasEdge>) => void;
-  onSelectEdge: (edgeId: string) => void;
   onDeleteSelection: () => void;
 };
 
 type MultiEdgeInspectorSectionProps = {
-  selectedEdges: CanvasEdge[];
   batchEdgeStyle: SharedSelectionValue<EdgeStyle>;
   batchEdgeMarkerStart: SharedSelectionValue<EdgeMarker>;
   batchEdgeMarkerEnd: SharedSelectionValue<EdgeMarker>;
@@ -67,7 +65,6 @@ export function EdgeInspectorSection({
   hasFromNode,
   hasToNode,
   onUpdateEdge,
-  onSelectEdge,
   onDeleteSelection
 }: EdgeInspectorSectionProps) {
   return (
@@ -139,11 +136,7 @@ export function EdgeInspectorSection({
         <Input id="edge-style-text" value={edge.styleText || ""} placeholder="stroke:#f66,stroke-width:4px" onChange={(event) => onUpdateEdge(edge.id, { styleText: event.target.value.trim() || undefined })} />
       </div>
       <Separator />
-      <Button variant="outline" className="h-8 justify-start px-2" onClick={() => onSelectEdge(edge.id)}>
-        <PathArrow className="size-4" />
-        选中连线
-      </Button>
-      <Button variant="destructive" className="h-8 justify-start px-2" onClick={onDeleteSelection}>
+      <Button variant="destructive" size="sm" className="justify-start" onClick={onDeleteSelection}>
         <Trash2 className="size-4" />
         删除连线
       </Button>
@@ -152,7 +145,6 @@ export function EdgeInspectorSection({
 }
 
 export function MultiEdgeInspectorSection({
-  selectedEdges,
   batchEdgeStyle,
   batchEdgeMarkerStart,
   batchEdgeMarkerEnd,
@@ -166,9 +158,6 @@ export function MultiEdgeInspectorSection({
 }: MultiEdgeInspectorSectionProps) {
   return (
     <>
-      <div className="rounded-md border bg-muted/35 p-3 text-sm">
-        已选择 <strong>{selectedEdges.length}</strong> 条连线
-      </div>
       <EdgeStyleSelect
         value={batchEdgeStyle.mixed ? MIXED_VALUE : batchEdgeStyle.value}
         mixed={batchEdgeStyle.mixed}
@@ -231,7 +220,7 @@ export function MultiEdgeInspectorSection({
         <Input id="batch-edge-style-text" value={batchEdgeStyleText.mixed ? "" : batchEdgeStyleText.value} placeholder={batchEdgeStyleText.mixed ? "混合" : "stroke:#f66"} onChange={(event) => onUpdateSelectedEdges({ styleText: event.target.value.trim() || undefined })} />
       </div>
       <Separator />
-      <Button variant="destructive" className="h-8 justify-start px-2" onClick={onDeleteSelection}>
+      <Button variant="destructive" size="sm" className="justify-start" onClick={onDeleteSelection}>
         <Trash2 className="size-4" />
         删除选中连线
       </Button>

@@ -10,6 +10,7 @@ flowchart LR
     RenderView["Mermaid 渲染视图"]
     SourceView["源码视图"]
     TerminalView["底部终端面板"]
+    AgentView["Pi Agent 浮动面板<br/>对话 / 控制中心"]
     Inspector["属性 / 主题 / 诊断"]
   end
 
@@ -37,8 +38,7 @@ flowchart LR
     direction TB
     RuntimeAdapter["运行时适配器<br/>editor-runtime.ts"]
     BrowserRuntime["浏览器运行时<br/>文件选择 / 下载 / localStorage"]
-    ElectronNative["Electron 原生层<br/>文件 / 项目扫描 / 应用状态 / 图片资源 / PTY / bridge"]
-    TauriNative["Tauri 原生层<br/>迁移期回退"]
+    ElectronNative["Electron 原生层<br/>文件 / 项目扫描 / 应用状态 / 图片资源 / PTY / Pi Worker"]
     PtySession["本地 PTY 会话<br/>node-pty / shell / resize"]
     WindowsFlow["Windows 验收流程<br/>windows:run -> electron:ship -> launch"]
   end
@@ -46,8 +46,8 @@ flowchart LR
   subgraph AiCli[智能体与 CLI]
     direction TB
     OfflineCli["离线文件 CLI<br/>读取 / 校验 / diff / patch / layout / fixture"]
-    LiveBridge["实时桌面桥接<br/>ping / context / apply"]
-    Agent["智能体"]
+    PiRuntime["Pi SDK<br/>models / sessions / tools / resources"]
+    Agent["应用内 Pi Agent"]
   end
 
   subgraph QualityRails[质量与性能护栏]
@@ -63,6 +63,7 @@ flowchart LR
   FloatingChrome --> RenderView
   FloatingChrome --> SourceView
   FloatingChrome --> TerminalView
+  FloatingChrome --> AgentView
   FloatingChrome --> Inspector
 
   ProjectBrowser -->|打开项目文件| Orchestrator
@@ -70,6 +71,7 @@ flowchart LR
   CanvasView -->|pointer / wheel / gesture| CanvasEngine
   RenderView -->|查看与导航| Orchestrator
   TerminalView -->|终端输入 / 输出| RuntimeAdapter
+  AgentView -->|Pi RPC / 控制命令| RuntimeAdapter
   Inspector -->|属性命令| Orchestrator
   FloatingChrome -->|菜单 / 视图 / 模式| Orchestrator
 
@@ -101,17 +103,15 @@ flowchart LR
   RuntimeAdapter --> BrowserRuntime
   RuntimeAdapter --> ElectronNative
   ElectronNative --> PtySession
-  RuntimeAdapter -.-> TauriNative
   PtySession -->|data / exit event| RuntimeAdapter
   ElectronNative --> WindowsFlow
   RuntimeAdapter -->|打开 / 保存 / 草稿 / 图片显示 URL| Truth
 
   OfflineCli -->|共享文档逻辑| MermaidEngine
   OfflineCli -->|文件 patch 输出| MermaidSource
-  Agent --> OfflineCli
-  Agent --> LiveBridge
-  LiveBridge -->|带 token 的 loopback bridge| ElectronNative
-  ElectronNative -->|context / apply command / result| Orchestrator
+  Agent --> PiRuntime
+  PiRuntime -->|每窗口 Worker / JSONL RPC| ElectronNative
+  ElectronNative -->|实时文档读写 / revision / selection| Orchestrator
 
   Performance -.-> CanvasEngine
   Performance -.-> CommandTx

@@ -3,7 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
   FLOATING_CHROME_HIDE_DELAY_MS,
   FLOATING_PANEL_EDGE_MARGIN_PX,
-  FLOATING_PANEL_MAXIMIZED_TOP_INSET_PX,
+  FLOATING_PANEL_MIN_VISIBLE_TOP_EDGE_PX,
+  FLOATING_PANEL_MIN_VISIBLE_TITLE_PX,
   FLOATING_POPOVER_PANEL_Z_INDEX,
   FLOATING_WORKSPACE_PANEL_BASE_Z_INDEX,
   bringFloatingPanelToFront,
@@ -14,7 +15,7 @@ import {
   floatingPanelHiddenOffset,
   floatingPanelZIndex,
   fitFloatingPanelFrameToViewport,
-  maximizedFloatingPanelFrame,
+  fullscreenFloatingPanelFrame,
   resizeFloatingPanelFrame,
   restoreFloatingPanelFrame,
   shouldDragFloatingPanel,
@@ -55,17 +56,17 @@ describe("floating chrome", () => {
     expect(bringFloatingPanelToFront(stack, "terminal")).toEqual(["explorer", "inspector", "terminal"]);
   });
 
-  it("maps workspace stack position and popover panels to stable z-indexes", () => {
+  it("maps workspace stack position and popovers to local isolated z-indexes", () => {
     const stack = ["explorer", "terminal", "inspector"] as const;
 
     expect(floatingPanelStackIndex(stack, "terminal")).toBe(1);
     expect(floatingPanelZIndex("workspace", 0)).toBe(FLOATING_WORKSPACE_PANEL_BASE_Z_INDEX);
     expect(floatingPanelZIndex("workspace", 2)).toBe(FLOATING_WORKSPACE_PANEL_BASE_Z_INDEX + 2);
     expect(floatingPanelZIndex("popover", 99)).toBe(FLOATING_POPOVER_PANEL_Z_INDEX);
-    expect(floatingPanelZIndex("popover", 99)).toBeGreaterThan(floatingPanelZIndex("workspace", 2));
+    expect(floatingPanelZIndex("popover", 99)).toBe(1);
   });
 
-  it("allows draggable panel offsets outside the viewport", () => {
+  it("keeps a recoverable titlebar strip when dragging offset panels beyond the viewport", () => {
     const constrained = constrainFloatingPanelOffset({
       desired: { x: 900, y: -120 },
       startOffset: { x: 0, y: 0 },
@@ -74,12 +75,12 @@ describe("floating chrome", () => {
     });
 
     expect(constrained).toEqual({
-      x: 900,
-      y: -120
+      x: 800 - FLOATING_PANEL_EDGE_MARGIN_PX - FLOATING_PANEL_MIN_VISIBLE_TITLE_PX - 100,
+      y: FLOATING_PANEL_EDGE_MARGIN_PX - 80
     });
   });
 
-  it("allows panel frames outside the viewport while preserving minimum size", () => {
+  it("keeps panel frames recoverable while preserving their minimum size", () => {
     const constrained = constrainFloatingPanelFrame({
       frame: { x: -40, y: 590, width: 920, height: 80 },
       viewport: { width: 800, height: 600 },
@@ -88,10 +89,26 @@ describe("floating chrome", () => {
 
     expect(constrained).toEqual({
       x: -40,
-      y: 590,
+      y: 600 - FLOATING_PANEL_EDGE_MARGIN_PX - FLOATING_PANEL_MIN_VISIBLE_TOP_EDGE_PX,
       width: 920,
       height: 220
     });
+  });
+
+  it("keeps at least 48px of either horizontal titlebar edge reachable", () => {
+    const viewport = { width: 800, height: 600 };
+    const minSize = { width: 320, height: 220 };
+
+    expect(constrainFloatingPanelFrame({
+      frame: { x: -900, y: 12, width: 640, height: 480 },
+      viewport,
+      minSize
+    }).x).toBe(FLOATING_PANEL_EDGE_MARGIN_PX + FLOATING_PANEL_MIN_VISIBLE_TITLE_PX - 640);
+    expect(constrainFloatingPanelFrame({
+      frame: { x: 900, y: 12, width: 640, height: 480 },
+      viewport,
+      minSize
+    }).x).toBe(800 - FLOATING_PANEL_EDGE_MARGIN_PX - FLOATING_PANEL_MIN_VISIBLE_TITLE_PX);
   });
 
   it("fits newly opened panel frames inside the viewport margin", () => {
@@ -133,12 +150,12 @@ describe("floating chrome", () => {
     ).toEqual({ x: 240, y: 160, width: 320, height: 220 });
   });
 
-  it("builds a maximized panel frame with a protected top inset", () => {
-    expect(maximizedFloatingPanelFrame({ viewport: { width: 1000, height: 720 } })).toEqual({
-      x: FLOATING_PANEL_EDGE_MARGIN_PX,
-      y: FLOATING_PANEL_MAXIMIZED_TOP_INSET_PX,
-      width: 1000 - FLOATING_PANEL_EDGE_MARGIN_PX * 2,
-      height: 720 - FLOATING_PANEL_MAXIMIZED_TOP_INSET_PX - FLOATING_PANEL_EDGE_MARGIN_PX
+  it("builds a true fullscreen panel frame", () => {
+    expect(fullscreenFloatingPanelFrame({ viewport: { width: 1000, height: 720 } })).toEqual({
+      x: 0,
+      y: 0,
+      width: 1000,
+      height: 720
     });
   });
 
@@ -150,5 +167,20 @@ describe("floating chrome", () => {
         minSize: { width: 320, height: 220 }
       })
     ).toEqual({ x: 120, y: 90, width: 420, height: 300 });
+  });
+
+  it("fits saved panel frames after the viewport becomes smaller", () => {
+    expect(
+      restoreFloatingPanelFrame({
+        frame: { x: 640, y: 420, width: 900, height: 760 },
+        viewport: { width: 800, height: 600 },
+        minSize: { width: 320, height: 220 }
+      })
+    ).toEqual({
+      x: FLOATING_PANEL_EDGE_MARGIN_PX,
+      y: FLOATING_PANEL_EDGE_MARGIN_PX,
+      width: 800 - FLOATING_PANEL_EDGE_MARGIN_PX * 2,
+      height: 600 - FLOATING_PANEL_EDGE_MARGIN_PX * 2
+    });
   });
 });

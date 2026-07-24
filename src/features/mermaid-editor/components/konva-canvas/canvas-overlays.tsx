@@ -38,7 +38,7 @@ export function CanvasGrid({
   const { bounds, levels } = plan;
 
   return (
-    <Layer listening={false}>
+    <Layer listening={false} imageSmoothingEnabled>
       <Shape
         x={bounds.left}
         y={bounds.top}
@@ -47,13 +47,14 @@ export function CanvasGrid({
         perfectDrawEnabled={false}
         sceneFunc={(context: Konva.Context) => {
           context.save();
+          context.fillStyle = visualTokens.grid.color;
           for (const level of levels) {
             const radius = level.radiusPx / viewport.scale;
             const startX = firstGridCoordinateAtOrAfter(bounds.left, level.step, gridSpec.origin.x);
             const startY = firstGridCoordinateAtOrAfter(bounds.top, level.step, gridSpec.origin.y);
 
             context.beginPath();
-            context.fillStyle = `rgba(${visualTokens.colors.gridDotRgb}, ${level.alpha})`;
+            context.globalAlpha = level.alpha;
             for (let x = startX; x <= bounds.right; x += level.step) {
               for (let y = startY; y <= bounds.bottom; y += level.step) {
                 if (
@@ -88,6 +89,7 @@ export function AlignmentGuideOverlay({ guides, visualTokens }: { guides: Alignm
             points={guide.axis === "x" ? [guide.value, guide.from, guide.value, guide.to] : [guide.from, guide.value, guide.to, guide.value]}
             stroke={visual.stroke}
             strokeWidth={visual.strokeWidth}
+            strokeEnabled={visual.strokeEnabled}
             dash={visual.dash}
             lineCap="round"
             listening={false}

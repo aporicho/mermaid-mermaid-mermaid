@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import {
   Code,
+  Collapse,
+  Expand,
   GitBranch as Workflow,
-  Link,
-  Maximize,
   Minus,
   SquareCursor as SquareDashedMousePointer,
   Text,
@@ -13,14 +13,14 @@ import {
 import { FloatingButtonCluster, FloatingIconButton } from "@/features/mermaid-editor/components/floating-chrome";
 import type { DocumentKind } from "@/features/mermaid-editor/lib/document-kind";
 import type { EditorRuntime } from "@/features/mermaid-editor/lib/editor-runtime";
-import type { EditableKind, EditorMode } from "@/features/mermaid-editor/lib/editor-types";
+import type { EditableKind } from "@/features/mermaid-editor/lib/editor-types";
 import { workspaceViewsForDocument, type WorkspaceView } from "@/features/mermaid-editor/lib/workspace-view";
 
 const workspaceViewLabels: Record<WorkspaceView, string> = {
-  canvas: "无限画布",
-  render: "渲染视图",
-  source: "源码视图",
-  markdown: "Markdown 视图"
+  canvas: "画布",
+  render: "预览",
+  source: "源码",
+  markdown: "Markdown"
 };
 
 export function WorkspaceViewCluster({
@@ -60,41 +60,40 @@ export function WorkspaceViewCluster({
   );
 }
 
-export function ToolModeCluster({ mode, onChange }: { mode: EditorMode; onChange: (mode: EditorMode) => void }) {
-  return (
-    <FloatingButtonCluster>
-      <FloatingIconButton
-        label="选择模式"
-        tooltipSide="top"
-        active={mode === "select"}
-        aria-pressed={mode === "select"}
-        onClick={() => onChange("select")}
-      >
-        <SquareDashedMousePointer />
-      </FloatingIconButton>
-      <FloatingIconButton
-        label="连接模式"
-        tooltipSide="top"
-        active={mode === "connect"}
-        aria-pressed={mode === "connect"}
-        onClick={() => onChange("connect")}
-      >
-        <Link />
-      </FloatingIconButton>
-    </FloatingButtonCluster>
-  );
-}
-
 export function DesktopWindowControls({ runtime }: { runtime: EditorRuntime }) {
   const [available, setAvailable] = useState(false);
+  const [fullscreen, setFullscreen] = useState(false);
 
   useEffect(() => {
     setAvailable(runtime.isDesktopWindowAvailable());
+    let disposed = false;
+    let stopListening: (() => void) | undefined;
+    void runtime.getDesktopWindowFullscreen().then((value) => {
+      if (!disposed) setFullscreen(value);
+    }).catch(() => undefined);
+    void runtime.listenForDesktopWindowFullscreenChange((value) => {
+      if (!disposed) setFullscreen(value);
+    }).then((cleanup) => {
+      if (disposed) cleanup();
+      else stopListening = cleanup;
+    }).catch(() => undefined);
+    return () => {
+      disposed = true;
+      stopListening?.();
+    };
   }, [runtime]);
 
   async function runWindowAction(action: "minimize" | "toggleMaximize" | "close") {
     try {
       await runtime.runDesktopWindowAction(action);
+    } catch {
+      // Window controls are desktop-only; ignore capability/runtime failures in web-like shells.
+    }
+  }
+
+  async function toggleFullscreen() {
+    try {
+      setFullscreen(await runtime.toggleDesktopWindowFullscreen());
     } catch {
       // Window controls are desktop-only; ignore capability/runtime failures in web-like shells.
     }
@@ -107,8 +106,8 @@ export function DesktopWindowControls({ runtime }: { runtime: EditorRuntime }) {
       <FloatingIconButton type="button" label="最小化" tooltipSide="bottom" onClick={() => void runWindowAction("minimize")}>
         <Minus />
       </FloatingIconButton>
-      <FloatingIconButton type="button" label="最大化/还原" tooltipSide="bottom" onClick={() => void runWindowAction("toggleMaximize")}>
-        <Maximize />
+      <FloatingIconButton type="button" label={fullscreen ? "退出系统全屏" : "进入系统全屏"} tooltipSide="bottom" onClick={() => void toggleFullscreen()}>
+        {fullscreen ? <Collapse /> : <Expand />}
       </FloatingIconButton>
       <FloatingIconButton type="button" label="关闭" tooltipSide="bottom" danger onClick={() => void runWindowAction("close")}>
         <Xmark />

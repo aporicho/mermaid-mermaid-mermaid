@@ -5,6 +5,7 @@ import { parseCanvasLayout } from "@/features/mermaid-editor/lib/canvas-layout";
 import {
   createBlankCanvasDocument,
   normalizeCanvasDocument,
+  parseCanvasDocument,
   serializeCanvasDocument,
   type CanvasDocument
 } from "@/features/mermaid-editor/lib/canvas-document";
@@ -29,12 +30,13 @@ import type {
   Selection,
   ViewportState
 } from "@/features/mermaid-editor/lib/editor-types";
-import type { AiRecentAction } from "@/features/mermaid-editor/lib/ai-context";
+import type { EditorRecentAction } from "@/features/mermaid-editor/lib/editor-interaction-state";
 import type { EditorCommand } from "@/features/mermaid-editor/lib/interaction/commands";
 import { applyEditorCommandTransaction } from "@/features/mermaid-editor/lib/interaction/transaction";
 import { loadMermaidDocument } from "@/features/mermaid-editor/lib/mermaid-document";
 import { serializeMermaid } from "@/features/mermaid-editor/lib/mermaid-graph";
 import type { ViewFilters } from "@/features/mermaid-editor/lib/view-filters";
+import type { NodeGeometrySpec } from "@/features/mermaid-editor/lib/node-geometry";
 import { workspaceViewForDocument, type WorkspaceView } from "@/features/mermaid-editor/lib/workspace-view";
 
 type StateSetter<T> = Dispatch<SetStateAction<T>>;
@@ -51,6 +53,7 @@ type UseEditorDocumentCommandsArgs = {
   workspaceView: WorkspaceView;
   viewFilters: ViewFilters;
   isCanvasEditable: boolean;
+  nodeGeometrySpec: NodeGeometrySpec;
   sourceEditBaseRef: { current: EditorSnapshot | null };
   sourceEditTimerRef: { current: number | null };
   setDocumentKind: StateSetter<DocumentKind>;
@@ -70,7 +73,7 @@ type UseEditorDocumentCommandsArgs = {
   setViewFilters: StateSetter<ViewFilters>;
   setDiagnostics: StateSetter<EditorDiagnostic[]>;
   setStatus: StateSetter<string>;
-  recordRecentAction: (type: string, target?: AiRecentAction["target"], summary?: string) => void;
+  recordRecentAction: (type: string, target?: EditorRecentAction["target"], summary?: string) => void;
 };
 
 export function useEditorDocumentCommands({
@@ -85,6 +88,7 @@ export function useEditorDocumentCommands({
   workspaceView,
   viewFilters,
   isCanvasEditable,
+  nodeGeometrySpec,
   sourceEditBaseRef,
   sourceEditTimerRef,
   setDocumentKind,
@@ -172,7 +176,7 @@ export function useEditorDocumentCommands({
       const previousSnapshot = snapshot();
 
       if (command.layoutMode === "auto") {
-        const nextGraph = measurePerformance("dagre-auto-layout", () => applyDagreAutoLayout(graph), {
+        const nextGraph = measurePerformance("dagre-auto-layout", () => applyDagreAutoLayout(graph, { spec: nodeGeometrySpec }), {
           nodes: graph.nodes.length,
           edges: graph.edges.length,
           modeSwitch: true
@@ -215,7 +219,7 @@ export function useEditorDocumentCommands({
         return;
       }
 
-      const nextGraph = layoutMode === "auto" ? applyDagreAutoLayout(loaded.graph) : loaded.graph;
+      const nextGraph = layoutMode === "auto" ? applyDagreAutoLayout(loaded.graph, { spec: nodeGeometrySpec }) : loaded.graph;
       setSource(serializeMermaid(nextGraph));
       setGraph(nextGraph);
       setStatus("已从 Mermaid 源码刷新画布。");
@@ -270,6 +274,23 @@ export function useEditorDocumentCommands({
   );
 
   function restoreSnapshot(next: EditorSnapshot) {
+    if (next.documentKind === "canvas") {
+      const document = parseCanvasDocument(next.source);
+      setDocumentKind("canvas");
+      setSource(serializeCanvasDocument(document));
+      setCanvasDocument(document);
+      setGraph(createEmptyDocumentGraph());
+      setDiagramType("unknown");
+      setEditableKind("render-only");
+      setDiagnostics([]);
+      setSelection(emptySelection);
+      setViewport(document.viewport);
+      setEdgeRouting(next.edgeRouting);
+      setLayoutMode(next.layoutMode);
+      setWorkspaceView(workspaceViewForDocument("render-only", workspaceView, "canvas"));
+      return;
+    }
+
     if (next.documentKind === "markdown") {
       setDocumentKind("markdown");
       setSource(next.source);
@@ -303,7 +324,7 @@ export function useEditorDocumentCommands({
 
   function applyAutoLayoutIfNeeded(nextGraph: MermaidGraph) {
     if (!isCanvasEditable || layoutMode !== "auto") return nextGraph;
-    return measurePerformance("dagre-auto-layout", () => applyDagreAutoLayout(nextGraph), {
+    return measurePerformance("dagre-auto-layout", () => applyDagreAutoLayout(nextGraph, { spec: nodeGeometrySpec }), {
       nodes: nextGraph.nodes.length,
       edges: nextGraph.edges.length
     });
@@ -369,7 +390,7 @@ export function useEditorDocumentCommands({
     });
     const nextEdgeRouting = sourceLayout ? loaded.edgeRouting : edgeRouting;
     const nextLayoutMode = sourceLayout ? loaded.layoutMode : layoutMode;
-    const loadedGraph = loaded.editableKind === "flowchart" && nextLayoutMode === "auto" ? applyDagreAutoLayout(loaded.graph) : loaded.graph;
+    const loadedGraph = loaded.editableKind === "flowchart" && nextLayoutMode === "auto" ? applyDagreAutoLayout(loaded.graph, { spec: nodeGeometrySpec }) : loaded.graph;
     setSource(loaded.source);
     setDiagramType(loaded.diagramType);
     setEditableKind(loaded.editableKind);
@@ -408,6 +429,8 @@ export function useEditorDocumentCommands({
   }
 
   function applyCanvasDocument(nextDocument: CanvasDocument, message?: string) {
+    flushSourceHistory();
+    setHistory((current) => pushHistory(current, snapshot()));
     const normalized = normalizeCanvasDocument(nextDocument);
     setCanvasDocument(normalized);
     setSource(serializeCanvasDocument(normalized));
@@ -442,7 +465,7 @@ export function useEditorDocumentCommands({
         return;
       }
 
-      const nextGraph = measurePerformance("dagre-auto-layout", () => applyDagreAutoLayout(loaded.graph), {
+      const nextGraph = measurePerformance("dagre-auto-layout", () => applyDagreAutoLayout(loaded.graph, { spec: nodeGeometrySpec }), {
         nodes: loaded.graph.nodes.length,
         edges: loaded.graph.edges.length,
         manualRun: true
@@ -491,7 +514,7 @@ function selectionKey(selection: Selection) {
   return [selection.primaryId || "", ...selection.nodeIds, "|", ...selection.edgeIds, "|", ...(selection.subgraphIds || [])].join(",");
 }
 
-function targetFromSelection(selection: Selection): AiRecentAction["target"] {
+function targetFromSelection(selection: Selection): EditorRecentAction["target"] {
   if (selection.nodeIds[0]) return { kind: "node", id: selection.nodeIds[0] };
   if (selection.edgeIds[0]) return { kind: "edge", id: selection.edgeIds[0] };
   if (selection.subgraphIds?.[0]) return { kind: "subgraph", id: selection.subgraphIds[0] };

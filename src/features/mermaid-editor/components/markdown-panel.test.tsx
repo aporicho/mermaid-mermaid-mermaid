@@ -9,7 +9,7 @@ import { MarkdownPanel } from "@/features/mermaid-editor/components/markdown-pan
 type MockEditorView = {
   dom: HTMLElement;
   state: {
-    selection: { from: number };
+    selection: { anchor: number; from: number; head: number };
     doc: {
       content: { size: number };
       resolve: (position: number) => unknown;
@@ -19,25 +19,51 @@ type MockEditorView = {
     };
   };
   dispatch: (transaction: unknown) => void;
+  focus: () => void;
+  posAtCoords: (coords: { left: number; top: number }) => { inside: number; pos: number } | null;
 };
 
 const milkdownMock = vi.hoisted(() => ({
+  crepeConfig: undefined as unknown,
   create: vi.fn(() => Promise.resolve()),
   destroy: vi.fn(() => Promise.resolve()),
   dispatch: vi.fn(),
+  use: vi.fn(),
   setReadonly: vi.fn(),
   setSelection: vi.fn((selection: unknown) => ({ selection })),
+  replaceAll: vi.fn(),
   view: undefined as MockEditorView | undefined
 }));
 
+const markdownBlockStyleMock = vi.hoisted(() => ({
+  convert: vi.fn(() => true),
+  get: vi.fn(() => "paragraph")
+}));
+
+const markdownFoldingMock = vi.hoisted(() => ({
+  find: vi.fn(() => null as { collapsed: boolean; kind: "heading" | "list-item"; label: string; position: number } | null),
+  plugin: Symbol("markdownFolding"),
+  read: vi.fn(() => ({
+    version: 1 as const,
+    documentFingerprint: "current",
+    folds: [{ kind: "heading" as const, outline: [{ level: 1, label: "Section", occurrence: 0 }] }]
+  })),
+  readSubtree: vi.fn(() => ({ allCollapsed: false, allExpanded: true, targetCount: 2 })),
+  restore: vi.fn(() => 1),
+  setSubtree: vi.fn(() => true),
+  toggle: vi.fn(() => true)
+}));
+
 vi.mock("@milkdown/crepe", () => ({
-  Crepe: vi.fn(function Crepe() {
+  Crepe: vi.fn(function Crepe(config: unknown) {
+    milkdownMock.crepeConfig = config;
     return {
       editor: {
         status: "Created",
-        action: (callback: (ctx: { get: () => MockEditorView }) => void) => {
+        use: milkdownMock.use,
+        action: <T,>(callback: (ctx: { get: () => MockEditorView }) => T) => {
           if (!milkdownMock.view) throw new Error("Mock editor view is not configured.");
-          callback({ get: () => milkdownMock.view! });
+          return callback({ get: () => milkdownMock.view! });
         }
       },
       create: milkdownMock.create,
@@ -45,7 +71,8 @@ vi.mock("@milkdown/crepe", () => ({
       on: vi.fn(),
       setReadonly: milkdownMock.setReadonly
     };
-  })
+  }),
+  CrepeFeature: { BlockEdit: "block-edit", Cursor: "cursor" }
 }));
 
 vi.mock("@milkdown/kit/core", () => ({
@@ -55,6 +82,10 @@ vi.mock("@milkdown/kit/core", () => ({
 
 vi.mock("@milkdown/kit/prose/state", () => {
   class TextSelection {
+    static create(_doc: unknown, anchor: number, head: number) {
+      return { anchor, head };
+    }
+
     static near() {
       return new TextSelection();
     }
@@ -62,6 +93,25 @@ vi.mock("@milkdown/kit/prose/state", () => {
 
   return { TextSelection };
 });
+
+vi.mock("@milkdown/kit/utils", () => ({
+  replaceAll: (markdown: string, flush?: boolean) => (ctx: unknown) => milkdownMock.replaceAll(markdown, flush, ctx)
+}));
+
+vi.mock("@/features/mermaid-editor/lib/markdown-block-style", () => ({
+  convertMarkdownBlock: markdownBlockStyleMock.convert,
+  getMarkdownBlockStyle: markdownBlockStyleMock.get
+}));
+
+vi.mock("@/features/mermaid-editor/lib/markdown-folding", () => ({
+  findMarkdownFoldTarget: markdownFoldingMock.find,
+  markdownFolding: markdownFoldingMock.plugin,
+  readMarkdownFoldSubtreeState: markdownFoldingMock.readSubtree,
+  readMarkdownFoldSnapshot: markdownFoldingMock.read,
+  restoreMarkdownFoldSnapshot: markdownFoldingMock.restore,
+  setMarkdownFoldSubtree: markdownFoldingMock.setSubtree,
+  toggleMarkdownFold: markdownFoldingMock.toggle
+}));
 
 describe("MarkdownPanel", () => {
   let container: HTMLDivElement | null = null;
@@ -73,7 +123,7 @@ describe("MarkdownPanel", () => {
     milkdownMock.view = {
       dom: document.createElement("div"),
       state: {
-        selection: { from: 5 },
+        selection: { from: 5, anchor: 5, head: 5 },
         doc: {
           content: { size: 20 },
           resolve: vi.fn((position: number) => ({ position }))
@@ -82,7 +132,9 @@ describe("MarkdownPanel", () => {
           setSelection: milkdownMock.setSelection
         }
       },
-      dispatch: milkdownMock.dispatch
+      dispatch: milkdownMock.dispatch,
+      focus: vi.fn(),
+      posAtCoords: vi.fn(() => ({ inside: 5, pos: 6 }))
     };
   });
 
@@ -96,19 +148,44 @@ describe("MarkdownPanel", () => {
     milkdownMock.create.mockClear();
     milkdownMock.destroy.mockClear();
     milkdownMock.dispatch.mockClear();
+    milkdownMock.use.mockClear();
     milkdownMock.setReadonly.mockClear();
     milkdownMock.setSelection.mockClear();
+    milkdownMock.replaceAll.mockClear();
+    milkdownMock.crepeConfig = undefined;
+    markdownBlockStyleMock.convert.mockClear();
+    markdownBlockStyleMock.get.mockClear();
+    markdownFoldingMock.find.mockClear();
+    markdownFoldingMock.read.mockClear();
+    markdownFoldingMock.readSubtree.mockClear();
+    markdownFoldingMock.restore.mockClear();
+    markdownFoldingMock.setSubtree.mockClear();
+    markdownFoldingMock.toggle.mockClear();
     milkdownMock.view = undefined;
     vi.useRealTimers();
   });
 
-  function renderPanel(spellCheck = false, contentWidth = 880) {
+  function renderPanel(
+    spellCheck = false,
+    contentWidth = 880,
+    textScale = 1,
+    className?: string,
+    overrides: Partial<Parameters<typeof MarkdownPanel>[0]> = {}
+  ) {
     container = document.createElement("div");
     document.body.appendChild(container);
     root = createRoot(container);
 
     act(() => {
-      root?.render(createElement(MarkdownPanel, { value: "# Hello", spellCheck, contentWidth, onChange: vi.fn() }));
+      root?.render(createElement(MarkdownPanel, {
+        value: "# Hello",
+        spellCheck,
+        contentWidth,
+        textScale,
+        className,
+        onChange: vi.fn(),
+        ...overrides
+      }));
     });
 
     const panel = container.querySelector(".markdown-editor-panel");
@@ -121,14 +198,27 @@ describe("MarkdownPanel", () => {
     renderPanel(false);
 
     expect(milkdownMock.view?.dom.getAttribute("spellcheck")).toBe("false");
+    expect(milkdownMock.use).toHaveBeenCalledTimes(1);
     expect(milkdownMock.create).toHaveBeenCalledTimes(1);
 
     act(() => {
-      root?.render(createElement(MarkdownPanel, { value: "# Hello", spellCheck: true, contentWidth: 880, onChange: vi.fn() }));
+      root?.render(createElement(MarkdownPanel, { value: "# Hello", spellCheck: true, contentWidth: 880, textScale: 1, onChange: vi.fn() }));
     });
 
     expect(milkdownMock.view?.dom.getAttribute("spellcheck")).toBe("true");
     expect(milkdownMock.create).toHaveBeenCalledTimes(1);
+  });
+
+  it("applies an external value update without recreating Milkdown", () => {
+    renderPanel(false);
+
+    act(() => {
+      root?.render(createElement(MarkdownPanel, { value: "# Updated on disk", spellCheck: false, contentWidth: 880, textScale: 1, onChange: vi.fn() }));
+    });
+
+    expect(milkdownMock.replaceAll).toHaveBeenCalledWith("# Updated on disk", true, expect.anything());
+    expect(milkdownMock.create).toHaveBeenCalledTimes(1);
+    expect(markdownFoldingMock.restore).toHaveBeenCalled();
   });
 
   it("applies and updates the configured content width without recreating Milkdown", () => {
@@ -138,11 +228,58 @@ describe("MarkdownPanel", () => {
     expect(milkdownMock.create).toHaveBeenCalledTimes(1);
 
     act(() => {
-      root?.render(createElement(MarkdownPanel, { value: "# Hello", spellCheck: false, contentWidth: 1280, onChange: vi.fn() }));
+      root?.render(createElement(MarkdownPanel, { value: "# Hello", spellCheck: false, contentWidth: 1280, textScale: 1, onChange: vi.fn() }));
     });
 
     expect(panel.style.getPropertyValue("--markdown-content-width")).toBe("1280px");
     expect(milkdownMock.create).toHaveBeenCalledTimes(1);
+  });
+
+  it("applies and updates the text scale without recreating Milkdown", () => {
+    const panel = renderPanel(false, 880, 1.26);
+
+    expect(panel.style.getPropertyValue("--markdown-text-scale")).toBe("1.3");
+    expect(milkdownMock.create).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      root?.render(createElement(MarkdownPanel, { value: "# Hello", spellCheck: false, contentWidth: 880, textScale: 0.65, onChange: vi.fn() }));
+    });
+
+    expect(panel.style.getPropertyValue("--markdown-text-scale")).toBe("0.7");
+    expect(milkdownMock.create).toHaveBeenCalledTimes(1);
+  });
+
+  it("places detached-window block handles close to their active block", () => {
+    renderPanel(false, 880, 1, "markdown-editor-panel--window");
+
+    const config = milkdownMock.crepeConfig as {
+      featureConfigs: Record<string, { blockHandle?: { getOffset: () => number }; virtual?: boolean }>;
+    };
+    expect(config.featureConfigs["block-edit"]?.blockHandle?.getOffset()).toBe(6);
+  });
+
+  it("disables Crepe's layout-shifting virtual cursor", () => {
+    renderPanel();
+
+    const config = milkdownMock.crepeConfig as {
+      featureConfigs: Record<string, { virtual?: boolean }>;
+    };
+    expect(config.featureConfigs.cursor?.virtual).toBe(false);
+  });
+
+  it("restores a loaded fold snapshot after Milkdown is ready", async () => {
+    const snapshot = {
+      version: 1 as const,
+      documentFingerprint: "saved",
+      folds: [{ kind: "heading" as const, outline: [{ level: 1, label: "Section", occurrence: 0 }] }]
+    };
+    renderPanel(false, 880, 1, undefined, { foldState: snapshot });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(markdownFoldingMock.restore).toHaveBeenCalledWith(milkdownMock.view, snapshot);
   });
 
   function appendBlockHandle(panel: HTMLElement) {
@@ -153,6 +290,28 @@ describe("MarkdownPanel", () => {
     return handle;
   }
 
+  function appendInteractiveBlockHandle(panel: HTMLElement, visible = true) {
+    const handle = appendBlockHandle(panel);
+    handle.dataset.show = visible ? "true" : "false";
+    const addButton = document.createElement("div");
+    const dragButton = document.createElement("div");
+    addButton.className = "operation-item";
+    dragButton.className = "operation-item";
+    handle.append(addButton, dragButton);
+    vi.spyOn(handle, "getBoundingClientRect").mockReturnValue({
+      bottom: 124,
+      height: 24,
+      left: 40,
+      right: 64,
+      top: 100,
+      width: 24,
+      x: 40,
+      y: 100,
+      toJSON: () => ({})
+    });
+    return { addButton, dragButton, handle };
+  }
+
   function eventWithDataTransfer(type: string, dataTransfer: Partial<DataTransfer>) {
     const event = new Event(type, { bubbles: true, cancelable: true });
     Object.defineProperty(event, "dataTransfer", {
@@ -161,6 +320,10 @@ describe("MarkdownPanel", () => {
     });
 
     return event;
+  }
+
+  function getBlockStyleMenu() {
+    return document.querySelector('[role="menu"][aria-label="块样式"]');
   }
 
   it("clears Milkdown block drag state and selected node after drag end", () => {
@@ -218,5 +381,261 @@ describe("MarkdownPanel", () => {
 
     expect(dragOver.defaultPrevented).toBe(true);
     expect(dataTransfer.dropEffect).toBe("move");
+  });
+
+  it("opens a compact block style menu only from a click on the drag handle", () => {
+    const panel = renderPanel();
+    const { addButton, dragButton } = appendInteractiveBlockHandle(panel);
+
+    act(() => {
+      addButton.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    expect(getBlockStyleMenu()).toBeNull();
+
+    act(() => {
+      dragButton.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+      dragButton.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    const menu = getBlockStyleMenu();
+    expect(menu).not.toBeNull();
+    expect(menu?.classList.contains("select-none")).toBe(true);
+    expect(menu?.textContent).toContain("正文");
+    expect(menu?.textContent).toContain("H6");
+    expect(menu?.textContent).toContain("无序列表");
+    expect(menu?.textContent).toContain("有序列表");
+    expect(menu?.textContent).toContain("任务项");
+    expect(menu?.textContent).toContain("引用");
+    expect(menu?.textContent).toContain("代码块");
+    expect(markdownBlockStyleMock.get).toHaveBeenCalledWith(milkdownMock.view?.state, 5);
+  });
+
+  it("removes add and places folding after the drag action for a foldable block", async () => {
+    markdownFoldingMock.find.mockReturnValue({
+      collapsed: false,
+      kind: "heading",
+      label: "Section",
+      position: 5
+    });
+    const onFoldStateChange = vi.fn();
+    const panel = renderPanel(false, 880, 1, undefined, { onFoldStateChange });
+    const { addButton, dragButton, handle } = appendInteractiveBlockHandle(panel);
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    const foldButton = handle.querySelector<HTMLButtonElement>(":scope > .markdown-fold-handle-button");
+    expect(foldButton).not.toBeNull();
+    expect(Array.from(handle.children)).toEqual([addButton, dragButton, foldButton]);
+    expect(addButton.hidden).toBe(true);
+    expect(addButton.getAttribute("aria-hidden")).toBe("true");
+    expect(Array.from(handle.children).filter((item) => !(item as HTMLElement).hidden)).toEqual([dragButton, foldButton]);
+    expect(foldButton?.hidden).toBe(false);
+    expect(foldButton?.getAttribute("aria-label")).toBe("折叠章节“Section”");
+    expect(foldButton?.getAttribute("aria-expanded")).toBe("true");
+    expect(foldButton?.tabIndex).toBe(0);
+
+    act(() => {
+      foldButton?.dispatchEvent(new Event("dragstart", { bubbles: true, cancelable: true }));
+      foldButton?.click();
+    });
+
+    expect(markdownFoldingMock.find).toHaveBeenCalledWith(milkdownMock.view?.state, 5);
+    expect(markdownFoldingMock.toggle).toHaveBeenCalledWith(milkdownMock.view, {
+      kind: "heading",
+      position: 5
+    });
+    expect(onFoldStateChange).toHaveBeenCalledWith(markdownFoldingMock.read());
+    expect(getBlockStyleMenu()).toBeNull();
+    expect(panel.hasAttribute("data-md-block-dragging")).toBe(false);
+  });
+
+  it("keeps the fold action hidden and unfocusable for a block without foldable children", async () => {
+    markdownFoldingMock.find.mockReturnValue(null);
+    const panel = renderPanel(true);
+    const { dragButton, handle } = appendInteractiveBlockHandle(panel);
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    const foldButton = handle.querySelector<HTMLButtonElement>(":scope > .markdown-fold-handle-button");
+    expect(foldButton).not.toBeNull();
+    expect(foldButton?.hidden).toBe(true);
+    expect(foldButton?.getAttribute("aria-hidden")).toBe("true");
+    expect(foldButton?.tabIndex).toBe(-1);
+    expect(Array.from(handle.children).filter((item) => !(item as HTMLElement).hidden)).toEqual([dragButton]);
+  });
+
+  it("directly toggles the whole subtree from the fold button context action", async () => {
+    markdownFoldingMock.find.mockReturnValue({
+      collapsed: false,
+      kind: "heading",
+      label: "Section",
+      position: 5
+    });
+    const onFoldStateChange = vi.fn();
+    const panel = renderPanel(false, 880, 1, undefined, { onFoldStateChange });
+    const { handle } = appendInteractiveBlockHandle(panel);
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+    const foldButton = handle.querySelector<HTMLButtonElement>(":scope > .markdown-fold-handle-button");
+    expect(foldButton).not.toBeNull();
+
+    act(() => {
+      foldButton?.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: 40, clientY: 60 }));
+    });
+
+    expect(markdownFoldingMock.setSubtree).toHaveBeenCalledWith(milkdownMock.view, {
+      kind: "heading",
+      position: 5
+    }, true);
+    expect(onFoldStateChange).toHaveBeenCalledWith(markdownFoldingMock.read());
+    expect(document.body.textContent).not.toContain("全部折叠");
+
+    markdownFoldingMock.readSubtree.mockReturnValue({ allCollapsed: true, allExpanded: false, targetCount: 2 });
+    act(() => {
+      foldButton?.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true }));
+    });
+
+    expect(markdownFoldingMock.setSubtree).toHaveBeenLastCalledWith(milkdownMock.view, {
+      kind: "heading",
+      position: 5
+    }, false);
+    expect(onFoldStateChange).toHaveBeenCalledTimes(2);
+  });
+
+  it("only exposes a visible style handle as a keyboard-accessible menu entry", async () => {
+    const panel = renderPanel();
+    const { dragButton, handle } = appendInteractiveBlockHandle(panel, false);
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(dragButton.getAttribute("role")).toBe("button");
+    expect(dragButton.getAttribute("aria-label")).toBe("块样式");
+    expect(dragButton.getAttribute("aria-hidden")).toBe("true");
+    expect(dragButton.tabIndex).toBe(-1);
+
+    act(() => {
+      dragButton.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, cancelable: true, key: "Enter" }));
+    });
+    expect(getBlockStyleMenu()).toBeNull();
+
+    await act(async () => {
+      handle.dataset.show = "true";
+      await Promise.resolve();
+    });
+
+    expect(dragButton.hasAttribute("aria-hidden")).toBe(false);
+    expect(dragButton.tabIndex).toBe(0);
+
+    act(() => {
+      dragButton.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, cancelable: true, key: "Enter" }));
+    });
+
+    expect(getBlockStyleMenu()).not.toBeNull();
+  });
+
+  it("keeps the style menu open and announces a rejected conversion", () => {
+    const panel = renderPanel();
+    const { dragButton } = appendInteractiveBlockHandle(panel);
+    markdownBlockStyleMock.convert.mockReturnValueOnce(false);
+
+    act(() => {
+      dragButton.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+      dragButton.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    const headingTwo = Array.from(document.querySelectorAll<HTMLElement>('[role="menuitem"]'))
+      .find((item) => item.textContent?.includes("H2"));
+    act(() => {
+      headingTwo?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(getBlockStyleMenu()).not.toBeNull();
+    expect(document.querySelector('[role="alert"]')?.textContent).toContain("未能应用，请重试");
+  });
+
+  it("keeps the style menu open and announces a conversion exception", () => {
+    const panel = renderPanel();
+    const { dragButton } = appendInteractiveBlockHandle(panel);
+    markdownBlockStyleMock.convert.mockImplementationOnce(() => {
+      throw new Error("conversion failed");
+    });
+
+    act(() => {
+      dragButton.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+      dragButton.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    const headingTwo = Array.from(document.querySelectorAll<HTMLElement>('[role="menuitem"]'))
+      .find((item) => item.textContent?.includes("H2"));
+    act(() => {
+      headingTwo?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(getBlockStyleMenu()).not.toBeNull();
+    expect(document.querySelector('[role="alert"]')?.textContent).toContain("未能应用，请重试");
+  });
+
+  it("runs the selected block style command at the block position", () => {
+    const panel = renderPanel();
+    const { dragButton } = appendInteractiveBlockHandle(panel);
+
+    act(() => {
+      dragButton.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+      dragButton.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    const headingTwo = Array.from(document.querySelectorAll<HTMLElement>('[role="menuitem"]'))
+      .find((item) => item.textContent?.includes("H2"));
+    expect(headingTwo).toBeDefined();
+
+    act(() => {
+      headingTwo?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(markdownBlockStyleMock.convert).toHaveBeenCalledWith(milkdownMock.view, 5, "heading-2");
+  });
+
+  it("resolves the clicked handle block even when the text cursor is in another block", () => {
+    const panel = renderPanel();
+    const { dragButton } = appendInteractiveBlockHandle(panel);
+    if (!milkdownMock.view) throw new Error("Expected editor view.");
+    milkdownMock.view.state.selection.from = 18;
+    milkdownMock.view.posAtCoords = vi.fn(() => ({ inside: 0, pos: 1 }));
+
+    act(() => {
+      dragButton.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+      dragButton.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    const quote = Array.from(document.querySelectorAll<HTMLElement>('[role="menuitem"]'))
+      .find((item) => item.textContent?.includes("引用"));
+    act(() => {
+      quote?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(markdownBlockStyleMock.get).toHaveBeenCalledWith(milkdownMock.view.state, 0);
+    expect(markdownBlockStyleMock.convert).toHaveBeenCalledWith(milkdownMock.view, 0, "blockquote");
+  });
+
+  it("does not open the style menu after the same handle gesture becomes a drag", () => {
+    const panel = renderPanel();
+    const { dragButton } = appendInteractiveBlockHandle(panel);
+
+    act(() => {
+      dragButton.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+      dragButton.dispatchEvent(new Event("dragstart", { bubbles: true, cancelable: true }));
+      dragButton.dispatchEvent(new Event("dragend", { bubbles: true, cancelable: true }));
+      dragButton.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(getBlockStyleMenu()).toBeNull();
   });
 });

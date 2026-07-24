@@ -8,7 +8,8 @@ import {
 } from "@/features/mermaid-editor/lib/canvas-document-interaction";
 import {
   createCanvasConnectorElement,
-  type CanvasDocumentElement
+  type CanvasDocumentElement,
+  type CanvasImageElement
 } from "@/features/mermaid-editor/lib/canvas-document";
 import {
   dispatchStandardCanvasClick,
@@ -18,6 +19,7 @@ import {
   dispatchStandardCanvasPointerUp,
   isStandardPanningButton
 } from "@/features/mermaid-editor/lib/canvas-interaction-standard";
+import { canvasDocumentImageForDoubleClick } from "@/features/mermaid-editor/lib/canvas-image-window";
 import { commandFromInteractionIntent } from "@/features/mermaid-editor/lib/interaction/commands";
 import { buildInteractionContext } from "@/features/mermaid-editor/lib/interaction/context";
 import { createStandardWheelInput, modifiersFromEvent } from "@/features/mermaid-editor/lib/interaction/input";
@@ -26,9 +28,10 @@ import { resolveInteractionIntent } from "@/features/mermaid-editor/lib/interact
 type UseCanvasDocumentPointerInteractionArgs = {
   model: CanvasDocumentModel;
   startInlineEdit: (element: CanvasDocumentElement) => void;
+  onOpenImage?: (image: CanvasImageElement) => void;
 };
 
-export function useCanvasDocumentPointerInteraction({ model, startInlineEdit }: UseCanvasDocumentPointerInteractionArgs) {
+export function useCanvasDocumentPointerInteraction({ model, startInlineEdit, onOpenImage }: UseCanvasDocumentPointerInteractionArgs) {
   const { applyStandardCommands, startDocumentResize, updateDocumentItemDrag, updateDocumentResize } = useCanvasDocumentStandardCommands({ model, startInlineEdit });
 
   function handlePointerDown(event: React.PointerEvent<HTMLDivElement>) {
@@ -138,6 +141,12 @@ export function useCanvasDocumentPointerInteraction({ model, startInlineEdit }: 
     model.suppressNextClickRef.current = true;
     const screen = model.clientScreenPoint(event.clientX, event.clientY);
     const hit = model.standardHitFromScreen(screen);
+    const image = canvasDocumentImageForDoubleClick(model.documentRef.current, hit);
+    if (image && onOpenImage) {
+      applyStandardCommands(dispatchStandardCanvasClick({ tool: "select", hit, shiftKey: false }));
+      onOpenImage(image);
+      return;
+    }
     applyStandardCommands(dispatchStandardCanvasDoubleClick({ tool: "select", hit }));
   }
 

@@ -1,7 +1,13 @@
 const { contextBridge, ipcRenderer, webUtils } = require("electron");
+const { createProjectPreloadBridge } = require("./project-preload.cjs");
+const { createWindowFullscreenPreloadBridge } = require("./window-fullscreen-preload.cjs");
+const { createPiAgentPreloadBridge } = require("./pi-agent-preload.cjs");
 
 contextBridge.exposeInMainWorld("mmmElectron", {
   host: "electron",
+  ...createProjectPreloadBridge(ipcRenderer),
+  ...createWindowFullscreenPreloadBridge(ipcRenderer),
+  ...createPiAgentPreloadBridge(ipcRenderer),
   openExternalUrl(url) {
     return ipcRenderer.invoke("mmm:open-external-url", url);
   },
@@ -31,23 +37,29 @@ contextBridge.exposeInMainWorld("mmmElectron", {
   readAppState() {
     return ipcRenderer.invoke("mmm:app-state:read");
   },
+  listSystemFonts() {
+    return ipcRenderer.invoke("mmm:fonts:list");
+  },
   writeAppState(state) {
     return ipcRenderer.invoke("mmm:app-state:write", state);
   },
+  readEditorSession() { return ipcRenderer.invoke("mmm:editor-session:read"); },
+  writeEditorSession(session) { return ipcRenderer.invoke("mmm:editor-session:write", session); },
   openFile() {
     return ipcRenderer.invoke("mmm:file:open");
   },
   openFilePath(path) {
     return ipcRenderer.invoke("mmm:file:open-path", path);
   },
-  saveFile(path, text) {
-    return ipcRenderer.invoke("mmm:file:save", { path, text });
-  },
+  saveFile(path, text, options) { return ipcRenderer.invoke("mmm:file:save", { path, text, ...options }); },
   saveFileAs(suggestedName, text) {
     return ipcRenderer.invoke("mmm:file:save-as", { suggestedName, text });
   },
-  createProjectDocument(request) {
-    return ipcRenderer.invoke("mmm:project:create-document", request);
+  readCsvFile(request) {
+    return ipcRenderer.invoke("mmm:csv:read", request);
+  },
+  writeCsvFile(request) {
+    return ipcRenderer.invoke("mmm:csv:write", request);
   },
   pickImageAsset(documentPath) {
     return ipcRenderer.invoke("mmm:image:pick", documentPath);
@@ -74,15 +86,6 @@ contextBridge.exposeInMainWorld("mmmElectron", {
   },
   onFileDrops(handler) {
     return listenForFileDrops(handler);
-  },
-  publishAiContext(context) {
-    return ipcRenderer.invoke("mmm:ai:publish-context", context);
-  },
-  pollAiCommand() {
-    return ipcRenderer.invoke("mmm:ai:take-next-command");
-  },
-  finishAiCommand(result) {
-    return ipcRenderer.invoke("mmm:ai:finish-command", result);
   },
   listTerminalShells() {
     return ipcRenderer.invoke("mmm:terminal:list-shells");
@@ -115,6 +118,14 @@ contextBridge.exposeInMainWorld("mmmElectron", {
   readProjectFolder(rootPath) {
     return ipcRenderer.invoke("mmm:project:read-folder", rootPath);
   },
+  setProjectFileWatchTargets(request) {
+    return ipcRenderer.invoke("mmm:project-watch:set", request);
+  },
+  onProjectFileChanges(handler) {
+    const listener = (_event, payload) => handler(payload);
+    ipcRenderer.on("mmm:project-files:changed", listener);
+    return () => ipcRenderer.removeListener("mmm:project-files:changed", listener);
+  },
   createEmbeddedBrowser(request) {
     return ipcRenderer.invoke("mmm:browser:create", request);
   },
@@ -127,9 +138,9 @@ contextBridge.exposeInMainWorld("mmmElectron", {
   showEmbeddedBrowser(label) {
     return ipcRenderer.invoke("mmm:browser:show", label);
   },
-  focusEmbeddedBrowser(label) {
-    return ipcRenderer.invoke("mmm:browser:focus", label);
-  },
+  focusEmbeddedBrowser(label) { return ipcRenderer.invoke("mmm:browser:focus", label); },
+  navigateEmbeddedBrowser(label, url) { return ipcRenderer.invoke("mmm:browser:navigate", label, url); },
+  reloadEmbeddedBrowser(label) { return ipcRenderer.invoke("mmm:browser:reload", label); },
   setEmbeddedBrowserRect(label, rect) {
     return ipcRenderer.invoke("mmm:browser:set-rect", label, rect);
   },
@@ -138,10 +149,16 @@ contextBridge.exposeInMainWorld("mmmElectron", {
     ipcRenderer.on("mmm:browser:error", listener);
     return () => ipcRenderer.removeListener("mmm:browser:error", listener);
   },
-  openBrowserToolWindow(request) {
-    return ipcRenderer.invoke("mmm:browser-tool:open", request);
-  }
+  onEmbeddedBrowserFocus(handler) { return listenForIpc("mmm:browser:focus", handler); },
+  onEmbeddedBrowserState(handler) { return listenForIpc("mmm:browser:state", handler); },
+  onEmbeddedBrowserTitlebarHotZone(handler) { return listenForIpc("mmm:browser:titlebar-hot-zone", handler); }
 });
+
+function listenForIpc(channel, handler) {
+  const listener = (_event, payload) => handler(payload);
+  ipcRenderer.on(channel, listener);
+  return () => ipcRenderer.removeListener(channel, listener);
+}
 
 function listenForFileDrops(handler) {
   const onDragEnter = (event) => {

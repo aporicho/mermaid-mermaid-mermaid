@@ -3,6 +3,8 @@
 import { ControlSlider as SlidersHorizontal } from "iconoir-react/regular";
 
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { EditorStatusBadge } from "@/features/mermaid-editor/components/editor-ui";
+import { WorkspaceWindowHeader } from "@/features/mermaid-editor/components/floating-chrome";
 import { EdgeInspectorSection, MultiEdgeInspectorSection } from "@/features/mermaid-editor/components/inspector-panel/edge-sections";
 import {
   NODE_ACTION_FILE_MODE_APP,
@@ -17,7 +19,6 @@ import {
 import { MultiNodeInspectorSection, NodeInspectorSection } from "@/features/mermaid-editor/components/inspector-panel/node-sections";
 import { EmptyInspector } from "@/features/mermaid-editor/components/inspector-panel/shared-ui";
 import { MultiSubgraphInspectorSection, SubgraphInspectorSection } from "@/features/mermaid-editor/components/inspector-panel/subgraph-sections";
-import { selectOnlyEdge, selectOnlySubgraph } from "@/features/mermaid-editor/lib/editor-actions";
 import type {
   CanvasEdge,
   CanvasEdgeBatchPatch,
@@ -55,6 +56,13 @@ export function InspectorPanel({ graph, selection, onEditorCommand, onOpenNodeAc
     multiSubgraph
   } = model;
   const hasInspectableSelection = Boolean(selectedNode || selectedEdge || selectedSubgraph || multiNode || multiEdge || multiSubgraph);
+  const selectionSummary = multiNode
+    ? `${selectedNodes.length} 节点`
+    : multiEdge
+      ? `${selectedEdges.length} 连线`
+      : multiSubgraph
+        ? `${selectedSubgraphs.length} 组`
+        : null;
 
   function updateNode(id: string, patch: Partial<CanvasNode>) {
     onEditorCommand({ type: "graph.updateNode", nodeId: id, patch: normalizeNodePatch(patch), source: "menu" });
@@ -143,12 +151,13 @@ export function InspectorPanel({ graph, selection, onEditorCommand, onOpenNodeAc
   }
 
   return (
-    <section className="grid h-full min-h-0 grid-rows-[42px_minmax(0,1fr)]">
-      <header data-floating-panel-drag-handle className="flex cursor-grab items-center gap-2 border-b bg-card/95 px-3 pr-20 text-sm font-medium active:cursor-grabbing">
-        <SlidersHorizontal className="size-4 text-icon" />
-        检查器
-      </header>
-      <ScrollArea className="min-h-0">
+    <section className="flex h-full min-h-0 flex-col">
+      <WorkspaceWindowHeader
+        icon={<SlidersHorizontal className="editor-ui-icon text-icon" />}
+        title="检查器"
+        status={selectionSummary ? <EditorStatusBadge>{selectionSummary}</EditorStatusBadge> : null}
+      />
+      <ScrollArea className="min-h-0 flex-1">
         <div className="grid gap-4 p-4">
           {!hasInspectableSelection ? <EmptyInspector /> : null}
 
@@ -172,7 +181,6 @@ export function InspectorPanel({ graph, selection, onEditorCommand, onOpenNodeAc
 
           {multiNode ? (
             <MultiNodeInspectorSection
-              selectedNodes={selectedNodes}
               batchNodeShape={model.batchNodeShape}
               batchNodeFill={model.batchNodeFill}
               canBatchNodeAsset={model.canBatchNodeAsset}
@@ -192,14 +200,12 @@ export function InspectorPanel({ graph, selection, onEditorCommand, onOpenNodeAc
               parentOptions={model.selectedSubgraphParentOptions}
               onRenameSubgraph={renameSelectedSubgraph}
               onUpdateSubgraph={updateSelectedSubgraph}
-              onSelectSubgraph={(subgraphId) => onEditorCommand({ type: "selection.set", selection: selectOnlySubgraph(subgraphId), source: "menu" })}
               onDeleteSelection={deleteSelection}
             />
           ) : null}
 
           {multiSubgraph ? (
             <MultiSubgraphInspectorSection
-              selectedSubgraphs={selectedSubgraphs}
               batchSubgraphDirection={model.batchSubgraphDirection}
               batchSubgraphParent={model.batchSubgraphParent}
               parentOptions={model.batchSubgraphParentOptions}
@@ -217,14 +223,12 @@ export function InspectorPanel({ graph, selection, onEditorCommand, onOpenNodeAc
               hasFromNode={Boolean(model.selectedEdgeFromNode)}
               hasToNode={Boolean(model.selectedEdgeToNode)}
               onUpdateEdge={updateSelectedEdge}
-              onSelectEdge={(edgeId) => onEditorCommand({ type: "selection.set", selection: selectOnlyEdge(edgeId), source: "menu" })}
               onDeleteSelection={deleteSelection}
             />
           ) : null}
 
           {multiEdge ? (
             <MultiEdgeInspectorSection
-              selectedEdges={selectedEdges}
               batchEdgeStyle={model.batchEdgeStyle}
               batchEdgeMarkerStart={model.batchEdgeMarkerStart}
               batchEdgeMarkerEnd={model.batchEdgeMarkerEnd}

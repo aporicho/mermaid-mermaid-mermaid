@@ -44,6 +44,47 @@ describe("application style contract", () => {
     expect(globals).toContain("var(--theme-source-line-height)");
   });
 
+  it("prevents accidental UI text selection without blocking editable content", () => {
+    const globals = readProjectFile("src/styles/globals.css");
+
+    expect(globals).toContain("body {");
+    expect(globals).toContain("user-select: none");
+    expect(globals).toContain('[contenteditable="true"]');
+    expect(globals).toContain(".ProseMirror");
+    expect(globals).toContain(".monaco-editor");
+    expect(globals).toContain(".xterm");
+    expect(globals).toContain("user-select: text");
+  });
+
+  it("renders explorer tree rows as continuous borderless rows, not generic buttons", () => {
+    const tree = readProjectFile("src/features/mermaid-editor/components/editor-ui/tree.tsx");
+
+    expect(tree).toContain("<button");
+    expect(tree).toContain("border-0 bg-transparent");
+    expect(tree).not.toContain('from "@/components/ui/button"');
+    expect(tree).not.toContain("rounded-[var(--theme-radius-control-sm)]");
+  });
+
+  it("styles Markdown lists through Crepe list-item node views", () => {
+    const globals = readProjectFile("src/styles/globals.css");
+
+    expect(globals).toContain("ul > .milkdown-list-item-block > .list-item");
+    expect(globals).toContain("ul:has(> .milkdown-list-item-block > .list-item > .label-wrapper :is(.checked, .unchecked))");
+    expect(globals).toContain(".ProseMirror :is(li, th, td) p");
+    expect(globals).toContain(".label-wrapper .bullet svg");
+    expect(globals).toContain(".label-wrapper :is(.checked, .unchecked) svg");
+    expect(globals).toContain(".label-wrapper .checked::after");
+  });
+
+  it("keeps hierarchy folding inside the Crepe block handle and supports its list-item content DOM", () => {
+    const globals = readProjectFile("src/styles/globals.css");
+
+    expect(globals).toContain(".markdown-fold-list-parent--collapsed > .list-item > .children > .content-dom > :is(ul, ol)");
+    expect(globals).toContain(".milkdown-block-handle .markdown-fold-handle-button");
+    expect(globals).toContain('.markdown-fold-handle-button[aria-expanded="true"] svg');
+    expect(globals).not.toContain(".markdown-fold-toggle--heading");
+  });
+
   it("packages Electron image assets through the desktop asset protocol", () => {
     const packageJson = JSON.parse(readProjectFile("package.json"));
     const electronMain = readProjectFile("electron/main.cjs");

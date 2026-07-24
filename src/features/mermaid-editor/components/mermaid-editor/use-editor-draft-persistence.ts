@@ -33,9 +33,14 @@ import type { EditorTheme, EditorThemeId } from "@/features/mermaid-editor/lib/e
 import type { RecentFileEntry } from "@/features/mermaid-editor/lib/file-workflow";
 import type { DocumentKind } from "@/features/mermaid-editor/lib/document-kind";
 import type { ProjectWorkspace } from "@/features/mermaid-editor/lib/project-workspace";
+import { projectWorkspaceForStorage } from "@/features/mermaid-editor/lib/project-workspace";
+import type { StoredExplorerTreeState } from "@/features/mermaid-editor/lib/explorer-tree-state";
 import type { ViewFilters } from "@/features/mermaid-editor/lib/view-filters";
 import { workspaceViewForDocument, type WorkspaceView } from "@/features/mermaid-editor/lib/workspace-view";
 import { cleanCloseDocument } from "@/features/mermaid-editor/lib/desktop-close-workflow";
+import type { NodeGeometrySpec } from "@/features/mermaid-editor/lib/node-geometry";
+import type { EditorDocumentSession } from "@/features/mermaid-editor/lib/editor-document-session";
+import type { DetachedMarkdownWindow } from "@/features/mermaid-editor/lib/workspace-panels";
 
 export type UseEditorDraftPersistenceArgs = {
   runtime: EditorRuntime;
@@ -46,6 +51,7 @@ export type UseEditorDraftPersistenceArgs = {
   viewport: ViewportState;
   edgeRouting: EdgeRouting;
   layoutMode: LayoutMode;
+  nodeGeometrySpec?: NodeGeometrySpec;
   leftCollapsed: boolean;
   rightCollapsed: boolean;
   workspaceView: WorkspaceView;
@@ -54,10 +60,13 @@ export type UseEditorDraftPersistenceArgs = {
   fileRef: RuntimeFileRef | null;
   recentFiles: RecentFileEntry[];
   projectWorkspace: ProjectWorkspace | null;
+  explorerTreeState: StoredExplorerTreeState;
   lastSavedDocument: string;
   themeId: EditorThemeId;
   customTheme: EditorTheme | null;
   preferences: EditorPreferences;
+  editorSession: EditorDocumentSession;
+  detachedMarkdownWindows: DetachedMarkdownWindow[];
 };
 
 export function useEditorDraftPersistence({
@@ -69,6 +78,7 @@ export function useEditorDraftPersistence({
   viewport,
   edgeRouting,
   layoutMode,
+  nodeGeometrySpec,
   leftCollapsed,
   rightCollapsed,
   workspaceView,
@@ -77,10 +87,13 @@ export function useEditorDraftPersistence({
   fileRef,
   recentFiles,
   projectWorkspace,
+  explorerTreeState,
   lastSavedDocument,
   themeId,
   customTheme,
-  preferences
+  preferences,
+  editorSession,
+  detachedMarkdownWindows
 }: UseEditorDraftPersistenceArgs) {
   function buildStoredEditorDraft(overrides: StoredEditorDraftOverrides = {}): StoredEditor {
     const draftDocumentKind = overrides.documentKind ?? documentKind;
@@ -110,10 +123,16 @@ export function useEditorDraftPersistence({
       fileName: overrides.fileName ?? fileName,
       fileRef: serializableRuntimeFileRef(draftFileRef ?? null),
       recentFiles: overrides.recentFiles ?? recentFiles,
-      projectWorkspace: draftProjectWorkspace ?? null,
+      projectWorkspace: projectWorkspaceForStorage(draftProjectWorkspace ?? null),
+      explorerTreeState,
       lastSavedDocument: overrides.lastSavedDocument ?? lastSavedDocument,
       themeId: draftThemeId,
       customTheme: draftCustomTheme ?? null,
+      editorSession: overrides.editorSession ?? editorSession,
+      detachedMarkdownWindows: detachedMarkdownWindows.map((window) => ({
+        ...window,
+        file: serializableRuntimeFileRef(window.file) || { name: window.title }
+      })),
       preferences
     };
   }
@@ -122,7 +141,7 @@ export function useEditorDraftPersistence({
     await runtime.saveDraft(buildStoredEditorDraft(overrides));
   }
 
-  async function persistDiscardedCloseDraft() {
+  async function persistDiscardedCloseDraft(editorSessionOverride?: EditorDocumentSession) {
     if (documentKind === "markdown") {
       const keepCurrentFile = Boolean(lastSavedDocument?.trim());
       await persistStoredEditorDraft({
@@ -132,6 +151,7 @@ export function useEditorDraftPersistence({
         fileName: keepCurrentFile ? fileName : FALLBACK_MARKDOWN_FILE_NAME,
         fileRef: keepCurrentFile ? fileRef : null,
         lastSavedDocument: keepCurrentFile ? lastSavedDocument : BLANK_MARKDOWN_SOURCE,
+        editorSession: editorSessionOverride,
         workspaceView: workspaceViewForDocument("render-only", workspaceView, "markdown")
       });
       return;
@@ -150,6 +170,7 @@ export function useEditorDraftPersistence({
         fileName: keepCurrentFile ? fileName : FALLBACK_CANVAS_FILE_NAME,
         fileRef: keepCurrentFile ? fileRef : null,
         lastSavedDocument: cleanSource,
+        editorSession: editorSessionOverride,
         workspaceView: "canvas"
       });
       return;
@@ -159,7 +180,7 @@ export function useEditorDraftPersistence({
     const loaded = loadMermaidDocument(cleanDocument);
     const nextViewport = loaded.viewport || { x: 160, y: 90, scale: 1 };
     const nextLayoutMode = loaded.layoutMode;
-    const nextGraph = loaded.editableKind === "flowchart" && nextLayoutMode === "auto" ? applyDagreAutoLayout(loaded.graph) : loaded.graph;
+    const nextGraph = loaded.editableKind === "flowchart" && nextLayoutMode === "auto" ? applyDagreAutoLayout(loaded.graph, { spec: nodeGeometrySpec }) : loaded.graph;
     const normalizedDocument = buildMermaidDocument(loaded.source, nextGraph, nextViewport, loaded.edgeRouting, nextLayoutMode);
     const keepCurrentFile = Boolean(lastSavedDocument?.trim());
 
@@ -172,6 +193,7 @@ export function useEditorDraftPersistence({
       fileName: keepCurrentFile ? fileName : FALLBACK_FILE_NAME,
       fileRef: keepCurrentFile ? fileRef : null,
       lastSavedDocument: normalizedDocument,
+      editorSession: editorSessionOverride,
       workspaceView: workspaceViewForDocument(loaded.editableKind, workspaceView, "mermaid")
     });
   }

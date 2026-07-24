@@ -23,8 +23,8 @@ export const floatingPanelAnchorClass: Partial<Record<FloatingPanelPlacement, st
 };
 
 export const floatingPanelSurfaceClass: Record<FloatingPanelKind, string> = {
-  popover: "rounded-lg border bg-popover/95 p-2 text-popover-foreground shadow-sm backdrop-blur",
-  workspace: "rounded-lg border bg-card/95 text-foreground shadow-sm"
+  popover: "editor-ui-popover p-2 text-popover-foreground",
+  workspace: "editor-ui-panel text-foreground"
 };
 
 export const DEFAULT_WORKSPACE_PANEL_SIZE: FloatingPanelSize = { width: 360, height: 640 };

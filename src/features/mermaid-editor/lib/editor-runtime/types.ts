@@ -1,19 +1,19 @@
-import type { AiApplyResult, AiEditorCommand } from "@/features/mermaid-editor/lib/ai-command-types";
-import type { AiEditorContext } from "@/features/mermaid-editor/lib/ai-context";
-import type { BrowserToolWindowRequest } from "@/features/mermaid-editor/lib/browser-tool-window";
+import type { RuntimeAgentOperations } from "@/features/mermaid-editor/lib/editor-runtime/agent-types";
 import type { DocumentKind } from "@/features/mermaid-editor/lib/document-kind";
 import type { EmbeddedBrowserLogicalRect } from "@/features/mermaid-editor/lib/embedded-browser-rect";
 import type { RuntimeLinkPreviewRequest, RuntimeLinkPreviewResult } from "@/features/mermaid-editor/lib/editor-runtime/link-preview-types";
+import type { RuntimeCsvFileOperations } from "@/features/mermaid-editor/lib/editor-runtime/csv-file-types";
+import type { RuntimeCreateProjectFileRequest, RuntimeCreateProjectFileResult, RuntimeMoveProjectFileRequest, RuntimeMoveProjectFileResult } from "@/features/mermaid-editor/lib/editor-runtime/project-file-types";
+import type { RuntimeDesktopWindowOperations } from "@/features/mermaid-editor/lib/editor-runtime/desktop-window-types";
+import type { RuntimeProjectFileWatchOperations } from "@/features/mermaid-editor/lib/editor-runtime/project-file-watch-types";
 import type { ProjectWorkspace } from "@/features/mermaid-editor/lib/project-workspace";
-
 export type { RuntimeLinkPreviewRequest, RuntimeLinkPreviewResult } from "@/features/mermaid-editor/lib/editor-runtime/link-preview-types";
 
 export type EditorDraftState = Record<string, unknown>;
 
-export type BrowserWritableFile = {
-  write: (data: string) => Promise<void>;
-  close: () => Promise<void>;
-};
+export type RuntimeSystemFont = { family: string; monospace: boolean };
+
+export type BrowserWritableFile = { write: (data: string) => Promise<void>; close: () => Promise<void> };
 
 export type BrowserFileHandle = {
   name: string;
@@ -25,6 +25,8 @@ export type RuntimeFileRef = {
   name: string;
   path?: string;
   handle?: BrowserFileHandle;
+  /** Content revision captured when the file was opened or last saved. */
+  revision?: string;
 };
 
 export type RuntimeOpenFileResult =
@@ -45,6 +47,12 @@ export type RuntimeSaveFileResult =
       status: "saved";
       file: RuntimeFileRef;
       downloaded?: boolean;
+    }
+  | {
+      status: "conflict";
+      file: RuntimeFileRef;
+      revision: string;
+      modifiedAt?: number;
     }
   | {
       status: "cancelled";
@@ -136,16 +144,25 @@ export type RuntimeProjectFolderResult =
       message: string;
     };
 
-export type RuntimeDesktopWindowAction = "minimize" | "toggleMaximize" | "close";
-
 export type RuntimeEmbeddedBrowserHandle = {
   close: () => Promise<void>;
   hide: () => Promise<void>;
   show: () => Promise<void>;
   focus: () => Promise<void>;
+  navigate: (url: string) => Promise<void>;
+  reload: () => Promise<void>;
   setRect: (rect: EmbeddedBrowserLogicalRect) => Promise<void>;
   onCreated: (handler: () => void) => Promise<void>;
   onError: (handler: (error: unknown) => void) => Promise<void>;
+  onFocus: (handler: () => void) => Promise<void>;
+  onState: (handler: (state: RuntimeEmbeddedBrowserState) => void) => Promise<void>;
+  onTitlebarHotZoneChange: (handler: (inside: boolean) => void) => Promise<void>;
+};
+
+export type RuntimeEmbeddedBrowserState = {
+  url: string;
+  title: string;
+  loading: boolean;
 };
 
 export type RuntimeEmbeddedBrowserResult =
@@ -162,36 +179,20 @@ export type RuntimeEmbeddedBrowserResult =
       message: string;
     };
 
-export type RuntimeBrowserToolWindowResult =
-  | {
-      status: "opened";
-      reused?: boolean;
-      external?: boolean;
-    }
-  | {
-      status: "unsupported";
-      message: string;
-    };
+export type EditorRuntimeHost = "web" | "electron";
 
-export type EditorRuntimeHost = "web" | "tauri" | "electron";
-
-export type EditorRuntime = {
+export type EditorRuntime = RuntimeAgentOperations & RuntimeCsvFileOperations & RuntimeDesktopWindowOperations & RuntimeProjectFileWatchOperations & import("@/features/mermaid-editor/lib/editor-runtime/markdown-fold-types").RuntimeMarkdownFoldOperations & {
   kind: "web" | "desktop";
   host: EditorRuntimeHost;
   openExternalUrl: (url: string) => void;
-  isDesktopWindowAvailable: () => boolean;
-  startDesktopWindowDrag: () => Promise<void>;
-  toggleDesktopWindowMaximize: () => Promise<void>;
-  runDesktopWindowAction: (action: RuntimeDesktopWindowAction) => Promise<void>;
-  listenForDesktopWindowCloseRequest: (handler: () => boolean | Promise<boolean>) => Promise<() => void>;
   createEmbeddedBrowser: (request: {
     label: string;
     url: string;
     rect: EmbeddedBrowserLogicalRect;
   }) => Promise<RuntimeEmbeddedBrowserResult>;
-  openBrowserToolWindow: (request: BrowserToolWindowRequest) => Promise<RuntimeBrowserToolWindowResult>;
   loadDraft: () => EditorDraftState | null;
   loadSavedState: () => Promise<EditorDraftState | null>;
+  listSystemFonts: () => Promise<RuntimeSystemFont[]>;
   saveDraft: (draft: EditorDraftState) => Promise<void>;
   openFile: () => Promise<RuntimeOpenFileResult>;
   openFilePath: (path: string) => Promise<RuntimeOpenFileResult>;
@@ -199,10 +200,13 @@ export type EditorRuntime = {
     file: RuntimeFileRef | null,
     documentText: string,
     suggestedName: string,
-    documentKind: DocumentKind
+    documentKind: DocumentKind,
+    options?: { overwrite?: boolean }
   ) => Promise<RuntimeSaveFileResult>;
   saveFileAs: (documentText: string, suggestedName: string, documentKind: DocumentKind) => Promise<RuntimeSaveFileResult>;
   createProjectDocument: (request: { rootPath: string; fileName: string; documentKind: DocumentKind; text: string }) => Promise<RuntimeCreateProjectDocumentResult>;
+  createProjectFile: (request: RuntimeCreateProjectFileRequest) => Promise<RuntimeCreateProjectFileResult>;
+  moveProjectFile: (request: RuntimeMoveProjectFileRequest) => Promise<RuntimeMoveProjectFileResult>;
   pickImageAsset: (file: RuntimeFileRef | null) => Promise<RuntimeImageAssetResult>;
   importImageAssetPath: (file: RuntimeFileRef | null, path: string) => Promise<RuntimeImageAssetResult>;
   importImageAssetFile: (file: RuntimeFileRef | null, image: File) => Promise<RuntimeImageAssetResult>;
@@ -220,7 +224,4 @@ export type EditorRuntime = {
   closeTerminal: (sessionId: string) => Promise<void>;
   listenForTerminalData: (handler: (event: RuntimeTerminalDataEvent) => void) => Promise<() => void>;
   listenForTerminalExit: (handler: (event: RuntimeTerminalExitEvent) => void) => Promise<() => void>;
-  publishAiContext: (context: AiEditorContext) => Promise<void>;
-  pollAiCommand: () => Promise<AiEditorCommand | null>;
-  finishAiCommand: (result: AiApplyResult) => Promise<void>;
 };

@@ -15,9 +15,14 @@ function createHandle(): RuntimeEmbeddedBrowserHandle {
     hide: vi.fn(() => Promise.resolve()),
     show: vi.fn(() => Promise.resolve()),
     focus: vi.fn(() => Promise.resolve()),
+    navigate: vi.fn(() => Promise.resolve()),
+    reload: vi.fn(() => Promise.resolve()),
     setRect: vi.fn(() => Promise.resolve()),
     onCreated: vi.fn(() => Promise.resolve()),
-    onError: vi.fn(() => Promise.resolve())
+    onError: vi.fn(() => Promise.resolve()),
+    onFocus: vi.fn(() => Promise.resolve()),
+    onState: vi.fn(() => Promise.resolve()),
+    onTitlebarHotZoneChange: vi.fn(() => Promise.resolve())
   };
 }
 

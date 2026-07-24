@@ -42,6 +42,25 @@ describe("file drop helpers", () => {
     expect(result).toMatchObject({ kind: "image", file: { name: "logo.svg" } });
   });
 
+  it("keeps every supported image in its original order", () => {
+    const result = classifyFileDrop([
+      { path: "/tmp/first.png" },
+      { path: "/tmp/notes.txt" },
+      { path: "/tmp/second.webp" },
+      { path: "/tmp/third.svg" }
+    ]);
+
+    expect(result).toMatchObject({
+      kind: "image",
+      file: { path: "/tmp/first.png" },
+      files: [
+        { path: "/tmp/first.png" },
+        { path: "/tmp/second.webp" },
+        { path: "/tmp/third.svg" }
+      ]
+    });
+  });
+
   it("converts window drop coordinates to canvas world coordinates", () => {
     const surfacePoint = windowPointToSurfacePoint({ x: 260, y: 180 }, { left: 40, top: 30 });
     const worldPoint = canvasScreenToWorldPoint(surfacePoint, { x: 20, y: 10, scale: 2 });

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FocusEvent, type ReactNode } from "react";
 
 import {
+  EDITOR_CHROME_CLASSES,
   FLOATING_CHROME_PLACEMENTS,
   type FloatingChromePlacement
 } from "@/features/mermaid-editor/lib/editor-chrome";
@@ -13,7 +14,7 @@ import { gsap, useEditorMotion, useGSAP } from "@/features/mermaid-editor/lib/us
 import { cn } from "@/lib/utils";
 
 export function FloatingChromeLayer({ children, className }: { children: ReactNode; className?: string }) {
-  return <div className={cn("pointer-events-none absolute inset-0 z-40", className)}>{children}</div>;
+  return <div className={cn("pointer-events-none absolute inset-0 isolate", EDITOR_CHROME_CLASSES.applicationChromeLayer, className)} data-layer-group="application-chrome">{children}</div>;
 }
 
 export function FloatingChromeSlot({
@@ -46,6 +47,13 @@ export function FloatingChromeSlot({
       if (hideTimerRef.current) window.clearTimeout(hideTimerRef.current);
     };
   }, []);
+
+  useEffect(() => {
+    if (!focusWithin) return;
+    const activeElement = document.activeElement;
+    if (activeElement && contentRef.current?.contains(activeElement)) return;
+    setFocusWithin(false);
+  }, [children, focusWithin]);
 
   useGSAP(
     () => {
@@ -134,6 +142,7 @@ export function FloatingChromeSlot({
     <div className={cn("pointer-events-auto absolute", placementSpec.rootClassName, className)}>
       <div
         className={cn("flex", placementSpec.hotZoneClassName, hotZoneClassName)}
+        data-floating-chrome-state={visible ? "visible" : "hidden"}
         onPointerEnter={show}
         onPointerLeave={scheduleHide}
         onFocus={() => setFocusWithin(true)}

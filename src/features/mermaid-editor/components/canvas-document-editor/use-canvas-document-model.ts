@@ -32,16 +32,19 @@ import {
 import { createWheelIntentTracker } from "@/features/mermaid-editor/lib/canvas-viewport-navigation";
 import type { EditorRuntime, RuntimeFileRef } from "@/features/mermaid-editor/lib/editor-runtime";
 import type { ViewportState } from "@/features/mermaid-editor/lib/editor-types";
+import type { EditorTypographyTokens } from "@/features/mermaid-editor/lib/editor-theme";
 
 type UseCanvasDocumentModelArgs = {
   document: CanvasDocument;
   fileRef: RuntimeFileRef | null;
   runtime: EditorRuntime;
+  typography: EditorTypographyTokens["canvasDocument"];
+  fontRevision: number;
   onChange: (document: CanvasDocument, status?: string) => void;
   onStatus?: (status: string) => void;
 };
 
-export function useCanvasDocumentModel({ document, fileRef, runtime, onChange, onStatus }: UseCanvasDocumentModelArgs) {
+export function useCanvasDocumentModel({ document, fileRef, runtime, typography, fontRevision, onChange, onStatus }: UseCanvasDocumentModelArgs) {
   const normalizedDocument = useMemo(() => normalizeCanvasDocument(document), [document]);
   const documentRef = useRef<CanvasDocument>(normalizedDocument);
   const selectionRef = useRef<CanvasDocumentSelection>(emptyCanvasDocumentSelection);
@@ -72,6 +75,8 @@ export function useCanvasDocumentModel({ document, fileRef, runtime, onChange, o
     connectorStartIdRef,
     interactionStateRef,
     inlineEditRef,
+    typography,
+    fontRevision,
     onStatus
   });
 
@@ -97,7 +102,7 @@ export function useCanvasDocumentModel({ document, fileRef, runtime, onChange, o
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [normalizedDocument]);
 
-  const editStyle = inlineEditLayoutRevision >= 0 ? resolveCanvasDocumentInlineEditStyle({ document: documentRef.current, inlineEdit, screenFromWorld }) : null;
+  const editStyle = inlineEditLayoutRevision >= 0 ? resolveCanvasDocumentInlineEditStyle({ document: documentRef.current, inlineEdit, screenFromWorld, typography }) : null;
 
   function commit(next: CanvasDocument, status?: string) {
     const normalized = normalizeCanvasDocument(next);

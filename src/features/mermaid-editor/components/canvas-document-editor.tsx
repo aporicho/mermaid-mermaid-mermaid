@@ -2,26 +2,31 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { CanvasDocumentToolbar } from "@/features/mermaid-editor/components/canvas-document-editor/canvas-document-toolbar";
 import { CanvasDocumentImageUrlDialog } from "@/features/mermaid-editor/components/canvas-document-editor/image-url-dialog";
 import { CanvasDocumentInlineEditOverlays } from "@/features/mermaid-editor/components/canvas-document-editor/inline-edit-overlays";
+import { EditorStatusBadge } from "@/features/mermaid-editor/components/editor-ui";
 import { useCanvasDocumentActions } from "@/features/mermaid-editor/components/canvas-document-editor/use-canvas-document-actions";
 import { useCanvasDocumentKeyboardShortcuts } from "@/features/mermaid-editor/components/canvas-document-editor/use-canvas-document-keyboard-shortcuts";
 import { useCanvasDocumentModel } from "@/features/mermaid-editor/components/canvas-document-editor/use-canvas-document-model";
 import { useCanvasDocumentPointerInteraction } from "@/features/mermaid-editor/components/canvas-document-editor/use-canvas-document-pointer-interaction";
-import type { CanvasDocument } from "@/features/mermaid-editor/lib/canvas-document";
+import type { CanvasDocument, CanvasImageElement } from "@/features/mermaid-editor/lib/canvas-document";
 import type { EditorRuntime, RuntimeFileRef } from "@/features/mermaid-editor/lib/editor-runtime";
+import type { EditorTypographyTokens } from "@/features/mermaid-editor/lib/editor-theme";
 import { cn } from "@/lib/utils";
 
 type CanvasDocumentEditorProps = {
   document: CanvasDocument;
   fileRef: RuntimeFileRef | null;
   runtime: EditorRuntime;
+  typography: EditorTypographyTokens["canvasDocument"];
+  fontRevision: number;
   onChange: (document: CanvasDocument, status?: string) => void;
+  onOpenImage?: (image: CanvasImageElement) => void;
   onStatus?: (status: string) => void;
 };
 
-export function CanvasDocumentEditor({ document, fileRef, runtime, onChange, onStatus }: CanvasDocumentEditorProps) {
-  const model = useCanvasDocumentModel({ document, fileRef, runtime, onChange, onStatus });
+export function CanvasDocumentEditor({ document, fileRef, runtime, typography, fontRevision, onChange, onOpenImage, onStatus }: CanvasDocumentEditorProps) {
+  const model = useCanvasDocumentModel({ document, fileRef, runtime, typography, fontRevision, onChange, onStatus });
   const actions = useCanvasDocumentActions({ model, fileRef, runtime, onStatus });
-  const pointer = useCanvasDocumentPointerInteraction({ model, startInlineEdit: actions.startInlineEdit });
+  const pointer = useCanvasDocumentPointerInteraction({ model, startInlineEdit: actions.startInlineEdit, onOpenImage });
 
   useCanvasDocumentKeyboardShortcuts({
     selectedIdsRef: model.selectedIdsRef,
@@ -50,9 +55,9 @@ export function CanvasDocumentEditor({ document, fileRef, runtime, onChange, onS
           onResetViewport={actions.resetViewport}
         />
         {model.connectorStartId ? (
-          <div className="pointer-events-none absolute left-1/2 top-4 z-20 -translate-x-1/2 rounded-md border bg-card/95 px-3 py-2 text-xs text-muted-foreground shadow-sm">
+          <EditorStatusBadge className="editor-ui-surface pointer-events-none absolute left-1/2 top-4 z-20 -translate-x-1/2 px-3 py-2 text-muted-foreground">
             选择第二个对象完成连线
-          </div>
+          </EditorStatusBadge>
         ) : null}
         <CanvasDocumentImageUrlDialog
           open={actions.imageUrlDialogOpen}

@@ -19,6 +19,8 @@ import type { EditorMode, Selection } from "@/features/mermaid-editor/lib/editor
 import type { ViewFilters } from "@/features/mermaid-editor/lib/view-filters";
 import type { CanvasVisualTokens } from "@/features/mermaid-editor/lib/canvas-visual-state";
 import {
+  canvasStrokeDash,
+  canvasStrokeEnabled,
   getConnectionDraftVisualState,
   getEdgeEndpointVisualState,
   getEdgeVisualState,
@@ -90,7 +92,8 @@ export function KonvaEdgeLayer({
         const edgeVisual = getEdgeVisualState({ edge, selection, hoveredEdgeId, interactionState, inlineEdit, visualTokens });
         const edgePreviewVisual = isRetargetPreviewEdge ? getConnectionDraftVisualState({ valid: retargetPreview.valid, edge, visualTokens }) : null;
         const edgeMotionVisual = edgeMotion[edge.id];
-        const edgeStrokeWidth = (edgePreviewVisual?.strokeWidth ?? edgeVisual.strokeWidth) + (edgeMotionVisual?.highlight ?? 0) * visualTokens.node.emphasizedStrokeWidth;
+        const edgeStrokeWidth = (edgePreviewVisual?.strokeWidth ?? edgeVisual.strokeWidth) + (edgeMotionVisual?.highlight ?? 0) * visualTokens.edge.highlightBorderBoost;
+        const edgeStrokeEnabled = edgePreviewVisual?.strokeEnabled ?? edgeVisual.strokeEnabled;
         const isEditingEdgeLabel = inlineEdit?.type === "edge" && inlineEdit.id === edge.id;
         const edgeLabel = isEditingEdgeLabel ? inlineEdit.value : edge.label;
         const edgeLabelGeometry = edgeLabel || isEditingEdgeLabel ? buildEdgeLabelGeometry(edgeLabel, geometry.labelPoint, edgeLabelSpec) : null;
@@ -114,6 +117,7 @@ export function KonvaEdgeLayer({
                   data={geometry.pathData}
                   stroke={edgePreviewVisual?.stroke ?? edgeVisual.stroke}
                   strokeWidth={edgeStrokeWidth}
+                  strokeEnabled={edgeStrokeEnabled}
                   dash={edgePreviewVisual?.dash ?? edgeVisual.dash}
                   opacity={edgePreviewVisual?.opacity ?? edgeVisual.opacity ?? 1}
                   lineCap="round"
@@ -142,6 +146,7 @@ export function KonvaEdgeLayer({
                   stroke={edgePreviewVisual?.stroke ?? edgeVisual.stroke}
                   fill={edgePreviewVisual?.fill ?? edgeVisual.fill}
                   strokeWidth={edgeStrokeWidth}
+                  strokeEnabled={edgeStrokeEnabled}
                   dash={edgePreviewVisual?.dash ?? edgeVisual.dash}
                   opacity={edgePreviewVisual?.opacity ?? edgeVisual.opacity ?? 1}
                   lineCap="round"
@@ -152,8 +157,8 @@ export function KonvaEdgeLayer({
                 />
               </>
             )}
-            {!edgePreviewVisual ? (
-              <EdgeMarkers edge={edge} geometry={geometry} stroke={edgeVisual.stroke} strokeWidth={edgeStrokeWidth} surfaceFill={visualTokens.colors.surface} visualTokens={visualTokens} />
+            {!edgePreviewVisual && edgeVisual.strokeEnabled ? (
+              <EdgeMarkers edge={edge} geometry={geometry} stroke={edgeVisual.stroke} strokeWidth={edgeStrokeWidth} surfaceFill={visualTokens.surface.background} visualTokens={visualTokens} />
             ) : null}
             {viewFilters.edgeLabels && edgeLabelGeometry && !isEditingEdgeLabel ? (
               <Group
@@ -167,10 +172,12 @@ export function KonvaEdgeLayer({
                 <Rect
                   width={edgeLabelGeometry.frame.width}
                   height={edgeLabelGeometry.frame.height}
-                  cornerRadius={visualTokens.edge.labelCornerRadius}
+                  cornerRadius={visualTokens.edgeLabel.radius}
                   fill={edgeVisual.labelFill}
                   stroke={edgeVisual.labelStroke}
-                  strokeWidth={1}
+                  strokeWidth={visualTokens.edgeLabel.borderWidth}
+                  strokeEnabled={canvasStrokeEnabled(visualTokens.edgeLabel.borderStyle)}
+                  dash={canvasStrokeDash(visualTokens.edgeLabel.borderStyle, visualTokens.edgeLabel.customDash)}
                 />
                 <Text
                   x={edgeLabelGeometry.textBox.x}
@@ -182,6 +189,7 @@ export function KonvaEdgeLayer({
                   text={edgeLabelSingleLineText(edgeLabel)}
                   fontSize={edgeLabelThemeTokens.fontSize}
                   fontFamily={edgeLabelThemeTokens.fontFamily}
+                  letterSpacing={edgeLabelThemeTokens.letterSpacing}
                   lineHeight={edgeLabelThemeTokens.lineHeight / edgeLabelThemeTokens.fontSize}
                   wrap="none"
                   fill={edgeVisual.labelTextFill}
@@ -218,19 +226,22 @@ export function KonvaEdgeOverlayLayer({
               data={connectionDraftGeometry.pathData}
               stroke={connectionDraftVisual.stroke}
               strokeWidth={connectionDraftVisual.strokeWidth}
+              strokeEnabled={connectionDraftVisual.strokeEnabled}
               dash={connectionDraftVisual.dash}
               opacity={connectionDraftVisual.opacity}
               lineCap="round"
               lineJoin="round"
               fillEnabled={false}
             />
-            <PathArrowHead
-              point={connectionDraftGeometry.end}
-              tangent={connectionDraftGeometry.endTangent}
-              fill={connectionDraftVisual.fill}
-              length={connectionDraftVisual.pointerLength}
-              width={connectionDraftVisual.pointerWidth}
-            />
+            {connectionDraftVisual.strokeEnabled ? (
+              <PathArrowHead
+                point={connectionDraftGeometry.end}
+                tangent={connectionDraftGeometry.endTangent}
+                fill={connectionDraftVisual.fill}
+                length={connectionDraftVisual.pointerLength}
+                width={connectionDraftVisual.pointerWidth}
+              />
+            ) : null}
           </Group>
         ) : (
           <Arrow points={connectionDraftGeometry.points} {...connectionDraftVisual} listening={false} />

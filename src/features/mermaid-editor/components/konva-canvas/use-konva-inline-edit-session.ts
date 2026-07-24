@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, type Dispatch, type RefObject, type SetStateAction } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type Dispatch, type RefObject, type SetStateAction } from "react";
 
 import { scaleLocalRectFromCenter } from "@/features/mermaid-editor/components/konva-canvas/render-utils";
 import type { InlineEdit, InlineEditStyle } from "@/features/mermaid-editor/components/konva-canvas/inline-edit-overlays";
@@ -9,8 +9,18 @@ import { buildEdgeLabelGeometry, type EdgeLabelGeometrySpec } from "@/features/m
 import type { CanvasEdge, EditorMode, MermaidGraph, Selection, ViewportState } from "@/features/mermaid-editor/lib/editor-types";
 import type { EditorCommand } from "@/features/mermaid-editor/lib/interaction/commands";
 import type { NodeGeometry } from "@/features/mermaid-editor/lib/node-geometry";
+import { resolveCanvasNodeKind } from "@/features/mermaid-editor/lib/canvas-node-kind";
 import type { SubgraphGeometry } from "@/features/mermaid-editor/lib/subgraph-geometry";
 import { isEdgeVisible, type ViewFilters } from "@/features/mermaid-editor/lib/view-filters";
+import {
+  applyTableTsv,
+  navigateTableCell,
+  updateTableCell,
+  updateTableHeader,
+  type TableCellNavigation,
+  type TableCellSelection,
+  type TableHeaderSelection
+} from "@/features/mermaid-editor/lib/table-node";
 
 type UseKonvaInlineEditSessionArgs = {
   graph: MermaidGraph;
@@ -21,6 +31,8 @@ type UseKonvaInlineEditSessionArgs = {
   invalidateBlankClickIntent: () => void;
   resetInteraction: () => void;
   onEditorCommand: (command: EditorCommand) => void;
+  selectedTableCell: TableCellSelection | null;
+  setSelectedTableCell: Dispatch<SetStateAction<TableCellSelection | null>>;
 };
 
 export function useKonvaInlineEditSession({
@@ -31,7 +43,9 @@ export function useKonvaInlineEditSession({
   setInteractionState,
   invalidateBlankClickIntent,
   resetInteraction,
-  onEditorCommand
+  onEditorCommand,
+  selectedTableCell,
+  setSelectedTableCell
 }: UseKonvaInlineEditSessionArgs) {
   const [inlineEdit, setInlineEdit] = useState<InlineEdit | null>(null);
   const nodeEditorRef = useRef<HTMLTextAreaElement>(null);
@@ -41,6 +55,16 @@ export function useKonvaInlineEditSession({
     if (target.type === "node") {
       const node = graph.nodes.find((item) => item.id === target.id);
       if (!node) return;
+      if (resolveCanvasNodeKind(node) === "table") {
+        if (node.content?.kind !== "table") return;
+        const targetCell = selectedTableCell?.nodeId === node.id
+          ? selectedTableCell
+          : node.content.rows[0] && node.content.columns[0]
+            ? { nodeId: node.id, rowId: node.content.rows[0].id, columnId: node.content.columns[0].id }
+            : null;
+        if (targetCell) startTableCellEdit(targetCell);
+        return;
+      }
       setInteractionState({ kind: "editingNodeText", nodeId: node.id });
       setInlineEdit({ type: "node", id: node.id, value: node.label });
       return;
@@ -60,7 +84,27 @@ export function useKonvaInlineEditSession({
     setInlineEdit({ type: "edge", id: edge.id, value: edge.label });
   }
 
-  function commitInlineEdit(save: boolean) {
+  const startTableCellEdit = useCallback((selection: TableCellSelection) => {
+    const node = graph.nodes.find((item) => item.id === selection.nodeId);
+    const content = node && resolveCanvasNodeKind(node) === "table" && node.content?.kind === "table" ? node.content : undefined;
+    const row = content?.rows.find((item) => item.id === selection.rowId);
+    const column = content?.columns.find((item) => item.id === selection.columnId);
+    if (!node || !content || !row || !column) return;
+    setSelectedTableCell(selection);
+    setInteractionState({ kind: "editingNodeText", nodeId: node.id });
+    setInlineEdit({ type: "tableCell", id: node.id, rowId: row.id, columnId: column.id, value: row.cells[column.id] || "", align: column.align });
+  }, [graph.nodes, setInteractionState, setSelectedTableCell]);
+
+  function startTableHeaderEdit(selection: TableHeaderSelection) {
+    const node = graph.nodes.find((item) => item.id === selection.nodeId);
+    const content = node && resolveCanvasNodeKind(node) === "table" && node.content?.kind === "table" ? node.content : undefined;
+    const column = content?.columns.find((item) => item.id === selection.columnId);
+    if (!node || !content || !column) return;
+    setInteractionState({ kind: "editingNodeText", nodeId: node.id });
+    setInlineEdit({ type: "tableHeader", id: node.id, columnId: column.id, value: column.label, align: column.align });
+  }
+
+  function commitInlineEdit(save: boolean, navigation?: TableCellNavigation) {
     if (!inlineEdit) return;
 
     if (save && inlineEdit.type === "node") {
@@ -78,12 +122,65 @@ export function useKonvaInlineEditSession({
     if (save && inlineEdit.type === "edge") {
       onEditorCommand({ type: "graph.updateEdgeLabel", edgeId: inlineEdit.id, label: inlineEdit.value, message: "已更新连线文本。", source: "pointer" });
     }
+    if (inlineEdit.type === "tableCell") {
+      const node = graph.nodes.find((item) => item.id === inlineEdit.id);
+      const content = node && resolveCanvasNodeKind(node) === "table" && node.content?.kind === "table" ? node.content : undefined;
+      if (save && content) {
+        const nextContent = updateTableCell(content, inlineEdit.rowId, inlineEdit.columnId, inlineEdit.value);
+        if (nextContent !== content) {
+          onEditorCommand({ type: "graph.updateNode", nodeId: inlineEdit.id, patch: { content: nextContent }, message: "已更新表格单元格。", source: "pointer" });
+        }
+        const nextCell = navigation ? navigateTableCell(nextContent, inlineEdit.rowId, inlineEdit.columnId, navigation) : undefined;
+        if (nextCell) {
+          const column = nextContent.columns.find((item) => item.id === nextCell.columnId);
+          const row = nextContent.rows.find((item) => item.id === nextCell.rowId);
+          if (column && row) {
+            const selection = { nodeId: inlineEdit.id, ...nextCell };
+            setSelectedTableCell(selection);
+            setInlineEdit({ type: "tableCell", id: inlineEdit.id, ...nextCell, value: row.cells[column.id] || "", align: column.align });
+            return;
+          }
+        }
+      }
+      setInlineEdit(null);
+      resetInteraction();
+      return;
+    }
+    if (inlineEdit.type === "tableHeader") {
+      const node = graph.nodes.find((item) => item.id === inlineEdit.id);
+      if (save && node && resolveCanvasNodeKind(node) === "table" && node.content?.kind === "table") {
+        const nextContent = updateTableHeader(node.content, inlineEdit.columnId, inlineEdit.value);
+        if (nextContent !== node.content) {
+          onEditorCommand({
+            type: "graph.updateNode",
+            nodeId: node.id,
+            patch: { content: nextContent },
+            message: "已更新表头。",
+            source: "pointer"
+          });
+        }
+      }
+      setInlineEdit(null);
+      resetInteraction();
+      return;
+    }
     setInlineEdit(null);
     resetInteraction();
   }
 
+  function pasteTableCells(text: string) {
+    if (inlineEdit?.type !== "tableCell") return;
+    const node = graph.nodes.find((item) => item.id === inlineEdit.id);
+    if (!node || resolveCanvasNodeKind(node) !== "table" || node.content?.kind !== "table") return;
+    const nextContent = applyTableTsv(node.content, inlineEdit.rowId, inlineEdit.columnId, text);
+    if (nextContent === node.content) return;
+    const row = nextContent.rows.find((item) => item.id === inlineEdit.rowId);
+    onEditorCommand({ type: "graph.updateNode", nodeId: node.id, patch: { content: nextContent }, message: "已粘贴表格数据。", source: "pointer" });
+    setInlineEdit((current) => current?.type === "tableCell" ? { ...current, value: row?.cells[current.columnId] || current.value } : current);
+  }
+
   useEffect(() => {
-    if (inlineEdit?.type !== "node") return;
+    if (inlineEdit?.type !== "node" && inlineEdit?.type !== "tableCell" && inlineEdit?.type !== "tableHeader") return;
     const editor = nodeEditorRef.current;
     if (!editor) return;
 
@@ -108,19 +205,32 @@ export function useKonvaInlineEditSession({
       if (!node) return;
       event.preventDefault();
       invalidateBlankClickIntent();
-      setInteractionState({ kind: "editingNodeText", nodeId: node.id });
-      setInlineEdit({ type: "node", id: node.id, value: node.label });
+      if (resolveCanvasNodeKind(node) === "table") {
+        if (node.content?.kind !== "table") return;
+        const target = selectedTableCell?.nodeId === node.id
+          ? selectedTableCell
+          : node.content.rows[0] && node.content.columns[0]
+            ? { nodeId: node.id, rowId: node.content.rows[0].id, columnId: node.content.columns[0].id }
+            : null;
+        if (target) startTableCellEdit(target);
+      } else {
+        setInteractionState({ kind: "editingNodeText", nodeId: node.id });
+        setInlineEdit({ type: "node", id: node.id, value: node.label });
+      }
     }
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [graph.nodes, inlineEdit, interactionState, invalidateBlankClickIntent, mode, selection.edgeIds.length, selection.nodeIds, setInteractionState]);
+  }, [graph.nodes, inlineEdit, interactionState, invalidateBlankClickIntent, mode, selectedTableCell, selection.edgeIds.length, selection.nodeIds, setInteractionState, startTableCellEdit]);
 
   return {
     inlineEdit,
     setInlineEdit,
     startInlineEdit,
+    startTableCellEdit,
+    startTableHeaderEdit,
     commitInlineEdit,
+    pasteTableCells,
     nodeEditorRef,
     nodeEditorMeasureRef
   };
@@ -183,6 +293,34 @@ export function resolveKonvaInlineEditStyle({
   edgeLabelSpec: EdgeLabelGeometrySpec;
 }): InlineEditStyle | null {
   if (!inlineEdit) return null;
+  if (inlineEdit.type === "tableHeader") {
+    if (!viewFilters.nodes) return null;
+    const geometry = nodeGeometryById.get(inlineEdit.id);
+    const cell = geometry?.table?.headerCells.find((item) => item.columnId === inlineEdit.columnId);
+    if (!geometry || !cell) return null;
+    const viewportScale = currentViewport().scale;
+    const proximityScale = nodeProximityScale[inlineEdit.id] ?? 1;
+    const frame = scaleLocalRectFromCenter(cell.frame, geometry.frame, proximityScale);
+    const screen = worldToScreen({ x: geometry.frame.x + frame.x, y: geometry.frame.y + frame.y });
+    return { left: screen.x, top: screen.y, width: frame.width * viewportScale, height: frame.height * viewportScale, textScale: viewportScale * proximityScale };
+  }
+  if (inlineEdit.type === "tableCell") {
+    if (!viewFilters.nodes) return null;
+    const geometry = nodeGeometryById.get(inlineEdit.id);
+    const cell = geometry?.table?.cells.find((item) => item.rowId === inlineEdit.rowId && item.columnId === inlineEdit.columnId);
+    if (!geometry || !cell) return null;
+    const viewportScale = currentViewport().scale;
+    const proximityScale = nodeProximityScale[inlineEdit.id] ?? 1;
+    const frame = scaleLocalRectFromCenter(cell.frame, geometry.frame, proximityScale);
+    const screen = worldToScreen({ x: geometry.frame.x + frame.x, y: geometry.frame.y + frame.y });
+    return {
+      left: screen.x,
+      top: screen.y,
+      width: frame.width * viewportScale,
+      height: frame.height * viewportScale,
+      textScale: viewportScale * proximityScale
+    };
+  }
   if (inlineEdit.type === "node") {
     if (!viewFilters.nodes || !viewFilters.nodeLabels) return null;
     const geometry = nodeGeometryById.get(inlineEdit.id);

@@ -22,19 +22,30 @@ import {
 } from "@/features/mermaid-editor/lib/editor-types";
 import {
   DEFAULT_EDITOR_THEME,
+  compileEditorTheme,
   isBuiltInThemeId,
   normalizeEditorTheme,
+  resolveEditorTheme,
   type EditorTheme,
   type EditorThemeId
 } from "@/features/mermaid-editor/lib/editor-theme";
+import { themedNodeGeometrySpec } from "@/features/mermaid-editor/lib/node-geometry";
 import { DEFAULT_EDITOR_PREFERENCES, normalizeEditorPreferences, type EditorPreferences } from "@/features/mermaid-editor/lib/editor-preferences";
+import type { EditorDocumentSession } from "@/features/mermaid-editor/lib/editor-document-session";
 import { shouldCollapseExplorerOnStartup } from "@/features/mermaid-editor/lib/explorer-state";
+import {
+  EMPTY_EXPLORER_TREE_STATE,
+  normalizeExplorerTreeState,
+  type StoredExplorerTreeState
+} from "@/features/mermaid-editor/lib/explorer-tree-state";
 import { normalizeRecentFiles, type RecentFileEntry } from "@/features/mermaid-editor/lib/file-workflow";
 import { buildMermaidDocument, loadMermaidDocument } from "@/features/mermaid-editor/lib/mermaid-document";
 import { initialMermaidSource, parseMermaid, serializeMermaid } from "@/features/mermaid-editor/lib/mermaid-graph";
 import { normalizeProjectWorkspace, type ProjectWorkspace } from "@/features/mermaid-editor/lib/project-workspace";
 import { DEFAULT_VIEW_FILTERS, normalizeViewFilters, type ViewFilters } from "@/features/mermaid-editor/lib/view-filters";
 import { workspaceViewForDocument, type WorkspaceView } from "@/features/mermaid-editor/lib/workspace-view";
+import { normalizeEditorDocumentSession } from "@/features/mermaid-editor/lib/editor-document-session";
+import type { DetachedMarkdownWindow } from "@/features/mermaid-editor/lib/workspace-panels";
 
 export const FALLBACK_FILE_NAME = "diagram.mmd";
 export const FALLBACK_MARKDOWN_FILE_NAME = "document.md";
@@ -60,10 +71,13 @@ export type StoredEditor = {
   fileRef?: RuntimeFileRef | null;
   recentFiles?: RecentFileEntry[];
   projectWorkspace?: ProjectWorkspace | null;
+  explorerTreeState?: StoredExplorerTreeState;
   lastSavedDocument?: string;
   themeId?: EditorThemeId;
   customTheme?: EditorTheme | null;
   preferences?: Partial<EditorPreferences>;
+  editorSession?: EditorDocumentSession;
+  detachedMarkdownWindows?: DetachedMarkdownWindow[];
 };
 
 export type StoredEditorApplyResult = {
@@ -90,6 +104,7 @@ export type StoredEditorDraftOverrides = {
   workspaceView?: WorkspaceView;
   themeId?: EditorThemeId;
   customTheme?: EditorTheme | null;
+  editorSession?: EditorDocumentSession;
 };
 
 export function createEmptyDocumentGraph(): MermaidGraph {
@@ -150,9 +165,11 @@ export function loadInitialState() {
       fileRef: null,
       recentFiles: [] as RecentFileEntry[],
       projectWorkspace: null,
+      explorerTreeState: EMPTY_EXPLORER_TREE_STATE,
       lastSavedDocument: "",
       themeId: DEFAULT_EDITOR_THEME.id,
       customTheme: null,
+      editorSession: null,
       preferences: fallbackPreferences
     };
   }
@@ -160,6 +177,7 @@ export function loadInitialState() {
   try {
     const stored = createEditorRuntime().loadDraft() as StoredEditor | null;
     if (!stored) throw new Error("No saved editor state");
+    const explorerTreeState = normalizeExplorerTreeState(stored.explorerTreeState);
     const storedDocumentKind = normalizeStoredDocumentKind(stored.documentKind, stored.fileName, stored.fileRef?.path);
     if (storedDocumentKind === "markdown") {
       const preferences = normalizeEditorPreferences(stored.preferences);
@@ -196,9 +214,11 @@ export function loadInitialState() {
         fileRef: stored.fileRef || null,
         recentFiles,
         projectWorkspace,
+        explorerTreeState,
         lastSavedDocument: stored.lastSavedDocument || "",
         themeId,
         customTheme,
+        editorSession: normalizeEditorDocumentSession(stored.editorSession),
         preferences
       };
     }
@@ -237,9 +257,11 @@ export function loadInitialState() {
         fileRef: stored.fileRef || null,
         recentFiles,
         projectWorkspace,
+        explorerTreeState,
         lastSavedDocument: stored.lastSavedDocument || "",
         themeId: normalizeThemeId(stored.themeId),
         customTheme: stored.customTheme ? normalizeEditorTheme(stored.customTheme) : null,
+        editorSession: normalizeEditorDocumentSession(stored.editorSession),
         preferences
       };
     }
@@ -253,9 +275,11 @@ export function loadInitialState() {
     const viewport = stored.viewport || layout?.viewport || fallbackViewport;
     const edgeRouting = stored.edgeRouting || edgeRoutingFromLayout(layout);
     const layoutMode = stored.layoutMode || layoutModeFromLayout(layout);
-    const resolvedGraph = loaded.editableKind === "flowchart" && layoutMode === "auto" ? applyDagreAutoLayout(graph) : graph;
     const themeId = normalizeThemeId(stored.themeId);
     const customTheme = stored.customTheme ? normalizeEditorTheme(stored.customTheme) : null;
+    const resolvedGraph = loaded.editableKind === "flowchart" && layoutMode === "auto"
+      ? applyDagreAutoLayout(graph, { spec: nodeGeometrySpecForTheme(themeId, customTheme) })
+      : graph;
     const viewFilters = normalizeViewFilters(stored.viewFilters, { showGrid: stored.showGrid, showEdges: stored.showEdges });
     const preferences = normalizeEditorPreferences(stored.preferences);
     const projectWorkspace = normalizeProjectWorkspace(stored.projectWorkspace);
@@ -287,9 +311,11 @@ export function loadInitialState() {
       fileRef: stored.fileRef || null,
       recentFiles,
       projectWorkspace,
+      explorerTreeState,
       lastSavedDocument: stored.lastSavedDocument || "",
       themeId,
       customTheme,
+      editorSession: normalizeEditorDocumentSession(stored.editorSession),
       preferences
     };
   } catch {
@@ -311,9 +337,11 @@ export function loadInitialState() {
       fileRef: null,
       recentFiles: [] as RecentFileEntry[],
       projectWorkspace: null,
+      explorerTreeState: EMPTY_EXPLORER_TREE_STATE,
       lastSavedDocument: "",
       themeId: DEFAULT_EDITOR_THEME.id,
       customTheme: null,
+      editorSession: null,
       preferences: fallbackPreferences
     };
   }
@@ -338,10 +366,16 @@ export function serializableRuntimeFileRef(file: RuntimeFileRef | null): Runtime
   if (!file) return null;
   return {
     name: file.name,
-    ...(file.path ? { path: file.path } : {})
+    ...(file.path ? { path: file.path } : {}),
+    ...(file.revision ? { revision: file.revision } : {})
   };
 }
 
 export function normalizeThemeId(value: unknown): EditorThemeId {
   return isBuiltInThemeId(value) || value === "custom" ? value : DEFAULT_EDITOR_THEME.id;
+}
+
+export function nodeGeometrySpecForTheme(themeId: EditorThemeId, customTheme: EditorTheme | null) {
+  const compiled = compileEditorTheme(resolveEditorTheme(themeId, customTheme));
+  return themedNodeGeometrySpec(compiled.geometry.node, compiled.specialNode, compiled.typography.tableNode.cell);
 }

@@ -2,10 +2,8 @@
 
 import { CursorPointer as MousePointer2, PathArrow } from "iconoir-react/regular";
 
-import { Button } from "@/components/ui/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { EditorIconButton, EditorToolbarGroup } from "@/features/mermaid-editor/components/editor-ui";
 import type { EditorMode } from "@/features/mermaid-editor/lib/editor-types";
-import { cn } from "@/lib/utils";
 
 type ToolModeBarProps = {
   mode: EditorMode;
@@ -19,31 +17,25 @@ const tools = [
 
 export function ToolModeBar({ mode, onModeChange }: ToolModeBarProps) {
   return (
-    <div className="flex items-center gap-1">
+    <EditorToolbarGroup>
       {tools.map((tool) => {
         const Icon = tool.icon;
         const active = mode === tool.mode;
 
         return (
-          <Tooltip key={tool.mode}>
-            <TooltipTrigger asChild>
-              <Button
+          <EditorIconButton
+                key={tool.mode}
                 type="button"
-                size="icon"
-                variant={active ? "default" : "ghost"}
-                className={cn("size-8", active ? "text-background hover:text-background" : "text-icon hover:text-icon")}
+                context="toolbar"
+                label={`${tool.label}模式`}
+                tooltipSide="bottom"
+                pressed={active}
                 onClick={() => onModeChange(tool.mode)}
-                aria-label={`${tool.label}模式`}
               >
-                <Icon className="size-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom">
-              {tool.label} ({tool.shortcut})
-            </TooltipContent>
-          </Tooltip>
+                <Icon />
+          </EditorIconButton>
         );
       })}
-    </div>
+    </EditorToolbarGroup>
   );
 }

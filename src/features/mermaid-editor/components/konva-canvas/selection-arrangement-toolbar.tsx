@@ -10,9 +10,8 @@ import {
   CompAlignTop
 } from "iconoir-react/regular";
 
-import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { EditorIconButton, EditorToolbar, EditorToolbarGroup } from "@/features/mermaid-editor/components/editor-ui";
 import { selectionBounds, type AlignmentRect } from "@/features/mermaid-editor/lib/alignment-guides";
 import {
   NODE_ALIGNMENT_OPERATIONS,
@@ -91,35 +90,34 @@ export function SelectionArrangementToolbar({
   const spacingDisabled = rects.length < 3;
 
   return (
-    <div
+    <EditorToolbar
       ref={toolbarRef}
-      role="toolbar"
       aria-label="节点排布"
-      className="absolute flex max-w-[calc(100%-16px)] items-center gap-1 overflow-x-auto rounded-md border bg-card/95 p-1 text-foreground shadow-lg backdrop-blur"
+      className="scrollbar-hidden absolute max-w-[calc(100%-16px)] overflow-x-auto text-foreground"
       style={{ left: position.left, top: position.top, zIndex: OVERLAY_Z_INDEX.workspaceBase }}
       onPointerDown={(event) => event.stopPropagation()}
       onClick={(event) => event.stopPropagation()}
       data-editor-floating-menu-ignore
       data-floating-panel-drag-exclude
     >
-      <div role="group" aria-label="对齐" className="flex shrink-0 items-center gap-1">
+      <EditorToolbarGroup aria-label="对齐" className="shrink-0">
         {NODE_ALIGNMENT_OPERATIONS.map((operation) => (
           <ArrangementButton key={operation} operation={operation} onArrange={onArrange}>
             {ALIGNMENT_ICONS[operation]}
           </ArrangementButton>
         ))}
-      </div>
+      </EditorToolbarGroup>
 
       <Separator orientation="vertical" className="mx-0.5 h-6" />
 
-      <div role="group" aria-label="间距" className="flex shrink-0 items-center gap-1">
+      <EditorToolbarGroup aria-label="间距" className="shrink-0">
         {NODE_SPACING_OPERATIONS.map((operation) => (
           <ArrangementButton key={operation} operation={operation} disabled={spacingDisabled} onArrange={onArrange}>
             {SPACING_ICONS[operation]}
           </ArrangementButton>
         ))}
-      </div>
-    </div>
+      </EditorToolbarGroup>
+    </EditorToolbar>
   );
 }
 
@@ -186,22 +184,16 @@ function ArrangementButton({
   const label = nodeArrangementLabel(operation);
 
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Button
-          type="button"
-          size="icon"
-          variant="ghost"
-          className="size-8 shrink-0 text-icon hover:text-icon"
-          aria-label={label}
-          disabled={disabled}
-          onClick={() => onArrange(operation)}
-        >
-          {children}
-        </Button>
-      </TooltipTrigger>
-      <TooltipContent side="top">{label}</TooltipContent>
-    </Tooltip>
+    <EditorIconButton
+      type="button"
+      context="toolbar"
+      label={label}
+      tooltipSide="top"
+      disabled={disabled}
+      onClick={() => onArrange(operation)}
+    >
+      {children}
+    </EditorIconButton>
   );
 }
 

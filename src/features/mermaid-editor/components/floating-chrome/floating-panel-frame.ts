@@ -60,7 +60,7 @@ export function initialFloatingPanelFrame({
 export function isDragExcluded(target: Element) {
   return Boolean(
     target.closest(
-      "button,a,input,textarea,select,[contenteditable='true'],[role='button'],[data-floating-panel-drag-exclude]"
+      "button,a,input,textarea,select,[contenteditable='true'],[role='button'],[data-floating-panel-drag-exclude],[data-window-titlebar-drag-exclude]"
     )
   );
 }

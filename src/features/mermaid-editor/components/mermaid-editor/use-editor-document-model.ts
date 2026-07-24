@@ -1,6 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
-import { deriveDagreAutoLayoutResult } from "@/features/mermaid-editor/lib/canvas-auto-layout";
 import { serializeCanvasDocument, type CanvasDocument } from "@/features/mermaid-editor/lib/canvas-document";
 import { type DocumentKind } from "@/features/mermaid-editor/lib/document-kind";
 import { emptySelection } from "@/features/mermaid-editor/lib/editor-actions";
@@ -63,6 +62,16 @@ export function useEditorDocumentModel({ initial, runtime }: UseEditorDocumentMo
   const [projectBusy, setProjectBusy] = useState(false);
   const [lastSavedDocument, setLastSavedDocument] = useState(initial.lastSavedDocument);
   const [imageDisplaySrcBySrc, setImageDisplaySrcBySrc] = useState<Record<string, string>>({});
+  const [imageAssetRevision, setImageAssetRevision] = useState(0);
+  const documentGenerationRef = useRef(0);
+
+  function beginDocumentSession() {
+    documentGenerationRef.current += 1;
+  }
+
+  function refreshImageAssets() {
+    setImageAssetRevision((current) => current + 1);
+  }
 
   const currentDocument = useMemo(
     () => {
@@ -81,11 +90,15 @@ export function useEditorDocumentModel({ initial, runtime }: UseEditorDocumentMo
   );
   const hiddenViewFilters = useMemo(() => hiddenFilterCount(viewFilters), [viewFilters]);
   const projectFiles = useMemo(() => projectWorkspace?.files || [], [projectWorkspace]);
-  const mermaidEdgeRoutes = useMemo(
-    () => (edgeRouting === "mermaid" ? deriveDagreAutoLayoutResult(graph).edgeRoutes : []),
-    [edgeRouting, graph]
-  );
   const terminalCwd = useMemo(() => projectWorkspace?.rootPath || parentDirectoryPath(fileRef?.path), [fileRef?.path, projectWorkspace?.rootPath]);
+  const terminalContextKey = useMemo(
+    () => projectWorkspace?.rootPath
+      ? `project:${projectWorkspace.rootPath}`
+      : terminalCwd
+        ? `directory:${terminalCwd}`
+        : "scratch",
+    [projectWorkspace?.rootPath, terminalCwd]
+  );
   const isDirty = !lastSavedDocument || currentDocument !== lastSavedDocument;
   const isCanvasEditable = documentKind === "mermaid" && editableKind === "flowchart";
   const canvasViewTooltip = isCanvasEditable ? "无限画布" : `${diagramTypeLabel(diagramType)} 仅支持渲染`;
@@ -107,7 +120,11 @@ export function useEditorDocumentModel({ initial, runtime }: UseEditorDocumentMo
     void Promise.all(
       assetSources.map(async (src) => {
         try {
-          return [src, await runtime.resolveImageAssetSrc(fileRef, src)] as const;
+          const displaySrc = await runtime.resolveImageAssetSrc(fileRef, src);
+          const revisionedSrc = imageAssetRevision > 0 && displaySrc.startsWith("mmm-asset:")
+            ? `${displaySrc}${displaySrc.includes("?") ? "&" : "?"}revision=${imageAssetRevision}`
+            : displaySrc;
+          return [src, revisionedSrc] as const;
         } catch {
           return [src, src] as const;
         }
@@ -119,7 +136,7 @@ export function useEditorDocumentModel({ initial, runtime }: UseEditorDocumentMo
     return () => {
       disposed = true;
     };
-  }, [fileRef, graph.nodes, runtime]);
+  }, [fileRef, graph.nodes, imageAssetRevision, runtime]);
 
   return {
     documentKind,
@@ -172,13 +189,16 @@ export function useEditorDocumentModel({ initial, runtime }: UseEditorDocumentMo
     setProjectBusy,
     lastSavedDocument,
     setLastSavedDocument,
+    documentGenerationRef,
+    beginDocumentSession,
+    refreshImageAssets,
     imageDisplaySrcBySrc,
     currentDocument,
     previewSource,
     hiddenViewFilters,
     projectFiles,
-    mermaidEdgeRoutes,
     terminalCwd,
+    terminalContextKey,
     isDirty,
     isCanvasEditable,
     canvasViewTooltip

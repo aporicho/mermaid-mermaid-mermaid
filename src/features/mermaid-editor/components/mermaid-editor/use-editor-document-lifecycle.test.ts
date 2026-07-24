@@ -27,10 +27,18 @@ import type {
   ViewportState
 } from "@/features/mermaid-editor/lib/editor-types";
 import { DEFAULT_EDGE_ROUTING, DEFAULT_LAYOUT_MODE } from "@/features/mermaid-editor/lib/editor-types";
-import type { EditorTheme, EditorThemeId } from "@/features/mermaid-editor/lib/editor-theme";
+import { DEFAULT_EDITOR_THEME, type EditorTheme, type EditorThemeId } from "@/features/mermaid-editor/lib/editor-theme";
 import type { ProjectWorkspace } from "@/features/mermaid-editor/lib/project-workspace";
+import { EMPTY_EXPLORER_TREE_STATE, type StoredExplorerTreeState } from "@/features/mermaid-editor/lib/explorer-tree-state";
 import { DEFAULT_VIEW_FILTERS, type ViewFilters } from "@/features/mermaid-editor/lib/view-filters";
 import type { WorkspaceView } from "@/features/mermaid-editor/lib/workspace-view";
+import {
+  createEditorDocumentBuffer,
+  createEmptyEditorDocumentSession,
+  createFileDocumentIdentity,
+  createUntitledDocumentIdentity,
+  upsertEditorDocumentBuffer
+} from "@/features/mermaid-editor/lib/editor-document-session";
 
 type LifecycleState = {
   documentKind: DocumentKind;
@@ -53,6 +61,7 @@ type LifecycleState = {
   fileRef: RuntimeFileRef | null;
   recentFiles: RecentFileEntry[];
   projectWorkspace: ProjectWorkspace | null;
+  explorerTreeState: StoredExplorerTreeState;
   lastSavedDocument: string;
   fileWorkflowError: FileWorkflowError | null;
   themeId: EditorThemeId;
@@ -83,6 +92,7 @@ function createLifecycleHarness() {
     fileRef: null,
     recentFiles: [],
     projectWorkspace: null,
+    explorerTreeState: EMPTY_EXPLORER_TREE_STATE,
     lastSavedDocument: "",
     fileWorkflowError: null,
     themeId: "warm-paper",
@@ -93,6 +103,7 @@ function createLifecycleHarness() {
   const isDirtyRef = { current: true };
   const syncedFiles: (RuntimeFileRef | null)[] = [];
   const persistedDrafts: StoredEditorDraftOverrides[] = [];
+  let editorSession = createEmptyEditorDocumentSession("test-window");
 
   function setState<K extends keyof LifecycleState>(key: K) {
     return (next: LifecycleState[K] | ((current: LifecycleState[K]) => LifecycleState[K])) => {
@@ -126,7 +137,9 @@ function createLifecycleHarness() {
     setFileRef: setState("fileRef"),
     setRecentFiles: setState("recentFiles"),
     setProjectWorkspace: setState("projectWorkspace"),
+    setExplorerTreeState: setState("explorerTreeState"),
     setLastSavedDocument: setState("lastSavedDocument"),
+    beginDocumentSession: () => {},
     setFileWorkflowError: setState("fileWorkflowError"),
     setThemeId: setState("themeId"),
     setCustomTheme: setState("customTheme"),
@@ -139,7 +152,27 @@ function createLifecycleHarness() {
     persistStoredEditorDraft: async (draft = {}) => {
       persistedDrafts.push(draft);
     },
-    recordRecentAction: () => {}
+    recordRecentAction: () => {},
+    activateDocumentBuffer: (input) => {
+      const identity = input.fileRef?.path
+        ? createFileDocumentIdentity(input.fileRef.path)
+        : createUntitledDocumentIdentity(input.bufferId || "active");
+      const buffer = createEditorDocumentBuffer({ ...input, identity });
+      editorSession = upsertEditorDocumentBuffer(editorSession, buffer, { activate: true });
+      return buffer;
+    },
+    beginUntitledDocumentBuffer: (input) => {
+      const buffer = createEditorDocumentBuffer({
+        ...input,
+        identity: createUntitledDocumentIdentity(`untitled-${editorSession.buffers.length + 1}`)
+      });
+      editorSession = upsertEditorDocumentBuffer(editorSession, buffer, { activate: true });
+      return buffer;
+    },
+    replaceEditorDocumentSession: (session) => {
+      editorSession = session;
+      return session;
+    }
   });
 
   return { lifecycle, state, isDirtyRef, syncedFiles, persistedDrafts };
@@ -176,6 +209,35 @@ flowchart LR
     expect(state.themeId).toBe("warm-paper");
     expect(state.customTheme).toBeNull();
     expect(state.lastSavedDocument).not.toContain('"theme"');
+  });
+
+  it("restores automatic layout with the stored theme geometry", () => {
+    const { lifecycle, state } = createLifecycleHarness();
+    const customTheme: EditorTheme = structuredClone(DEFAULT_EDITOR_THEME);
+    customTheme.id = "custom";
+    customTheme.name = "Large cards";
+    customTheme.specialNode.markdownDocument.height = 400;
+    const source = `flowchart TD
+  T[Notes]
+  B[Below]
+  T --> B
+  click T "notes.md" "Open notes"`;
+
+    lifecycle.applyStoredEditorState({
+      documentKind: "mermaid",
+      source,
+      viewport: { x: 160, y: 90, scale: 1 },
+      leftCollapsed: false,
+      rightCollapsed: false,
+      layoutMode: "auto",
+      themeId: "custom",
+      customTheme
+    });
+
+    const card = state.graph.nodes.find((node) => node.id === "T")!;
+    const below = state.graph.nodes.find((node) => node.id === "B")!;
+    expect(state.themeId).toBe("custom");
+    expect(below.y - card.y).toBeGreaterThan(500);
   });
 
   it("opens Markdown documents into the Markdown workspace", () => {

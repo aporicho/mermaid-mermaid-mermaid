@@ -1,29 +1,29 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ButtonHTMLAttributes, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ButtonHTMLAttributes } from "react";
 import { Terminal as XtermTerminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import "@xterm/xterm/css/xterm.css";
-import { Erase, Restart, Terminal as TerminalIcon, Xmark } from "iconoir-react/regular";
+import { Erase, Restart, Terminal as TerminalIcon } from "iconoir-react/regular";
 
-import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { EditorIconButton } from "@/features/mermaid-editor/components/editor-ui";
+import { WorkspaceWindowHeader } from "@/features/mermaid-editor/components/floating-chrome";
 import type { EditorRuntime, RuntimeTerminalSession, RuntimeTerminalShellOption } from "@/features/mermaid-editor/lib/editor-runtime";
-import { EDITOR_CHROME_CLASSES } from "@/features/mermaid-editor/lib/editor-chrome";
 import type { EditorTheme, XtermThemeTokens } from "@/features/mermaid-editor/lib/editor-theme";
 import { cn } from "@/lib/utils";
 
 type TerminalPanelProps = {
   runtime: EditorRuntime;
   cwd?: string;
+  contextKey: string;
+  visible: boolean;
   theme: EditorTheme;
   terminalTheme: XtermThemeTokens;
-  onClose: () => void;
   onStatus: (message: string) => void;
-  windowControls?: ReactNode;
   className?: string;
 };
 
-export function TerminalPanel({ runtime, cwd, theme, terminalTheme, onClose, onStatus, windowControls, className }: TerminalPanelProps) {
+export function TerminalPanel({ runtime, cwd, contextKey, visible, theme, terminalTheme, onStatus, className }: TerminalPanelProps) {
+  const terminalTypography = theme.typography.terminal.content;
   const containerRef = useRef<HTMLDivElement | null>(null);
   const terminalRef = useRef<XtermTerminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
@@ -31,13 +31,20 @@ export function TerminalPanel({ runtime, cwd, theme, terminalTheme, onClose, onS
   const resizeFrameRef = useRef<number | null>(null);
   const runtimeRef = useRef(runtime);
   const cwdRef = useRef(cwd);
+  const contextKeyRef = useRef(contextKey);
+  const visibleRef = useRef(visible);
   const shellIdRef = useRef("default");
   const onStatusRef = useRef(onStatus);
   const openSessionRef = useRef<() => Promise<void>>(async () => undefined);
+  const initializedRef = useRef(false);
+  const openingRef = useRef(false);
+  const sessionGenerationRef = useRef(0);
   const initialOptionsRef = useRef({
-    fontFamily: theme.font.familyMono,
-    fontSize: theme.font.sizeTerminal,
-    lineHeight: Math.max(1, theme.font.lineHeightTerminal / theme.font.sizeTerminal),
+    fontFamily: terminalTypography.family,
+    fontSize: terminalTypography.fontSize,
+    fontWeight: terminalTypography.fontWeight,
+    letterSpacing: terminalTypography.letterSpacing,
+    lineHeight: Math.max(1, terminalTypography.lineHeight / terminalTypography.fontSize),
     terminalTheme
   });
   const [session, setSession] = useState<RuntimeTerminalSession | null>(null);
@@ -46,11 +53,12 @@ export function TerminalPanel({ runtime, cwd, theme, terminalTheme, onClose, onS
   const [busy, setBusy] = useState(false);
 
   const lineHeightRatio = useMemo(
-    () => Math.max(1, theme.font.lineHeightTerminal / theme.font.sizeTerminal),
-    [theme.font.lineHeightTerminal, theme.font.sizeTerminal]
+    () => Math.max(1, terminalTypography.lineHeight / terminalTypography.fontSize),
+    [terminalTypography.fontSize, terminalTypography.lineHeight]
   );
 
   const scheduleFitAndResize = useCallback(() => {
+    if (!visibleRef.current) return;
     if (resizeFrameRef.current) window.cancelAnimationFrame(resizeFrameRef.current);
     resizeFrameRef.current = window.requestAnimationFrame(() => {
       resizeFrameRef.current = null;
@@ -72,11 +80,13 @@ export function TerminalPanel({ runtime, cwd, theme, terminalTheme, onClose, onS
   const openSession = useCallback(async () => {
     const terminal = terminalRef.current;
     const fitAddon = fitAddonRef.current;
-    if (!terminal || !fitAddon) return;
+    if (!terminal || !fitAddon || openingRef.current || sessionRef.current) return;
+    const generation = sessionGenerationRef.current;
+    openingRef.current = true;
     setBusy(true);
     try {
       terminal.reset();
-      fitAddon.fit();
+      if (visibleRef.current) fitAddon.fit();
       const result = await runtimeRef.current.openTerminal({
         cwd: cwdRef.current,
         shellId: shellIdRef.current,
@@ -84,8 +94,13 @@ export function TerminalPanel({ runtime, cwd, theme, terminalTheme, onClose, onS
         rows: terminal.rows || 24
       });
       if (result.status === "unsupported") {
+        if (generation !== sessionGenerationRef.current) return;
         terminal.write(`${result.message}\r\n`);
         onStatusRef.current(result.message);
+        return;
+      }
+      if (generation !== sessionGenerationRef.current) {
+        await runtimeRef.current.closeTerminal(result.session.sessionId).catch(() => undefined);
         return;
       }
       sessionRef.current = result.session;
@@ -93,7 +108,11 @@ export function TerminalPanel({ runtime, cwd, theme, terminalTheme, onClose, onS
       onStatusRef.current("终端已启动。");
       scheduleFitAndResize();
     } finally {
+      openingRef.current = false;
       setBusy(false);
+      if (generation !== sessionGenerationRef.current && visibleRef.current && initializedRef.current && !sessionRef.current) {
+        void openSessionRef.current();
+      }
     }
   }, [scheduleFitAndResize]);
 
@@ -108,6 +127,26 @@ export function TerminalPanel({ runtime, cwd, theme, terminalTheme, onClose, onS
   }, [cwd]);
 
   useEffect(() => {
+    visibleRef.current = visible;
+    if (!visible) return;
+    scheduleFitAndResize();
+    if (initializedRef.current && !sessionRef.current) void openSessionRef.current();
+  }, [scheduleFitAndResize, visible]);
+
+  useEffect(() => {
+    cwdRef.current = cwd;
+    if (contextKeyRef.current === contextKey) return;
+    contextKeyRef.current = contextKey;
+    sessionGenerationRef.current += 1;
+    const activeSession = sessionRef.current;
+    sessionRef.current = null;
+    setSession(null);
+    terminalRef.current?.reset();
+    if (activeSession) void runtimeRef.current.closeTerminal(activeSession.sessionId).catch(() => undefined);
+    if (visibleRef.current && initializedRef.current) void openSessionRef.current();
+  }, [contextKey, cwd]);
+
+  useEffect(() => {
     onStatusRef.current = onStatus;
   }, [onStatus]);
 
@@ -115,11 +154,19 @@ export function TerminalPanel({ runtime, cwd, theme, terminalTheme, onClose, onS
     const terminal = terminalRef.current;
     if (!terminal) return;
     terminal.options.theme = terminalTheme;
-    terminal.options.fontFamily = theme.font.familyMono;
-    terminal.options.fontSize = theme.font.sizeTerminal;
+    terminal.options.fontFamily = terminalTypography.family;
+    terminal.options.fontSize = terminalTypography.fontSize;
+    terminal.options.fontWeight = terminalTypography.fontWeight;
+    terminal.options.letterSpacing = terminalTypography.letterSpacing;
     terminal.options.lineHeight = lineHeightRatio;
+    if (document.fonts?.load) {
+      void document.fonts.load(`${terminalTypography.fontWeight} ${terminalTypography.fontSize}px ${terminalTypography.family}`, "中Aa").then(() => {
+        terminal.refresh(0, Math.max(0, terminal.rows - 1));
+        scheduleFitAndResize();
+      }).catch(() => undefined);
+    }
     scheduleFitAndResize();
-  }, [lineHeightRatio, scheduleFitAndResize, terminalTheme, theme.font.familyMono, theme.font.sizeTerminal]);
+  }, [lineHeightRatio, scheduleFitAndResize, terminalTheme, terminalTypography]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -135,6 +182,8 @@ export function TerminalPanel({ runtime, cwd, theme, terminalTheme, onClose, onS
       cursorStyle: "block",
       fontFamily: initialOptionsRef.current.fontFamily,
       fontSize: initialOptionsRef.current.fontSize,
+      fontWeight: initialOptionsRef.current.fontWeight,
+      letterSpacing: initialOptionsRef.current.letterSpacing,
       lineHeight: initialOptionsRef.current.lineHeight,
       scrollback: 5000,
       theme: initialOptionsRef.current.terminalTheme
@@ -175,6 +224,7 @@ export function TerminalPanel({ runtime, cwd, theme, terminalTheme, onClose, onS
         setSession(null);
         terminal.write(`\r\n终端已退出${typeof event.exitCode === "number" ? `，退出码 ${event.exitCode}` : ""}。\r\n`);
       });
+      initializedRef.current = true;
       await openSessionRef.current();
     }
 
@@ -184,6 +234,8 @@ export function TerminalPanel({ runtime, cwd, theme, terminalTheme, onClose, onS
 
     return () => {
       disposed = true;
+      initializedRef.current = false;
+      sessionGenerationRef.current += 1;
       if (resizeFrameRef.current) window.cancelAnimationFrame(resizeFrameRef.current);
       resizeObserver.disconnect();
       dataDisposable.dispose();
@@ -199,10 +251,12 @@ export function TerminalPanel({ runtime, cwd, theme, terminalTheme, onClose, onS
   }, [scheduleFitAndResize]);
 
   async function restartSession() {
+    sessionGenerationRef.current += 1;
     const activeSession = sessionRef.current;
     if (activeSession) await runtimeRef.current.closeTerminal(activeSession.sessionId).catch(() => undefined);
     sessionRef.current = null;
     setSession(null);
+    terminalRef.current?.reset();
     await openSession();
   }
 
@@ -219,21 +273,17 @@ export function TerminalPanel({ runtime, cwd, theme, terminalTheme, onClose, onS
 
   return (
     <section
-      className={cn("terminal-panel grid h-full min-h-0 w-full grid-rows-[48px_minmax(0,1fr)] overflow-hidden bg-card/95", className)}
+      className={cn("terminal-panel flex h-full min-h-0 w-full flex-col overflow-hidden bg-card/[var(--ui-surface-opacity)]", className)}
       data-editor-floating-menu-ignore
     >
-      <header data-floating-panel-drag-handle className="flex min-w-0 cursor-grab items-center justify-between border-b px-3 active:cursor-grabbing">
-        <div className="flex min-w-0 items-center gap-2">
-          <TerminalIcon className="size-4 shrink-0 text-icon" />
-          <div className="min-w-0">
-            <div className="text-xs font-medium text-foreground">终端</div>
-            <div className="truncate font-mono text-[11px] leading-4 text-muted-foreground">{session?.cwd || cwd || "桌面终端"}</div>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
+      <WorkspaceWindowHeader
+        icon={<TerminalIcon className="size-4 shrink-0 text-icon" />}
+        title={<span className="terminal-heading">终端</span>}
+        titleTooltip={session?.cwd || cwd || "桌面终端"}
+        actions={<>
           {shellOptions.length > 1 ? (
             <Select value={selectedShellId} onValueChange={(value) => void changeShell(value)} disabled={busy || runtime.kind !== "desktop"}>
-              <SelectTrigger className="h-8 w-[132px] rounded-full bg-background/70 px-3 text-xs">
+              <SelectTrigger className="w-[132px] bg-background/70">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -244,25 +294,16 @@ export function TerminalPanel({ runtime, cwd, theme, terminalTheme, onClose, onS
                 ))}
               </SelectContent>
             </Select>
-          ) : (
-            <span className="max-w-[112px] truncate rounded-full border bg-background/70 px-3 py-1 font-mono text-[11px] text-muted-foreground">
-              {session?.shellLabel || shellOptions[0]?.label || "默认"}
-            </span>
-          )}
+          ) : null}
           <PanelIconButton label="重启终端" disabled={busy || runtime.kind !== "desktop"} onClick={() => void restartSession()}>
             <Restart />
           </PanelIconButton>
           <PanelIconButton label="清空终端" onClick={clearTerminal}>
             <Erase />
           </PanelIconButton>
-          {windowControls ?? (
-            <PanelIconButton label="关闭终端" onClick={onClose}>
-              <Xmark />
-            </PanelIconButton>
-          )}
-        </div>
-      </header>
-      <div className="min-h-0 p-2" style={{ backgroundColor: terminalTheme.background, color: terminalTheme.foreground }}>
+        </>}
+      />
+      <div className="min-h-0 flex-1 p-2" style={{ backgroundColor: terminalTheme.background, color: terminalTheme.foreground }}>
         <div ref={containerRef} className={cn("h-full min-h-0 overflow-hidden rounded-sm", runtime.kind !== "desktop" && "opacity-80")} />
       </div>
     </section>
@@ -270,14 +311,5 @@ export function TerminalPanel({ runtime, cwd, theme, terminalTheme, onClose, onS
 }
 
 function PanelIconButton({ label, children, ...props }: ButtonHTMLAttributes<HTMLButtonElement> & { label: string }) {
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Button size="icon" variant="ghost" className={EDITOR_CHROME_CLASSES.panelIconButton} aria-label={label} {...props}>
-          {children}
-        </Button>
-      </TooltipTrigger>
-      <TooltipContent side="top">{label}</TooltipContent>
-    </Tooltip>
-  );
+  return <EditorIconButton context="panel" label={label} tooltipSide="top" {...props}>{children}</EditorIconButton>;
 }

@@ -2,6 +2,8 @@ import type { HitTarget } from "@/features/mermaid-editor/lib/canvas-interaction
 
 export const CANVAS_HIT_NAMES = {
   node: "canvas-node",
+  tableCell: "canvas-table-cell",
+  tableHeader: "canvas-table-header",
   nodeAnchor: "canvas-node-anchor",
   subgraph: "canvas-subgraph",
   subgraphTitle: "canvas-subgraph-title",
@@ -23,6 +25,14 @@ export function nodeHitId(nodeId: string) {
 
 export function nodeAnchorHitId(nodeId: string, anchor: string) {
   return `node-anchor:${encodePart(nodeId)}:${encodePart(anchor)}`;
+}
+
+export function tableCellHitId(nodeId: string, rowId: string, columnId: string) {
+  return `table-cell:${encodePart(nodeId)}:${encodePart(rowId)}:${encodePart(columnId)}`;
+}
+
+export function tableHeaderHitId(nodeId: string, columnId: string) {
+  return `table-header:${encodePart(nodeId)}:${encodePart(columnId)}`;
 }
 
 export function subgraphHitId(subgraphId: string) {
@@ -63,7 +73,7 @@ export function resolveKonvaHitTarget(target: HitNode | null | undefined, stage:
 
 export function parseHitTargetId(value: string): HitTarget | null {
   const parts = value.split(":");
-  const [kind, first, second] = parts;
+  const [kind, first, second, third] = parts;
 
   if (kind === "node" && first) {
     return { kind: "node", id: decodePart(first) };
@@ -71,6 +81,14 @@ export function parseHitTargetId(value: string): HitTarget | null {
 
   if (kind === "node-anchor" && first && second) {
     return { kind: "nodeAnchor", nodeId: decodePart(first), anchor: decodePart(second) };
+  }
+
+  if (kind === "table-cell" && first && second && third) {
+    return { kind: "tableCell", nodeId: decodePart(first), rowId: decodePart(second), columnId: decodePart(third) };
+  }
+
+  if (kind === "table-header" && first && second) {
+    return { kind: "tableHeader", nodeId: decodePart(first), columnId: decodePart(second) };
   }
 
   if (kind === "subgraph" && first) {

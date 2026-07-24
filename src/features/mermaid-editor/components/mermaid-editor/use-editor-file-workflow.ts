@@ -12,7 +12,7 @@ import { useFileSaveWorkflow } from "./file-workflow/use-file-save-workflow";
 import { useProjectWorkspaceWorkflow } from "./file-workflow/use-project-workspace-workflow";
 import { useUnsavedFileSwitch } from "./file-workflow/use-unsaved-file-switch";
 
-export type { FileOpenSource, UnsavedPromptState } from "./file-workflow/types";
+export type { FileConflictChoice, FileConflictPromptState, FileOpenSource, UnsavedPromptState } from "./file-workflow/types";
 
 export function useEditorFileWorkflow(args: UseEditorFileWorkflowArgs) {
   const { setFileWorkflowError } = args;
@@ -38,7 +38,12 @@ export function useEditorFileWorkflow(args: UseEditorFileWorkflowArgs) {
   const {
     saveMermaidFile,
     saveMermaidFileAs,
-    saveMermaidFileAsResult
+    saveMermaidFileAsResult,
+    saveAllDocuments,
+    saveDocumentBufferById,
+    saveAutoSaveEligibleDocuments,
+    handleExternalDocumentChange,
+    resolveFileConflictPrompt
   } = useFileSaveWorkflow(args, {
     persistStoredEditorDraft: persistStoredEditorDraft as (overrides?: StoredEditorDraftOverrides) => Promise<void>,
     showFileWorkflowError,
@@ -50,8 +55,9 @@ export function useEditorFileWorkflow(args: UseEditorFileWorkflowArgs) {
     prepareFileSwitch,
     prepareWindowClose
   } = useUnsavedFileSwitch(args, {
+    persistStoredEditorDraft,
     persistDiscardedCloseDraft,
-    saveMermaidFile
+    saveAllDocuments
   });
 
   const {
@@ -97,6 +103,7 @@ export function useEditorFileWorkflow(args: UseEditorFileWorkflowArgs) {
   return {
     showFileWorkflowError,
     resolveUnsavedPrompt,
+    resolveFileConflictPrompt,
     prepareWindowClose,
     applyLoadedDocument,
     applyStoredEditorState,
@@ -118,6 +125,10 @@ export function useEditorFileWorkflow(args: UseEditorFileWorkflowArgs) {
     openProjectFile,
     saveMermaidFile,
     saveMermaidFileAs,
-    saveMermaidFileAsResult
+    saveMermaidFileAsResult,
+    saveAllDocuments,
+    saveDocumentBufferById,
+    saveAutoSaveEligibleDocuments,
+    handleExternalDocumentChange
   };
 }

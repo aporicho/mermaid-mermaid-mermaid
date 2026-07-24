@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import { applyDagreAutoLayout, deriveDagreAutoLayoutResult } from "@/features/mermaid-editor/lib/canvas-auto-layout";
 import type { MermaidGraph } from "@/features/mermaid-editor/lib/editor-types";
 import type { NodeGeometrySpec } from "@/features/mermaid-editor/lib/node-geometry";
+import { buildNodeGeometry, defaultNodeGeometrySpec } from "@/features/mermaid-editor/lib/node-geometry";
+import { createDefaultCanvasTableContent } from "@/features/mermaid-editor/lib/canvas-table-content";
 
 const spec: NodeGeometrySpec = {
   minChars: 4,
@@ -71,5 +73,29 @@ describe("applyDagreAutoLayout", () => {
       expect(Number.isFinite(route.labelPoint.x)).toBe(true);
       expect(Number.isFinite(route.labelPoint.y)).toBe(true);
     }
+  });
+
+  it("uses the provided active table geometry tokens in Dagre spacing", () => {
+    const table = createDefaultCanvasTableContent(2, 2);
+    const customSpec = defaultNodeGeometrySpec((value) => value.length * 10);
+    customSpec.table = {
+      ...customSpec.table!,
+      tokens: { ...customSpec.table!.tokens, minColumnWidth: 420, minRowHeight: 180, cellPaddingY: 40 }
+    };
+    const input: MermaidGraph = {
+      direction: "TD",
+      nodes: [
+        { id: "T", label: "Table", x: 0, y: 0, fill: "#fff", content: table },
+        { id: "B", label: "Below", x: 0, y: 0, fill: "#fff" }
+      ],
+      edges: [{ id: "T_B", from: "T", to: "B", label: "", style: "solid" }]
+    };
+    const result = applyDagreAutoLayout(input, { spec: customSpec });
+    const tableNode = result.nodes.find((node) => node.id === "T")!;
+    const below = result.nodes.find((node) => node.id === "B")!;
+    const tableFrame = buildNodeGeometry(tableNode, customSpec).frame;
+
+    expect(tableFrame.width).toBe(840);
+    expect(below.y).toBeGreaterThanOrEqual(tableNode.y + tableFrame.height + 120);
   });
 });

@@ -1,0 +1,205 @@
+// @vitest-environment jsdom
+
+import { act, useState } from "react";
+import { createRoot, type Root } from "react-dom/client";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import { useProjectFileHotReload } from "@/features/mermaid-editor/components/mermaid-editor/use-project-file-hot-reload";
+import type { EditorRuntime, RuntimeFileRef, RuntimeProjectFileChangeBatch } from "@/features/mermaid-editor/lib/editor-runtime";
+import type { DetachedHtmlWindow, DetachedImageWindow, DetachedMarkdownWindow } from "@/features/mermaid-editor/lib/workspace-panels";
+
+const workspace = {
+  rootName: "project",
+  rootPath: "/project",
+  files: [],
+  resources: [],
+  scannedAt: 1
+};
+
+describe("useProjectFileHotReload", () => {
+  let container: HTMLDivElement;
+  let root: Root;
+  let onChanges: ((batch: RuntimeProjectFileChangeBatch) => void) | undefined;
+
+  beforeEach(() => {
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    container = document.createElement("div");
+    document.body.appendChild(container);
+    root = createRoot(container);
+    onChanges = undefined;
+  });
+
+  afterEach(() => {
+    act(() => root.unmount());
+    container.remove();
+  });
+
+  it("routes changed documents through revision-aware external-change handling", async () => {
+    const handleExternalDocumentChange = vi.fn(async () => undefined);
+    const updateMarkdownPreviewFromText = vi.fn();
+    const runtime = createRuntime(async (path) => ({
+      status: "opened" as const,
+      file: { name: path.endsWith("floating.md") ? "floating.md" : "notes.md", path },
+      text: path.endsWith("floating.md") ? "# Floating disk" : "# Current disk"
+    }));
+
+    await act(async () => {
+      root.render(<Probe
+        runtime={runtime}
+        handleExternalDocumentChange={handleExternalDocumentChange}
+        updateMarkdownPreviewFromText={updateMarkdownPreviewFromText}
+      />);
+      await settle();
+    });
+
+    await act(async () => {
+      onChanges?.({
+        rootPath: "/project",
+        observedAt: 2,
+        changes: [
+          { directory: false, kind: "changed", path: "/project/notes.md" },
+          { directory: false, kind: "changed", path: "/project/floating.md" },
+          { directory: false, kind: "changed", path: "/project/index.html" }
+        ]
+      });
+      await settle();
+    });
+
+    expect(handleExternalDocumentChange).toHaveBeenCalledTimes(2);
+    expect(handleExternalDocumentChange).toHaveBeenCalledWith(expect.objectContaining({
+      status: "opened",
+      file: { name: "notes.md", path: "/project/notes.md" },
+      text: "# Current disk"
+    }));
+    expect(updateMarkdownPreviewFromText).toHaveBeenCalledWith("/project/notes.md", "# Current disk");
+    expect(updateMarkdownPreviewFromText).toHaveBeenCalledWith("/project/floating.md", "# Floating disk");
+    expect(container.querySelector("[data-window-value]")?.getAttribute("data-window-value")).toBe("# Floating local");
+    expect(container.querySelector("[data-html-revision]")?.getAttribute("data-html-revision")).toBe("1");
+    expect(runtime.setProjectFileWatchTargets).toHaveBeenCalledWith(expect.objectContaining({
+      rootPath: "/project",
+      extraPaths: expect.arrayContaining(["/project/notes.md", "/project/floating.md", "/project/index.html", "/project/image.png"])
+    }));
+  });
+
+  it("marks removed files missing and routes CSV/image changes to their consumers", async () => {
+    const markMarkdownPreviewMissing = vi.fn();
+    const reloadExternalCsvFiles = vi.fn(async () => undefined);
+    const refreshImageAssets = vi.fn();
+    const runtime = createRuntime(async () => ({ status: "cancelled" as const }));
+
+    await act(async () => {
+      root.render(<Probe
+        runtime={runtime}
+        markMarkdownPreviewMissing={markMarkdownPreviewMissing}
+        reloadExternalCsvFiles={reloadExternalCsvFiles}
+        refreshImageAssets={refreshImageAssets}
+      />);
+      await settle();
+    });
+
+    await act(async () => {
+      onChanges?.({
+        rootPath: "/project",
+        observedAt: 3,
+        changes: [
+          { directory: false, kind: "removed", path: "/project/notes.md" },
+          { directory: false, kind: "removed", path: "/project/floating.md" },
+          { directory: false, kind: "changed", path: "/project/table.csv" },
+          { directory: false, kind: "removed", path: "/project/image.png" }
+        ]
+      });
+      await settle();
+    });
+
+    expect(markMarkdownPreviewMissing).toHaveBeenCalledWith("/project/notes.md");
+    expect(markMarkdownPreviewMissing).toHaveBeenCalledWith("/project/floating.md");
+    expect(reloadExternalCsvFiles).toHaveBeenCalledWith(new Set(["/project/table.csv"]));
+    expect(refreshImageAssets).toHaveBeenCalledTimes(1);
+    expect(container.querySelector("[data-current-path]")?.getAttribute("data-current-path")).toBe("");
+    expect(container.querySelector("[data-window-missing]")?.getAttribute("data-window-missing")).toBe("true");
+    expect(container.querySelector("[data-image-revision]")?.getAttribute("data-image-revision")).toBe("1");
+    expect(container.querySelector("[data-image-missing]")?.getAttribute("data-image-missing")).toBe("true");
+  });
+
+  function createRuntime(openFilePath: EditorRuntime["openFilePath"]) {
+    return {
+      kind: "desktop",
+      openFilePath: vi.fn(openFilePath),
+      setProjectFileWatchTargets: vi.fn(async () => undefined),
+      listenForProjectFileChanges: vi.fn(async (handler: (batch: RuntimeProjectFileChangeBatch) => void) => {
+        onChanges = handler;
+        return () => undefined;
+      })
+    } as unknown as EditorRuntime;
+  }
+});
+
+function Probe({
+  runtime,
+  handleExternalDocumentChange = vi.fn(async () => undefined),
+  updateMarkdownPreviewFromText = vi.fn(),
+  markMarkdownPreviewMissing = vi.fn(),
+  reloadExternalCsvFiles = vi.fn(async () => undefined),
+  refreshImageAssets = vi.fn()
+}: {
+  runtime: EditorRuntime;
+  handleExternalDocumentChange?: (opened: Extract<Awaited<ReturnType<EditorRuntime["openFilePath"]>>, { status: "opened" }>) => Promise<unknown>;
+  updateMarkdownPreviewFromText?: (path: string, text: string) => void;
+  markMarkdownPreviewMissing?: (path: string) => void;
+  reloadExternalCsvFiles?: (paths: ReadonlySet<string> | readonly string[]) => Promise<void>;
+  refreshImageAssets?: () => void;
+}) {
+  const [fileRef, setFileRef] = useState<RuntimeFileRef | null>({ name: "notes.md", path: "/project/notes.md" });
+  const [windows, setWindows] = useState<DetachedMarkdownWindow[]>([{
+    id: "markdown:/project/floating.md",
+    file: { name: "floating.md", path: "/project/floating.md" },
+    title: "floating.md",
+    value: "# Floating local",
+    savedValue: "# Floating old"
+  }]);
+  const [htmlWindows, setHtmlWindows] = useState<DetachedHtmlWindow[]>([{
+    id: "html:/project/index.html",
+    file: { name: "index.html", path: "/project/index.html" },
+    title: "index.html",
+    url: "file:///project/index.html"
+  }]);
+  const [imageWindows, setImageWindows] = useState<DetachedImageWindow[]>([{
+    id: "image:/project/image.png",
+    file: { name: "image.png", path: "/project/image.png" },
+    title: "image.png"
+  }]);
+  useProjectFileHotReload({
+    runtime,
+    projectWorkspace: workspace,
+    fileRef,
+    detachedMarkdownWindows: windows,
+    setDetachedMarkdownWindows: setWindows,
+    detachedHtmlWindows: htmlWindows,
+    setDetachedHtmlWindows: setHtmlWindows,
+    detachedImageWindows: imageWindows,
+    setDetachedImageWindows: setImageWindows,
+    setFileRef,
+    setStatus: vi.fn(),
+    handleExternalDocumentChange,
+    refreshProjectWorkspace: vi.fn(async () => undefined),
+    reloadExternalCsvFiles,
+    updateMarkdownPreviewFromText,
+    markMarkdownPreviewMissing,
+    refreshImageAssets,
+    showFileWorkflowError: vi.fn()
+  });
+
+  return <div
+    data-current-path={fileRef?.path || ""}
+    data-window-value={windows[0]?.value || ""}
+    data-window-missing={String(Boolean(windows[0]?.missing))}
+    data-html-revision={String(htmlWindows[0]?.revision || 0)}
+    data-image-revision={String(imageWindows[0]?.revision || 0)}
+    data-image-missing={String(Boolean(imageWindows[0]?.missing))}
+  />;
+}
+
+async function settle() {
+  await Promise.resolve();
+  await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
+}

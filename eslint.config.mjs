@@ -13,7 +13,6 @@ export default [
       "node_modules/**",
       "out/**",
       "outputs/**",
-      "src-tauri/**",
       "*.tsbuildinfo",
       "package-lock.json"
     ]

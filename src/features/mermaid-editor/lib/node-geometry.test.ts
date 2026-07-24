@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { buildNodeGeometry, nodeIntersectsRect, pointInsideNodeFrame, type NodeGeometrySpec } from "@/features/mermaid-editor/lib/node-geometry";
+import { buildNodeGeometry, DEFAULT_NODE_GEOMETRY_TOKENS, nodeIntersectsRect, pointInsideNodeFrame, TABLE_LOADING_NODE_HEIGHT, TABLE_LOADING_NODE_WIDTH, themedNodeGeometrySpec, type NodeGeometrySpec } from "@/features/mermaid-editor/lib/node-geometry";
 import type { CanvasNode } from "@/features/mermaid-editor/lib/editor-types";
+import { DEFAULT_EDITOR_THEME } from "@/features/mermaid-editor/lib/editor-theme";
+import { createDefaultCanvasTableContent } from "@/features/mermaid-editor/lib/canvas-table-content";
 
 const spec: NodeGeometrySpec = {
   minChars: 4,
@@ -27,6 +29,37 @@ function expectPointClose(actual: { x: number; y: number }, expected: { x: numbe
 }
 
 describe("node geometry", () => {
+  it("uses stable table placeholder geometry while a CSV reference is loading", () => {
+    const geometry = buildNodeGeometry({
+      ...node,
+      action: { kind: "file", path: "data/report.csv", openMode: "app-window" }
+    }, spec);
+
+    expect(geometry.frame).toEqual({ x: 100, y: 80, width: TABLE_LOADING_NODE_WIDTH, height: TABLE_LOADING_NODE_HEIGHT });
+    expect(geometry.table).toBeUndefined();
+    expect(geometry.anchorsWorld.find((anchor) => anchor.key === "right")).toMatchObject({ x: 100 + TABLE_LOADING_NODE_WIDTH });
+  });
+
+  it("switches a CSV reference from placeholder geometry to injected table content", () => {
+    const content = createDefaultCanvasTableContent(2, 2);
+    const activeSpec = themedNodeGeometrySpec(DEFAULT_NODE_GEOMETRY_TOKENS, DEFAULT_EDITOR_THEME.specialNode, DEFAULT_EDITOR_THEME.typography.tableNode.cell);
+    const geometry = buildNodeGeometry({
+      ...node,
+      action: { kind: "file", path: "data/report.csv", openMode: "app-window" },
+      content
+    }, activeSpec);
+
+    expect(geometry.table).toBeDefined();
+    expect(geometry.frame.width).toBe(content.columns.reduce((total, column) => total + column.width, 0));
+    expect(geometry.frame.height).toBeGreaterThan(0);
+  });
+
+  it("keeps legacy content-backed table geometry compatible during migration", () => {
+    const activeSpec = themedNodeGeometrySpec(DEFAULT_NODE_GEOMETRY_TOKENS, DEFAULT_EDITOR_THEME.specialNode, DEFAULT_EDITOR_THEME.typography.tableNode.cell);
+    const geometry = buildNodeGeometry({ ...node, content: createDefaultCanvasTableContent(2, 2) }, activeSpec);
+    expect(geometry.table).toBeDefined();
+  });
+
   it("builds frame and text box from the same measured text width", () => {
     const geometry = buildNodeGeometry(node, spec);
 
@@ -35,16 +68,86 @@ describe("node geometry", () => {
     expect(geometry.routedRect).toEqual({ id: "node-a", x: 100, y: 80, width: 70, height: 36, shape: "rect" });
   });
 
+  it("uses active special-node tokens for link-card and Markdown geometry", () => {
+    const specialNode = {
+      ...DEFAULT_EDITOR_THEME.specialNode,
+      linkCard: {
+        ...DEFAULT_EDITOR_THEME.specialNode.linkCard,
+        width: 360,
+        inset: 20,
+        coverFallbackHeight: 240,
+        providerGap: 30,
+        titleGap: 10,
+        titleHeight: 60,
+        contentPaddingX: 18
+      },
+      markdownDocument: {
+        ...DEFAULT_EDITOR_THEME.specialNode.markdownDocument,
+        width: 410,
+        height: 260,
+        contentPaddingTop: 18,
+        contentPaddingRight: 24,
+        contentPaddingBottom: 26,
+        contentPaddingLeft: 20,
+        titleGap: 12
+      }
+    };
+    const activeSpec = themedNodeGeometrySpec(DEFAULT_NODE_GEOMETRY_TOKENS, specialNode, DEFAULT_EDITOR_THEME.typography.tableNode.cell);
+    const link = buildNodeGeometry({
+      ...node,
+      preview: { kind: "link-card", pluginId: "test", provider: "Provider", sourceUrl: "https://example.com", title: "Card", status: "ready" }
+    }, activeSpec);
+    const markdown = buildNodeGeometry({
+      ...node,
+      action: { kind: "file", path: "notes/theme.md", openMode: "app-window" }
+    }, activeSpec);
+
+    expect(link.frame).toEqual({ x: 100, y: 80, width: 360, height: 398 });
+    expect(link.textBox).toEqual({ x: 18, y: 316, width: 324, height: 60 });
+    expect(markdown.frame).toEqual({ x: 100, y: 80, width: 410, height: 260 });
+    expect(markdown.textBox).toEqual({ x: 20, y: 18, width: 366, height: 22 });
+  });
+
+  it("never creates negative text boxes from extreme special-node spacing", () => {
+    const specialNode = {
+      ...DEFAULT_EDITOR_THEME.specialNode,
+      linkCard: {
+        ...DEFAULT_EDITOR_THEME.specialNode.linkCard,
+        width: 120,
+        contentPaddingX: 64
+      },
+      markdownDocument: {
+        ...DEFAULT_EDITOR_THEME.specialNode.markdownDocument,
+        width: 160,
+        contentPaddingRight: 80,
+        contentPaddingLeft: 80,
+        titleGap: 64
+      }
+    };
+    const activeSpec = themedNodeGeometrySpec(DEFAULT_NODE_GEOMETRY_TOKENS, specialNode, DEFAULT_EDITOR_THEME.typography.tableNode.cell);
+    const link = buildNodeGeometry({
+      ...node,
+      preview: { kind: "link-card", pluginId: "test", provider: "Provider", sourceUrl: "https://example.com", title: "Card", status: "ready" }
+    }, activeSpec);
+    const markdown = buildNodeGeometry({
+      ...node,
+      action: { kind: "file", path: "notes/theme.md", openMode: "app-window" }
+    }, activeSpec);
+
+    expect(link.textBox.width).toBe(0);
+    expect(markdown.textBox.width).toBe(0);
+  });
+
   it("uses stable Markdown card geometry for drawing, anchors, and edge routing", () => {
     const geometry = buildNodeGeometry({
       ...node,
       action: { kind: "file", path: "docs/spec.md", openMode: "app-window" }
     }, spec);
 
-    expect(geometry.frame).toEqual({ x: 100, y: 80, width: 272, height: 144 });
-    expect(geometry.textBox).toEqual({ x: 60, y: 12, width: 200, height: 22 });
-    expect(geometry.routedRect).toEqual({ id: "node-a", x: 100, y: 80, width: 272, height: 144, shape: "rect" });
-    expect(geometry.anchorsWorld.find((anchor) => anchor.key === "right")).toEqual({ key: "right", kind: "edge-midpoint", x: 372, y: 152 });
+    expect(geometry.frame).toEqual({ x: 100, y: 80, width: 280, height: 396 });
+    expect(geometry.textBox).toEqual({ x: 12, y: 12, width: 256, height: 22 });
+    expect(geometry.routedRect).toEqual({ id: "node-a", x: 100, y: 80, width: 280, height: 396, shape: "rect" });
+    expect(geometry.anchorsWorld.find((anchor) => anchor.key === "right")).toEqual({ key: "right", kind: "edge-midpoint", x: 380, y: 278 });
   });
 
   it("keeps anchor points in local node coordinates", () => {

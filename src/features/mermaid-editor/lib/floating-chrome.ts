@@ -2,7 +2,8 @@ import { OVERLAY_Z_INDEX } from "@/lib/overlay-layers";
 
 export const FLOATING_CHROME_HIDE_DELAY_MS = 500;
 export const FLOATING_PANEL_EDGE_MARGIN_PX = 12;
-export const FLOATING_PANEL_MAXIMIZED_TOP_INSET_PX = 64;
+export const FLOATING_PANEL_MIN_VISIBLE_TITLE_PX = 48;
+export const FLOATING_PANEL_MIN_VISIBLE_TOP_EDGE_PX = 8;
 export const FLOATING_WORKSPACE_PANEL_BASE_Z_INDEX = OVERLAY_Z_INDEX.workspaceBase;
 export const FLOATING_POPOVER_PANEL_Z_INDEX = OVERLAY_Z_INDEX.floatingPopover;
 
@@ -42,7 +43,7 @@ export type FloatingPanelViewport = {
 
 export type FloatingPanelKind = "popover" | "workspace";
 export type FloatingPanelDismissMode = "outside" | "explicit";
-export type FloatingPanelWindowState = "normal" | "maximized";
+export type FloatingPanelWindowState = "normal" | "fullscreen";
 export type FloatingPanelResizeHandle = "n" | "ne" | "e" | "se" | "s" | "sw" | "w" | "nw";
 
 export const FLOATING_PANEL_HIDDEN_OFFSETS: Record<FloatingPanelPlacement, FloatingPanelOffset> = {
@@ -91,28 +92,47 @@ export function floatingPanelZIndex(kind: FloatingPanelKind, stackIndex = 0) {
 }
 
 export function constrainFloatingPanelOffset({
-  desired
+  desired,
+  startOffset,
+  startRect,
+  viewport
 }: {
   desired: FloatingPanelOffset;
   startOffset: FloatingPanelOffset;
   startRect: FloatingPanelRect;
   viewport: FloatingPanelViewport;
 }): FloatingPanelOffset {
-  return desired;
+  const margin = viewport.margin ?? FLOATING_PANEL_EDGE_MARGIN_PX;
+  const width = Math.max(1, startRect.right - startRect.left);
+  const visibleWidth = Math.min(FLOATING_PANEL_MIN_VISIBLE_TITLE_PX, width, Math.max(1, (viewport.width - margin * 2) / 2));
+  const left = startRect.left + desired.x - startOffset.x;
+  const top = startRect.top + desired.y - startOffset.y;
+  const constrainedLeft = clamp(left, margin + visibleWidth - width, viewport.width - margin - visibleWidth);
+  const constrainedTop = clamp(top, margin, viewport.height - margin - FLOATING_PANEL_MIN_VISIBLE_TOP_EDGE_PX);
+  return {
+    x: desired.x + constrainedLeft - left,
+    y: desired.y + constrainedTop - top
+  };
 }
 
 export function constrainFloatingPanelFrame({
   frame,
+  viewport,
   minSize = { width: 320, height: 220 }
 }: {
   frame: FloatingPanelFrame;
   viewport: FloatingPanelViewport;
   minSize?: FloatingPanelSize;
 }): FloatingPanelFrame {
+  const margin = viewport.margin ?? FLOATING_PANEL_EDGE_MARGIN_PX;
+  const width = Math.max(minSize.width, frame.width);
+  const height = Math.max(minSize.height, frame.height);
+  const visibleWidth = Math.min(FLOATING_PANEL_MIN_VISIBLE_TITLE_PX, width, Math.max(1, (viewport.width - margin * 2) / 2));
   return {
-    ...frame,
-    width: Math.max(minSize.width, frame.width),
-    height: Math.max(minSize.height, frame.height)
+    x: clamp(frame.x, margin + visibleWidth - width, viewport.width - margin - visibleWidth),
+    y: clamp(frame.y, margin, viewport.height - margin - FLOATING_PANEL_MIN_VISIBLE_TOP_EDGE_PX),
+    width,
+    height
   };
 }
 
@@ -186,21 +206,16 @@ export function resizeFloatingPanelFrame({
   });
 }
 
-export function maximizedFloatingPanelFrame({
-  viewport,
-  topInset = FLOATING_PANEL_MAXIMIZED_TOP_INSET_PX
+export function fullscreenFloatingPanelFrame({
+  viewport
 }: {
   viewport: FloatingPanelViewport;
-  topInset?: number;
 }): FloatingPanelFrame {
-  const margin = viewport.margin ?? FLOATING_PANEL_EDGE_MARGIN_PX;
-  const top = Math.max(margin, topInset);
-
   return {
-    x: margin,
-    y: top,
-    width: Math.max(1, viewport.width - margin * 2),
-    height: Math.max(1, viewport.height - top - margin)
+    x: 0,
+    y: 0,
+    width: Math.max(1, viewport.width),
+    height: Math.max(1, viewport.height)
   };
 }
 
@@ -213,7 +228,7 @@ export function restoreFloatingPanelFrame({
   viewport: FloatingPanelViewport;
   minSize?: FloatingPanelSize;
 }): FloatingPanelFrame {
-  return constrainFloatingPanelFrame({ frame, viewport, minSize });
+  return fitFloatingPanelFrameToViewport({ frame, viewport, minSize });
 }
 
 function clamp(value: number, min: number, max: number) {

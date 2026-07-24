@@ -9,5 +9,1536 @@
     "id": "local",
     "name": "内置"
   },
-  "theme": {}
+  "theme": {
+    "interface": {
+      "colors": {
+        "background": "#f8f3ec",
+        "foreground": "#18130f",
+        "icon": "#66584d",
+        "card": "#fcf8f2",
+        "cardForeground": "#18130f",
+        "popover": "#fcf8f2",
+        "popoverForeground": "#18130f",
+        "primary": "#ff4050",
+        "primaryForeground": "#f8f3ec",
+        "secondary": "#eee8df",
+        "secondaryForeground": "#18130f",
+        "muted": "#f0ebe4",
+        "mutedForeground": "#6b625a",
+        "accent": "#ffe7ea",
+        "accentForeground": "#b91f31",
+        "destructive": "#b91f31",
+        "destructiveForeground": "#f8f3ec",
+        "success": "#36724f",
+        "successForeground": "#fffaf4",
+        "warning": "#a66a00",
+        "warningForeground": "#fffaf4",
+        "info": "#2f5f9f",
+        "infoForeground": "#fffaf4",
+        "border": "#b8ada0",
+        "input": "#b8ada0",
+        "focusRing": "#ff4050"
+      },
+      "surface": {
+        "borderWidth": 1,
+        "borderStyle": "solid",
+        "dividerWidth": 1,
+        "focusRingWidth": 1,
+        "opacity": 0.96,
+        "backdropBlur": 8
+      },
+      "state": {
+        "hoverOpacity": 0.9,
+        "pressedOpacity": 0.82,
+        "selectedOpacity": 1,
+        "disabledOpacity": 0.5
+      },
+      "radius": {
+        "app": 8,
+        "controlSm": 4,
+        "controlMd": 6,
+        "controlLg": 8
+      },
+      "shadow": {
+        "popover": {
+          "color": "#18130f",
+          "blur": 24,
+          "opacity": 0.16,
+          "offsetX": 0,
+          "offsetY": 8
+        },
+        "panel": {
+          "color": "#18130f",
+          "blur": 36,
+          "opacity": 0.16,
+          "offsetX": 0,
+          "offsetY": 12
+        },
+        "dialog": {
+          "color": "#18130f",
+          "blur": 60,
+          "opacity": 0.16,
+          "offsetX": 0,
+          "offsetY": 18
+        },
+        "toolbar": {
+          "color": "#18130f",
+          "blur": 20,
+          "opacity": 0.16,
+          "offsetX": 0,
+          "offsetY": 6
+        }
+      },
+      "spacing": {
+        "panelPadding": 16,
+        "panelHeaderHeight": 52,
+        "panelFooterHeight": 56,
+        "controlGap": 8,
+        "controlPaddingX": 12,
+        "controlPaddingY": 8,
+        "iconButtonSize": 32
+      },
+      "icon": {
+        "family": "iconoir",
+        "sizeSm": 16,
+        "sizeButton": 16,
+        "strokeWidth": 2.2,
+        "buttonHeightSm": 32,
+        "buttonHeightMd": 40
+      },
+      "scrollbar": {
+        "size": 10,
+        "minThumbLength": 28,
+        "radius": 128,
+        "inset": 2,
+        "opacity": 0.3,
+        "hoverOpacity": 0.48,
+        "activeOpacity": 0.62
+      },
+      "tree": {
+        "foreground": "#18130f",
+        "iconColor": "#66584d",
+        "connectorColor": "#80766b",
+        "connectorOpacity": 0.75,
+        "connectorStyle": "solid",
+        "hoverBackground": "#ffe7ea",
+        "hoverOpacity": 0.55,
+        "focusBackground": "#ffe7ea",
+        "focusOpacity": 0.7,
+        "selectedBackground": "#ffe7ea",
+        "selectedForeground": "#b91f31",
+        "rowHeight": 32,
+        "rowPaddingStart": 6,
+        "rowPaddingEnd": 8,
+        "rowPaddingY": 4,
+        "contentGap": 6,
+        "levelIndent": 20,
+        "connectorRailInset": 6,
+        "connectorWidth": 1,
+        "iconSize": 18
+      }
+    },
+    "agent": {
+      "layout": {
+        "sidebarWidth": 248,
+        "transcriptMaxWidth": 760,
+        "composerMaxWidth": 760,
+        "contentPaddingX": 24,
+        "contentPaddingY": 24,
+        "turnGap": 24,
+        "partGap": 8
+      },
+      "typography": {
+        "body": {
+          "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+          "fontSize": 14,
+          "fontWeight": 400,
+          "lineHeight": 20,
+          "letterSpacing": 0
+        },
+        "heading": {
+          "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+          "fontSize": 14,
+          "fontWeight": 500,
+          "lineHeight": 20,
+          "letterSpacing": 0
+        },
+        "metadata": {
+          "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+          "fontSize": 12,
+          "fontWeight": 400,
+          "lineHeight": 18,
+          "letterSpacing": 0
+        },
+        "technical": {
+          "family": "Maple Mono, SF Mono, Cascadia Code, JetBrains Mono, Noto Sans SC Variable, ui-monospace, monospace",
+          "fontSize": 12,
+          "fontWeight": 400,
+          "lineHeight": 18,
+          "letterSpacing": 0
+        }
+      },
+      "message": {
+        "user": {
+          "foreground": "#18130f",
+          "borderColor": "#b8ada0",
+          "borderWidth": 0,
+          "borderStyle": "none",
+          "radius": 14,
+          "shadow": {
+            "color": "#18130f",
+            "blur": 0,
+            "opacity": 0,
+            "offsetX": 0,
+            "offsetY": 0
+          },
+          "paddingX": 14,
+          "paddingY": 10,
+          "background": "#f0ebe4"
+        },
+        "assistant": {
+          "foreground": "#18130f",
+          "borderColor": "#b8ada0",
+          "borderWidth": 0,
+          "borderStyle": "none",
+          "radius": 0,
+          "shadow": {
+            "color": "#18130f",
+            "blur": 0,
+            "opacity": 0,
+            "offsetX": 0,
+            "offsetY": 0
+          },
+          "paddingX": 0,
+          "paddingY": 0,
+          "background": "#fcf8f2"
+        },
+        "notice": {
+          "foreground": "#6b625a",
+          "borderColor": "#b8ada0",
+          "borderWidth": 1,
+          "borderStyle": "solid",
+          "radius": 6,
+          "shadow": {
+            "color": "#18130f",
+            "blur": 0,
+            "opacity": 0,
+            "offsetX": 0,
+            "offsetY": 0
+          },
+          "paddingX": 12,
+          "paddingY": 9,
+          "background": "#f0ebe4"
+        },
+        "metadataForeground": "#6b625a"
+      },
+      "composer": {
+        "foreground": "#18130f",
+        "borderColor": "#b8ada0",
+        "borderWidth": 1,
+        "borderStyle": "solid",
+        "radius": 16,
+        "shadow": {
+          "color": "#18130f",
+          "blur": 20,
+          "opacity": 0.1152,
+          "offsetX": 0,
+          "offsetY": 6
+        },
+        "paddingX": 12,
+        "paddingY": 10,
+        "background": "#fcf8f2",
+        "placeholder": "#6b625a",
+        "minHeight": 72,
+        "maxHeight": 176
+      },
+      "tool": {
+        "foreground": "#18130f",
+        "borderColor": "#b8ada0",
+        "borderWidth": 1,
+        "borderStyle": "solid",
+        "radius": 8,
+        "shadow": {
+          "color": "#18130f",
+          "blur": 0,
+          "opacity": 0,
+          "offsetX": 0,
+          "offsetY": 0
+        },
+        "paddingX": 12,
+        "paddingY": 10,
+        "background": "#f0ebe4",
+        "mutedForeground": "#6b625a",
+        "errorForeground": "#b91f31",
+        "rowGap": 8
+      },
+      "thinking": {
+        "foreground": "#6b625a",
+        "accentColor": "#b8ada0",
+        "opacity": 0.86
+      }
+    },
+    "canvas": {
+      "surface": {
+        "background": "#fbf6ef",
+        "renderBackground": "#f8f3ec"
+      },
+      "grid": {
+        "color": "#18130f",
+        "minorStep": 24,
+        "majorEvery": 5,
+        "minorAlpha": 0.18,
+        "majorAlpha": 0.3,
+        "superAlpha": 0.28,
+        "minorRadiusPx": 0.85,
+        "majorRadiusPx": 1.25,
+        "superRadiusPx": 1.3,
+        "minorVisibleScale": 0.72,
+        "majorVisibleScale": 0.24,
+        "maxDots": 5200
+      },
+      "ordinaryNode": {
+        "textColor": "#18130f",
+        "borderColor": "#2a251f",
+        "hoverBorderColor": "#b91f31",
+        "selectedBorderColor": "#ff4050",
+        "invalidBorderColor": "#9b5a50",
+        "borderWidth": 0,
+        "emphasizedBorderWidth": 1.5,
+        "highlightBorderBoost": 1,
+        "borderStyle": "solid",
+        "customDash": [],
+        "fillSaturation": 1,
+        "fillLuminanceSteps": 256,
+        "radius": 0,
+        "roundedRadius": 14,
+        "polygonRadius": 6,
+        "forkRadius": 4,
+        "shadow": {
+          "color": "#2a251f",
+          "blur": 0,
+          "opacity": 0,
+          "offsetX": 0,
+          "offsetY": 0
+        },
+        "dragShadow": {
+          "color": "#2a251f",
+          "blur": 12,
+          "opacity": 0.22,
+          "offsetX": 0,
+          "offsetY": 4
+        },
+        "paddingX": 14,
+        "paddingY": 14,
+        "minChars": 6,
+        "maxChars": 24,
+        "maxLines": 12
+      },
+      "edge": {
+        "color": "#2a251f",
+        "textColor": "#1c1712",
+        "hoverColor": "#b91f31",
+        "selectedColor": "#ff4050",
+        "invalidColor": "#9b5a50",
+        "width": 1,
+        "thickWidth": 4,
+        "dottedWidth": 2,
+        "emphasizedWidth": 3,
+        "highlightBorderBoost": 0,
+        "style": "solid",
+        "customDash": [],
+        "dottedDash": [
+          1,
+          8
+        ],
+        "invisibleOpacity": 0.32,
+        "invalidPreviewOpacity": 0.48,
+        "pointerLength": 6,
+        "pointerWidth": 6,
+        "endpointMarkerRadius": 4.5,
+        "hitStrokeWidth": 18,
+        "parallelSpacing": 18,
+        "curveSegments": 120
+      },
+      "edgeLabel": {
+        "background": "#fbf6ef",
+        "textColor": "#1c1712",
+        "borderColor": "#b8ada0",
+        "hoverBorderColor": "#b91f31",
+        "selectedBorderColor": "#ff4050",
+        "borderWidth": 1,
+        "borderStyle": "solid",
+        "customDash": [],
+        "radius": 8,
+        "minChars": 4,
+        "maxChars": 20,
+        "paddingX": 10,
+        "height": 28
+      },
+      "group": {
+        "background": "#fbf6ef",
+        "backgroundOpacity": 0.34,
+        "borderColor": "#b8ada0",
+        "hoverBorderColor": "#b91f31",
+        "selectedBorderColor": "#ff4050",
+        "invalidBorderColor": "#9b5a50",
+        "borderWidth": 1,
+        "emphasizedBorderWidth": 1.5,
+        "borderStyle": "solid",
+        "customDash": [
+          8,
+          6
+        ],
+        "radius": 0,
+        "shadow": {
+          "color": "#2a251f",
+          "blur": 0,
+          "opacity": 0,
+          "offsetX": 0,
+          "offsetY": 0
+        },
+        "paddingX": 36,
+        "paddingTop": 54,
+        "paddingBottom": 32,
+        "minWidth": 220,
+        "minHeight": 128,
+        "fallbackGap": 48,
+        "title": {
+          "backgroundEnabled": false,
+          "background": "#fbf6ef",
+          "textColor": "#18130f",
+          "borderColor": "#b8ada0",
+          "borderWidth": 0,
+          "borderStyle": "solid",
+          "customDash": [],
+          "radius": 8,
+          "shadow": {
+            "color": "#2a251f",
+            "blur": 0,
+            "opacity": 0,
+            "offsetX": 0,
+            "offsetY": 0
+          },
+          "height": 28,
+          "insetX": 14,
+          "insetTop": 10,
+          "paddingX": 10
+        },
+        "anchorCornerScale": 0.72,
+        "anchorCornerOpacity": 0.65
+      },
+      "overlay": {
+        "selection": {
+          "fillColor": "#ff4050",
+          "fillOpacity": 0.08,
+          "strokeColor": "#ff4050",
+          "strokeWidth": 1,
+          "strokeStyle": "dashed",
+          "customDash": [
+            6,
+            5
+          ]
+        },
+        "connectionDraft": {
+          "validColor": "#ff4050",
+          "invalidColor": "#9f9286",
+          "invalidOpacity": 0.48,
+          "strokeWidth": 2,
+          "strokeStyle": "dashed",
+          "customDash": [
+            8,
+            6
+          ]
+        },
+        "guide": {
+          "centerColor": "#ff4050",
+          "edgeColor": "#b91f31",
+          "strokeWidth": 1,
+          "centerStyle": "dashed",
+          "customDash": [
+            6,
+            5
+          ]
+        },
+        "anchor": {
+          "fillColor": "#ff4050",
+          "targetColor": "#ff4050",
+          "hoverColor": "#b91f31",
+          "strokeColor": "#fbf6ef",
+          "strokeWidth": 2,
+          "radius": 6,
+          "endpointRadius": 7,
+          "activeRadiusBoost": 1
+        }
+      },
+      "actionBadge": {
+        "background": "#fbf6ef",
+        "foreground": "#ff4050",
+        "borderColor": "#ff4050",
+        "borderWidth": 1.5,
+        "borderStyle": "solid",
+        "customDash": [],
+        "radius": 9,
+        "size": 18,
+        "opacity": 0.96,
+        "insetX": 10,
+        "insetY": 10
+      },
+      "mermaidSvg": {
+        "primaryColor": "#fbf6ef",
+        "primaryTextColor": "#18130f",
+        "primaryBorderColor": "#2a251f",
+        "secondaryColor": "#ffe7ea",
+        "secondaryTextColor": "#18130f",
+        "tertiaryColor": "#eee8df",
+        "tertiaryTextColor": "#18130f",
+        "lineColor": "#2a251f",
+        "textColor": "#18130f",
+        "edgeLabelBackground": "#fbf6ef",
+        "clusterBackground": "#eee8df",
+        "clusterBorderColor": "#b8ada0"
+      }
+    },
+    "specialNode": {
+      "shared": {
+        "textColor": "#18130f",
+        "mutedTextColor": "#6b625a",
+        "accentColor": "#ff4050",
+        "errorColor": "#b91f31"
+      },
+      "linkCard": {
+        "surface": {
+          "background": "#fcf8f2",
+          "border": {
+            "color": "#2a251f",
+            "width": 1,
+            "style": "solid",
+            "customDash": []
+          },
+          "radius": 0,
+          "shadow": {
+            "color": "#2a251f",
+            "blur": 0,
+            "opacity": 0,
+            "offsetX": 0,
+            "offsetY": 0
+          }
+        },
+        "state": {
+          "hoverBorderColor": "#b91f31",
+          "selectedBorderColor": "#ff4050",
+          "errorBorderColor": "#9b5a50",
+          "editingBorderColor": "#ff4050",
+          "emphasizedBorderWidth": 1.5
+        },
+        "width": 220,
+        "inset": 8,
+        "coverBackground": "#ffe7ea",
+        "coverBorder": {
+          "color": "#b8ada0",
+          "width": 1,
+          "style": "solid",
+          "customDash": []
+        },
+        "coverRadius": 4,
+        "coverFallbackHeight": 188,
+        "coverMinHeight": 128,
+        "coverMaxHeight": 380,
+        "contentPaddingX": 12,
+        "providerColor": "#ff4050",
+        "brandColor": "#ff4050",
+        "providerGap": 10,
+        "titleGap": 4,
+        "titleHeight": 44
+      },
+      "markdownDocument": {
+        "surface": {
+          "background": "#fffdfa",
+          "border": {
+            "color": "#2a251f",
+            "width": 0,
+            "style": "solid",
+            "customDash": []
+          },
+          "radius": 18,
+          "shadow": {
+            "color": "#2a251f",
+            "blur": 0,
+            "opacity": 0,
+            "offsetX": 0,
+            "offsetY": 0
+          }
+        },
+        "state": {
+          "hoverBorderColor": "#b91f31",
+          "selectedBorderColor": "#ff4050",
+          "errorBorderColor": "#9b5a50",
+          "editingBorderColor": "#ff4050",
+          "emphasizedBorderWidth": 1.5
+        },
+        "previewTypography": {
+          "titleFontSize": 20,
+          "contentFontSize": 12
+        },
+        "previewSpacing": {
+          "indentationEnabled": false,
+          "titleBottomGap": 8,
+          "sectionTopGap": 16,
+          "headingBottomGap": 6,
+          "blockGap": 10,
+          "listItemGap": 4
+        },
+        "previewContent": {
+          "layout": {
+            "indentationEnabled": false,
+            "titleBottomGap": 8,
+            "sectionTopGap": 16,
+            "headingBottomGap": 6,
+            "blockGap": 10,
+            "paragraphGap": 10,
+            "listItemGap": 4,
+            "listMarkerWidth": 24,
+            "listMarkerGap": 8
+          },
+          "title": {
+            "fontFamily": "\"方正屏显雅宋简体\", \"Songti SC\", \"Noto Serif SC\", serif",
+            "fontSize": 20,
+            "fontWeight": 700,
+            "fontStyle": "normal",
+            "lineHeight": 22.666666666666668,
+            "letterSpacing": 0,
+            "color": "#342a23"
+          },
+          "paragraph": {
+            "fontFamily": "\"方正屏显雅宋简体\", system-ui, sans-serif",
+            "fontSize": 12,
+            "fontWeight": 400,
+            "fontStyle": "normal",
+            "lineHeight": 19.799999999999997,
+            "letterSpacing": 0,
+            "color": "#342a23"
+          },
+          "heading": {
+            "h1": {
+              "fontFamily": "\"方正屏显雅宋简体\", \"Songti SC\", \"Noto Serif SC\", serif",
+              "fontSize": 20,
+              "fontWeight": 700,
+              "fontStyle": "normal",
+              "lineHeight": 22.666666666666668,
+              "letterSpacing": 0,
+              "color": "#342a23"
+            },
+            "h2": {
+              "fontFamily": "\"方正屏显雅宋简体\", \"Songti SC\", \"Noto Serif SC\", serif",
+              "fontSize": 17.75,
+              "fontWeight": 700,
+              "fontStyle": "normal",
+              "lineHeight": 23.429999999999996,
+              "letterSpacing": 0,
+              "color": "#342a23"
+            },
+            "h3": {
+              "fontFamily": "\"方正屏显雅宋简体\", \"Songti SC\", \"Noto Serif SC\", serif",
+              "fontSize": 16.5,
+              "fontWeight": 700,
+              "fontStyle": "normal",
+              "lineHeight": 21.52173913043479,
+              "letterSpacing": 0,
+              "color": "#342a23"
+            },
+            "h4": {
+              "fontFamily": "\"方正屏显雅宋简体\", \"Songti SC\", \"Noto Serif SC\", serif",
+              "fontSize": 15.25,
+              "fontWeight": 700,
+              "fontStyle": "normal",
+              "lineHeight": 22.875,
+              "letterSpacing": 0,
+              "color": "#342a23"
+            },
+            "h5": {
+              "fontFamily": "\"方正屏显雅宋简体\", \"Songti SC\", \"Noto Serif SC\", serif",
+              "fontSize": 14.25,
+              "fontWeight": 600,
+              "fontStyle": "normal",
+              "lineHeight": 20.357142857142858,
+              "letterSpacing": 0,
+              "color": "#342a23"
+            },
+            "h6": {
+              "fontFamily": "\"方正屏显雅宋简体\", \"Songti SC\", \"Noto Serif SC\", serif",
+              "fontSize": 13,
+              "fontWeight": 600,
+              "fontStyle": "normal",
+              "lineHeight": 18.57142857142857,
+              "letterSpacing": 0,
+              "color": "#342a23"
+            }
+          },
+          "strong": {
+            "fontFamily": "\"方正屏显雅宋简体\", system-ui, sans-serif",
+            "fontWeight": 700,
+            "fontStyle": "normal",
+            "letterSpacing": 0,
+            "color": "#18130f"
+          },
+          "emphasis": {
+            "fontFamily": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+            "fontWeight": 400,
+            "fontStyle": "italic",
+            "letterSpacing": 0,
+            "color": "#18130f"
+          },
+          "list": {
+            "unordered": {
+              "fontFamily": "\"方正屏显雅宋简体\", system-ui, sans-serif",
+              "fontSize": 12,
+              "fontWeight": 400,
+              "fontStyle": "normal",
+              "lineHeight": 19.799999999999997,
+              "letterSpacing": 0,
+              "color": "#18130f",
+              "markerColor": "#6b625a",
+              "indent": 16
+            },
+            "ordered": {
+              "fontFamily": "\"方正屏显雅宋简体\", system-ui, sans-serif",
+              "fontSize": 12,
+              "fontWeight": 400,
+              "fontStyle": "normal",
+              "lineHeight": 19.799999999999997,
+              "letterSpacing": 0,
+              "color": "#18130f",
+              "markerColor": "#6b625a",
+              "indent": 16
+            }
+          },
+          "blockquote": {
+            "fontFamily": "\"方正屏显雅宋简体\", system-ui, sans-serif",
+            "fontSize": 12,
+            "fontWeight": 400,
+            "fontStyle": "normal",
+            "lineHeight": 19.799999999999997,
+            "letterSpacing": 0,
+            "color": "#6b625a",
+            "enabled": true,
+            "backgroundEnabled": true,
+            "background": "#fcf8f2",
+            "borderEnabled": false,
+            "borderColor": "#ff4050",
+            "borderWidth": 4,
+            "borderStyle": "none",
+            "customDash": [],
+            "radius": 4,
+            "paddingX": 20,
+            "paddingY": 8,
+            "marginTop": 0,
+            "marginBottom": 0
+          },
+          "divider": {
+            "enabled": true,
+            "color": "#b8ada0",
+            "thickness": 1,
+            "marginTop": 0,
+            "marginBottom": 0
+          }
+        },
+        "width": 280,
+        "height": 396,
+        "contentPaddingTop": 16,
+        "contentPaddingRight": 16,
+        "contentPaddingBottom": 16,
+        "contentPaddingLeft": 16,
+        "badgeSize": 38,
+        "badgeBackground": "#ff4050",
+        "badgeErrorBackground": "#b91f31",
+        "badgeColor": "#ff4050",
+        "badgeErrorColor": "#b91f31",
+        "badgeOpacity": 0.12,
+        "badgeErrorOpacity": 0.2,
+        "badgeRadius": 4,
+        "titleGap": 10,
+        "pathGap": 1,
+        "separatorColor": "#2a251f",
+        "separatorWidth": 1,
+        "separatorOpacity": 0.18,
+        "excerptGap": 10,
+        "pathOpacity": 0.62,
+        "excerptOpacity": 0.75,
+        "placeholderOpacity": 0.56
+      },
+      "htmlDocument": {
+        "surface": {
+          "background": "#fcf8f2",
+          "border": {
+            "color": "#2a251f",
+            "width": 0,
+            "style": "solid",
+            "customDash": []
+          },
+          "radius": 14,
+          "shadow": {
+            "color": "#2a251f",
+            "blur": 0,
+            "opacity": 0,
+            "offsetX": 0,
+            "offsetY": 0
+          }
+        },
+        "state": {
+          "hoverBorderColor": "#b91f31",
+          "selectedBorderColor": "#ff4050",
+          "errorBorderColor": "#9b5a50",
+          "editingBorderColor": "#ff4050",
+          "emphasizedBorderWidth": 1.5
+        },
+        "width": 280,
+        "height": 180,
+        "contentPadding": 12,
+        "badgeSize": 38,
+        "badgeBackground": "#ff4050",
+        "badgeColor": "#ff4050",
+        "badgeOpacity": 0.12,
+        "badgeRadius": 4,
+        "titleGap": 10,
+        "pathGap": 1,
+        "separatorColor": "#2a251f",
+        "separatorWidth": 1,
+        "separatorOpacity": 0.18,
+        "excerptGap": 10,
+        "pathOpacity": 0.62,
+        "excerptOpacity": 0.74
+      },
+      "image": {
+        "surface": {
+          "background": "#f0ebe4",
+          "border": {
+            "color": "#2a251f",
+            "width": 0,
+            "style": "solid",
+            "customDash": []
+          },
+          "radius": 0,
+          "shadow": {
+            "color": "#2a251f",
+            "blur": 0,
+            "opacity": 0,
+            "offsetX": 0,
+            "offsetY": 0
+          }
+        },
+        "state": {
+          "hoverBorderColor": "#b91f31",
+          "selectedBorderColor": "#ff4050",
+          "errorBorderColor": "#9b5a50",
+          "editingBorderColor": "#ff4050",
+          "emphasizedBorderWidth": 1.5
+        }
+      },
+      "table": {
+        "surface": {
+          "background": "#fcf8f2",
+          "border": {
+            "color": "#b8ada0",
+            "width": 1,
+            "style": "solid",
+            "customDash": []
+          },
+          "radius": 0,
+          "shadow": {
+            "color": "#2a251f",
+            "blur": 0,
+            "opacity": 0,
+            "offsetX": 0,
+            "offsetY": 0
+          }
+        },
+        "state": {
+          "hoverBorderColor": "#b91f31",
+          "selectedBorderColor": "#ff4050",
+          "errorBorderColor": "#9b5a50",
+          "editingBorderColor": "#ff4050",
+          "emphasizedBorderWidth": 1.5
+        },
+        "headerBackground": "#eee8df",
+        "headerTextColor": "#18130f",
+        "bodyTextColor": "#18130f",
+        "hoverCellBackground": "#ffe7ea",
+        "selectedCellBackground": "#ffe7ea",
+        "selectedCellBorder": {
+          "color": "#ff4050",
+          "width": 1,
+          "style": "solid",
+          "customDash": []
+        },
+        "grid": {
+          "color": "#b8ada0",
+          "width": 1,
+          "style": "solid",
+          "customDash": []
+        },
+        "cellPaddingX": 10,
+        "cellPaddingY": 8,
+        "placeholderGap": 4,
+        "minColumnWidth": 64,
+        "minRowHeight": 32,
+        "resizeHandleWidth": 8
+      }
+    },
+    "source": {
+      "line": "#d7ccc0"
+    },
+    "markdown": {
+      "layout": {
+        "paddingX": 56,
+        "paddingY": 48,
+        "listMarkerWidth": 24,
+        "listMarkerGap": 8,
+        "taskCheckboxPlaceholderWidth": 24,
+        "headingStackSpacing": 8
+      },
+      "body": {
+        "fontFamily": "\"方正屏显雅宋简体\", system-ui, sans-serif",
+        "fontSize": 16,
+        "fontWeight": 400,
+        "lineHeight": 26.4,
+        "letterSpacing": 0,
+        "color": "#342a23",
+        "paragraphSpacing": 12
+      },
+      "heading": {
+        "h1": {
+          "fontFamily": "\"方正屏显雅宋简体\", \"Songti SC\", \"Noto Serif SC\", serif",
+          "fontSize": 24,
+          "fontWeight": 700,
+          "lineHeight": 27.2,
+          "letterSpacing": 0,
+          "color": "#342a23",
+          "marginTop": 24,
+          "marginBottom": 8
+        },
+        "h2": {
+          "fontFamily": "\"方正屏显雅宋简体\", \"Songti SC\", \"Noto Serif SC\", serif",
+          "fontSize": 20,
+          "fontWeight": 700,
+          "lineHeight": 26.4,
+          "letterSpacing": 0,
+          "color": "#342a23",
+          "marginTop": 24,
+          "marginBottom": 8
+        },
+        "h3": {
+          "fontFamily": "\"方正屏显雅宋简体\", \"Songti SC\", \"Noto Serif SC\", serif",
+          "fontSize": 18.4,
+          "fontWeight": 700,
+          "lineHeight": 24,
+          "letterSpacing": 0,
+          "color": "#342a23",
+          "marginTop": 20,
+          "marginBottom": 4
+        },
+        "h4": {
+          "fontFamily": "\"方正屏显雅宋简体\", \"Songti SC\", \"Noto Serif SC\", serif",
+          "fontSize": 16,
+          "fontWeight": 700,
+          "lineHeight": 24,
+          "letterSpacing": 0,
+          "color": "#342a23",
+          "marginTop": 20,
+          "marginBottom": 4
+        },
+        "h5": {
+          "fontFamily": "\"方正屏显雅宋简体\", \"Songti SC\", \"Noto Serif SC\", serif",
+          "fontSize": 14,
+          "fontWeight": 600,
+          "lineHeight": 20,
+          "letterSpacing": 0,
+          "color": "#342a23",
+          "marginTop": 20,
+          "marginBottom": 4
+        },
+        "h6": {
+          "fontFamily": "\"方正屏显雅宋简体\", \"Songti SC\", \"Noto Serif SC\", serif",
+          "fontSize": 14,
+          "fontWeight": 600,
+          "lineHeight": 20,
+          "letterSpacing": 0,
+          "color": "#342a23",
+          "marginTop": 20,
+          "marginBottom": 4
+        }
+      },
+      "link": {
+        "fontFamily": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "fontSize": 16,
+        "fontWeight": 400,
+        "lineHeight": 26.4,
+        "letterSpacing": 0,
+        "color": "#ff4050",
+        "hoverColor": "#b91f31",
+        "underlineThickness": 1,
+        "underlineOffset": 2
+      },
+      "emphasis": {
+        "fontFamily": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "fontSize": 16,
+        "fontWeight": 400,
+        "lineHeight": 26.4,
+        "letterSpacing": 0,
+        "color": "#18130f"
+      },
+      "strong": {
+        "fontFamily": "\"方正屏显雅宋简体\", system-ui, sans-serif",
+        "fontSize": 16,
+        "fontWeight": 700,
+        "lineHeight": 26.4,
+        "letterSpacing": 0,
+        "color": "#18130f"
+      },
+      "strikethrough": {
+        "fontFamily": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "fontSize": 16,
+        "fontWeight": 400,
+        "lineHeight": 26.4,
+        "letterSpacing": 0,
+        "color": "#18130f",
+        "decorationColor": "#6b625a",
+        "decorationThickness": 1
+      },
+      "inlineCode": {
+        "fontFamily": "Maple Mono, SF Mono, Cascadia Code, JetBrains Mono, Noto Sans SC Variable, ui-monospace, monospace",
+        "fontSize": 14.4,
+        "fontWeight": 400,
+        "lineHeight": 20,
+        "letterSpacing": 0,
+        "color": "#b91f31",
+        "background": "#f0ebe4",
+        "paddingX": 3,
+        "paddingY": 1,
+        "radius": 4
+      },
+      "list": {
+        "unordered": {
+          "fontFamily": "\"方正屏显雅宋简体\", system-ui, sans-serif",
+          "fontSize": 16,
+          "fontWeight": 400,
+          "lineHeight": 26.4,
+          "letterSpacing": 0,
+          "color": "#18130f",
+          "markerColor": "#6b625a",
+          "indent": 16,
+          "itemSpacing": 4,
+          "marginTop": 12,
+          "marginBottom": 12
+        },
+        "ordered": {
+          "fontFamily": "\"方正屏显雅宋简体\", system-ui, sans-serif",
+          "fontSize": 16,
+          "fontWeight": 400,
+          "lineHeight": 26.4,
+          "letterSpacing": 0,
+          "color": "#18130f",
+          "markerColor": "#6b625a",
+          "indent": 16,
+          "itemSpacing": 4,
+          "marginTop": 12,
+          "marginBottom": 12
+        },
+        "task": {
+          "fontFamily": "\"方正屏显雅宋简体\", system-ui, sans-serif",
+          "fontSize": 16,
+          "fontWeight": 400,
+          "lineHeight": 26.4,
+          "letterSpacing": 0,
+          "color": "#18130f",
+          "indent": 16,
+          "itemSpacing": 4,
+          "marginTop": 12,
+          "marginBottom": 12,
+          "checkboxSize": 16,
+          "checkboxBorderWidth": 1,
+          "checkboxBorderStyle": "solid",
+          "checkboxBorderColor": "#b8ada0",
+          "checkboxBackground": "#f8f3ec",
+          "checkboxCheckedBackground": "#ff4050",
+          "checkboxCheckColor": "#f8f3ec",
+          "checkboxRadius": 3
+        }
+      },
+      "blockquote": {
+        "fontFamily": "\"方正屏显雅宋简体\", system-ui, sans-serif",
+        "fontSize": 16,
+        "fontWeight": 400,
+        "lineHeight": 26.4,
+        "letterSpacing": 0,
+        "color": "#6b625a",
+        "background": "#fcf8f2",
+        "borderColor": "#ff4050",
+        "borderWidth": 4,
+        "borderStyle": "none",
+        "paddingX": 20,
+        "paddingY": 8,
+        "marginTop": 8,
+        "marginBottom": 8,
+        "radius": 4
+      },
+      "codeBlock": {
+        "fontFamily": "Maple Mono, SF Mono, Cascadia Code, JetBrains Mono, Noto Sans SC Variable, ui-monospace, monospace",
+        "fontSize": 14,
+        "fontWeight": 400,
+        "lineHeight": 22.75,
+        "letterSpacing": 0,
+        "color": "#18130f",
+        "background": "#fcf8f2",
+        "paddingX": 20,
+        "paddingY": 16,
+        "marginTop": 8,
+        "marginBottom": 8,
+        "radius": 6
+      },
+      "table": {
+        "fontFamily": "\"方正屏显雅宋简体\", system-ui, sans-serif",
+        "fontSize": 16,
+        "fontWeight": 400,
+        "lineHeight": 26.4,
+        "letterSpacing": 0,
+        "color": "#18130f",
+        "borderColor": "#b8ada0",
+        "headerBackground": "#f0ebe4",
+        "bodyBackground": "#fcf8f2",
+        "cellPaddingX": 16,
+        "cellPaddingY": 8,
+        "borderWidth": 1,
+        "borderStyle": "solid",
+        "radius": 6,
+        "marginTop": 8,
+        "marginBottom": 8
+      },
+      "divider": {
+        "color": "#b8ada0",
+        "thickness": 1,
+        "marginTop": 16,
+        "marginBottom": 16
+      },
+      "image": {
+        "borderColor": "#b8ada0",
+        "borderWidth": 0,
+        "borderStyle": "solid",
+        "radius": 8,
+        "marginTop": 12,
+        "marginBottom": 12
+      }
+    },
+    "ansi": {
+      "black": "#2a251f",
+      "red": "#b91f31",
+      "green": "#36724f",
+      "yellow": "#a66a00",
+      "blue": "#2f5f9f",
+      "magenta": "#8b4a82",
+      "cyan": "#2f7380",
+      "white": "#e7ded3",
+      "brightBlack": "#76695e",
+      "brightRed": "#ff4050",
+      "brightGreen": "#4c9567",
+      "brightYellow": "#d8901e",
+      "brightBlue": "#4f7fc5",
+      "brightMagenta": "#b869a9",
+      "brightCyan": "#4896a6",
+      "brightWhite": "#fffaf4"
+    },
+    "terminal": {
+      "background": "#fcf8f2",
+      "foreground": "#18130f",
+      "cursor": "#ff4050",
+      "cursorAccent": "#f8f3ec",
+      "selectionBackground": "#ffe7ea",
+      "selectionForeground": "#18130f"
+    },
+    "typography": {
+      "interface": {
+        "body": {
+          "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+          "fontSize": 14,
+          "fontWeight": 400,
+          "lineHeight": 20,
+          "letterSpacing": 0
+        },
+        "heading": {
+          "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+          "fontSize": 14,
+          "fontWeight": 500,
+          "lineHeight": 20,
+          "letterSpacing": 0
+        },
+        "control": {
+          "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+          "fontSize": 13,
+          "fontWeight": 500,
+          "lineHeight": 18,
+          "letterSpacing": 0
+        },
+        "navigation": {
+          "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+          "fontSize": 12,
+          "fontWeight": 500,
+          "lineHeight": 18,
+          "letterSpacing": 0
+        },
+        "menu": {
+          "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+          "fontSize": 12,
+          "fontWeight": 400,
+          "lineHeight": 18,
+          "letterSpacing": 0
+        },
+        "tree": {
+          "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+          "fontSize": 14,
+          "fontWeight": 500,
+          "lineHeight": 18,
+          "letterSpacing": 0
+        },
+        "tooltip": {
+          "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+          "fontSize": 12,
+          "fontWeight": 400,
+          "lineHeight": 18,
+          "letterSpacing": 0
+        },
+        "metadata": {
+          "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+          "fontSize": 12,
+          "fontWeight": 400,
+          "lineHeight": 18,
+          "letterSpacing": 0
+        },
+        "status": {
+          "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+          "fontSize": 12,
+          "fontWeight": 400,
+          "lineHeight": 18,
+          "letterSpacing": 0
+        },
+        "technical": {
+          "family": "Maple Mono, SF Mono, Cascadia Code, JetBrains Mono, Noto Sans SC Variable, ui-monospace, monospace",
+          "fontSize": 12,
+          "fontWeight": 400,
+          "lineHeight": 18,
+          "letterSpacing": 0
+        }
+      },
+      "canvas": {
+        "node": {
+          "family": "\"方正屏显雅宋简体\", system-ui, sans-serif",
+          "fontSize": 14,
+          "fontWeight": 500,
+          "lineHeight": 18,
+          "letterSpacing": 0
+        },
+        "nodeEditor": {
+          "family": "\"方正屏显雅宋简体\", system-ui, sans-serif",
+          "fontSize": 14,
+          "fontWeight": 500,
+          "lineHeight": 18,
+          "letterSpacing": 0
+        },
+        "edgeLabel": {
+          "family": "\"方正屏显雅宋简体\", system-ui, sans-serif",
+          "fontSize": 13,
+          "fontWeight": 500,
+          "lineHeight": 18,
+          "letterSpacing": 0
+        },
+        "edgeEditor": {
+          "family": "\"方正屏显雅宋简体\", system-ui, sans-serif",
+          "fontSize": 13,
+          "fontWeight": 500,
+          "lineHeight": 18,
+          "letterSpacing": 0
+        },
+        "subgraphTitle": {
+          "family": "\"方正屏显雅宋简体\", system-ui, sans-serif",
+          "fontSize": 13,
+          "fontWeight": 600,
+          "lineHeight": 18,
+          "letterSpacing": 0
+        },
+        "actionBadge": {
+          "family": "\"方正屏显雅宋简体\", system-ui, sans-serif",
+          "fontSize": 10,
+          "fontWeight": 600,
+          "lineHeight": 14,
+          "letterSpacing": 0
+        }
+      },
+      "linkCard": {
+        "brand": {
+          "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+          "fontSize": 22,
+          "fontWeight": 800,
+          "lineHeight": 28,
+          "letterSpacing": 0
+        },
+        "provider": {
+          "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+          "fontSize": 11,
+          "fontWeight": 700,
+          "lineHeight": 16,
+          "letterSpacing": 0
+        },
+        "title": {
+          "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+          "fontSize": 13,
+          "fontWeight": 700,
+          "lineHeight": 16.25,
+          "letterSpacing": 0
+        },
+        "titleEditor": {
+          "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+          "fontSize": 13,
+          "fontWeight": 700,
+          "lineHeight": 16.25,
+          "letterSpacing": 0
+        }
+      },
+      "markdownCard": {
+        "badge": {
+          "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+          "fontSize": 12,
+          "fontWeight": 700,
+          "lineHeight": 16,
+          "letterSpacing": 0
+        },
+        "title": {
+          "family": "\"方正屏显雅宋简体\", \"Songti SC\", \"Noto Serif SC\", serif",
+          "fontSize": 16,
+          "fontWeight": 700,
+          "lineHeight": 22,
+          "letterSpacing": 0
+        },
+        "path": {
+          "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+          "fontSize": 10,
+          "fontWeight": 400,
+          "lineHeight": 14,
+          "letterSpacing": 0
+        },
+        "excerpt": {
+          "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+          "fontSize": 12,
+          "fontWeight": 400,
+          "lineHeight": 17.4,
+          "letterSpacing": 0
+        },
+        "titleEditor": {
+          "family": "\"方正屏显雅宋简体\", \"Songti SC\", \"Noto Serif SC\", serif",
+          "fontSize": 16,
+          "fontWeight": 700,
+          "lineHeight": 22,
+          "letterSpacing": 0
+        }
+      },
+      "tableNode": {
+        "cell": {
+          "family": "Noto Sans SC Variable, Noto Sans SC, PingFang SC, Microsoft YaHei UI, Microsoft YaHei, system-ui, sans-serif",
+          "fontSize": 13,
+          "fontWeight": 400,
+          "lineHeight": 18,
+          "letterSpacing": 0
+        },
+        "cellEditor": {
+          "family": "Noto Sans SC Variable, Noto Sans SC, PingFang SC, Microsoft YaHei UI, Microsoft YaHei, system-ui, sans-serif",
+          "fontSize": 13,
+          "fontWeight": 400,
+          "lineHeight": 18,
+          "letterSpacing": 0
+        }
+      },
+      "mermaid": {
+        "general": {
+          "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+          "fontSize": 16,
+          "fontWeight": 400,
+          "lineHeight": 22,
+          "letterSpacing": 0
+        },
+        "diagramTitle": {
+          "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+          "fontSize": 18,
+          "fontWeight": 600,
+          "lineHeight": 24,
+          "letterSpacing": 0
+        },
+        "primaryLabel": {
+          "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+          "fontSize": 16,
+          "fontWeight": 400,
+          "lineHeight": 22,
+          "letterSpacing": 0
+        },
+        "relationLabel": {
+          "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+          "fontSize": 14,
+          "fontWeight": 400,
+          "lineHeight": 20,
+          "letterSpacing": 0
+        },
+        "groupTitle": {
+          "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+          "fontSize": 14,
+          "fontWeight": 600,
+          "lineHeight": 20,
+          "letterSpacing": 0
+        },
+        "note": {
+          "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+          "fontSize": 14,
+          "fontWeight": 400,
+          "lineHeight": 20,
+          "letterSpacing": 0
+        }
+      },
+      "canvasDocument": {
+        "shape": {
+          "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+          "fontSize": 14,
+          "fontWeight": 400,
+          "lineHeight": 18,
+          "letterSpacing": 0
+        },
+        "shapeEditor": {
+          "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+          "fontSize": 14,
+          "fontWeight": 400,
+          "lineHeight": 18,
+          "letterSpacing": 0
+        },
+        "card": {
+          "family": "\"方正屏显雅宋简体\", \"Songti SC\", \"Noto Serif SC\", serif",
+          "fontSize": 16,
+          "fontWeight": 400,
+          "lineHeight": 21,
+          "letterSpacing": 0
+        },
+        "cardEditor": {
+          "family": "\"方正屏显雅宋简体\", \"Songti SC\", \"Noto Serif SC\", serif",
+          "fontSize": 16,
+          "fontWeight": 400,
+          "lineHeight": 21,
+          "letterSpacing": 0
+        },
+        "freeText": {
+          "family": "\"方正屏显雅宋简体\", \"Songti SC\", \"Noto Serif SC\", serif",
+          "fontSize": 18,
+          "fontWeight": 400,
+          "lineHeight": 23,
+          "letterSpacing": 0
+        },
+        "freeTextEditor": {
+          "family": "\"方正屏显雅宋简体\", \"Songti SC\", \"Noto Serif SC\", serif",
+          "fontSize": 18,
+          "fontWeight": 400,
+          "lineHeight": 23,
+          "letterSpacing": 0
+        },
+        "connector": {
+          "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+          "fontSize": 12,
+          "fontWeight": 400,
+          "lineHeight": 15,
+          "letterSpacing": 0
+        },
+        "connectorEditor": {
+          "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+          "fontSize": 12,
+          "fontWeight": 400,
+          "lineHeight": 15,
+          "letterSpacing": 0
+        }
+      },
+      "source": {
+        "editor": {
+          "family": "Maple Mono, SF Mono, Cascadia Code, JetBrains Mono, Noto Sans SC Variable, ui-monospace, monospace",
+          "fontSize": 13,
+          "fontWeight": 400,
+          "lineHeight": 30,
+          "letterSpacing": 0
+        },
+        "diagnosticSummary": {
+          "family": "Maple Mono, SF Mono, Cascadia Code, JetBrains Mono, Noto Sans SC Variable, ui-monospace, monospace",
+          "fontSize": 12,
+          "fontWeight": 400,
+          "lineHeight": 20,
+          "letterSpacing": 0
+        },
+        "diagnosticRaw": {
+          "family": "Maple Mono, SF Mono, Cascadia Code, JetBrains Mono, Noto Sans SC Variable, ui-monospace, monospace",
+          "fontSize": 12,
+          "fontWeight": 400,
+          "lineHeight": 20,
+          "letterSpacing": 0
+        }
+      },
+      "terminal": {
+        "content": {
+          "family": "Maple Mono, SF Mono, Cascadia Code, JetBrains Mono, Noto Sans SC Variable, ui-monospace, monospace",
+          "fontSize": 18,
+          "fontWeight": 500,
+          "lineHeight": 8,
+          "letterSpacing": 0
+        },
+        "heading": {
+          "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+          "fontSize": 12,
+          "fontWeight": 500,
+          "lineHeight": 16,
+          "letterSpacing": 0
+        },
+        "path": {
+          "family": "Maple Mono, SF Mono, Cascadia Code, JetBrains Mono, Noto Sans SC Variable, ui-monospace, monospace",
+          "fontSize": 11,
+          "fontWeight": 400,
+          "lineHeight": 16,
+          "letterSpacing": 0
+        }
+      }
+    },
+    "motion": {
+      "duration": {
+        "fast": 0.1,
+        "base": 0.18,
+        "slow": 0.28,
+        "layout": 0.36
+      },
+      "ease": {
+        "standard": "power2.out",
+        "emphasized": "power3.out",
+        "exit": "power2.in",
+        "linear": "none"
+      },
+      "distance": {
+        "chrome": 8,
+        "panel": 24,
+        "viewport": 64
+      },
+      "stagger": {
+        "button": 0.025,
+        "list": 0.018
+      },
+      "canvas": {
+        "createScale": 0.98,
+        "selectedScale": 1.015,
+        "highlightDuration": 0.55,
+        "maxAnimatedItems": 80,
+        "proximityRadiusPx": 200,
+        "proximityMaxScale": 1,
+        "proximityDuration": 0.35
+      }
+    },
+    "diagnostics": {
+      "minTextContrast": 4.5,
+      "minFocusContrast": 3,
+      "minSelectionContrast": 3
+    }
+  }
 }

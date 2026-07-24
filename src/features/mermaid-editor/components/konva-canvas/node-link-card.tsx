@@ -1,11 +1,15 @@
 import { useEffect, useState } from "react";
 import { Group, Rect, Text } from "react-konva";
+import type Konva from "konva";
 
 import { CanvasNodeActionBadge } from "@/features/mermaid-editor/components/konva-canvas/node-action-ui";
 import { CanvasNodeImage, type CanvasNodeImageLoadStatus } from "@/features/mermaid-editor/components/konva-canvas/node-image";
 import type { CanvasVisualTokens } from "@/features/mermaid-editor/lib/canvas-visual-state";
 import type { CanvasNode, CanvasNodePreview } from "@/features/mermaid-editor/lib/editor-types";
-import { LINK_CARD_INSET, linkCardCoverHeight, normalizeCanvasNodePreview } from "@/features/mermaid-editor/lib/node-preview";
+import { normalizeCanvasNodePreview, themedLinkCardLayout } from "@/features/mermaid-editor/lib/node-preview";
+import type { EditorTypographyTokens, SpecialNodeThemeTokens, TypographyRoleTokens } from "@/features/mermaid-editor/lib/editor-theme";
+import { resolveSpecialNodeBorder, specialNodeBorderDash } from "@/features/mermaid-editor/lib/editor-theme/special-node-theme";
+import type { SpecialNodeVisualState } from "@/features/mermaid-editor/lib/editor-theme/special-node-types";
 
 export function CanvasNodeLinkCard({
   node,
@@ -16,6 +20,10 @@ export function CanvasNodeLinkCard({
   stroke,
   strokeWidth,
   visualTokens,
+  typography,
+  actionTypography,
+  specialNode,
+  visualState,
   onOpen
 }: {
   node: CanvasNode;
@@ -23,9 +31,13 @@ export function CanvasNodeLinkCard({
   width: number;
   height: number;
   coverSrc?: string;
-  stroke: string;
-  strokeWidth: number;
+  stroke?: string;
+  strokeWidth?: number;
   visualTokens: CanvasVisualTokens;
+  typography: EditorTypographyTokens["linkCard"];
+  actionTypography: TypographyRoleTokens;
+  specialNode: SpecialNodeThemeTokens;
+  visualState?: SpecialNodeVisualState;
   onOpen?: () => void;
 }) {
   const normalized = normalizeCanvasNodePreview(preview);
@@ -37,38 +49,48 @@ export function CanvasNodeLinkCard({
 
   if (!normalized) return null;
 
-  const inset = LINK_CARD_INSET;
-  const coverWidth = width - inset * 2;
-  const coverHeight = linkCardCoverHeight(normalized);
-  const providerY = inset + coverHeight + 10;
-  const titleY = providerY + 20;
+  const layout = themedLinkCardLayout(normalized, specialNode.linkCard);
+  const inset = specialNode.linkCard.inset;
+  const coverWidth = layout.coverWidth;
+  const coverHeight = layout.coverHeight;
+  const providerY = layout.providerY;
+  const titleY = layout.titleY;
   const placeholderY = inset + Math.max(0, (coverHeight - 48) / 2);
   const coverImage = coverImageRect(normalized.cover, coverWidth, coverHeight);
   const title = normalized.title || node.label;
+  const contentWidth = Math.max(0, width - specialNode.linkCard.contentPaddingX * 2);
   const showCoverPlaceholder = !coverSrc || coverLoadStatus !== "loaded";
   const showCoverImage = Boolean(coverSrc && coverLoadStatus !== "error");
+  const surface = specialNode.linkCard.surface;
+  const surfaceBorder = visualState
+    ? resolveSpecialNodeBorder(surface, specialNode.linkCard.state, visualState)
+    : { ...surface.border, color: stroke ?? surface.border.color, width: strokeWidth ?? surface.border.width };
+  const coverBorder = specialNode.linkCard.coverBorder;
 
   return (
     <Group>
       <Rect
         width={width}
         height={height}
-        fill={visualTokens.colors.surface}
-        stroke={stroke}
-        strokeWidth={strokeWidth}
-        cornerRadius={visualTokens.node.cornerRadius}
-        shadowColor={visualTokens.colors.nodeStroke}
-        shadowBlur={10}
-        shadowOpacity={visualTokens.node.previewShadowOpacity}
-        shadowOffsetY={4}
+        fill={surface.background}
+        stroke={surfaceBorder.color}
+        strokeWidth={surfaceBorder.width}
+        strokeEnabled={surfaceBorder.style !== "none" && surfaceBorder.width > 0}
+        dash={specialNodeBorderDash(surfaceBorder)}
+        cornerRadius={surface.radius}
+        shadowColor={surface.shadow.color}
+        shadowBlur={surface.shadow.blur}
+        shadowOpacity={surface.shadow.opacity}
+        shadowOffsetX={surface.shadow.offsetX}
+        shadowOffsetY={surface.shadow.offsetY}
       />
       <Rect
         x={inset}
         y={inset}
         width={coverWidth}
         height={coverHeight}
-        fill={visualTokens.colors.selectionFill}
-        cornerRadius={visualTokens.shape.fallbackCornerRadius}
+        fill={specialNode.linkCard.coverBackground}
+        cornerRadius={specialNode.linkCard.coverRadius}
         listening={false}
       />
       {showCoverPlaceholder ? (
@@ -80,15 +102,17 @@ export function CanvasNodeLinkCard({
           text="小红书"
           align="center"
           verticalAlign="middle"
-          fontSize={22}
-          fontStyle="800"
-          fontFamily="system-ui, sans-serif"
-          fill={visualTokens.colors.accent}
+          fontSize={typography.brand.fontSize}
+          fontStyle={String(typography.brand.fontWeight)}
+          fontFamily={typography.brand.family}
+          lineHeight={typography.brand.lineHeight / typography.brand.fontSize}
+          letterSpacing={typography.brand.letterSpacing}
+          fill={specialNode.linkCard.brandColor}
           listening={false}
         />
       ) : null}
       {showCoverImage && coverSrc ? (
-        <Group x={inset} y={inset} clipX={0} clipY={0} clipWidth={coverWidth} clipHeight={coverHeight}>
+        <Group x={inset} y={inset} clipFunc={(context) => roundedRectClip(context, coverWidth, coverHeight, specialNode.linkCard.coverRadius)}>
           <CanvasNodeImage src={coverSrc} x={coverImage.x} y={coverImage.y} width={coverImage.width} height={coverImage.height} onLoadStatusChange={setCoverLoadStatus} />
         </Group>
       ) : null}
@@ -98,39 +122,44 @@ export function CanvasNodeLinkCard({
         width={coverWidth}
         height={coverHeight}
         fillEnabled={false}
-        stroke={visualTokens.colors.labelStroke}
-        strokeWidth={visualTokens.node.strokeWidth}
-        cornerRadius={visualTokens.shape.fallbackCornerRadius}
+        stroke={coverBorder.color}
+        strokeWidth={coverBorder.width}
+        strokeEnabled={coverBorder.style !== "none" && coverBorder.width > 0}
+        dash={specialNodeBorderDash(coverBorder)}
+        cornerRadius={specialNode.linkCard.coverRadius}
         listening={false}
       />
       <Text
-        x={12}
+        x={specialNode.linkCard.contentPaddingX}
         y={providerY}
-        width={width - 24}
+        width={contentWidth}
         height={16}
         text={normalized.provider}
-        fontSize={11}
-        fontStyle="700"
-        fontFamily="system-ui, sans-serif"
-        fill={visualTokens.colors.accent}
+        fontSize={typography.provider.fontSize}
+        fontStyle={String(typography.provider.fontWeight)}
+        fontFamily={typography.provider.family}
+        lineHeight={typography.provider.lineHeight / typography.provider.fontSize}
+        letterSpacing={typography.provider.letterSpacing}
+        fill={specialNode.linkCard.providerColor}
         listening={false}
       />
       <Text
-        x={12}
+        x={specialNode.linkCard.contentPaddingX}
         y={titleY}
-        width={width - 24}
-        height={44}
+        width={contentWidth}
+        height={specialNode.linkCard.titleHeight}
         text={title}
-        fontSize={13}
-        fontStyle="700"
-        fontFamily="'Noto Sans SC Variable', 'Noto Sans SC', system-ui, sans-serif"
-        lineHeight={1.25}
+        fontSize={typography.title.fontSize}
+        fontStyle={String(typography.title.fontWeight)}
+        fontFamily={typography.title.family}
+        lineHeight={typography.title.lineHeight / typography.title.fontSize}
+        letterSpacing={typography.title.letterSpacing}
         wrap="word"
         ellipsis
-        fill={visualTokens.colors.nodeText}
+        fill={specialNode.shared.textColor}
         listening={false}
       />
-      <CanvasNodeActionBadge actionKind="url" x={width - 30} y={10} visualTokens={visualTokens} onOpen={onOpen} />
+      <CanvasNodeActionBadge actionKind="url" x={width - 30} y={10} visualTokens={visualTokens} typography={actionTypography} onOpen={onOpen} />
     </Group>
   );
 }
@@ -155,4 +184,19 @@ function coverImageRect(cover: CanvasNodePreview["cover"], boxWidth: number, box
 
 function isPositiveFiniteNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value) && value > 0;
+}
+
+function roundedRectClip(context: Konva.Context, width: number, height: number, radius: number) {
+  const r = Math.min(Math.max(0, radius), width / 2, height / 2);
+  context.beginPath();
+  context.moveTo(r, 0);
+  context.lineTo(width - r, 0);
+  context.arcTo(width, 0, width, r, r);
+  context.lineTo(width, height - r);
+  context.arcTo(width, height, width - r, height, r);
+  context.lineTo(r, height);
+  context.arcTo(0, height, 0, height - r, r);
+  context.lineTo(0, r);
+  context.arcTo(0, 0, r, 0, r);
+  context.closePath();
 }

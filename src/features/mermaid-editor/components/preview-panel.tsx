@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { DiagnosticPanel } from "@/features/mermaid-editor/components/diagnostic-panel";
 import { normalizeMermaidError, type EditorDiagnostic } from "@/features/mermaid-editor/lib/editor-diagnostics";
 import type { MermaidGraph, Selection } from "@/features/mermaid-editor/lib/editor-types";
-import { DEFAULT_EDITOR_THEME, type MermaidThemeVariables, themeToMermaidThemeVariables } from "@/features/mermaid-editor/lib/editor-theme";
+import { DEFAULT_EDITOR_THEME, type EditorTypographyTokens, type MermaidThemeVariables, themeToMermaidThemeVariables } from "@/features/mermaid-editor/lib/editor-theme";
 import { createWheelIntentTracker } from "@/features/mermaid-editor/lib/canvas-viewport-navigation";
 import { incrementPerformanceCounter, measureAsyncPerformance } from "@/features/mermaid-editor/lib/editor-performance";
 import { commandFromInteractionIntent, type EditorCommand } from "@/features/mermaid-editor/lib/interaction/commands";
@@ -23,6 +23,7 @@ type PreviewPanelProps = {
   framed?: boolean;
   diagnostics?: EditorDiagnostic[];
   mermaidThemeVariables?: MermaidThemeVariables;
+  mermaidTypography?: EditorTypographyTokens["mermaid"];
   onEditorCommand?: (command: EditorCommand) => void;
 };
 
@@ -48,6 +49,7 @@ type SafariGestureEvent = Event & {
 };
 
 const DEFAULT_MERMAID_THEME_VARIABLES = themeToMermaidThemeVariables(DEFAULT_EDITOR_THEME);
+const DEFAULT_MERMAID_TYPOGRAPHY = DEFAULT_EDITOR_THEME.typography.mermaid;
 const EMPTY_DIAGNOSTICS: EditorDiagnostic[] = [];
 const MAX_RENDER_CACHE_ITEMS = 8;
 const EMPTY_SELECTION: Selection = { nodeIds: [], edgeIds: [], subgraphIds: [] };
@@ -67,6 +69,7 @@ export function PreviewPanel({
   framed = true,
   diagnostics = EMPTY_DIAGNOSTICS,
   mermaidThemeVariables = DEFAULT_MERMAID_THEME_VARIABLES,
+  mermaidTypography = DEFAULT_MERMAID_TYPOGRAPHY,
   onEditorCommand
 }: PreviewPanelProps) {
   const [svg, setSvg] = useState("");
@@ -89,8 +92,8 @@ export function PreviewPanel({
   const viewportWidth = viewportSize.width;
   const viewportHeight = viewportSize.height;
 
-  async function render(renderVersion: number, renderSource: string, themeVariables: MermaidThemeVariables) {
-    const cacheKey = renderCacheKey(renderSource, themeVariables);
+  async function render(renderVersion: number, renderSource: string, themeVariables: MermaidThemeVariables, typography: EditorTypographyTokens["mermaid"]) {
+    const cacheKey = renderCacheKey(renderSource, themeVariables, typography);
     const cached = renderCacheRef.current.get(cacheKey);
     if (cached) {
       incrementPerformanceCounter("mermaid-render-cache-hit");
@@ -102,14 +105,15 @@ export function PreviewPanel({
     }
 
     try {
-      await measureAsyncPerformance("document-fonts-ready", () => document.fonts.ready);
+      await measureAsyncPerformance("document-fonts-ready", () => loadTypographyFonts(typography));
       if (renderVersion !== renderVersionRef.current) return;
 
       mermaid.initialize({
         startOnLoad: false,
         securityLevel: "loose",
         theme: "base",
-        themeVariables
+        themeVariables,
+        themeCSS: mermaidTypographyCss(typography)
       });
       const result = await measureAsyncPerformance("mermaid-render", () => mermaid.render(`${renderKey}-${Date.now()}`, renderSource), {
         sourceLength: renderSource.length
@@ -294,11 +298,11 @@ export function PreviewPanel({
     }
 
     const id = window.setTimeout(() => {
-      void render(renderVersion, source, mermaidThemeVariables);
+      void render(renderVersion, source, mermaidThemeVariables, mermaidTypography);
     }, 180);
     return () => window.clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [source, mermaidThemeVariables, diagnostics]);
+  }, [source, mermaidThemeVariables, mermaidTypography, diagnostics]);
 
   useEffect(() => {
     syncView(view, { applyVisual: true });
@@ -454,8 +458,34 @@ function fitRenderView(svgSize: SvgSize, viewportSize: SvgSize): RenderView {
   };
 }
 
-function renderCacheKey(source: string, themeVariables: MermaidThemeVariables) {
-  return `${source}\n%%theme:${JSON.stringify(themeVariables)}`;
+function renderCacheKey(source: string, themeVariables: MermaidThemeVariables, typography: EditorTypographyTokens["mermaid"]) {
+  return `${source}\n%%theme:${JSON.stringify(themeVariables)}\n%%typography:${JSON.stringify(typography)}`;
+}
+
+async function loadTypographyFonts(typography: EditorTypographyTokens["mermaid"]) {
+  if (!document.fonts?.load) return;
+  const requests = [...new Map(Object.values(typography).map((role) => [`${role.fontWeight}:${role.family}`, role])).values()];
+  await Promise.all(requests.map((role) => document.fonts.load(`${role.fontWeight} ${role.fontSize}px ${safeCssValue(role.family)}`, "中Aa").catch(() => [])));
+  await document.fonts.ready;
+}
+
+function mermaidTypographyCss(typography: EditorTypographyTokens["mermaid"]) {
+  return [
+    typographyRule("text, .label, foreignObject div", typography.general),
+    typographyRule(".titleText, .pieTitleText", typography.diagramTitle),
+    typographyRule(".nodeLabel, .actor, .entityLabel, .classText, .labelText", typography.primaryLabel),
+    typographyRule(".edgeLabel, .messageText, .loopText, .relation", typography.relationLabel),
+    typographyRule(".cluster-label, .sectionTitle, .labelTitle", typography.groupTitle),
+    typographyRule(".noteText, .note, .noteText tspan", typography.note)
+  ].join("\n");
+}
+
+function typographyRule(selector: string, role: EditorTypographyTokens["mermaid"][keyof EditorTypographyTokens["mermaid"]]) {
+  return `${selector}{font-family:${safeCssValue(role.family)}!important;font-size:${role.fontSize}px!important;font-weight:${role.fontWeight}!important;line-height:${role.lineHeight}px!important;letter-spacing:${role.letterSpacing}px!important;}`;
+}
+
+function safeCssValue(value: string) {
+  return value.replace(/[;{}<>]/g, " ");
 }
 
 function parseSvgSize(svgText: string): SvgSize | null {

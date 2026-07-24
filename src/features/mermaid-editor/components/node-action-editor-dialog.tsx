@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
-import { OpenNewWindow, Xmark } from "iconoir-react/regular";
+import { OpenNewWindow } from "iconoir-react/regular";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { EditorDialog, EditorField, EditorFieldError } from "@/features/mermaid-editor/components/editor-ui";
 import type { CanvasNode, CanvasNodeAction } from "@/features/mermaid-editor/lib/editor-types";
 import {
   inferNodeActionKindFromTarget,
@@ -13,7 +13,6 @@ import {
   normalizeNodeAction
 } from "@/features/mermaid-editor/lib/node-actions";
 import type { ProjectFileEntry } from "@/features/mermaid-editor/lib/project-workspace";
-import { OVERLAY_Z_INDEX } from "@/lib/overlay-layers";
 
 type NodeActionEditorDraft = {
   kind: CanvasNodeAction["kind"];
@@ -44,17 +43,6 @@ export function NodeActionEditorDialog({
   useEffect(() => {
     setDraft(nodeActionDraftFromNode(node));
   }, [node]);
-
-  useEffect(() => {
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key !== "Escape") return;
-      event.preventDefault();
-      onClose();
-    }
-
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [onClose]);
 
   function updateTarget(target: string) {
     const inferredKind = inferNodeActionKindFromTarget(target);
@@ -89,30 +77,23 @@ export function NodeActionEditorDialog({
   }
 
   return (
-    <div
-      className="fixed inset-0 grid place-items-center bg-foreground/10 px-4 backdrop-blur-[1px]"
-      style={{ zIndex: OVERLAY_Z_INDEX.modal }}
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onClose();
-      }}
-      data-floating-panel-drag-exclude
-      data-editor-floating-menu-ignore
-    >
-      <section className="grid w-[min(520px,100%)] gap-4 rounded-md border bg-card p-4 shadow-sm">
-        <header className="flex min-w-0 items-start justify-between gap-3">
-          <div className="min-w-0">
-            <div className="text-sm font-medium">编辑节点链接</div>
-            <div className="truncate text-xs text-muted-foreground" title={node.label || node.id}>
-              {node.label || node.id}
-            </div>
+    <EditorDialog
+      open
+      onOpenChange={(open) => { if (!open) onClose(); }}
+      title={<span title={node.label || node.id}>节点链接</span>}
+      size="md"
+      footer={
+        <div className="flex w-full flex-wrap justify-between gap-2">
+          <Button variant="ghost" size="sm" onClick={() => onSave(node.id, undefined)}>清除</Button>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={testOpen} disabled={!normalizedAction}><OpenNewWindow />测试</Button>
+            <Button size="sm" onClick={saveDraft} disabled={!normalizedAction}>保存</Button>
           </div>
-          <Button size="icon" variant="ghost" className="size-8 shrink-0" onClick={onClose} aria-label="关闭链接编辑器">
-            <Xmark className="size-4" />
-          </Button>
-        </header>
-
-        <div className="grid gap-2">
-          <Label>类型</Label>
+        </div>
+      }
+    >
+      <div className="grid gap-4">
+        <EditorField label="类型">
           <Select value={draft.kind} onValueChange={(value) => updateKind(value as CanvasNodeAction["kind"])}>
             <SelectTrigger>
               <SelectValue />
@@ -122,10 +103,9 @@ export function NodeActionEditorDialog({
               <SelectItem value="file">文件链接</SelectItem>
             </SelectContent>
           </Select>
-        </div>
+        </EditorField>
 
-        <div className="grid gap-2">
-          <Label htmlFor="node-action-editor-target">{draft.kind === "url" ? "网页 URL" : "文件路径"}</Label>
+        <EditorField label={draft.kind === "url" ? "网页 URL" : "文件路径"} htmlFor="node-action-editor-target">
           <Input
             id="node-action-editor-target"
             value={draft.target}
@@ -136,16 +116,11 @@ export function NodeActionEditorDialog({
               if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) saveDraft();
             }}
           />
-          {targetInvalid ? (
-            <div className="text-xs text-destructive">
-              {draft.kind === "url" ? "网页链接需要以 http:// 或 https:// 开头。" : "请输入可解析的文件路径。"}
-            </div>
-          ) : null}
-        </div>
+          {targetInvalid ? <EditorFieldError>{draft.kind === "url" ? "网页链接需要以 http:// 或 https:// 开头。" : "请输入可解析的文件路径。"}</EditorFieldError> : null}
+        </EditorField>
 
         {draft.kind === "file" && projectFiles.length ? (
-          <div className="grid gap-2">
-            <Label>从项目选择</Label>
+          <EditorField label="项目文件">
             <Select
               value={projectFileSelectValue}
               onValueChange={(path) => {
@@ -167,12 +142,11 @@ export function NodeActionEditorDialog({
                 ))}
               </SelectContent>
             </Select>
-          </div>
+          </EditorField>
         ) : null}
 
         {draft.kind === "url" ? (
-          <div className="grid gap-2">
-            <Label>打开方式</Label>
+          <EditorField label="打开方式">
             <Select value={draft.openMode} onValueChange={(value) => setDraft((current) => ({ ...current, openMode: value as NodeActionEditorDraft["openMode"] }))}>
               <SelectTrigger>
                 <SelectValue />
@@ -182,35 +156,19 @@ export function NodeActionEditorDialog({
                 <SelectItem value="system">系统浏览器</SelectItem>
               </SelectContent>
             </Select>
-          </div>
+          </EditorField>
         ) : null}
 
-        <div className="grid gap-2">
-          <Label htmlFor="node-action-editor-tooltip">提示文本</Label>
+        <EditorField label="提示文本" htmlFor="node-action-editor-tooltip">
           <Input
             id="node-action-editor-tooltip"
             value={draft.tooltip}
             placeholder={normalizedAction ? nodeActionDefaultTooltip(normalizedAction) : draft.kind === "url" ? "打开链接" : "打开文件"}
             onChange={(event) => setDraft((current) => ({ ...current, tooltip: event.target.value }))}
           />
-        </div>
-
-        <footer className="flex flex-wrap justify-between gap-2">
-          <Button variant="ghost" className="h-8 px-2" onClick={() => onSave(node.id, undefined)}>
-            清除链接
-          </Button>
-          <div className="flex gap-2">
-            <Button variant="outline" className="h-8 px-2" onClick={testOpen} disabled={!normalizedAction}>
-              <OpenNewWindow className="size-4" />
-              测试打开
-            </Button>
-            <Button className="h-8 px-3" onClick={saveDraft} disabled={!normalizedAction}>
-              保存链接
-            </Button>
-          </div>
-        </footer>
-      </section>
-    </div>
+        </EditorField>
+      </div>
+    </EditorDialog>
   );
 }
 

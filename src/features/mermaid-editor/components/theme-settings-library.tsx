@@ -1,7 +1,8 @@
 import { useMemo, useState } from "react";
+import { Refresh } from "iconoir-react/regular";
 
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { EditorEmptyState, EditorIconButton, EditorList, EditorListRow, EditorSearchField } from "@/features/mermaid-editor/components/editor-ui";
 import {
   BUILT_IN_EDITOR_THEME_CATALOG,
   BUILT_IN_EDITOR_THEMES,
@@ -11,7 +12,6 @@ import {
   type EditorTheme,
   type EditorThemeId
 } from "@/features/mermaid-editor/lib/editor-theme";
-import { cn } from "@/lib/utils";
 
 import { toCustomTheme } from "./theme-settings-utils";
 
@@ -46,52 +46,34 @@ export function ThemeSettingsLibrary({
 
   return (
     <div className="grid gap-3" data-theme-settings-library>
-      <div>
-        <h2 className="text-sm font-medium">选择主题</h2>
-        <p className="mt-0.5 text-xs leading-5 text-muted-foreground">选择预设后会立即应用到整个编辑器，应用前仍可放弃。</p>
-      </div>
-      <Input value={query} placeholder={`搜索 ${BUILT_IN_EDITOR_THEMES.length} 个主题`} onChange={(event) => setQuery(event.target.value)} />
-      <div className="max-h-[min(520px,60vh)] overflow-y-auto rounded-md border bg-background">
+      <EditorSearchField value={query} placeholder={`搜索 ${BUILT_IN_EDITOR_THEMES.length} 个主题`} onChange={(event) => setQuery(event.target.value)} />
+      <EditorList className="max-h-[min(520px,60vh)] overflow-y-auto border bg-background p-1">
         {visibleEntries.map((entry) => (
-          <button
+          <EditorListRow
             key={entry.id}
             type="button"
-            className={cn(
-              "flex w-full items-center gap-3 border-b px-3 py-2 text-left text-sm last:border-b-0",
-              entry.id === themeId ? "bg-accent text-accent-foreground" : "text-foreground hover:bg-muted"
-            )}
+            selected={entry.id === themeId}
+            icon={<span className="flex shrink-0 overflow-hidden border">{entry.swatches.map((color, index) => <span key={`${color}-${index}`} className="h-7 w-5" style={{ backgroundColor: color }} />)}</span>}
+            title={entry.name}
+            aria-label={`${entry.name}，${entry.source.name}，${themeModeLabel(entry.mode)}`}
             onClick={() => selectTheme(entry.id)}
-          >
-            <span className="flex shrink-0 overflow-hidden rounded-sm border">
-              {entry.swatches.map((color, index) => (
-                <span key={`${color}-${index}`} className="h-7 w-5" style={{ backgroundColor: color }} />
-              ))}
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block truncate font-medium">{entry.name}</span>
-              <span className="block truncate text-xs opacity-70">{entry.source.name} · {themeModeLabel(entry.mode)}</span>
-            </span>
-          </button>
+          />
         ))}
-        <button
+        <EditorListRow
           type="button"
-          className={cn(
-            "flex w-full items-center gap-3 px-3 py-2 text-left text-sm",
-            themeId === "custom" ? "bg-accent text-accent-foreground" : "text-foreground hover:bg-muted"
-          )}
+          selected={themeId === "custom"}
+          icon={<span className="size-7 shrink-0 border" style={{ backgroundColor: activeTheme.interface.colors.primary }} />}
+          title="自定义主题"
+          aria-label="自定义主题，当前编辑副本"
           onClick={() => selectTheme("custom")}
-        >
-          <span className="size-7 shrink-0 border" style={{ backgroundColor: activeTheme.ui.primary }} />
-          <span className="min-w-0 flex-1">
-            <span className="block truncate font-medium">自定义主题</span>
-            <span className="block truncate text-xs opacity-70">当前编辑副本</span>
-          </span>
-        </button>
-        {visibleEntries.length === 0 ? <div className="px-3 py-8 text-center text-xs text-muted-foreground">没有匹配主题</div> : null}
-      </div>
+        />
+        {visibleEntries.length === 0 ? <EditorEmptyState title="没有匹配主题" /> : null}
+      </EditorList>
       <div className="flex flex-wrap gap-2">
-        <Button variant="outline" className="h-8 px-3" onClick={() => onPreview("custom", toCustomTheme(activeTheme))}>复制当前</Button>
-        <Button variant="ghost" className="h-8 px-3" onClick={() => onPreview(DEFAULT_EDITOR_THEME.id, customTheme)}>恢复默认</Button>
+        <Button variant="outline" size="sm" onClick={() => onPreview("custom", toCustomTheme(activeTheme))}>复制当前</Button>
+        <EditorIconButton context="inline" label="恢复默认主题" onClick={() => onPreview(DEFAULT_EDITOR_THEME.id, customTheme)}>
+          <Refresh />
+        </EditorIconButton>
       </div>
     </div>
   );

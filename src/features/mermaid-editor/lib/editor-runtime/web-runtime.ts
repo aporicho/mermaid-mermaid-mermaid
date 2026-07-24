@@ -13,9 +13,11 @@ import type {
   EditorDraftState,
   EditorRuntime
 } from "@/features/mermaid-editor/lib/editor-runtime/types";
+import { createUnsupportedProjectFileOperations, createUnsupportedRuntimeMonitoringOperations } from "@/features/mermaid-editor/lib/editor-runtime/unsupported-project-file";
 
 export function createWebRuntime(): EditorRuntime {
   return {
+    ...createUnsupportedProjectFileOperations("网页版"), ...createUnsupportedRuntimeMonitoringOperations(),
     kind: "web",
     host: "web",
     openExternalUrl(url) {
@@ -42,13 +44,6 @@ export function createWebRuntime(): EditorRuntime {
         message: "应用内浏览器需要桌面版 WebView2。"
       };
     },
-    async openBrowserToolWindow(request) {
-      openExternalUrl(request.url);
-      return {
-        status: "opened",
-        external: true
-      };
-    },
     loadDraft() {
       if (typeof window === "undefined") return null;
       const raw = window.localStorage.getItem(EDITOR_DRAFT_STORAGE_KEY);
@@ -56,6 +51,9 @@ export function createWebRuntime(): EditorRuntime {
     },
     async loadSavedState() {
       return this.loadDraft();
+    },
+    async listSystemFonts() {
+      return [];
     },
     async saveDraft(draft) {
       if (typeof window === "undefined") return;
@@ -120,6 +118,8 @@ export function createWebRuntime(): EditorRuntime {
         message: "网页版无法在项目文件夹中创建 Markdown 文档，请使用 Electron 桌面版。"
       };
     },
+    async createProjectFile() { return { status: "unsupported", message: "网页版无法在项目文件夹中创建文件，请使用 Electron 桌面版。" }; },
+    async moveProjectFile() { return { status: "unsupported", message: "网页版无法移动项目文件，请使用 Electron 桌面版。" }; },
     async pickImageAsset() {
       return {
         status: "unsupported",
@@ -199,14 +199,12 @@ export function createWebRuntime(): EditorRuntime {
     async listenForTerminalExit() {
       return () => undefined;
     },
-    async publishAiContext() {
-      // Static web builds intentionally do not expose the live AI bridge.
-    },
-    async pollAiCommand() {
-      return null;
-    },
-    async finishAiCommand() {
-      // Static web builds intentionally do not expose the live AI bridge.
-    }
+    async startAgent() { return { status: "unsupported", message: "Pi Agent 仅支持 Electron 桌面版。" }; },
+    async sendAgentRpc(command) { return { accepted: false, id: command.id || "unsupported" }; },
+    async runAgentControl() { throw new Error("Pi Agent 仅支持 Electron 桌面版。"); },
+    async respondAgentExtensionUi() {},
+    async respondAgentHost() {},
+    async stopAgent() {},
+    async listenForAgentEvents() { return () => undefined; }
   };
 }

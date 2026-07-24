@@ -2,13 +2,13 @@ const crypto = require("node:crypto");
 const fsp = require("node:fs/promises");
 const path = require("node:path");
 
-const IMAGE_EXTENSIONS = new Set(["png", "jpg", "jpeg", "webp", "gif", "svg"]);
+const IMAGE_EXTENSIONS = new Set(["png", "jpg", "jpeg", "webp", "gif", "svg", "avif", "ico"]);
 const ASSET_PROTOCOL = "mmm-asset";
 
 async function importImageAssetPath(documentPath, imagePath) {
   assertSupportedImageDocumentPath(documentPath);
   if (!isSupportedImagePath(imagePath)) {
-    throw fileWorkflowError("unsupported_type", "只支持 png、jpg、jpeg、webp、gif 或 svg 图片。", imagePath);
+    throw fileWorkflowError("unsupported_type", "只支持 png、jpg、jpeg、webp、gif、svg、avif 或 ico 图片。", imagePath);
   }
 
   const documentDir = path.dirname(documentPath);
@@ -33,7 +33,7 @@ async function importImageAssetPath(documentPath, imagePath) {
 async function importImageAssetBytes(documentPath, fileName, bytes) {
   assertSupportedImageDocumentPath(documentPath);
   if (!isSupportedImagePath(fileName)) {
-    throw fileWorkflowError("unsupported_type", "只支持 png、jpg、jpeg、webp、gif 或 svg 图片。", fileName);
+    throw fileWorkflowError("unsupported_type", "只支持 png、jpg、jpeg、webp、gif、svg、avif 或 ico 图片。", fileName);
   }
 
   const documentDir = path.dirname(documentPath);
@@ -122,7 +122,7 @@ function isSupportedImagePath(filePath) {
 
 function isExternalAssetSrc(src) {
   const lower = String(src || "").toLowerCase();
-  return ["http://", "https://", "data:", "blob:", "asset:", "tauri:", `${ASSET_PROTOCOL}:`].some((prefix) => lower.startsWith(prefix));
+  return ["http://", "https://", "data:", "blob:", `${ASSET_PROTOCOL}:`].some((prefix) => lower.startsWith(prefix));
 }
 
 function isPathInside(child, parent) {

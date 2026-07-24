@@ -9,6 +9,7 @@ describe("editor runtime shared helpers", () => {
     expect(isNativeFilePath("\\\\server\\share\\cover.jpg")).toBe(true);
     expect(isNativeFilePath("assets/demo/cover.jpg")).toBe(false);
     expect(isExternalAssetSrc("https://sns-webpic-qc.xhscdn.com/cover")).toBe(true);
-    expect(isExternalAssetSrc("asset://localhost/cover.jpg")).toBe(true);
+    expect(isExternalAssetSrc("mmm-asset://local/cover.jpg")).toBe(true);
+    expect(isExternalAssetSrc("asset://localhost/legacy-cover.jpg")).toBe(false);
   });
 });

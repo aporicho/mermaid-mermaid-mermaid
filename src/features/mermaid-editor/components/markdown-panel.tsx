@@ -1,12 +1,41 @@
 "use client";
 
-import { useEffect, useRef, type CSSProperties } from "react";
-import { Crepe } from "@milkdown/crepe";
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
+import { Crepe, CrepeFeature } from "@milkdown/crepe";
 import { EditorStatus, editorViewCtx } from "@milkdown/kit/core";
 import { TextSelection } from "@milkdown/kit/prose/state";
+import { replaceAll } from "@milkdown/kit/utils";
+import { Check, CodeBrackets, List, NumberedListLeft, Quote, TaskList, Text, TextSize } from "iconoir-react/regular";
 import "@milkdown/crepe/theme/common/style.css";
 import "@milkdown/crepe/theme/frame.css";
 
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger
+} from "@/components/ui/dropdown-menu";
+import {
+  convertMarkdownBlock,
+  getMarkdownBlockStyle,
+  type MarkdownBlockStyle
+} from "@/features/mermaid-editor/lib/markdown-block-style";
+import {
+  findMarkdownFoldTarget,
+  markdownFolding,
+  readMarkdownFoldSubtreeState,
+  readMarkdownFoldSnapshot,
+  restoreMarkdownFoldSnapshot,
+  setMarkdownFoldSubtree,
+  toggleMarkdownFold,
+  type MarkdownFoldKind,
+  type MarkdownFoldTarget
+} from "@/features/mermaid-editor/lib/markdown-folding";
+import { emptyMarkdownFoldSnapshot, markdownFoldSnapshotKey, type MarkdownFoldSnapshot } from "@/features/mermaid-editor/lib/markdown-fold-state";
+import { clampMarkdownTextScale } from "@/features/mermaid-editor/lib/markdown-text-scale";
+import type { RuntimeAgentTextSelection } from "@/features/mermaid-editor/lib/editor-runtime";
 import { cn } from "@/lib/utils";
 
 type MarkdownPanelProps = {
@@ -15,51 +44,238 @@ type MarkdownPanelProps = {
   readOnly?: boolean;
   spellCheck: boolean;
   contentWidth: number;
+  textScale: number;
+  foldState?: MarkdownFoldSnapshot | null;
+  onFoldStateChange?: (snapshot: MarkdownFoldSnapshot) => void;
   onChange: (value: string) => void;
+  onSelectionChange?: (selection: RuntimeAgentTextSelection | null) => void;
 };
 
-export function MarkdownPanel({ value, className, readOnly = false, spellCheck, contentWidth, onChange }: MarkdownPanelProps) {
+type BlockStyleMenuState = {
+  conversionFailed: boolean;
+  currentStyle: MarkdownBlockStyle | null;
+  handleHeight: number;
+  left: number;
+  position: number;
+  top: number;
+};
+
+const blockStyleGroups = [
+  [
+    { style: "paragraph", label: "正文", icon: Text },
+    { style: "heading-1", label: "H1", icon: TextSize },
+    { style: "heading-2", label: "H2", icon: TextSize },
+    { style: "heading-3", label: "H3", icon: TextSize },
+    { style: "heading-4", label: "H4", icon: TextSize },
+    { style: "heading-5", label: "H5", icon: TextSize },
+    { style: "heading-6", label: "H6", icon: TextSize }
+  ],
+  [
+    { style: "bullet-list", label: "无序列表", icon: List },
+    { style: "ordered-list", label: "有序列表", icon: NumberedListLeft },
+    { style: "task-list", label: "任务项", icon: TaskList }
+  ],
+  [
+    { style: "blockquote", label: "引用", icon: Quote },
+    { style: "code-block", label: "代码块", icon: CodeBrackets }
+  ]
+] satisfies ReadonlyArray<ReadonlyArray<{ style: MarkdownBlockStyle; label: string; icon: typeof Text }>>;
+
+export function MarkdownPanel({ value, className, readOnly = false, spellCheck, contentWidth, textScale, foldState, onFoldStateChange, onChange, onSelectionChange }: MarkdownPanelProps) {
   const panelRef = useRef<HTMLElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const crepeRef = useRef<Crepe | null>(null);
   const blockDragCleanupTimerRef = useRef<number | null>(null);
+  const blockDragOccurredRef = useRef(false);
   const initialValueRef = useRef(value);
+  const valueRef = useRef(value);
+  const lastEditorValueRef = useRef(value);
   const initialReadOnlyRef = useRef(readOnly);
   const spellCheckRef = useRef(spellCheck);
   const onChangeRef = useRef(onChange);
+  const onFoldStateChangeRef = useRef(onFoldStateChange);
+  const onSelectionChangeRef = useRef(onSelectionChange);
+  const foldStateRef = useRef(foldState);
+  const foldRestoreAppliedRef = useRef(false);
+  const foldPersistenceActiveRef = useRef(false);
+  const foldUserChangedRef = useRef(false);
+  const lastFoldSnapshotKeyRef = useRef("");
+  const decorateBlockHandlesRef = useRef<() => void>(() => undefined);
+  const [blockStyleMenu, setBlockStyleMenu] = useState<BlockStyleMenuState | null>(null);
+
+  function syncExternalValueIfReady(crepe: Crepe) {
+    const nextValue = valueRef.current;
+    if (crepe.editor.status !== EditorStatus.Created || nextValue === lastEditorValueRef.current) return;
+    const scrollTop = panelRef.current?.scrollTop ?? 0;
+    let anchor = 0;
+    let head = 0;
+    crepe.editor.action((ctx) => {
+      const selection = ctx.get(editorViewCtx).state.selection;
+      anchor = selection.anchor;
+      head = selection.head;
+    });
+    lastEditorValueRef.current = nextValue;
+    crepe.editor.action(replaceAll(nextValue, true));
+    crepe.editor.action((ctx) => {
+      const view = ctx.get(editorViewCtx);
+      const maxPosition = view.state.doc.content.size;
+      const nextAnchor = Math.max(0, Math.min(anchor, maxPosition));
+      const nextHead = Math.max(0, Math.min(head, maxPosition));
+      view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, nextAnchor, nextHead)));
+      restoreMarkdownFoldSnapshot(view, foldStateRef.current ?? emptyMarkdownFoldSnapshot());
+      lastFoldSnapshotKeyRef.current = markdownFoldSnapshotKey(readMarkdownFoldSnapshot(view.state));
+    });
+    if (panelRef.current) panelRef.current.scrollTop = scrollTop;
+    decorateBlockHandlesRef.current();
+  }
+
+  function restoreFoldStateIfReady(crepe: Crepe) {
+    const snapshot = foldStateRef.current;
+    if (snapshot === undefined || foldRestoreAppliedRef.current || crepe.editor.status !== EditorStatus.Created) return;
+    if (foldUserChangedRef.current) {
+      foldRestoreAppliedRef.current = true;
+      return;
+    }
+
+    crepe.editor.action((ctx) => {
+      const view = ctx.get(editorViewCtx);
+      restoreMarkdownFoldSnapshot(view, snapshot ?? emptyMarkdownFoldSnapshot());
+      lastFoldSnapshotKeyRef.current = markdownFoldSnapshotKey(readMarkdownFoldSnapshot(view.state));
+      foldPersistenceActiveRef.current = true;
+      foldRestoreAppliedRef.current = true;
+    });
+  }
+
+  const changeBlockStyle = useCallback((style: MarkdownBlockStyle) => {
+    const menu = blockStyleMenu;
+    const crepe = crepeRef.current;
+    if (!menu) return false;
+
+    let converted = false;
+    if (crepe?.editor.status === EditorStatus.Created) {
+      try {
+        crepe.editor.action((ctx) => {
+          converted = convertMarkdownBlock(ctx.get(editorViewCtx), menu.position, style);
+        });
+      } catch {
+        converted = false;
+      }
+    }
+
+    if (converted) {
+      setBlockStyleMenu(null);
+      return true;
+    }
+
+    setBlockStyleMenu((current) => current?.position === menu.position
+      ? { ...current, conversionFailed: true }
+      : current);
+    return false;
+  }, [blockStyleMenu]);
 
   useEffect(() => {
     onChangeRef.current = onChange;
   }, [onChange]);
 
   useEffect(() => {
+    onFoldStateChangeRef.current = onFoldStateChange;
+  }, [onFoldStateChange]);
+
+  useEffect(() => {
+    onSelectionChangeRef.current = onSelectionChange;
+  }, [onSelectionChange]);
+
+  useEffect(() => {
     const root = rootRef.current;
     if (!root) return;
     let disposed = false;
+    const isDetachedWindow = root.closest(".markdown-editor-panel--window") !== null;
+
+    function reportFoldState() {
+      const current = crepeRef.current;
+      if (!current || current.editor.status !== EditorStatus.Created || !foldPersistenceActiveRef.current) return;
+      current.editor.action((ctx) => {
+        const snapshot = readMarkdownFoldSnapshot(ctx.get(editorViewCtx).state);
+        const key = markdownFoldSnapshotKey(snapshot);
+        if (key === lastFoldSnapshotKeyRef.current) return;
+        lastFoldSnapshotKeyRef.current = key;
+        onFoldStateChangeRef.current?.(snapshot);
+      });
+    }
 
     const crepe = new Crepe({
       root,
-      defaultValue: initialValueRef.current
+      defaultValue: initialValueRef.current,
+      featureConfigs: {
+        [CrepeFeature.BlockEdit]: {
+          blockHandle: {
+            getOffset: () => isDetachedWindow ? 6 : 16
+          }
+        },
+        [CrepeFeature.Cursor]: {
+          virtual: false
+        }
+      }
     });
+    crepe.editor.use(markdownFolding);
     crepe.setReadonly(initialReadOnlyRef.current);
     crepe.on((listener) => {
       listener.markdownUpdated((_ctx, markdown) => {
+        lastEditorValueRef.current = markdown;
         onChangeRef.current(markdown);
+        reportFoldState();
+      });
+      listener.selectionUpdated((ctx, selection) => {
+        if (selection.empty) {
+          onSelectionChangeRef.current?.(null);
+          return;
+        }
+        const view = ctx.get(editorViewCtx);
+        const text = view.state.doc.textBetween(selection.from, selection.to, "\n", "\n");
+        const markdown = lastEditorValueRef.current;
+        const sourceStart = markdown.indexOf(text);
+        if (sourceStart < 0) {
+          onSelectionChangeRef.current?.(null);
+          return;
+        }
+        const sourceEnd = sourceStart + text.length;
+        onSelectionChangeRef.current?.({
+          kind: "markdown",
+          start: sourceStart,
+          end: sourceEnd,
+          text,
+          surroundingText: markdown.slice(Math.max(0, sourceStart - 240), Math.min(markdown.length, sourceEnd + 240))
+        });
       });
     });
     crepeRef.current = crepe;
     void crepe.create().then(() => {
       if (!disposed && crepeRef.current === crepe) {
         applyMarkdownSpellcheck(crepe, spellCheckRef.current);
+        syncExternalValueIfReady(crepe);
+        restoreFoldStateIfReady(crepe);
       }
     });
 
     return () => {
       disposed = true;
+      reportFoldState();
       crepeRef.current = null;
       void crepe.destroy();
     };
   }, []);
+
+  useEffect(() => {
+    valueRef.current = value;
+    const crepe = crepeRef.current;
+    if (crepe) syncExternalValueIfReady(crepe);
+  }, [value]);
+
+  useEffect(() => {
+    foldStateRef.current = foldState;
+    const crepe = crepeRef.current;
+    if (crepe) restoreFoldStateIfReady(crepe);
+  }, [foldState]);
 
   useEffect(() => {
     crepeRef.current?.setReadonly(readOnly);
@@ -77,8 +293,217 @@ export function MarkdownPanel({ value, className, readOnly = false, spellCheck, 
     const panelElement: HTMLElement = currentPanel;
 
     function isBlockHandleEvent(event: DragEvent) {
-      return event.target instanceof Element && Boolean(event.target.closest(".milkdown-block-handle"));
+      return event.target instanceof Element
+        && !event.target.closest(".markdown-fold-handle-button")
+        && Boolean(event.target.closest(".milkdown-block-handle"));
     }
+
+    function getDragHandle(target: EventTarget | null) {
+      if (!(target instanceof Element)) return null;
+      const operationItem = target.closest(".milkdown-block-handle > .operation-item:not(.markdown-fold-handle-button)");
+      const blockHandle = operationItem?.parentElement;
+      if (!operationItem || !blockHandle) return null;
+      const operationItems = Array.from(
+        blockHandle.querySelectorAll(":scope > .operation-item:not(.markdown-fold-handle-button)")
+      );
+      if (operationItem !== operationItems[operationItems.length - 1]) return null;
+      return blockHandle;
+    }
+
+    function resolveBlockHandlePosition(blockHandle: HTMLElement) {
+      const crepe = crepeRef.current;
+      if (!crepe || crepe.editor.status !== EditorStatus.Created) return null;
+
+      return crepe.editor.action((ctx) => {
+        const view = ctx.get(editorViewCtx);
+        const rect = blockHandle.getBoundingClientRect();
+        const editorRect = view.dom.getBoundingClientRect();
+        const resolved = view.posAtCoords({
+          left: editorRect.left + editorRect.width / 2,
+          top: rect.top + rect.height / 2
+        });
+        return {
+          position: resolved && resolved.inside >= 0
+            ? resolved.inside
+            : resolved?.pos ?? view.state.selection.from,
+          view
+        };
+      });
+    }
+
+    function setFoldButtonVisible(blockHandle: HTMLElement, button: HTMLButtonElement, visible: boolean) {
+      if (button.hidden === !visible) return;
+      const beforeWidth = blockHandle.getBoundingClientRect().width;
+      button.hidden = !visible;
+      const afterWidth = blockHandle.getBoundingClientRect().width;
+      const currentLeft = Number.parseFloat(blockHandle.style.left);
+      if (Number.isFinite(currentLeft) && beforeWidth !== afterWidth) {
+        blockHandle.style.left = `${currentLeft - (afterWidth - beforeWidth)}px`;
+      }
+    }
+
+    function hideFoldButton(blockHandle: HTMLElement, button: HTMLButtonElement) {
+      setFoldButtonVisible(blockHandle, button, false);
+      button.setAttribute("aria-hidden", "true");
+      button.tabIndex = -1;
+      delete button.dataset.markdownFoldKind;
+      delete button.dataset.markdownFoldPosition;
+    }
+
+    function updateFoldButton(
+      blockHandle: HTMLElement,
+      button: HTMLButtonElement,
+      target: MarkdownFoldTarget | null
+    ) {
+      if (!target || blockHandle.dataset.show !== "true") {
+        hideFoldButton(blockHandle, button);
+        return;
+      }
+
+      const action = target.collapsed ? "展开" : "折叠";
+      const subject = target.kind === "heading" ? "章节" : "子列表";
+      const normalizedLabel = target.label.trim().replace(/\s+/g, " ").slice(0, 48);
+      const accessibleLabel = normalizedLabel ? `${action}${subject}“${normalizedLabel}”` : `${action}${subject}`;
+      setFoldButtonVisible(blockHandle, button, true);
+      button.dataset.markdownFoldKind = target.kind;
+      button.dataset.markdownFoldPosition = String(target.position);
+      button.setAttribute("aria-expanded", target.collapsed ? "false" : "true");
+      button.setAttribute("aria-label", accessibleLabel);
+      button.removeAttribute("aria-hidden");
+      button.title = `${action}${subject}`;
+      button.tabIndex = 0;
+    }
+
+    function handleFoldButtonClick(event: MouseEvent) {
+      const button = event.currentTarget;
+      if (!(button instanceof HTMLButtonElement)) return;
+      const kind = button.dataset.markdownFoldKind as MarkdownFoldKind | undefined;
+      const position = Number(button.dataset.markdownFoldPosition);
+      if ((kind !== "heading" && kind !== "list-item") || !Number.isInteger(position)) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+      setBlockStyleMenu(null);
+      const crepe = crepeRef.current;
+      if (!crepe || crepe.editor.status !== EditorStatus.Created) return;
+      crepe.editor.action((ctx) => {
+        const view = ctx.get(editorViewCtx);
+        if (!toggleMarkdownFold(view, { kind, position })) return;
+        foldUserChangedRef.current = true;
+        foldPersistenceActiveRef.current = true;
+        const snapshot = readMarkdownFoldSnapshot(view.state);
+        lastFoldSnapshotKeyRef.current = markdownFoldSnapshotKey(snapshot);
+        onFoldStateChangeRef.current?.(snapshot);
+      });
+      decorateBlockHandles();
+    }
+
+    function toggleFoldSubtree(button: HTMLButtonElement) {
+      const kind = button.dataset.markdownFoldKind as MarkdownFoldKind | undefined;
+      const position = Number(button.dataset.markdownFoldPosition);
+      if ((kind !== "heading" && kind !== "list-item") || !Number.isInteger(position)) return;
+      const crepe = crepeRef.current;
+      if (!crepe || crepe.editor.status !== EditorStatus.Created) return;
+      crepe.editor.action((ctx) => {
+        const view = ctx.get(editorViewCtx);
+        const target: Pick<MarkdownFoldTarget, "kind" | "position"> = { kind, position };
+        const status = readMarkdownFoldSubtreeState(view.state, target);
+        if (!status) return;
+        setBlockStyleMenu(null);
+        if (!setMarkdownFoldSubtree(view, target, !status.allCollapsed)) return;
+        foldUserChangedRef.current = true;
+        foldPersistenceActiveRef.current = true;
+        const snapshot = readMarkdownFoldSnapshot(view.state);
+        lastFoldSnapshotKeyRef.current = markdownFoldSnapshotKey(snapshot);
+        onFoldStateChangeRef.current?.(snapshot);
+      });
+      decorateBlockHandles();
+    }
+
+    function handleFoldButtonContextMenu(event: MouseEvent) {
+      const button = event.currentTarget;
+      if (!(button instanceof HTMLButtonElement)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      toggleFoldSubtree(button);
+    }
+
+    function handleFoldButtonKeyDown(event: KeyboardEvent) {
+      if (event.key !== "ContextMenu" && !(event.shiftKey && event.key === "F10")) return;
+      const button = event.currentTarget;
+      if (!(button instanceof HTMLButtonElement)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      toggleFoldSubtree(button);
+    }
+
+    function createFoldButton(blockHandle: HTMLElement) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "operation-item markdown-fold-handle-button";
+      button.contentEditable = "false";
+      button.draggable = false;
+      button.hidden = true;
+      button.setAttribute("aria-hidden", "true");
+      button.tabIndex = -1;
+
+      const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      svg.setAttribute("aria-hidden", "true");
+      svg.setAttribute("viewBox", "0 0 24 24");
+      const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      path.setAttribute("d", "M9 6l6 6-6 6");
+      path.setAttribute("fill", "none");
+      path.setAttribute("stroke", "currentColor");
+      path.setAttribute("stroke-linecap", "round");
+      path.setAttribute("stroke-linejoin", "round");
+      path.setAttribute("stroke-width", "1.5");
+      svg.appendChild(path);
+      button.appendChild(svg);
+
+      const suppressBlockDrag = (event: Event) => {
+        event.preventDefault();
+        event.stopPropagation();
+      };
+      button.addEventListener("pointerdown", suppressBlockDrag);
+      button.addEventListener("mousedown", suppressBlockDrag);
+      button.addEventListener("dragstart", suppressBlockDrag);
+      button.addEventListener("click", handleFoldButtonClick);
+      button.addEventListener("contextmenu", handleFoldButtonContextMenu);
+      button.addEventListener("keydown", handleFoldButtonKeyDown);
+      blockHandle.appendChild(button);
+      return button;
+    }
+
+    function decorateBlockHandles() {
+      panelElement.querySelectorAll<HTMLElement>(".milkdown-block-handle").forEach((blockHandle) => {
+        const operationItems = Array.from(
+          blockHandle.querySelectorAll<HTMLElement>(":scope > .operation-item:not(.markdown-fold-handle-button)")
+        );
+        const addHandle = operationItems.length > 1 ? operationItems[0] : null;
+        const dragHandle = operationItems[operationItems.length - 1];
+        if (!dragHandle) return;
+
+        if (addHandle) {
+          addHandle.hidden = true;
+          addHandle.setAttribute("aria-hidden", "true");
+          addHandle.tabIndex = -1;
+        }
+        dragHandle.classList.add("markdown-block-style-handle");
+        dragHandle.setAttribute("role", "button");
+        dragHandle.setAttribute("aria-label", "块样式");
+        const isVisible = blockHandle.dataset.show === "true";
+        if (isVisible) dragHandle.removeAttribute("aria-hidden");
+        else dragHandle.setAttribute("aria-hidden", "true");
+        dragHandle.tabIndex = isVisible ? 0 : -1;
+
+        const foldButton = blockHandle.querySelector<HTMLButtonElement>(":scope > .markdown-fold-handle-button")
+          ?? createFoldButton(blockHandle);
+        const resolved = isVisible ? resolveBlockHandlePosition(blockHandle) : null;
+        const target = resolved ? findMarkdownFoldTarget(resolved.view.state, resolved.position) : null;
+        updateFoldButton(blockHandle, foldButton, target);
+      });
+    }
+    decorateBlockHandlesRef.current = decorateBlockHandles;
 
     function clearBlockSelection() {
       const crepe = crepeRef.current;
@@ -115,6 +540,8 @@ export function MarkdownPanel({ value, className, readOnly = false, spellCheck, 
     function handleDragStart(event: DragEvent) {
       if (!isBlockHandleEvent(event)) return;
 
+      blockDragOccurredRef.current = true;
+      setBlockStyleMenu(null);
       panelElement.setAttribute("data-md-block-dragging", "true");
     }
 
@@ -138,16 +565,75 @@ export function MarkdownPanel({ value, className, readOnly = false, spellCheck, 
       finishBlockDrag();
     }
 
+    function handlePointerDown(event: PointerEvent) {
+      if (!getDragHandle(event.target)) return;
+      blockDragOccurredRef.current = false;
+    }
+
+    function handleClick(event: MouseEvent) {
+      const blockHandle = getDragHandle(event.target);
+      if (!blockHandle || blockDragOccurredRef.current) return;
+
+      const crepe = crepeRef.current;
+      if (!crepe || crepe.editor.status !== EditorStatus.Created) return;
+
+      crepe.editor.action((ctx) => {
+        const view = ctx.get(editorViewCtx);
+        const rect = blockHandle.getBoundingClientRect();
+        const position = resolveBlockHandlePosition(blockHandle)?.position ?? view.state.selection.from;
+        setBlockStyleMenu({
+          conversionFailed: false,
+          currentStyle: getMarkdownBlockStyle(view.state, position),
+          handleHeight: rect.height,
+          left: rect.right,
+          position,
+          top: rect.top
+        });
+      });
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      const blockHandle = getDragHandle(event.target);
+      if (blockHandle?.dataset.show !== "true" || (event.key !== "Enter" && event.key !== " ")) return;
+
+      event.preventDefault();
+      blockDragOccurredRef.current = false;
+      (event.target as HTMLElement).click();
+    }
+
+    function handleScroll() {
+      setBlockStyleMenu(null);
+    }
+
+    const blockHandleObserver = new MutationObserver(decorateBlockHandles);
+    blockHandleObserver.observe(panelElement, {
+      attributeFilter: ["data-show"],
+      attributes: true,
+      childList: true,
+      subtree: true
+    });
+    decorateBlockHandles();
+
+    panelElement.addEventListener("pointerdown", handlePointerDown, true);
+    panelElement.addEventListener("click", handleClick, true);
+    panelElement.addEventListener("keydown", handleKeyDown, true);
     panelElement.addEventListener("dragstart", handleDragStart, true);
     panelElement.addEventListener("dragover", handleDragOver, true);
     panelElement.addEventListener("dragend", handleDragEnd, true);
     panelElement.addEventListener("drop", handleDrop, true);
+    panelElement.addEventListener("scroll", handleScroll, true);
 
     return () => {
+      panelElement.removeEventListener("pointerdown", handlePointerDown, true);
+      panelElement.removeEventListener("click", handleClick, true);
+      panelElement.removeEventListener("keydown", handleKeyDown, true);
       panelElement.removeEventListener("dragstart", handleDragStart, true);
       panelElement.removeEventListener("dragover", handleDragOver, true);
       panelElement.removeEventListener("dragend", handleDragEnd, true);
       panelElement.removeEventListener("drop", handleDrop, true);
+      panelElement.removeEventListener("scroll", handleScroll, true);
+      blockHandleObserver.disconnect();
+      decorateBlockHandlesRef.current = () => undefined;
       if (blockDragCleanupTimerRef.current != null) {
         window.clearTimeout(blockDragCleanupTimerRef.current);
         blockDragCleanupTimerRef.current = null;
@@ -161,9 +647,69 @@ export function MarkdownPanel({ value, className, readOnly = false, spellCheck, 
       data-floating-panel-drag-exclude
       data-window-drag-exclude
       className={cn("markdown-editor-panel relative z-0 h-full min-h-0 overflow-auto bg-background", className)}
-      style={{ "--markdown-content-width": `${contentWidth}px` } as CSSProperties}
+      style={{
+        "--markdown-content-width": `${contentWidth}px`,
+        "--markdown-text-scale": String(clampMarkdownTextScale(textScale))
+      } as CSSProperties}
     >
       <div ref={rootRef} className="min-h-full" />
+      {blockStyleMenu ? (
+        <DropdownMenu open onOpenChange={(open) => { if (!open) setBlockStyleMenu(null); }}>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              aria-hidden
+              tabIndex={-1}
+              className="pointer-events-none fixed w-px select-none opacity-0"
+              style={{
+                height: Math.max(1, blockStyleMenu.handleHeight),
+                left: blockStyleMenu.left,
+                top: blockStyleMenu.top
+              }}
+            />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            side="right"
+            align="start"
+            sideOffset={6}
+            className="grid w-56 grid-cols-2 gap-0.5 p-1 select-none"
+            aria-label="块样式"
+            onCloseAutoFocus={(event) => {
+              event.preventDefault();
+              crepeRef.current?.editor.action((ctx) => ctx.get(editorViewCtx).focus());
+            }}
+          >
+            {blockStyleGroups.map((group, groupIndex) => (
+              <DropdownMenuGroup key={groupIndex} className="contents">
+                {groupIndex > 0 ? <DropdownMenuSeparator className="col-span-2" /> : null}
+                {group.map((option) => {
+                  const Icon = option.icon;
+                  const isCurrent = option.style === blockStyleMenu.currentStyle;
+                  return (
+                    <DropdownMenuItem
+                      key={option.style}
+                      className="min-w-0"
+                      aria-current={isCurrent ? "true" : undefined}
+                      onSelect={(event) => {
+                        if (!changeBlockStyle(option.style)) event.preventDefault();
+                      }}
+                    >
+                      <Icon className="size-4" />
+                      <span className="truncate">{option.label}</span>
+                      {isCurrent ? <Check className="ml-auto size-4" /> : null}
+                    </DropdownMenuItem>
+                  );
+                })}
+              </DropdownMenuGroup>
+            ))}
+            {blockStyleMenu.conversionFailed ? (
+              <div role="alert" className="col-span-2 px-2 py-1.5 text-xs text-destructive">
+                未能应用，请重试
+              </div>
+            ) : null}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ) : null}
     </section>
   );
 }

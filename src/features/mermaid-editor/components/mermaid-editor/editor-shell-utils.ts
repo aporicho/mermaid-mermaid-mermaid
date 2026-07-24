@@ -1,10 +1,10 @@
-import type { AiCanvasSize, AiEditingContext } from "@/features/mermaid-editor/lib/ai-context";
+import type { EditorCanvasSize, EditorEditingContext } from "@/features/mermaid-editor/lib/editor-interaction-state";
 import type { DiagramType, MermaidGraph, ViewportState } from "@/features/mermaid-editor/lib/editor-types";
 import { DEFAULT_IMAGE_ASSET_HEIGHT, DEFAULT_IMAGE_ASSET_WIDTH } from "@/features/mermaid-editor/lib/node-assets";
 
 export type CanvasLiveState = {
-  canvasSize?: AiCanvasSize;
-  editing?: Exclude<AiEditingContext, { kind: "source" }> | null;
+  canvasSize?: EditorCanvasSize;
+  editing?: Exclude<EditorEditingContext, { kind: "source" }> | null;
   interaction?: string;
 };
 
@@ -41,7 +41,7 @@ export function resolveGraphImageDisplaySources(graph: MermaidGraph, displaySrcB
   };
 }
 
-export function viewportCenterPoint(viewport: ViewportState, canvasSize?: AiCanvasSize) {
+export function viewportCenterPoint(viewport: ViewportState, canvasSize?: EditorCanvasSize) {
   const width = canvasSize?.width || 840;
   const height = canvasSize?.height || 520;
   return {

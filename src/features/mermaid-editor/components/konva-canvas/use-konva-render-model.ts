@@ -17,6 +17,8 @@ import type { SubgraphGeometryTokens } from "@/features/mermaid-editor/lib/subgr
 import { buildSubgraphGeometries } from "@/features/mermaid-editor/lib/subgraph-geometry";
 import { getConnectionDraftVisualState, type CanvasVisualTokens } from "@/features/mermaid-editor/lib/canvas-visual-state";
 import { isEdgeVisible, type ViewFilters } from "@/features/mermaid-editor/lib/view-filters";
+import type { SpecialNodeThemeTokens, TypographyRoleTokens } from "@/features/mermaid-editor/lib/editor-theme";
+import { updateTableCell, updateTableHeader } from "@/features/mermaid-editor/lib/table-node";
 
 const CONNECTION_ANCHOR_SNAP_RADIUS_PX = 14;
 
@@ -38,6 +40,9 @@ type UseKonvaRenderModelArgs = {
   nodeMotion: Record<string, CanvasNodeMotionVisual>;
   nodeProximityScale: CanvasProximityScales;
   nodeThemeTokens: NodeGeometryTokens;
+  specialNodeTokens: SpecialNodeThemeTokens;
+  tableTypography: TypographyRoleTokens;
+  fontRevision: number;
   edgeLabelThemeTokens: EdgeLabelGeometryTokens;
   subgraphThemeTokens: SubgraphGeometryTokens;
   visualTokens: CanvasVisualTokens;
@@ -61,19 +66,31 @@ export function useKonvaRenderModel({
   nodeMotion,
   nodeProximityScale,
   nodeThemeTokens,
+  specialNodeTokens,
+  tableTypography,
+  fontRevision,
   edgeLabelThemeTokens,
   subgraphThemeTokens,
   visualTokens
 }: UseKonvaRenderModelArgs) {
   const selectedNodeIds = useMemo(() => new Set(selection.nodeIds), [selection.nodeIds]);
   const selectedSubgraphIds = useMemo(() => new Set(selection.subgraphIds || []), [selection.subgraphIds]);
-  const geometrySpec = useMemo(() => nodeGeometrySpec(nodeThemeTokens), [nodeThemeTokens]);
-  const edgeLabelSpec = useMemo(() => edgeLabelGeometrySpec(edgeLabelThemeTokens), [edgeLabelThemeTokens]);
+  const geometrySpec = useMemo(
+    () => { void fontRevision; return nodeGeometrySpec(nodeThemeTokens, specialNodeTokens, tableTypography); },
+    [fontRevision, nodeThemeTokens, specialNodeTokens, tableTypography]
+  );
+  const edgeLabelSpec = useMemo(() => { void fontRevision; return edgeLabelGeometrySpec(edgeLabelThemeTokens); }, [edgeLabelThemeTokens, fontRevision]);
   const renderedNodes = useMemo(
     () =>
       mergeCanvasNodePreviewPositions(graph.nodes, dragPreviewPositions).map((node) => {
         const animated = dragPreviewPositions?.[node.id] ? undefined : nodeMotion[node.id];
-        const labeled = inlineEdit?.type === "node" && node.id === inlineEdit.id ? { ...node, label: inlineEdit.value } : node;
+        let labeled = inlineEdit?.type === "node" && node.id === inlineEdit.id ? { ...node, label: inlineEdit.value } : node;
+        if (node.id === inlineEdit?.id && node.content?.kind === "table" && inlineEdit.type === "tableCell") {
+          labeled = { ...node, content: updateTableCell(node.content, inlineEdit.rowId, inlineEdit.columnId, inlineEdit.value) };
+        }
+        if (node.id === inlineEdit?.id && node.content?.kind === "table" && inlineEdit.type === "tableHeader") {
+          labeled = { ...node, content: updateTableHeader(node.content, inlineEdit.columnId, inlineEdit.value) };
+        }
         return animated ? { ...labeled, x: animated.x, y: animated.y } : labeled;
       }),
     [dragPreviewPositions, graph.nodes, inlineEdit, nodeMotion]

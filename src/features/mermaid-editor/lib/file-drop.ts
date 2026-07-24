@@ -14,7 +14,7 @@ export type FileDropCandidate = {
 
 export type FileDropClassification<T extends FileDropCandidate> =
   | { kind: "document"; documentKind: DocumentKind; file: T }
-  | { kind: "image"; file: T }
+  | { kind: "image"; file: T; files: T[] }
   | { kind: "unsupported"; file?: T };
 
 export type DropSurfaceRect = {
@@ -26,8 +26,8 @@ export function classifyFileDrop<T extends FileDropCandidate>(files: T[]): FileD
   const documentFile = files.find((file) => documentKindFromPath(fileDropIdentity(file)));
   if (documentFile) return { kind: "document", documentKind: documentKindFromPath(fileDropIdentity(documentFile))!, file: documentFile };
 
-  const imageFile = files.find((file) => isSupportedImagePath(fileDropIdentity(file)));
-  if (imageFile) return { kind: "image", file: imageFile };
+  const imageFiles = files.filter((file) => isSupportedImagePath(fileDropIdentity(file)));
+  if (imageFiles.length) return { kind: "image", file: imageFiles[0], files: imageFiles };
 
   return { kind: "unsupported", file: files[0] };
 }

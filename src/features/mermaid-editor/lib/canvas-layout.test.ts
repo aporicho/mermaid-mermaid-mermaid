@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { edgeRoutingFromLayout, layoutModeFromLayout, parseCanvasLayout } from "@/features/mermaid-editor/lib/canvas-layout";
-import type { CanvasLayout } from "@/features/mermaid-editor/lib/editor-types";
+import { applyLayout, edgeRoutingFromLayout, layoutFromGraph, layoutModeFromLayout, parseCanvasLayout } from "@/features/mermaid-editor/lib/canvas-layout";
+import type { CanvasLayout, MermaidGraph } from "@/features/mermaid-editor/lib/editor-types";
 
 const baseLayout: CanvasLayout = {
   version: 1,
@@ -49,5 +49,25 @@ flowchart LR`
 
     expect(layout).toMatchObject({ edgeRouting: "bezier", layoutMode: "manual" });
     expect(layout).not.toHaveProperty("theme");
+  });
+
+  it("persists CSV table column width and alignment in canvas layout metadata", () => {
+    const graph: MermaidGraph = {
+      direction: "TD",
+      nodes: [{
+        id: "Table",
+        label: "people.csv",
+        x: 10,
+        y: 20,
+        fill: "#fff",
+        tablePresentation: { columns: [{ width: 240, align: "center" }] }
+      }],
+      edges: []
+    };
+    const layout = layoutFromGraph(graph);
+    const restored = applyLayout({ ...graph, nodes: graph.nodes.map(({ tablePresentation: _table, ...node }) => node) }, layout);
+
+    expect(layout.nodes.Table.table).toEqual({ columns: [{ width: 240, align: "center" }] });
+    expect(restored.nodes[0].tablePresentation).toEqual(layout.nodes.Table.table);
   });
 });

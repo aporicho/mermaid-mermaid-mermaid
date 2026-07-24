@@ -1,17 +1,32 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ColorWheel, WarningTriangle } from "iconoir-react/regular";
 
 import { Button } from "@/components/ui/button";
 import {
+  EditorList,
+  EditorListRow,
+  EditorNotice,
+  EditorPanelFooter,
+  EditorSearchField,
+  EditorStatusBadge
+} from "@/features/mermaid-editor/components/editor-ui";
+import { WorkspaceWindowHeader } from "@/features/mermaid-editor/components/floating-chrome";
+import {
   compileEditorTheme,
+  MARKDOWN_ELEMENT_DEFINITIONS,
   normalizeEditorTheme,
   type EditorTheme,
-  type EditorThemeId
+  type EditorThemeId,
+  type MarkdownElementCategory,
+  type TypographyRoleTokens
 } from "@/features/mermaid-editor/lib/editor-theme";
 import { cn } from "@/lib/utils";
+import type { EditorRuntime, RuntimeSystemFont } from "@/features/mermaid-editor/lib/editor-runtime";
 
 import { ThemeSettingsGroup } from "./theme-settings-controls";
 import { ThemeSettingsLibrary } from "./theme-settings-library";
+import { ThemeSettingsMarkdown } from "./theme-settings-markdown";
+import { ThemeSettingsTypography } from "./theme-settings-typography";
 import {
   THEME_SETTINGS_CATEGORIES,
   THEME_TOKEN_GROUPS,
@@ -22,78 +37,182 @@ import {
   baseThemeFor,
   themeValueAtPath,
   toCustomTheme,
+  updateMarkdownPreviewTypography,
   updateThemeValueAtPath
 } from "./theme-settings-utils";
 
-type ThemeTokenValue = string | number | readonly number[];
+type ThemeTokenValue = boolean | string | number | readonly number[];
 
 export function ThemeSettingsPanel({
   themeId,
   customTheme,
   activeTheme,
+  runtime,
   hasDraft,
   onPreview,
   onDiscard,
-  onApply,
-  windowControls
+  onApply
 }: {
   themeId: EditorThemeId;
   customTheme: EditorTheme | null;
   activeTheme: EditorTheme;
+  runtime?: Pick<EditorRuntime, "listSystemFonts">;
   hasDraft: boolean;
   onPreview: (themeId: EditorThemeId, customTheme: EditorTheme | null) => void;
   onDiscard: () => void;
   onApply: () => void;
-  windowControls: ReactNode;
 }) {
   const [activeCategory, setActiveCategory] = useState<ThemeSettingsCategoryId>("library");
-  const category = THEME_SETTINGS_CATEGORIES.find((entry) => entry.id === activeCategory) ?? THEME_SETTINGS_CATEGORIES[0];
+  const [query, setQuery] = useState("");
   const groups = useMemo(() => THEME_TOKEN_GROUPS.filter((group) => group.category === activeCategory), [activeCategory]);
   const diagnostics = useMemo(() => compileEditorTheme(activeTheme).diagnostics, [activeTheme]);
+  const [systemFonts, setSystemFonts] = useState<RuntimeSystemFont[]>([]);
+  const [fontsLoading, setFontsLoading] = useState(Boolean(runtime));
+  const [fontsError, setFontsError] = useState<string | null>(null);
 
-  function updateGroupField(definition: ThemeTokenGroupDefinition, key: string, value: ThemeTokenValue) {
+  useEffect(() => {
+    if (!runtime) return;
+    let cancelled = false;
+    setFontsLoading(true);
+    setFontsError(null);
+    void runtime.listSystemFonts().then((fonts) => {
+      if (!cancelled) setSystemFonts(fonts);
+    }).catch(() => {
+      if (!cancelled) setFontsError("无法读取系统字体");
+    }).finally(() => {
+      if (!cancelled) setFontsLoading(false);
+    });
+    return () => { cancelled = true; };
+  }, [runtime]);
+
+  function updateGroupField(definition: ThemeTokenGroupDefinition, path: readonly string[], value: ThemeTokenValue) {
     const custom = toCustomTheme(activeTheme);
-    onPreview("custom", normalizeEditorTheme(updateThemeValueAtPath(custom, [...definition.path, key], value), custom));
+    const typographyKey = definition.id === "special-node-markdown-preview-scale" && path.length === 1 && typeof value === "number"
+      ? path[0] as "titleFontSize" | "contentFontSize"
+      : null;
+    const next = typographyKey
+      ? updateMarkdownPreviewTypography(custom, typographyKey, value as number)
+      : updateThemeValueAtPath(custom, [...definition.path, ...path], value);
+    onPreview("custom", normalizeEditorTheme(next, custom));
   }
 
   function resetGroup(definition: ThemeTokenGroupDefinition) {
     const custom = toCustomTheme(activeTheme);
-    const baseValue = themeValueAtPath(baseThemeFor(activeTheme), definition.path);
-    onPreview("custom", normalizeEditorTheme(updateThemeValueAtPath(custom, definition.path, baseValue), custom));
+    const base = baseThemeFor(activeTheme);
+    const next = definition.id === "special-node-markdown-preview-scale"
+      ? updateMarkdownPreviewTypography(
+          updateMarkdownPreviewTypography(custom, "titleFontSize", base.specialNode.markdownDocument.previewTypography.titleFontSize),
+          "contentFontSize",
+          base.specialNode.markdownDocument.previewTypography.contentFontSize
+        )
+      : definition.includeKeys?.length
+      ? definition.includeKeys.reduce((current, key) => updateThemeValueAtPath(current, [...definition.path, key], themeValueAtPath(base, [...definition.path, key])), custom)
+      : updateThemeValueAtPath(custom, definition.path, themeValueAtPath(base, definition.path));
+    onPreview("custom", normalizeEditorTheme(next, next));
+  }
+
+  function updateTypographyRole(group: keyof EditorTheme["typography"], role: string, value: TypographyRoleTokens) {
+    const custom = toCustomTheme(activeTheme);
+    onPreview("custom", normalizeEditorTheme(updateThemeValueAtPath(custom, ["typography", group, role], value), custom));
+  }
+
+  function resetTypographyPath(group: keyof EditorTheme["typography"], role?: string) {
+    const custom = toCustomTheme(activeTheme);
+    const path = role ? ["typography", group, role] : ["typography", group];
+    const baseValue = themeValueAtPath(baseThemeFor(activeTheme), path);
+    onPreview("custom", normalizeEditorTheme(updateThemeValueAtPath(custom, path, baseValue), custom));
+  }
+
+  function resetTypographyRoles(group: keyof EditorTheme["typography"], roles: readonly string[]) {
+    const base = baseThemeFor(activeTheme);
+    const next = roles.reduce((current, role) => updateThemeValueAtPath(
+      current,
+      ["typography", group, role],
+      themeValueAtPath(base, ["typography", group, role])
+    ), toCustomTheme(activeTheme));
+    onPreview("custom", normalizeEditorTheme(next, next));
+  }
+
+  function updateMarkdownField(path: readonly string[], value: ThemeTokenValue) {
+    const custom = toCustomTheme(activeTheme);
+    onPreview("custom", normalizeEditorTheme(updateThemeValueAtPath(custom, ["markdown", ...path], value), custom));
+  }
+
+  function resetMarkdownPath(path: readonly string[]) {
+    const custom = toCustomTheme(activeTheme);
+    const fullPath = ["markdown", ...path];
+    const baseValue = themeValueAtPath(baseThemeFor(activeTheme), fullPath);
+    onPreview("custom", normalizeEditorTheme(updateThemeValueAtPath(custom, fullPath, baseValue), custom));
+  }
+
+  function resetMarkdownCategory(category: MarkdownElementCategory) {
+    const base = baseThemeFor(activeTheme);
+    const next = MARKDOWN_ELEMENT_DEFINITIONS.filter((element) => element.category === category).reduce(
+      (current, element) => updateThemeValueAtPath(current, ["markdown", ...element.path], themeValueAtPath(base, ["markdown", ...element.path])),
+      toCustomTheme(activeTheme)
+    );
+    onPreview("custom", normalizeEditorTheme(next, next));
+  }
+
+  function renderTokenGroup(definition: ThemeTokenGroupDefinition) {
+    if (definition.typographyGroup) {
+      return (
+        <ThemeSettingsTypography
+          key={definition.id}
+          value={activeTheme.typography}
+          visibleGroups={[definition.typographyGroup]}
+          visibleRoles={definition.typographyRoles}
+          groupTitle={definition.title}
+          systemFonts={systemFonts}
+          loading={fontsLoading}
+          error={fontsError}
+          query={query}
+          showSearch={false}
+          resetDisabled={activeTheme.id !== "custom"}
+          onChangeRole={updateTypographyRole}
+          onResetRole={(group, role) => resetTypographyPath(group, role)}
+          onResetGroup={(group) => resetTypographyPath(group)}
+          onResetVisibleRoles={resetTypographyRoles}
+        />
+      );
+    }
+    const groupValue = themeValueAtPath(activeTheme, definition.path);
+    if (!isThemeTokenGroup(groupValue)) return null;
+    return (
+      <ThemeSettingsGroup
+        key={definition.id}
+        definition={definition}
+        value={groupValue}
+        query={query}
+        onChange={(path, value) => updateGroupField(definition, path, value)}
+        onReset={() => resetGroup(definition)}
+        resetDisabled={activeTheme.id !== "custom"}
+      />
+    );
   }
 
   return (
-    <div className="grid h-full min-h-0 grid-rows-[52px_minmax(0,1fr)_56px]" data-theme-settings-panel>
-      <header className="flex items-center justify-between gap-3 border-b px-3" data-floating-panel-drag-handle>
-        <div className="flex min-w-0 items-center gap-2">
-          <ColorWheel className="size-4 shrink-0 text-icon" />
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <h1 className="truncate text-sm font-medium">主题</h1>
-              {hasDraft ? <span className="shrink-0 border border-primary/30 bg-primary/10 px-1.5 py-0.5 text-[10px] text-primary">未应用</span> : null}
-            </div>
-            <p className="truncate text-[10px] text-muted-foreground">{activeTheme.name}</p>
-          </div>
-        </div>
-        {windowControls}
-      </header>
+    <div className="flex h-full min-h-0 flex-col" data-theme-settings-panel>
+      <WorkspaceWindowHeader
+        icon={<ColorWheel className="editor-ui-icon shrink-0 text-icon" />}
+        title="主题"
+        status={hasDraft ? <EditorStatusBadge tone="accent">未应用</EditorStatusBadge> : null}
+      />
 
-      <div className="grid min-h-0 grid-cols-[148px_minmax(0,1fr)] max-[520px]:grid-cols-[120px_minmax(0,1fr)]">
+      <div className="grid min-h-0 flex-1 grid-cols-[148px_minmax(0,1fr)] max-[520px]:grid-cols-[120px_minmax(0,1fr)]">
         <nav className="min-h-0 overflow-y-auto border-r bg-muted/20 p-2" aria-label="主题设置分类">
-          {THEME_SETTINGS_CATEGORIES.map((entry) => (
-            <button
+          <EditorList>
+            {THEME_SETTINGS_CATEGORIES.map((entry) => (
+            <EditorListRow
               key={entry.id}
               type="button"
-              className={cn(
-                "mb-1 flex min-h-9 w-full items-center px-2 text-left text-xs transition-colors",
-                entry.id === activeCategory ? "bg-accent font-medium text-accent-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"
-              )}
-              onClick={() => setActiveCategory(entry.id)}
-              aria-current={entry.id === activeCategory ? "page" : undefined}
-            >
-              {entry.label}
-            </button>
+              title={entry.label}
+              selected={entry.id === activeCategory}
+              className={cn("type-interface-navigation", entry.id !== activeCategory && "text-muted-foreground")}
+              onClick={() => { setActiveCategory(entry.id); setQuery(""); }}
+            />
           ))}
+          </EditorList>
         </nav>
 
         <main className="min-h-0 overflow-y-auto p-4">
@@ -101,56 +220,56 @@ export function ThemeSettingsPanel({
             <ThemeSettingsLibrary themeId={themeId} customTheme={customTheme} activeTheme={activeTheme} onPreview={onPreview} />
           ) : (
             <div className="grid gap-4">
-              <div>
-                <h2 className="text-sm font-medium">{category.label}</h2>
-                <p className="mt-0.5 text-xs leading-5 text-muted-foreground">{category.description}</p>
-              </div>
-              {groups.map((definition) => {
-                const groupValue = themeValueAtPath(activeTheme, definition.path);
-                if (!isThemeTokenGroup(groupValue)) return null;
-                return (
-                  <ThemeSettingsGroup
-                    key={definition.id}
-                    definition={definition}
-                    value={groupValue}
-                    onChange={(key, value) => updateGroupField(definition, key, value)}
-                    onReset={() => resetGroup(definition)}
-                    resetDisabled={activeTheme.id !== "custom"}
-                  />
-                );
-              })}
+              {activeCategory === "markdown" ? (
+                <ThemeSettingsMarkdown
+                  value={activeTheme.markdown}
+                  systemFonts={systemFonts}
+                  loading={fontsLoading}
+                  error={fontsError}
+                  resetDisabled={activeTheme.id !== "custom"}
+                  onChange={updateMarkdownField}
+                  onResetPath={resetMarkdownPath}
+                  onResetCategory={resetMarkdownCategory}
+                  onResetAll={() => resetMarkdownPath([])}
+                />
+              ) : null}
+              {activeCategory !== "markdown" ? (
+                <EditorSearchField
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder="搜索外观…"
+                  aria-label="搜索外观 token"
+                />
+              ) : null}
+              {groups.map(renderTokenGroup)}
               {activeCategory === "diagnostics" ? <ThemeDiagnostics diagnostics={diagnostics} /> : null}
             </div>
           )}
         </main>
       </div>
 
-      <footer className="flex items-center justify-between gap-3 border-t px-3" data-floating-panel-drag-exclude>
-        <span className="min-w-0 truncate text-xs text-muted-foreground">
-          {hasDraft ? "正在实时预览未应用的修改" : "当前设置已应用"}
-        </span>
+      <EditorPanelFooter className="justify-end">
         <div className="flex shrink-0 gap-2">
-          <Button variant="outline" disabled={!hasDraft} onClick={onDiscard}>放弃更改</Button>
+          <Button variant="outline" disabled={!hasDraft} onClick={onDiscard}>放弃</Button>
           <Button disabled={!hasDraft} onClick={onApply}>应用</Button>
         </div>
-      </footer>
+      </EditorPanelFooter>
     </div>
   );
 }
 
 function ThemeDiagnostics({ diagnostics }: { diagnostics: ReturnType<typeof compileEditorTheme>["diagnostics"] }) {
   if (!diagnostics.length) {
-    return <div className="border border-primary/20 bg-primary/5 px-3 py-3 text-xs text-muted-foreground">当前主题没有可读性警告。</div>;
+    return <EditorNotice tone="accent" description="无警告" />;
   }
 
   return (
-    <section className="grid gap-2 border border-destructive/30 bg-destructive/5 p-3">
-      <div className="flex items-center gap-2 text-xs font-medium text-destructive">
-        <WarningTriangle className="size-4" />
-        当前主题警告
-      </div>
-      {diagnostics.map((diagnostic) => <p key={diagnostic.code} className="text-xs leading-5 text-muted-foreground">{diagnostic.message}</p>)}
-    </section>
+    <EditorNotice
+      tone="danger"
+      icon={<WarningTriangle className="editor-ui-icon text-destructive" />}
+      title="当前主题警告"
+      description={<div className="grid gap-2">{diagnostics.map((diagnostic) => <p key={diagnostic.code}>{diagnostic.message}</p>)}</div>}
+    />
   );
 }
 

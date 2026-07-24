@@ -5,11 +5,14 @@ import { ensureRuntimeDocumentFileName } from "@/features/mermaid-editor/lib/edi
 import type {
   EditorRuntime,
   RuntimeImageAssetResult,
-  RuntimeEmbeddedBrowserHandle,
   RuntimeEmbeddedBrowserResult
 } from "@/features/mermaid-editor/lib/editor-runtime/types";
 import type { ElectronImageAsset } from "@/features/mermaid-editor/lib/editor-runtime/electron-bridge";
-
+import { createElectronEmbeddedBrowserHandle } from "@/features/mermaid-editor/lib/editor-runtime/electron-embedded-browser";
+import { createElectronCsvFileOperations } from "@/features/mermaid-editor/lib/editor-runtime/electron-csv-file";
+import { createElectronMarkdownFoldOperations } from "@/features/mermaid-editor/lib/editor-runtime/electron-markdown-fold";
+import { createElectronRuntimeMonitoring } from "@/features/mermaid-editor/lib/editor-runtime/electron-runtime-monitoring";
+import type { EditorDocumentSession } from "@/features/mermaid-editor/lib/editor-document-session";
 export function createElectronRuntime(): EditorRuntime {
   const bridge = getElectronBridge();
   const fallback = createWebRuntime();
@@ -18,6 +21,8 @@ export function createElectronRuntime(): EditorRuntime {
 
   return {
     ...fallback,
+    ...createElectronCsvFileOperations(bridge),
+    ...createElectronMarkdownFoldOperations(bridge), ...createElectronRuntimeMonitoring(bridge),
     kind: "desktop",
     host: "electron",
     openExternalUrl(url) {
@@ -39,17 +44,25 @@ export function createElectronRuntime(): EditorRuntime {
       return bridge.onDesktopWindowCloseRequest(handler);
     },
     async loadSavedState() {
-      return bridge.readAppState();
+      const [state, editorSession] = await Promise.all([bridge.readAppState(), bridge.readEditorSession()]);
+      return mergeEditorSessionIntoState(state, editorSession);
+    },
+    async listSystemFonts() {
+      return bridge.listSystemFonts();
     },
     async saveDraft(draft) {
-      await bridge.writeAppState(draft);
+      const editorSession = draft.editorSession as EditorDocumentSession | undefined;
+      await Promise.all([
+        bridge.writeAppState({ ...draft, editorSession: undefined }),
+        editorSession ? bridge.writeEditorSession(editorSession) : Promise.resolve()
+      ]);
     },
     async openFile() {
       const opened = await bridge.openFile();
       if (!opened) return { status: "cancelled" };
       return {
         status: "opened",
-        file: { name: opened.name, path: opened.path },
+        file: { name: opened.name, path: opened.path, revision: opened.revision },
         text: opened.text
       };
     },
@@ -57,24 +70,36 @@ export function createElectronRuntime(): EditorRuntime {
       const opened = await bridge.openFilePath(path);
       return {
         status: "opened",
-        file: { name: opened.name, path: opened.path },
+        file: { name: opened.name, path: opened.path, revision: opened.revision },
         text: opened.text
       };
     },
-    async saveFile(file, documentText, suggestedName, documentKind) {
+    async saveFile(file, documentText, suggestedName, documentKind, options) {
       if (!file?.path) return this.saveFileAs(documentText, suggestedName, documentKind);
-      const saved = await bridge.saveFile(file.path, documentText);
+      const saved = await bridge.saveFile(file.path, documentText, {
+        expectedRevision: file.revision,
+        overwrite: options?.overwrite === true
+      });
+      if (saved.status === "conflict") {
+        return {
+          status: "conflict",
+          file: { name: ensureRuntimeDocumentFileName(saved.file.name, documentKind), path: saved.file.path, revision: saved.revision },
+          revision: saved.revision,
+          modifiedAt: saved.modifiedAt
+        };
+      }
       return {
         status: "saved",
-        file: { name: ensureRuntimeDocumentFileName(saved.name, documentKind), path: saved.path }
+        file: { name: ensureRuntimeDocumentFileName(saved.file.name, documentKind), path: saved.file.path, revision: saved.revision }
       };
     },
     async saveFileAs(documentText, suggestedName, documentKind) {
       const saved = await bridge.saveFileAs(ensureRuntimeDocumentFileName(suggestedName, documentKind), documentText);
       if (!saved) return { status: "cancelled" };
+      if (saved.status !== "saved") return { status: "cancelled" };
       return {
         status: "saved",
-        file: { name: ensureRuntimeDocumentFileName(saved.name, documentKind), path: saved.path }
+        file: { name: ensureRuntimeDocumentFileName(saved.file.name, documentKind), path: saved.file.path, revision: saved.revision }
       };
     },
     async createProjectDocument(request) {
@@ -88,6 +113,8 @@ export function createElectronRuntime(): EditorRuntime {
         text: result.text
       };
     },
+    async createProjectFile(request) { return bridge.createProjectFile(request); },
+    async moveProjectFile(request) { return bridge.moveProjectFile(request); },
     async pickImageAsset(file) {
       if (!file?.path) return { status: "needs-document" };
       const asset = await bridge.pickImageAsset(file.path);
@@ -126,16 +153,13 @@ export function createElectronRuntime(): EditorRuntime {
     async listenForFileDrops(handler) {
       return bridge.onFileDrops(handler);
     },
-    async publishAiContext(context) {
-      await bridge.publishAiContext(context);
-    },
-    async pollAiCommand() {
-      const response = await bridge.pollAiCommand();
-      return response.command || null;
-    },
-    async finishAiCommand(result) {
-      await bridge.finishAiCommand(result);
-    },
+    async startAgent(request) { return bridge.startAgent(request); },
+    async sendAgentRpc(command) { return bridge.sendAgentRpc(command); },
+    async runAgentControl(command) { return bridge.runAgentControl(command); },
+    async respondAgentExtensionUi(response) { await bridge.respondAgentExtensionUi(response); },
+    async respondAgentHost(response) { await bridge.respondAgentHost(response); },
+    async stopAgent() { await bridge.stopAgent(); },
+    async listenForAgentEvents(handler) { return bridge.onAgentEvent(handler); },
     async listTerminalShells() {
       return bridge.listTerminalShells();
     },
@@ -162,12 +186,26 @@ export function createElectronRuntime(): EditorRuntime {
       if (result.status !== "created") return result;
       return {
         status: "created",
-        browser: electronEmbeddedBrowserHandle(result.label || request.label, bridge)
+        browser: createElectronEmbeddedBrowserHandle(result.label || request.label, bridge)
       };
-    },
-    async openBrowserToolWindow(request) {
-      return bridge.openBrowserToolWindow(request);
     }
+  };
+}
+
+function mergeEditorSessionIntoState(state: Record<string, unknown> | null, editorSession: EditorDocumentSession | null) {
+  if (!editorSession) return state;
+  const active = editorSession.buffers.find((buffer) => buffer.id === editorSession.activeBufferId);
+  if (!active) return { ...(state || {}), editorSession };
+  return {
+    ...(state || {}),
+    documentKind: active.documentKind,
+    source: active.content,
+    canvasDocument: undefined,
+    layout: undefined,
+    fileName: active.fileName,
+    fileRef: active.fileRef ? { ...active.fileRef, revision: active.revision || undefined } : null,
+    lastSavedDocument: active.savedContent,
+    editorSession
   };
 }
 
@@ -178,43 +216,5 @@ function electronImageAssetResult(asset: ElectronImageAsset): RuntimeImageAssetR
     displaySrc: asset.displaySrc,
     path: asset.path,
     copied: asset.copied
-  };
-}
-
-function electronEmbeddedBrowserHandle(label: string, bridge: NonNullable<ReturnType<typeof getElectronBridge>>): RuntimeEmbeddedBrowserHandle {
-  let closed = false;
-  let unlistenError: (() => void) | null = null;
-
-  return {
-    async close() {
-      if (closed) return;
-      closed = true;
-      unlistenError?.();
-      unlistenError = null;
-      await bridge.closeEmbeddedBrowser(label);
-    },
-    async hide() {
-      if (!closed) await bridge.hideEmbeddedBrowser(label);
-    },
-    async show() {
-      if (!closed) await bridge.showEmbeddedBrowser(label);
-    },
-    async focus() {
-      if (!closed) await bridge.focusEmbeddedBrowser(label);
-    },
-    async setRect(rect) {
-      if (!closed) await bridge.setEmbeddedBrowserRect(label, rect);
-    },
-    async onCreated(handler) {
-      window.requestAnimationFrame(() => {
-        if (!closed) handler();
-      });
-    },
-    async onError(handler) {
-      unlistenError?.();
-      unlistenError = bridge.onEmbeddedBrowserError((event) => {
-        if (!closed && event.label === label) handler(event.message || event);
-      });
-    }
   };
 }

@@ -4,18 +4,12 @@ import { readFile, writeFile } from "node:fs/promises";
 import { Command } from "commander";
 
 import {
-  aiContextSchema,
-  defaultAiServerUrl,
   diffMermaidDocuments,
-  fetchAiEditorContext,
   layoutMermaidDocument,
   parseEdgeRouting,
   parseLayoutMode,
-  parseTimeoutMs,
   patchMermaidDocument,
-  pingAiEditorContext,
   readMermaidDocument,
-  submitAiApplyCommand,
   validateMermaidDocument,
   type CliEnvelope
 } from "@/cli/mermaid-cli-core";
@@ -24,60 +18,6 @@ import { createPerformanceFixtureDocument, PERFORMANCE_FIXTURE_SIZES, type Perfo
 const program = new Command();
 
 program.name("mmm").description("AI-oriented Mermaid canvas CLI").version("0.1.0");
-
-program
-  .command("context")
-  .description("Read the live desktop editor context: selection, visible canvas, editing draft, recent actions, and diagnostics.")
-  .option("--server <url>", `Editor bridge URL. Defaults to MMM_SERVER_URL or ${defaultAiServerUrl()}`)
-  .option("--timeout <ms>", "Request timeout in milliseconds")
-  .action(async (options: { server?: string; timeout?: string }) => {
-    await run(async () => {
-      const timeoutMs = parseTimeoutMs(options.timeout);
-      if (options.timeout && !timeoutMs) return usageError("context", options.server, `无效 timeout：${options.timeout}`);
-      return fetchAiEditorContext({ server: options.server, timeoutMs });
-    });
-  });
-
-program
-  .command("ping")
-  .description("Check whether the desktop editor bridge is reachable.")
-  .option("--server <url>", `Editor bridge URL. Defaults to MMM_SERVER_URL or ${defaultAiServerUrl()}`)
-  .option("--timeout <ms>", "Request timeout in milliseconds")
-  .action(async (options: { server?: string; timeout?: string }) => {
-    await run(async () => {
-      const timeoutMs = parseTimeoutMs(options.timeout);
-      if (options.timeout && !timeoutMs) return usageError("ping", options.server, `无效 timeout：${options.timeout}`);
-      return pingAiEditorContext({ server: options.server, timeoutMs });
-    });
-  });
-
-program
-  .command("schema")
-  .description("Print the AI context command contract and example payload.")
-  .action(async () => {
-    await run(() => aiContextSchema());
-  });
-
-program
-  .command("apply")
-  .description("Apply structured JSON operations through the live desktop editor session and wait for the result.")
-  .requiredOption("--ops <file>", "JSON file containing an ops array, or an object with an ops array")
-  .option("--target <fileName>", "Only apply when the open desktop editor document filename matches")
-  .option("--server <url>", `Editor bridge URL. Defaults to MMM_SERVER_URL or ${defaultAiServerUrl()}`)
-  .option("--timeout <ms>", "End-to-end timeout in milliseconds")
-  .option("--no-save", "Apply in the desktop editor without writing through the current file path")
-  .action(async (options: { ops: string; target?: string; server?: string; timeout?: string; save?: boolean }) => {
-    await run(async () => {
-      const timeoutMs = parseTimeoutMs(options.timeout);
-      if (options.timeout && !timeoutMs) return usageError("apply", options.target, `无效 timeout：${options.timeout}`);
-      return submitAiApplyCommand(await readJson(options.ops), {
-        targetFileName: options.target,
-        server: options.server,
-        timeoutMs,
-        autoSave: options.save !== false
-      });
-    });
-  });
 
 program
   .command("read")

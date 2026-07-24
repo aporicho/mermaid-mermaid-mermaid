@@ -52,8 +52,9 @@ export function useFileDropWorkflow(
     setFileDropFeedback
   } = args;
   const {
-    importBrowserDroppedImageAsset,
-    importImageAssetRequest
+    importBrowserDroppedImageAssets,
+    importImageAssetRequest,
+    importImageAssetRequests
   } = useImageImportWorkflow(args, {
     saveMermaidFileAsResult,
     showFileWorkflowError
@@ -75,8 +76,11 @@ export function useFileDropWorkflow(
       if ((!isCanvasEditable && documentKind !== "canvas") || workspaceView !== "canvas") {
         return { message: "请切换到无限画布后拖入图片", tone: "blocked", position: localPosition };
       }
+      const imageCount = classification.files.length;
       return {
-        message: fileRef?.path ? "释放以添加图片节点" : "释放后先保存文档再添加图片",
+        message: fileRef?.path
+          ? imageCount > 1 ? `释放以添加 ${imageCount} 张图片` : "释放以添加图片节点"
+          : imageCount > 1 ? `释放后先保存文档并添加 ${imageCount} 张图片` : "释放后先保存文档再添加图片",
         tone: "ready",
         position: localPosition
       };
@@ -129,8 +133,7 @@ export function useFileDropWorkflow(
     }
 
     if (classification.kind === "image") {
-      if (files.length > 1) setStatus("已使用拖拽的第一张图片。");
-      await importBrowserDroppedImageAsset(classification.file, dropPosition);
+      await importBrowserDroppedImageAssets(classification.files, dropPosition);
       return;
     }
 
@@ -190,8 +193,7 @@ export function useFileDropWorkflow(
     }
 
     if (classification.kind === "image") {
-      if (files.length > 1) setStatus("已使用拖拽的第一张图片。");
-      void importImageAssetRequest(classification.file, dropPosition);
+      void importImageAssetRequests(classification.files, dropPosition);
       return;
     }
 

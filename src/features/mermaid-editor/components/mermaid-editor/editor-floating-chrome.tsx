@@ -3,15 +3,16 @@ import {
   DotsGrid3x3 as Grid3X3,
   SidebarExpand as PanelLeftOpen,
   SidebarExpand as PanelRightOpen,
+  ChatBubble,
   Terminal
 } from "iconoir-react/regular";
 
 import { FileMenu, SecondaryActionsMenu, ViewFilterMenu } from "@/features/mermaid-editor/components/editor-menus";
 import { FloatingChromeLayer, FloatingChromeSlot, FloatingIconButton } from "@/features/mermaid-editor/components/floating-chrome";
-import { DesktopWindowControls, ToolModeCluster, WorkspaceViewCluster } from "@/features/mermaid-editor/components/workspace-view-controls";
+import { DesktopWindowControls, WorkspaceViewCluster } from "@/features/mermaid-editor/components/workspace-view-controls";
 import type { DocumentKind } from "@/features/mermaid-editor/lib/document-kind";
 import type { EditorRuntime } from "@/features/mermaid-editor/lib/editor-runtime";
-import type { EditableKind, EdgeRouting, EditorMode, GraphDirection, LayoutMode } from "@/features/mermaid-editor/lib/editor-types";
+import type { EditableKind, EdgeRouting, GraphDirection, LayoutMode } from "@/features/mermaid-editor/lib/editor-types";
 import type { EditorPreferences } from "@/features/mermaid-editor/lib/editor-preferences";
 import type { RecentFileEntry } from "@/features/mermaid-editor/lib/file-workflow";
 import type { ChromeWorkspacePanelId } from "@/features/mermaid-editor/lib/workspace-panels";
@@ -30,6 +31,7 @@ type EditorFloatingChromeProps = {
   secondaryActionsOpen: boolean;
   leftCollapsed: boolean;
   rightCollapsed: boolean;
+  agentOpen: boolean;
   terminalOpen: boolean;
   recentFiles: RecentFileEntry[];
   projectBusy: boolean;
@@ -41,7 +43,6 @@ type EditorFloatingChromeProps = {
   edgeRouting: EdgeRouting;
   layoutMode: LayoutMode;
   preferences: EditorPreferences;
-  mode: EditorMode;
   onFileMenuOpenChange: (open: boolean) => void;
   onViewFiltersOpenChange: (open: boolean) => void;
   onSecondaryActionsOpenChange: (open: boolean) => void;
@@ -60,8 +61,10 @@ type EditorFloatingChromeProps = {
   onResetViewFilters: () => void;
   onOpenWorkspacePanel: (panelId: ChromeWorkspacePanelId) => void;
   onAddNode: () => void;
+  onAddTableNode: () => void;
   onAddImageNode: () => void | Promise<unknown>;
   onAddMarkdownDocument: () => void;
+  onAddHtmlDocument: () => void;
   onCreateGroup: () => void;
   onDirectionChange: (direction: GraphDirection) => void;
   onEdgeRoutingChange: (edgeRouting: EdgeRouting) => void;
@@ -71,7 +74,6 @@ type EditorFloatingChromeProps = {
   onSyncAutoLayout: () => void;
   onResetView: () => void;
   onOpenThemeSettings: () => void;
-  onToolModeChange: (mode: EditorMode) => void;
 };
 
 export function EditorFloatingChrome({
@@ -86,6 +88,7 @@ export function EditorFloatingChrome({
   secondaryActionsOpen,
   leftCollapsed,
   rightCollapsed,
+  agentOpen,
   terminalOpen,
   recentFiles,
   projectBusy,
@@ -97,7 +100,6 @@ export function EditorFloatingChrome({
   edgeRouting,
   layoutMode,
   preferences,
-  mode,
   onFileMenuOpenChange,
   onViewFiltersOpenChange,
   onSecondaryActionsOpenChange,
@@ -116,8 +118,10 @@ export function EditorFloatingChrome({
   onResetViewFilters,
   onOpenWorkspacePanel,
   onAddNode,
+  onAddTableNode,
   onAddImageNode,
   onAddMarkdownDocument,
+  onAddHtmlDocument,
   onCreateGroup,
   onDirectionChange,
   onEdgeRoutingChange,
@@ -126,8 +130,7 @@ export function EditorFloatingChrome({
   onRefreshSource,
   onSyncAutoLayout,
   onResetView,
-  onOpenThemeSettings,
-  onToolModeChange
+  onOpenThemeSettings
 }: EditorFloatingChromeProps) {
   return (
     <FloatingChromeLayer>
@@ -231,8 +234,10 @@ export function EditorFloatingChrome({
           documentKind={documentKind}
           onOpenChange={onSecondaryActionsOpenChange}
           onAddNode={onAddNode}
+          onAddTableNode={onAddTableNode}
           onAddImageNode={() => void onAddImageNode()}
           onAddMarkdownDocument={onAddMarkdownDocument}
+          onAddHtmlDocument={onAddHtmlDocument}
           onCreateGroup={onCreateGroup}
           onSaveAs={() => void onSaveAs()}
           onDirectionChange={onDirectionChange}
@@ -246,21 +251,24 @@ export function EditorFloatingChrome({
         />
       </FloatingChromeSlot>
 
-      {!terminalOpen ? (
-        <FloatingChromeSlot placement="bottomCenter">
-          <FloatingIconButton
-            label="打开终端"
-            tooltipSide="top"
-            onClick={() => onOpenWorkspacePanel("terminal")}
-          >
-            <Terminal />
-          </FloatingIconButton>
-        </FloatingChromeSlot>
-      ) : null}
-
-      {isCanvasEditable && workspaceView === "canvas" ? (
+      {!agentOpen || !terminalOpen ? (
         <FloatingChromeSlot placement="rightBottom">
-          <ToolModeCluster mode={mode} onChange={onToolModeChange} />
+          <div className="flex items-center gap-1">
+            {!agentOpen ? <FloatingIconButton
+              label="打开 Pi Agent"
+              tooltipSide="top"
+              onClick={() => onOpenWorkspacePanel("agent")}
+            >
+              <ChatBubble />
+            </FloatingIconButton> : null}
+            {!terminalOpen ? <FloatingIconButton
+              label="打开终端"
+              tooltipSide="top"
+              onClick={() => onOpenWorkspacePanel("terminal")}
+            >
+              <Terminal />
+            </FloatingIconButton> : null}
+          </div>
         </FloatingChromeSlot>
       ) : null}
     </FloatingChromeLayer>

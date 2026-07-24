@@ -3,7 +3,7 @@ import type { CanvasNodeAsset, ImageLabelPosition } from "@/features/mermaid-edi
 export const DEFAULT_IMAGE_ASSET_WIDTH = 160;
 export const DEFAULT_IMAGE_ASSET_HEIGHT = 120;
 export const DEFAULT_IMAGE_LABEL_POSITION: ImageLabelPosition = "bottom";
-export const SUPPORTED_IMAGE_EXTENSIONS = [".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg"] as const;
+export const SUPPORTED_IMAGE_EXTENSIONS = [".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg", ".avif", ".ico"] as const;
 
 export function createImageAsset(input: Partial<CanvasNodeAsset> & { src: string }): CanvasNodeAsset {
   return {

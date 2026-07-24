@@ -166,7 +166,8 @@ export function layoutFromGraph(
         {
           x: node.x,
           y: node.y,
-          fill: node.fill
+          fill: node.fill,
+          ...(node.tablePresentation ? { table: node.tablePresentation } : {})
         }
       ])
     )
@@ -180,7 +181,7 @@ export function applyLayout(graph: MermaidGraph, layout: CanvasLayout | null): M
     ...graph,
     nodes: graph.nodes.map((node) => {
       const saved = layout.nodes[node.id];
-      return saved ? { ...node, x: saved.x, y: saved.y, fill: saved.fill || node.fill } : node;
+      return saved ? { ...node, x: saved.x, y: saved.y, fill: saved.fill || node.fill, ...(saved.table ? { tablePresentation: saved.table } : {}) } : node;
     }),
     edges: graph.edges.map((edge, index) => {
       const saved = layoutEdgeFor(edge, index, layout.edges);
@@ -218,7 +219,8 @@ export function syncLayout(
           {
             x: node.x ?? saved?.x ?? 120,
             y: node.y ?? saved?.y ?? 120,
-            fill: node.fill || saved?.fill || "#fbf6ef"
+            fill: node.fill || saved?.fill || "#fbf6ef",
+            ...(node.tablePresentation || saved?.table ? { table: node.tablePresentation || saved?.table } : {})
           }
         ];
       })

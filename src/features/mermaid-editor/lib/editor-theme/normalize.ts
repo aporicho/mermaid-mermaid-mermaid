@@ -1,7 +1,12 @@
 import { DEFAULT_EDITOR_THEME, getBuiltInEditorTheme, isBuiltInThemeId } from "./presets";
-import type { EditorMotionTokens, EditorTheme } from "./types";
-import { isHexColor } from "./color";
 import { createDefaultMarkdownTheme, normalizeMarkdownTheme } from "./markdown-theme";
+import { createDefaultSpecialNodeTheme, normalizeSpecialNodeTheme } from "./special-node-theme";
+import { migrateLegacyReadingFontProfile } from "./reading-font-migration";
+import { migrateCanvasThemeV11, migrateInterfaceThemeV11, objectValue } from "./theme-v11-migration";
+import { normalizeEditorTypography } from "./typography";
+import { createDefaultAgentTheme, normalizeAgentTheme } from "./agent-theme";
+import { isHexColor } from "./color";
+import type { CanvasStrokeStyle, CssBorderStyle, EditorMotionTokens, EditorTheme, TreeConnectorStyle } from "./types";
 
 export function resolveEditorTheme(themeId: string | undefined, customTheme: unknown): EditorTheme {
   if (themeId === "custom") return normalizeEditorTheme(customTheme, { ...DEFAULT_EDITOR_THEME, id: "custom", name: "自定义主题" });
@@ -10,136 +15,122 @@ export function resolveEditorTheme(themeId: string | undefined, customTheme: unk
 
 export function normalizeEditorTheme(value: unknown, fallback: EditorTheme = DEFAULT_EDITOR_THEME): EditorTheme {
   if (!value || typeof value !== "object") return fallback;
-  const raw = value as Partial<EditorTheme> & Record<string, unknown>;
-  const ui = normalizeColorGroup(raw.ui, fallback.ui);
-  const font = normalizeFontGroup(raw.font, fallback.font);
-  const markdownFallback = createDefaultMarkdownTheme({ ui, font });
+  const raw = value as Record<string, unknown>;
+  const interfaceTokens = normalizeAppearanceTree(
+    migrateInterfaceThemeV11(raw, fallback.interface),
+    fallback.interface,
+    ["interface"]
+  );
+  const canvas = normalizeAppearanceTree(
+    migrateCanvasThemeV11(raw, fallback.canvas),
+    fallback.canvas,
+    ["canvas"]
+  );
+  canvas.edge.style = canvasStrokeStyle(canvas.edge.style, fallback.canvas.edge.style);
+  canvas.ordinaryNode.borderStyle = canvasStrokeStyle(canvas.ordinaryNode.borderStyle, fallback.canvas.ordinaryNode.borderStyle);
+  canvas.edgeLabel.borderStyle = canvasStrokeStyle(canvas.edgeLabel.borderStyle, fallback.canvas.edgeLabel.borderStyle);
+  canvas.group.borderStyle = canvasStrokeStyle(canvas.group.borderStyle, fallback.canvas.group.borderStyle);
+  canvas.group.title.borderStyle = canvasStrokeStyle(canvas.group.title.borderStyle, fallback.canvas.group.title.borderStyle);
+  canvas.overlay.selection.strokeStyle = canvasStrokeStyle(canvas.overlay.selection.strokeStyle, fallback.canvas.overlay.selection.strokeStyle);
+  canvas.overlay.connectionDraft.strokeStyle = canvasStrokeStyle(canvas.overlay.connectionDraft.strokeStyle, fallback.canvas.overlay.connectionDraft.strokeStyle);
+  canvas.overlay.guide.centerStyle = canvasStrokeStyle(canvas.overlay.guide.centerStyle, fallback.canvas.overlay.guide.centerStyle);
+  canvas.actionBadge.borderStyle = canvasStrokeStyle(canvas.actionBadge.borderStyle, fallback.canvas.actionBadge.borderStyle);
+  interfaceTokens.surface.borderStyle = cssBorderStyle(interfaceTokens.surface.borderStyle, fallback.interface.surface.borderStyle);
+  interfaceTokens.tree.connectorStyle = treeConnectorStyle(interfaceTokens.tree.connectorStyle, fallback.interface.tree.connectorStyle);
+  interfaceTokens.icon.family = "iconoir";
+
+  const typography = normalizeEditorTypography(raw.typography, fallback.typography, {
+    font: raw.font && typeof raw.font === "object" ? objectValue(raw.font) : undefined,
+    subgraph: raw.subgraph && typeof raw.subgraph === "object" ? objectValue(raw.subgraph) : undefined,
+    edgeLabel: raw.edgeLabel && typeof raw.edgeLabel === "object" ? objectValue(raw.edgeLabel) : undefined
+  });
+  const markdownFallback = createDefaultMarkdownTheme({ interface: interfaceTokens, typography });
+  const legacyTypography = objectValue(raw.typography).markdown;
+  const markdown = normalizeMarkdownTheme(raw.markdown, markdownFallback, {
+    legacyTypography,
+    sourceVersion: raw.version
+  });
+  const baseThemeId = normalizeBaseThemeId(raw.baseThemeId, fallback.baseThemeId);
+  migrateLegacyReadingFontProfile(markdown, typography, { version: raw.version, baseThemeId });
+  const specialNode = normalizeSpecialNodeTheme(
+    raw.specialNode,
+    createDefaultSpecialNodeTheme({ interface: interfaceTokens, canvas, markdown })
+  );
+  migrateDocumentPresentationV15(raw.version, canvas, specialNode);
+  const agent = normalizeAgentTheme(raw.agent, createDefaultAgentTheme({ interface: interfaceTokens, typography }));
 
   return {
-    version: 5,
+    version: 15,
     id: "custom",
     name: typeof raw.name === "string" && raw.name.trim() ? raw.name : fallback.name,
     description: typeof raw.description === "string" ? raw.description : fallback.description,
-    baseThemeId: normalizeBaseThemeId(raw.baseThemeId, fallback.baseThemeId),
-    ui,
-    canvas: normalizeColorGroup(raw.canvas, fallback.canvas),
-    canvasAppearance: normalizeNumberGroup(raw.canvasAppearance, fallback.canvasAppearance, numberRanges.canvasAppearance),
+    baseThemeId,
+    interface: interfaceTokens,
+    agent,
+    canvas,
+    specialNode,
     source: normalizeColorGroup(raw.source, fallback.source),
-    render: normalizeColorGroup(raw.render, fallback.render),
-    markdown: normalizeMarkdownTheme(raw.markdown, markdownFallback),
+    markdown,
     ansi: normalizeColorGroup(raw.ansi, fallback.ansi),
     terminal: normalizeColorGroup(raw.terminal, fallback.terminal),
-    font,
-    space: normalizeNumberGroup(raw.space, fallback.space, numberRanges.space),
-    radius: normalizeNumberGroup(raw.radius, fallback.radius, numberRanges.radius),
-    stroke: normalizeStrokeGroup(raw.stroke, fallback.stroke),
-    icon: normalizeIconGroup(raw.icon, fallback.icon),
-    canvasInteraction: normalizeNumberGroup(raw.canvasInteraction, fallback.canvasInteraction, numberRanges.canvasInteraction),
-    subgraph: normalizeNumberGroup(raw.subgraph, fallback.subgraph, numberRanges.subgraph),
-    edgeLabel: normalizeNumberGroup(raw.edgeLabel, fallback.edgeLabel, numberRanges.edgeLabel),
+    typography,
     motion: normalizeMotionGroup(raw.motion, fallback.motion),
-    diagnostics: normalizeNumberGroup(raw.diagnostics, fallback.diagnostics, numberRanges.diagnostics)
+    diagnostics: normalizeAppearanceTree(raw.diagnostics, fallback.diagnostics, ["diagnostics"])
   };
+}
+
+function migrateDocumentPresentationV15(sourceVersion: unknown, canvas: EditorTheme["canvas"], specialNode: EditorTheme["specialNode"]) {
+  if (typeof sourceVersion === "number" && sourceVersion >= 15) return;
+  if (canvas.group.title.borderWidth === 1) canvas.group.title.borderWidth = 0;
+  if (specialNode.markdownDocument.width === 280 && specialNode.markdownDocument.height === 180) {
+    specialNode.markdownDocument.height = 396;
+  }
 }
 
 function normalizeBaseThemeId(value: unknown, fallback: EditorTheme["baseThemeId"]) {
   return isBuiltInThemeId(value) ? value : fallback;
 }
 
+function normalizeAppearanceTree<T>(raw: unknown, fallback: T, path: readonly string[]): T {
+  if (Array.isArray(fallback)) return dashValue(raw, fallback) as T;
+  if (typeof fallback === "boolean") return (typeof raw === "boolean" ? raw : fallback) as T;
+  if (typeof fallback === "number") {
+    const [min, max] = numberRange(path);
+    return numberValue(raw, fallback, min, max) as T;
+  }
+  if (typeof fallback === "string") {
+    if (isHexColor(fallback)) return (typeof raw === "string" && isHexColor(raw) ? raw : fallback) as T;
+    return (typeof raw === "string" && raw.trim() ? raw : fallback) as T;
+  }
+  if (!fallback || typeof fallback !== "object") return fallback;
+  const source = objectValue(raw);
+  return Object.fromEntries(Object.entries(fallback as Record<string, unknown>).map(([key, entry]) => [
+    key,
+    normalizeAppearanceTree(source[key], entry, [...path, key])
+  ])) as T;
+}
+
 function normalizeColorGroup<T extends object>(raw: unknown, fallback: T): T {
-  const source = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
-  return Object.fromEntries(
-    Object.entries(fallback).map(([key, fallbackValue]) => {
-      const value = source[key];
-      return [key, typeof value === "string" && isHexColor(value) ? value : fallbackValue];
-    })
-  ) as T;
-}
-
-function normalizeFontGroup(raw: unknown, fallback: EditorTheme["font"]): EditorTheme["font"] {
-  const source = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
-  return {
-    familySans: typeof source.familySans === "string" && source.familySans.trim() ? source.familySans : fallback.familySans,
-    familyMono: typeof source.familyMono === "string" && source.familyMono.trim() ? source.familyMono : fallback.familyMono,
-    sizeUiXs: numberValue(source.sizeUiXs, fallback.sizeUiXs, 10, 18),
-    sizeUiSm: numberValue(source.sizeUiSm, fallback.sizeUiSm, 11, 20),
-    sizeNode: numberValue(source.sizeNode, fallback.sizeNode, 10, 28),
-    sizeEdgeLabel: numberValue(source.sizeEdgeLabel, fallback.sizeEdgeLabel, 9, 24),
-    sizeSource: numberValue(source.sizeSource, fallback.sizeSource, 10, 22),
-    sizeTerminal: numberValue(source.sizeTerminal, fallback.sizeTerminal, 10, 22),
-    weightRegular: numberValue(source.weightRegular, fallback.weightRegular, 300, 700),
-    weightMedium: numberValue(source.weightMedium, fallback.weightMedium, 400, 800),
-    weightBold: numberValue(source.weightBold, fallback.weightBold, 500, 900),
-    lineHeightNode: numberValue(source.lineHeightNode, fallback.lineHeightNode, 12, 42),
-    lineHeightEdgeLabel: numberValue(source.lineHeightEdgeLabel, fallback.lineHeightEdgeLabel, 12, 36),
-    lineHeightSource: numberValue(source.lineHeightSource, fallback.lineHeightSource, 20, 44),
-    lineHeightTerminal: numberValue(source.lineHeightTerminal, fallback.lineHeightTerminal, 14, 32),
-    letterSpacing: numberValue(source.letterSpacing, fallback.letterSpacing, 0, 2)
-  };
-}
-
-function normalizeNumberGroup<T extends Record<string, number>>(raw: unknown, fallback: T, ranges: Record<keyof T, [number, number]>): T {
-  const source = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
-  return Object.fromEntries(
-    Object.entries(fallback).map(([key, fallbackValue]) => {
-      const range = ranges[key as keyof T];
-      return [key, numberValue(source[key], fallbackValue, range[0], range[1])];
-    })
-  ) as T;
-}
-
-function normalizeStrokeGroup(raw: unknown, fallback: EditorTheme["stroke"]): EditorTheme["stroke"] {
-  const source = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
-  return {
-    node: numberValue(source.node, fallback.node, 0, 8),
-    nodeEmphasized: numberValue(source.nodeEmphasized, fallback.nodeEmphasized, 0, 10),
-    edge: numberValue(source.edge, fallback.edge, 0.5, 10),
-    edgeThick: numberValue(source.edgeThick, fallback.edgeThick, 1, 14),
-    edgeDotted: dashValue(source.edgeDotted, fallback.edgeDotted),
-    overlay: numberValue(source.overlay, fallback.overlay, 0.5, 6),
-    anchor: numberValue(source.anchor, fallback.anchor, 0.5, 8),
-    selectionDash: dashValue(source.selectionDash, fallback.selectionDash),
-    connectionDraftDash: dashValue(source.connectionDraftDash, fallback.connectionDraftDash),
-    centerGuideDash: dashValue(source.centerGuideDash, fallback.centerGuideDash),
-    subgraphDash: dashValue(source.subgraphDash, fallback.subgraphDash)
-  };
-}
-
-function normalizeIconGroup(raw: unknown, fallback: EditorTheme["icon"]): EditorTheme["icon"] {
-  const source = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
-  return {
-    family: "iconoir",
-    sizeSm: numberValue(source.sizeSm, fallback.sizeSm, 12, 24),
-    sizeButton: numberValue(source.sizeButton, fallback.sizeButton, 12, 28),
-    strokeWidth: numberValue(source.strokeWidth, fallback.strokeWidth, 1, 4),
-    buttonHeightSm: numberValue(source.buttonHeightSm, fallback.buttonHeightSm, 24, 48),
-    buttonHeightMd: numberValue(source.buttonHeightMd, fallback.buttonHeightMd, 32, 56)
-  };
+  const source = objectValue(raw);
+  return Object.fromEntries(Object.entries(fallback).map(([key, fallbackValue]) => {
+    const value = source[key];
+    return [key, typeof value === "string" && isHexColor(value) ? value : fallbackValue];
+  })) as T;
 }
 
 function normalizeMotionGroup(raw: unknown, fallback: EditorMotionTokens): EditorMotionTokens {
-  const source = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
-  return mergeMotionTokens(fallback, {
-    duration: normalizeNumberGroup(source.duration, fallback.duration, numberRanges.motion.duration),
-    ease: normalizeEaseGroup(source.ease, fallback.ease),
-    distance: normalizeNumberGroup(source.distance, fallback.distance, numberRanges.motion.distance),
-    stagger: normalizeNumberGroup(source.stagger, fallback.stagger, numberRanges.motion.stagger),
-    canvas: normalizeNumberGroup(source.canvas, fallback.canvas, numberRanges.motion.canvas)
-  });
-}
-
-function mergeMotionTokens(fallback: EditorMotionTokens, overrides: Partial<EditorMotionTokens> | undefined): EditorMotionTokens {
+  const source = objectValue(raw);
   return {
-    duration: { ...fallback.duration, ...overrides?.duration },
-    ease: { ...fallback.ease, ...overrides?.ease },
-    distance: { ...fallback.distance, ...overrides?.distance },
-    stagger: { ...fallback.stagger, ...overrides?.stagger },
-    canvas: { ...fallback.canvas, ...overrides?.canvas }
+    duration: normalizeAppearanceTree(source.duration, fallback.duration, ["motion", "duration"]),
+    ease: normalizeEaseGroup(source.ease, fallback.ease),
+    distance: normalizeAppearanceTree(source.distance, fallback.distance, ["motion", "distance"]),
+    stagger: normalizeAppearanceTree(source.stagger, fallback.stagger, ["motion", "stagger"]),
+    canvas: normalizeAppearanceTree(source.canvas, fallback.canvas, ["motion", "canvas"])
   };
 }
 
 function normalizeEaseGroup(raw: unknown, fallback: EditorMotionTokens["ease"]): EditorMotionTokens["ease"] {
-  const source = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+  const source = objectValue(raw);
   return {
     standard: easeValue(source.standard, fallback.standard),
     emphasized: easeValue(source.emphasized, fallback.emphasized),
@@ -148,141 +139,67 @@ function normalizeEaseGroup(raw: unknown, fallback: EditorMotionTokens["ease"]):
   };
 }
 
+function numberRange(path: readonly string[]): readonly [number, number] {
+  const key = path.at(-1) || "";
+  const joined = path.join(".");
+  if (joined.startsWith("motion.duration.")) return [0, key === "highlightDuration" ? 1.8 : 1.6];
+  if (joined.startsWith("motion.stagger.")) return [0, 0.16];
+  if (joined === "motion.distance.chrome") return [0, 32];
+  if (joined === "motion.distance.panel") return [0, 96];
+  if (joined === "motion.distance.viewport") return [0, 320];
+  if (joined === "motion.canvas.createScale") return [0.7, 1];
+  if (joined === "motion.canvas.selectedScale") return [1, 1.08];
+  if (joined === "motion.canvas.proximityRadiusPx") return [0, 600];
+  if (joined === "motion.canvas.proximityMaxScale") return [1, 3];
+  if (joined === "motion.canvas.proximityDuration") return [0, 0.8];
+  if (joined === "motion.canvas.highlightDuration") return [0, 1.8];
+  if (joined === "motion.canvas.maxAnimatedItems") return [0, 400];
+  if (joined === "canvas.grid.minorStep") return [8, 80];
+  if (joined === "canvas.grid.majorEvery") return [2, 12];
+  if (joined === "canvas.grid.minorVisibleScale") return [0.1, 2];
+  if (joined === "canvas.grid.majorVisibleScale") return [0.05, 1];
+  if (joined === "canvas.grid.minorRadiusPx") return [0.2, 3];
+  if (joined === "canvas.grid.majorRadiusPx") return [0.2, 4];
+  if (joined === "canvas.grid.superRadiusPx") return [0.2, 5];
+  if (/opacity|alpha/i.test(key)) return [0, 1];
+  if (/fontWeight/i.test(key)) return [100, 900];
+  if (/luminanceSteps/i.test(key)) return [2, 256];
+  if (/curveSegments/i.test(key)) return [12, 240];
+  if (/maxDots/i.test(key)) return [800, 20000];
+  if (/visibleScale/i.test(key)) return [0.01, 4];
+  if (/radius/i.test(key)) return [0, 128];
+  if (/offset/i.test(key)) return [-1024, 1024];
+  if (/width|height|size|padding|inset|gap|blur|step|spacing|length|boost/i.test(key)) return [0, 1024];
+  if (/Chars|Lines|Every|Items/i.test(key)) return [0, 50000];
+  if (/contrast/i.test(key)) return [1, 21];
+  if (/scale/i.test(key)) return [0, 8];
+  return [-2048, 2048];
+}
+
+function numberValue(value: unknown, fallback: number, min: number, max: number) {
+  return typeof value === "number" && Number.isFinite(value) ? Math.min(max, Math.max(min, value)) : fallback;
+}
+
+function dashValue(value: unknown, fallback: readonly unknown[]) {
+  if (!Array.isArray(value) || value.length > 8) return [...fallback];
+  if (!value.length) return [];
+  const numbers = value.map((item) => typeof item === "number" && Number.isFinite(item) ? item : NaN);
+  return numbers.every((item) => item >= 0 && item <= 96) ? numbers : [...fallback];
+}
+
+function cssBorderStyle(value: unknown, fallback: CssBorderStyle): CssBorderStyle {
+  return value === "none" || value === "solid" || value === "dashed" || value === "dotted" || value === "double" ? value : fallback;
+}
+
+function treeConnectorStyle(value: unknown, fallback: TreeConnectorStyle): TreeConnectorStyle {
+  return value === "none" || value === "solid" || value === "dashed" || value === "dotted" ? value : fallback;
+}
+
+function canvasStrokeStyle(value: unknown, fallback: CanvasStrokeStyle): CanvasStrokeStyle {
+  return value === "none" || value === "solid" || value === "dashed" || value === "dotted" || value === "dash-dot" || value === "custom" ? value : fallback;
+}
+
 function easeValue(value: unknown, fallback: string) {
   if (typeof value !== "string" || !value.trim()) return fallback;
   return /^[a-z0-9.(),_-]+$/i.test(value) ? value : fallback;
 }
-
-function numberValue(value: unknown, fallback: number, min: number, max: number) {
-  if (typeof value !== "number" || !Number.isFinite(value)) return fallback;
-  return Math.min(max, Math.max(min, value));
-}
-
-function dashValue(value: unknown, fallback: readonly number[]) {
-  if (!Array.isArray(value) || value.length > 6) return [...fallback];
-  if (value.length === 0) return [];
-  if (value.length < 2) return [...fallback];
-  const numbers = value.map((item) => (typeof item === "number" && Number.isFinite(item) ? item : NaN));
-  return numbers.every((item) => item >= 0 && item <= 48) ? numbers : [...fallback];
-}
-
-const numberRanges = {
-  space: {
-    panelPadding: [8, 32],
-    panelHeaderHeight: [40, 72],
-    panelFooterHeight: [44, 80],
-    controlGap: [2, 20],
-    controlPaddingX: [4, 28],
-    controlPaddingY: [2, 20],
-    iconButtonSize: [24, 48],
-    nodePaddingX: [4, 40],
-    nodePaddingY: [4, 40],
-    nodeMinChars: [2, 24],
-    nodeMaxChars: [8, 60],
-    nodeMaxLines: [2, 30],
-    gridMinorStep: [8, 80],
-    gridMajorEvery: [2, 12]
-  },
-  radius: {
-    app: [0, 16],
-    controlSm: [0, 16],
-    controlMd: [0, 20],
-    controlLg: [0, 24],
-    canvasNode: [0, 48],
-    edgeLabel: [0, 24],
-    polygonCorner: [0, 24],
-    subgraphTitle: [0, 24]
-  },
-  canvasInteraction: {
-    anchorRadius: [3, 16],
-    endpointRadius: [3, 18],
-    edgeHitStrokeWidth: [8, 40],
-    pointerLength: [0, 32],
-    pointerWidth: [0, 32],
-    parallelEdgeSpacing: [0, 48],
-    edgeCurveSegments: [12, 240],
-    endpointMarkerRadius: [2, 12],
-    gridMinorAlpha: [0, 1],
-    gridMajorAlpha: [0, 1],
-    gridSuperAlpha: [0, 1],
-    gridMaxDots: [800, 20000],
-    gridMinorVisibleScale: [0.1, 2],
-    gridMajorVisibleScale: [0.05, 1],
-    gridMinorRadiusPx: [0.2, 3],
-    gridMajorRadiusPx: [0.2, 4],
-    gridSuperRadiusPx: [0.2, 5]
-  },
-  canvasAppearance: {
-    nodeFillSaturation: [0, 1],
-    nodeFillLuminanceSteps: [2, 256],
-    previewShadowOpacity: [0, 1]
-  },
-  subgraph: {
-    paddingX: [8, 96],
-    paddingTop: [24, 120],
-    paddingBottom: [8, 96],
-    titleHeight: [18, 56],
-    titleInsetX: [4, 48],
-    titleInsetTop: [4, 40],
-    titlePaddingX: [4, 32],
-    titleFontSize: [9, 24],
-    titleFontWeight: [300, 900],
-    minWidth: [80, 520],
-    minHeight: [60, 360],
-    fallbackGap: [16, 160],
-    fillOpacity: [0, 1]
-  },
-  edgeLabel: {
-    minChars: [1, 20],
-    maxChars: [4, 60],
-    paddingX: [2, 32],
-    height: [18, 64],
-    fontSize: [9, 24],
-    lineHeight: [10, 36]
-  },
-  motion: {
-    duration: {
-      fast: [0, 0.4],
-      base: [0, 0.8],
-      slow: [0, 1.2],
-      layout: [0, 1.6]
-    },
-    distance: {
-      chrome: [0, 32],
-      panel: [0, 96],
-      viewport: [0, 320]
-    },
-    stagger: {
-      button: [0, 0.16],
-      list: [0, 0.16]
-    },
-    canvas: {
-      createScale: [0.7, 1],
-      selectedScale: [1, 1.08],
-      highlightDuration: [0, 1.8],
-      maxAnimatedItems: [0, 400],
-      proximityRadiusPx: [0, 600],
-      proximityMaxScale: [1, 3],
-      proximityDuration: [0, 0.8]
-    }
-  },
-  diagnostics: {
-    minTextContrast: [1, 7],
-    minFocusContrast: [1, 7],
-    minSelectionContrast: [1, 7]
-  }
-} as const satisfies {
-  space: Record<keyof EditorTheme["space"], [number, number]>;
-  radius: Record<keyof EditorTheme["radius"], [number, number]>;
-  canvasAppearance: Record<keyof EditorTheme["canvasAppearance"], [number, number]>;
-  canvasInteraction: Record<keyof EditorTheme["canvasInteraction"], [number, number]>;
-  subgraph: Record<keyof EditorTheme["subgraph"], [number, number]>;
-  edgeLabel: Record<keyof EditorTheme["edgeLabel"], [number, number]>;
-  motion: {
-    duration: Record<keyof EditorMotionTokens["duration"], [number, number]>;
-    distance: Record<keyof EditorMotionTokens["distance"], [number, number]>;
-    stagger: Record<keyof EditorMotionTokens["stagger"], [number, number]>;
-    canvas: Record<keyof EditorMotionTokens["canvas"], [number, number]>;
-  };
-  diagnostics: Record<keyof EditorTheme["diagnostics"], [number, number]>;
-};

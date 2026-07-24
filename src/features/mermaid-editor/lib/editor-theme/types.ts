@@ -4,8 +4,44 @@ import type { EdgeLabelGeometryTokens } from "@/features/mermaid-editor/lib/edge
 import type { NodeGeometryTokens } from "@/features/mermaid-editor/lib/node-geometry";
 import type { SubgraphGeometryTokens } from "@/features/mermaid-editor/lib/subgraph-geometry";
 import type { MarkdownThemeTokens } from "./markdown-types";
+import type { SpecialNodeThemeTokens } from "./special-node-types";
+import type { EditorTypographyTokens } from "./typography-types";
+import type { CanvasThemeTokens, InterfaceThemeTokens } from "./appearance-types";
+import type { AgentThemeTokens } from "./agent-theme";
 
-export type { MarkdownHeadingTokens, MarkdownThemeTokens } from "./markdown-types";
+export type {
+  MarkdownBlockquoteTokens,
+  MarkdownBodyTokens,
+  MarkdownCodeBlockTokens,
+  MarkdownHeadingTokens,
+  MarkdownInlineCodeTokens,
+  MarkdownLinkTokens,
+  MarkdownListTokens,
+  MarkdownStrikethroughTokens,
+  MarkdownTableTokens,
+  MarkdownTaskListTokens,
+  MarkdownTextTokens,
+  MarkdownThemeTokens
+} from "./markdown-types";
+export type { EditorTypographyTokens, TypographyRoleTokens } from "./typography-types";
+export type {
+  SpecialNodeCommonTokens,
+  SpecialNodeImageTokens,
+  SpecialNodeLinkCardTokens,
+  SpecialNodeMarkdownDocumentTokens,
+  SpecialNodeMarkdownPreviewInlineTokens,
+  SpecialNodeMarkdownPreviewListTokens,
+  SpecialNodeMarkdownPreviewQuoteTokens,
+  SpecialNodeMarkdownPreviewTextTokens,
+  SpecialNodeSharedTokens,
+  SpecialNodeStateTokens,
+  SpecialNodeSurfaceTokens,
+  SpecialNodeTableTokens,
+  SpecialNodeThemeTokens,
+  SpecialNodeVisualState
+} from "./special-node-types";
+export type { CanvasBorderTokens, CanvasStrokeStyle, CanvasThemeTokens, CssBorderStyle, CssBorderTokens, InterfaceThemeTokens, ShadowTokens, TreeConnectorStyle } from "./appearance-types";
+export type { AgentSurfaceTokens, AgentThemeTokens } from "./agent-theme";
 
 export const MERMAID_FONT_FAMILY = "Noto Sans SC Variable, Noto Sans SC, PingFang SC, Microsoft YaHei UI, Microsoft YaHei, system-ui, sans-serif";
 export const MONO_FONT_FAMILY = "Maple Mono, SF Mono, Cascadia Code, JetBrains Mono, Noto Sans SC Variable, ui-monospace, monospace";
@@ -89,158 +125,22 @@ export type XtermThemeTokens = TerminalColorTokens &
   };
 
 export type EditorTheme = {
-  version: 5;
+  version: 15;
   id: EditorThemeId;
   name: string;
   description: string;
   baseThemeId?: string;
-  ui: {
-    background: string;
-    foreground: string;
-    icon: string;
-    card: string;
-    popover: string;
-    primary: string;
-    secondary: string;
-    muted: string;
-    mutedForeground: string;
-    accent: string;
-    accentForeground: string;
-    destructive: string;
-    border: string;
-  };
-  canvas: {
-    surface: string;
-    nodeStroke: string;
-    nodeText: string;
-    edge: string;
-    edgeText: string;
-    labelStroke: string;
-    connectionInvalid: string;
-    previewInvalid: string;
-  };
-  canvasAppearance: {
-    nodeFillSaturation: number;
-    nodeFillLuminanceSteps: number;
-    previewShadowOpacity: number;
-  };
+  interface: InterfaceThemeTokens;
+  agent: AgentThemeTokens;
+  canvas: CanvasThemeTokens;
+  specialNode: SpecialNodeThemeTokens;
   source: {
     line: string;
-  };
-  render: {
-    background: string;
-    gridDot: string;
   };
   markdown: MarkdownThemeTokens;
   ansi: AnsiColorTokens;
   terminal: TerminalColorTokens;
-  font: {
-    familySans: string;
-    familyMono: string;
-    sizeUiXs: number;
-    sizeUiSm: number;
-    sizeNode: number;
-    sizeEdgeLabel: number;
-    sizeSource: number;
-    sizeTerminal: number;
-    weightRegular: number;
-    weightMedium: number;
-    weightBold: number;
-    lineHeightNode: number;
-    lineHeightEdgeLabel: number;
-    lineHeightSource: number;
-    lineHeightTerminal: number;
-    letterSpacing: number;
-  };
-  space: {
-    panelPadding: number;
-    panelHeaderHeight: number;
-    panelFooterHeight: number;
-    controlGap: number;
-    controlPaddingX: number;
-    controlPaddingY: number;
-    iconButtonSize: number;
-    nodePaddingX: number;
-    nodePaddingY: number;
-    nodeMinChars: number;
-    nodeMaxChars: number;
-    nodeMaxLines: number;
-    gridMinorStep: number;
-    gridMajorEvery: number;
-  };
-  radius: {
-    app: number;
-    controlSm: number;
-    controlMd: number;
-    controlLg: number;
-    canvasNode: number;
-    edgeLabel: number;
-    polygonCorner: number;
-    subgraphTitle: number;
-  };
-  stroke: {
-    node: number;
-    nodeEmphasized: number;
-    edge: number;
-    edgeThick: number;
-    edgeDotted: readonly number[];
-    overlay: number;
-    anchor: number;
-    selectionDash: readonly number[];
-    connectionDraftDash: readonly number[];
-    centerGuideDash: readonly number[];
-    subgraphDash: readonly number[];
-  };
-  icon: {
-    family: "iconoir";
-    sizeSm: number;
-    sizeButton: number;
-    strokeWidth: number;
-    buttonHeightSm: number;
-    buttonHeightMd: number;
-  };
-  canvasInteraction: {
-    anchorRadius: number;
-    endpointRadius: number;
-    edgeHitStrokeWidth: number;
-    pointerLength: number;
-    pointerWidth: number;
-    parallelEdgeSpacing: number;
-    edgeCurveSegments: number;
-    endpointMarkerRadius: number;
-    gridMinorAlpha: number;
-    gridMajorAlpha: number;
-    gridSuperAlpha: number;
-    gridMaxDots: number;
-    gridMinorVisibleScale: number;
-    gridMajorVisibleScale: number;
-    gridMinorRadiusPx: number;
-    gridMajorRadiusPx: number;
-    gridSuperRadiusPx: number;
-  };
-  subgraph: {
-    paddingX: number;
-    paddingTop: number;
-    paddingBottom: number;
-    titleHeight: number;
-    titleInsetX: number;
-    titleInsetTop: number;
-    titlePaddingX: number;
-    titleFontSize: number;
-    titleFontWeight: number;
-    minWidth: number;
-    minHeight: number;
-    fallbackGap: number;
-    fillOpacity: number;
-  };
-  edgeLabel: {
-    minChars: number;
-    maxChars: number;
-    paddingX: number;
-    height: number;
-    fontSize: number;
-    lineHeight: number;
-  };
+  typography: EditorTypographyTokens;
   motion: EditorMotionTokens;
   diagnostics: {
     minTextContrast: number;
@@ -264,6 +164,9 @@ export type CompiledEditorTheme = {
   canvasVisualTokens: CanvasVisualTokens;
   mermaidThemeVariables: MermaidThemeVariables;
   terminalTheme: XtermThemeTokens;
+  typography: EditorTypographyTokens;
+  specialNode: SpecialNodeThemeTokens;
+  agent: AgentThemeTokens;
   motion: EditorMotionTokens;
   geometry: EditorThemeGeometryTokens;
   diagnostics: ThemeDiagnostic[];

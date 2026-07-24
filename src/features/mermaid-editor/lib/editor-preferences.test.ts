@@ -2,13 +2,42 @@ import { describe, expect, it } from "vitest";
 
 import {
   DEFAULT_EDITOR_PREFERENCES,
+  AUTO_SAVE_DELAY_MAX,
+  AUTO_SAVE_DELAY_MIN,
+  DEFAULT_AUTO_SAVE_DELAY,
   MARKDOWN_CONTENT_WIDTH_MAX,
   MARKDOWN_CONTENT_WIDTH_MIN,
+  normalizeAutoSaveDelay,
   normalizeMarkdownContentWidth,
-  normalizeEditorPreferences
+  normalizeEditorAutoSaveMode,
+  normalizeEditorPreferences,
+  normalizeMarkdownTextScale
 } from "@/features/mermaid-editor/lib/editor-preferences";
+import { MARKDOWN_TEXT_SCALE_MAX, MARKDOWN_TEXT_SCALE_MIN, MARKDOWN_TEXT_SCALE_STEP } from "@/features/mermaid-editor/lib/markdown-text-scale";
 
 describe("editor preferences", () => {
+  it("uses manual save and a one-second delayed-save interval by default", () => {
+    expect(DEFAULT_EDITOR_PREFERENCES.autoSave).toBe("off");
+    expect(DEFAULT_EDITOR_PREFERENCES.autoSaveDelay).toBe(1_000);
+    expect(normalizeEditorPreferences(undefined)).toMatchObject({ autoSave: "off", autoSaveDelay: 1_000 });
+  });
+
+  it("preserves every supported auto-save trigger and rejects unknown values", () => {
+    expect(normalizeEditorAutoSaveMode("afterDelay")).toBe("afterDelay");
+    expect(normalizeEditorAutoSaveMode("onFocusChange")).toBe("onFocusChange");
+    expect(normalizeEditorAutoSaveMode("onWindowChange")).toBe("onWindowChange");
+    expect(normalizeEditorAutoSaveMode("always")).toBe("off");
+    expect(normalizeEditorPreferences({ autoSave: "onFocusChange" }).autoSave).toBe("onFocusChange");
+  });
+
+  it("normalizes and clamps the delayed auto-save interval", () => {
+    expect(DEFAULT_AUTO_SAVE_DELAY).toBe(1_000);
+    expect(normalizeAutoSaveDelay("1250.4")).toBe(1_250);
+    expect(normalizeAutoSaveDelay(1)).toBe(AUTO_SAVE_DELAY_MIN);
+    expect(normalizeAutoSaveDelay(100_000)).toBe(AUTO_SAVE_DELAY_MAX);
+    expect(normalizeAutoSaveDelay(Number.NaN)).toBe(DEFAULT_AUTO_SAVE_DELAY);
+  });
+
   it("disables Markdown spellcheck by default", () => {
     expect(DEFAULT_EDITOR_PREFERENCES.markdownSpellcheckEnabled).toBe(false);
     expect(normalizeEditorPreferences(undefined).markdownSpellcheckEnabled).toBe(false);
@@ -30,5 +59,27 @@ describe("editor preferences", () => {
     expect(normalizeEditorPreferences({ markdownContentWidth: 1120 }).markdownContentWidth).toBe(1120);
     expect(normalizeMarkdownContentWidth(200)).toBe(MARKDOWN_CONTENT_WIDTH_MIN);
     expect(normalizeMarkdownContentWidth(2400)).toBe(MARKDOWN_CONTENT_WIDTH_MAX);
+  });
+
+  it("defaults workspace titlebar auto-hide on and migrates its desktop-era key", () => {
+    expect(DEFAULT_EDITOR_PREFERENCES.workspaceTitlebarAutoHide).toBe(true);
+    expect(normalizeEditorPreferences(undefined).workspaceTitlebarAutoHide).toBe(true);
+    expect(normalizeEditorPreferences({ desktopTitlebarAutoHide: false }).workspaceTitlebarAutoHide).toBe(false);
+  });
+
+  it("gives the new workspace titlebar key precedence over its legacy alias", () => {
+    expect(normalizeEditorPreferences({ workspaceTitlebarAutoHide: true, desktopTitlebarAutoHide: false }).workspaceTitlebarAutoHide).toBe(true);
+    expect(normalizeEditorPreferences({ workspaceTitlebarAutoHide: false, desktopTitlebarAutoHide: true }).workspaceTitlebarAutoHide).toBe(false);
+  });
+
+  it("defaults, clamps and snaps the Markdown text scale", () => {
+    expect(DEFAULT_EDITOR_PREFERENCES.markdownTextScale).toBe(1);
+    expect(MARKDOWN_TEXT_SCALE_STEP).toBe(0.1);
+    expect(normalizeEditorPreferences({ restoreLastFile: false }).markdownTextScale).toBe(1);
+    expect(normalizeMarkdownTextScale(0.2)).toBe(MARKDOWN_TEXT_SCALE_MIN);
+    expect(normalizeMarkdownTextScale(4)).toBe(MARKDOWN_TEXT_SCALE_MAX);
+    expect(normalizeMarkdownTextScale(1.26)).toBe(1.3);
+    expect(normalizeMarkdownTextScale("1.14")).toBe(1.1);
+    expect(normalizeMarkdownTextScale(Number.NaN)).toBe(1);
   });
 });

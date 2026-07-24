@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { createDefaultCanvasTableContent } from "@/features/mermaid-editor/lib/canvas-table-content";
 import type { MermaidGraph } from "@/features/mermaid-editor/lib/editor-types";
 import { DEFAULT_VIEW_FILTERS } from "@/features/mermaid-editor/lib/view-filters";
 import { applyEditorCommandTransaction } from "@/features/mermaid-editor/lib/interaction/transaction";
@@ -143,6 +144,23 @@ describe("editor command transaction", () => {
     expect(result.state.selection.nodeIds).toEqual(["N1", "N2"]);
     expect(result.state.graph.nodes.at(-1)).toMatchObject({ label: "spec.md", action: { kind: "file", path: "./docs/spec.md" } });
     expect(result.effect).toMatchObject({ history: "push", sourceSync: "commit", status: "已添加链接节点。" });
+  });
+
+  it("adds and selects multiple image nodes as a single graph commit", () => {
+    const result = applyEditorCommandTransaction(state, {
+      type: "graph.addNodesAt",
+      nodes: [
+        { point: { x: 420, y: 260 }, label: "first", asset: { kind: "image", src: "./assets/first.png", width: 160, height: 120, preserveAspectRatio: true, labelPosition: "bottom" } },
+        { point: { x: 620, y: 260 }, label: "second", asset: { kind: "image", src: "./assets/second.png", width: 180, height: 100, preserveAspectRatio: true, labelPosition: "bottom" } }
+      ],
+      message: "已添加 2 张图片节点。",
+      source: "api"
+    });
+
+    expect(result.state.graph.nodes).toHaveLength(4);
+    expect(result.state.selection).toMatchObject({ nodeIds: ["N1", "N2"], primaryId: "N1" });
+    expect(result.state.graph.nodes.slice(-2).map((node) => node.asset?.src)).toEqual(["./assets/first.png", "./assets/second.png"]);
+    expect(result.effect).toMatchObject({ history: "push", sourceSync: "commit", status: "已添加 2 张图片节点。" });
   });
 
   it("infers node actions from committed node text without replacing existing actions", () => {
@@ -349,6 +367,48 @@ describe("editor command transaction", () => {
     expect(renamedSubgraph.state.graph.subgraphs?.[0].id).toBe("Renamed");
     expect(updatedSubgraph.state.graph.subgraphs?.[0]).toMatchObject({ title: "Title", direction: "BT" });
     expect(batchUpdatedSubgraphs.state.graph.subgraphs?.[0]).toMatchObject({ direction: "RL", parentId: undefined });
+  });
+
+  it("does not commit a graph command whose normalized content is semantically unchanged", () => {
+    const table = createDefaultCanvasTableContent(1, 1);
+    const tableState = {
+      ...state,
+      graph: {
+        ...state.graph,
+        nodes: state.graph.nodes.map((node) => node.id === "A" ? { ...node, content: table } : node)
+      }
+    };
+    const result = applyEditorCommandTransaction(tableState, {
+      type: "graph.updateNode",
+      nodeId: "A",
+      patch: { content: structuredClone(table) },
+      source: "api"
+    });
+
+    expect(result.effect).toEqual({ history: "none", sourceSync: "none" });
+    expect(result.state.graph).toEqual(tableState.graph);
+  });
+
+  it("updates several file actions in one committed source sync", () => {
+    const result = applyEditorCommandTransaction(state, {
+      type: "graph.updateNodeActions",
+      updates: [
+        { nodeId: "A", action: { kind: "file", path: "archive/spec.md", openMode: "app-window" } },
+        { nodeId: "B", action: { kind: "file", path: "archive/spec.md", openMode: "app-window" } }
+      ],
+      message: "已更新移动文件的节点链接。",
+      source: "api"
+    });
+
+    expect(result.state.graph.nodes.map((node) => node.action?.kind === "file" ? node.action.path : null)).toEqual([
+      "archive/spec.md",
+      "archive/spec.md"
+    ]);
+    expect(result.effect).toMatchObject({
+      history: "push",
+      sourceSync: "commit",
+      status: "已更新移动文件的节点链接。"
+    });
   });
 
   it("drafts node positions without history or source sync", () => {
