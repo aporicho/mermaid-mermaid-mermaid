@@ -90,12 +90,12 @@ describe("editor UI semantic components", () => {
     });
 
     expect(document.body.querySelector('[role="dialog"]')?.textContent).toContain("统一弹窗");
-    const closeButton = document.body.querySelector<HTMLButtonElement>('button[aria-label="关闭"]');
+    const closeButton = document.body.querySelector<HTMLButtonElement>('button[data-slot="dialog-close"]');
     act(() => closeButton?.click());
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 
-  it("keeps confirmation chrome quiet and separates danger from the primary action", () => {
+  it("uses native confirmation chrome and separates danger from the primary action", () => {
     const onAction = vi.fn();
     act(() => {
       root.render(
@@ -124,8 +124,9 @@ describe("editor UI semantic components", () => {
     const discard = buttons.find((button) => button.textContent === "丢弃");
     const save = buttons.find((button) => button.textContent === "保存");
 
-    expect(header?.className).not.toContain("border");
-    expect(footer?.className).not.toContain("border");
+    expect(header?.getAttribute("data-slot")).toBe("alert-dialog-header");
+    expect(footer?.getAttribute("data-slot")).toBe("alert-dialog-footer");
+    expect(footer?.querySelectorAll('[data-slot="button-group"]')).toHaveLength(2);
     expect(discard?.className).toContain("text-destructive");
     expect(discard?.className).not.toContain("bg-destructive text-destructive-foreground");
     expect(save?.className).toContain("bg-primary");

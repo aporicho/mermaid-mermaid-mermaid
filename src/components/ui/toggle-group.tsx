@@ -15,10 +15,13 @@ const ToggleGroupContext = React.createContext<VariantProps<typeof toggleVariant
 const ToggleGroup = React.forwardRef<
   React.ElementRef<typeof ToggleGroupPrimitive.Root>,
   React.ComponentPropsWithoutRef<typeof ToggleGroupPrimitive.Root> & VariantProps<typeof toggleVariants>
->(({ className, variant, size, children, ...props }, ref) => (
+>(({ className, variant = "default", size = "default", children, ...props }, ref) => (
   <ToggleGroupPrimitive.Root
     ref={ref}
-    className={cn("flex items-center justify-center gap-[calc(var(--ui-control-gap)*.5)]", className)}
+    data-slot="toggle-group"
+    data-variant={variant}
+    data-size={size}
+    className={cn("group/toggle-group flex w-fit items-center gap-[calc(var(--ui-control-gap)*.5)] rounded-lg", className)}
     {...props}
   >
     <ToggleGroupContext.Provider value={{ variant, size }}>{children}</ToggleGroupContext.Provider>
@@ -34,6 +37,9 @@ const ToggleGroupItem = React.forwardRef<
   return (
     <ToggleGroupPrimitive.Item
       ref={ref}
+      data-slot="toggle-group-item"
+      data-variant={context.variant || variant}
+      data-size={context.size || size}
       className={cn(toggleVariants({ variant: context.variant || variant, size: context.size || size }), className)}
       {...props}
     >

@@ -282,7 +282,7 @@ function EmbeddedBrowserUnavailable({
         className="w-full max-w-md"
         icon={<WarningTriangle className="editor-ui-icon mt-0.5 shrink-0 text-destructive" />}
         title={reason}
-        description={<div className="mt-1 space-y-3">
+        description={<div className="mt-1 flex flex-col gap-3">
             {detail ? (
               <div className="type-interface-technical max-h-24 overflow-auto border border-destructive/20 bg-destructive/5 px-2 py-1 text-destructive">
                 {detail}

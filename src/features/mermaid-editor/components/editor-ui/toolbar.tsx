@@ -1,11 +1,11 @@
 import { forwardRef, type HTMLAttributes } from "react";
 
-import { cn } from "@/lib/utils";
+import { ButtonGroup } from "@/components/ui/button-group";
 
 export const EditorToolbar = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement> & { orientation?: "horizontal" | "vertical" }>(function EditorToolbar({ className, orientation = "horizontal", ...props }, ref) {
-  return <div ref={ref} role="toolbar" aria-orientation={orientation} className={cn("editor-ui-toolbar", orientation === "vertical" && "flex-col", className)} {...props} />;
+  return <ButtonGroup ref={ref} role="toolbar" aria-orientation={orientation} orientation={orientation} className={className} {...props} />;
 });
 
-export function EditorToolbarGroup({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
-  return <div role="group" className={cn("flex items-center gap-[calc(var(--ui-control-gap)*.5)]", className)} {...props} />;
+export function EditorToolbarGroup({ className, orientation = "horizontal", ...props }: HTMLAttributes<HTMLDivElement> & { orientation?: "horizontal" | "vertical" }) {
+  return <ButtonGroup orientation={orientation} className={className} {...props} />;
 }

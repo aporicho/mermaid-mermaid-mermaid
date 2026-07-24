@@ -341,14 +341,16 @@ function NodeActionFields({
           <div className="flex items-center justify-between gap-2">
             <FieldLabel htmlFor={actionKindId}>节点动作</FieldLabel>
             {node.action ? (
-              <button
+              <Button
                 type="button"
-                className="min-w-0 max-w-[180px] truncate rounded px-1 text-right text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
+                variant="ghost"
+                size="sm"
+                className="min-w-0 max-w-[180px] justify-end"
                 title={`复制${nodeActionLabel(node.action)}目标：${nodeActionTarget(node.action)}`}
                 onClick={() => onCopyNodeActionTarget(node.action!)}
               >
-                {nodeActionTarget(node.action)}
-              </button>
+                <span className="truncate">{nodeActionTarget(node.action)}</span>
+              </Button>
             ) : null}
           </div>
           <Select value={node.action?.kind || NODE_ACTION_NONE_VALUE} onValueChange={(value) => onUpdateNodeActionKind(node, value as CanvasNodeAction["kind"] | typeof NODE_ACTION_NONE_VALUE)}>

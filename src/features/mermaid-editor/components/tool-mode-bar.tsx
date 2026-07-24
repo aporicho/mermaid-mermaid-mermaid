@@ -28,6 +28,7 @@ export function ToolModeBar({ mode, onModeChange }: ToolModeBarProps) {
                 type="button"
                 context="toolbar"
                 label={`${tool.label}模式`}
+                shortcut={tool.shortcut}
                 tooltipSide="bottom"
                 pressed={active}
                 onClick={() => onModeChange(tool.mode)}

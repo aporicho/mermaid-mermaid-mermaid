@@ -191,7 +191,7 @@ export function FontFamilyCombobox({ value, fonts, loading, error, monospacePref
     <div className="grid gap-2">
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
-          <Button type="button" variant="outline" role="combobox" aria-expanded={open} className="w-full justify-between border border-input bg-background text-left" style={{ fontFamily: value }}>
+          <Button type="button" variant="outline" role="combobox" aria-expanded={open} className="w-full justify-between text-left" style={{ fontFamily: value }}>
             <span className="truncate">{familyName}</span>
             <NavArrowDown data-icon="inline-end" className="shrink-0 text-icon" />
           </Button>

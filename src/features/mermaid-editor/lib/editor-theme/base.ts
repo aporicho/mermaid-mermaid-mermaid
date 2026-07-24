@@ -89,9 +89,9 @@ export const BASE_INTERFACE: InterfaceThemeTokens = {
     borderWidth: 1,
     borderStyle: "solid",
     dividerWidth: 1,
-    focusRingWidth: 1,
-    opacity: 0.96,
-    backdropBlur: 8
+    focusRingWidth: 3,
+    opacity: 1,
+    backdropBlur: 0
   },
   overlay: {
     background: BASE_COLORS.foreground,
@@ -110,24 +110,24 @@ export const BASE_INTERFACE: InterfaceThemeTokens = {
     disabledOpacity: 0.5
   },
   radius: {
-    app: 8,
-    controlSm: 4,
-    controlMd: 6,
-    controlLg: 8
+    app: 14,
+    controlSm: 6,
+    controlMd: 8,
+    controlLg: 10
   },
   shadow: {
-    popover: shadow(24, 0.112, 8),
-    panel: shadow(36, 0.16, 12),
-    dialog: shadow(60, 0.2, 18),
-    toolbar: shadow(20, 0.112, 6)
+    popover: shadow(6, 0.1, 4),
+    panel: shadow(12, 0.12, 8),
+    dialog: shadow(18, 0.14, 12),
+    toolbar: shadow(6, 0.1, 4)
   },
   spacing: {
     panelPadding: 16,
     panelHeaderHeight: 52,
     panelFooterHeight: 56,
-    controlGap: 8,
-    controlPaddingX: 12,
-    controlPaddingY: 8,
+    controlGap: 6,
+    controlPaddingX: 10,
+    controlPaddingY: 4,
     iconButtonSize: 32
   },
   icon: {
@@ -135,8 +135,8 @@ export const BASE_INTERFACE: InterfaceThemeTokens = {
     sizeSm: 16,
     sizeButton: 16,
     strokeWidth: 2.2,
-    buttonHeightSm: 32,
-    buttonHeightMd: 40
+    buttonHeightSm: 28,
+    buttonHeightMd: 32
   },
   scrollbar: {
     size: 10,

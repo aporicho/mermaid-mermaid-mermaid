@@ -5,6 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { cn } from "@/lib/utils";
 
+import { withDataIcon } from "./icon-slot";
+
 export function EditorNotice({ tone = "neutral", icon, title, description, actions, className, ...props }: HTMLAttributes<HTMLDivElement> & {
   tone?: "neutral" | "danger" | "accent";
   icon?: ReactNode;
@@ -18,7 +20,7 @@ export function EditorNotice({ tone = "neutral", icon, title, description, actio
     className={cn(actions && "grid-cols-[auto_minmax(0,1fr)_auto]", className)}
     {...props}
   >
-    {icon}
+    {withDataIcon(icon)}
     <div className="min-w-0">
       {title ? <AlertTitle>{title}</AlertTitle> : null}
       <AlertDescription>{description}</AlertDescription>
@@ -29,8 +31,8 @@ export function EditorNotice({ tone = "neutral", icon, title, description, actio
 
 export function EditorEmptyState({ icon, title, description, actions, className, ...props }: HTMLAttributes<HTMLDivElement> & { icon?: ReactNode; title: ReactNode; description?: ReactNode; actions?: ReactNode }) {
   return <Empty className={cn("min-h-32", className)} {...props}>
-    {icon ? <EmptyMedia>{icon}</EmptyMedia> : null}
     <EmptyHeader>
+      {icon ? <EmptyMedia>{withDataIcon(icon)}</EmptyMedia> : null}
       <EmptyTitle>{title}</EmptyTitle>
       {description ? <EmptyDescription>{description}</EmptyDescription> : null}
     </EmptyHeader>

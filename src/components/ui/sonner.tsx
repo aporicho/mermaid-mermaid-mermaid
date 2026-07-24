@@ -10,6 +10,7 @@ function Toaster({ theme = "system", ...props }: ToasterProps) {
   const iconClass = "editor-ui-icon";
   return (
     <Sonner
+      data-slot="toaster"
       theme={theme}
       className="toaster group"
       icons={{
@@ -21,11 +22,11 @@ function Toaster({ theme = "system", ...props }: ToasterProps) {
       }}
       toastOptions={{
         classNames: {
-          toast: "editor-ui-popover type-interface-body group toast border-border bg-popover text-popover-foreground shadow-[var(--ui-shadow-popover)]",
+          toast: "type-interface-body group toast rounded-lg border border-border bg-popover text-popover-foreground shadow-[var(--ui-shadow-popover)]",
           title: "type-interface-heading",
           description: "type-interface-status text-muted-foreground",
-          actionButton: "editor-ui-control bg-primary text-primary-foreground",
-          cancelButton: "editor-ui-control bg-muted text-muted-foreground"
+          actionButton: "rounded-md bg-primary text-primary-foreground",
+          cancelButton: "rounded-md bg-muted text-muted-foreground"
         }
       }}
       {...props}

@@ -4,7 +4,7 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const alertVariants = cva(
-  "editor-ui-surface relative grid w-full grid-cols-[auto_minmax(0,1fr)] items-start gap-x-[var(--ui-control-gap)] p-3 [&>svg]:size-[var(--ui-icon-size-button)] [&>svg]:shrink-0",
+  "relative grid w-full grid-cols-[auto_minmax(0,1fr)] items-start gap-x-[var(--ui-control-gap)] rounded-lg border bg-card px-3 py-2.5 text-card-foreground shadow-[var(--ui-shadow-control)] [&>svg]:size-[var(--ui-icon-size-button)] [&>svg]:shrink-0",
   {
     variants: {
       variant: {
@@ -23,17 +23,17 @@ const Alert = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement> & VariantProps<typeof alertVariants>
 >(({ className, variant, ...props }, ref) => (
-  <div ref={ref} role="alert" className={cn(alertVariants({ variant }), className)} {...props} />
+  <div ref={ref} role="alert" data-slot="alert" className={cn(alertVariants({ variant }), className)} {...props} />
 ));
 Alert.displayName = "Alert";
 
 const AlertTitle = React.forwardRef<HTMLHeadingElement, React.HTMLAttributes<HTMLHeadingElement>>(
-  ({ className, ...props }, ref) => <h5 ref={ref} className={cn("type-interface-heading col-start-2", className)} {...props} />
+  ({ className, ...props }, ref) => <h5 ref={ref} data-slot="alert-title" className={cn("type-interface-heading col-start-2", className)} {...props} />
 );
 AlertTitle.displayName = "AlertTitle";
 
 const AlertDescription = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
-  ({ className, ...props }, ref) => <div ref={ref} className={cn("type-interface-status col-start-2 text-current/80", className)} {...props} />
+  ({ className, ...props }, ref) => <div ref={ref} data-slot="alert-description" className={cn("type-interface-status col-start-2 text-current/80", className)} {...props} />
 );
 AlertDescription.displayName = "AlertDescription";
 

@@ -86,8 +86,8 @@ export function ThemeSettingsGroup({
             data-theme-settings-accordion
             data-accordion-type="multiple"
           >
-            <AccordionItem value={ADVANCED_ITEM_VALUE} className="border-0">
-              <AccordionTrigger className="text-muted-foreground" aria-label={`${advancedOpen ? "收起" : "展开"}${definition.title}高级选项`}>
+            <AccordionItem value={ADVANCED_ITEM_VALUE}>
+              <AccordionTrigger aria-label={`${advancedOpen ? "收起" : "展开"}${definition.title}高级选项`}>
                 高级
               </AccordionTrigger>
               <AccordionContent>
@@ -150,7 +150,7 @@ function FontStyleField({ label, path, value, onChange }: { label: string; path:
   return (
     <FieldFrame label={label} path={path}>
       <Select value={value} onValueChange={onChange}>
-        <SelectTrigger className="h-8" aria-label={label}><SelectValue /></SelectTrigger>
+        <SelectTrigger size="sm" aria-label={label}><SelectValue /></SelectTrigger>
         <SelectContent>
           <SelectGroup>
             <SelectItem value="normal">常规</SelectItem>
@@ -226,7 +226,7 @@ function FontFamilyField({
             onChange(nextValue);
           }}
         >
-          <SelectTrigger className="h-8 px-2 text-xs" style={{ fontFamily: value }} aria-label={label}>
+          <SelectTrigger size="sm" style={{ fontFamily: value }} aria-label={label}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent className="max-h-[320px]">
@@ -361,7 +361,7 @@ function BorderStyleField({
   return (
     <FieldFrame label={label} path={path}>
       <Select value={value} onValueChange={onChange}>
-        <SelectTrigger className="h-8" aria-label={label}><SelectValue /></SelectTrigger>
+        <SelectTrigger size="sm" aria-label={label}><SelectValue /></SelectTrigger>
         <SelectContent>
           <SelectGroup>
             {options.map(([optionValue, optionLabel]) => <SelectItem key={optionValue} value={optionValue}>{optionLabel}</SelectItem>)}

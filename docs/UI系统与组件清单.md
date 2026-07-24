@@ -1,13 +1,13 @@
 # UI 系统与组件清单
 
-本文档是编辑器界面的代码清单与统一约束。目标是统一结构和交互语义，同时让颜色、圆角、边线、密度、排版、图标和动效继续由主题决定。画布中的 Mermaid 语义图形、节点内容卡片和第三方组件内部结构不在 DOM UI 重构范围内。
+本文档是编辑器界面的代码清单与统一约束。应用 UI 以 shadcn `radix-nova` 为结构、状态和视觉基线，同时让颜色、圆角、边线、密度、排版、图标和动效继续由主题决定。画布中的 Mermaid 语义图形、节点内容卡片和第三方组件内部结构不在 DOM UI 重构范围内。
 
 ## 分层
 
 | 层级 | 位置 | 职责 |
 | --- | --- | --- |
 | 主题 token | `lib/editor-theme` | 定义色彩、Chrome、空间、圆角、描边、图标、排版和动效；编译为 CSS 变量及画布 token |
-| 基础原语 | `src/components/ui` | Button、Input、Textarea、Select、Popover、Dialog、DropdownMenu、Tabs、Switch、Collapsible、Badge、Tooltip、ScrollArea |
+| 基础原语 | `src/components/ui` | shadcn Nova 的 Button、ButtonGroup、Input、Textarea、Select、Popover、Dialog、DropdownMenu、Tabs、Switch、Collapsible、Badge、Kbd、Tooltip、ScrollArea |
 | 编辑器语义组件 | `components/editor-ui` | 把基础原语组合成编辑器通用的按钮、工具栏、面板、弹窗、字段、列表、菜单和反馈 |
 | 功能界面 | `components` | 只组合语义组件并保留业务行为；避免再次定义通用外观 |
 | 画布交互控件 | `konva-canvas` | 复用工具栏、按钮、菜单、提示和弹窗；坐标、命中区和编辑框几何仍属于画布实现 |
@@ -41,18 +41,21 @@
 
 ## 主题约束
 
-Chrome token 版本为 v7，新增 `chrome` 组：`borderWidth`、`dividerWidth`、`focusRingWidth`、`surfaceOpacity`、`backdropBlur`、`shadowOpacity`。它们与既有 `space`、`radius`、`icon`、`typography`、`motion` 共同编译为 `--ui-*` CSS 变量。
+当前主题 schema 为 v16。`interface` 中的语义色、表面、遮罩、窗口、状态、圆角、阴影、间距、图标、滚动条和目录树，与 `typography`、`motion` 共同编译为 shadcn 语义变量和 `--ui-*` CSS 变量。Tailwind 4 的 `@theme inline` 只负责把这些运行时变量接入 Nova 工具类，不另存第二份颜色或几何值。
+
+Nova 参数是没有明确覆盖时的应用 UI 默认值。内置主题和自定义主题一旦显式声明圆角、阴影、密度或焦点参数，其 Token 始终优先；因此“理性极简”仍可保持零圆角、零阴影，而暖纸红和 Claude Cream 保留自己的界面节奏。主题背景明度会自动决定根节点的 `dark` 状态和 `color-scheme`。
 
 功能组件不得判断“理性极简”主题 ID。该主题把圆角、模糊和阴影设为零，并使用更细的边线，因此同一组件结构会自然呈现直角、扁平、克制的界面。其他主题可以保留各自的圆角、层次和色彩。
 
 ## 实现规则
 
-1. 新的命令按钮优先使用 `EditorIconButton` 或 `EditorMenuItem`，不要复制 Tooltip、图标尺寸和焦点样式。
+1. 新的命令按钮优先使用 `EditorIconButton`、shadcn `Button` 或 `EditorMenuItem`；成组控制使用 `ButtonGroup`，快捷键提示使用 `Kbd`，不要复制 Tooltip、图标尺寸和焦点样式。
 2. 新的模态交互必须使用 `EditorDialog`；不要在功能组件里重新实现遮罩、焦点管理、Escape 或任意 z-index。
 3. 浮层层级只来自 `lib/overlay-layers.ts`。自定义坐标菜单需要同时注册全局 overlay activity。
-4. 通用表面使用 `editor-ui-surface`、`editor-ui-popover`、`editor-ui-panel`、`editor-ui-dialog`；固定圆角和阴影只允许出现在内容语义或画布几何中。
-5. 节点、卡片、连线、内联编辑框等画布语义对象可以保留专用结构，但可见几何必须读取主题 token。
-6. 组件目录和本文档共同承担组件目录职责，不引入 Storybook。
+4. 能由 shadcn 原语表达的表面直接使用原语的 Nova 变体；`editor-ui-*` 表面只保留给浮动窗口、坐标菜单等没有对应原语的产品外壳。固定圆角和阴影只允许出现在内容语义或画布几何中。
+5. 功能组件的 `className` 只负责布局和业务状态；通用颜色、排版、尺寸、圆角、阴影和焦点样式进入基础原语、CVA 或主题变量。
+6. 节点、卡片、连线、内联编辑框等画布语义对象可以保留专用结构，但可见几何必须读取主题 token。
+7. 组件目录和本文档共同承担组件目录职责，不引入 Storybook。
 
 ## 明确保留的例外
 

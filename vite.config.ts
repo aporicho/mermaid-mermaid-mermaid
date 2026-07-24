@@ -1,11 +1,12 @@
 import { fileURLToPath } from "node:url";
 
+import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 
 export default defineConfig({
   base: "./",
-  plugins: [react()],
+  plugins: [react(), tailwindcss()],
   clearScreen: false,
   resolve: {
     alias: {

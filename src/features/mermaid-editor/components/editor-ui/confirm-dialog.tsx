@@ -8,9 +8,13 @@ import {
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
+  AlertDialogMedia,
   AlertDialogTitle
 } from "@/components/ui/alert-dialog";
+import { ButtonGroup } from "@/components/ui/button-group";
 import { cn } from "@/lib/utils";
+
+import { withDataIcon } from "./icon-slot";
 
 export type EditorConfirmActionTone = "primary" | "neutral" | "danger";
 
@@ -91,10 +95,7 @@ export function EditorConfirmDialog<ActionId extends string>({
     return (
       <Action
         key={action.id}
-        variant={tone === "primary" ? "default" : "ghost"}
-        className={cn(
-          tone === "danger" && "text-destructive hover:bg-destructive/10 hover:text-destructive"
-        )}
+        variant={tone === "primary" ? "default" : tone === "danger" ? "destructive" : "ghost"}
         disabled={action.disabled}
         autoFocus={action.id === primaryActionId && !primaryAction?.disabled}
         onClick={() => {
@@ -126,19 +127,15 @@ export function EditorConfirmDialog<ActionId extends string>({
         onEscapeKeyDown={(event) => { if (!handleEscape) event.preventDefault(); }}
         onKeyDown={handleKeyDown}
       >
-        <AlertDialogHeader data-editor-confirm-header className={cn(icon && "grid grid-cols-[auto_minmax(0,1fr)] gap-x-3")}>
-          {icon ? <div className="row-span-2">{icon}</div> : null}
+        <AlertDialogHeader data-editor-confirm-header>
+          {icon ? <AlertDialogMedia>{withDataIcon(icon)}</AlertDialogMedia> : null}
           <AlertDialogTitle>{title}</AlertDialogTitle>
           {description ? <AlertDialogDescription>{description}</AlertDialogDescription> : null}
         </AlertDialogHeader>
         {children}
         <AlertDialogFooter data-editor-confirm-footer className="justify-between">
-          <div className="flex flex-wrap items-center gap-[var(--ui-control-gap)]">
-            {dangerActions.map(renderAction)}
-          </div>
-          <div className="ml-auto flex flex-wrap items-center justify-end gap-[var(--ui-control-gap)]">
-            {standardActions.map(renderAction)}
-          </div>
+          {dangerActions.length > 0 ? <ButtonGroup>{dangerActions.map(renderAction)}</ButtonGroup> : <span />}
+          <ButtonGroup className="ml-auto">{standardActions.map(renderAction)}</ButtonGroup>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

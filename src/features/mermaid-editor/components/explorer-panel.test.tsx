@@ -166,7 +166,7 @@ describe("ExplorerPanel", () => {
     const markdownType = buttonWithText("Markdown");
     expect(fileTypeGroup).not.toBeNull();
     expect(markdownType?.getAttribute("data-state")).toBe("on");
-    expect(markdownType?.className).not.toContain("border-");
+    expect(markdownType?.className).not.toContain("border-input");
     act(() => markdownType?.click());
     expect(markdownType?.getAttribute("data-state")).toBe("on");
 

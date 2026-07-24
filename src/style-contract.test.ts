@@ -16,21 +16,17 @@ describe("application style contract", () => {
     expect(main).toContain('import "@/styles/globals.css"');
   });
 
-  it("keeps Tailwind scanning every application source surface", () => {
-    const tailwindConfig = readProjectFile("tailwind.config.ts");
+  it("uses the Tailwind 4 Vite pipeline and maps runtime theme variables", () => {
+    const vite = readProjectFile("vite.config.ts");
+    const globals = readProjectFile("src/styles/globals.css");
 
-    expect(tailwindConfig).toContain("./index.html");
-    expect(tailwindConfig).toContain("./src/**/*.{ts,tsx}");
-    expect(tailwindConfig).toContain("./src/components/**/*.{ts,tsx}");
-    expect(tailwindConfig).toContain("./src/features/**/*.{ts,tsx}");
-    expect(tailwindConfig).toContain("./src/lib/**/*.{ts,tsx}");
-  });
-
-  it("keeps Tailwind and autoprefixer in the PostCSS pipeline", () => {
-    const postcssConfig = readProjectFile("postcss.config.mjs");
-
-    expect(postcssConfig).toContain("tailwindcss");
-    expect(postcssConfig).toContain("autoprefixer");
+    expect(vite).toContain('import tailwindcss from "@tailwindcss/vite"');
+    expect(vite).toContain("plugins: [react(), tailwindcss()]");
+    expect(globals).toContain('@import "tailwindcss"');
+    expect(globals).toContain('@import "shadcn/tailwind.css"');
+    expect(globals).toContain("@theme inline");
+    expect(globals).toContain("--color-background: hsl(var(--background))");
+    expect(globals).toContain("--radius-lg: var(--theme-radius-control-lg)");
   });
 
   it("keeps render and source surfaces behind theme css variables", () => {

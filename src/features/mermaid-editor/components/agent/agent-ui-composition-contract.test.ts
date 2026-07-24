@@ -70,17 +70,36 @@ describe("Agent shadcn composition contract", () => {
 
     expect(panel).toContain('from "@/components/ui/alert"');
     expect(panel).toContain('from "@/components/ui/input-group"');
+    expect(panel).toContain('from "@/components/ui/marker"');
     expect(functionSource(panel, "AgentStatus", "AgentSessionSidebar")).toContain("<Alert");
-    expect(functionSource(panel, "AgentNotice", "MarkdownContent")).toContain("<Alert");
+    expect(functionSource(panel, "AgentNotice", "MarkdownContent")).toContain("<Marker");
     expect(panel).toContain("<InputGroupInput");
+    expect(functionSource(panel, "AgentComposer", "ModelCombobox")).toContain("<InputGroupTextarea");
+    expect(functionSource(panel, "RenameSessionDialog", "DeleteSessionDialog")).toContain("<FieldGroup");
+    expect(functionSource(panel, "RenameSessionDialog", "DeleteSessionDialog")).toContain("<DialogFooter");
+    expect(functionSource(panel, "AgentInteractionDialog", "IconButton")).toContain("<DialogHeader");
 
     expect(settings).toContain('from "@/components/ui/field"');
     expect(settings).toContain('from "@/components/ui/input-group"');
     expect(settings).toContain("<FieldGroup");
+    expect(settings).toContain("<FieldSet");
+    expect(settings).toContain("<ToggleGroup");
+    expect(settings).toContain("<DialogFooter");
     expect(settings).not.toContain("function Field(");
     expect(functionSource(settings, "InlineEmpty", "Notice")).toContain("<Empty");
     expect(functionSource(settings, "Notice", "toolName")).toContain("<Alert");
     expect(settings).not.toContain("<Section title=");
+  });
+
+  it("does not restyle Nova controls at Agent call sites", () => {
+    const panel = readProjectFile(PANEL_PATH);
+    const settings = readProjectFile(SETTINGS_PATH);
+
+    expect(panel).not.toContain('border-0 bg-transparent px-2');
+    expect(panel).not.toContain('className="size-4" aria-label="移除引用"');
+    expect(settings).not.toContain("rounded-none border-r bg-muted/25");
+    expect(settings).not.toContain('data-[state=active]:bg-card');
+    expect(settings).not.toContain('variant="ghost" className="text-destructive"');
   });
 
   it("lets shadcn buttons own Iconoir sizing and placement", () => {

@@ -3,7 +3,7 @@ import { cva, type VariantProps } from "class-variance-authority";
 
 import { cn } from "@/lib/utils";
 
-const badgeVariants = cva("type-interface-status inline-flex min-h-5 items-center border-[length:var(--ui-border-width)] px-1.5", {
+const badgeVariants = cva("type-interface-status inline-flex min-h-5 items-center justify-center gap-1 whitespace-nowrap rounded-md border-[length:var(--ui-border-width)] px-1.5 select-none transition-colors [&>svg]:pointer-events-none [&>svg]:size-3", {
   variants: {
     tone: {
       neutral: "border-border bg-muted text-muted-foreground",
@@ -15,7 +15,7 @@ const badgeVariants = cva("type-interface-status inline-flex min-h-5 items-cente
 });
 
 function Badge({ className, tone, ...props }: HTMLAttributes<HTMLSpanElement> & VariantProps<typeof badgeVariants>) {
-  return <span className={cn(badgeVariants({ tone }), className)} {...props} />;
+  return <span data-slot="badge" className={cn(badgeVariants({ tone }), className)} {...props} />;
 }
 
 export { Badge, badgeVariants };

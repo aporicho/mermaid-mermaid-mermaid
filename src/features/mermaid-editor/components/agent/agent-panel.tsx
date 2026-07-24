@@ -33,13 +33,13 @@ import { Bubble, BubbleContent } from "@/components/ui/bubble";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
-import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
-import { Field, FieldLabel } from "@/components/ui/field";
+import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
-import { Item, ItemActions, ItemContent, ItemDescription, ItemMedia, ItemTitle } from "@/components/ui/item";
+import { InputGroup, InputGroupAddon, InputGroupInput, InputGroupTextarea } from "@/components/ui/input-group";
+import { Marker, MarkerContent } from "@/components/ui/marker";
 import { Message, MessageContent, MessageFooter } from "@/components/ui/message";
 import {
   MessageScroller,
@@ -64,7 +64,6 @@ import {
   SidebarProvider
 } from "@/components/ui/sidebar";
 import { Spinner } from "@/components/ui/spinner";
-import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { EditorConfirmDialog } from "@/features/mermaid-editor/components/editor-ui";
 import { WorkspaceWindowHeader } from "@/features/mermaid-editor/components/floating-chrome";
@@ -170,9 +169,9 @@ export function AgentPanel({ runtime, controller }: AgentPanelProps) {
 }
 
 function AgentStatus({ controller }: { controller: AgentController }) {
-  if (controller.status === "starting") return <Alert role="status" className="rounded-none border-x-0 border-t-0 py-1.5"><Spinner /><AlertDescription>正在启动 Pi Agent</AlertDescription></Alert>;
-  if (controller.error) return <Alert variant="destructive" className="rounded-none border-x-0 border-t-0 py-1.5"><WarningTriangle data-icon /><AlertDescription className="flex min-w-0 items-center gap-2"><span className="min-w-0 flex-1 truncate">{controller.error}</span><Button variant="ghost" size="icon" aria-label="关闭错误" onClick={() => controller.setError(null)}><Xmark data-icon="inline-start" /></Button></AlertDescription></Alert>;
-  if (controller.activity || controller.busyAction) return <Alert role="status" className="rounded-none border-x-0 border-t-0 py-1.5"><Spinner /><AlertDescription className="truncate">{controller.activity || "正在处理"}</AlertDescription></Alert>;
+  if (controller.status === "starting") return <Alert role="status"><Spinner /><AlertDescription>正在启动 Pi Agent</AlertDescription></Alert>;
+  if (controller.error) return <Alert variant="destructive"><WarningTriangle data-icon /><AlertDescription className="flex min-w-0 items-center gap-2"><span className="min-w-0 flex-1 truncate">{controller.error}</span><Button variant="ghost" size="icon-sm" aria-label="关闭错误" onClick={() => controller.setError(null)}><Xmark data-icon="inline-start" /></Button></AlertDescription></Alert>;
+  if (controller.activity || controller.busyAction) return <Alert role="status"><Spinner /><AlertDescription className="truncate">{controller.activity || "正在处理"}</AlertDescription></Alert>;
   return null;
 }
 
@@ -204,11 +203,21 @@ function AgentSessionSidebar({ controller, onOpenSettings, onSelectSession }: { 
       {grouped.map((group) => <SidebarGroup key={group.label}><SidebarGroupLabel>{group.label}</SidebarGroupLabel><SidebarMenu>{group.sessions.map((session: any) => {
         const path = String(session.path || "");
         const active = path === currentPath;
-        return <Item key={path || session.id} className={cn("cursor-default px-2 py-1.5", active ? "bg-accent text-accent-foreground" : "hover:bg-muted/55")}>
-          <ItemMedia><Page /></ItemMedia>
-          <Button variant="ghost" className="h-auto min-w-0 flex-1 justify-start rounded-none p-0 text-left hover:bg-transparent" onClick={() => { if (!active) void controller.switchSession(path).then(() => onSelectSession?.()).catch((error) => controller.setError(readableError(error))); else onSelectSession?.(); }}><ItemContent><ItemTitle>{sessionLabel(session)}</ItemTitle><ItemDescription>{relativeTime(session.modified)}</ItemDescription></ItemContent></Button>
-          {!active ? <ItemActions><IconButton label={`删除 ${sessionLabel(session)}`} className="size-7 opacity-0 group-hover/item:opacity-100 focus:opacity-100" onClick={() => setDeleteCandidate(session)}><Trash data-icon="inline-start" /></IconButton></ItemActions> : null}
-        </Item>;
+        return <div key={path || session.id} className="group/session relative min-w-0">
+          <Button
+            variant={active ? "secondary" : "ghost"}
+            className="h-auto w-full justify-start pr-9 text-left"
+            aria-current={active ? "page" : undefined}
+            onClick={() => { if (!active) void controller.switchSession(path).then(() => onSelectSession?.()).catch((error) => controller.setError(readableError(error))); else onSelectSession?.(); }}
+          >
+            <Page data-icon="inline-start" />
+            <span className="flex min-w-0 flex-1 flex-col items-start">
+              <span className="w-full truncate">{sessionLabel(session)}</span>
+              <span className="w-full truncate text-muted-foreground">{relativeTime(session.modified)}</span>
+            </span>
+          </Button>
+          {!active ? <IconButton label={`删除 ${sessionLabel(session)}`} size="icon-xs" className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover/session:opacity-100 focus:opacity-100" onClick={() => setDeleteCandidate(session)}><Trash data-icon="inline-start" /></IconButton> : null}
+        </div>;
       })}</SidebarMenu></SidebarGroup>)}
     </SidebarContent>
     <SidebarFooter><Button variant="ghost" className="w-full justify-start" onClick={onOpenSettings}><Settings data-icon="inline-start" />设置</Button></SidebarFooter>
@@ -259,7 +268,7 @@ function TranscriptItem({ item, mode, hiddenThinking, onOpenLink }: { item: Agen
           : "rounded-[var(--agent-message-assistant-radius)] border-[length:var(--agent-message-assistant-border-width)] border-[hsl(var(--agent-message-assistant-border-color))] [border-style:var(--agent-message-assistant-border-style)] bg-[hsl(var(--agent-message-assistant-background))] px-[var(--agent-message-assistant-padding-x)] py-[var(--agent-message-assistant-padding-y)] text-[hsl(var(--agent-message-assistant-foreground))] shadow-[var(--agent-message-assistant-shadow)]"}>
           <BubbleContent data-selectable-text className="agent-markdown"><MarkdownContent text={item.text} onOpenLink={onOpenLink} /></BubbleContent>
         </Bubble>
-        {!isUser && item.text ? <MessageFooter className="font-[family-name:var(--agent-type-metadata-family)] text-[length:var(--agent-type-metadata-size)] font-[var(--agent-type-metadata-weight)] leading-[var(--agent-type-metadata-line-height)] [letter-spacing:var(--agent-type-metadata-letter-spacing)] text-[hsl(var(--agent-message-metadata-foreground))] opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100"><IconButton label="复制回复" className="size-7" onClick={() => void copyText(item.text)}><Copy data-icon="inline-start" /></IconButton>{item.streaming ? <span>正在生成</span> : null}</MessageFooter> : null}
+        {!isUser && item.text ? <MessageFooter className="font-[family-name:var(--agent-type-metadata-family)] text-[length:var(--agent-type-metadata-size)] font-[var(--agent-type-metadata-weight)] leading-[var(--agent-type-metadata-line-height)] [letter-spacing:var(--agent-type-metadata-letter-spacing)] text-[hsl(var(--agent-message-metadata-foreground))] opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100"><IconButton label="复制回复" size="icon-sm" onClick={() => void copyText(item.text)}><Copy data-icon="inline-start" /></IconButton>{item.streaming ? <span>正在生成</span> : null}</MessageFooter> : null}
       </MessageContent>
     </Message>
   </MessageScrollerItem>;
@@ -296,9 +305,9 @@ function AgentComposer({ controller }: { controller: AgentController }) {
   }
 
   return <div className="px-[var(--agent-content-padding-x)] pb-[var(--agent-content-padding-y)] pt-2">
-    <div className="mx-auto max-w-[var(--agent-composer-max-width)] rounded-[var(--agent-composer-radius)] border-[length:var(--agent-composer-border-width)] border-[hsl(var(--agent-composer-border-color))] [border-style:var(--agent-composer-border-style)] bg-[hsl(var(--agent-composer-background))] px-[var(--agent-composer-padding-x)] py-[var(--agent-composer-padding-y)] text-[hsl(var(--agent-composer-foreground))] shadow-[var(--agent-composer-shadow)]">
-      {controller.explicitReferences.length ? <div className="mb-2 flex flex-wrap gap-1">{controller.explicitReferences.map((reference, index) => <Badge key={`${reference.kind}-${index}`} tone="neutral" className="gap-1"><span className="max-w-56 truncate">{referenceLabel(reference)}</span><Button type="button" variant="ghost" size="icon" className="size-4" aria-label="移除引用" onClick={() => controller.setExplicitReferences(controller.explicitReferences.filter((_, itemIndex) => itemIndex !== index))}><Xmark data-icon="inline-start" /></Button></Badge>)}</div> : null}
-      <Textarea
+    <InputGroup className="mx-auto min-h-0 max-w-[var(--agent-composer-max-width)] flex-col items-stretch rounded-[var(--agent-composer-radius)] border-[length:var(--agent-composer-border-width)] border-[hsl(var(--agent-composer-border-color))] [border-style:var(--agent-composer-border-style)] bg-[hsl(var(--agent-composer-background))] px-[var(--agent-composer-padding-x)] py-[var(--agent-composer-padding-y)] text-[hsl(var(--agent-composer-foreground))] shadow-[var(--agent-composer-shadow)]">
+      {controller.explicitReferences.length ? <InputGroupAddon align="block-start" className="flex-wrap px-0 pt-0">{controller.explicitReferences.map((reference, index) => <Badge key={`${reference.kind}-${index}`} tone="neutral" className="gap-1"><span className="max-w-56 truncate">{referenceLabel(reference)}</span><Button type="button" variant="ghost" size="icon-xs" aria-label="移除引用" onClick={() => controller.setExplicitReferences(controller.explicitReferences.filter((_, itemIndex) => itemIndex !== index))}><Xmark data-icon="inline-start" /></Button></Badge>)}</InputGroupAddon> : null}
+      <InputGroupTextarea
         aria-label="发送给 Pi Agent"
         value={controller.draft}
         onChange={(event) => controller.setDraft(event.target.value)}
@@ -311,9 +320,9 @@ function AgentComposer({ controller }: { controller: AgentController }) {
         placeholder={isStreaming ? "继续输入可在当前任务后发送…" : hasModel ? "描述任务，输入 @ 引用内容，输入 / 使用命令" : "请先连接一个模型"}
         disabled={controller.status !== "ready"}
         rows={2}
-        className="min-h-[var(--agent-composer-min-height)] max-h-[var(--agent-composer-max-height)] resize-none overflow-y-auto border-0 bg-transparent p-0 text-[length:var(--agent-type-body-size)] leading-[var(--agent-type-body-line-height)] shadow-none [field-sizing:content] placeholder:text-[hsl(var(--agent-composer-placeholder))] focus-visible:ring-0"
+        className="min-h-[var(--agent-composer-min-height)] max-h-[var(--agent-composer-max-height)] overflow-y-auto px-0 py-0 text-[length:var(--agent-type-body-size)] leading-[var(--agent-type-body-line-height)] [field-sizing:content] placeholder:text-[hsl(var(--agent-composer-placeholder))]"
       />
-      <div className="mt-2 flex min-w-0 items-center gap-1">
+      <InputGroupAddon align="block-end" className="min-w-0 gap-1 px-0 pb-0 pt-2">
         <ReferencePicker controller={controller} onPick={(reference) => controller.setExplicitReferences(dedupeRefs([...controller.explicitReferences, reference]))} />
         <CommandPicker controller={controller} onPick={(command) => controller.setDraft(`${controller.draft}${controller.draft && !controller.draft.endsWith(" ") ? " " : ""}/${command} `)} />
         {activeDocument ? <span className="ml-1 min-w-0 truncate text-xs text-muted-foreground">{activeDocument.title}</span> : null}
@@ -323,8 +332,8 @@ function AgentComposer({ controller }: { controller: AgentController }) {
         <TranscriptModeSelect controller={controller} />
         {isStreaming ? <IconButton label="停止生成" onClick={() => void controller.sendRpc({ type: "abort" }).catch((error) => controller.setError(readableError(error)))}><Xmark data-icon="inline-start" /></IconButton> : null}
         <IconButton label="发送" variant="default" disabled={!canSend} onClick={() => void send()}><SendDiagonal data-icon="inline-start" /></IconButton>
-      </div>
-    </div>
+      </InputGroupAddon>
+    </InputGroup>
   </div>;
 }
 
@@ -333,7 +342,7 @@ function ModelCombobox({ controller }: { controller: AgentController }) {
   const model = controller.sessionState?.model as Record<string, unknown> | null | undefined;
   const value = model ? `${String(model.provider)}::${String(model.id)}` : "";
   const label = model ? String(model.name || model.id || "模型") : "选择模型";
-  return <Popover open={open} onOpenChange={setOpen}><PopoverTrigger asChild><Button variant="ghost" size="sm" className="max-w-40 px-2"><span className="truncate">{label}</span><NavArrowDown data-icon="inline-end" /></Button></PopoverTrigger><PopoverContent align="end" className="w-80 p-0"><Command><CommandInput placeholder="搜索模型" /><CommandList><CommandEmpty>没有可用模型</CommandEmpty><CommandGroup>{controller.availableModels.map((item) => {
+  return <Popover open={open} onOpenChange={setOpen}><PopoverTrigger asChild><Button variant="ghost" size="sm" className="max-w-40"><span className="truncate">{label}</span><NavArrowDown data-icon="inline-end" /></Button></PopoverTrigger><PopoverContent align="end" className="w-80 p-0"><Command><CommandInput placeholder="搜索模型" /><CommandList><CommandEmpty>没有可用模型</CommandEmpty><CommandGroup>{controller.availableModels.map((item) => {
     const itemValue = `${String(item.provider)}::${String(item.id)}`;
     return <CommandItem key={itemValue} value={`${String(item.name || item.id)} ${String(item.provider)}`} onSelect={() => {
       const [provider, modelId] = itemValue.split("::");
@@ -346,22 +355,22 @@ function ModelCombobox({ controller }: { controller: AgentController }) {
 function ThinkingSelect({ controller }: { controller: AgentController }) {
   if (controller.availableThinkingLevels.length <= 1 && controller.availableThinkingLevels[0] === "off") return null;
   const value = String(controller.sessionState?.thinkingLevel || controller.availableThinkingLevels[0] || "off");
-  return <Select value={value} onValueChange={(level) => void controller.sendRpc({ type: "set_thinking_level", level }).then(controller.refreshSessionState).catch((error) => controller.setError(readableError(error)))}><SelectTrigger aria-label="思考等级" className="h-8 w-24 border-0 bg-transparent px-2"><SelectValue /></SelectTrigger><SelectContent><SelectGroup>{controller.availableThinkingLevels.map((level) => <SelectItem key={level} value={level}>{thinkingLabel(level)}</SelectItem>)}</SelectGroup></SelectContent></Select>;
+  return <Select value={value} onValueChange={(level) => void controller.sendRpc({ type: "set_thinking_level", level }).then(controller.refreshSessionState).catch((error) => controller.setError(readableError(error)))}><SelectTrigger aria-label="思考等级" className="w-24"><SelectValue /></SelectTrigger><SelectContent><SelectGroup>{controller.availableThinkingLevels.map((level) => <SelectItem key={level} value={level}>{thinkingLabel(level)}</SelectItem>)}</SelectGroup></SelectContent></Select>;
 }
 
 function TranscriptModeSelect({ controller }: { controller: AgentController }) {
-  return <Select value={controller.transcriptMode} onValueChange={(value) => controller.setTranscriptMode(value as AgentController["transcriptMode"])}><SelectTrigger aria-label="对话详细程度" className="h-8 w-20 border-0 bg-transparent px-2"><SelectValue /></SelectTrigger><SelectContent><SelectGroup><SelectItem value="normal">普通</SelectItem><SelectItem value="verbose">详细</SelectItem><SelectItem value="summary">摘要</SelectItem></SelectGroup></SelectContent></Select>;
+  return <Select value={controller.transcriptMode} onValueChange={(value) => controller.setTranscriptMode(value as AgentController["transcriptMode"])}><SelectTrigger aria-label="对话详细程度" className="w-20"><SelectValue /></SelectTrigger><SelectContent><SelectGroup><SelectItem value="normal">普通</SelectItem><SelectItem value="verbose">详细</SelectItem><SelectItem value="summary">摘要</SelectItem></SelectGroup></SelectContent></Select>;
 }
 
 function ReferencePicker({ controller, onPick }: { controller: AgentController; onPick: (reference: RuntimeAgentReference) => void }) {
   const [open, setOpen] = useState(false);
   const groups = useMemo(() => groupReferences(controller.references), [controller.references]);
-  return <Popover open={open} onOpenChange={(next) => { setOpen(next); if (next) void controller.refreshDocuments(); }}><PopoverTrigger asChild><Button variant="ghost" size="sm" className="px-2" aria-label="引用文件、节点或选区">@</Button></PopoverTrigger><PopoverContent align="start" className="w-80 p-0"><Command><CommandInput placeholder="查找文件、节点或选区" /><CommandList><CommandEmpty>没有可引用内容</CommandEmpty>{groups.map((group) => <CommandGroup key={group.label} heading={group.label}>{group.references.map((reference, index) => <CommandItem key={`${reference.kind}-${index}-${referenceLabel(reference)}`} value={referenceLabel(reference)} onSelect={() => { onPick(reference); setOpen(false); }}>{referenceLabel(reference)}</CommandItem>)}</CommandGroup>)}</CommandList></Command></PopoverContent></Popover>;
+  return <Popover open={open} onOpenChange={(next) => { setOpen(next); if (next) void controller.refreshDocuments(); }}><PopoverTrigger asChild><Button variant="ghost" size="sm" aria-label="引用文件、节点或选区">@</Button></PopoverTrigger><PopoverContent align="start" className="w-80 p-0"><Command><CommandInput placeholder="查找文件、节点或选区" /><CommandList><CommandEmpty>没有可引用内容</CommandEmpty>{groups.map((group) => <CommandGroup key={group.label} heading={group.label}>{group.references.map((reference, index) => <CommandItem key={`${reference.kind}-${index}-${referenceLabel(reference)}`} value={referenceLabel(reference)} onSelect={() => { onPick(reference); setOpen(false); }}>{referenceLabel(reference)}</CommandItem>)}</CommandGroup>)}</CommandList></Command></PopoverContent></Popover>;
 }
 
 function CommandPicker({ controller, onPick }: { controller: AgentController; onPick: (command: string) => void }) {
   const [open, setOpen] = useState(false);
-  return <Popover open={open} onOpenChange={setOpen}><PopoverTrigger asChild><Button variant="ghost" size="sm" className="px-2" aria-label="插入 Pi 命令">/</Button></PopoverTrigger><PopoverContent align="start" className="w-80 p-0"><Command><CommandInput placeholder="查找 Pi 命令" /><CommandList><CommandEmpty>没有可用命令</CommandEmpty><CommandGroup>{controller.commands.map((command) => <CommandItem key={`${command.source}:${command.name}`} value={command.name} onSelect={() => { onPick(command.name); setOpen(false); }}><span className="font-mono">/{command.name}</span><span className="ml-2 truncate text-xs text-muted-foreground">{command.description}</span></CommandItem>)}</CommandGroup></CommandList></Command></PopoverContent></Popover>;
+  return <Popover open={open} onOpenChange={setOpen}><PopoverTrigger asChild><Button variant="ghost" size="sm" aria-label="插入 Pi 命令">/</Button></PopoverTrigger><PopoverContent align="start" className="w-80 p-0"><Command><CommandInput placeholder="查找 Pi 命令" /><CommandList><CommandEmpty>没有可用命令</CommandEmpty><CommandGroup>{controller.commands.map((command) => <CommandItem key={`${command.source}:${command.name}`} value={command.name} onSelect={() => { onPick(command.name); setOpen(false); }}><span className="font-mono">/{command.name}</span><span className="ml-2 truncate text-xs text-muted-foreground">{command.description}</span></CommandItem>)}</CommandGroup></CommandList></Command></PopoverContent></Popover>;
 }
 
 function SessionActions({ controller, onRename }: { controller: AgentController; onRename: () => void }) {
@@ -376,7 +385,7 @@ function RenameSessionDialog({ controller, open, onOpenChange }: { controller: A
     await Promise.all([controller.refreshSessionState(), controller.loadOverview(true)]);
     onOpenChange(false);
   }
-  return <Dialog open={open} onOpenChange={onOpenChange}><DialogContent className="max-w-sm p-5"><DialogTitle>重命名会话</DialogTitle><DialogDescription className="sr-only">修改当前 Agent 会话名称。</DialogDescription><Field className="mt-4"><FieldLabel className="sr-only" htmlFor="agent-session-name">会话名称</FieldLabel><Input id="agent-session-name" autoFocus value={name} onChange={(event) => setName(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && name.trim()) void save(); }} /></Field><div className="mt-4 flex justify-end gap-2"><DialogClose asChild><Button variant="ghost">取消</Button></DialogClose><Button disabled={!name.trim()} onClick={() => void save().catch((error) => controller.setError(readableError(error)))}>保存</Button></div></DialogContent></Dialog>;
+  return <Dialog open={open} onOpenChange={onOpenChange}><DialogContent><DialogHeader><DialogTitle>重命名会话</DialogTitle><DialogDescription className="sr-only">修改当前 Agent 会话名称。</DialogDescription></DialogHeader><FieldGroup><Field><FieldLabel className="sr-only" htmlFor="agent-session-name">会话名称</FieldLabel><Input id="agent-session-name" autoFocus value={name} onChange={(event) => setName(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && name.trim()) void save(); }} /></Field></FieldGroup><DialogFooter><DialogClose asChild><Button variant="outline">取消</Button></DialogClose><Button disabled={!name.trim()} onClick={() => void save().catch((error) => controller.setError(readableError(error)))}>保存</Button></DialogFooter></DialogContent></Dialog>;
 }
 
 function DeleteSessionDialog({ controller, session, onOpenChange }: { controller: AgentController; session: Record<string, any> | null; onOpenChange: (open: boolean) => void }) {
@@ -417,7 +426,7 @@ function AgentNoModel({ onOpenSettings, composer }: { onOpenSettings: () => void
 
 function AgentWelcome({ controller }: { controller: AgentController }) {
   const suggestions = ["梳理当前文档的结构", "检查选中的节点", "说明当前项目中可以改进的地方"];
-  return <div className="flex h-full min-h-0 flex-col justify-center overflow-y-auto py-[var(--agent-content-padding-y)]"><div className="mb-5 text-center"><Brain className="mx-auto mb-3 size-7 text-primary" /><h2 className="font-[family-name:var(--agent-type-heading-family)] text-[length:var(--agent-type-heading-size)] font-[var(--agent-type-heading-weight)] leading-[var(--agent-type-heading-line-height)] [letter-spacing:var(--agent-type-heading-letter-spacing)]">从当前工作区开始</h2></div><AgentComposer controller={controller} /><div className="mx-auto grid w-full max-w-[var(--agent-composer-max-width)] gap-2 px-[var(--agent-content-padding-x)] sm:grid-cols-3">{suggestions.map((suggestion) => <Button key={suggestion} variant="outline" className="h-auto justify-start whitespace-normal px-3 py-2 text-left" onClick={() => controller.setDraft(suggestion)}>{suggestion}</Button>)}</div></div>;
+  return <div className="flex h-full min-h-0 flex-col justify-center overflow-y-auto py-[var(--agent-content-padding-y)]"><div className="mb-5 text-center"><Brain className="mx-auto mb-3 size-7 text-primary" /><h2 className="font-[family-name:var(--agent-type-heading-family)] text-[length:var(--agent-type-heading-size)] font-[var(--agent-type-heading-weight)] leading-[var(--agent-type-heading-line-height)] [letter-spacing:var(--agent-type-heading-letter-spacing)]">从当前工作区开始</h2></div><AgentComposer controller={controller} /><div className="mx-auto grid w-full max-w-[var(--agent-composer-max-width)] gap-2 px-[var(--agent-content-padding-x)] sm:grid-cols-3">{suggestions.map((suggestion) => <Button key={suggestion} variant="outline" className="h-auto justify-start whitespace-normal text-left" onClick={() => controller.setDraft(suggestion)}>{suggestion}</Button>)}</div></div>;
 }
 
 function ThinkingBlock({ text }: { text: string }) {
@@ -426,11 +435,11 @@ function ThinkingBlock({ text }: { text: string }) {
 
 function ToolBlock({ tool, defaultOpen }: { tool: AgentToolActivity; defaultOpen: boolean }) {
   const details = printableToolValue(tool.result ?? tool.args);
-  return <Collapsible defaultOpen={defaultOpen} className="rounded-[var(--agent-tool-radius)] border-[length:var(--agent-tool-border-width)] border-[hsl(var(--agent-tool-border-color))] [border-style:var(--agent-tool-border-style)] bg-[hsl(var(--agent-tool-background))] text-[hsl(var(--agent-tool-foreground))] shadow-[var(--agent-tool-shadow)]"><CollapsibleTrigger asChild><Button variant="ghost" size="sm" className="w-full justify-start rounded-[var(--agent-tool-radius)] px-[var(--agent-tool-padding-x)]"><Code data-icon="inline-start" /><span className="truncate font-[family-name:var(--agent-type-technical-family)] text-[length:var(--agent-type-technical-size)]">{humanToolName(tool.name)}</span><span className={cn("ml-auto font-[family-name:var(--agent-type-metadata-family)] text-[length:var(--agent-type-metadata-size)]", tool.status === "error" ? "text-[hsl(var(--agent-tool-error-foreground))]" : "text-[hsl(var(--agent-tool-muted-foreground))]")}>{toolStatusLabel(tool.status)}</span><NavArrowDown data-icon="inline-end" /></Button></CollapsibleTrigger><CollapsibleContent className="grid gap-[var(--agent-tool-row-gap)] px-[var(--agent-tool-padding-x)] pb-[var(--agent-tool-padding-y)]"><div className="flex justify-end"><IconButton label="复制工具输出" className="size-7" onClick={() => void copyText(details.full)}><Copy data-icon="inline-start" /></IconButton></div><pre data-selectable-text className="max-h-64 overflow-auto whitespace-pre-wrap rounded-[calc(var(--agent-tool-radius)/2)] bg-card/55 p-3 font-[family-name:var(--agent-type-technical-family)] text-[length:var(--agent-type-technical-size)] font-[var(--agent-type-technical-weight)] leading-[var(--agent-type-technical-line-height)] [letter-spacing:var(--agent-type-technical-letter-spacing)]">{details.preview}</pre>{details.truncated ? <p className="font-[family-name:var(--agent-type-metadata-family)] text-[length:var(--agent-type-metadata-size)] text-[hsl(var(--agent-tool-muted-foreground))]">输出过长，仅显示前 20,000 个字符。</p> : null}</CollapsibleContent></Collapsible>;
+  return <Collapsible defaultOpen={defaultOpen} className="rounded-[var(--agent-tool-radius)] border-[length:var(--agent-tool-border-width)] border-[hsl(var(--agent-tool-border-color))] [border-style:var(--agent-tool-border-style)] bg-[hsl(var(--agent-tool-background))] text-[hsl(var(--agent-tool-foreground))] shadow-[var(--agent-tool-shadow)]"><CollapsibleTrigger asChild><Button variant="ghost" size="sm" className="w-full justify-start px-[var(--agent-tool-padding-x)]"><Code data-icon="inline-start" /><span className="truncate font-[family-name:var(--agent-type-technical-family)] text-[length:var(--agent-type-technical-size)]">{humanToolName(tool.name)}</span><span className={cn("ml-auto font-[family-name:var(--agent-type-metadata-family)] text-[length:var(--agent-type-metadata-size)]", tool.status === "error" ? "text-[hsl(var(--agent-tool-error-foreground))]" : "text-[hsl(var(--agent-tool-muted-foreground))]")}>{toolStatusLabel(tool.status)}</span><NavArrowDown data-icon="inline-end" /></Button></CollapsibleTrigger><CollapsibleContent className="grid gap-[var(--agent-tool-row-gap)] px-[var(--agent-tool-padding-x)] pb-[var(--agent-tool-padding-y)]"><div className="flex justify-end"><IconButton label="复制工具输出" size="icon-sm" onClick={() => void copyText(details.full)}><Copy data-icon="inline-start" /></IconButton></div><pre data-selectable-text className="max-h-64 overflow-auto whitespace-pre-wrap rounded-[calc(var(--agent-tool-radius)/2)] bg-card/55 p-3 font-[family-name:var(--agent-type-technical-family)] text-[length:var(--agent-type-technical-size)] font-[var(--agent-type-technical-weight)] leading-[var(--agent-type-technical-line-height)] [letter-spacing:var(--agent-type-technical-letter-spacing)]">{details.preview}</pre>{details.truncated ? <p className="font-[family-name:var(--agent-type-metadata-family)] text-[length:var(--agent-type-metadata-size)] text-[hsl(var(--agent-tool-muted-foreground))]">输出过长，仅显示前 20,000 个字符。</p> : null}</CollapsibleContent></Collapsible>;
 }
 
 function AgentNotice({ tone, icon, text }: { tone: "neutral" | "danger"; icon: ReactNode; text: string }) {
-  return <Alert variant={tone === "danger" ? "destructive" : "default"} className={cn("rounded-[var(--agent-message-notice-radius)] border-[length:var(--agent-message-notice-border-width)] border-[hsl(var(--agent-message-notice-border-color))] [border-style:var(--agent-message-notice-border-style)] bg-[hsl(var(--agent-message-notice-background))] px-[var(--agent-message-notice-padding-x)] py-[var(--agent-message-notice-padding-y)]", tone === "danger" ? "text-destructive" : "text-[hsl(var(--agent-message-notice-foreground))]")}>{icon}<AlertDescription data-selectable-text>{text}</AlertDescription></Alert>;
+  return <Marker className={cn("rounded-[var(--agent-message-notice-radius)] border-[length:var(--agent-message-notice-border-width)] border-[hsl(var(--agent-message-notice-border-color))] [border-style:var(--agent-message-notice-border-style)] bg-[hsl(var(--agent-message-notice-background))] px-[var(--agent-message-notice-padding-x)] py-[var(--agent-message-notice-padding-y)]", tone === "danger" ? "text-destructive" : "text-[hsl(var(--agent-message-notice-foreground))]")}>{icon}<MarkerContent data-selectable-text>{text}</MarkerContent></Marker>;
 }
 
 function MarkdownContent({ text, onOpenLink }: { text: string; onOpenLink: (url: string) => void }) {
@@ -444,11 +453,11 @@ function AgentInteractionDialog({ controller, request }: { controller: AgentCont
   useEffect(() => setValue(""), [request?.id]);
   if (!request) return null;
   const isConfirm = request.method === "confirm" || request.method === "trust";
-  return <Dialog open onOpenChange={(open) => { if (!open) void controller.resolveInteraction({ cancelled: true, confirmed: false }); }}><DialogContent className="max-w-md p-5"><DialogTitle className="text-base font-semibold">{request.title}</DialogTitle>{request.message ? <DialogDescription className="mt-2 whitespace-pre-wrap text-sm text-muted-foreground">{request.message}</DialogDescription> : null}{request.options?.length ? <div className="mt-4 grid gap-2">{request.options.map((option) => <Button key={option.id} variant="secondary" className="h-auto justify-start py-2 text-left" onClick={() => void controller.resolveInteraction(request.method === "trust" ? { index: Number(option.id) } : { value: option.id, confirmed: true })}><span><span className="block">{option.label}</span>{option.description ? <span className="block text-xs text-muted-foreground">{option.description}</span> : null}</span></Button>)}</div> : !isConfirm ? <Field className="mt-4"><FieldLabel className="sr-only" htmlFor="agent-interaction-value">{request.title}</FieldLabel><Input id="agent-interaction-value" autoFocus type={request.secret ? "password" : "text"} value={value} placeholder={request.placeholder} onChange={(event) => setValue(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") void controller.resolveInteraction({ value, confirmed: true }); }} /></Field> : null}<div className="mt-5 flex justify-end gap-2"><Button variant="ghost" onClick={() => void controller.resolveInteraction({ cancelled: true, confirmed: false })}>取消</Button>{!request.options?.length ? <Button onClick={() => void controller.resolveInteraction(isConfirm ? { confirmed: true } : { value, confirmed: true })}>确认</Button> : null}</div></DialogContent></Dialog>;
+  return <Dialog open onOpenChange={(open) => { if (!open) void controller.resolveInteraction({ cancelled: true, confirmed: false }); }}><DialogContent className="sm:max-w-md"><DialogHeader><DialogTitle>{request.title}</DialogTitle>{request.message ? <DialogDescription className="whitespace-pre-wrap">{request.message}</DialogDescription> : <DialogDescription className="sr-only">完成 Agent 请求。</DialogDescription>}</DialogHeader>{request.options?.length ? <div className="grid gap-2">{request.options.map((option) => <Button key={option.id} variant="secondary" className="h-auto justify-start text-left" onClick={() => void controller.resolveInteraction(request.method === "trust" ? { index: Number(option.id) } : { value: option.id, confirmed: true })}><span><span className="block">{option.label}</span>{option.description ? <span className="block text-muted-foreground">{option.description}</span> : null}</span></Button>)}</div> : !isConfirm ? <FieldGroup><Field><FieldLabel className="sr-only" htmlFor="agent-interaction-value">{request.title}</FieldLabel><Input id="agent-interaction-value" autoFocus type={request.secret ? "password" : "text"} value={value} placeholder={request.placeholder} onChange={(event) => setValue(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") void controller.resolveInteraction({ value, confirmed: true }); }} /></Field></FieldGroup> : null}<DialogFooter><Button variant="outline" onClick={() => void controller.resolveInteraction({ cancelled: true, confirmed: false })}>取消</Button>{!request.options?.length ? <Button onClick={() => void controller.resolveInteraction(isConfirm ? { confirmed: true } : { value, confirmed: true })}>确认</Button> : null}</DialogFooter></DialogContent></Dialog>;
 }
 
-function IconButton({ label, children, className, ...props }: Omit<React.ComponentProps<typeof Button>, "size"> & { label: string }) {
-  return <Tooltip><TooltipTrigger asChild><Button type="button" variant="ghost" size="icon" className={className} aria-label={label} {...props}>{children}</Button></TooltipTrigger><TooltipContent>{label}</TooltipContent></Tooltip>;
+function IconButton({ label, children, size = "icon", ...props }: React.ComponentProps<typeof Button> & { label: string }) {
+  return <Tooltip><TooltipTrigger asChild><Button type="button" variant="ghost" size={size} aria-label={label} {...props}>{children}</Button></TooltipTrigger><TooltipContent>{label}</TooltipContent></Tooltip>;
 }
 
 function useWideAgentPanel(ref: React.RefObject<HTMLElement | null>) {

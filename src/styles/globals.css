@@ -1,6 +1,58 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --font-sans: "Noto Sans SC Variable", "Noto Sans SC", "PingFang SC", "Microsoft YaHei UI", "Microsoft YaHei", system-ui, sans-serif;
+  --font-mono: "Maple Mono", "SF Mono", "Cascadia Code", "JetBrains Mono", "Noto Sans SC Variable", ui-monospace, monospace;
+  --font-heading: var(--type-interface-heading-family, var(--font-sans));
+
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-icon: hsl(var(--icon));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+  --color-success: hsl(var(--success));
+  --color-success-foreground: hsl(var(--success-foreground));
+  --color-warning: hsl(var(--warning));
+  --color-warning-foreground: hsl(var(--warning-foreground));
+  --color-info: hsl(var(--info));
+  --color-info-foreground: hsl(var(--info-foreground));
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+
+  --color-sidebar: hsl(var(--card));
+  --color-sidebar-foreground: hsl(var(--card-foreground));
+  --color-sidebar-primary: hsl(var(--primary));
+  --color-sidebar-primary-foreground: hsl(var(--primary-foreground));
+  --color-sidebar-accent: hsl(var(--accent));
+  --color-sidebar-accent-foreground: hsl(var(--accent-foreground));
+  --color-sidebar-border: hsl(var(--border));
+  --color-sidebar-ring: hsl(var(--ring));
+
+  --radius-sm: var(--theme-radius-control-sm);
+  --radius-md: var(--theme-radius-control-md);
+  --radius-lg: var(--theme-radius-control-lg);
+  --radius-xl: var(--theme-radius-app);
+  --radius-2xl: var(--theme-radius-app);
+  --radius-3xl: var(--theme-radius-app);
+  --radius-4xl: var(--theme-radius-app);
+}
 
 @font-face {
   font-family: "上图东观体";
@@ -173,11 +225,11 @@
     --theme-source-line-height: 30px;
     --theme-terminal-font-size: 13px;
     --theme-terminal-line-height: 20px;
-    --radius: 0.5rem;
-    --theme-radius-app: 8px;
-    --theme-radius-control-sm: 4px;
-    --theme-radius-control-md: 6px;
-    --theme-radius-control-lg: 8px;
+    --radius: 10px;
+    --theme-radius-app: 14px;
+    --theme-radius-control-sm: 6px;
+    --theme-radius-control-md: 8px;
+    --theme-radius-control-lg: 10px;
     --theme-radius-canvas-node: 6px;
     --theme-radius-edge-label: 4px;
     --theme-radius-polygon-corner: 6px;
@@ -188,29 +240,30 @@
     --ui-border-width: 1px;
     --ui-border-style: solid;
     --ui-divider-width: 1px;
-    --ui-focus-ring-width: 1px;
-    --ui-surface-opacity: 0.96;
-    --ui-backdrop-blur: 8px;
+    --ui-focus-ring-width: 3px;
+    --ui-surface-opacity: 1;
+    --ui-backdrop-blur: 0px;
     --ui-overlay-background: 24 19 15;
     --ui-overlay-opacity: 0.1;
     --ui-overlay-backdrop-blur: 1px;
     --ui-window-header-opacity: 0.96;
     --ui-window-active-border-opacity: 0.2;
     --ui-window-inactive-border-opacity: 0.8;
-    --ui-shadow-opacity: 0.16;
+    --ui-shadow-opacity: 0.12;
     --ui-hover-opacity: 0.9;
     --ui-pressed-opacity: 0.82;
     --ui-selected-opacity: 1;
     --ui-disabled-opacity: 0.5;
-    --ui-shadow-popover: 0 8px 24px hsl(var(--foreground) / 0.112);
-    --ui-shadow-panel: 0 12px 36px hsl(var(--foreground) / 0.16);
-    --ui-shadow-dialog: 0 18px 60px hsl(var(--foreground) / 0.2);
-    --ui-shadow-toolbar: 0 6px 20px hsl(var(--foreground) / 0.112);
-    --ui-control-gap: 8px;
-    --ui-control-padding-x: 12px;
-    --ui-control-padding-y: 8px;
-    --ui-control-height-sm: 32px;
-    --ui-control-height-md: 40px;
+    --ui-shadow-popover: 0 4px 6px hsl(var(--foreground) / 0.1);
+    --ui-shadow-panel: 0 8px 12px hsl(var(--foreground) / 0.12);
+    --ui-shadow-dialog: 0 12px 18px hsl(var(--foreground) / 0.14);
+    --ui-shadow-toolbar: 0 4px 6px hsl(var(--foreground) / 0.1);
+    --ui-shadow-control: 0 1px 2px hsl(var(--foreground) / 0.05);
+    --ui-control-gap: 6px;
+    --ui-control-padding-x: 10px;
+    --ui-control-padding-y: 4px;
+    --ui-control-height-sm: 28px;
+    --ui-control-height-md: 32px;
     --ui-icon-button-size: 32px;
     --ui-icon-size-sm: 16px;
     --ui-icon-size-button: 16px;
@@ -307,7 +360,7 @@
   }
 
   * {
-    @apply border-border;
+    @apply border-border outline-ring/50;
     scrollbar-color: transparent transparent;
     scrollbar-width: thin;
   }

@@ -178,7 +178,7 @@ function BlockquoteBorderStyleField({ value, onChange }: { value: string; onChan
         }}
         disabled={!enabled}
       >
-        <SelectTrigger className="h-8" aria-label="引用边线样式"><SelectValue /></SelectTrigger>
+        <SelectTrigger size="sm" aria-label="引用边线样式"><SelectValue /></SelectTrigger>
         <SelectContent>
           <SelectGroup>
             <SelectItem value="solid">实线</SelectItem>
@@ -195,7 +195,7 @@ function BlockquoteBorderStyleField({ value, onChange }: { value: string; onChan
 function CssBorderStyleField({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
   return (
     <Select value={value} onValueChange={onChange}>
-      <SelectTrigger className="h-8" aria-label={label}><SelectValue /></SelectTrigger>
+      <SelectTrigger size="sm" aria-label={label}><SelectValue /></SelectTrigger>
       <SelectContent>
         <SelectGroup>
           <SelectItem value="none">无</SelectItem>

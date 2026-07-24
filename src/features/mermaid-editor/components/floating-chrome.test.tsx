@@ -24,6 +24,11 @@ describe("floating chrome", () => {
 
   beforeEach(() => {
     (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    vi.stubGlobal("ResizeObserver", class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    });
   });
 
   afterEach(() => {
@@ -35,6 +40,7 @@ describe("floating chrome", () => {
     container = null;
     vi.clearAllTimers();
     vi.useRealTimers();
+    vi.unstubAllGlobals();
   });
 
   function createContainer() {

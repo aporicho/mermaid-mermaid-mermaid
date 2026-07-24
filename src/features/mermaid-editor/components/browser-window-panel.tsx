@@ -95,7 +95,7 @@ export function BrowserWindowPanel({
     loading={loading}
     center={
       <form className="flex min-w-0 flex-1 items-center" onSubmit={submitAddress}>
-        <InputGroup className="min-h-[var(--ui-control-height-sm)] bg-background/95">
+        <InputGroup>
           <InputGroupInput
             value={address}
             className="min-w-0"

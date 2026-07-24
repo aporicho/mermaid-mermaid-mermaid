@@ -4,7 +4,7 @@ import { Refresh as RefreshCw, SidebarCollapse as PanelLeftClose } from "iconoir
 
 import { Textarea } from "@/components/ui/textarea";
 import { DiagnosticPanel } from "@/features/mermaid-editor/components/diagnostic-panel";
-import { EditorIconButton, EditorSectionHeader } from "@/features/mermaid-editor/components/editor-ui";
+import { EditorIconButton, EditorSectionHeader, EditorToolbarGroup } from "@/features/mermaid-editor/components/editor-ui";
 import type { EditorDiagnostic } from "@/features/mermaid-editor/lib/editor-diagnostics";
 import type { RuntimeAgentTextSelection } from "@/features/mermaid-editor/lib/editor-runtime";
 import { cn } from "@/lib/utils";
@@ -35,14 +35,14 @@ export function SourcePanel({ value, title = "Mermaid", className, diagnostics =
 
   return (
     <section className={cn("relative grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)_auto] border-r bg-card", className)}>
-      <EditorSectionHeader title={title} actions={<div className="flex items-center gap-1">
+      <EditorSectionHeader title={title} actions={<EditorToolbarGroup>
           {onRun ? (
             <EditorIconButton context="panel" label="刷新画布" tooltipSide="right" onClick={onRun}><RefreshCw data-icon /></EditorIconButton>
           ) : null}
           {onCollapse ? (
             <EditorIconButton context="panel" label="收起源码面板" tooltipSide="right" onClick={onCollapse}><PanelLeftClose data-icon /></EditorIconButton>
           ) : null}
-        </div>} />
+        </EditorToolbarGroup>} />
       <Textarea
         value={value}
         spellCheck={false}

@@ -1,5 +1,6 @@
 import type { HTMLAttributes, ReactNode, Ref } from "react";
 
+import { ButtonGroup } from "@/components/ui/button-group";
 import { cn } from "@/lib/utils";
 
 export function WindowTitlebarLayout({
@@ -29,12 +30,13 @@ export function WindowTitlebarLayout({
     <header
       ref={headerRef}
       {...props}
+      data-slot="window-titlebar"
       className={cn("editor-ui-panel-header flex min-w-0 items-center gap-2 [container-type:inline-size]", className)}
     >
       {leadingActions ? (
-        <div className="flex shrink-0 items-center gap-1" data-window-titlebar-drag-exclude>
+        <ButtonGroup className="shrink-0" data-window-titlebar-drag-exclude>
           {leadingActions}
-        </div>
+        </ButtonGroup>
       ) : null}
       <div className="flex min-w-0 items-center gap-2" title={titleTooltip}>
         {icon}
@@ -49,9 +51,9 @@ export function WindowTitlebarLayout({
         </div>
       ) : <div className="min-w-4 flex-1" aria-hidden />}
       {actions ? (
-        <div className="flex shrink-0 items-center gap-1" data-window-titlebar-drag-exclude>
+        <ButtonGroup className="shrink-0" data-window-titlebar-drag-exclude>
           {actions}
-        </div>
+        </ButtonGroup>
       ) : null}
     </header>
   );

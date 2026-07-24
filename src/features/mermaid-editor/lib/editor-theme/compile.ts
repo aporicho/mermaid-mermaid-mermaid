@@ -73,7 +73,7 @@ export function themeToCssVariables(theme: EditorTheme): Record<string, string> 
     "--terminal-selection-background": hexToHslTriplet(theme.terminal.selectionBackground),
     "--terminal-selection-foreground": hexToHslTriplet(theme.terminal.selectionForeground),
     ...ansiToCssVariables(theme.ansi),
-    "--radius": `${ui.radius.app}px`,
+    "--radius": `${ui.radius.controlLg}px`,
     "--theme-radius-app": `${ui.radius.app}px`,
     "--theme-radius-control-sm": `${ui.radius.controlSm}px`,
     "--theme-radius-control-md": `${ui.radius.controlMd}px`,
@@ -105,6 +105,12 @@ export function themeToCssVariables(theme: EditorTheme): Record<string, string> 
     "--ui-shadow-panel": shadowCss(ui.shadow.panel),
     "--ui-shadow-dialog": shadowCss(ui.shadow.dialog),
     "--ui-shadow-toolbar": shadowCss(ui.shadow.toolbar),
+    "--ui-shadow-control": shadowCss({
+      ...ui.shadow.toolbar,
+      blur: Math.min(2, ui.shadow.toolbar.blur),
+      offsetY: Math.min(1, ui.shadow.toolbar.offsetY),
+      opacity: ui.shadow.toolbar.opacity * 0.5
+    }),
     "--ui-shadow-opacity": `${ui.shadow.panel.opacity}`,
     "--theme-panel-padding": `${ui.spacing.panelPadding}px`,
     "--theme-panel-header-height": `${ui.spacing.panelHeaderHeight}px`,
@@ -156,6 +162,9 @@ export function themeToCssVariables(theme: EditorTheme): Record<string, string> 
 
 export function applyEditorThemeToDocument(theme: EditorTheme, target: HTMLElement = document.documentElement) {
   for (const [name, value] of Object.entries(themeToCssVariables(theme))) target.style.setProperty(name, value);
+  const mode = contrastRatio(theme.interface.colors.background, "#ffffff") > contrastRatio(theme.interface.colors.background, "#000000") ? "dark" : "light";
+  target.classList.toggle("dark", mode === "dark");
+  target.style.colorScheme = mode;
 }
 
 export function themeToCanvasVisualTokens(theme: EditorTheme): CanvasVisualTokens {

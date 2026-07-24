@@ -7,9 +7,11 @@ const UI_COMPONENTS = [
   "accordion",
   "alert-dialog",
   "alert",
+  "button-group",
   "context-menu",
   "field",
   "input-group",
+  "kbd",
   "radio-group",
   "skeleton",
   "slider",
@@ -31,8 +33,9 @@ describe("shadcn foundation contract", () => {
     const config = JSON.parse(readProjectFile("components.json"));
 
     expect(config.rsc).toBe(false);
+    expect(config.style).toBe("radix-nova");
     expect(config.iconLibrary).toBe("iconoir");
-    expect(config.tailwind.config).toBe("tailwind.config.ts");
+    expect(config.tailwind.config).toBe("");
     expect(config.tailwind.css).toBe("src/styles/globals.css");
   });
 
@@ -57,8 +60,10 @@ describe("shadcn foundation contract", () => {
     }
   });
 
-  it("preserves the existing customized component layer", () => {
-    expect(readProjectFile("src/components/ui/button.tsx")).toContain("editor-ui-control");
+  it("keeps Nova slots and the existing application extensions", () => {
+    const button = readProjectFile("src/components/ui/button.tsx");
+    expect(button).toContain('data-slot="button"');
+    expect(button).toContain("--ui-control-height-md");
     expect(readProjectFile("src/components/ui/dialog.tsx")).toContain("useOverlayPortalContainer");
     expect(readProjectFile("src/components/ui/select.tsx")).toContain("useOverlayPortalContainer");
     expect(readProjectFile("src/components/ui/sheet.tsx")).toContain("useOverlayPortalContainer");

@@ -9,7 +9,7 @@ const RadioGroup = React.forwardRef<
   React.ElementRef<typeof RadioGroupPrimitive.Root>,
   React.ComponentPropsWithoutRef<typeof RadioGroupPrimitive.Root>
 >(({ className, ...props }, ref) => (
-  <RadioGroupPrimitive.Root ref={ref} className={cn("grid gap-[var(--ui-control-gap)]", className)} {...props} />
+  <RadioGroupPrimitive.Root ref={ref} data-slot="radio-group" className={cn("grid w-full gap-[var(--ui-control-gap)]", className)} {...props} />
 ));
 RadioGroup.displayName = RadioGroupPrimitive.Root.displayName;
 
@@ -19,14 +19,15 @@ const RadioGroupItem = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <RadioGroupPrimitive.Item
     ref={ref}
+    data-slot="radio-group-item"
     className={cn(
-      "editor-ui-focus grid size-[var(--ui-icon-size-button)] shrink-0 place-items-center rounded-full border-[length:var(--ui-border-width)] border-input bg-background text-primary disabled:cursor-not-allowed disabled:opacity-[var(--ui-disabled-opacity)] data-[state=checked]:border-primary",
+      "group/radio-group-item peer relative flex aspect-square size-[var(--ui-icon-size-button)] shrink-0 rounded-full border-[length:var(--ui-border-width)] border-input outline-none after:absolute after:-inset-x-3 after:-inset-y-2 focus-visible:border-ring focus-visible:ring-[length:var(--ui-focus-ring-width)] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-[var(--ui-disabled-opacity)] data-checked:border-primary data-checked:bg-primary data-checked:text-primary-foreground dark:bg-input/30 dark:data-checked:bg-primary",
       className
     )}
     {...props}
   >
-    <RadioGroupPrimitive.Indicator className="grid place-items-center">
-      <span className="size-[calc(var(--ui-icon-size-button)*.5)] rounded-full bg-current" />
+    <RadioGroupPrimitive.Indicator data-slot="radio-group-indicator" className="flex size-[var(--ui-icon-size-button)] items-center justify-center">
+      <span className="absolute left-1/2 top-1/2 size-[calc(var(--ui-icon-size-button)*.5)] -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary-foreground" />
     </RadioGroupPrimitive.Indicator>
   </RadioGroupPrimitive.Item>
 ));

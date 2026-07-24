@@ -8,7 +8,7 @@ import {
 } from "iconoir-react/regular";
 
 import { FileMenu, SecondaryActionsMenu, ViewFilterMenu } from "@/features/mermaid-editor/components/editor-menus";
-import { FloatingChromeLayer, FloatingChromeSlot, FloatingIconButton } from "@/features/mermaid-editor/components/floating-chrome";
+import { FloatingButtonCluster, FloatingChromeLayer, FloatingChromeSlot, FloatingIconButton } from "@/features/mermaid-editor/components/floating-chrome";
 import { DesktopWindowControls, WorkspaceViewCluster } from "@/features/mermaid-editor/components/workspace-view-controls";
 import type { DocumentKind } from "@/features/mermaid-editor/lib/document-kind";
 import type { EditorRuntime } from "@/features/mermaid-editor/lib/editor-runtime";
@@ -248,7 +248,7 @@ export function EditorFloatingChrome({
 
       {!agentOpen || !terminalOpen ? (
         <FloatingChromeSlot placement="rightBottom">
-          <div className="flex items-center gap-1">
+          <FloatingButtonCluster>
             {!agentOpen ? <FloatingIconButton
               label="打开 Pi Agent"
               tooltipSide="top"
@@ -263,7 +263,7 @@ export function EditorFloatingChrome({
             >
               <Terminal data-icon />
             </FloatingIconButton> : null}
-          </div>
+          </FloatingButtonCluster>
         </FloatingChromeSlot>
       ) : null}
     </FloatingChromeLayer>

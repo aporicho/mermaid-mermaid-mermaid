@@ -10,6 +10,7 @@ export const EditorTree = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivEleme
     <div
       ref={ref}
       role="tree"
+      data-slot="editor-tree"
       className={cn(
         "type-interface-tree grid min-w-0 overflow-x-hidden [--editor-tree-branch:calc(var(--ui-tree-connector-rail-inset)+var(--ui-tree-row-padding-start))] [--editor-tree-indent:var(--ui-tree-level-indent)] [--editor-tree-rail:calc(var(--ui-tree-connector-rail-inset)*-1)] [--editor-tree-row-center:calc(var(--ui-tree-row-height)/2)]",
         className
@@ -27,6 +28,7 @@ export function EditorTreeItem({ root = false, className, ...props }: EditorTree
   return (
     <div
       role="none"
+      data-slot="editor-tree-item"
       data-editor-tree-item
       data-tree-root={root || undefined}
       className={cn(
@@ -47,6 +49,7 @@ export function EditorTreeGroup({ className, ...props }: HTMLAttributes<HTMLDivE
   return (
     <div
       role="group"
+      data-slot="editor-tree-group"
       className={cn("grid min-w-0 pl-[var(--editor-tree-indent)]", className)}
       {...props}
     />
@@ -66,6 +69,9 @@ export const EditorTreeRow = forwardRef<HTMLButtonElement, EditorTreeRowProps>(f
       ref={ref}
       type="button"
       role="treeitem"
+      data-slot="editor-tree-row"
+      data-state={active ? "selected" : undefined}
+      aria-selected={active || undefined}
       className={cn(
         "relative z-0 isolate flex min-h-[var(--ui-tree-row-height)] w-full min-w-0 items-center justify-start gap-[var(--ui-tree-content-gap)] border-0 bg-transparent py-[var(--ui-tree-row-padding-y)] pl-[var(--ui-tree-row-padding-start)] pr-[var(--ui-tree-row-padding-end)] text-left text-[hsl(var(--ui-tree-foreground))] outline-none transition-colors before:pointer-events-none before:absolute before:inset-y-0 before:-left-[100vw] before:right-0 before:-z-10 before:bg-transparent before:transition-colors hover:before:bg-[hsl(var(--ui-tree-hover-background)/var(--ui-tree-hover-opacity))] focus-visible:before:bg-[hsl(var(--ui-tree-focus-background)/var(--ui-tree-focus-opacity))] disabled:pointer-events-none disabled:opacity-[var(--ui-disabled-opacity)] [&_svg]:size-[var(--ui-tree-icon-size)] [&_svg]:text-[hsl(var(--ui-tree-icon))]",
         active && "text-[hsl(var(--ui-tree-selected-foreground))] before:bg-[hsl(var(--ui-tree-selected-background))] [&_svg]:text-[hsl(var(--ui-tree-selected-foreground))]",

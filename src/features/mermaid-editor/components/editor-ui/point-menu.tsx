@@ -48,7 +48,7 @@ export function EditorPointMenu({
       <DropdownMenuContent
         aria-label={ariaLabel}
         align="start"
-        className={cn("w-52 p-1", className)}
+        className={cn("w-52", className)}
         collisionPadding={8}
         onCloseAutoFocus={(event) => {
           event.preventDefault();

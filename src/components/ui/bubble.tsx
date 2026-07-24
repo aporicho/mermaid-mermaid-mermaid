@@ -15,12 +15,12 @@ const bubbleVariants = cva("min-w-0 text-sm leading-6", {
   defaultVariants: { variant: "ghost" }
 });
 
-function Bubble({ className, variant, ...props }: React.ComponentProps<"div"> & VariantProps<typeof bubbleVariants>) {
-  return <div className={cn(bubbleVariants({ variant }), className)} {...props} />;
+function Bubble({ className, variant = "ghost", ...props }: React.ComponentProps<"div"> & VariantProps<typeof bubbleVariants>) {
+  return <div data-slot="bubble" data-variant={variant} className={cn(bubbleVariants({ variant }), className)} {...props} />;
 }
 
 function BubbleContent({ className, ...props }: React.ComponentProps<"div">) {
-  return <div className={cn("min-w-0 break-words", className)} {...props} />;
+  return <div data-slot="bubble-content" className={cn("min-w-0 break-words", className)} {...props} />;
 }
 
 export { Bubble, BubbleContent };

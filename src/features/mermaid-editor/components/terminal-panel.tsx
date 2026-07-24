@@ -283,7 +283,7 @@ export function TerminalPanel({ runtime, cwd, contextKey, visible, theme, termin
         actions={<>
           {shellOptions.length > 1 ? (
             <Select value={selectedShellId} onValueChange={(value) => void changeShell(value)} disabled={busy || runtime.kind !== "desktop"}>
-              <SelectTrigger className="w-[132px] bg-background/70">
+              <SelectTrigger size="sm" className="w-[132px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
