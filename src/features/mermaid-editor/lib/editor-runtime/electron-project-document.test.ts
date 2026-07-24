@@ -1,5 +1,5 @@
 import { createRequire } from "node:module";
-import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, realpath, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
@@ -128,7 +128,7 @@ describe("Electron project document creation", () => {
     await writeFile(path.join(rootPath, "source", "notes.md"), "move me", "utf8");
 
     const moved = await moveProjectFile({ rootPath, sourcePath: "source/notes.md", targetDirectoryPath: "target" });
-    expect(moved).toMatchObject({ status: "moved", file: { name: "notes.md", path: path.join(rootPath, "target", "notes.md") } });
+    expect(moved).toMatchObject({ status: "moved", file: { name: "notes.md", path: await realpath(path.join(rootPath, "target", "notes.md")) } });
     expect(await readFile(path.join(rootPath, "target", "notes.md"), "utf8")).toBe("move me");
     await expect(readFile(path.join(rootPath, "source", "notes.md"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
     expect((await moveProjectFile({ rootPath, sourcePath: "target/notes.md", targetDirectoryPath: "target" })).status).toBe("noop");

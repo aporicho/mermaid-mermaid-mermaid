@@ -1,5 +1,5 @@
 import { createRequire } from "node:module";
-import { chmod, mkdtemp, readFile, readdir, rm, stat, symlink, writeFile } from "node:fs/promises";
+import { chmod, mkdtemp, readFile, realpath, readdir, rm, stat, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
@@ -33,11 +33,12 @@ describe("Electron project CSV files", () => {
     const filePath = path.join(rootPath, "table.csv");
     await writeFile(filePath, "A,B\r\n1,2", "utf8");
     await chmod(filePath, 0o640);
+    const realFilePath = await realpath(filePath);
     const snapshot = await readProjectCsvFile({ rootPath, path: filePath });
 
     const saved = await writeProjectCsvFile({ rootPath, path: filePath, text: "A,B\r\n3,4", expectedRevision: snapshot.revision });
 
-    expect(snapshot).toMatchObject({ file: { name: "table.csv", path: filePath }, text: "A,B\r\n1,2" });
+    expect(snapshot).toMatchObject({ file: { name: "table.csv", path: realFilePath }, text: "A,B\r\n1,2" });
     expect(snapshot.revision).toMatch(/^[a-f0-9]{64}$/);
     expect(saved).toMatchObject({ status: "saved" });
     expect(await readFile(filePath, "utf8")).toBe("A,B\r\n3,4");

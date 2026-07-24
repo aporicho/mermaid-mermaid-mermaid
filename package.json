@@ -4,6 +4,11 @@
   "description": "Mermaid, Markdown, and canvas desktop editor.",
   "author": "Mermaid Canvas Editor",
   "private": true,
+  "packageManager": "npm@11.17.0",
+  "engines": {
+    "node": ">=26 <27",
+    "npm": ">=11 <12"
+  },
   "main": "electron/main.cjs",
   "desktopName": "mermaid-canvas-editor.desktop",
   "scripts": {
@@ -56,7 +61,7 @@
     "@radix-ui/react-toggle-group": "^1.1.17",
     "@radix-ui/react-tooltip": "^1.2.9",
     "@shadcn/react": "0.2.1",
-    "@types/node": "^24.0.0",
+    "@types/node": "^26.1.1",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@xterm/addon-fit": "^0.11.0",

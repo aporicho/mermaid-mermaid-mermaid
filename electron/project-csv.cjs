@@ -70,8 +70,9 @@ async function resolveCsvTarget(request, mustExist) {
   const rootInput = String(request?.rootPath || "");
   const fileInput = String(request?.path || "");
   if (!rootInput || !fileInput) throw csvError("unsupported_type", "CSV root and file paths are required.", fileInput || undefined);
-  const root = await fsp.realpath(rootInput);
-  const candidate = path.resolve(path.isAbsolute(fileInput) ? fileInput : path.join(root, fileInput));
+  const requestedRoot = path.resolve(rootInput);
+  const root = await fsp.realpath(requestedRoot);
+  const candidate = resolveProjectCandidate({ root, requestedRoot }, fileInput);
   if (!/\.csv$/i.test(path.basename(candidate))) throw csvError("unsupported_type", "Only .csv files are supported.", candidate);
   if (!isPathInside(root, candidate)) throw csvError("permission_denied", "CSV path must stay inside the project root.", candidate);
   if (!mustExist) return { root, path: candidate };
@@ -86,6 +87,15 @@ async function resolveCsvTarget(request, mustExist) {
   if (!stats.isFile()) throw csvError("unsupported_type", "CSV target must be a regular file.", realPath);
   if (stats.size > MAX_CSV_FILE_BYTES) throw csvError("read_failed", `CSV file exceeds ${MAX_CSV_FILE_BYTES} bytes.`, realPath);
   return { root, path: realPath };
+}
+
+function resolveProjectCandidate(rootContext, input) {
+  if (!path.isAbsolute(input)) return path.resolve(path.join(rootContext.root, input));
+  const resolvedInput = path.resolve(input);
+  if (isPathInside(rootContext.requestedRoot, resolvedInput)) {
+    return path.join(rootContext.root, path.relative(rootContext.requestedRoot, resolvedInput));
+  }
+  return resolvedInput;
 }
 
 function isPathInside(root, candidate) {

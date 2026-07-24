@@ -32,12 +32,12 @@ async function writeProjectMarkdownFoldState(request) {
 }
 
 async function moveProjectMarkdownFoldState(request) {
-  const root = await resolveProjectRoot(request?.rootPath);
-  const source = projectRelativePath(root, request?.sourcePath);
-  const target = projectRelativePath(root, request?.targetPath);
-  const context = { root, storePath: path.join(root, MARKDOWN_FOLD_DIRECTORY, MARKDOWN_FOLD_FILE) };
+  const rootContext = await resolveProjectRoot(request?.rootPath);
+  const source = projectRelativePath(rootContext, request?.sourcePath);
+  const target = projectRelativePath(rootContext, request?.targetPath);
+  const context = { root: rootContext.root, storePath: path.join(rootContext.root, MARKDOWN_FOLD_DIRECTORY, MARKDOWN_FOLD_FILE) };
 
-  return withProjectQueue(root, async () => {
+  return withProjectQueue(rootContext.root, async () => {
     const store = await readStore(context.storePath);
     const snapshot = store.documents[source];
     if (!snapshot || source === target) return { status: "noop" };
@@ -49,36 +49,51 @@ async function moveProjectMarkdownFoldState(request) {
 }
 
 async function resolveRequest(request) {
-  const root = await resolveProjectRoot(request?.rootPath);
-  const relativePath = projectRelativePath(root, request?.documentPath);
+  const rootContext = await resolveProjectRoot(request?.rootPath);
+  const relativePath = projectRelativePath(rootContext, request?.documentPath);
   if (!/\.(?:md|markdown)$/i.test(relativePath)) {
     throw foldStoreError("unsupported_type", "Markdown fold state requires a Markdown document.", request?.documentPath);
   }
   return {
-    root,
+    root: rootContext.root,
     relativePath,
-    storePath: path.join(root, MARKDOWN_FOLD_DIRECTORY, MARKDOWN_FOLD_FILE)
+    storePath: path.join(rootContext.root, MARKDOWN_FOLD_DIRECTORY, MARKDOWN_FOLD_FILE)
   };
 }
 
 async function resolveProjectRoot(rootPath) {
   const value = String(rootPath || "");
   if (!value || value.includes("\0")) throw foldStoreError("permission_denied", "Project root path is required.");
-  const root = await fsp.realpath(value);
+  const requestedRoot = path.resolve(value);
+  const root = await fsp.realpath(requestedRoot);
   const stats = await fsp.stat(root);
   if (!stats.isDirectory()) throw foldStoreError("unsupported_type", "Project root must be a directory.", root);
-  return root;
+  return { root, requestedRoot };
 }
 
-function projectRelativePath(root, documentPath) {
+function projectRelativePath(rootContext, documentPath) {
   const value = String(documentPath || "");
   if (!value || value.includes("\0")) throw foldStoreError("permission_denied", "Markdown document path is required.");
-  const candidate = path.resolve(value);
-  const relative = path.relative(root, candidate);
+  const candidate = resolveProjectCandidate(rootContext, value);
+  const relative = path.relative(rootContext.root, candidate);
   if (!relative || relative === ".." || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) {
     throw foldStoreError("permission_denied", "Markdown document must stay inside the project root.", candidate);
   }
   return relative.split(path.sep).join("/");
+}
+
+function resolveProjectCandidate(rootContext, input) {
+  if (!path.isAbsolute(input)) return path.resolve(path.join(rootContext.root, input));
+  const resolvedInput = path.resolve(input);
+  if (isPathInside(rootContext.requestedRoot, resolvedInput)) {
+    return path.join(rootContext.root, path.relative(rootContext.requestedRoot, resolvedInput));
+  }
+  return resolvedInput;
+}
+
+function isPathInside(root, candidate) {
+  const relative = path.relative(root, candidate);
+  return relative === "" || (!relative.startsWith(`..${path.sep}`) && relative !== ".." && !path.isAbsolute(relative));
 }
 
 async function readStore(storePath) {

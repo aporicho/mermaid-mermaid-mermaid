@@ -1,5 +1,5 @@
 import { EventEmitter } from "node:events";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, realpath, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createRequire } from "node:module";
@@ -33,6 +33,7 @@ describe("project file watcher", () => {
   it("batches atomic replacement events and ignores generated directories", async () => {
     vi.useFakeTimers();
     const root = await mkdtemp(join(tmpdir(), "mmm-watch-"));
+    const realRoot = await realpath(root);
     temporaryDirectories.push(root);
     const watcher = new FakeWatcher();
     const watch = vi.fn(() => watcher);
@@ -48,7 +49,7 @@ describe("project file watcher", () => {
 
     expect(watch).toHaveBeenCalledTimes(1);
     expect(send).toHaveBeenCalledWith(webContents, expect.objectContaining({
-      rootPath: root,
+      rootPath: realRoot,
       changes: [{ directory: false, kind: "changed", path: documentPath }]
     }));
     expect(ignoredProjectPath(root, join(root, "node_modules", "package", "index.js"))).toBe(true);
@@ -101,6 +102,7 @@ describe("project file watcher", () => {
       service.setTargets(webContents, { rootPath: roots[1] }),
       service.setTargets(webContents, { rootPath: roots[2] })
     ]);
+    const realCurrentRoot = await realpath(roots[2]);
     watchers[0].emit("change", join(roots[0], "old.md"));
     watchers[1].emit("change", join(roots[1], "intermediate.md"));
     watchers[2].emit("change", join(roots[2], "current.md"));
@@ -109,7 +111,7 @@ describe("project file watcher", () => {
     expect(watchers[0].close).toHaveBeenCalledTimes(1);
     expect(watchers[1].close).toHaveBeenCalledTimes(1);
     expect(send).toHaveBeenCalledTimes(1);
-    expect(send).toHaveBeenCalledWith(webContents, expect.objectContaining({ rootPath: roots[2] }));
+    expect(send).toHaveBeenCalledWith(webContents, expect.objectContaining({ rootPath: realCurrentRoot }));
     await service.closeAll();
   });
 });

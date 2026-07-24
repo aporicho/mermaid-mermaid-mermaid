@@ -337,9 +337,37 @@ function installMac(artifacts) {
   const installedApp = path.join(applicationsDir, `${APP_NAME}.app`);
   mkdirSync(applicationsDir, { recursive: true });
   rmSync(installedApp, { recursive: true, force: true });
-  cpSync(app.path, installedApp, { recursive: true });
+  run("ditto", [app.path, installedApp]);
+  prepareInstalledMacApp(installedApp);
   log(`Installed app bundle to ${installedApp}`);
   return installedApp;
+}
+
+function prepareInstalledMacApp(appPath) {
+  if (commandSucceeds("codesign", ["--verify", "--deep", "--strict", appPath])) {
+    return;
+  }
+
+  run("xattr", ["-cr", appPath]);
+  if (commandSucceeds("codesign", ["--verify", "--deep", "--strict", appPath])) {
+    return;
+  }
+
+  warn("Installed app bundle is not locally code-signed; applying an ad-hoc signature for this Mac.");
+  run("codesign", ["--force", "--deep", "--sign", "-", appPath]);
+  if (!commandSucceeds("codesign", ["--verify", "--deep", "--strict", appPath])) {
+    fail("Installed app bundle could not be code-signed for local macOS launch.");
+  }
+}
+
+function commandSucceeds(command, args) {
+  const result = spawnSync(command, args, {
+    cwd: PROJECT_DIR,
+    env: process.env,
+    stdio: "ignore",
+    shell: shouldUseShell(command)
+  });
+  return !result.error && result.status === 0;
 }
 
 function installWindows(artifacts) {

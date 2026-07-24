@@ -37,7 +37,7 @@ curl -fsSL https://raw.githubusercontent.com/aporicho/mermaid-mermaid-mermaid/ma
 
 脚本不会克隆、拉取或清理源码，也不会自行调用 `sudo`。如果缺少 Arch 系统包，它会打印一条精确的 `sudo pacman -S --needed ...` 命令并退出；执行提示的命令后重新运行安装脚本即可。
 
-依赖就绪后，脚本会使用 Node.js 24 和锁文件安装 npm 依赖，依次运行 lint、测试、类型检查和生产构建，再生成、安装并启动当前源码对应的 Electron 桌面应用。源码仍保留在当前工作区，可继续使用 `npm run dev` 或 `npm run desktop:dev` 开发。
+依赖就绪后，脚本会使用 Node.js 26 和锁文件安装 npm 依赖，依次运行 lint、测试、类型检查和生产构建，再生成、安装并启动当前源码对应的 Electron 桌面应用。源码仍保留在当前工作区，可继续使用 `npm run dev` 或 `npm run desktop:dev` 开发。
 
 安装依赖：
 

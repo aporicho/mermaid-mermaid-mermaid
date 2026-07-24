@@ -11,12 +11,12 @@ const PROJECT_FILE_EXTENSIONS = {
 };
 
 async function createProjectFile(request) {
-  const root = await resolveProjectRoot(request?.rootPath);
-  const directory = await resolveProjectDirectory(root, request?.directoryPath);
+  const rootContext = await resolveProjectRoot(request?.rootPath);
+  const directory = await resolveProjectDirectory(rootContext, request?.directoryPath);
   const kind = normalizeProjectFileKind(request?.kind);
   const fileName = normalizeProjectFileName(request?.fileName, kind);
   const filePath = path.join(directory, fileName);
-  if (!isPathInside(root, filePath)) {
+  if (!isPathInside(rootContext.root, filePath)) {
     throw projectFileError("permission_denied", "Project file path must stay inside the project root.", filePath);
   }
 
@@ -47,13 +47,13 @@ async function createProjectFile(request) {
 }
 
 async function moveProjectFile(request) {
-  const root = await resolveProjectRoot(request?.rootPath);
-  const sourcePath = await resolveProjectRegularFile(root, request?.sourcePath);
-  const targetDirectory = await resolveProjectDirectory(root, request?.targetDirectoryPath);
+  const rootContext = await resolveProjectRoot(request?.rootPath);
+  const sourcePath = await resolveProjectRegularFile(rootContext, request?.sourcePath);
+  const targetDirectory = await resolveProjectDirectory(rootContext, request?.targetDirectoryPath);
   const targetPath = path.join(targetDirectory, path.basename(sourcePath));
   const targetFile = { name: path.basename(targetPath), path: targetPath };
 
-  if (!isPathInside(root, targetPath)) {
+  if (!isPathInside(rootContext.root, targetPath)) {
     throw projectFileError("permission_denied", "Project file path must stay inside the project root.", targetPath);
   }
   if (samePath(sourcePath, targetPath)) return { status: "noop", file: targetFile };
@@ -117,24 +117,25 @@ async function createProjectTextFile(request) {
 async function resolveProjectRoot(rootPath) {
   const value = String(rootPath || "");
   if (!value || value.includes("\0")) throw projectFileError("permission_denied", "Project root path is required.");
-  const root = await fsp.realpath(value);
+  const requestedRoot = path.resolve(value);
+  const root = await fsp.realpath(requestedRoot);
   const stats = await fsp.stat(root);
   if (!stats.isDirectory()) throw projectFileError("unsupported_type", "Project root must be a directory.", root);
-  return root;
+  return { root, requestedRoot };
 }
 
-async function resolveProjectDirectory(root, directoryPath) {
+async function resolveProjectDirectory(rootContext, directoryPath) {
   const input = typeof directoryPath === "string" ? directoryPath : "";
   if (input.includes("\0")) throw projectFileError("permission_denied", "Project directory path is invalid.", input);
-  const candidate = input ? resolveProjectCandidate(root, input) : root;
-  if (!isPathInside(root, candidate)) {
+  const candidate = input ? resolveProjectCandidate(rootContext, input) : rootContext.root;
+  if (!isPathInside(rootContext.root, candidate)) {
     throw projectFileError("permission_denied", "Project directory must stay inside the project root.", candidate);
   }
-  await assertNoSymbolicLinkComponents(root, candidate);
+  await assertNoSymbolicLinkComponents(rootContext.root, candidate);
   const realPath = await fsp.realpath(candidate).catch((error) => {
     throw projectFileError("file_not_found", error instanceof Error ? error.message : "Project directory was not found.", candidate);
   });
-  if (!isPathInside(root, realPath)) {
+  if (!isPathInside(rootContext.root, realPath)) {
     throw projectFileError("permission_denied", "Project directory must stay inside the project root.", candidate);
   }
   const stats = await fsp.stat(realPath);
@@ -142,18 +143,18 @@ async function resolveProjectDirectory(root, directoryPath) {
   return realPath;
 }
 
-async function resolveProjectRegularFile(root, sourcePath) {
+async function resolveProjectRegularFile(rootContext, sourcePath) {
   const input = String(sourcePath || "");
   if (!input || input.includes("\0")) throw projectFileError("file_not_found", "Project source file path is required.");
-  const candidate = resolveProjectCandidate(root, input);
-  if (!isPathInside(root, candidate)) {
+  const candidate = resolveProjectCandidate(rootContext, input);
+  if (!isPathInside(rootContext.root, candidate)) {
     throw projectFileError("permission_denied", "Project source file must stay inside the project root.", candidate);
   }
-  await assertNoSymbolicLinkComponents(root, candidate);
+  await assertNoSymbolicLinkComponents(rootContext.root, candidate);
   const realPath = await fsp.realpath(candidate).catch((error) => {
     throw projectFileError("file_not_found", error instanceof Error ? error.message : "Project source file was not found.", candidate);
   });
-  if (!isPathInside(root, realPath)) {
+  if (!isPathInside(rootContext.root, realPath)) {
     throw projectFileError("permission_denied", "Project source file must stay inside the project root.", candidate);
   }
   const stats = await fsp.stat(realPath);
@@ -161,8 +162,13 @@ async function resolveProjectRegularFile(root, sourcePath) {
   return realPath;
 }
 
-function resolveProjectCandidate(root, input) {
-  return path.resolve(path.isAbsolute(input) ? input : path.join(root, input));
+function resolveProjectCandidate(rootContext, input) {
+  if (!path.isAbsolute(input)) return path.resolve(path.join(rootContext.root, input));
+  const resolvedInput = path.resolve(input);
+  if (isPathInside(rootContext.requestedRoot, resolvedInput)) {
+    return path.join(rootContext.root, path.relative(rootContext.requestedRoot, resolvedInput));
+  }
+  return resolvedInput;
 }
 
 async function assertNoSymbolicLinkComponents(root, candidate) {

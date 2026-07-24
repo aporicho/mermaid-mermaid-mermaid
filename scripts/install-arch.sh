@@ -60,7 +60,7 @@ print_missing_package_command() {
 require_system_packages() {
   local required_packages=(
     git
-    nodejs-lts-krypton
+    nodejs
     npm
     base-devel
     python
@@ -91,13 +91,13 @@ require_system_packages() {
   fi
 }
 
-require_node_24() {
+require_node_26() {
   command -v node >/dev/null 2>&1 || fail "Node.js was not found after checking system packages."
   command -v npm >/dev/null 2>&1 || fail "npm was not found after checking system packages."
 
   local node_version
   node_version="$(node --version)"
-  [[ "$node_version" == v24.* ]] || fail "Node.js 24 is required (detected: $node_version). Install the Arch package nodejs-lts-krypton."
+  [[ "$node_version" == v26.* ]] || fail "Node.js 26 is required (detected: $node_version). Install the Arch package nodejs."
 
   log "Using Node.js $node_version and npm $(npm --version)."
 }
@@ -117,7 +117,7 @@ main() {
   log "Preparing $APP_NAME from $root."
   require_supported_system
   require_system_packages
-  require_node_24
+  require_node_26
 
   run npm ci
   run npm run lint
