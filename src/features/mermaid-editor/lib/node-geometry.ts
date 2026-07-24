@@ -240,11 +240,13 @@ function buildMarkdownDocumentNodeGeometry(node: CanvasNode, specialNode?: Speci
     width: tokens?.width ?? MARKDOWN_DOCUMENT_NODE_WIDTH,
     height: tokens?.height ?? MARKDOWN_DOCUMENT_NODE_HEIGHT
   };
-  const padding = tokens?.contentPadding ?? 12;
+  const paddingTop = tokens?.contentPaddingTop ?? 12;
+  const paddingRight = tokens?.contentPaddingRight ?? 12;
+  const paddingLeft = tokens?.contentPaddingLeft ?? 12;
   const textBox = {
-    x: padding,
-    y: padding,
-    width: Math.max(0, frame.width - padding * 2),
+    x: paddingLeft,
+    y: paddingTop,
+    width: Math.max(0, frame.width - paddingLeft - paddingRight),
     height: 22
   };
   const anchorsLocal = localAnchorPoints(DEFAULT_FLOWCHART_NODE_SHAPE, frame.width, frame.height);

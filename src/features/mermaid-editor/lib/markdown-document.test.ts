@@ -10,6 +10,7 @@ import {
   initialMarkdownDocumentSource,
   isMarkdownDocumentNode,
   markdownDocumentActionForProjectFile,
+  markdownDocumentPreviewFromText,
   markdownDocumentNodeForProjectFile,
   markdownDocumentProjectFileForRuntimeFile,
   normalizeNewMarkdownFileName,
@@ -45,6 +46,16 @@ Second paragraph.`;
       title: "Design",
       excerpt: "First paragraph.\n\nDetails\n\nOne\nTwo"
     });
+  });
+
+  it("keeps normalized source for the native canvas preview", () => {
+    expect(markdownDocumentPreviewFromText("docs/design.md", "# Design\r\n\r\n- **One**")).toMatchObject({
+      status: "ready",
+      source: "# Design\n\n- **One**",
+      title: "Design"
+    });
+    expect(markdownDocumentPreviewFromText("docs/heading.md", "# Heading").status).toBe("ready");
+    expect(markdownDocumentPreviewFromText("docs/empty.md", " \n").status).toBe("empty");
   });
 
   it("normalizes safe root-level Markdown names and creates a heading template", () => {

@@ -563,7 +563,7 @@ export function MermaidEditor() {
             markdownSpellcheckEnabled={preferences.markdownSpellcheckEnabled} markdownContentWidth={preferences.markdownContentWidth} markdownTextScale={preferences.markdownTextScale}
             visualTokens={compiledTheme.canvasVisualTokens}
             geometryTokens={compiledTheme.geometry}
-            typography={compiledTheme.typography}
+            typography={compiledTheme.typography} markdownTokens={compiledTheme.theme.markdown}
             specialNodeTokens={compiledTheme.specialNode}
             fontRevision={fontRevision}
             motion={resolvedMotion}

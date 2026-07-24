@@ -20,7 +20,7 @@ import type {
   Selection,
   ViewportState
 } from "@/features/mermaid-editor/lib/editor-types";
-import type { EditorThemeGeometryTokens, EditorTypographyTokens, MermaidThemeVariables, SpecialNodeThemeTokens } from "@/features/mermaid-editor/lib/editor-theme";
+import type { EditorThemeGeometryTokens, EditorTypographyTokens, MarkdownThemeTokens, MermaidThemeVariables, SpecialNodeThemeTokens } from "@/features/mermaid-editor/lib/editor-theme";
 import type { RuntimeEditorMotion } from "@/features/mermaid-editor/lib/editor-motion";
 import type { EditorCommand } from "@/features/mermaid-editor/lib/interaction/commands";
 import type { ViewFilters } from "@/features/mermaid-editor/lib/view-filters";
@@ -60,6 +60,7 @@ type EditorWorkspaceSurfaceProps = {
   visualTokens: CanvasVisualTokens;
   geometryTokens: EditorThemeGeometryTokens;
   typography: EditorTypographyTokens;
+  markdownTokens: MarkdownThemeTokens;
   specialNodeTokens: SpecialNodeThemeTokens;
   fontRevision: number;
   motion: RuntimeEditorMotion;
@@ -109,6 +110,7 @@ export function EditorWorkspaceSurface({
   visualTokens,
   geometryTokens,
   typography,
+  markdownTokens,
   specialNodeTokens,
   fontRevision,
   motion,
@@ -171,6 +173,7 @@ export function EditorWorkspaceSurface({
           visualTokens={visualTokens}
           geometryTokens={geometryTokens}
           typography={typography}
+          markdownTokens={markdownTokens}
           specialNodeTokens={specialNodeTokens}
           fontRevision={fontRevision}
           motion={motion}

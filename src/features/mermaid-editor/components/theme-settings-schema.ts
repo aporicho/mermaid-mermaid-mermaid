@@ -7,7 +7,7 @@ import {
   type MarkdownTokenFieldKind
 } from "@/features/mermaid-editor/lib/editor-theme";
 
-export type ThemeSettingsCategoryId = "library" | "interface" | "agent" | "canvas" | "specialNode" | "markdown" | "source" | "terminal" | "motion" | "diagnostics";
+export type ThemeSettingsCategoryId = "library" | "interface" | "agent" | "canvas" | "specialNode" | "markdownNode" | "markdown" | "source" | "terminal" | "motion" | "diagnostics";
 
 export type AppearanceTokenState = "editable" | "derived" | "fixed" | "legacy";
 export type AppearanceTokenLevel = "common" | "advanced";
@@ -52,7 +52,8 @@ export const THEME_SETTINGS_CATEGORIES = [
   { id: "interface", label: "界面", description: "应用框架、文字、密度与控件" },
   { id: "agent", label: "Agent", description: "对话、消息、工具过程与输入器" },
   { id: "canvas", label: "画布", description: "节点、连线、分组、网格与交互" },
-  { id: "specialNode", label: "特殊节点", description: "链接、Markdown、图片和表格节点" },
+  { id: "specialNode", label: "特殊节点", description: "链接、HTML、图片和表格节点" },
+  { id: "markdownNode", label: "Markdown 节点", description: "Markdown 文档节点的完整外观" },
   { id: "markdown", label: "Markdown", description: "集中设置全部 Markdown 排版、色彩、间距和富文本外观" },
   { id: "source", label: "源码", description: "源码编辑器、分隔线和诊断文字" },
   { id: "terminal", label: "终端", description: "终端基础色和 ANSI 调色板" },
@@ -99,14 +100,20 @@ export const THEME_TOKEN_GROUPS: readonly ThemeTokenGroupDefinition[] = [
 
   group("special-node-shared", "specialNode", "共享语义", ["specialNode", "shared"], "konva"),
   group("special-node-link-card", "specialNode", "链接卡片", ["specialNode", "linkCard"], "konva"),
-  group("special-node-markdown-document", "specialNode", "Markdown 文档", ["specialNode", "markdownDocument"], "konva", {
+  group("special-node-markdown-document", "markdownNode", "节点外观与边距", ["specialNode", "markdownDocument"], "konva", {
+    includeKeys: ["surface", "state", "width", "height", "contentPaddingTop", "contentPaddingRight", "contentPaddingBottom", "contentPaddingLeft", "titleGap", "excerptOpacity", "placeholderOpacity"]
+  }),
+  group("special-node-markdown-preview-typography", "markdownNode", "预览文字", ["specialNode", "markdownDocument", "previewTypography"], "konva"),
+  group("special-node-markdown-preview-spacing", "markdownNode", "预览间距", ["specialNode", "markdownDocument", "previewSpacing"], "konva"),
+  group("special-node-markdown-internal", "markdownNode", "Markdown 兼容字段", ["specialNode", "markdownDocument"], "konva", {
+    includeKeys: ["badgeSize", "badgeBackground", "badgeErrorBackground", "badgeColor", "badgeErrorColor", "badgeOpacity", "badgeErrorOpacity", "badgeRadius", "pathGap", "separatorColor", "separatorWidth", "separatorOpacity", "excerptGap", "pathOpacity"],
     hiddenKeys: ["badgeSize", "badgeBackground", "badgeErrorBackground", "badgeColor", "badgeErrorColor", "badgeOpacity", "badgeErrorOpacity", "badgeRadius", "pathGap", "separatorColor", "separatorWidth", "separatorOpacity", "excerptGap", "pathOpacity"]
   }),
   group("special-node-html-document", "specialNode", "HTML 文件", ["specialNode", "htmlDocument"], "konva"),
   group("special-node-image", "specialNode", "图片节点", ["specialNode", "image"], "konva"),
   group("special-node-table", "specialNode", "CSV 表格", ["specialNode", "table"], "konva"),
   typographyGroup("typography-link-card", "specialNode", "链接卡片文字", "linkCard", "konva"),
-  typographyGroup("typography-markdown-card", "specialNode", "Markdown 卡片文字", "markdownCard", "konva"),
+  typographyGroup("typography-markdown-card", "markdownNode", "加载与异常状态文字", "markdownCard", "konva"),
   typographyGroup("typography-table-node", "specialNode", "CSV 表格文字", "tableNode", "konva"),
 
   group("source-appearance", "source", "源码外观", ["source"], "css"),
@@ -237,6 +244,10 @@ const TOKEN_LABELS: Record<string, string> = {
   editingBorderColor: "编辑态边框",
   errorBorderColor: "错误态边框",
   contentPadding: "内容内边距",
+  contentPaddingTop: "顶部内容边距",
+  contentPaddingRight: "右侧内容边距",
+  contentPaddingBottom: "底部内容边距",
+  contentPaddingLeft: "左侧内容边距",
   headerTextColor: "表头文字",
   bodyTextColor: "表体文字",
   hoverCellBackground: "单元格悬停背景",
@@ -421,6 +432,13 @@ const TOKEN_LABELS: Record<string, string> = {
   pathOpacity: "路径透明度",
   excerptOpacity: "摘要透明度",
   placeholderOpacity: "占位文字透明度",
+  titleFontSize: "文档标题字号",
+  contentFontSize: "文档内容字号",
+  titleBottomGap: "标题后间距",
+  sectionTopGap: "章节前间距",
+  headingBottomGap: "小标题与内容间距",
+  blockGap: "内容块间距",
+  listItemGap: "列表项间距",
   interactionBorderColor: "交互边框",
   interactionBorderWidth: "交互边框宽度",
   dividerColor: "分隔线颜色",
@@ -506,6 +524,17 @@ const EXACT_THEME_NUMBER_SPECS: Record<string, { min: number; max: number; step:
   "canvas.grid.minorRadiusPx": spec(0.2, 3, 0.1),
   "canvas.grid.majorRadiusPx": spec(0.2, 4, 0.1),
   "canvas.grid.superRadiusPx": spec(0.2, 5, 0.1),
+  "specialNode.markdownDocument.previewTypography.titleFontSize": spec(8, 96, 1),
+  "specialNode.markdownDocument.previewTypography.contentFontSize": spec(8, 48, 1),
+  "specialNode.markdownDocument.contentPaddingTop": spec(0, 160, 1),
+  "specialNode.markdownDocument.contentPaddingRight": spec(0, 160, 1),
+  "specialNode.markdownDocument.contentPaddingBottom": spec(0, 160, 1),
+  "specialNode.markdownDocument.contentPaddingLeft": spec(0, 160, 1),
+  "specialNode.markdownDocument.previewSpacing.titleBottomGap": spec(0, 64, 1),
+  "specialNode.markdownDocument.previewSpacing.sectionTopGap": spec(0, 64, 1),
+  "specialNode.markdownDocument.previewSpacing.headingBottomGap": spec(0, 48, 1),
+  "specialNode.markdownDocument.previewSpacing.blockGap": spec(0, 48, 1),
+  "specialNode.markdownDocument.previewSpacing.listItemGap": spec(0, 32, 1),
   "motion.duration.fast": spec(0, 0.4, 0.01, "s"),
   "motion.duration.base": spec(0, 0.8, 0.01, "s"),
   "motion.duration.slow": spec(0, 1.2, 0.01, "s"),

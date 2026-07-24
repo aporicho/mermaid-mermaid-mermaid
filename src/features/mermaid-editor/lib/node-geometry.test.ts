@@ -85,7 +85,10 @@ describe("node geometry", () => {
         ...DEFAULT_EDITOR_THEME.specialNode.markdownDocument,
         width: 410,
         height: 260,
-        contentPadding: 20,
+        contentPaddingTop: 18,
+        contentPaddingRight: 24,
+        contentPaddingBottom: 26,
+        contentPaddingLeft: 20,
         titleGap: 12
       }
     };
@@ -102,7 +105,7 @@ describe("node geometry", () => {
     expect(link.frame).toEqual({ x: 100, y: 80, width: 360, height: 398 });
     expect(link.textBox).toEqual({ x: 18, y: 316, width: 324, height: 60 });
     expect(markdown.frame).toEqual({ x: 100, y: 80, width: 410, height: 260 });
-    expect(markdown.textBox).toEqual({ x: 20, y: 20, width: 370, height: 22 });
+    expect(markdown.textBox).toEqual({ x: 20, y: 18, width: 366, height: 22 });
   });
 
   it("never creates negative text boxes from extreme special-node spacing", () => {
@@ -116,7 +119,8 @@ describe("node geometry", () => {
       markdownDocument: {
         ...DEFAULT_EDITOR_THEME.specialNode.markdownDocument,
         width: 160,
-        contentPadding: 64,
+        contentPaddingRight: 80,
+        contentPaddingLeft: 80,
         titleGap: 64
       }
     };
@@ -131,7 +135,7 @@ describe("node geometry", () => {
     }, activeSpec);
 
     expect(link.textBox.width).toBe(0);
-    expect(markdown.textBox.width).toBe(32);
+    expect(markdown.textBox.width).toBe(0);
   });
 
   it("uses stable Markdown card geometry for drawing, anchors, and edge routing", () => {

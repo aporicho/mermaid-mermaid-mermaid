@@ -21,6 +21,26 @@ describe("theme settings schema", () => {
     expect(APPEARANCE_TOKEN_DEFINITIONS.find((definition) => definition.path.join(".") === "typography.interface.tree.family")).toMatchObject({ groupId: "typography-interface-tree", control: { kind: "font" } });
     expect(APPEARANCE_TOKEN_DEFINITIONS.find((definition) => definition.path.join(".") === "interface.tree.connectorStyle")).toMatchObject({ groupId: "interface-tree-connector", control: { kind: "tree-connector-style" } });
     expect(APPEARANCE_TOKEN_DEFINITIONS.some((definition) => definition.path.join(".") === "typography.linkCard.title.family" && definition.category === "specialNode")).toBe(true);
+    expect(APPEARANCE_TOKEN_DEFINITIONS.find((definition) => definition.path.join(".") === "specialNode.markdownDocument.previewTypography.titleFontSize")).toMatchObject({
+      category: "markdownNode",
+      groupId: "special-node-markdown-preview-typography",
+      control: { kind: "number", min: 8, max: 96, step: 1, unit: "px" }
+    });
+    expect(APPEARANCE_TOKEN_DEFINITIONS.find((definition) => definition.path.join(".") === "specialNode.markdownDocument.previewTypography.contentFontSize")).toMatchObject({
+      label: "文档内容字号",
+      groupId: "special-node-markdown-preview-typography",
+      control: { kind: "number", min: 8, max: 48, step: 1, unit: "px" }
+    });
+    expect(APPEARANCE_TOKEN_DEFINITIONS.find((definition) => definition.path.join(".") === "specialNode.markdownDocument.previewSpacing.sectionTopGap")).toMatchObject({
+      groupId: "special-node-markdown-preview-spacing",
+      control: { kind: "number", min: 0, max: 64, step: 1, unit: "px" }
+    });
+    expect(APPEARANCE_TOKEN_DEFINITIONS.find((definition) => definition.path.join(".") === "specialNode.markdownDocument.contentPaddingLeft")).toMatchObject({
+      label: "左侧内容边距",
+      category: "markdownNode",
+      groupId: "special-node-markdown-document",
+      control: { kind: "number", min: 0, max: 160, step: 1, unit: "px" }
+    });
   });
 
   it("defines every canonical Markdown token exactly once under its element", () => {

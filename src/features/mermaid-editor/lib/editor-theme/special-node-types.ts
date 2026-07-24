@@ -57,9 +57,23 @@ export type SpecialNodeLinkCardTokens = {
 export type SpecialNodeMarkdownDocumentTokens = {
   surface: SpecialNodeSurfaceTokens;
   state: SpecialNodeStateTokens;
+  previewTypography: {
+    titleFontSize: number;
+    contentFontSize: number;
+  };
+  previewSpacing: {
+    titleBottomGap: number;
+    sectionTopGap: number;
+    headingBottomGap: number;
+    blockGap: number;
+    listItemGap: number;
+  };
   width: number;
   height: number;
-  contentPadding: number;
+  contentPaddingTop: number;
+  contentPaddingRight: number;
+  contentPaddingBottom: number;
+  contentPaddingLeft: number;
   badgeSize: number;
   badgeBackground: string;
   badgeErrorBackground: string;

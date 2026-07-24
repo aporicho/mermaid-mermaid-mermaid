@@ -13,7 +13,7 @@ import type { CanvasPoint, HitTarget, InteractionState } from "@/features/mermai
 import type { CanvasProximityScales } from "@/features/mermaid-editor/lib/canvas-motion";
 import type { CanvasVisualTokens } from "@/features/mermaid-editor/lib/canvas-visual-state";
 import type { EdgeLabelGeometryTokens } from "@/features/mermaid-editor/lib/edge-label-geometry";
-import type { EditorTypographyTokens, SpecialNodeThemeTokens } from "@/features/mermaid-editor/lib/editor-theme";
+import type { EditorTypographyTokens, MarkdownThemeTokens, SpecialNodeThemeTokens } from "@/features/mermaid-editor/lib/editor-theme";
 import type { CanvasNode, EditorMode, MermaidGraph, Selection, ViewportState } from "@/features/mermaid-editor/lib/editor-types";
 import type { MarkdownDocumentPreview } from "@/features/mermaid-editor/lib/markdown-document";
 import type { NodeGeometryTokens } from "@/features/mermaid-editor/lib/node-geometry";
@@ -43,6 +43,7 @@ export type KonvaCanvasStageProps = {
   specialNodeTokens: SpecialNodeThemeTokens;
   edgeLabelThemeTokens: EdgeLabelGeometryTokens;
   typography: EditorTypographyTokens;
+  markdownTokens: MarkdownThemeTokens;
   runtimeCreateScale: number;
   imageDisplaySrcBySrc: Record<string, string>;
   markdownDocumentPreviewByNodeId: Record<string, MarkdownDocumentPreview>;

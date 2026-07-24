@@ -1,9 +1,10 @@
 import { useEffect } from "react";
 import { Group, Rect, Text } from "react-konva";
 
+import { MarkdownDocumentContent } from "@/features/mermaid-editor/components/konva-canvas/markdown-document-content";
 import type { CanvasNode } from "@/features/mermaid-editor/lib/editor-types";
 import { markdownDocumentAction, type MarkdownDocumentPreview } from "@/features/mermaid-editor/lib/markdown-document";
-import type { EditorTypographyTokens, SpecialNodeThemeTokens } from "@/features/mermaid-editor/lib/editor-theme";
+import type { EditorTypographyTokens, MarkdownThemeTokens, SpecialNodeThemeTokens } from "@/features/mermaid-editor/lib/editor-theme";
 import { resolveSpecialNodeBorder, specialNodeBorderDash } from "@/features/mermaid-editor/lib/editor-theme/special-node-theme";
 import type { SpecialNodeVisualState } from "@/features/mermaid-editor/lib/editor-theme/special-node-types";
 
@@ -14,6 +15,7 @@ export function MarkdownDocumentCard({
   stroke,
   strokeWidth,
   typography,
+  markdownTokens,
   specialNode,
   visualState,
   preview,
@@ -25,6 +27,7 @@ export function MarkdownDocumentCard({
   stroke?: string;
   strokeWidth?: number;
   typography: EditorTypographyTokens["markdownCard"];
+  markdownTokens: MarkdownThemeTokens;
   specialNode: SpecialNodeThemeTokens;
   visualState?: SpecialNodeVisualState;
   preview?: MarkdownDocumentPreview;
@@ -37,6 +40,7 @@ export function MarkdownDocumentCard({
   }, [action, node, onRequestPreview]);
 
   const excerpt = previewText(preview);
+  const richPreview = preview?.status === "ready" && typeof preview.source === "string";
   const error = preview?.status === "missing" || preview?.status === "error" || preview?.status === "unsupported";
   const tokens = specialNode.markdownDocument;
   const shared = specialNode.shared;
@@ -45,9 +49,9 @@ export function MarkdownDocumentCard({
   const surfaceBorder = resolvedVisualState
     ? resolveSpecialNodeBorder(surface, tokens.state, resolvedVisualState)
     : { ...surface.border, color: stroke ?? surface.border.color, width: strokeWidth ?? surface.border.width };
-  const padding = tokens.contentPadding;
-  const contentWidth = Math.max(0, width - padding * 2);
-  const excerptY = padding + typography.title.lineHeight + tokens.titleGap;
+  const contentWidth = Math.max(0, width - tokens.contentPaddingLeft - tokens.contentPaddingRight);
+  const contentHeight = Math.max(0, height - tokens.contentPaddingTop - tokens.contentPaddingBottom);
+  const excerptY = tokens.contentPaddingTop + typography.title.lineHeight + tokens.titleGap;
 
   return (
     <Group>
@@ -66,36 +70,52 @@ export function MarkdownDocumentCard({
         shadowOffsetX={surface.shadow.offsetX}
         shadowOffsetY={surface.shadow.offsetY}
       />
-      <Text
-        x={padding}
-        y={padding}
-        width={contentWidth}
-        height={typography.title.lineHeight}
-        text={preview?.title || node.label || "Markdown 文档"}
-        fontSize={typography.title.fontSize}
-        fontStyle={String(typography.title.fontWeight)}
-        fontFamily={typography.title.family}
-        lineHeight={typography.title.lineHeight / typography.title.fontSize}
-        letterSpacing={typography.title.letterSpacing}
-        fill={shared.textColor}
-        ellipsis
-      />
-      <Text
-        x={padding}
-        y={excerptY}
-        width={contentWidth}
-        height={Math.max(0, height - excerptY - padding)}
-        text={excerpt}
-        fontSize={typography.excerpt.fontSize}
-        fontStyle={String(typography.excerpt.fontWeight)}
-        lineHeight={typography.excerpt.lineHeight / typography.excerpt.fontSize}
-        fontFamily={typography.excerpt.family}
-        letterSpacing={typography.excerpt.letterSpacing}
-        fill={error ? shared.errorColor : shared.textColor}
-        opacity={preview?.status === "ready" ? tokens.excerptOpacity : tokens.placeholderOpacity}
-        wrap="word"
-        ellipsis
-      />
+      {richPreview ? (
+        <Group x={tokens.contentPaddingLeft} y={tokens.contentPaddingTop}>
+          <MarkdownDocumentContent
+            source={preview.source || ""}
+            fallbackTitle={preview.title || node.label || "Markdown 文档"}
+            width={contentWidth}
+            height={contentHeight}
+            theme={markdownTokens}
+            typography={tokens.previewTypography}
+            spacing={tokens.previewSpacing}
+          />
+        </Group>
+      ) : (
+        <>
+          <Text
+            x={tokens.contentPaddingLeft}
+            y={tokens.contentPaddingTop}
+            width={contentWidth}
+            height={typography.title.lineHeight}
+            text={preview?.title || node.label || "Markdown 文档"}
+            fontSize={typography.title.fontSize}
+            fontStyle={String(typography.title.fontWeight)}
+            fontFamily={typography.title.family}
+            lineHeight={typography.title.lineHeight / typography.title.fontSize}
+            letterSpacing={typography.title.letterSpacing}
+            fill={shared.textColor}
+            ellipsis
+          />
+          <Text
+            x={tokens.contentPaddingLeft}
+            y={excerptY}
+            width={contentWidth}
+            height={Math.max(0, height - excerptY - tokens.contentPaddingBottom)}
+            text={excerpt}
+            fontSize={typography.excerpt.fontSize}
+            fontStyle={String(typography.excerpt.fontWeight)}
+            lineHeight={typography.excerpt.lineHeight / typography.excerpt.fontSize}
+            fontFamily={typography.excerpt.family}
+            letterSpacing={typography.excerpt.letterSpacing}
+            fill={error ? shared.errorColor : shared.textColor}
+            opacity={preview?.status === "ready" ? tokens.excerptOpacity : tokens.placeholderOpacity}
+            wrap="word"
+            ellipsis
+          />
+        </>
+      )}
     </Group>
   );
 }

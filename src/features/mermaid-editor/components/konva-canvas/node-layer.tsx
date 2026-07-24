@@ -34,7 +34,7 @@ import type { MarkdownDocumentPreview } from "@/features/mermaid-editor/lib/mark
 import type { NodeGeometryTokens } from "@/features/mermaid-editor/lib/node-geometry";
 import { buildNodeGeometry } from "@/features/mermaid-editor/lib/node-geometry";
 import type { ViewFilters } from "@/features/mermaid-editor/lib/view-filters";
-import type { EditorTypographyTokens, SpecialNodeThemeTokens } from "@/features/mermaid-editor/lib/editor-theme";
+import type { EditorTypographyTokens, MarkdownThemeTokens, SpecialNodeThemeTokens } from "@/features/mermaid-editor/lib/editor-theme";
 import { resolveCanvasNodeKind } from "@/features/mermaid-editor/lib/canvas-node-kind";
 import type { TableCellSelection, TableHeaderSelection } from "@/features/mermaid-editor/lib/table-node";
 
@@ -65,6 +65,7 @@ type KonvaNodeLayerProps = {
   visualTokens: CanvasVisualTokens;
   nodeThemeTokens: NodeGeometryTokens;
   typography: EditorTypographyTokens;
+  markdownTokens: MarkdownThemeTokens;
   specialNodeTokens: SpecialNodeThemeTokens;
   selectedTableCell: TableCellSelection | null;
   onStartNodeDrag: (nodeId: string) => void;
@@ -107,6 +108,7 @@ export function KonvaNodeLayer({
   visualTokens,
   nodeThemeTokens,
   typography,
+  markdownTokens,
   specialNodeTokens,
   selectedTableCell,
   onStartNodeDrag,
@@ -273,6 +275,7 @@ export function KonvaNodeLayer({
                   width={geometry.frame.width}
                   height={geometry.frame.height}
                   typography={typography.markdownCard}
+                  markdownTokens={markdownTokens}
                   specialNode={specialNodeTokens}
                   visualState={nodeVisual.kind}
                   preview={markdownDocumentPreviewByNodeId[node.id]}
@@ -466,6 +469,7 @@ export function KonvaNodeLayer({
                   width={geometry.frame.width}
                   height={geometry.frame.height}
                   typography={typography.markdownCard}
+                  markdownTokens={markdownTokens}
                   specialNode={specialNodeTokens}
                   visualState={nodeVisual.kind}
                   preview={markdownDocumentPreviewByNodeId[node.id]}

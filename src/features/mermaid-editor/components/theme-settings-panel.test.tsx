@@ -117,6 +117,20 @@ describe("ThemeSettingsPanel", () => {
     expect(interactionGroup?.querySelector('[data-theme-token-path="canvas.grid.minorVisibleScale"]')).not.toBeNull();
   });
 
+  it("collects Markdown document-node appearance and four-sided padding in one category", () => {
+    renderPanel();
+    clickButton("Markdown 节点");
+
+    expect(container?.textContent).toContain("节点外观与边距");
+    expect(container?.textContent).toContain("预览文字");
+    expect(container?.textContent).toContain("预览间距");
+    expect(container?.textContent).toContain("加载与异常状态文字");
+    clickButton("节点外观与边距");
+    for (const key of ["Top", "Right", "Bottom", "Left"]) {
+      expect(container?.querySelector(`[data-theme-token-path="specialNode.markdownDocument.contentPadding${key}"]`)).not.toBeNull();
+    }
+  });
+
   it("searches localized labels and token paths while expanding only matching groups", () => {
     renderPanel();
     clickButton("画布");
@@ -193,6 +207,9 @@ describe("ThemeSettingsPanel", () => {
 
     clickButton("Markdown");
     expect(expandedStates('[data-markdown-category] > section > header > button[aria-expanded]')).not.toContain("true");
+
+    clickButton("Markdown 节点");
+    expect(expandedStates('[data-theme-settings-group] > header > button[aria-expanded]')).not.toContain("true");
 
     clickButton("特殊节点");
     expect(expandedStates('[data-typography-group] > header > button[aria-expanded]')).not.toContain("true");

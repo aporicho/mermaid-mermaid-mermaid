@@ -52,6 +52,20 @@ describe("v11 special-node theme", () => {
     expect(theme.image.surface.shadow).not.toBe(theme.linkCard.surface.shadow);
     expect(theme.table.surface.shadow.opacity).toBe(0);
     expect(theme.table.headerBackground).toBe("#eee8df");
+    expect(theme.markdownDocument.previewTypography).toEqual({ titleFontSize: 24, contentFontSize: 16 });
+    expect(theme.markdownDocument).toMatchObject({
+      contentPaddingTop: 12,
+      contentPaddingRight: 12,
+      contentPaddingBottom: 12,
+      contentPaddingLeft: 12
+    });
+    expect(theme.markdownDocument.previewSpacing).toEqual({
+      titleBottomGap: 18,
+      sectionTopGap: 16,
+      headingBottomGap: 6,
+      blockGap: 10,
+      listItemGap: 0
+    });
   });
 
   it("migrates v10 common and flat subtype fields into independent v11 objects", () => {
@@ -112,5 +126,35 @@ describe("v11 special-node theme", () => {
 
     expect(theme.linkCard.surface.border.customDash).toEqual([]);
     expect(theme.linkCard.surface.shadow.blur).toBe(10);
+  });
+
+  it("normalizes Markdown preview typography and spacing tokens", () => {
+    const fallback = createDefaultSpecialNodeTheme(source);
+    const theme = normalizeSpecialNodeTheme({
+      markdownDocument: {
+        previewTypography: { titleFontSize: 120, contentFontSize: 6 },
+        previewSpacing: { titleBottomGap: 70, sectionTopGap: 21, headingBottomGap: -1, blockGap: 13, listItemGap: 40 }
+      }
+    }, fallback);
+
+    expect(theme.markdownDocument.previewTypography).toEqual({ titleFontSize: 96, contentFontSize: 8 });
+    expect(theme.markdownDocument.previewSpacing).toEqual({
+      titleBottomGap: 64,
+      sectionTopGap: 21,
+      headingBottomGap: 0,
+      blockGap: 13,
+      listItemGap: 32
+    });
+
+    const migrated = normalizeSpecialNodeTheme({
+      markdownDocument: { contentPadding: 19, previewTypography: { titleFontSize: 28, bodyFontSize: 17 } }
+    }, fallback);
+    expect(migrated.markdownDocument.previewTypography).toEqual({ titleFontSize: 28, contentFontSize: 17 });
+    expect(migrated.markdownDocument).toMatchObject({
+      contentPaddingTop: 19,
+      contentPaddingRight: 19,
+      contentPaddingBottom: 19,
+      contentPaddingLeft: 19
+    });
   });
 });

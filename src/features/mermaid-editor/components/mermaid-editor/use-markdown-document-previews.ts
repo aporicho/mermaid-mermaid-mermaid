@@ -3,8 +3,8 @@ import { useCallback, useRef, useState, type Dispatch, type SetStateAction } fro
 import type { EditorRuntime, RuntimeFileRef } from "@/features/mermaid-editor/lib/editor-runtime";
 import type { CanvasNode } from "@/features/mermaid-editor/lib/editor-types";
 import {
-  extractMarkdownDocumentPreview,
   markdownDocumentAction,
+  markdownDocumentPreviewFromText,
   markdownDocumentReferenceKey,
   resolveMarkdownDocumentFile,
   type MarkdownDocumentPreview
@@ -68,7 +68,7 @@ export function useMarkdownDocumentPreviews({
               message: "当前运行环境无法读取此 Markdown 文档。"
             } satisfies MarkdownDocumentPreview;
           }
-          return previewFromText(file.relativePath || action.path, result.text);
+          return markdownDocumentPreviewFromText(file.relativePath || action.path, result.text);
         } catch (error) {
           const message = errorMessage(error);
           return {
@@ -93,7 +93,7 @@ export function useMarkdownDocumentPreviews({
 
   const updatePreviewFromText = useCallback((path: string, text: string) => {
     const pathKey = markdownDocumentReferenceKey(path);
-    const preview = previewFromText(path, text);
+    const preview = markdownDocumentPreviewFromText(path, text);
     cacheRef.current.set(pathKey, { signature: `${pathKey}:saved`, preview });
     setPreviewByNodeId((current) => {
       const next = { ...current };
@@ -130,16 +130,6 @@ export function useMarkdownDocumentPreviews({
   };
 }
 
-function previewFromText(path: string, text: string): MarkdownDocumentPreview {
-  const { title, excerpt } = extractMarkdownDocumentPreview(text);
-  return {
-    status: excerpt ? "ready" : "empty",
-    path,
-    excerpt,
-    title: title || undefined
-  };
-}
-
 function setNodePreview(
   setter: Dispatch<SetStateAction<Record<string, MarkdownDocumentPreview>>>,
   nodeId: string,
@@ -149,7 +139,7 @@ function setNodePreview(
 }
 
 function samePreview(left: MarkdownDocumentPreview | undefined, right: MarkdownDocumentPreview) {
-  return left?.status === right.status && left.path === right.path && left.excerpt === right.excerpt && left.title === right.title && left.message === right.message;
+  return left?.status === right.status && left.path === right.path && left.excerpt === right.excerpt && left.source === right.source && left.title === right.title && left.message === right.message;
 }
 
 function errorMessage(error: unknown) {

@@ -148,7 +148,7 @@ const EXTRA_FIELDS: Record<string, readonly MarkdownTokenDefinition[]> = {
   blockquote: [
     color("background", "背景", "color", theme("interface.colors.card")),
     color("borderColor", "边线颜色", "color", theme("interface.colors.primary")),
-    number("borderWidth", "边线宽度", "border", literal(4), 0, 12, 0.5),
+    number("borderWidth", "边线宽度", "border", literal(0), 0, 12, 0.5),
     borderStyle("borderStyle", "边线样式"),
     number("paddingX", "横向内边距", "layout", literal(20), 0, 64),
     number("paddingY", "纵向内边距", "layout", literal(8), 0, 48),

@@ -18,6 +18,7 @@ export type MarkdownDocumentPreview = {
   status: "loading" | "ready" | "empty" | "missing" | "error" | "unsupported";
   path: string;
   excerpt: string;
+  source?: string;
   title?: string;
   message?: string;
 };
@@ -149,6 +150,18 @@ export function extractMarkdownDocumentPreview(source: string, maxLength = 900) 
     .trim();
   const excerpt = content.length > maxLength ? `${content.slice(0, Math.max(1, maxLength - 1)).trimEnd()}…` : content;
   return { title, excerpt };
+}
+
+export function markdownDocumentPreviewFromText(path: string, source: string): MarkdownDocumentPreview {
+  const normalizedSource = source.replace(/\r\n?/g, "\n");
+  const { title, excerpt } = extractMarkdownDocumentPreview(normalizedSource);
+  return {
+    status: normalizedSource.trim() ? "ready" : "empty",
+    path,
+    excerpt,
+    source: normalizedSource,
+    title: title || undefined
+  };
 }
 
 export function normalizeNewMarkdownFileName(value: string) {

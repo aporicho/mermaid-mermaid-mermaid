@@ -33,6 +33,7 @@ export function KonvaCanvasStage({
   specialNodeTokens,
   edgeLabelThemeTokens,
   typography,
+  markdownTokens,
   runtimeCreateScale,
   imageDisplaySrcBySrc,
   markdownDocumentPreviewByNodeId,
@@ -206,6 +207,7 @@ export function KonvaCanvasStage({
               nodeThemeTokens={nodeThemeTokens}
               specialNodeTokens={specialNodeTokens}
               typography={typography}
+              markdownTokens={markdownTokens}
               selectedTableCell={selectedTableCell}
               onStartNodeDrag={onStartNodeDrag}
               onMoveNode={onMoveNode}

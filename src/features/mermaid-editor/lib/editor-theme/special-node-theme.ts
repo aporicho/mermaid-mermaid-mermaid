@@ -53,9 +53,23 @@ export function createDefaultSpecialNodeTheme(source: SpecialNodeThemeSource): S
     markdownDocument: {
       surface: surface(interfaceColors.card, ordinaryBorder, ordinaryNode.roundedRadius, ordinaryNode.shadow),
       state: cloneState(interaction),
+      previewTypography: {
+        titleFontSize: 24,
+        contentFontSize: 16
+      },
+      previewSpacing: {
+        titleBottomGap: 18,
+        sectionTopGap: 16,
+        headingBottomGap: 6,
+        blockGap: 10,
+        listItemGap: 0
+      },
       width: 280,
       height: 396,
-      contentPadding: 12,
+      contentPaddingTop: 12,
+      contentPaddingRight: 12,
+      contentPaddingBottom: 12,
+      contentPaddingLeft: 12,
       badgeSize: 38,
       badgeBackground: interfaceColors.primary,
       badgeErrorBackground: interfaceColors.destructive,
@@ -193,6 +207,7 @@ function migrateLegacySpecialNodeTheme(raw: unknown, fallback: SpecialNodeThemeT
   const shared = objectValue(source.shared);
   const linkCard = objectValue(source.linkCard);
   const markdownDocument = objectValue(source.markdownDocument);
+  const markdownPreviewTypography = objectValue(markdownDocument.previewTypography);
   const htmlDocument = objectValue(source.htmlDocument);
   const image = objectValue(source.image);
   const table = objectValue(source.table);
@@ -223,6 +238,14 @@ function migrateLegacySpecialNodeTheme(raw: unknown, fallback: SpecialNodeThemeT
     },
     markdownDocument: {
       ...markdownDocument,
+      previewTypography: {
+        ...markdownPreviewTypography,
+        contentFontSize: markdownPreviewTypography.contentFontSize ?? markdownPreviewTypography.bodyFontSize
+      },
+      contentPaddingTop: markdownDocument.contentPaddingTop ?? markdownDocument.contentPadding,
+      contentPaddingRight: markdownDocument.contentPaddingRight ?? markdownDocument.contentPadding,
+      contentPaddingBottom: markdownDocument.contentPaddingBottom ?? markdownDocument.contentPadding,
+      contentPaddingLeft: markdownDocument.contentPaddingLeft ?? markdownDocument.contentPadding,
       surface: mergeObjects(commonSurface, objectValue(markdownDocument.surface)),
       state: mergeObjects(commonState, objectValue(markdownDocument.state))
     },
@@ -365,6 +388,17 @@ const SPECIAL_NODE_NUMBER_RANGES: Record<string, readonly [number, number]> = {
   "markdownDocument.width": [160, 960],
   "markdownDocument.height": [96, 720],
   "markdownDocument.badgeSize": [16, 128],
+  "markdownDocument.contentPaddingTop": [0, 160],
+  "markdownDocument.contentPaddingRight": [0, 160],
+  "markdownDocument.contentPaddingBottom": [0, 160],
+  "markdownDocument.contentPaddingLeft": [0, 160],
+  "markdownDocument.previewTypography.titleFontSize": [8, 96],
+  "markdownDocument.previewTypography.contentFontSize": [8, 48],
+  "markdownDocument.previewSpacing.titleBottomGap": [0, 64],
+  "markdownDocument.previewSpacing.sectionTopGap": [0, 64],
+  "markdownDocument.previewSpacing.headingBottomGap": [0, 48],
+  "markdownDocument.previewSpacing.blockGap": [0, 48],
+  "markdownDocument.previewSpacing.listItemGap": [0, 32],
   "htmlDocument.width": [160, 960],
   "htmlDocument.height": [96, 720],
   "htmlDocument.badgeSize": [16, 128],
