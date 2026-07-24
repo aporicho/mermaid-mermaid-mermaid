@@ -109,6 +109,8 @@ export function KonvaEdgeLayer({
                   stroke="transparent"
                   strokeWidth={visualTokens.edge.hitStrokeWidth}
                   fillEnabled={false}
+                  perfectDrawEnabled={false}
+                  shadowForStrokeEnabled={false}
                   onClick={(event) => onCanvasClick(event, { kind: "edge", id: edge.id })}
                   onDblClick={(event) => onCanvasDoubleClick(event, { kind: "edge", id: edge.id })}
                   onTap={(event) => onCanvasTap(event, { kind: "edge", id: edge.id })}
@@ -137,6 +139,8 @@ export function KonvaEdgeLayer({
                   strokeWidth={visualTokens.edge.hitStrokeWidth}
                   pointerLength={0}
                   pointerWidth={0}
+                  perfectDrawEnabled={false}
+                  shadowForStrokeEnabled={false}
                   onClick={(event) => onCanvasClick(event, { kind: "edge", id: edge.id })}
                   onDblClick={(event) => onCanvasDoubleClick(event, { kind: "edge", id: edge.id })}
                   onTap={(event) => onCanvasTap(event, { kind: "edge", id: edge.id })}
@@ -194,6 +198,7 @@ export function KonvaEdgeLayer({
                   wrap="none"
                   fill={edgeVisual.labelTextFill}
                   ellipsis
+                  listening={false}
                 />
               </Group>
             ) : null}

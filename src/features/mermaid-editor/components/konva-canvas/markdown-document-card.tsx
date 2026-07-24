@@ -70,7 +70,7 @@ export function MarkdownDocumentCard({
         shadowOffsetY={surface.shadow.offsetY}
       />
       {richPreview ? (
-        <Group x={tokens.contentPaddingLeft} y={tokens.contentPaddingTop}>
+        <Group x={tokens.contentPaddingLeft} y={tokens.contentPaddingTop} listening={false}>
           <MarkdownDocumentContent
             source={preview.source || ""}
             fallbackTitle={preview.title || node.label || "Markdown 文档"}
@@ -94,6 +94,7 @@ export function MarkdownDocumentCard({
             letterSpacing={typography.title.letterSpacing}
             fill={shared.textColor}
             ellipsis
+            listening={false}
           />
           <Text
             x={tokens.contentPaddingLeft}
@@ -110,6 +111,7 @@ export function MarkdownDocumentCard({
             opacity={preview?.status === "ready" ? tokens.excerptOpacity : tokens.placeholderOpacity}
             wrap="word"
             ellipsis
+            listening={false}
           />
         </>
       )}

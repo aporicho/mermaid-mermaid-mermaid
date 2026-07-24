@@ -59,6 +59,7 @@ export function HtmlDocumentCard({
         fill={tokens.badgeBackground}
         opacity={tokens.badgeOpacity}
         cornerRadius={tokens.badgeRadius}
+        listening={false}
       />
       <Text
         x={padding}
@@ -74,6 +75,7 @@ export function HtmlDocumentCard({
         lineHeight={typography.badge.lineHeight / typography.badge.fontSize}
         letterSpacing={typography.badge.letterSpacing}
         fill={tokens.badgeColor}
+        listening={false}
       />
       <Text
         x={titleX}
@@ -88,6 +90,7 @@ export function HtmlDocumentCard({
         letterSpacing={typography.title.letterSpacing}
         fill={shared.textColor}
         ellipsis
+        listening={false}
       />
       <Text
         x={titleX}
@@ -103,8 +106,9 @@ export function HtmlDocumentCard({
         fill={shared.mutedTextColor}
         opacity={tokens.pathOpacity}
         ellipsis
+        listening={false}
       />
-      <Rect x={padding} y={separatorY} width={width - padding * 2} height={tokens.separatorWidth} fill={tokens.separatorColor} opacity={tokens.separatorOpacity} />
+      <Rect x={padding} y={separatorY} width={width - padding * 2} height={tokens.separatorWidth} fill={tokens.separatorColor} opacity={tokens.separatorOpacity} listening={false} />
       <Text
         x={padding}
         y={excerptY}
@@ -120,6 +124,7 @@ export function HtmlDocumentCard({
         opacity={tokens.excerptOpacity}
         wrap="word"
         ellipsis
+        listening={false}
       />
     </Group>
   );

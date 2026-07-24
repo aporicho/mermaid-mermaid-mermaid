@@ -1,4 +1,5 @@
 import type { CanvasPoint } from "@/features/mermaid-editor/lib/canvas-interaction";
+import type { CanvasGeometryIndex } from "@/features/mermaid-editor/lib/canvas-geometry-index";
 import type { EdgeDraftTarget, RoutedNodeRect } from "@/features/mermaid-editor/lib/edge-geometry";
 import type { CanvasEdge } from "@/features/mermaid-editor/lib/editor-types";
 import { pointInsideNodeFrame, type NodeAnchorPoint, type NodeGeometry } from "@/features/mermaid-editor/lib/node-geometry";
@@ -27,9 +28,12 @@ export function resolveConnectionPreview(input: {
   currentWorld: CanvasPoint;
   nodes: NodeGeometry[];
   subgraphs?: SubgraphGeometry[];
+  geometryIndex?: CanvasGeometryIndex;
+  nodeById?: Map<string, NodeGeometry>;
+  subgraphById?: Map<string, SubgraphGeometry>;
   anchorSnapRadiusWorld?: number;
 }): ConnectionPreview {
-  const target = entityAtPoint(input.nodes, input.subgraphs || [], input.currentWorld);
+  const target = entityAtPoint(input.nodes, input.subgraphs || [], input.currentWorld, input.geometryIndex, input.nodeById, input.subgraphById);
   if (!target) return pointPreview(input.currentWorld, "blank");
   if (target.id === input.fromId) return invalidEntityPreview(target, input.currentWorld, "source-node");
 
@@ -42,9 +46,12 @@ export function resolveRetargetPreview(input: {
   currentWorld: CanvasPoint;
   nodes: NodeGeometry[];
   subgraphs?: SubgraphGeometry[];
+  geometryIndex?: CanvasGeometryIndex;
+  nodeById?: Map<string, NodeGeometry>;
+  subgraphById?: Map<string, SubgraphGeometry>;
   anchorSnapRadiusWorld?: number;
 }): ConnectionPreview {
-  const target = entityAtPoint(input.nodes, input.subgraphs || [], input.currentWorld);
+  const target = entityAtPoint(input.nodes, input.subgraphs || [], input.currentWorld, input.geometryIndex, input.nodeById, input.subgraphById);
   if (!target) return pointPreview(input.currentWorld, "blank");
   const targetAnchor = nearestAnchorKey(target.anchorsWorld, input.currentWorld, input.anchorSnapRadiusWorld);
   const currentAnchor = input.side === "from" ? input.edge.fromAnchor : input.edge.toAnchor;
@@ -63,11 +70,24 @@ type ConnectionEntity = {
   anchorsWorld: NodeAnchorPoint[];
 };
 
-function entityAtPoint(nodes: NodeGeometry[], subgraphs: SubgraphGeometry[], point: CanvasPoint): ConnectionEntity | null {
-  const node = nodes.find((geometry) => pointInsideNodeFrame(point, geometry));
+function entityAtPoint(
+  nodes: NodeGeometry[],
+  subgraphs: SubgraphGeometry[],
+  point: CanvasPoint,
+  geometryIndex?: CanvasGeometryIndex,
+  nodeById?: Map<string, NodeGeometry>,
+  subgraphById?: Map<string, SubgraphGeometry>
+): ConnectionEntity | null {
+  const nodeCandidates = geometryIndex
+    ? geometryIndex.nodesAtPoint(point).map((geometry) => nodeById?.get(geometry.id) || geometry)
+    : nodes;
+  const node = nodeCandidates.find((geometry) => pointInsideNodeFrame(point, geometry));
   if (node) return { kind: "node", id: node.id, rect: node.routedRect, anchorsWorld: node.anchorsWorld };
 
-  const subgraph = subgraphs
+  const subgraphCandidates = geometryIndex
+    ? geometryIndex.subgraphsAtPoint(point).map((geometry) => subgraphById?.get(geometry.id) || geometry)
+    : subgraphs;
+  const subgraph = subgraphCandidates
     .filter((geometry) => pointInsideRect(point, geometry.frame))
     .sort((a, b) => b.depth - a.depth)[0];
   return subgraph ? { kind: "subgraph", id: subgraph.id, rect: subgraph.routedRect, anchorsWorld: subgraph.anchorsWorld } : null;

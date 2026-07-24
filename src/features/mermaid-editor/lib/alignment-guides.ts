@@ -32,6 +32,16 @@ type AxisSnap = {
   distance: number;
 };
 
+export type AlignmentSnapIndex = {
+  x: AlignmentIndexCandidate[];
+  y: AlignmentIndexCandidate[];
+};
+
+type AlignmentIndexCandidate = AlignmentCandidate & {
+  rect: AlignmentRect;
+  rectIndex: number;
+};
+
 const ALIGNMENT_THRESHOLD_PX = 6;
 
 export function selectionBounds(rects: AlignmentRect[]): AlignmentRect | null {
@@ -52,9 +62,20 @@ export function selectionBounds(rects: AlignmentRect[]): AlignmentRect | null {
 }
 
 export function computeAlignmentSnap(movingRect: AlignmentRect, staticRects: AlignmentRect[], viewportScale: number): AlignmentSnapResult {
+  return computeAlignmentSnapWithIndex(movingRect, createAlignmentSnapIndex(staticRects), viewportScale);
+}
+
+export function createAlignmentSnapIndex(staticRects: AlignmentRect[]): AlignmentSnapIndex {
+  return {
+    x: buildAxisIndex("x", staticRects),
+    y: buildAxisIndex("y", staticRects)
+  };
+}
+
+export function computeAlignmentSnapWithIndex(movingRect: AlignmentRect, index: AlignmentSnapIndex, viewportScale: number): AlignmentSnapResult {
   const thresholdWorld = ALIGNMENT_THRESHOLD_PX / Math.max(viewportScale, 0.01);
-  const xSnap = bestAxisSnap("x", movingRect, staticRects, thresholdWorld);
-  const ySnap = bestAxisSnap("y", movingRect, staticRects, thresholdWorld);
+  const xSnap = bestIndexedAxisSnap("x", movingRect, index.x, thresholdWorld);
+  const ySnap = bestIndexedAxisSnap("y", movingRect, index.y, thresholdWorld);
 
   return {
     dx: xSnap?.delta ?? 0,
@@ -63,30 +84,56 @@ export function computeAlignmentSnap(movingRect: AlignmentRect, staticRects: Ali
   };
 }
 
-function bestAxisSnap(axis: "x" | "y", movingRect: AlignmentRect, staticRects: AlignmentRect[], thresholdWorld: number): AxisSnap | null {
+function bestIndexedAxisSnap(axis: "x" | "y", movingRect: AlignmentRect, index: AlignmentIndexCandidate[], thresholdWorld: number): AxisSnap | null {
   let best: AxisSnap | null = null;
   const movingCandidates = axisCandidates(axis, movingRect);
+  const nearby: { moving: AlignmentCandidate; target: AlignmentIndexCandidate }[] = [];
 
-  for (const staticRect of staticRects) {
-    const staticCandidates = axisCandidates(axis, staticRect);
-    for (const moving of movingCandidates) {
-      for (const target of staticCandidates) {
-        if (moving.slot !== target.slot) continue;
-        const delta = target.value - moving.value;
-        const distance = Math.abs(delta);
-        if (distance > thresholdWorld) continue;
-        if (best && !isBetterSnap(distance, target.kind, best)) continue;
-
-        best = {
-          delta,
-          distance,
-          guide: buildGuide(axis, target.value, movingRect, staticRect, target.kind)
-        };
-      }
+  for (const moving of movingCandidates) {
+    const start = lowerBound(index, moving.value - thresholdWorld);
+    for (let candidateIndex = start; candidateIndex < index.length; candidateIndex += 1) {
+      const target = index[candidateIndex];
+      if (target.value > moving.value + thresholdWorld) break;
+      if (moving.slot === target.slot) nearby.push({ moving, target });
     }
   }
 
+  nearby.sort((left, right) => left.target.rectIndex - right.target.rectIndex || slotOrder(left.moving.slot) - slotOrder(right.moving.slot));
+
+  for (const { moving, target } of nearby) {
+    const delta = target.value - moving.value;
+    const distance = Math.abs(delta);
+    if (best && !isBetterSnap(distance, target.kind, best)) continue;
+
+    best = {
+      delta,
+      distance,
+      guide: buildGuide(axis, target.value, movingRect, target.rect, target.kind)
+    };
+  }
+
   return best;
+}
+
+function buildAxisIndex(axis: "x" | "y", rects: AlignmentRect[]) {
+  return rects
+    .flatMap((rect, rectIndex) => axisCandidates(axis, rect).map((candidate) => ({ ...candidate, rect, rectIndex })))
+    .sort((left, right) => left.value - right.value || left.rectIndex - right.rectIndex || slotOrder(left.slot) - slotOrder(right.slot));
+}
+
+function lowerBound(index: AlignmentIndexCandidate[], value: number) {
+  let low = 0;
+  let high = index.length;
+  while (low < high) {
+    const middle = Math.floor((low + high) / 2);
+    if (index[middle].value < value) low = middle + 1;
+    else high = middle;
+  }
+  return low;
+}
+
+function slotOrder(slot: AlignmentCandidate["slot"]) {
+  return slot === "start" ? 0 : slot === "center" ? 1 : 2;
 }
 
 function isBetterSnap(distance: number, kind: "edge" | "center", best: AxisSnap) {

@@ -1,5 +1,7 @@
+import { useEffect, useRef } from "react";
 import { Layer, Stage } from "react-konva";
 import { Konva } from "konva/lib/Global";
+import type KonvaTypes from "konva";
 
 import { AlignmentGuideOverlay, CanvasGrid } from "@/features/mermaid-editor/components/konva-canvas/canvas-overlays";
 import { KonvaEdgeLayer, KonvaEdgeOverlayLayer } from "@/features/mermaid-editor/components/konva-canvas/edge-layer";
@@ -14,6 +16,7 @@ import { cn } from "@/lib/utils";
 import { resolveNodeEditorTypography } from "./resolve-node-editor-typography";
 import type { KonvaCanvasStageProps } from "@/features/mermaid-editor/components/konva-canvas/konva-canvas-stage-types";
 import { canvasPixelRatio } from "@/features/mermaid-editor/lib/canvas-render-quality";
+import { recordPerformanceMetric } from "@/features/mermaid-editor/lib/editor-performance";
 export type { KonvaCanvasStageProps } from "@/features/mermaid-editor/components/konva-canvas/konva-canvas-stage-types";
 
 Konva.pixelRatio = canvasPixelRatio(globalThis.devicePixelRatio);
@@ -109,10 +112,35 @@ export function KonvaCanvasStage({
   onInlineEditCommit,
   onTablePaste
 }: KonvaCanvasStageProps) {
+  const contentLayerRef = useRef<KonvaTypes.Layer | null>(null);
+  const contentDrawStartedAtRef = useRef(0);
   const nodeEditorTypography = resolveNodeEditorTypography(graph, inlineEdit, typography);
   const hoveredActionNode = hoveredNodeId ? graph.nodes.find((node) => node.id === hoveredNodeId) : undefined;
   const hoveredAction = normalizeNodeAction(hoveredActionNode?.action);
   const hoveredActionGeometry = hoveredActionNode ? nodeGeometryById.get(hoveredActionNode.id) : undefined;
+
+  useEffect(() => {
+    const layer = contentLayerRef.current;
+    if (!layer) return;
+    const handleBeforeDraw = () => {
+      contentDrawStartedAtRef.current = performance.now();
+    };
+    const handleAfterDraw = () => {
+      if (!contentDrawStartedAtRef.current) return;
+      recordPerformanceMetric("canvas-content-draw", performance.now() - contentDrawStartedAtRef.current, {
+        nodes: scopedRenderedNodes.length,
+        edges: scopedVisibleEdges.length,
+        subgraphs: scopedSubgraphGeometries.length
+      });
+      contentDrawStartedAtRef.current = 0;
+    };
+    layer.on("beforeDraw", handleBeforeDraw);
+    layer.on("afterDraw", handleAfterDraw);
+    return () => {
+      layer.off("beforeDraw", handleBeforeDraw);
+      layer.off("afterDraw", handleAfterDraw);
+    };
+  }, [scopedRenderedNodes.length, scopedSubgraphGeometries.length, scopedVisibleEdges.length]);
 
   return (
     <section className="relative h-full min-h-0 bg-card">
@@ -139,7 +167,7 @@ export function KonvaCanvasStage({
         >
           {viewFilters.grid ? <CanvasGrid dimensions={dimensions} viewport={viewport} visualTokens={visualTokens} gridSpec={gridSpec} /> : null}
 
-          <Layer imageSmoothingEnabled>
+          <Layer ref={contentLayerRef} imageSmoothingEnabled>
             {viewFilters.subgraphs ? (
               <KonvaSubgraphLayer
                 graph={graph}

@@ -1,11 +1,13 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 
 import { edgeLabelGeometrySpec, nodeGeometrySpec } from "@/features/mermaid-editor/components/konva-canvas/render-utils";
 import type { CanvasNodeMotionVisual } from "@/features/mermaid-editor/components/konva-canvas/types";
 import type { InlineEdit } from "@/features/mermaid-editor/components/konva-canvas/inline-edit-overlays";
-import { computeEdgeDraftPath, computeEdgePath, computeEdgePathMap, computeEdgeRetargetPath, resolveFinalEdgeGeometryMap, resolveParallelEdgeLanes, type EdgePathGeometry } from "@/features/mermaid-editor/lib/edge-geometry";
+import { computeEdgeDraftPath, computeEdgePathFromRectMap, computeEdgeRetargetPath, resolveFinalEdgeGeometryMap, resolveParallelEdgeLanes, type EdgePathGeometry, type RoutedNodeRect } from "@/features/mermaid-editor/lib/edge-geometry";
+import { pruneEdgeGeometryCache, resolveCachedEdgeGeometries, type EdgeGeometryCache } from "@/features/mermaid-editor/lib/edge-route-cache";
 import type { EdgeLabelGeometryTokens } from "@/features/mermaid-editor/lib/edge-label-geometry";
 import { resolveCanvasRenderScope } from "@/features/mermaid-editor/lib/canvas-render-scope";
+import { createCanvasGeometryIndex } from "@/features/mermaid-editor/lib/canvas-geometry-index";
 import { mergeCanvasNodePreviewPositions, resolveCanvasProximityEdgeIds, scaleRectFromCenter, type CanvasNodePreviewPositions, type CanvasProximityScales } from "@/features/mermaid-editor/lib/canvas-motion";
 import { resolveConnectionPreview, resolveRetargetPreview } from "@/features/mermaid-editor/lib/connection-preview";
 import type { InteractionState } from "@/features/mermaid-editor/lib/canvas-interaction";
@@ -18,6 +20,7 @@ import { buildSubgraphGeometries } from "@/features/mermaid-editor/lib/subgraph-
 import { getConnectionDraftVisualState, type CanvasVisualTokens } from "@/features/mermaid-editor/lib/canvas-visual-state";
 import { isEdgeVisible, type ViewFilters } from "@/features/mermaid-editor/lib/view-filters";
 import type { SpecialNodeThemeTokens, TypographyRoleTokens } from "@/features/mermaid-editor/lib/editor-theme";
+import { measurePerformance } from "@/features/mermaid-editor/lib/editor-performance";
 import { updateTableCell, updateTableHeader } from "@/features/mermaid-editor/lib/table-node";
 
 const CONNECTION_ANCHOR_SNAP_RADIUS_PX = 14;
@@ -75,32 +78,60 @@ export function useKonvaRenderModel({
 }: UseKonvaRenderModelArgs) {
   const selectedNodeIds = useMemo(() => new Set(selection.nodeIds), [selection.nodeIds]);
   const selectedSubgraphIds = useMemo(() => new Set(selection.subgraphIds || []), [selection.subgraphIds]);
+  const edgeGeometryCacheRef = useRef<EdgeGeometryCache>(new Map());
+  useEffect(() => {
+    pruneEdgeGeometryCache(edgeGeometryCacheRef.current, graph.edges);
+  }, [graph.edges]);
   const geometrySpec = useMemo(
     () => { void fontRevision; return nodeGeometrySpec(nodeThemeTokens, specialNodeTokens, tableTypography); },
     [fontRevision, nodeThemeTokens, specialNodeTokens, tableTypography]
   );
   const edgeLabelSpec = useMemo(() => { void fontRevision; return edgeLabelGeometrySpec(edgeLabelThemeTokens); }, [edgeLabelThemeTokens, fontRevision]);
-  const renderedNodes = useMemo(
-    () =>
-      mergeCanvasNodePreviewPositions(graph.nodes, dragPreviewPositions).map((node) => {
-        const animated = dragPreviewPositions?.[node.id] ? undefined : nodeMotion[node.id];
-        let labeled = inlineEdit?.type === "node" && node.id === inlineEdit.id ? { ...node, label: inlineEdit.value } : node;
-        if (node.id === inlineEdit?.id && node.content?.kind === "table" && inlineEdit.type === "tableCell") {
-          labeled = { ...node, content: updateTableCell(node.content, inlineEdit.rowId, inlineEdit.columnId, inlineEdit.value) };
-        }
-        if (node.id === inlineEdit?.id && node.content?.kind === "table" && inlineEdit.type === "tableHeader") {
-          labeled = { ...node, content: updateTableHeader(node.content, inlineEdit.columnId, inlineEdit.value) };
-        }
-        return animated ? { ...labeled, x: animated.x, y: animated.y } : labeled;
-      }),
-    [dragPreviewPositions, graph.nodes, inlineEdit, nodeMotion]
+  const renderedNodes = useMemo(() => {
+    const positionedNodes = mergeCanvasNodePreviewPositions(graph.nodes, dragPreviewPositions);
+    let changed = positionedNodes !== graph.nodes;
+    const nextNodes = positionedNodes.map((node) => {
+      const animated = dragPreviewPositions?.[node.id] ? undefined : nodeMotion[node.id];
+      let labeled = inlineEdit?.type === "node" && node.id === inlineEdit.id ? { ...node, label: inlineEdit.value } : node;
+      if (node.id === inlineEdit?.id && node.content?.kind === "table" && inlineEdit.type === "tableCell") {
+        labeled = { ...node, content: updateTableCell(node.content, inlineEdit.rowId, inlineEdit.columnId, inlineEdit.value) };
+      }
+      if (node.id === inlineEdit?.id && node.content?.kind === "table" && inlineEdit.type === "tableHeader") {
+        labeled = { ...node, content: updateTableHeader(node.content, inlineEdit.columnId, inlineEdit.value) };
+      }
+      const rendered = animated ? { ...labeled, x: animated.x, y: animated.y } : labeled;
+      if (rendered !== node) changed = true;
+      return rendered;
+    });
+    return changed ? nextNodes : graph.nodes;
+  }, [dragPreviewPositions, graph.nodes, inlineEdit, nodeMotion]);
+  const baseNodeGeometries = useMemo(
+    () => measurePerformance("canvas-node-geometry", () => graph.nodes.map((node) => buildNodeGeometry(node, geometrySpec)), { nodes: graph.nodes.length }),
+    [geometrySpec, graph.nodes]
   );
-  const renderedNodeGeometries = useMemo(() => renderedNodes.map((node) => buildNodeGeometry(node, geometrySpec)), [geometrySpec, renderedNodes]);
-  const renderedGraph = useMemo(() => ({ ...graph, nodes: renderedNodes }), [graph, renderedNodes]);
+  const baseNodeGeometryById = useMemo(() => new Map(baseNodeGeometries.map((geometry) => [geometry.id, geometry])), [baseNodeGeometries]);
+  const graphNodeById = useMemo(() => new Map(graph.nodes.map((node) => [node.id, node])), [graph.nodes]);
+  const renderedNodeGeometries = useMemo(
+    () => renderedNodes.map((node) => {
+      const graphNode = graphNodeById.get(node.id);
+      return graphNode === node ? baseNodeGeometryById.get(node.id)! : buildNodeGeometry(node, geometrySpec);
+    }),
+    [baseNodeGeometryById, geometrySpec, graphNodeById, renderedNodes]
+  );
+  const baseSubgraphGeometries = useMemo(
+    () => buildSubgraphGeometries(graph, baseNodeGeometries, subgraphThemeTokens),
+    [baseNodeGeometries, graph, subgraphThemeTokens]
+  );
+  const baseRoutedEntityRects = useMemo(
+    () => [...baseNodeGeometries.map((geometry) => geometry.routedRect), ...baseSubgraphGeometries.map((geometry) => geometry.routedRect)],
+    [baseNodeGeometries, baseSubgraphGeometries]
+  );
+  const renderedGraph = useMemo(() => (renderedNodes === graph.nodes ? graph : { ...graph, nodes: renderedNodes }), [graph, renderedNodes]);
   const renderedSubgraphGeometries = useMemo(
-    () => buildSubgraphGeometries(renderedGraph, renderedNodeGeometries, subgraphThemeTokens),
-    [renderedGraph, renderedNodeGeometries, subgraphThemeTokens]
+    () => renderedGraph === graph ? baseSubgraphGeometries : buildSubgraphGeometries(renderedGraph, renderedNodeGeometries, subgraphThemeTokens),
+    [baseSubgraphGeometries, graph, renderedGraph, renderedNodeGeometries, subgraphThemeTokens]
   );
+  const geometryIndex = useMemo(() => createCanvasGeometryIndex(baseNodeGeometries, baseSubgraphGeometries), [baseNodeGeometries, baseSubgraphGeometries]);
   const nodeGeometryById = useMemo(() => new Map(renderedNodeGeometries.map((geometry) => [geometry.id, geometry])), [renderedNodeGeometries]);
   const selectedNodeRects = useMemo(
     () =>
@@ -108,7 +139,7 @@ export function useKonvaRenderModel({
         if (!selectedNodeIds.has(node.id)) return [];
         const geometry = nodeGeometryById.get(node.id);
         if (!geometry) return [];
-        return [{ ...geometry.alignmentRect, x: node.x, y: node.y }];
+        return [geometry.alignmentRect];
       }),
     [graph.nodes, nodeGeometryById, selectedNodeIds]
   );
@@ -118,55 +149,14 @@ export function useKonvaRenderModel({
     () => [...routedNodeRects, ...renderedSubgraphGeometries.map((geometry) => geometry.routedRect)],
     [renderedSubgraphGeometries, routedNodeRects]
   );
+  const routedEntityRectById = useMemo(() => new Map(routedEntityRects.map((rect) => [rect.id, rect])), [routedEntityRects]);
   const visibleEdges = useMemo(() => graph.edges.filter((edge) => isEdgeVisible(edge, graph, viewFilters)), [graph, viewFilters]);
+  const parallelEdgesByPair = useMemo(() => groupEdgesByPair(visibleEdges), [visibleEdges]);
   const mermaidRouteByEdgeId = useMemo(() => new Map(mermaidEdgeRoutes.map((route) => [route.edgeId, route])), [mermaidEdgeRoutes]);
   const draftEdgeRouting = edgeRouting;
   const parallelEdgeLaneSpacing = visualTokens.edge.parallelSpacing;
   const edgeCurveSegments = visualTokens.edge.curveSegments;
   const connectionAnchorSnapRadiusWorld = CONNECTION_ANCHOR_SNAP_RADIUS_PX / Math.max(viewport.scale, 0.01);
-  const proximityEdgeIds = useMemo(() => resolveCanvasProximityEdgeIds(visibleEdges, nodeProximityScale), [nodeProximityScale, visibleEdges]);
-  const parallelEdgeLaneById = useMemo(
-    () => resolveParallelEdgeLanes(visibleEdges, routedEntityRects, { laneSpacing: parallelEdgeLaneSpacing }),
-    [parallelEdgeLaneSpacing, routedEntityRects, visibleEdges]
-  );
-  const fallbackEdgeGeometryById = useMemo(
-    () => computeEdgePathMap(visibleEdges, routedEntityRects, draftEdgeRouting, { laneSpacing: parallelEdgeLaneSpacing, curveSegments: edgeCurveSegments }),
-    [draftEdgeRouting, edgeCurveSegments, parallelEdgeLaneSpacing, routedEntityRects, visibleEdges]
-  );
-  const proximityEdgeGeometryById = useMemo(() => {
-    if (proximityEdgeIds.size === 0) return new Map<string, EdgePathGeometry>();
-
-    const scaledNodeRectById = new Map(renderedNodeGeometries.map((geometry) => [geometry.id, scaleRectFromCenter(geometry.routedRect, nodeProximityScale[geometry.id] ?? 1)]));
-    const proximityEntityRects = routedEntityRects.map((rect) => scaledNodeRectById.get(rect.id) ?? rect);
-    const geometryById = new Map<string, EdgePathGeometry>();
-
-    for (const edge of visibleEdges) {
-      if (!proximityEdgeIds.has(edge.id)) continue;
-      const geometry = computeEdgePath(edge, proximityEntityRects, draftEdgeRouting, { lane: parallelEdgeLaneById.get(edge.id), curveSegments: edgeCurveSegments });
-      if (geometry) geometryById.set(edge.id, geometry);
-    }
-
-    return geometryById;
-  }, [draftEdgeRouting, edgeCurveSegments, nodeProximityScale, parallelEdgeLaneById, proximityEdgeIds, renderedNodeGeometries, routedEntityRects, visibleEdges]);
-  const edgeGeometryById = useMemo(
-    () =>
-      resolveFinalEdgeGeometryMap({
-        edges: visibleEdges,
-        fallbackGeometryById: fallbackEdgeGeometryById,
-        proximityGeometryById: proximityEdgeGeometryById,
-        mermaidRouteByEdgeId,
-        layoutMode
-      }),
-    [fallbackEdgeGeometryById, layoutMode, mermaidRouteByEdgeId, proximityEdgeGeometryById, visibleEdges]
-  );
-
-  function resolvedEdgeGeometry(edge: CanvasEdge) {
-    return edgeGeometryById.get(edge.id) || null;
-  }
-
-  const selectedSingleEdge =
-    selection.edgeIds.length === 1 ? visibleEdges.find((edge) => edge.id === selection.edgeIds[0]) : undefined;
-  const selectedSingleEdgeBaseGeometry = selectedSingleEdge ? resolvedEdgeGeometry(selectedSingleEdge) : null;
   const selectionBox =
     interactionState.kind === "marqueeSelecting"
       ? {
@@ -186,40 +176,14 @@ export function useKonvaRenderModel({
             currentWorld: connectionDraft.currentWorld,
             nodes: renderedNodeGeometries,
             subgraphs: renderedSubgraphGeometries,
+            geometryIndex,
+            nodeById: nodeGeometryById,
+            subgraphById: subgraphGeometryById,
             anchorSnapRadiusWorld: connectionAnchorSnapRadiusWorld
           })
         : null,
-    [connectionAnchorSnapRadiusWorld, connectionDraft, renderedNodeGeometries, renderedSubgraphGeometries]
+    [connectionAnchorSnapRadiusWorld, connectionDraft, geometryIndex, nodeGeometryById, renderedNodeGeometries, renderedSubgraphGeometries, subgraphGeometryById]
   );
-  const connectionDraftGeometry = useMemo(() => {
-    if (!connectionDraft || !connectionPreview) return null;
-
-    const sourceRect = routedEntityRects.find((rect) => rect.id === connectionDraft.fromId);
-    if (!sourceRect) return null;
-
-    if (connectionPreview.valid && connectionPreview.targetId) {
-      const draftEdge: CanvasEdge = {
-        id: "__connection_draft__",
-        from: connectionDraft.fromId,
-        to: connectionPreview.targetId,
-        label: "",
-        style: "solid",
-        markerStart: "none",
-        markerEnd: "arrow",
-        minLength: 1,
-        arrowType: "arrow",
-        ...(connectionDraft.fromAnchor ? { fromAnchor: connectionDraft.fromAnchor } : {}),
-        ...(connectionPreview.targetAnchor ? { toAnchor: connectionPreview.targetAnchor } : {})
-      };
-      const draftGeometryById = computeEdgePathMap([...visibleEdges, draftEdge], routedEntityRects, draftEdgeRouting, {
-        laneSpacing: parallelEdgeLaneSpacing,
-        curveSegments: edgeCurveSegments
-      });
-      return draftGeometryById.get(draftEdge.id) || computeEdgeDraftPath(sourceRect, connectionPreview.geometryTarget, draftEdgeRouting, { curveSegments: edgeCurveSegments });
-    }
-
-    return computeEdgeDraftPath(sourceRect, connectionPreview.geometryTarget, draftEdgeRouting, { curveSegments: edgeCurveSegments });
-  }, [connectionDraft, connectionPreview, draftEdgeRouting, edgeCurveSegments, parallelEdgeLaneSpacing, routedEntityRects, visibleEdges]);
   const connectionDraftVisual = useMemo(
     () => getConnectionDraftVisualState({ valid: connectionPreview?.valid ?? false, visualTokens }),
     [connectionPreview?.valid, visualTokens]
@@ -236,57 +200,38 @@ export function useKonvaRenderModel({
       currentWorld: retargetDraft.currentWorld,
       nodes: renderedNodeGeometries,
       subgraphs: renderedSubgraphGeometries,
+      geometryIndex,
+      nodeById: nodeGeometryById,
+      subgraphById: subgraphGeometryById,
       anchorSnapRadiusWorld: connectionAnchorSnapRadiusWorld
     });
-  }, [connectionAnchorSnapRadiusWorld, graph.edges, renderedNodeGeometries, renderedSubgraphGeometries, retargetDraft]);
-  const retargetDraftGeometry = useMemo(() => {
-    if (!retargetDraft || !retargetPreview) return null;
-
-    const edge = graph.edges.find((item) => item.id === retargetDraft.edgeId);
-    if (!edge) return null;
-
-    if (retargetPreview.valid && retargetPreview.targetId) {
-      const anchorKey = retargetDraft.side === "from" ? "fromAnchor" : "toAnchor";
-      const retargetedEdge = { ...edge, [retargetDraft.side]: retargetPreview.targetId, [anchorKey]: retargetPreview.targetAnchor || undefined };
-      const previewEdges = visibleEdges.some((item) => item.id === edge.id)
-        ? visibleEdges.map((item) => (item.id === edge.id ? retargetedEdge : item))
-        : [...visibleEdges, retargetedEdge];
-      const previewGeometryById = computeEdgePathMap(previewEdges, routedEntityRects, draftEdgeRouting, {
-        laneSpacing: parallelEdgeLaneSpacing,
-        curveSegments: edgeCurveSegments
-      });
-      return previewGeometryById.get(edge.id) || computeEdgeRetargetPath(edge, routedEntityRects, retargetDraft.side, retargetPreview.geometryTarget, draftEdgeRouting, { curveSegments: edgeCurveSegments });
-    }
-
-    return computeEdgeRetargetPath(edge, routedEntityRects, retargetDraft.side, retargetPreview.geometryTarget, draftEdgeRouting, { curveSegments: edgeCurveSegments });
-  }, [draftEdgeRouting, edgeCurveSegments, graph.edges, parallelEdgeLaneSpacing, retargetDraft, retargetPreview, routedEntityRects, visibleEdges]);
-  const selectedSingleEdgeGeometry =
-    retargetDraft?.edgeId === selectedSingleEdge?.id && retargetDraftGeometry ? retargetDraftGeometry : selectedSingleEdgeBaseGeometry;
+  }, [connectionAnchorSnapRadiusWorld, geometryIndex, graph.edges, nodeGeometryById, renderedNodeGeometries, renderedSubgraphGeometries, retargetDraft, subgraphGeometryById]);
   const connectionTargetNodeId = connectionPreview?.targetNodeId ?? retargetPreview?.targetNodeId ?? null;
   const connectionInvalidNodeId = connectionPreview?.invalidNodeId ?? retargetPreview?.invalidNodeId ?? null;
   const connectionTargetSubgraphId = connectionPreview?.targetSubgraphId ?? retargetPreview?.targetSubgraphId ?? null;
   const connectionInvalidSubgraphId = connectionPreview?.invalidSubgraphId ?? retargetPreview?.invalidSubgraphId ?? null;
   const renderScope = useMemo(
     () =>
-      resolveCanvasRenderScope({
-        graph,
-        viewport,
-        canvasSize: dimensions,
-        viewFilters,
-        nodeBounds: renderedNodeGeometries,
-        subgraphBounds: renderedSubgraphGeometries,
-        edges: visibleEdges,
-        selection,
-        hoveredNodeId,
-        hoveredSubgraphId,
-        hoveredEdgeId,
-        inlineEdit,
-        interactionState,
-        connectionTargetNodeId,
-        connectionInvalidNodeId,
-        connectionTargetSubgraphId,
-        connectionInvalidSubgraphId
-      }),
+      measurePerformance("canvas-render-scope", () => resolveCanvasRenderScope({
+          graph,
+          viewport,
+          canvasSize: dimensions,
+          viewFilters,
+          nodeBounds: renderedNodeGeometries,
+          subgraphBounds: renderedSubgraphGeometries,
+          geometryIndex,
+          edges: visibleEdges,
+          selection,
+          hoveredNodeId,
+          hoveredSubgraphId,
+          hoveredEdgeId,
+          inlineEdit,
+          interactionState,
+          connectionTargetNodeId,
+          connectionInvalidNodeId,
+          connectionTargetSubgraphId,
+          connectionInvalidSubgraphId
+        }), { nodes: graph.nodes.length, edges: visibleEdges.length }),
     [
       connectionInvalidNodeId,
       connectionInvalidSubgraphId,
@@ -294,6 +239,7 @@ export function useKonvaRenderModel({
       connectionTargetSubgraphId,
       dimensions,
       graph,
+      geometryIndex,
       hoveredEdgeId,
       hoveredNodeId,
       hoveredSubgraphId,
@@ -308,11 +254,107 @@ export function useKonvaRenderModel({
     ]
   );
   const scopedRenderedNodes = useMemo(() => renderedNodes.filter((node) => renderScope.nodeIds.has(node.id)), [renderScope, renderedNodes]);
+  const scopedRenderedNodeGeometries = useMemo(
+    () => scopedRenderedNodes.flatMap((node) => {
+      const geometry = nodeGeometryById.get(node.id);
+      return geometry ? [geometry] : [];
+    }),
+    [nodeGeometryById, scopedRenderedNodes]
+  );
   const scopedSubgraphGeometries = useMemo(
     () => renderedSubgraphGeometries.filter((geometry) => renderScope.subgraphIds.has(geometry.id)),
     [renderScope, renderedSubgraphGeometries]
   );
   const scopedVisibleEdges = useMemo(() => visibleEdges.filter((edge) => renderScope.edgeIds.has(edge.id)), [renderScope, visibleEdges]);
+  const parallelEdgeLaneById = useMemo(
+    () => resolveParallelEdgeLanes(visibleEdges, baseRoutedEntityRects, { laneSpacing: parallelEdgeLaneSpacing }),
+    [baseRoutedEntityRects, parallelEdgeLaneSpacing, visibleEdges]
+  );
+  const fallbackEdgeGeometryById = useMemo(
+    () => measurePerformance("canvas-edge-routing", () => resolveCachedEdgeGeometries({
+      cache: edgeGeometryCacheRef.current,
+      edges: scopedVisibleEdges,
+      rectById: routedEntityRectById,
+      routing: draftEdgeRouting,
+      lanes: parallelEdgeLaneById,
+      curveSegments: edgeCurveSegments
+    }), { edges: scopedVisibleEdges.length }),
+    [draftEdgeRouting, edgeCurveSegments, parallelEdgeLaneById, routedEntityRectById, scopedVisibleEdges]
+  );
+  const proximityEdgeIds = useMemo(() => resolveCanvasProximityEdgeIds(scopedVisibleEdges, nodeProximityScale), [nodeProximityScale, scopedVisibleEdges]);
+  const proximityEdgeGeometryById = useMemo(() => {
+    if (proximityEdgeIds.size === 0) return new Map<string, EdgePathGeometry>();
+
+    const proximityRectById = new Map(routedEntityRectById);
+    for (const geometry of scopedRenderedNodeGeometries) {
+      const scale = nodeProximityScale[geometry.id] ?? 1;
+      if (scale > 1) proximityRectById.set(geometry.id, scaleRectFromCenter(geometry.routedRect, scale));
+    }
+    const geometryById = new Map<string, EdgePathGeometry>();
+    for (const edge of scopedVisibleEdges) {
+      if (!proximityEdgeIds.has(edge.id)) continue;
+      const geometry = computeEdgePathFromRectMap(edge, proximityRectById, draftEdgeRouting, { lane: parallelEdgeLaneById.get(edge.id), curveSegments: edgeCurveSegments });
+      if (geometry) geometryById.set(edge.id, geometry);
+    }
+    return geometryById;
+  }, [draftEdgeRouting, edgeCurveSegments, nodeProximityScale, parallelEdgeLaneById, proximityEdgeIds, routedEntityRectById, scopedRenderedNodeGeometries, scopedVisibleEdges]);
+  const edgeGeometryById = useMemo(
+    () => resolveFinalEdgeGeometryMap({
+      edges: scopedVisibleEdges,
+      fallbackGeometryById: fallbackEdgeGeometryById,
+      proximityGeometryById: proximityEdgeGeometryById,
+      mermaidRouteByEdgeId,
+      layoutMode
+    }),
+    [fallbackEdgeGeometryById, layoutMode, mermaidRouteByEdgeId, proximityEdgeGeometryById, scopedVisibleEdges]
+  );
+
+  function resolvedEdgeGeometry(edge: CanvasEdge) {
+    return edgeGeometryById.get(edge.id) || null;
+  }
+
+  const selectedSingleEdge = selection.edgeIds.length === 1 ? visibleEdges.find((edge) => edge.id === selection.edgeIds[0]) : undefined;
+  const selectedSingleEdgeBaseGeometry = selectedSingleEdge ? resolvedEdgeGeometry(selectedSingleEdge) : null;
+  const connectionDraftGeometry = useMemo(() => {
+    if (!connectionDraft || !connectionPreview) return null;
+    const sourceRect = routedEntityRectById.get(connectionDraft.fromId);
+    if (!sourceRect) return null;
+
+    if (connectionPreview.valid && connectionPreview.targetId) {
+      const draftEdge: CanvasEdge = {
+        id: "__connection_draft__",
+        from: connectionDraft.fromId,
+        to: connectionPreview.targetId,
+        label: "",
+        style: "solid",
+        markerStart: "none",
+        markerEnd: "arrow",
+        minLength: 1,
+        arrowType: "arrow",
+        ...(connectionDraft.fromAnchor ? { fromAnchor: connectionDraft.fromAnchor } : {}),
+        ...(connectionPreview.targetAnchor ? { toAnchor: connectionPreview.targetAnchor } : {})
+      };
+      return computePreviewEdgeGeometry(draftEdge, undefined, parallelEdgesByPair, routedEntityRectById, draftEdgeRouting, parallelEdgeLaneSpacing, edgeCurveSegments)
+        || computeEdgeDraftPath(sourceRect, connectionPreview.geometryTarget, draftEdgeRouting, { curveSegments: edgeCurveSegments });
+    }
+
+    return computeEdgeDraftPath(sourceRect, connectionPreview.geometryTarget, draftEdgeRouting, { curveSegments: edgeCurveSegments });
+  }, [connectionDraft, connectionPreview, draftEdgeRouting, edgeCurveSegments, parallelEdgeLaneSpacing, parallelEdgesByPair, routedEntityRectById]);
+  const retargetDraftGeometry = useMemo(() => {
+    if (!retargetDraft || !retargetPreview) return null;
+    const edge = graph.edges.find((item) => item.id === retargetDraft.edgeId);
+    if (!edge) return null;
+
+    if (retargetPreview.valid && retargetPreview.targetId) {
+      const anchorKey = retargetDraft.side === "from" ? "fromAnchor" : "toAnchor";
+      const retargetedEdge = { ...edge, [retargetDraft.side]: retargetPreview.targetId, [anchorKey]: retargetPreview.targetAnchor || undefined };
+      return computePreviewEdgeGeometry(retargetedEdge, edge.id, parallelEdgesByPair, routedEntityRectById, draftEdgeRouting, parallelEdgeLaneSpacing, edgeCurveSegments)
+        || computeEdgeRetargetPath(edge, routedEntityRects, retargetDraft.side, retargetPreview.geometryTarget, draftEdgeRouting, { curveSegments: edgeCurveSegments });
+    }
+
+    return computeEdgeRetargetPath(edge, routedEntityRects, retargetDraft.side, retargetPreview.geometryTarget, draftEdgeRouting, { curveSegments: edgeCurveSegments });
+  }, [draftEdgeRouting, edgeCurveSegments, graph.edges, parallelEdgeLaneSpacing, parallelEdgesByPair, retargetDraft, retargetPreview, routedEntityRectById, routedEntityRects]);
+  const selectedSingleEdgeGeometry = retargetDraft?.edgeId === selectedSingleEdge?.id && retargetDraftGeometry ? retargetDraftGeometry : selectedSingleEdgeBaseGeometry;
 
   return {
     selectedNodeIds,
@@ -325,6 +367,7 @@ export function useKonvaRenderModel({
     nodeGeometryById,
     selectedNodeRects,
     subgraphGeometryById,
+    geometryIndex,
     routedEntityRects,
     visibleEdges,
     edgeGeometryById,
@@ -344,8 +387,45 @@ export function useKonvaRenderModel({
     connectionTargetSubgraphId,
     connectionInvalidSubgraphId,
     scopedRenderedNodes,
+    scopedRenderedNodeGeometries,
     scopedSubgraphGeometries,
     scopedVisibleEdges,
     connectionAnchorSnapRadiusWorld
   };
+}
+
+function groupEdgesByPair(edges: CanvasEdge[]) {
+  const groups = new Map<string, CanvasEdge[]>();
+  for (const edge of edges) {
+    const key = edgePairKey(edge.from, edge.to);
+    const group = groups.get(key);
+    if (group) group.push(edge);
+    else groups.set(key, [edge]);
+  }
+  return groups;
+}
+
+function computePreviewEdgeGeometry(
+  edge: CanvasEdge,
+  replacedEdgeId: string | undefined,
+  edgesByPair: Map<string, CanvasEdge[]>,
+  rectById: Map<string, RoutedNodeRect>,
+  routing: EdgeRouting,
+  laneSpacing: number,
+  curveSegments: number
+) {
+  if (!rectById.has(edge.from) || !rectById.has(edge.to)) return null;
+  const parallelEdges = edgesByPair.get(edgePairKey(edge.from, edge.to)) || [];
+  const replacesEdgeInSamePair = Boolean(replacedEdgeId && parallelEdges.some((candidate) => candidate.id === replacedEdgeId));
+  const candidates = replacesEdgeInSamePair
+    ? parallelEdges.map((candidate) => candidate.id === replacedEdgeId ? edge : candidate)
+    : [...parallelEdges.filter((candidate) => candidate.id !== replacedEdgeId), edge];
+  const endpointIds = new Set(candidates.flatMap((candidate) => [candidate.from, candidate.to]));
+  const endpointRects = [...endpointIds].map((id) => rectById.get(id)).filter((rect): rect is RoutedNodeRect => Boolean(rect));
+  const lanes = resolveParallelEdgeLanes(candidates, endpointRects, { laneSpacing });
+  return computeEdgePathFromRectMap(edge, rectById, routing, { lane: lanes.get(edge.id), curveSegments });
+}
+
+function edgePairKey(from: string, to: string) {
+  return from <= to ? JSON.stringify([from, to]) : JSON.stringify([to, from]);
 }

@@ -310,6 +310,7 @@ export function KonvaNodeLayer({
                   fill={nodeTextFill}
                   ellipsis
                   visible={viewFilters.nodeLabels && !(inlineEdit?.type === "node" && inlineEdit.id === node.id)}
+                  listening={false}
                 />
               ) : null}
               {!isMarkdownDocument && nodeAction ? (
@@ -503,6 +504,7 @@ export function KonvaNodeLayer({
                   fill={nodeTextFill}
                   ellipsis
                   visible={viewFilters.nodeLabels}
+                  listening={false}
                 />
               ) : null}
             </Group>

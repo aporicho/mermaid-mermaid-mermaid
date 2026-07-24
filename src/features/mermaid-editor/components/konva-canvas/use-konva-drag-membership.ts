@@ -1,13 +1,16 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type Konva from "konva";
 import type { Dispatch, SetStateAction } from "react";
 
 import { unique } from "@/features/mermaid-editor/components/konva-canvas/render-utils";
 import type { useKonvaDragDraft } from "@/features/mermaid-editor/components/konva-canvas/use-konva-drag-draft";
 import {
-  computeAlignmentSnap,
+  computeAlignmentSnapWithIndex,
+  createAlignmentSnapIndex,
   selectionBounds,
-  type AlignmentGuide
+  type AlignmentGuide,
+  type AlignmentRect,
+  type AlignmentSnapIndex
 } from "@/features/mermaid-editor/lib/alignment-guides";
 import type { CanvasPoint, InteractionState } from "@/features/mermaid-editor/lib/canvas-interaction";
 import type { CanvasNodePreviewPositions } from "@/features/mermaid-editor/lib/canvas-motion";
@@ -78,15 +81,14 @@ export function useKonvaDragMembership({
   onEditorCommand
 }: UseKonvaDragMembershipArgs) {
   const [alignmentGuides, setAlignmentGuides] = useState<AlignmentGuide[]>([]);
+  const dragAlignmentRef = useRef<{ movingRects: Record<string, AlignmentRect>; staticIndex: AlignmentSnapIndex } | null>(null);
   const {
     dragRef,
     subgraphDragFrameRef,
-    dragDraftGraphRef,
+    dragFinalPositionsRef,
     dragPreviewPositions,
     setDragPreviewPositionsVisual,
-    scheduleDragDraftCommand,
-    flushDragDraftCommand,
-    clearPendingDragDraftCommand,
+    scheduleDragPreviewPositionsVisual,
     clearDragRuntimeState
   } = dragRuntime;
 
@@ -100,15 +102,24 @@ export function useKonvaDragMembership({
     invalidateBlankClickIntent();
     setAlignmentGuides([]);
     setInteractionState({ kind: "draggingNodes", pointerId: 0, nodeId: node.id, startScreen: screen, startWorld: world });
-    dragRef.current = Object.fromEntries(
-      graph.nodes.filter((item) => ids.includes(item.id)).map((item) => [item.id, { x: item.x, y: item.y }])
-    );
+    const movingIdSet = new Set(ids);
+    dragRef.current = Object.fromEntries(graph.nodes.filter((item) => movingIdSet.has(item.id)).map((item) => [item.id, { x: item.x, y: item.y }]));
+    const geometryById = new Map(graph.nodes.map((item) => [item.id, buildNodeGeometry(item, geometrySpec)]));
+    const movingRects = Object.fromEntries(ids.flatMap((id) => {
+      const rect = geometryById.get(id)?.alignmentRect;
+      return rect ? [[id, rect]] : [];
+    }));
+    const staticRects = graph.nodes.flatMap((item) => {
+      if (movingIdSet.has(item.id)) return [];
+      const rect = geometryById.get(item.id)?.alignmentRect;
+      return rect ? [rect] : [];
+    });
+    dragAlignmentRef.current = { movingRects, staticIndex: createAlignmentSnapIndex(staticRects) };
     stopActiveMotionTweens();
     for (const id of Object.keys(dragRef.current)) clearNodeMotionVisual(id);
-    clearPendingDragDraftCommand();
     clearNodeProximityScales(true, { preservePointer: true });
     setDragPreviewPositionsVisual(null);
-    dragDraftGraphRef.current = null;
+    dragFinalPositionsRef.current = null;
     onEditorCommand({ type: "history.capture", source: "pointer" });
   }
 
@@ -127,9 +138,9 @@ export function useKonvaDragMembership({
     dragRef.current = Object.fromEntries(
       graph.nodes.filter((item) => nodeIds.includes(item.id)).map((item) => [item.id, { x: item.x, y: item.y }])
     );
+    dragAlignmentRef.current = null;
     stopActiveMotionTweens();
     for (const id of Object.keys(dragRef.current)) clearNodeMotionVisual(id);
-    clearPendingDragDraftCommand();
     clearNodeProximityScales(true, { preservePointer: true });
     setDragPreviewPositionsVisual(null);
     subgraphDragFrameRef.current = Object.fromEntries(
@@ -138,7 +149,7 @@ export function useKonvaDragMembership({
         return [id, item ? { x: item.frame.x, y: item.frame.y } : { x: geometry.frame.x, y: geometry.frame.y }];
       })
     );
-    dragDraftGraphRef.current = null;
+    dragFinalPositionsRef.current = null;
     onEditorCommand({ type: "history.capture", source: "pointer" });
   }
 
@@ -148,20 +159,14 @@ export function useKonvaDragMembership({
     if (!origin) return;
     const deltaX = target.x() - origin.x;
     const deltaY = target.y() - origin.y;
-    const movingRects = graph.nodes
-      .filter((item) => dragRef.current?.[item.id])
-      .map((item) => {
-        const start = dragRef.current![item.id];
-        const movedNode = {
-          ...item,
-          x: start.x + deltaX,
-          y: start.y + deltaY
-        };
-        return buildNodeGeometry(movedNode, geometrySpec).alignmentRect;
-      });
+    const alignment = dragAlignmentRef.current;
+    const movingRects = alignment
+      ? Object.values(alignment.movingRects).map((rect) => ({ ...rect, x: rect.x + deltaX, y: rect.y + deltaY }))
+      : [];
     const movingBounds = selectionBounds(movingRects);
-    const staticRects = graph.nodes.filter((item) => !dragRef.current?.[item.id]).map((item) => buildNodeGeometry(item, geometrySpec).alignmentRect);
-    const snap = movingBounds ? computeAlignmentSnap(movingBounds, staticRects, currentViewport().scale) : { dx: 0, dy: 0, guides: [] };
+    const snap = movingBounds && alignment
+      ? computeAlignmentSnapWithIndex(movingBounds, alignment.staticIndex, currentViewport().scale)
+      : { dx: 0, dy: 0, guides: [] };
     const snappedDeltaX = deltaX + snap.dx;
     const snappedDeltaY = deltaY + snap.dy;
     const positions = Object.fromEntries(
@@ -170,9 +175,7 @@ export function useKonvaDragMembership({
     const draggedPosition = positions[node.id];
     if (draggedPosition) target.position(draggedPosition);
     setAlignmentGuides(snap.guides);
-    dragDraftGraphRef.current = setNodePositions(graph, positions);
-    setDragPreviewPositionsVisual(positions);
-    scheduleDragDraftCommand(positions, "正在移动节点。");
+    scheduleDragPreviewPositionsVisual(positions);
   }
 
   function moveSelectedSubgraphs(subgraphId: string, target: Konva.Node) {
@@ -186,15 +189,12 @@ export function useKonvaDragMembership({
     ) as CanvasNodePreviewPositions;
     const draggedFrame = subgraphDragFrameRef.current[subgraphId];
     if (draggedFrame) target.position({ x: draggedFrame.x + deltaX, y: draggedFrame.y + deltaY });
-    dragDraftGraphRef.current = setNodePositions(graph, positions);
-    setDragPreviewPositionsVisual(positions);
-    scheduleDragDraftCommand(positions, "正在移动组。");
+    scheduleDragPreviewPositionsVisual(positions);
   }
 
-  function finishDragWithMembership() {
-    if (!dragDraftGraphRef.current) return;
+  function finishDragWithMembership(positions: CanvasNodePreviewPositions) {
     const movingNodeIds = Object.keys(dragRef.current || {});
-    let nextGraph = dragDraftGraphRef.current;
+    let nextGraph = setNodePositions(graph, positions);
     const ignoredSubgraphIds =
       interactionState.kind === "draggingSubgraphs" ? [interactionState.subgraphId, ...descendantSubgraphIds(graph, interactionState.subgraphId)] : [];
 
@@ -232,9 +232,10 @@ export function useKonvaDragMembership({
   }
 
   function finishKonvaDrag() {
-    flushDragDraftCommand();
-    if (dragDraftGraphRef.current) finishDragWithMembership();
+    const positions = dragFinalPositionsRef.current;
+    if (positions) finishDragWithMembership(positions);
     clearDragRuntimeState();
+    dragAlignmentRef.current = null;
     setAlignmentGuides([]);
     resetInteraction();
   }

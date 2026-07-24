@@ -2,6 +2,7 @@ export { resolveParallelEdgeLanes } from "@/features/mermaid-editor/lib/edge-geo
 export {
   computeEdgeDraftPath,
   computeEdgePath,
+  computeEdgePathFromRectMap,
   computeEdgeRetargetPath,
   remapEdgePathGeometry
 } from "@/features/mermaid-editor/lib/edge-geometry/routing";

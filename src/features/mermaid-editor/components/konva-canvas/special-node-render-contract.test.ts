@@ -49,7 +49,7 @@ describe("special node render token contract", () => {
       "tokens.titleGap", "tokens.excerptOpacity", "tokens.placeholderOpacity",
       "shared.textColor", "shared.errorColor"
     ]) expect(markdown, token).toContain(token);
-    expect(markdown).toContain("<Group x={tokens.contentPaddingLeft} y={tokens.contentPaddingTop}>");
+    expect(markdown).toContain("<Group x={tokens.contentPaddingLeft} y={tokens.contentPaddingTop} listening={false}>");
     expect(markdown).toContain("content={tokens.previewContent}");
     for (const decoration of ["text=\"MD\"", "preview?.path", "tokens.separatorColor"]) expect(markdown).not.toContain(decoration);
   });

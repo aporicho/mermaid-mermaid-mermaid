@@ -1,4 +1,5 @@
 import type { InteractionState } from "@/features/mermaid-editor/lib/canvas-interaction";
+import type { CanvasGeometryIndex } from "@/features/mermaid-editor/lib/canvas-geometry-index";
 import type { CanvasEdge, MermaidGraph, Selection, ViewportState } from "@/features/mermaid-editor/lib/editor-types";
 import type { Rect } from "@/features/mermaid-editor/lib/node-geometry";
 import { isEdgeVisible, type ViewFilters } from "@/features/mermaid-editor/lib/view-filters";
@@ -30,6 +31,7 @@ export type ResolveCanvasRenderScopeInput = {
   viewFilters: ViewFilters;
   nodeBounds: CanvasRenderEntityBounds[];
   subgraphBounds: CanvasRenderEntityBounds[];
+  geometryIndex?: CanvasGeometryIndex;
   edges?: CanvasEdge[];
   selection: Selection;
   hoveredNodeId?: string | null;
@@ -52,15 +54,17 @@ export function resolveCanvasRenderScope(input: ResolveCanvasRenderScopeInput): 
   const shouldCull = Boolean(worldBounds);
   const nodeIds = new Set<string>();
   const subgraphIds = new Set<string>();
+  const candidateNodes = shouldCull && input.geometryIndex ? input.geometryIndex.queryNodes(worldBounds!) : input.nodeBounds;
+  const candidateSubgraphs = shouldCull && input.geometryIndex ? input.geometryIndex.querySubgraphs(worldBounds!) : input.subgraphBounds;
 
   if (input.viewFilters.nodes) {
-    for (const node of input.nodeBounds) {
+    for (const node of candidateNodes) {
       if (!shouldCull || rectIntersects(node.frame, worldBounds!)) nodeIds.add(node.id);
     }
   }
 
   if (input.viewFilters.subgraphs) {
-    for (const subgraph of input.subgraphBounds) {
+    for (const subgraph of candidateSubgraphs) {
       if (!shouldCull || rectIntersects(subgraph.frame, worldBounds!)) subgraphIds.add(subgraph.id);
     }
   }

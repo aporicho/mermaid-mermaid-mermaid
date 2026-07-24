@@ -82,7 +82,7 @@ export function useKonvaCanvasModel({
   const lastSelectionKeyRef = useRef(selectionVersionKey(selection));
   const dimensions = useContainerSize(containerRef);
   const [interactionState, setInteractionState] = useState<InteractionState>(idleInteraction);
-  const dragRuntime = useKonvaDragDraft({ onEditorCommand });
+  const dragRuntime = useKonvaDragDraft();
   const hoverState = useKonvaHoverState({ viewEdges: viewFilters.edges });
   const {
     hoveredNodeId,
@@ -204,7 +204,7 @@ export function useKonvaCanvasModel({
   });
   proximity.syncNodeProximityRuntime({
     interactive: nodeProximityInteractive,
-    frames: renderModel.renderedNodeGeometries.map((geometry) => ({ id: geometry.id, ...geometry.frame })),
+    frames: renderModel.scopedRenderedNodeGeometries.map((geometry) => ({ id: geometry.id, ...geometry.frame })),
     radiusPx: runtimeMotion.canvas.proximityRadiusPx,
     maxScale: runtimeMotion.canvas.proximityMaxScale,
     durationMs: runtimeMotion.canvas.proximityDuration * 1000
@@ -222,7 +222,7 @@ export function useKonvaCanvasModel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     nodeProximityInteractive,
-    renderModel.renderedNodeGeometries,
+    renderModel.scopedRenderedNodeGeometries,
     runtimeMotion.canvas.proximityDuration,
     runtimeMotion.canvas.proximityMaxScale,
     runtimeMotion.canvas.proximityRadiusPx,
@@ -390,6 +390,8 @@ export function useKonvaCanvasModel({
     nodeProximityInteractive,
     selectedNodeIds: renderModel.selectedNodeIds,
     geometrySpec: renderModel.geometrySpec,
+    geometryIndex: renderModel.geometryIndex,
+    nodeGeometryById: renderModel.nodeGeometryById,
     renderedNodeGeometries: renderModel.renderedNodeGeometries,
     renderedSubgraphGeometries: renderModel.renderedSubgraphGeometries,
     subgraphGeometryById: renderModel.subgraphGeometryById,

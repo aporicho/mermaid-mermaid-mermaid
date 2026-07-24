@@ -87,6 +87,7 @@ describe("computeEdgePath", () => {
     const geometry = edgePath("bezier");
 
     expect(geometry.points).toHaveLength(242);
+    expect(geometry.pathData).toMatch(/^M[^C]+ C/);
     expectPointClose(pointAt(geometry.points, 0), { x: 106, y: 25 });
     expectPointClose(lastPoint(geometry.points), { x: 210, y: 25 });
     expectPointClose(geometry.endTangent, { x: 1, y: 0 });
@@ -281,6 +282,7 @@ describe("computeEdgePath", () => {
     ]);
 
     expect(geometry.points.length).toBeGreaterThan(8);
+    expect(geometry.pathData).toContain("Q");
     expectPointClose(pointAt(geometry.points, 0), { x: 106, y: 25 });
     expectPointClose(lastPoint(geometry.points), { x: 210, y: 145 });
     expectPointClose(geometry.endTangent, { x: 1, y: 0 });
@@ -296,6 +298,7 @@ describe("computeEdgePath", () => {
 
     expect(pointAt(geometry.points, 0).x).toBeGreaterThan(110);
     expect(lastPoint(geometry.points).x).toBeGreaterThan(110);
+    expect(geometry.pathData).toContain(" C");
     expect(geometry.endTangent.x).toBeLessThan(0);
     expectFinitePoints(geometry.points);
   });
@@ -496,6 +499,15 @@ describe("computeEdgeRetargetPath", () => {
 
     expectPointClose(pointAt(geometry.points, 0), { x: 40, y: 90 });
     expectPointClose(lastPoint(geometry.points), { x: 214.2261, y: 40.7622 });
+  });
+
+  it("keeps an exact curve while retargeting the source endpoint to a point", () => {
+    const geometry = computeEdgeRetargetPath(baseEdge, defaultNodes(), "from", { kind: "point", point: { x: 40, y: 90 } }, "bezier");
+
+    if (!geometry) throw new Error("Expected geometry");
+    expect(geometry.pathData).toContain(" C");
+    expectPointClose(pointAt(geometry.points, 0), { x: 40, y: 90 });
+    expectFinitePoints(geometry.points);
   });
 
   it("matches completed geometry when retargeting to a node", () => {

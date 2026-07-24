@@ -83,7 +83,7 @@ export function useKonvaNodeProximity({ currentViewport }: UseKonvaNodeProximity
 
     setNodeProximityScalesVisual(next);
 
-    if (Object.keys(next).length === 0 && Object.keys(target).length === 0) {
+    if (proximityScaleMapsEqual(next, target)) {
       nodeProximityFrameRef.current = null;
       nodeProximityLastTickAtRef.current = null;
       return;

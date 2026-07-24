@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { resolveCanvasRenderScope, type CanvasRenderEntityBounds } from "@/features/mermaid-editor/lib/canvas-render-scope";
+import { createCanvasGeometryIndex } from "@/features/mermaid-editor/lib/canvas-geometry-index";
 import type { MermaidGraph } from "@/features/mermaid-editor/lib/editor-types";
 import { DEFAULT_VIEW_FILTERS } from "@/features/mermaid-editor/lib/view-filters";
 
@@ -102,5 +103,15 @@ describe("canvas render scope", () => {
     expect([...result.nodeIds]).toEqual(["A", "B", "C"]);
     expect([...result.subgraphIds]).toEqual(["Near", "Far"]);
     expect([...result.edgeIds]).toEqual(["A_B", "B_C"]);
+  });
+
+  it("produces the same visible scope when a geometry index supplies candidates", () => {
+    const geometryIndex = createCanvasGeometryIndex(nodeBounds as never, subgraphBounds as never, 256);
+    const indexed = scope({ geometryIndex });
+    const scanned = scope();
+
+    expect([...indexed.nodeIds]).toEqual([...scanned.nodeIds]);
+    expect([...indexed.subgraphIds]).toEqual([...scanned.subgraphIds]);
+    expect([...indexed.edgeIds]).toEqual([...scanned.edgeIds]);
   });
 });

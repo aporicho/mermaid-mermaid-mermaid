@@ -2,6 +2,7 @@ import { curveBasis, line } from "d3-shape";
 
 import type { CanvasEdge, EdgeRouting } from "@/features/mermaid-editor/lib/editor-types";
 import { effectiveLaneOffset } from "@/features/mermaid-editor/lib/edge-geometry/lanes";
+import { cubicPathData, roundedPolylinePathData } from "@/features/mermaid-editor/lib/edge-geometry/path-data";
 import {
   intersectShapeBoundary,
   intersectShapeBoundaryFromRay,
@@ -49,7 +50,6 @@ const basisLine = line<Point>()
   .x((point) => point.x)
   .y((point) => point.y)
   .curve(curveBasis);
-
 export function computeEdgePath(edge: CanvasEdge, nodes: RoutedNodeRect[], edgeRouting: EdgeRouting, options: EdgeRoutingOptions = {}): EdgePathGeometry | null {
   return computeEdgePathFromRectMap(edge, new Map(nodes.map((node) => [node.id, node])), edgeRouting, options);
 }
@@ -138,31 +138,31 @@ export function remapEdgePathGeometry(route: EdgePathGeometry, fallback: EdgePat
 
 function routeBetweenRects(from: RoutedNodeRect, to: RoutedNodeRect, edgeRouting: EdgeRouting, lane?: EdgeLaneAssignment, edge?: Pick<CanvasEdge, "fromAnchor" | "toAnchor">, curveSegments = CUBIC_SEGMENTS): EdgePathGeometry {
   const preset = routingPresets[edgeRouting];
-  const anchors = computeAnchorsForPreset(from, to, preset, lane, edge);
-
-  if (preset.pathKind === "cubic-bezier") return routeCubicBezier(anchors, curveSegments);
-  if (preset.pathKind === "rounded-orthogonal") return routeRoundedOrthogonal(anchors, curveSegments);
-  if (preset.pathKind === "basis-spline") return routeBasisSpline(anchors);
-
-  return buildGeometry([anchors.start, anchors.end], anchors.start, anchors.end, anchors.endTangent);
+  return routeAnchors(computeAnchorsForPreset(from, to, preset, lane, edge), preset, curveSegments);
 }
 
 function routeToPoint(from: RoutedNodeRect, point: Point, edgeRouting: EdgeRouting, curveSegments = CUBIC_SEGMENTS): EdgePathGeometry {
   const preset = routingPresets[edgeRouting];
-  const anchors = computePointAnchorsForPreset(from, point, preset);
-
-  if (preset.pathKind === "cubic-bezier") return routeCubicBezier(anchors, curveSegments);
-  if (preset.pathKind === "rounded-orthogonal") return routeRoundedOrthogonal(anchors, curveSegments);
-  if (preset.pathKind === "basis-spline") return routeBasisSpline(anchors);
-
-  return buildGeometry([anchors.start, anchors.end], anchors.start, anchors.end, anchors.endTangent);
+  return routeAnchors(computePointAnchorsForPreset(from, point, preset), preset, curveSegments);
 }
 
 function routeFromPointToRect(point: Point, to: RoutedNodeRect, edgeRouting: EdgeRouting, curveSegments = CUBIC_SEGMENTS): EdgePathGeometry {
-  const reversed = routeToPoint(to, point, edgeRouting, curveSegments);
-  const points = unflattenPoints(reversed.points).reverse();
+  const preset = routingPresets[edgeRouting];
+  const forward = computePointAnchorsForPreset(to, point, preset);
+  const anchors: EdgeAnchors = {
+    start: forward.end,
+    end: forward.start,
+    sourceTangent: multiply(forward.endTangent, -1),
+    endTangent: multiply(forward.sourceTangent, -1)
+  };
+  return routeAnchors(anchors, preset, curveSegments);
+}
 
-  return buildGeometry(points, reversed.end, reversed.start, multiply(reversed.endTangent, -1));
+function routeAnchors(anchors: EdgeAnchors, preset: EdgeRoutingPreset, curveSegments: number) {
+  if (preset.pathKind === "cubic-bezier") return routeCubicBezier(anchors, curveSegments);
+  if (preset.pathKind === "rounded-orthogonal") return routeRoundedOrthogonal(anchors, curveSegments);
+  if (preset.pathKind === "basis-spline") return routeBasisSpline(anchors);
+  return buildGeometry([anchors.start, anchors.end], anchors.start, anchors.end, anchors.endTangent);
 }
 
 function computeAnchorsForPreset(from: RoutedNodeRect, to: RoutedNodeRect, preset: EdgeRoutingPreset, lane?: EdgeLaneAssignment, edge?: Pick<CanvasEdge, "fromAnchor" | "toAnchor">): EdgeAnchors {
@@ -260,7 +260,7 @@ function routeCubicBezier(anchors: EdgeAnchors, curveSegments = CUBIC_SEGMENTS):
   const control2 = add(anchors.end, multiply(anchors.endTangent, -controlDistance));
   const sampled = sampleCubic(anchors.start, control1, control2, anchors.end, curveSegments);
 
-  return buildGeometry(sampled, anchors.start, anchors.end, anchors.endTangent);
+  return buildGeometry(sampled, anchors.start, anchors.end, anchors.endTangent, cubicPathData(anchors.start, control1, control2, anchors.end));
 }
 
 function routeRoundedOrthogonal(anchors: EdgeAnchors, curveSegments = CUBIC_SEGMENTS): EdgePathGeometry {
@@ -269,7 +269,13 @@ function routeRoundedOrthogonal(anchors: EdgeAnchors, curveSegments = CUBIC_SEGM
   const bridge = orthogonalBridgePoints(exit, entry, anchors.sourceTangent, anchors.endTangent);
   const raw = dedupePoints([anchors.start, exit, ...bridge, entry, anchors.end]);
 
-  return buildGeometry(roundPolylineCorners(raw, ORTHOGONAL_CORNER_RADIUS, orthogonalCornerSegments(curveSegments)), anchors.start, anchors.end, anchors.endTangent);
+  return buildGeometry(
+    roundPolylineCorners(raw, ORTHOGONAL_CORNER_RADIUS, orthogonalCornerSegments(curveSegments)),
+    anchors.start,
+    anchors.end,
+    anchors.endTangent,
+    roundedPolylinePathData(raw, ORTHOGONAL_CORNER_RADIUS)
+  );
 }
 
 function routeBasisSpline(anchors: EdgeAnchors): EdgePathGeometry {
@@ -352,7 +358,7 @@ function routeSelfLoop(node: RoutedNodeRect, lane?: EdgeLaneAssignment, curveSeg
   const control2 = { x: controlX, y: lowerY };
   const endTangent = normalize({ x: end.x - control2.x, y: end.y - control2.y }, { x: -1, y: 0 });
 
-  return buildGeometry(sampleCubic(start, control1, control2, end, curveSegments), start, end, endTangent);
+  return buildGeometry(sampleCubic(start, control1, control2, end, curveSegments), start, end, endTangent, cubicPathData(start, control1, control2, end));
 }
 
 function routeMermaidSelfLoop(node: RoutedNodeRect, lane?: EdgeLaneAssignment): EdgePathGeometry {
@@ -377,7 +383,6 @@ function normalizeCurveSegments(value: number | undefined) {
   if (typeof value !== "number" || !Number.isFinite(value)) return CUBIC_SEGMENTS;
   return Math.round(clamp(value, 12, 240));
 }
-
 function orthogonalCornerSegments(curveSegments: number) {
   return Math.max(2, Math.round((curveSegments * ORTHOGONAL_CORNER_SEGMENTS) / CUBIC_SEGMENTS));
 }
