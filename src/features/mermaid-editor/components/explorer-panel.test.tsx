@@ -22,6 +22,12 @@ const markdownFile: ProjectFileEntry = {
   relativePath: "docs/note.md"
 };
 
+const mermaidFile: ProjectFileEntry = {
+  name: "diagram.mmd",
+  path: "/project/docs/diagram.mmd",
+  relativePath: "docs/diagram.mmd"
+};
+
 const secondMarkdownFile: ProjectFileEntry = {
   name: "ideas.md",
   path: "/project/ideas.md",
@@ -43,14 +49,17 @@ const imageFile: ProjectFileEntry = {
 const workspace: ProjectWorkspace = {
   rootName: "project",
   rootPath: "/project",
-  files: [markdownFile, secondMarkdownFile],
+  files: [mermaidFile, markdownFile, secondMarkdownFile],
   resources: [
     { kind: "directory", name: "docs", path: "/project/docs", relativePath: "docs" },
     { kind: "directory", name: "empty", path: "/project/empty", relativePath: "empty" },
+    { kind: "file", name: "diagram.mmd", path: "/project/docs/diagram.mmd", relativePath: "docs/diagram.mmd", documentKind: "mermaid" },
     { kind: "file", name: "note.md", path: "/project/docs/note.md", relativePath: "docs/note.md", documentKind: "markdown" },
     { kind: "file", name: "ideas.md", path: "/project/ideas.md", relativePath: "ideas.md", documentKind: "markdown" },
     { kind: "file", name: "index.html", path: "/project/docs/index.html", relativePath: "docs/index.html" },
+    { kind: "file", name: "people.csv", path: "/project/docs/people.csv", relativePath: "docs/people.csv" },
     { kind: "file", name: "cover.png", path: "/project/docs/cover.png", relativePath: "docs/cover.png" },
+    { kind: "file", name: "theme.css", path: "/project/docs/theme.css", relativePath: "docs/theme.css" },
     { kind: "file", name: "README.txt", path: "/project/README.txt", relativePath: "README.txt" }
   ],
   scannedAt: 1
@@ -430,6 +439,25 @@ describe("ExplorerPanel", () => {
     expect(buttonNamed("note.md")?.className).toContain("before:-left-[100vw]");
   });
 
+  it("keeps root typography aligned with tree rows and maps resource icons by file type", () => {
+    renderExplorer();
+
+    expect(buttonNamed("project")?.querySelector("span")?.className).toBe("min-w-0 truncate");
+    expect(resourceIconNamed("project")?.getAttribute("data-project-resource-icon")).toBe("folder");
+    expect(resourceIconNamed("docs")?.getAttribute("data-project-resource-icon")).toBe("folder");
+    expect(resourceIconNamed("diagram.mmd")?.getAttribute("data-project-resource-icon")).toBe("mermaid");
+    expect(resourceIconNamed("note.md")?.getAttribute("data-project-resource-icon")).toBe("markdown");
+    expect(resourceIconNamed("people.csv")?.getAttribute("data-project-resource-icon")).toBe("csv");
+    expect(resourceIconNamed("index.html")?.getAttribute("data-project-resource-icon")).toBe("html");
+    expect(resourceIconNamed("cover.png")?.getAttribute("data-project-resource-icon")).toBe("png");
+    expect(resourceIconNamed("theme.css")?.getAttribute("data-project-resource-icon")).toBe("code");
+    expect(resourceIconNamed("README.txt")?.getAttribute("data-project-resource-icon")).toBe("text");
+    for (const icon of container.querySelectorAll("[data-project-resource-icon]")) {
+      expect(icon.getAttribute("class")).toContain("shrink-0");
+      expect(icon.getAttribute("class")).not.toContain("size-4");
+    }
+  });
+
   it("supports roving keyboard focus and automatically reveals the active file", async () => {
     renderExplorer({ currentFileRef: { name: "note.md", path: markdownFile.path }, initialExpandedPaths: [] });
     await act(async () => Promise.resolve());
@@ -539,6 +567,10 @@ describe("ExplorerPanel", () => {
   function buttonWithText(label: string) {
     return [...document.body.querySelectorAll<HTMLElement>('button, [role="menuitem"]')]
       .find((element) => element.textContent?.trim() === label) ?? null;
+  }
+
+  function resourceIconNamed(label: string) {
+    return buttonNamed(label)?.querySelector("[data-project-resource-icon]") ?? null;
   }
 
   function dispatchPointer(target: HTMLElement | null, type: string, clientX: number, clientY: number, pointerId = 1) {

@@ -61,6 +61,15 @@ describe("application style contract", () => {
     expect(tree).not.toContain("rounded-[var(--theme-radius-control-sm)]");
   });
 
+  it("keeps explorer tree typography and icon sizing controlled by tree tokens", () => {
+    const explorer = readProjectFile("src/features/mermaid-editor/components/explorer-panel.tsx");
+
+    expect(explorer).not.toContain('className="type-interface-navigation min-w-0 truncate"');
+    expect(explorer).not.toContain('className="size-4 shrink-0"');
+    expect(explorer).toContain('const PROJECT_RESOURCE_ICON_CLASS_NAME = "shrink-0"');
+    expect(explorer).toContain("data-project-resource-icon");
+  });
+
   it("styles Markdown lists through Crepe list-item node views", () => {
     const globals = readProjectFile("src/styles/globals.css");
 

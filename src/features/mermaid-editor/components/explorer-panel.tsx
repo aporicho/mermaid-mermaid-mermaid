@@ -9,17 +9,24 @@ import {
 } from "react";
 import {
   Archive,
-  CodeBrackets,
+  Code,
   EmptyPage,
   Folder,
+  Html5,
+  JpgFormat,
+  Network,
+  Notes,
   OpenNewWindow,
   Page,
   PagePlus,
   PathArrow,
   Plus,
   MediaImage,
+  PngFormat,
   Refresh as RefreshCw,
-  Text
+  SvgFormat,
+  TableRows,
+  WebpFormat
 } from "iconoir-react/regular";
 
 import { Button } from "@/components/ui/button";
@@ -46,6 +53,7 @@ import {
   EditorTreeRow
 } from "@/features/mermaid-editor/components/editor-ui";
 import { WorkspaceWindowHeader } from "@/features/mermaid-editor/components/floating-chrome";
+import { isCsvTableFilePath } from "@/features/mermaid-editor/lib/csv-table-document";
 import { EDITOR_CHROME_CLASSES } from "@/features/mermaid-editor/lib/editor-chrome";
 import type { RuntimeFileRef } from "@/features/mermaid-editor/lib/editor-runtime";
 import type { ExplorerWorkspaceTreeState } from "@/features/mermaid-editor/lib/explorer-tree-state";
@@ -65,6 +73,10 @@ import {
 import { cn } from "@/lib/utils";
 
 const EMPTY_EXPANDED_DIRECTORY_PATHS: string[] = [];
+const PROJECT_RESOURCE_ICON_CLASS_NAME = "shrink-0";
+const ARCHIVE_FILE_EXTENSIONS = new Set(["zip", "tar", "gz", "tgz", "7z", "rar", "bz2", "xz"]);
+const CODE_FILE_EXTENSIONS = new Set(["js", "jsx", "ts", "tsx", "css", "scss", "sass", "json", "jsonc", "yaml", "yml", "xml", "toml", "cjs", "mjs", "py", "sh", "sql"]);
+const TEXT_FILE_EXTENSIONS = new Set(["txt", "log", "rst"]);
 
 type ExplorerFilePointerDrag = {
   pointerId: number;
@@ -426,8 +438,8 @@ export function ExplorerPanel({
                   }}
                   onClick={() => updateExpansion(!rootExpanded, expandedDirectoryPaths)}
                 >
-                  <Folder className="size-4 shrink-0" />
-                  <span className="type-interface-navigation min-w-0 truncate">{projectWorkspace.rootName}</span>
+                  <Folder className={PROJECT_RESOURCE_ICON_CLASS_NAME} data-project-resource-icon="folder" />
+                  <span className="min-w-0 truncate">{projectWorkspace.rootName}</span>
                 </EditorTreeRow>
               </ProjectResourceContextMenu>
               {rootExpanded ? (
@@ -612,7 +624,7 @@ function ProjectTreeNodeRow({
             }}
             onClick={() => onToggleDirectory(node.relativePath)}
           >
-            <Folder className="size-4 shrink-0" />
+            <Folder className={PROJECT_RESOURCE_ICON_CLASS_NAME} data-project-resource-icon="folder" />
             <span className="min-w-0 truncate">{node.name}</span>
           </EditorTreeRow>
         </ProjectResourceContextMenu>
@@ -794,14 +806,25 @@ function ProjectFileRow({
 }
 
 function ProjectResourceIcon({ resource }: { resource: ProjectResourceEntry }) {
-  const className = "size-4 shrink-0";
-  if (resource.documentKind === "mermaid") return <CodeBrackets className={className} />;
-  if (resource.documentKind === "markdown") return <Text className={className} />;
-  if (isHtmlDocumentFilePath(resource.path)) return <CodeBrackets className={className} />;
-  const extension = resource.name.toLocaleLowerCase().split(".").at(-1) || "";
-  if (["png", "jpg", "jpeg", "gif", "webp", "svg", "avif", "ico"].includes(extension)) return <MediaImage className={className} />;
-  if (["zip", "tar", "gz", "7z", "rar"].includes(extension)) return <Archive className={className} />;
-  return <EmptyPage className={className} />;
+  const className = PROJECT_RESOURCE_ICON_CLASS_NAME;
+  const extension = projectResourceExtension(resource);
+  if (resource.documentKind === "mermaid") return <Network className={className} data-project-resource-icon="mermaid" />;
+  if (resource.documentKind === "markdown") return <Notes className={className} data-project-resource-icon="markdown" />;
+  if (isCsvTableFilePath(resource.path)) return <TableRows className={className} data-project-resource-icon="csv" />;
+  if (isHtmlDocumentFilePath(resource.path)) return <Html5 className={className} data-project-resource-icon="html" />;
+  if (extension === "png") return <PngFormat className={className} data-project-resource-icon="png" />;
+  if (extension === "jpg" || extension === "jpeg") return <JpgFormat className={className} data-project-resource-icon="jpg" />;
+  if (extension === "svg") return <SvgFormat className={className} data-project-resource-icon="svg" />;
+  if (extension === "webp") return <WebpFormat className={className} data-project-resource-icon="webp" />;
+  if (isSupportedImagePath(resource.path)) return <MediaImage className={className} data-project-resource-icon="image" />;
+  if (ARCHIVE_FILE_EXTENSIONS.has(extension)) return <Archive className={className} data-project-resource-icon="archive" />;
+  if (CODE_FILE_EXTENSIONS.has(extension)) return <Code className={className} data-project-resource-icon="code" />;
+  if (TEXT_FILE_EXTENSIONS.has(extension)) return <Page className={className} data-project-resource-icon="text" />;
+  return <EmptyPage className={className} data-project-resource-icon="file" />;
+}
+
+function projectResourceExtension(resource: ProjectResourceEntry) {
+  return resource.name.toLowerCase().split(".").at(-1) || "";
 }
 
 function ProjectResourceContextMenu({
