@@ -22,7 +22,9 @@ import {
 } from "@/features/mermaid-editor/lib/canvas-viewport-navigation";
 import type { EditorRuntime } from "@/features/mermaid-editor/lib/editor-runtime";
 import type { ViewportState } from "@/features/mermaid-editor/lib/editor-types";
+import { FLOATING_PANEL_EDGE_MARGIN_PX } from "@/features/mermaid-editor/lib/floating-chrome";
 import {
+  imageViewerInitialWindowSize,
   imageViewerInitialViewport,
   imageViewerNavigationDirectionForKey,
   imageViewerPresetViewport,
@@ -47,12 +49,14 @@ export function ImageWindowPanel({
   imageWindow,
   runtime,
   active,
+  onInitialWindowSize,
   onNavigate,
   onStatus
 }: {
   imageWindow: DetachedImageWindow;
   runtime: EditorRuntime;
   active: boolean;
+  onInitialWindowSize?: (size: { width: number; height: number }) => void;
   onNavigate: (direction: -1 | 1) => void;
   onStatus: (message: string) => void;
 }) {
@@ -317,7 +321,20 @@ export function ImageWindowPanel({
                 transform: `translate(-50%, -50%) rotate(${rotation}deg)`
               }}
               onLoad={(event) => {
-                setNaturalSize({ width: event.currentTarget.naturalWidth, height: event.currentTarget.naturalHeight });
+                const size = { width: event.currentTarget.naturalWidth, height: event.currentTarget.naturalHeight };
+                setNaturalSize(size);
+                const viewportElement = viewportRef.current;
+                const frameElement = viewportElement?.closest<HTMLElement>("[data-floating-panel-kind='workspace']");
+                const frameRect = frameElement?.getBoundingClientRect();
+                onInitialWindowSize?.(imageViewerInitialWindowSize({
+                  naturalWidth: size.width,
+                  naturalHeight: size.height,
+                  applicationWidth: window.innerWidth,
+                  applicationHeight: window.innerHeight,
+                  chromeWidth: Math.max(0, (frameRect?.width || viewportElement?.clientWidth || 0) - (viewportElement?.clientWidth || 0)),
+                  chromeHeight: Math.max(0, (frameRect?.height || viewportElement?.clientHeight || 0) - (viewportElement?.clientHeight || 0)),
+                  margin: FLOATING_PANEL_EDGE_MARGIN_PX
+                }));
                 setLoadState("ready");
               }}
               onError={() => {

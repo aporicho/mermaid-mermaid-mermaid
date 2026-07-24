@@ -24,6 +24,7 @@ export function FloatingPanel({
   resizable,
   minSize,
   defaultSize,
+  initialFrameSize,
   fullscreenable,
   windowState = "normal",
   onWindowStateChange,
@@ -48,6 +49,7 @@ export function FloatingPanel({
   resizable?: boolean;
   minSize?: FloatingPanelSize;
   defaultSize?: FloatingPanelSize;
+  initialFrameSize?: FloatingPanelSize;
   fullscreenable?: boolean;
   windowState?: FloatingPanelWindowState;
   onWindowStateChange?: (state: FloatingPanelWindowState) => void;
@@ -73,6 +75,7 @@ export function FloatingPanel({
     resizable,
     minSize,
     defaultSize,
+    initialFrameSize,
     fullscreenable,
     windowState,
     onWindowStateChange,

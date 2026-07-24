@@ -4,6 +4,7 @@ import {
   clampImageViewerZoom,
   imageViewerWatchPath,
   imageViewerInitialViewport,
+  imageViewerInitialWindowSize,
   imageViewerLayout,
   imageViewerNavigationDirectionForKey,
   imageViewerPresetViewport,
@@ -88,6 +89,28 @@ describe("image viewer", () => {
       viewportHeight: 700,
       rotation: 0
     })).toEqual({ x: 500, y: 350, scale: 0.625 });
+  });
+
+  it("wraps the natural image size in measured chrome and proportionally caps it to the application", () => {
+    expect(imageViewerInitialWindowSize({
+      naturalWidth: 800,
+      naturalHeight: 600,
+      applicationWidth: 1200,
+      applicationHeight: 900,
+      chromeWidth: 2,
+      chromeHeight: 2,
+      margin: 12
+    })).toEqual({ width: 802, height: 602 });
+
+    expect(imageViewerInitialWindowSize({
+      naturalWidth: 2400,
+      naturalHeight: 1200,
+      applicationWidth: 1000,
+      applicationHeight: 700,
+      chromeWidth: 2,
+      chromeHeight: 54,
+      margin: 12
+    })).toEqual({ width: 976, height: 541 });
   });
 
   it("maps horizontal and vertical arrow keys to adjacent images", () => {

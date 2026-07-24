@@ -86,12 +86,13 @@ describe("floating chrome", () => {
   function renderWorkspaceHeaderPanel({
     open = true,
     titlebarAutoHide = true,
+    initialFrameSize,
     leadingActions,
     center
-  }: { open?: boolean; titlebarAutoHide?: boolean; leadingActions?: ReactNode; center?: ReactNode } = {}) {
+  }: { open?: boolean; titlebarAutoHide?: boolean; initialFrameSize?: { width: number; height: number }; leadingActions?: ReactNode; center?: ReactNode } = {}) {
     createContainer();
 
-    function render(next: { open: boolean; titlebarAutoHide: boolean }) {
+    function render(next: { open: boolean; titlebarAutoHide: boolean; initialFrameSize?: { width: number; height: number } }) {
       act(() => {
         root?.render(
           <TooltipProvider delayDuration={0}>
@@ -104,6 +105,7 @@ describe("floating chrome", () => {
               stackIndex={0}
               onFocusPanel={() => undefined}
               defaultSize={{ width: 640, height: 480 }}
+              initialFrameSize={next.initialFrameSize}
               minSize={{ width: 320, height: 220 }}
               windowState="normal"
               onWindowStateChange={() => undefined}
@@ -125,7 +127,7 @@ describe("floating chrome", () => {
       });
     }
 
-    render({ open, titlebarAutoHide });
+    render({ open, titlebarAutoHide, initialFrameSize });
 
     return {
       rerender: render,
@@ -223,6 +225,88 @@ describe("floating chrome", () => {
     expect(overlay?.className).toContain("absolute");
     expect(overlay?.className).toContain("inset-0");
     expect(overlay?.className).toContain("pointer-events-none");
+  });
+
+  it("applies a late initial frame size once and caps it to the application viewport", () => {
+    createContainer();
+    const render = (initialFrameSize?: { width: number; height: number }) => act(() => {
+      root?.render(
+        <WorkspaceFloatingWindow
+          open
+          placement="center-panel"
+          panelId="content-sized"
+          titlebarAutoHide
+          active
+          stackIndex={0}
+          onFocusPanel={() => undefined}
+          defaultSize={{ width: 640, height: 480 }}
+          initialFrameSize={initialFrameSize}
+          minSize={{ width: 320, height: 220 }}
+          windowState="normal"
+          onWindowStateChange={() => undefined}
+          onClose={() => undefined}
+          closeLabel="关闭"
+        >
+          <div />
+        </WorkspaceFloatingWindow>
+      );
+    });
+
+    render();
+    const panel = requiredElement<HTMLElement>("[data-floating-panel-id='content-sized']");
+    expect(panel.style.width).toBe("640px");
+    expect(panel.style.height).toBe("480px");
+
+    render({ width: 800, height: 600 });
+    expect(panel.style.width).toBe("800px");
+    expect(panel.style.height).toBe("600px");
+    expect(panel.style.left).toBe(`${(window.innerWidth - 800) / 2}px`);
+    expect(panel.style.top).toBe(`${(window.innerHeight - 600) / 2}px`);
+
+    act(() => root?.unmount());
+    root = createRoot(container!);
+    render({ width: 5000, height: 5000 });
+    const cappedPanel = requiredElement<HTMLElement>("[data-floating-panel-id='content-sized']");
+    expect(cappedPanel.style.width).toBe(`${window.innerWidth - 24}px`);
+    expect(cappedPanel.style.height).toBe(`${window.innerHeight - 24}px`);
+  });
+
+  it("does not replace a frame the user moved before content sizing completed", () => {
+    const workspace = renderWorkspaceHeaderPanel({ titlebarAutoHide: false });
+    const panel = workspace.panel();
+    const initialLeft = panel.style.left;
+
+    dispatchDragPointer(workspace.header(), "pointerdown", 100, 100);
+    dispatchDragPointer(panel, "pointermove", 140, 120);
+    dispatchDragPointer(panel, "pointerup", 140, 120);
+    expect(panel.style.left).not.toBe(initialLeft);
+
+    workspace.rerender({ open: true, titlebarAutoHide: false, initialFrameSize: { width: 800, height: 600 } });
+    expect(panel.style.width).toBe("640px");
+    expect(panel.style.height).toBe("480px");
+  });
+
+  it("restores a natural initial frame size that arrives while fullscreen", () => {
+    createContainer();
+    const render = (windowState: "normal" | "fullscreen", initialFrameSize?: { width: number; height: number }) => act(() => {
+      root?.render(
+        <WorkspaceFloatingWindow
+          open placement="center-panel" panelId="fullscreen-sized" titlebarAutoHide active stackIndex={0}
+          onFocusPanel={() => undefined} defaultSize={{ width: 640, height: 480 }} initialFrameSize={initialFrameSize}
+          minSize={{ width: 320, height: 220 }} windowState={windowState} onWindowStateChange={() => undefined}
+          onClose={() => undefined} closeLabel="关闭"
+        ><div /></WorkspaceFloatingWindow>
+      );
+    });
+
+    render("normal");
+    render("fullscreen");
+    render("fullscreen", { width: 800, height: 600 });
+    render("normal", { width: 800, height: 600 });
+
+    const panel = requiredElement<HTMLElement>("[data-floating-panel-id='fullscreen-sized']");
+    expect(panel.style.width).toBe("800px");
+    expect(panel.style.height).toBe("600px");
   });
 
   it("portals a window menu into the overlay host owned by that window", () => {

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import {
+  fitFloatingPanelFrameToViewport,
   fullscreenFloatingPanelFrame,
   restoreFloatingPanelFrame,
   type FloatingPanelFrame,
@@ -18,6 +19,7 @@ import {
 export function useFloatingPanelFrameState({
   placement,
   resolvedDefaultSize,
+  initialFrameSize,
   resolvedMinSize,
   framePanel,
   open,
@@ -26,6 +28,7 @@ export function useFloatingPanelFrameState({
 }: {
   placement: FloatingPanelPlacement;
   resolvedDefaultSize: FloatingPanelSize;
+  initialFrameSize?: FloatingPanelSize;
   resolvedMinSize: FloatingPanelSize;
   framePanel: boolean;
   open: boolean;
@@ -34,13 +37,9 @@ export function useFloatingPanelFrameState({
 }) {
   const [viewport, setViewport] = useState<FloatingPanelViewport>(() => currentFloatingPanelViewport());
   const [panelFrame, setPanelFrame] = useState<FloatingPanelFrame>(() =>
-    initialFloatingPanelFrame({
-      placement,
-      size: resolvedDefaultSize,
-      minSize: resolvedMinSize,
-      viewport: currentFloatingPanelViewport()
-    })
+    centeredInitialFrame(placement, initialFrameSize ?? resolvedDefaultSize, resolvedMinSize, currentFloatingPanelViewport())
   );
+  const didApplyInitialFrameSizeRef = useRef(Boolean(initialFrameSize));
   const normalFrameRef = useRef<FloatingPanelFrame | null>(null);
   const previousWindowStateRef = useRef<FloatingPanelWindowState>(windowState);
   const fullscreen = framePanel && windowState === "fullscreen";
@@ -99,6 +98,14 @@ export function useFloatingPanelFrameState({
     previousWindowStateRef.current = windowState;
   }, [framePanel, open, panelFrame, resolvedMinSize, viewport, windowState]);
 
+  useEffect(() => {
+    if (didApplyInitialFrameSizeRef.current || !framePanel || !open || !initialFrameSize) return;
+    const nextFrame = centeredInitialFrame(placement, initialFrameSize, resolvedMinSize, currentFloatingPanelViewport());
+    didApplyInitialFrameSizeRef.current = true;
+    setPanelFrame(nextFrame);
+    if (fullscreen && normalFrameRef.current) normalFrameRef.current = nextFrame;
+  }, [framePanel, fullscreen, initialFrameSize, open, placement, resolvedMinSize]);
+
   return {
     viewport,
     panelFrame,
@@ -106,4 +113,14 @@ export function useFloatingPanelFrameState({
     renderedFrame,
     fullscreen
   };
+}
+
+function centeredInitialFrame(placement: FloatingPanelPlacement, size: FloatingPanelSize, minSize: FloatingPanelSize, viewport: FloatingPanelViewport) {
+  const frame = initialFloatingPanelFrame({ placement, size, minSize, viewport });
+  if (placement !== "center-panel") return frame;
+  return fitFloatingPanelFrameToViewport({
+    frame: { ...frame, x: (viewport.width - frame.width) / 2, y: (viewport.height - frame.height) / 2 },
+    viewport,
+    minSize
+  });
 }

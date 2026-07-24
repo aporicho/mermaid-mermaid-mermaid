@@ -91,6 +91,32 @@ export function imageViewerInitialViewport(input: Omit<Parameters<typeof imageVi
   return { ...fitted, scale: Math.min(1, fitted.scale) };
 }
 
+export function imageViewerInitialWindowSize(input: {
+  naturalWidth: number;
+  naturalHeight: number;
+  applicationWidth: number;
+  applicationHeight: number;
+  chromeWidth: number;
+  chromeHeight: number;
+  margin: number;
+}) {
+  const maxOuterWidth = Math.max(1, input.applicationWidth - input.margin * 2);
+  const maxOuterHeight = Math.max(1, input.applicationHeight - input.margin * 2);
+  const chromeWidth = Math.max(0, input.chromeWidth);
+  const chromeHeight = Math.max(0, input.chromeHeight);
+  const naturalWidth = Math.max(1, input.naturalWidth);
+  const naturalHeight = Math.max(1, input.naturalHeight);
+  const scale = Math.min(
+    1,
+    Math.max(1, maxOuterWidth - chromeWidth) / naturalWidth,
+    Math.max(1, maxOuterHeight - chromeHeight) / naturalHeight
+  );
+  return {
+    width: Math.min(maxOuterWidth, naturalWidth * scale + chromeWidth),
+    height: Math.min(maxOuterHeight, naturalHeight * scale + chromeHeight)
+  };
+}
+
 export function revisionedImageViewerSrc(src: string, revision = 0) {
   if (!src || revision <= 0 || /^(?:data|blob):/i.test(src)) return src;
   return `${src}${src.includes("?") ? "&" : "?"}viewerRevision=${revision}`;

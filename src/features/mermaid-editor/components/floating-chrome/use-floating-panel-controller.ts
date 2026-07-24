@@ -53,6 +53,7 @@ export type FloatingPanelControllerInput = {
   resizable?: boolean;
   minSize?: FloatingPanelSize;
   defaultSize?: FloatingPanelSize;
+  initialFrameSize?: FloatingPanelSize;
   fullscreenable?: boolean;
   windowState: FloatingPanelWindowState;
   onWindowStateChange?: (state: FloatingPanelWindowState) => void;
@@ -71,6 +72,7 @@ export function useFloatingPanelController({
   resizable,
   minSize,
   defaultSize,
+  initialFrameSize,
   fullscreenable,
   windowState,
   onWindowStateChange,
@@ -97,6 +99,7 @@ export function useFloatingPanelController({
   );
   const rootRef = useRef<HTMLDivElement | null>(null);
   const surfaceRef = useRef<HTMLDivElement | null>(null);
+  const userAdjustedFrameRef = useRef(false);
   const dragStateRef = useRef<FloatingPanelDragState | null>(null);
   const resizeStateRef = useRef<FloatingPanelResizeState | null>(null);
   const hiddenOffset = floatingPanelHiddenOffset(placement);
@@ -109,6 +112,7 @@ export function useFloatingPanelController({
   const { viewport, panelFrame, setPanelFrame, renderedFrame, fullscreen } = useFloatingPanelFrameState({
     placement,
     resolvedDefaultSize,
+    initialFrameSize: userAdjustedFrameRef.current ? undefined : initialFrameSize,
     resolvedMinSize,
     framePanel,
     open,
@@ -187,6 +191,7 @@ export function useFloatingPanelController({
         bottom: rect.bottom
       }
     };
+    userAdjustedFrameRef.current = true;
     try {
       event.currentTarget.setPointerCapture(event.pointerId);
     } catch {
@@ -250,6 +255,7 @@ export function useFloatingPanelController({
       startFrame: panelFrame,
       handle
     };
+    userAdjustedFrameRef.current = true;
     try {
       rootRef.current?.setPointerCapture(event.pointerId);
     } catch {
