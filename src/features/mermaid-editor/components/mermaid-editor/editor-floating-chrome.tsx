@@ -151,7 +151,7 @@ export function EditorFloatingChrome({
       </FloatingChromeSlot>
 
       {isDesktopChrome ? (
-        <FloatingChromeSlot placement="topCenter">
+        <FloatingChromeSlot placement="topCenter" hotZoneClassName="[-webkit-app-region:drag]">
           <FloatingIconButton
             type="button"
             label="拖拽移动窗口，双击最大化"

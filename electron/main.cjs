@@ -114,7 +114,7 @@ if (!hasSingleInstanceLock) {
 }
 
 app.on("window-all-closed", () => {
-  if (process.platform !== "darwin") app.quit();
+  app.quit();
 });
 
 app.on("before-quit", () => {
@@ -131,7 +131,8 @@ function createMainWindow(openFiles = []) {
     minWidth: 960,
     minHeight: 640,
     show: false,
-    frame: true,
+    frame: false,
+    ...(process.platform === "win32" ? { thickFrame: true } : {}),
     backgroundColor: "#f7f7f5",
     webPreferences: secureWebPreferences()
   });

@@ -3,7 +3,10 @@ import { OpenNewWindow, Refresh as RefreshCw, WarningTriangle } from "iconoir-re
 
 import { Button } from "@/components/ui/button";
 import { EditorNotice } from "@/features/mermaid-editor/components/editor-ui";
-import { useWorkspacePanelHeader } from "@/features/mermaid-editor/components/floating-chrome/workspace-panel-header-context";
+import {
+  WORKSPACE_PANEL_HEADER_REVEAL_HOT_ZONE_PX,
+  useWorkspacePanelHeader
+} from "@/features/mermaid-editor/components/floating-chrome/workspace-panel-header-context";
 import { disposeRuntimeEmbeddedBrowserHandle } from "@/features/mermaid-editor/components/mermaid-editor/use-editor-embedded-browser-handles";
 import { embeddedBrowserLogicalRect, embeddedBrowserRectKey } from "@/features/mermaid-editor/lib/embedded-browser-rect";
 import { isEmbeddedBrowserSurfaceOccluded } from "@/features/mermaid-editor/lib/embedded-browser-visibility";
@@ -356,7 +359,7 @@ function embeddedBrowserViewRect(surface: HTMLElement, titlebarHotZoneHeight = 0
 }
 
 export function embeddedBrowserTitlebarHotZoneHeight(header: { autoHide: boolean; visible: boolean; headerHeightPx: number } | null) {
-  return header?.autoHide && !header.visible ? header.headerHeightPx : 0;
+  return header?.autoHide && !header.visible ? WORKSPACE_PANEL_HEADER_REVEAL_HOT_ZONE_PX : 0;
 }
 
 let embeddedBrowserInstanceCounter = 0;

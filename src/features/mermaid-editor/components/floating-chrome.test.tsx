@@ -16,7 +16,10 @@ import {
   WorkspaceFloatingWindow,
   WorkspaceWindowHeader
 } from "@/features/mermaid-editor/components/floating-chrome";
-import { WORKSPACE_PANEL_HEADER_HIDE_DELAY_MS } from "@/features/mermaid-editor/components/floating-chrome/workspace-panel-header-context";
+import {
+  WORKSPACE_PANEL_HEADER_HIDE_DELAY_MS,
+  WORKSPACE_PANEL_HEADER_REVEAL_HOT_ZONE_PX
+} from "@/features/mermaid-editor/components/floating-chrome/workspace-panel-header-context";
 
 describe("floating chrome", () => {
   let container: HTMLDivElement | null = null;
@@ -391,14 +394,14 @@ describe("floating chrome", () => {
     expect(Number.parseFloat(panel.style.top)).toBe(initialTop + 25);
   });
 
-  it("opens workspace headers hidden and reveals them from a full-titlebar drag zone", () => {
+  it("opens workspace headers hidden and reveals them from an 8px top-edge drag zone", () => {
     vi.useFakeTimers();
     const panel = renderWorkspaceHeaderPanel();
 
     expect(panel.header().dataset.workspacePanelHeaderState).toBe("hidden");
     expect(panel.header().className).toContain("absolute");
     expect(panel.header().className).toContain("motion-reduce:transition-none");
-    expect(panel.hotZone()?.style.height).toBe("var(--theme-panel-header-height)");
+    expect(panel.hotZone()?.style.height).toBe(`${WORKSPACE_PANEL_HEADER_REVEAL_HOT_ZONE_PX}px`);
     expect(panel.hotZone()?.hasAttribute("data-floating-panel-drag-handle")).toBe(true);
 
     const hotZone = panel.hotZone();

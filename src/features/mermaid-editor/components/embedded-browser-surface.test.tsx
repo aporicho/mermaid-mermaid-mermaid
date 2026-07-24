@@ -8,6 +8,7 @@ import {
   EmbeddedBrowserSurface,
   embeddedBrowserTitlebarHotZoneHeight
 } from "@/features/mermaid-editor/components/embedded-browser-surface";
+import { WORKSPACE_PANEL_HEADER_REVEAL_HOT_ZONE_PX } from "@/features/mermaid-editor/components/floating-chrome/workspace-panel-header-context";
 import type {
   EditorRuntime,
   RuntimeEmbeddedBrowserHandle,
@@ -111,8 +112,8 @@ describe("EmbeddedBrowserSurface", () => {
     expect(handle.close).toHaveBeenCalledTimes(1);
   });
 
-  it("uses the complete measured titlebar only while auto-hide is hidden", () => {
-    expect(embeddedBrowserTitlebarHotZoneHeight({ autoHide: true, visible: false, headerHeightPx: 42 })).toBe(42);
+  it("uses only the top-edge reveal zone while auto-hide is hidden", () => {
+    expect(embeddedBrowserTitlebarHotZoneHeight({ autoHide: true, visible: false, headerHeightPx: 42 })).toBe(WORKSPACE_PANEL_HEADER_REVEAL_HOT_ZONE_PX);
     expect(embeddedBrowserTitlebarHotZoneHeight({ autoHide: true, visible: true, headerHeightPx: 42 })).toBe(0);
     expect(embeddedBrowserTitlebarHotZoneHeight({ autoHide: false, visible: false, headerHeightPx: 42 })).toBe(0);
   });

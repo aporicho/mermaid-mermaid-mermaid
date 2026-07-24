@@ -14,6 +14,7 @@ import {
 import { useWorkspacePanelHeaderHeight } from "./use-workspace-panel-header-height";
 
 export const WORKSPACE_PANEL_HEADER_HIDE_DELAY_MS = 800;
+export const WORKSPACE_PANEL_HEADER_REVEAL_HOT_ZONE_PX = 8;
 
 type WorkspacePanelHeaderContextValue = {
   visible: boolean;

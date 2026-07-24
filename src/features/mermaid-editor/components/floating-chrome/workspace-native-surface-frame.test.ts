@@ -11,7 +11,7 @@ describe("workspace native surface frame", () => {
     expect(workspaceNativeSurfaceTopInset(true, false, 42)).toBe("0px");
   });
 
-  it("sizes the shared reveal zone from the measured titlebar", () => {
+  it("formats the visible titlebar inset from the measured titlebar", () => {
     expect(workspacePanelHeaderCssHeight(0)).toBe("var(--theme-panel-header-height)");
     expect(workspacePanelHeaderCssHeight(42)).toBe("42px");
   });
