@@ -27,6 +27,7 @@ export function WorkspaceFloatingWindow({
   onFocusPanel,
   defaultSize,
   initialFrameSize,
+  initialFrameSizeKey,
   minSize,
   windowState,
   onWindowStateChange,
@@ -48,6 +49,7 @@ export function WorkspaceFloatingWindow({
   onFocusPanel: () => void;
   defaultSize: FloatingPanelSize;
   initialFrameSize?: FloatingPanelSize;
+  initialFrameSizeKey?: string;
   minSize: FloatingPanelSize;
   windowState: FloatingPanelWindowState;
   onWindowStateChange: (state: FloatingPanelWindowState) => void;
@@ -89,6 +91,7 @@ export function WorkspaceFloatingWindow({
       mountStrategy={mountStrategy}
       defaultSize={defaultSize}
       initialFrameSize={initialFrameSize}
+      initialFrameSizeKey={initialFrameSizeKey}
       minSize={minSize}
       windowState={windowState}
       onWindowStateChange={onWindowStateChange}

@@ -36,7 +36,6 @@ export function MarkdownDocumentCard({
     if (action) onRequestPreview?.(node);
   }, [action, node, onRequestPreview]);
 
-  const path = preview?.path || action?.path || "";
   const excerpt = previewText(preview);
   const error = preview?.status === "missing" || preview?.status === "error" || preview?.status === "unsupported";
   const tokens = specialNode.markdownDocument;
@@ -47,12 +46,8 @@ export function MarkdownDocumentCard({
     ? resolveSpecialNodeBorder(surface, tokens.state, resolvedVisualState)
     : { ...surface.border, color: stroke ?? surface.border.color, width: strokeWidth ?? surface.border.width };
   const padding = tokens.contentPadding;
-  const titleX = padding + tokens.badgeSize + tokens.titleGap;
-  const headerTextWidth = Math.max(0, width - titleX - padding);
-  const pathY = padding + typography.title.lineHeight + tokens.pathGap;
-  const headerBottom = Math.max(padding + tokens.badgeSize, pathY + typography.path.lineHeight);
-  const separatorY = headerBottom + tokens.excerptGap;
-  const excerptY = separatorY + tokens.separatorWidth + tokens.excerptGap;
+  const contentWidth = Math.max(0, width - padding * 2);
+  const excerptY = padding + typography.title.lineHeight + tokens.titleGap;
 
   return (
     <Group>
@@ -71,36 +66,12 @@ export function MarkdownDocumentCard({
         shadowOffsetX={surface.shadow.offsetX}
         shadowOffsetY={surface.shadow.offsetY}
       />
-      <Rect
-        x={padding}
-        y={padding}
-        width={tokens.badgeSize}
-        height={tokens.badgeSize}
-        fill={error ? tokens.badgeErrorBackground : tokens.badgeBackground}
-        opacity={error ? tokens.badgeErrorOpacity : tokens.badgeOpacity}
-        cornerRadius={tokens.badgeRadius}
-      />
       <Text
         x={padding}
         y={padding}
-        width={tokens.badgeSize}
-        height={tokens.badgeSize}
-        text="MD"
-        align="center"
-        verticalAlign="middle"
-        fontSize={typography.badge.fontSize}
-        fontStyle={String(typography.badge.fontWeight)}
-        fontFamily={typography.badge.family}
-        lineHeight={typography.badge.lineHeight / typography.badge.fontSize}
-        letterSpacing={typography.badge.letterSpacing}
-        fill={error ? tokens.badgeErrorColor : tokens.badgeColor}
-      />
-      <Text
-        x={titleX}
-        y={padding}
-        width={headerTextWidth}
-        height={22}
-        text={node.label || "Markdown 文档"}
+        width={contentWidth}
+        height={typography.title.lineHeight}
+        text={preview?.title || node.label || "Markdown 文档"}
         fontSize={typography.title.fontSize}
         fontStyle={String(typography.title.fontWeight)}
         fontFamily={typography.title.family}
@@ -110,25 +81,9 @@ export function MarkdownDocumentCard({
         ellipsis
       />
       <Text
-        x={titleX}
-        y={pathY}
-        width={headerTextWidth}
-        height={18}
-        text={path}
-        fontSize={typography.path.fontSize}
-        fontStyle={String(typography.path.fontWeight)}
-        fontFamily={typography.path.family}
-        lineHeight={typography.path.lineHeight / typography.path.fontSize}
-        letterSpacing={typography.path.letterSpacing}
-        fill={error ? tokens.badgeErrorColor : shared.mutedTextColor}
-        opacity={tokens.pathOpacity}
-        ellipsis
-      />
-      <Rect x={padding} y={separatorY} width={width - padding * 2} height={tokens.separatorWidth} fill={tokens.separatorColor} opacity={tokens.separatorOpacity} />
-      <Text
         x={padding}
         y={excerptY}
-        width={width - padding * 2}
+        width={contentWidth}
         height={Math.max(0, height - excerptY - padding)}
         text={excerpt}
         fontSize={typography.excerpt.fontSize}
@@ -136,7 +91,7 @@ export function MarkdownDocumentCard({
         lineHeight={typography.excerpt.lineHeight / typography.excerpt.fontSize}
         fontFamily={typography.excerpt.family}
         letterSpacing={typography.excerpt.letterSpacing}
-        fill={error ? tokens.badgeErrorColor : shared.textColor}
+        fill={error ? shared.errorColor : shared.textColor}
         opacity={preview?.status === "ready" ? tokens.excerptOpacity : tokens.placeholderOpacity}
         wrap="word"
         ellipsis

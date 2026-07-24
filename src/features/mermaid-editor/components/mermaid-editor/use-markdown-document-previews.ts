@@ -3,7 +3,7 @@ import { useCallback, useRef, useState, type Dispatch, type SetStateAction } fro
 import type { EditorRuntime, RuntimeFileRef } from "@/features/mermaid-editor/lib/editor-runtime";
 import type { CanvasNode } from "@/features/mermaid-editor/lib/editor-types";
 import {
-  extractMarkdownDocumentExcerpt,
+  extractMarkdownDocumentPreview,
   markdownDocumentAction,
   markdownDocumentReferenceKey,
   resolveMarkdownDocumentFile,
@@ -131,11 +131,12 @@ export function useMarkdownDocumentPreviews({
 }
 
 function previewFromText(path: string, text: string): MarkdownDocumentPreview {
-  const excerpt = extractMarkdownDocumentExcerpt(text);
+  const { title, excerpt } = extractMarkdownDocumentPreview(text);
   return {
     status: excerpt ? "ready" : "empty",
     path,
-    excerpt
+    excerpt,
+    title: title || undefined
   };
 }
 
@@ -148,7 +149,7 @@ function setNodePreview(
 }
 
 function samePreview(left: MarkdownDocumentPreview | undefined, right: MarkdownDocumentPreview) {
-  return left?.status === right.status && left.path === right.path && left.excerpt === right.excerpt && left.message === right.message;
+  return left?.status === right.status && left.path === right.path && left.excerpt === right.excerpt && left.title === right.title && left.message === right.message;
 }
 
 function errorMessage(error: unknown) {

@@ -49,14 +49,14 @@ export function ImageWindowPanel({
   imageWindow,
   runtime,
   active,
-  onInitialWindowSize,
+  onWindowSize,
   onNavigate,
   onStatus
 }: {
   imageWindow: DetachedImageWindow;
   runtime: EditorRuntime;
   active: boolean;
-  onInitialWindowSize?: (size: { width: number; height: number }) => void;
+  onWindowSize?: (size: { width: number; height: number }) => void;
   onNavigate: (direction: -1 | 1) => void;
   onStatus: (message: string) => void;
 }) {
@@ -326,7 +326,7 @@ export function ImageWindowPanel({
                 const viewportElement = viewportRef.current;
                 const frameElement = viewportElement?.closest<HTMLElement>("[data-floating-panel-kind='workspace']");
                 const frameRect = frameElement?.getBoundingClientRect();
-                onInitialWindowSize?.(imageViewerInitialWindowSize({
+                onWindowSize?.(imageViewerInitialWindowSize({
                   naturalWidth: size.width,
                   naturalHeight: size.height,
                   applicationWidth: window.innerWidth,

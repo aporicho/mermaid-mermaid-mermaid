@@ -99,7 +99,9 @@ export const THEME_TOKEN_GROUPS: readonly ThemeTokenGroupDefinition[] = [
 
   group("special-node-shared", "specialNode", "共享语义", ["specialNode", "shared"], "konva"),
   group("special-node-link-card", "specialNode", "链接卡片", ["specialNode", "linkCard"], "konva"),
-  group("special-node-markdown-document", "specialNode", "Markdown 文档", ["specialNode", "markdownDocument"], "konva"),
+  group("special-node-markdown-document", "specialNode", "Markdown 文档", ["specialNode", "markdownDocument"], "konva", {
+    hiddenKeys: ["badgeSize", "badgeBackground", "badgeErrorBackground", "badgeColor", "badgeErrorColor", "badgeOpacity", "badgeErrorOpacity", "badgeRadius", "pathGap", "separatorColor", "separatorWidth", "separatorOpacity", "excerptGap", "pathOpacity"]
+  }),
   group("special-node-html-document", "specialNode", "HTML 文件", ["specialNode", "htmlDocument"], "konva"),
   group("special-node-image", "specialNode", "图片节点", ["specialNode", "image"], "konva"),
   group("special-node-table", "specialNode", "CSV 表格", ["specialNode", "table"], "konva"),

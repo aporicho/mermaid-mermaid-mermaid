@@ -6,6 +6,7 @@ import {
   currentMarkdownDocumentDrag,
   endMarkdownDocumentDrag,
   extractMarkdownDocumentExcerpt,
+  extractMarkdownDocumentPreview,
   initialMarkdownDocumentSource,
   isMarkdownDocumentNode,
   markdownDocumentActionForProjectFile,
@@ -37,6 +38,13 @@ Second paragraph.`;
 
     expect(extractMarkdownDocumentExcerpt(source)).toBe("This is the main paragraph. It continues here.");
     expect(extractMarkdownDocumentExcerpt("# Empty\n\n")).toBe("");
+  });
+
+  it("builds a plain document preview from its title and full visible content", () => {
+    expect(extractMarkdownDocumentPreview("# Design\n\nFirst **paragraph**.\n\n## Details\n\n- One\n- Two")).toEqual({
+      title: "Design",
+      excerpt: "First paragraph.\n\nDetails\n\nOne\nTwo"
+    });
   });
 
   it("normalizes safe root-level Markdown names and creates a heading template", () => {

@@ -54,7 +54,7 @@ export function createDefaultSpecialNodeTheme(source: SpecialNodeThemeSource): S
       surface: surface(interfaceColors.card, ordinaryBorder, ordinaryNode.roundedRadius, ordinaryNode.shadow),
       state: cloneState(interaction),
       width: 280,
-      height: 180,
+      height: 396,
       contentPadding: 12,
       badgeSize: 38,
       badgeBackground: interfaceColors.primary,

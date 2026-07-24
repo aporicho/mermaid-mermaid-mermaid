@@ -179,7 +179,7 @@ export function InlineEditOverlays({
       <Input
         autoFocus
         value={inlineEdit.value}
-        className="absolute z-40 h-auto min-h-0 border bg-card py-0 text-left font-bold text-foreground shadow-sm outline-none ring-0 focus-visible:ring-1 focus-visible:ring-accent focus-visible:ring-offset-0"
+        className="absolute z-40 h-auto min-h-0 border-0 bg-card py-0 text-left font-bold text-foreground shadow-none outline-none ring-0 focus-visible:ring-0 focus-visible:ring-offset-0"
         style={{
           left: editStyle.left,
           top: editStyle.top,

@@ -56,10 +56,11 @@ export function normalizeEditorTheme(value: unknown, fallback: EditorTheme = DEF
     raw.specialNode,
     createDefaultSpecialNodeTheme({ interface: interfaceTokens, canvas })
   );
+  migrateDocumentPresentationV15(raw.version, canvas, specialNode);
   const agent = normalizeAgentTheme(raw.agent, createDefaultAgentTheme({ interface: interfaceTokens, typography }));
 
   return {
-    version: 14,
+    version: 15,
     id: "custom",
     name: typeof raw.name === "string" && raw.name.trim() ? raw.name : fallback.name,
     description: typeof raw.description === "string" ? raw.description : fallback.description,
@@ -76,6 +77,14 @@ export function normalizeEditorTheme(value: unknown, fallback: EditorTheme = DEF
     motion: normalizeMotionGroup(raw.motion, fallback.motion),
     diagnostics: normalizeAppearanceTree(raw.diagnostics, fallback.diagnostics, ["diagnostics"])
   };
+}
+
+function migrateDocumentPresentationV15(sourceVersion: unknown, canvas: EditorTheme["canvas"], specialNode: EditorTheme["specialNode"]) {
+  if (typeof sourceVersion === "number" && sourceVersion >= 15) return;
+  if (canvas.group.title.borderWidth === 1) canvas.group.title.borderWidth = 0;
+  if (specialNode.markdownDocument.width === 280 && specialNode.markdownDocument.height === 180) {
+    specialNode.markdownDocument.height = 396;
+  }
 }
 
 function normalizeBaseThemeId(value: unknown, fallback: EditorTheme["baseThemeId"]) {

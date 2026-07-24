@@ -78,10 +78,12 @@ function ImageWorkspaceWindow({
   onNavigate: (direction: -1 | 1) => void;
   onStatus: (message: string) => void;
 }) {
-  const [initialFrameSize, setInitialFrameSize] = useState<{ width: number; height: number }>();
-  const rememberInitialSize = useCallback((size: { width: number; height: number }) => {
-    setInitialFrameSize((current) => current ?? size);
-  }, []);
+  const frameSizeKey = imageWindow.file.path;
+  const [frameSizeRequest, setFrameSizeRequest] = useState<{ key: string; size: { width: number; height: number } }>();
+  const requestNaturalSize = useCallback((size: { width: number; height: number }) => {
+    setFrameSizeRequest({ key: frameSizeKey, size });
+  }, [frameSizeKey]);
+  const requestedFrameSize = frameSizeRequest?.key === frameSizeKey ? frameSizeRequest.size : undefined;
 
   return (
     <WorkspaceFloatingWindow
@@ -93,7 +95,8 @@ function ImageWorkspaceWindow({
       stackIndex={stackIndex}
       onFocusPanel={onFocus}
       defaultSize={WORKSPACE_PANEL_DEFAULT_SIZES.image}
-      initialFrameSize={initialFrameSize}
+      initialFrameSize={requestedFrameSize}
+      initialFrameSizeKey={frameSizeKey}
       minSize={WORKSPACE_PANEL_MIN_SIZES.image}
       windowState={windowState}
       onWindowStateChange={onWindowStateChange}
@@ -101,7 +104,7 @@ function ImageWorkspaceWindow({
       closeLabel="关闭图片查看器"
       tooltipSide="top"
     >
-      <ImageWindowPanel imageWindow={imageWindow} runtime={runtime} active={active} onInitialWindowSize={rememberInitialSize} onNavigate={onNavigate} onStatus={onStatus} />
+      <ImageWindowPanel imageWindow={imageWindow} runtime={runtime} active={active} onWindowSize={requestNaturalSize} onNavigate={onNavigate} onStatus={onStatus} />
     </WorkspaceFloatingWindow>
   );
 }

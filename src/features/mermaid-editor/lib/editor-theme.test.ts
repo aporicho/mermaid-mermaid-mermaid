@@ -6,6 +6,7 @@ import {
   compileEditorTheme,
   createDefaultMarkdownTheme,
   DEFAULT_EDITOR_THEME,
+  type EditorTheme,
   isBuiltInThemeId,
   normalizeEditorTheme,
   resolveEditorTheme,
@@ -44,7 +45,7 @@ describe("editor theme", () => {
     delete legacy.interface.tree.connectorStyle;
 
     const migrated = normalizeEditorTheme(legacy);
-    expect(migrated.version).toBe(14);
+    expect(migrated.version).toBe(15);
     expect(migrated.typography.interface.tree).toEqual(migrated.typography.interface.menu);
     expect(migrated.interface.tree.connectorStyle).toBe("solid");
     expect(themeToCssVariables(migrated)).toMatchObject({
@@ -136,9 +137,10 @@ describe("editor theme", () => {
     expect(theme.markdown.heading.h1.fontFamily).toContain("方正屏显雅宋简体");
     expect(theme.canvas.ordinaryNode).toMatchObject({ borderWidth: 0, radius: 0, forkRadius: 4 });
     expect(theme.canvas.edge).toMatchObject({ width: 1, pointerLength: 6, pointerWidth: 6, curveSegments: 120 });
-    expect(theme.canvas.group).toMatchObject({ borderStyle: "solid", borderWidth: 1, radius: 0 });
+    expect(theme.canvas.group).toMatchObject({ borderStyle: "solid", borderWidth: 1, radius: 0, title: { borderWidth: 0 } });
     expect(theme.specialNode.linkCard.surface.radius).toBe(0);
     expect(theme.specialNode.markdownDocument.surface).toMatchObject({ radius: 0, border: { width: 0 } });
+    expect(theme.specialNode.markdownDocument.width / theme.specialNode.markdownDocument.height).toBeCloseTo(210 / 297, 6);
     expect(theme.markdown.list.unordered.indent).toBe(8);
     expect(theme.markdown.list.ordered.indent).toBe(8);
     expect(theme.markdown.list.task.indent).toBe(8);
@@ -153,6 +155,19 @@ describe("editor theme", () => {
       "ANSI_WHITE_CONTRAST",
       "ANSI_BRIGHTWHITE_CONTRAST"
     ]);
+  });
+
+  it("migrates saved document cards and group titles to the v15 presentation", () => {
+    const legacy = structuredClone(resolveEditorTheme("warm-paper", null)) as unknown as Omit<EditorTheme, "version"> & { version: number };
+    legacy.version = 14;
+    legacy.baseThemeId = "warm-paper";
+    legacy.canvas.group.title.borderWidth = 1;
+    legacy.specialNode.markdownDocument.height = 180;
+
+    const migrated = normalizeEditorTheme(legacy);
+    expect(migrated.version).toBe(15);
+    expect(migrated.canvas.group.title.borderWidth).toBe(0);
+    expect(migrated.specialNode.markdownDocument).toMatchObject({ width: 280, height: 396 });
   });
 
   it("migrates saved v9 Warm Paper font roles without overwriting unrelated custom settings", () => {
@@ -176,7 +191,7 @@ describe("editor theme", () => {
 
     const theme = normalizeEditorTheme(legacy);
 
-    expect(theme.version).toBe(14);
+    expect(theme.version).toBe(15);
     expect(theme.id).toBe("custom");
     expect(theme.markdown.body.fontFamily).toBe(legacySans);
     expect(theme.markdown.heading.h1.fontFamily).toBe(founderSerif);
@@ -208,7 +223,7 @@ describe("editor theme", () => {
 
     const theme = normalizeEditorTheme(legacy);
 
-    expect(theme.version).toBe(14);
+    expect(theme.version).toBe(15);
     expect(theme.markdown.heading.h1.fontFamily).toBe(founderSerif);
     expect(theme.typography.markdownCard.title.family).toBe(founderSerif);
     expect(theme.typography.canvasDocument.card.family).toBe(founderSerif);
@@ -427,7 +442,7 @@ describe("editor theme", () => {
   it("derives Markdown defaults from each built-in theme palette", () => {
     const dracula = resolveEditorTheme("kitty-kovidgoyal-dracula", null);
 
-    expect(dracula.version).toBe(14);
+    expect(dracula.version).toBe(15);
     expect(dracula.markdown.body.color).toBe(dracula.interface.colors.foreground);
     expect(dracula.markdown.heading.h1.color).toBe(dracula.interface.colors.foreground);
     expect(dracula.markdown.link.color).toBe(dracula.interface.colors.primary);
@@ -456,7 +471,7 @@ describe("editor theme", () => {
       }
     });
 
-    expect(theme.version).toBe(14);
+    expect(theme.version).toBe(15);
     expect(theme.markdown.body).toMatchObject({ color: "#f0f0f0", fontFamily: "Example Sans" });
     expect(theme.markdown.link.color).toBe("#44aaff");
     expect(theme.markdown.codeBlock).toMatchObject({ background: "#202020", fontFamily: "Example Mono" });
@@ -477,7 +492,7 @@ describe("editor theme", () => {
       }
     });
 
-    expect(theme.version).toBe(14);
+    expect(theme.version).toBe(15);
     expect(theme.typography.canvas.node).toMatchObject({ family: "Legacy Sans, sans-serif", fontSize: 19 });
     expect(theme.typography.source.editor).toMatchObject({ family: "Legacy Mono, monospace", fontSize: 15, lineHeight: 32 });
     expect(theme.typography.terminal.content.family).toBe("Legacy Mono, monospace");
@@ -508,7 +523,7 @@ describe("editor theme", () => {
       }
     });
 
-    expect(theme.version).toBe(14);
+    expect(theme.version).toBe(15);
     expect(theme.markdown.table.bodyBackground).toBe("#112233");
     expect(theme.markdown.list.unordered.indent).toBe(8);
     expect(theme.specialNode.shared).toMatchObject({
@@ -928,7 +943,7 @@ describe("editor theme", () => {
 
     const terminalTheme = themeToTerminalTheme(theme);
 
-    expect(theme.version).toBe(14);
+    expect(theme.version).toBe(15);
     expect(theme.ansi.green).toBe("#00aa66");
     expect(theme.ansi.brightGreen).toBe(DEFAULT_EDITOR_THEME.ansi.brightGreen);
     expect(theme.terminal.background).toBe("#101010");
@@ -969,7 +984,7 @@ describe("editor theme", () => {
     });
     const compiled = compileEditorTheme(theme);
 
-    expect(theme.version).toBe(14);
+    expect(theme.version).toBe(15);
     expect(theme.motion.duration.fast).toBe(0.12);
     expect(theme.motion.duration.layout).toBe(1.6);
     expect(theme.motion.ease.standard).toBe("power1.out");
@@ -1003,7 +1018,7 @@ describe("editor theme", () => {
       }
     });
 
-    expect(theme.version).toBe(14);
+    expect(theme.version).toBe(15);
     expect(theme.interface.surface).toEqual({
       borderWidth: 2,
       borderStyle: "dashed",

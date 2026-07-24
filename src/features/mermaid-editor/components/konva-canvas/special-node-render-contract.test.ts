@@ -45,11 +45,10 @@ describe("special node render token contract", () => {
   it("consumes every Markdown subtype appearance token", () => {
     const markdown = source("src/features/mermaid-editor/components/konva-canvas/markdown-document-card.tsx");
     for (const token of [
-      "tokens.state", "tokens.contentPadding", "tokens.badgeSize", "tokens.badgeBackground", "tokens.badgeErrorBackground", "tokens.badgeColor", "tokens.badgeErrorColor",
-      "tokens.badgeOpacity", "tokens.badgeErrorOpacity", "tokens.badgeRadius", "tokens.titleGap", "tokens.pathGap", "tokens.separatorColor",
-      "tokens.separatorWidth", "tokens.separatorOpacity", "tokens.excerptGap", "tokens.pathOpacity", "tokens.excerptOpacity", "tokens.placeholderOpacity",
-      "shared.textColor", "shared.mutedTextColor"
+      "tokens.state", "tokens.contentPadding", "tokens.titleGap", "tokens.excerptOpacity", "tokens.placeholderOpacity",
+      "shared.textColor", "shared.errorColor"
     ]) expect(markdown, token).toContain(token);
+    for (const decoration of ["text=\"MD\"", "preview?.path", "tokens.separatorColor"]) expect(markdown).not.toContain(decoration);
   });
 
   it("uses independent image surface and interaction-state tokens", () => {

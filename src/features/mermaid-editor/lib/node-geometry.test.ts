@@ -86,7 +86,6 @@ describe("node geometry", () => {
         width: 410,
         height: 260,
         contentPadding: 20,
-        badgeSize: 50,
         titleGap: 12
       }
     };
@@ -103,7 +102,7 @@ describe("node geometry", () => {
     expect(link.frame).toEqual({ x: 100, y: 80, width: 360, height: 398 });
     expect(link.textBox).toEqual({ x: 18, y: 316, width: 324, height: 60 });
     expect(markdown.frame).toEqual({ x: 100, y: 80, width: 410, height: 260 });
-    expect(markdown.textBox).toEqual({ x: 82, y: 20, width: 308, height: 22 });
+    expect(markdown.textBox).toEqual({ x: 20, y: 20, width: 370, height: 22 });
   });
 
   it("never creates negative text boxes from extreme special-node spacing", () => {
@@ -118,7 +117,6 @@ describe("node geometry", () => {
         ...DEFAULT_EDITOR_THEME.specialNode.markdownDocument,
         width: 160,
         contentPadding: 64,
-        badgeSize: 128,
         titleGap: 64
       }
     };
@@ -133,7 +131,7 @@ describe("node geometry", () => {
     }, activeSpec);
 
     expect(link.textBox.width).toBe(0);
-    expect(markdown.textBox.width).toBe(0);
+    expect(markdown.textBox.width).toBe(32);
   });
 
   it("uses stable Markdown card geometry for drawing, anchors, and edge routing", () => {
@@ -142,10 +140,10 @@ describe("node geometry", () => {
       action: { kind: "file", path: "docs/spec.md", openMode: "app-window" }
     }, spec);
 
-    expect(geometry.frame).toEqual({ x: 100, y: 80, width: 272, height: 144 });
-    expect(geometry.textBox).toEqual({ x: 60, y: 12, width: 200, height: 22 });
-    expect(geometry.routedRect).toEqual({ id: "node-a", x: 100, y: 80, width: 272, height: 144, shape: "rect" });
-    expect(geometry.anchorsWorld.find((anchor) => anchor.key === "right")).toEqual({ key: "right", kind: "edge-midpoint", x: 372, y: 152 });
+    expect(geometry.frame).toEqual({ x: 100, y: 80, width: 280, height: 396 });
+    expect(geometry.textBox).toEqual({ x: 12, y: 12, width: 256, height: 22 });
+    expect(geometry.routedRect).toEqual({ id: "node-a", x: 100, y: 80, width: 280, height: 396, shape: "rect" });
+    expect(geometry.anchorsWorld.find((anchor) => anchor.key === "right")).toEqual({ key: "right", kind: "edge-midpoint", x: 380, y: 278 });
   });
 
   it("keeps anchor points in local node coordinates", () => {

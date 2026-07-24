@@ -11,13 +11,14 @@ import {
 } from "@/features/mermaid-editor/lib/runtime-paths";
 
 export const MARKDOWN_DOCUMENT_DRAG_TYPE = "application/x-mermaid-canvas-markdown-document";
-export const MARKDOWN_DOCUMENT_NODE_WIDTH = 272;
-export const MARKDOWN_DOCUMENT_NODE_HEIGHT = 144;
+export const MARKDOWN_DOCUMENT_NODE_WIDTH = 280;
+export const MARKDOWN_DOCUMENT_NODE_HEIGHT = 396;
 
 export type MarkdownDocumentPreview = {
   status: "loading" | "ready" | "empty" | "missing" | "error" | "unsupported";
   path: string;
   excerpt: string;
+  title?: string;
   message?: string;
 };
 
@@ -135,6 +136,21 @@ export function extractMarkdownDocumentExcerpt(source: string, maxLength = 180) 
   return "";
 }
 
+export function extractMarkdownDocumentPreview(source: string, maxLength = 900) {
+  const body = stripFrontmatter(source.replace(/\r\n?/g, "\n"));
+  const lines = body.split("\n");
+  const titleIndex = lines.findIndex((line) => /^#\s+/.test(line.trim()));
+  const title = titleIndex >= 0 ? stripMarkdownInline(lines[titleIndex].trim().replace(/^#\s+/, "")) : "";
+  const content = lines
+    .filter((_, index) => index !== titleIndex)
+    .map(markdownPreviewLine)
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+  const excerpt = content.length > maxLength ? `${content.slice(0, Math.max(1, maxLength - 1)).trimEnd()}…` : content;
+  return { title, excerpt };
+}
+
 export function normalizeNewMarkdownFileName(value: string) {
   const trimmed = value.trim();
   if (!trimmed || trimmed === "." || trimmed === ".." || /[\\/\0]/.test(trimmed)) return "";
@@ -214,6 +230,13 @@ function stripMarkdownInline(value: string) {
     .replace(/<[^>]+>/g, "")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+function markdownPreviewLine(line: string) {
+  const trimmed = line.trim();
+  if (/^```/.test(trimmed)) return "";
+  if (!trimmed) return "";
+  return stripMarkdownInline(trimmed.replace(/^#{1,6}\s+/, "")).trim();
 }
 
 function isWindowsPath(path: string) {

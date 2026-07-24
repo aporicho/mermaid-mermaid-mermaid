@@ -96,7 +96,7 @@ describe("ThemeSettingsPanel", () => {
     expect(onPreview).toHaveBeenCalledWith(
       "custom",
       expect.objectContaining({
-        version: 14,
+        version: 15,
         markdown: expect.objectContaining({
           heading: expect.objectContaining({ h1: DEFAULT_EDITOR_THEME.markdown.heading.h1 })
         })

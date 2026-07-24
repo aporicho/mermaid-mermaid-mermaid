@@ -87,12 +87,13 @@ describe("floating chrome", () => {
     open = true,
     titlebarAutoHide = true,
     initialFrameSize,
+    initialFrameSizeKey,
     leadingActions,
     center
-  }: { open?: boolean; titlebarAutoHide?: boolean; initialFrameSize?: { width: number; height: number }; leadingActions?: ReactNode; center?: ReactNode } = {}) {
+  }: { open?: boolean; titlebarAutoHide?: boolean; initialFrameSize?: { width: number; height: number }; initialFrameSizeKey?: string; leadingActions?: ReactNode; center?: ReactNode } = {}) {
     createContainer();
 
-    function render(next: { open: boolean; titlebarAutoHide: boolean; initialFrameSize?: { width: number; height: number } }) {
+    function render(next: { open: boolean; titlebarAutoHide: boolean; initialFrameSize?: { width: number; height: number }; initialFrameSizeKey?: string }) {
       act(() => {
         root?.render(
           <TooltipProvider delayDuration={0}>
@@ -106,6 +107,7 @@ describe("floating chrome", () => {
               onFocusPanel={() => undefined}
               defaultSize={{ width: 640, height: 480 }}
               initialFrameSize={next.initialFrameSize}
+              initialFrameSizeKey={next.initialFrameSizeKey}
               minSize={{ width: 320, height: 220 }}
               windowState="normal"
               onWindowStateChange={() => undefined}
@@ -127,7 +129,7 @@ describe("floating chrome", () => {
       });
     }
 
-    render({ open, titlebarAutoHide, initialFrameSize });
+    render({ open, titlebarAutoHide, initialFrameSize, initialFrameSizeKey });
 
     return {
       rerender: render,
@@ -284,6 +286,25 @@ describe("floating chrome", () => {
     workspace.rerender({ open: true, titlebarAutoHide: false, initialFrameSize: { width: 800, height: 600 } });
     expect(panel.style.width).toBe("640px");
     expect(panel.style.height).toBe("480px");
+  });
+
+  it("applies natural frame sizing again when the content key changes", () => {
+    const workspace = renderWorkspaceHeaderPanel({
+      initialFrameSize: { width: 800, height: 600 },
+      initialFrameSizeKey: "image-a"
+    });
+    expect(workspace.panel().style.width).toBe("800px");
+    expect(workspace.panel().style.height).toBe("600px");
+
+    workspace.rerender({ open: true, titlebarAutoHide: true, initialFrameSizeKey: "image-b" });
+    workspace.rerender({
+      open: true,
+      titlebarAutoHide: true,
+      initialFrameSize: { width: 500, height: 400 },
+      initialFrameSizeKey: "image-b"
+    });
+    expect(workspace.panel().style.width).toBe("500px");
+    expect(workspace.panel().style.height).toBe("400px");
   });
 
   it("restores a natural initial frame size that arrives while fullscreen", () => {

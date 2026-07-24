@@ -121,7 +121,7 @@ export type XtermThemeTokens = TerminalColorTokens &
   };
 
 export type EditorTheme = {
-  version: 14;
+  version: 15;
   id: EditorThemeId;
   name: string;
   description: string;

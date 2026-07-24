@@ -239,7 +239,7 @@
           "background": "#fbf6ef",
           "textColor": "#18130f",
           "borderColor": "#b8ada0",
-          "borderWidth": 1,
+          "borderWidth": 0,
           "borderStyle": "solid",
           "customDash": [],
           "radius": 8,
@@ -408,7 +408,7 @@
           "emphasizedBorderWidth": 1.5
         },
         "width": 280,
-        "height": 180,
+        "height": 396,
         "contentPadding": 12,
         "badgeSize": 38,
         "badgeBackground": "#ff4050",

@@ -54,6 +54,7 @@ export type FloatingPanelControllerInput = {
   minSize?: FloatingPanelSize;
   defaultSize?: FloatingPanelSize;
   initialFrameSize?: FloatingPanelSize;
+  initialFrameSizeKey?: string;
   fullscreenable?: boolean;
   windowState: FloatingPanelWindowState;
   onWindowStateChange?: (state: FloatingPanelWindowState) => void;
@@ -73,6 +74,7 @@ export function useFloatingPanelController({
   minSize,
   defaultSize,
   initialFrameSize,
+  initialFrameSizeKey,
   fullscreenable,
   windowState,
   onWindowStateChange,
@@ -100,6 +102,7 @@ export function useFloatingPanelController({
   const rootRef = useRef<HTMLDivElement | null>(null);
   const surfaceRef = useRef<HTMLDivElement | null>(null);
   const userAdjustedFrameRef = useRef(false);
+  const previousInitialFrameSizeKeyRef = useRef(initialFrameSizeKey);
   const dragStateRef = useRef<FloatingPanelDragState | null>(null);
   const resizeStateRef = useRef<FloatingPanelResizeState | null>(null);
   const hiddenOffset = floatingPanelHiddenOffset(placement);
@@ -109,10 +112,15 @@ export function useFloatingPanelController({
   const fullscreenablePanel = kind === "workspace" && (fullscreenable ?? true);
   const framePanel = kind === "workspace" && (resizablePanel || fullscreenablePanel || Boolean(defaultSize));
   const zIndex = floatingPanelZIndex(kind, stackIndex);
+  if (previousInitialFrameSizeKeyRef.current !== initialFrameSizeKey) {
+    previousInitialFrameSizeKeyRef.current = initialFrameSizeKey;
+    userAdjustedFrameRef.current = false;
+  }
   const { viewport, panelFrame, setPanelFrame, renderedFrame, fullscreen } = useFloatingPanelFrameState({
     placement,
     resolvedDefaultSize,
     initialFrameSize: userAdjustedFrameRef.current ? undefined : initialFrameSize,
+    initialFrameSizeKey,
     resolvedMinSize,
     framePanel,
     open,

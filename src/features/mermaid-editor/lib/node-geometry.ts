@@ -241,12 +241,10 @@ function buildMarkdownDocumentNodeGeometry(node: CanvasNode, specialNode?: Speci
     height: tokens?.height ?? MARKDOWN_DOCUMENT_NODE_HEIGHT
   };
   const padding = tokens?.contentPadding ?? 12;
-  const badgeSize = tokens?.badgeSize ?? 38;
-  const titleGap = tokens?.titleGap ?? 10;
   const textBox = {
-    x: padding + badgeSize + titleGap,
+    x: padding,
     y: padding,
-    width: Math.max(0, frame.width - (padding * 2 + badgeSize + titleGap)),
+    width: Math.max(0, frame.width - padding * 2),
     height: 22
   };
   const anchorsLocal = localAnchorPoints(DEFAULT_FLOWCHART_NODE_SHAPE, frame.width, frame.height);

@@ -20,6 +20,7 @@ export function useFloatingPanelFrameState({
   placement,
   resolvedDefaultSize,
   initialFrameSize,
+  initialFrameSizeKey,
   resolvedMinSize,
   framePanel,
   open,
@@ -29,6 +30,7 @@ export function useFloatingPanelFrameState({
   placement: FloatingPanelPlacement;
   resolvedDefaultSize: FloatingPanelSize;
   initialFrameSize?: FloatingPanelSize;
+  initialFrameSizeKey?: string;
   resolvedMinSize: FloatingPanelSize;
   framePanel: boolean;
   open: boolean;
@@ -39,7 +41,7 @@ export function useFloatingPanelFrameState({
   const [panelFrame, setPanelFrame] = useState<FloatingPanelFrame>(() =>
     centeredInitialFrame(placement, initialFrameSize ?? resolvedDefaultSize, resolvedMinSize, currentFloatingPanelViewport())
   );
-  const didApplyInitialFrameSizeRef = useRef(Boolean(initialFrameSize));
+  const appliedInitialFrameSizeKeyRef = useRef<string | null>(initialFrameSize ? initialFrameSizeKey ?? "initial" : null);
   const normalFrameRef = useRef<FloatingPanelFrame | null>(null);
   const previousWindowStateRef = useRef<FloatingPanelWindowState>(windowState);
   const fullscreen = framePanel && windowState === "fullscreen";
@@ -99,12 +101,13 @@ export function useFloatingPanelFrameState({
   }, [framePanel, open, panelFrame, resolvedMinSize, viewport, windowState]);
 
   useEffect(() => {
-    if (didApplyInitialFrameSizeRef.current || !framePanel || !open || !initialFrameSize) return;
+    const requestKey = initialFrameSizeKey ?? "initial";
+    if (appliedInitialFrameSizeKeyRef.current === requestKey || !framePanel || !open || !initialFrameSize) return;
     const nextFrame = centeredInitialFrame(placement, initialFrameSize, resolvedMinSize, currentFloatingPanelViewport());
-    didApplyInitialFrameSizeRef.current = true;
+    appliedInitialFrameSizeKeyRef.current = requestKey;
     setPanelFrame(nextFrame);
     if (fullscreen && normalFrameRef.current) normalFrameRef.current = nextFrame;
-  }, [framePanel, fullscreen, initialFrameSize, open, placement, resolvedMinSize]);
+  }, [framePanel, fullscreen, initialFrameSize, initialFrameSizeKey, open, placement, resolvedMinSize]);
 
   return {
     viewport,

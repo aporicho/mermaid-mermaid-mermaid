@@ -266,7 +266,7 @@ export const BASE_CANVAS: CanvasThemeTokens = {
       background: "#fbf6ef",
       textColor: BASE_COLORS.foreground,
       borderColor: "#b8ada0",
-      borderWidth: LEGACY_CANVAS_VISUAL_TOKENS.node.strokeWidth,
+      borderWidth: 0,
       borderStyle: "solid",
       customDash: [],
       radius: LEGACY_CANVAS_VISUAL_TOKENS.subgraph.titleCornerRadius,
@@ -349,7 +349,7 @@ const BASE_SPECIAL_NODE = createDefaultSpecialNodeTheme({ interface: BASE_INTERF
 const BASE_AGENT = createDefaultAgentTheme({ interface: BASE_INTERFACE, typography: BASE_TYPOGRAPHY });
 
 export const EDITOR_THEME_BASE: Omit<EditorTheme, "id" | "name" | "description" | "baseThemeId"> = {
-  version: 14,
+  version: 15,
   interface: BASE_INTERFACE,
   agent: BASE_AGENT,
   canvas: BASE_CANVAS,
@@ -389,7 +389,7 @@ export function createEditorTheme(overrides: EditorThemeOverrides): EditorTheme 
 
   return {
     ...EDITOR_THEME_BASE,
-    version: 14,
+    version: 15,
     id: overrides.id,
     name: overrides.name,
     description: overrides.description,
