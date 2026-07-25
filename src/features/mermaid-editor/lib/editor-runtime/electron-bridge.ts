@@ -27,6 +27,8 @@ import type {
   RuntimeMoveProjectFileResult,
   RuntimeProjectResourceMutationRequest,
   RuntimeProjectResourceMutationResult,
+  RuntimeReorderProjectResourcesRequest,
+  RuntimeReorderProjectResourcesResult,
   RuntimeRenameProjectResourceRequest,
   RuntimeRenameProjectResourceResult,
   RuntimeShowProjectResourceRequest,
@@ -94,6 +96,7 @@ export type ElectronBridge = ElectronMarkdownFoldBridge & ElectronMonitoringBrid
   createProjectDirectory: (request: RuntimeCreateProjectDirectoryRequest) => Promise<RuntimeCreateProjectDirectoryResult>;
   renameProjectResource: (request: RuntimeRenameProjectResourceRequest) => Promise<RuntimeRenameProjectResourceResult>;
   moveProjectResources: (request: RuntimeProjectResourceMutationRequest) => Promise<RuntimeProjectResourceMutationResult>;
+  reorderProjectResources: (request: RuntimeReorderProjectResourcesRequest) => Promise<RuntimeReorderProjectResourcesResult>;
   copyProjectResources: (request: RuntimeProjectResourceMutationRequest) => Promise<RuntimeProjectResourceMutationResult>;
   importProjectResources: (request: RuntimeImportProjectResourcesRequest) => Promise<RuntimeProjectResourceMutationResult>;
   deleteProjectResources: (request: RuntimeDeleteProjectResourcesRequest) => Promise<RuntimeDeleteProjectResourcesResult>;

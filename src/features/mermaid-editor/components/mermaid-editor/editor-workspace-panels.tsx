@@ -10,7 +10,7 @@ import { ExplorerWorkspaceWindow } from "@/features/mermaid-editor/components/me
 import { NativeWebWorkspaceWindows } from "@/features/mermaid-editor/components/mermaid-editor/native-web-workspace-windows";
 import type { DocumentKind } from "@/features/mermaid-editor/lib/document-kind";
 import { EDITOR_CHROME_CLASSES } from "@/features/mermaid-editor/lib/editor-chrome";
-import type { EditorRuntime, RuntimeAgentTextSelection, RuntimeFileRef, RuntimeProjectFileKind } from "@/features/mermaid-editor/lib/editor-runtime";
+import type { EditorRuntime, RuntimeAgentTextSelection, RuntimeFileRef, RuntimeProjectFileKind, RuntimeProjectResourceKind, RuntimeProjectResourcePlacement } from "@/features/mermaid-editor/lib/editor-runtime";
 import type { MarkdownFoldSnapshot } from "@/features/mermaid-editor/lib/markdown-fold-state";
 import type { CanvasNode, MermaidGraph, Selection } from "@/features/mermaid-editor/lib/editor-types";
 import type { EditorTheme, EditorThemeId, XtermThemeTokens } from "@/features/mermaid-editor/lib/editor-theme";
@@ -80,7 +80,8 @@ type EditorWorkspacePanelsProps = {
   createProjectDirectory: (request: { directoryPath: string; directoryName: string }) => void | Promise<unknown>;
   renameProjectResource: (resource: ProjectResourceEntry, name: string) => void | Promise<unknown>;
   moveProjectFile: (source: ProjectResourceEntry, targetDirectoryPath: string) => void | Promise<unknown>;
-  moveProjectResources: (resources: ProjectResourceEntry[], targetDirectoryPath: string) => void | Promise<unknown>;
+  moveProjectResources: (resources: ProjectResourceEntry[], targetDirectoryPath: string, placement?: RuntimeProjectResourcePlacement) => void | Promise<unknown>;
+  reorderProjectResources: (parentDirectoryPath: string, kind: RuntimeProjectResourceKind, orderedRelativePaths: string[]) => void | Promise<unknown>;
   copyProjectResources: (resources: ProjectResourceEntry[], targetDirectoryPath: string) => void | Promise<unknown>;
   importProjectResources: (externalPaths: string[], targetDirectoryPath: string) => void | Promise<unknown>;
   deleteProjectResources: (resources: ProjectResourceEntry[]) => void | Promise<unknown>;
@@ -129,7 +130,7 @@ export function EditorWorkspacePanels({
   openProjectFolder,
   refreshProjectWorkspace,
   createProjectFile, createProjectDirectory, renameProjectResource,
-  moveProjectFile, moveProjectResources, copyProjectResources, importProjectResources,
+  moveProjectFile, moveProjectResources, reorderProjectResources, copyProjectResources, importProjectResources,
   deleteProjectResources, showProjectResourceInFileManager,
   openProjectFile,
   openProjectMarkdownWindow,
@@ -163,11 +164,9 @@ export function EditorWorkspacePanels({
         onTreeStateChange={onExplorerTreeStateChange}
         currentFileRef={fileRef} projectBusy={projectBusy}
         onOpenProject={openProjectFolder} onRefreshProject={refreshProjectWorkspace}
-        onCreateProjectFile={createProjectFile} onCreateProjectDirectory={createProjectDirectory}
-        onRenameProjectResource={renameProjectResource}
-        onMoveProjectFile={moveProjectFile} onMoveProjectResources={moveProjectResources}
-        onCopyProjectResources={copyProjectResources} onImportProjectResources={importProjectResources}
-        onDeleteProjectResources={deleteProjectResources}
+        onCreateProjectFile={createProjectFile} onCreateProjectDirectory={createProjectDirectory} onRenameProjectResource={renameProjectResource}
+        onMoveProjectFile={moveProjectFile} onMoveProjectResources={moveProjectResources} onReorderProjectResources={reorderProjectResources}
+        onCopyProjectResources={copyProjectResources} onImportProjectResources={importProjectResources} onDeleteProjectResources={deleteProjectResources}
         onShowProjectResourceInFileManager={showProjectResourceInFileManager}
         onOpenProjectFile={openProjectFile} onOpenProjectMarkdownWindow={openProjectMarkdownWindow}
         onOpenProjectHtmlWindow={openProjectHtmlWindow} onOpenProjectImageWindow={openProjectImageWindow}

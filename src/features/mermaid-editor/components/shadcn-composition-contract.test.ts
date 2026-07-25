@@ -92,14 +92,18 @@ describe("shadcn composition contract", () => {
       join(SOURCE_ROOT, "features/mermaid-editor/components/explorer-panel-context-menu.tsx"),
       "utf8"
     );
+    const explorerFileRow = readFileSync(
+      join(SOURCE_ROOT, "features/mermaid-editor/components/explorer-panel-file-row.tsx"),
+      "utf8"
+    );
 
-    expect(explorer.match(/<ProjectResourceContextMenu\b/g)).toHaveLength(3);
+    expect(`${explorer}\n${explorerFileRow}`.match(/<ProjectResourceContextMenu\b/g)).toHaveLength(3);
     expect(contextMenu).toMatch(/<ContextMenuTrigger[^>]*\basChild\b[^>]*>/);
     expect(contextMenu).toContain("<ContextMenuContent");
     expect(contextMenu).toContain("<ContextMenuGroup>");
     expect(contextMenu).toContain("<ContextMenuItem");
     expect(contextMenu).toContain("<ContextMenuSeparator />");
-    expect(`${explorer}\n${contextMenu}`).not.toContain("EditorPointMenu");
-    expect(`${explorer}\n${contextMenu}`).not.toContain("setContextMenu");
+    expect(`${explorer}\n${explorerFileRow}\n${contextMenu}`).not.toContain("EditorPointMenu");
+    expect(`${explorer}\n${explorerFileRow}\n${contextMenu}`).not.toContain("setContextMenu");
   });
 });

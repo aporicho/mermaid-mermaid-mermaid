@@ -129,15 +129,16 @@ describe("ExplorerPanel", () => {
       source?.querySelector("[data-project-resource-name]")?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
       await new Promise((resolve) => window.setTimeout(resolve, 280));
     });
-    expect(document.body.textContent).toContain("重命名 note.md");
+    expect(document.body.textContent).not.toContain("重命名 note.md");
 
-    const input = document.body.querySelector<HTMLInputElement>("#explorer-rename-resource-name");
+    const input = container.querySelector<HTMLInputElement>('input[aria-label="重命名 note.md"]');
+    expect(input).not.toBeNull();
     act(() => {
       const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
       setter?.call(input, "renamed.md");
       input?.dispatchEvent(new Event("input", { bubbles: true }));
     });
-    act(() => buttonWithText("重命名")?.click());
+    act(() => input?.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true })));
     expect(onRenameProjectResource).toHaveBeenCalledWith(workspace.resources?.find((resource) => resource.name === "note.md"), "renamed.md");
   });
 
@@ -440,6 +441,31 @@ describe("ExplorerPanel", () => {
     expect(onProjectDocumentPointerDrag).not.toHaveBeenCalled();
   });
 
+  it("reorders files inline when a dragged row opens a gap in the same directory", () => {
+    const onReorderProjectResources = vi.fn();
+    renderExplorer({ onReorderProjectResources });
+    const source = buttonNamed("cover.png");
+    const target = buttonNamed("note.md");
+    mockRowRect(target, { top: 20, height: 12 });
+    vi.mocked(document.elementFromPoint).mockReturnValue(target);
+
+    act(() => {
+      dispatchPointer(source, "pointerdown", 0, 0);
+      dispatchPointer(source, "pointermove", 12, 30);
+    });
+    expect(container.querySelector("[data-project-resource-insertion]")).not.toBeNull();
+    act(() => dispatchPointer(source, "pointerup", 12, 30));
+
+    expect(onReorderProjectResources).toHaveBeenCalledWith("docs", "file", [
+      "docs/diagram.mmd",
+      "docs/index.html",
+      "docs/note.md",
+      "docs/cover.png",
+      "docs/people.csv",
+      "docs/theme.css"
+    ]);
+  });
+
   it("cleans up a highlighted drop target when the pointer is cancelled", () => {
     const onMoveProjectFile = vi.fn();
     renderExplorer({ onMoveProjectFile });
@@ -558,6 +584,7 @@ describe("ExplorerPanel", () => {
     onRenameProjectResource = vi.fn(),
     onMoveProjectFile = vi.fn(),
     onMoveProjectResources = vi.fn(),
+    onReorderProjectResources = vi.fn(),
     onCopyProjectResources = vi.fn(),
     onImportProjectResources = vi.fn(),
     onDeleteProjectResources = vi.fn(),
@@ -580,6 +607,7 @@ describe("ExplorerPanel", () => {
     onRenameProjectResource?: (resource: ProjectResourceEntry, name: string) => void;
     onMoveProjectFile?: (file: ProjectResourceEntry, targetDirectoryPath: string) => void;
     onMoveProjectResources?: (resources: ProjectResourceEntry[], targetDirectoryPath: string) => void;
+    onReorderProjectResources?: (parentDirectoryPath: string, kind: ProjectResourceEntry["kind"], orderedRelativePaths: string[]) => void;
     onCopyProjectResources?: (resources: ProjectResourceEntry[], targetDirectoryPath: string) => void;
     onImportProjectResources?: (externalPaths: string[], targetDirectoryPath: string) => void;
     onDeleteProjectResources?: (resources: ProjectResourceEntry[]) => void;
@@ -624,6 +652,7 @@ describe("ExplorerPanel", () => {
             onRenameProjectResource={onRenameProjectResource}
             onMoveProjectFile={onMoveProjectFile}
             onMoveProjectResources={onMoveProjectResources}
+            onReorderProjectResources={onReorderProjectResources}
             onCopyProjectResources={onCopyProjectResources}
             onImportProjectResources={onImportProjectResources}
             onDeleteProjectResources={onDeleteProjectResources}
@@ -666,5 +695,23 @@ describe("ExplorerPanel", () => {
     });
     Object.defineProperty(event, "pointerId", { configurable: true, value: pointerId });
     target?.dispatchEvent(event);
+  }
+
+  function mockRowRect(target: HTMLElement | null, rect: { top: number; height: number }) {
+    if (!target) throw new Error("Expected a tree row.");
+    Object.defineProperty(target, "getBoundingClientRect", {
+      configurable: true,
+      value: () => ({
+        x: 0,
+        y: rect.top,
+        left: 0,
+        top: rect.top,
+        right: 240,
+        bottom: rect.top + rect.height,
+        width: 240,
+        height: rect.height,
+        toJSON: () => ({})
+      })
+    });
   }
 });

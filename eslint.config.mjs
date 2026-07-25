@@ -33,7 +33,7 @@ export default [
     }
   },
   {
-    files: ["src/**/*.{ts,tsx}", "*.ts"],
+    files: ["src/**/*.{ts,tsx}", "e2e/**/*.ts", "*.ts"],
     languageOptions: {
       parserOptions: {
         ecmaFeatures: {

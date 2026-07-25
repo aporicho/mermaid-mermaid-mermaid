@@ -71,6 +71,13 @@ export type RuntimeProjectResourceMutationRequest = {
   rootPath: string;
   sourcePaths: string[];
   targetDirectoryPath: string;
+  placement?: RuntimeProjectResourcePlacement;
+};
+
+export type RuntimeProjectResourcePlacement = {
+  kind: RuntimeProjectResourceKind;
+  parentDirectoryPath: string;
+  beforeRelativePath?: string | null;
 };
 
 export type RuntimeProjectResourceMutationItem = {
@@ -81,6 +88,17 @@ export type RuntimeProjectResourceMutationItem = {
 
 export type RuntimeProjectResourceMutationResult =
   | { status: "completed"; results: RuntimeProjectResourceMutationItem[] }
+  | { status: "unsupported"; message: string };
+
+export type RuntimeReorderProjectResourcesRequest = {
+  rootPath: string;
+  parentDirectoryPath: string;
+  kind: RuntimeProjectResourceKind;
+  orderedRelativePaths: string[];
+};
+
+export type RuntimeReorderProjectResourcesResult =
+  | { status: "saved" }
   | { status: "unsupported"; message: string };
 
 export type RuntimeImportProjectResourcesRequest = {
@@ -114,6 +132,7 @@ export type RuntimeProjectFileOperations = {
   createProjectDirectory: (request: RuntimeCreateProjectDirectoryRequest) => Promise<RuntimeCreateProjectDirectoryResult>;
   renameProjectResource: (request: RuntimeRenameProjectResourceRequest) => Promise<RuntimeRenameProjectResourceResult>;
   moveProjectResources: (request: RuntimeProjectResourceMutationRequest) => Promise<RuntimeProjectResourceMutationResult>;
+  reorderProjectResources: (request: RuntimeReorderProjectResourcesRequest) => Promise<RuntimeReorderProjectResourcesResult>;
   copyProjectResources: (request: RuntimeProjectResourceMutationRequest) => Promise<RuntimeProjectResourceMutationResult>;
   importProjectResources: (request: RuntimeImportProjectResourcesRequest) => Promise<RuntimeProjectResourceMutationResult>;
   deleteProjectResources: (request: RuntimeDeleteProjectResourcesRequest) => Promise<RuntimeDeleteProjectResourcesResult>;

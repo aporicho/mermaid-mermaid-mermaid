@@ -59,6 +59,7 @@ function electronBridge(): ElectronBridge {
       status: "completed" as const,
       results: [{ status: "moved" as const, resource: { kind: "file" as const, name: "notes.md", path: "/tmp/archive/notes.md", relativePath: "archive/notes.md" }, sourcePath: "/tmp/docs/notes.md" }]
     })),
+    reorderProjectResources: vi.fn(() => Promise.resolve({ status: "saved" as const })),
     copyProjectResources: vi.fn(() => Promise.resolve({
       status: "completed" as const,
       results: [{ status: "copied" as const, resource: { kind: "file" as const, name: "notes.md", path: "/tmp/archive/notes.md", relativePath: "archive/notes.md" }, sourcePath: "/tmp/docs/notes.md" }]
@@ -195,6 +196,7 @@ describe("createEditorRuntime", () => {
     await expect(runtime.createProjectDirectory({ rootPath: "/tmp", directoryPath: "", directoryName: "docs" })).resolves.toMatchObject({ status: "created" });
     await expect(runtime.renameProjectResource({ rootPath: "/tmp", sourcePath: "/tmp/docs/notes.md", name: "renamed.md" })).resolves.toMatchObject({ status: "renamed" });
     await expect(runtime.moveProjectResources({ rootPath: "/tmp", sourcePaths: ["/tmp/docs/notes.md"], targetDirectoryPath: "/tmp/archive" })).resolves.toMatchObject({ status: "completed" });
+    await expect(runtime.reorderProjectResources({ rootPath: "/tmp", parentDirectoryPath: "docs", kind: "file", orderedRelativePaths: ["docs/notes.md"] })).resolves.toMatchObject({ status: "saved" });
     await expect(runtime.copyProjectResources({ rootPath: "/tmp", sourcePaths: ["/tmp/docs/notes.md"], targetDirectoryPath: "/tmp/archive" })).resolves.toMatchObject({ status: "completed" });
     await expect(runtime.importProjectResources({ rootPath: "/tmp", externalPaths: ["/external/notes.md"], targetDirectoryPath: "" })).resolves.toMatchObject({ status: "completed" });
     await expect(runtime.deleteProjectResources({ rootPath: "/tmp", sourcePaths: ["/tmp/docs/notes.md"] })).resolves.toMatchObject({ status: "deleted" });
@@ -209,6 +211,7 @@ describe("createEditorRuntime", () => {
     await expect(runtime.createProjectDirectory({ rootPath: "/tmp", directoryPath: "", directoryName: "docs" })).resolves.toMatchObject({ status: "unsupported" });
     await expect(runtime.renameProjectResource({ rootPath: "/tmp", sourcePath: "notes.md", name: "renamed.md" })).resolves.toMatchObject({ status: "unsupported" });
     await expect(runtime.moveProjectResources({ rootPath: "/tmp", sourcePaths: ["notes.md"], targetDirectoryPath: "archive" })).resolves.toMatchObject({ status: "unsupported" });
+    await expect(runtime.reorderProjectResources({ rootPath: "/tmp", parentDirectoryPath: "docs", kind: "file", orderedRelativePaths: ["docs/notes.md"] })).resolves.toMatchObject({ status: "unsupported" });
     await expect(runtime.copyProjectResources({ rootPath: "/tmp", sourcePaths: ["notes.md"], targetDirectoryPath: "archive" })).resolves.toMatchObject({ status: "unsupported" });
     await expect(runtime.importProjectResources({ rootPath: "/tmp", externalPaths: ["/tmp/notes.md"], targetDirectoryPath: "" })).resolves.toMatchObject({ status: "unsupported" });
     await expect(runtime.deleteProjectResources({ rootPath: "/tmp", sourcePaths: ["notes.md"] })).resolves.toMatchObject({ status: "unsupported" });

@@ -13,9 +13,20 @@ export type ProjectWorkspace = {
   rootPath: string;
   files: ProjectFileEntry[];
   resources?: ProjectResourceEntry[];
+  resourceOrder?: ProjectExplorerOrderState;
   scannedAt: number;
   truncated?: boolean;
   resourcesTruncated?: boolean;
+};
+
+export type ProjectExplorerOrderGroup = {
+  directories: string[];
+  files: string[];
+};
+
+export type ProjectExplorerOrderState = {
+  version: 1;
+  directories: Record<string, ProjectExplorerOrderGroup>;
 };
 
 export type ProjectResourceEntry = {
@@ -62,12 +73,14 @@ export function normalizeProjectWorkspace(value: unknown): ProjectWorkspace | nu
   }
 
   const files = normalizeProjectFiles(workspace.files);
-  const resources = normalizeProjectResources(workspace.resources, files);
+  const resourceOrder = normalizeProjectExplorerOrderState(workspace.resourceOrder);
+  const resources = normalizeProjectResources(workspace.resources, files, resourceOrder);
   return {
     rootName: workspace.rootName,
     rootPath: workspace.rootPath,
     files,
     resources,
+    ...(resourceOrder ? { resourceOrder } : {}),
     scannedAt: normalizeNumber(workspace.scannedAt) || Date.now(),
     truncated: Boolean(workspace.truncated),
     resourcesTruncated: Boolean(workspace.resourcesTruncated)
@@ -86,8 +99,8 @@ export function projectWorkspaceForStorage(workspace: ProjectWorkspace | null): 
   };
 }
 
-export function normalizeProjectResources(value: unknown, fallbackFiles: ProjectFileEntry[] = []): ProjectResourceEntry[] {
-  if (!Array.isArray(value)) return projectResourcesFromFiles(fallbackFiles);
+export function normalizeProjectResources(value: unknown, fallbackFiles: ProjectFileEntry[] = [], order?: ProjectExplorerOrderState | null): ProjectResourceEntry[] {
+  if (!Array.isArray(value)) return sortProjectResources(projectResourcesFromFiles(fallbackFiles), order);
   const seen = new Set<string>();
   const resources: ProjectResourceEntry[] = [];
   for (const item of value) {
@@ -99,7 +112,7 @@ export function normalizeProjectResources(value: unknown, fallbackFiles: Project
     resources.push(resource);
     if (resources.length >= PROJECT_RESOURCE_LIMIT) break;
   }
-  return sortProjectResources(resources);
+  return sortProjectResources(resources, order);
 }
 
 export function projectResourcesFromFiles(files: ProjectFileEntry[]): ProjectResourceEntry[] {
@@ -113,11 +126,17 @@ export function projectResourcesFromFiles(files: ProjectFileEntry[]): ProjectRes
   }));
 }
 
-export function sortProjectResources(resources: ProjectResourceEntry[]) {
+export function sortProjectResources(resources: ProjectResourceEntry[], order?: ProjectExplorerOrderState | null) {
   return [...resources].sort((left, right) => {
     const leftDepth = pathSegments(left.relativePath).length;
     const rightDepth = pathSegments(right.relativePath).length;
     if (leftDepth !== rightDepth) return leftDepth - rightDepth;
+    const leftParent = parentProjectResourceDirectory(left.relativePath);
+    const rightParent = parentProjectResourceDirectory(right.relativePath);
+    if (leftParent === rightParent) {
+      const siblingOrder = compareProjectResourceSiblings(left, right, order);
+      if (siblingOrder !== 0) return siblingOrder;
+    }
     if (left.kind !== right.kind) return left.kind === "directory" ? -1 : 1;
     return left.relativePath.localeCompare(right.relativePath, undefined, { sensitivity: "base" });
   });
@@ -199,12 +218,12 @@ export function buildProjectFileTree(files: ProjectFileEntry[]): ProjectTreeNode
   return buildProjectResourceTree(projectResourcesFromFiles(files), files);
 }
 
-export function buildProjectResourceTree(resources: ProjectResourceEntry[], files: ProjectFileEntry[] = []): ProjectResourceTreeNode[] {
+export function buildProjectResourceTree(resources: ProjectResourceEntry[], files: ProjectFileEntry[] = [], order?: ProjectExplorerOrderState | null): ProjectResourceTreeNode[] {
   const directories = new Map<string, ProjectTreeDirectoryNode>();
   const roots: ProjectTreeNode[] = [];
   const projectFilesByPath = new Map(files.map((file) => [normalizeComparablePath(file.path), file]));
 
-  for (const resource of sortProjectResources(resources)) {
+  for (const resource of sortProjectResources(resources, order)) {
     const segments = pathSegments(resource.relativePath);
     const resourceName = segments.pop() || resource.name;
     let parentChildren = roots;
@@ -252,7 +271,25 @@ export function buildProjectResourceTree(resources: ProjectResourceEntry[], file
     });
   }
 
-  return sortProjectTreeNodes(roots);
+  return sortProjectTreeNodes(roots, order);
+}
+
+export function normalizeProjectExplorerOrderState(value: unknown): ProjectExplorerOrderState | null {
+  if (!value || typeof value !== "object") return null;
+  const state = value as Partial<ProjectExplorerOrderState>;
+  if (state.version !== 1 || !state.directories || typeof state.directories !== "object") return null;
+  const directories: Record<string, ProjectExplorerOrderGroup> = {};
+  for (const [rawParentPath, rawGroup] of Object.entries(state.directories)) {
+    const parentPath = normalizeProjectRelativePath(rawParentPath);
+    if (!rawGroup || typeof rawGroup !== "object") continue;
+    const group = rawGroup as Partial<ProjectExplorerOrderGroup>;
+    const directoryPaths = normalizeOrderedRelativePaths(group.directories, parentPath);
+    const filePaths = normalizeOrderedRelativePaths(group.files, parentPath);
+    if (directoryPaths.length || filePaths.length) {
+      directories[parentPath] = { directories: directoryPaths, files: filePaths };
+    }
+  }
+  return Object.keys(directories).length ? { version: 1, directories } : null;
 }
 
 export function projectTreeDirectoryIds(nodes: ProjectTreeNode[]): string[] {
@@ -300,13 +337,40 @@ function normalizeProjectResourceEntry(value: unknown): ProjectResourceEntry | n
   };
 }
 
-function sortProjectTreeNodes(nodes: ProjectTreeNode[]): ProjectTreeNode[] {
+function sortProjectTreeNodes(nodes: ProjectTreeNode[], order: ProjectExplorerOrderState | null | undefined, parentPath = ""): ProjectTreeNode[] {
   return [...nodes]
-    .map((node) => (node.kind === "directory" ? { ...node, children: sortProjectTreeNodes(node.children) } : node))
+    .map((node) => (node.kind === "directory" ? { ...node, children: sortProjectTreeNodes(node.children, order, node.relativePath) } : node))
     .sort((left, right) => {
-      if (left.kind !== right.kind) return left.kind === "directory" ? -1 : 1;
+      const siblingOrder = compareProjectTreeSiblings(left, right, order, parentPath);
+      if (siblingOrder !== 0) return siblingOrder;
       return left.name.localeCompare(right.name, undefined, { sensitivity: "base" });
     });
+}
+
+function compareProjectTreeSiblings(left: ProjectTreeNode, right: ProjectTreeNode, order: ProjectExplorerOrderState | null | undefined, parentPath: string) {
+  if (left.kind !== right.kind) return left.kind === "directory" ? -1 : 1;
+  const group = order?.directories[parentPath];
+  if (!group) return 0;
+  const orderedPaths = left.kind === "directory" ? group.directories : group.files;
+  return compareOrderedRelativePaths(left.relativePath, right.relativePath, orderedPaths);
+}
+
+function compareProjectResourceSiblings(left: ProjectResourceEntry, right: ProjectResourceEntry, order: ProjectExplorerOrderState | null | undefined) {
+  if (left.kind !== right.kind) return left.kind === "directory" ? -1 : 1;
+  const parentPath = parentProjectResourceDirectory(left.relativePath);
+  const group = order?.directories[parentPath];
+  if (!group) return 0;
+  const orderedPaths = left.kind === "directory" ? group.directories : group.files;
+  return compareOrderedRelativePaths(left.relativePath, right.relativePath, orderedPaths);
+}
+
+function compareOrderedRelativePaths(leftPath: string, rightPath: string, orderedPaths: readonly string[]) {
+  const leftIndex = orderedPaths.indexOf(normalizeProjectRelativePath(leftPath));
+  const rightIndex = orderedPaths.indexOf(normalizeProjectRelativePath(rightPath));
+  if (leftIndex >= 0 && rightIndex >= 0) return leftIndex - rightIndex;
+  if (leftIndex >= 0) return -1;
+  if (rightIndex >= 0) return 1;
+  return 0;
 }
 
 function fileNameFromPath(path: string) {
@@ -315,6 +379,32 @@ function fileNameFromPath(path: string) {
 
 function pathSegments(path: string) {
   return path.replaceAll("\\", "/").split("/").filter(Boolean);
+}
+
+function parentProjectResourceDirectory(relativePath: string) {
+  const segments = pathSegments(relativePath);
+  segments.pop();
+  return segments.join("/");
+}
+
+function normalizeProjectRelativePath(path: string) {
+  return String(path || "").replaceAll("\\", "/").replace(/^\/+|\/+$/g, "").replace(/\/{2,}/g, "/");
+}
+
+function normalizeOrderedRelativePaths(value: unknown, parentPath: string) {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set<string>();
+  const normalized: string[] = [];
+  const parentPrefix = parentPath ? `${parentPath}/` : "";
+  for (const item of value) {
+    const relativePath = normalizeProjectRelativePath(String(item || ""));
+    if (!relativePath || seen.has(relativePath)) continue;
+    if (parentPath && !relativePath.startsWith(parentPrefix)) continue;
+    if (!parentPath && relativePath.includes("/") && parentProjectResourceDirectory(relativePath) !== "") continue;
+    seen.add(relativePath);
+    normalized.push(relativePath);
+  }
+  return normalized;
 }
 
 function runtimePathForRelativeResource(resourcePath: string, resourceRelativePath: string, targetRelativePath: string) {

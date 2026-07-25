@@ -118,6 +118,7 @@ export function createElectronRuntime(): EditorRuntime {
     async createProjectDirectory(request) { return bridge.createProjectDirectory(request); },
     async renameProjectResource(request) { return bridge.renameProjectResource(request); },
     async moveProjectResources(request) { return bridge.moveProjectResources(request); },
+    async reorderProjectResources(request) { return bridge.reorderProjectResources(request); },
     async copyProjectResources(request) { return bridge.copyProjectResources(request); },
     async importProjectResources(request) { return bridge.importProjectResources(request); },
     async deleteProjectResources(request) { return bridge.deleteProjectResources(request); },

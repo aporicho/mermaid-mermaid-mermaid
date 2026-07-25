@@ -11,6 +11,7 @@ const {
   renameProjectResource,
   showProjectResourceInFileManager
 } = require("./project-documents.cjs");
+const { reorderProjectResources } = require("./project-explorer-order.cjs");
 
 function registerProjectDocumentIpc({ ipcMain, shell }) {
   ipcMain.handle("mmm:project:create-document", (_event, request) => createProjectDocument(request));
@@ -20,6 +21,7 @@ function registerProjectDocumentIpc({ ipcMain, shell }) {
   ipcMain.handle("mmm:project:create-directory", (_event, request) => createProjectDirectory(request));
   ipcMain.handle("mmm:project:rename-resource", (_event, request) => renameProjectResource(request));
   ipcMain.handle("mmm:project:move-resources", (_event, request) => moveProjectResources(request));
+  ipcMain.handle("mmm:project:reorder-resources", (_event, request) => reorderProjectResources(request));
   ipcMain.handle("mmm:project:copy-resources", (_event, request) => copyProjectResources(request));
   ipcMain.handle("mmm:project:import-resources", (_event, request) => importProjectResources(request));
   ipcMain.handle("mmm:project:delete-resources", (_event, request) => deleteProjectResources(request, { trashItem: (target) => shell.trashItem(target) }));

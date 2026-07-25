@@ -3,7 +3,9 @@ import type { Dispatch, SetStateAction } from "react";
 import type {
   EditorRuntime,
   RuntimeFileRef,
-  RuntimeProjectFileKind
+  RuntimeProjectFileKind,
+  RuntimeProjectResourceKind,
+  RuntimeProjectResourcePlacement
 } from "@/features/mermaid-editor/lib/editor-runtime";
 import type { MermaidGraph } from "@/features/mermaid-editor/lib/editor-types";
 import type { RecentFileEntry } from "@/features/mermaid-editor/lib/file-workflow";
@@ -128,7 +130,7 @@ export function useProjectFileActions({
     }
   }
 
-	  async function moveProjectFile(source: ProjectResourceEntry, targetDirectoryPath: string) {
+  async function moveProjectFile(source: ProjectResourceEntry, targetDirectoryPath: string) {
     await moveProjectResources([source], targetDirectoryPath);
   }
 
@@ -200,7 +202,7 @@ export function useProjectFileActions({
     }
   }
 
-  async function moveProjectResources(resources: ProjectResourceEntry[], targetDirectoryPath: string) {
+  async function moveProjectResources(resources: ProjectResourceEntry[], targetDirectoryPath: string, placement?: RuntimeProjectResourcePlacement) {
     if (!projectWorkspace || !resources.length) return;
     setProjectBusy(true);
     try {
@@ -211,7 +213,8 @@ export function useProjectFileActions({
       const result = await runtime.moveProjectResources({
         rootPath: projectWorkspace.rootPath,
         sourcePaths: resources.map((resource) => resource.path),
-        targetDirectoryPath
+        targetDirectoryPath,
+        ...(placement ? { placement } : {})
       });
       if (result.status === "unsupported") {
         setStatus(result.message);
@@ -229,6 +232,34 @@ export function useProjectFileActions({
         await refreshProjectWorkspace();
       } catch {
         // The mutation result is uncertain, so refresh is best-effort in the error path.
+      }
+    } finally {
+      setProjectBusy(false);
+    }
+  }
+
+  async function reorderProjectResources(parentDirectoryPath: string, kind: RuntimeProjectResourceKind, orderedRelativePaths: string[]) {
+    if (!projectWorkspace || !orderedRelativePaths.length) return;
+    setProjectBusy(true);
+    try {
+      const result = await runtime.reorderProjectResources({
+        rootPath: projectWorkspace.rootPath,
+        parentDirectoryPath,
+        kind,
+        orderedRelativePaths
+      });
+      if (result.status === "unsupported") {
+        setStatus(result.message);
+        return;
+      }
+      await refreshProjectWorkspace();
+      setStatus("已更新资源顺序。");
+    } catch (error) {
+      showFileWorkflowError(error, "调整项目资源顺序失败。");
+      try {
+        await refreshProjectWorkspace();
+      } catch {
+        // The metadata result is uncertain, so refresh is best-effort in the error path.
       }
     } finally {
       setProjectBusy(false);
@@ -372,6 +403,7 @@ export function useProjectFileActions({
     moveProjectFile,
     moveProjectResources,
     renameProjectResource,
+    reorderProjectResources,
     showProjectResourceInFileManager
   };
 }

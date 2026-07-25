@@ -15,8 +15,16 @@ if (!root) {
 
 installAutoHidingScrollbars();
 
-createRoot(root).render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>
-);
+void renderApplication();
+
+async function renderApplication() {
+  const Component = import.meta.env.MODE === "e2e" && window.location.pathname === "/__e2e__/explorer"
+    ? (await import("@/e2e/explorer-harness")).ExplorerE2EHarness
+    : App;
+
+  createRoot(root!).render(
+    <React.StrictMode>
+      <Component />
+    </React.StrictMode>
+  );
+}

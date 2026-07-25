@@ -125,6 +125,34 @@ describe("project workspace", () => {
     expect(tree[0]?.kind === "directory" ? tree[0].children[0] : null).not.toHaveProperty("file");
   });
 
+  it("applies project resource order while keeping directories before files", () => {
+    const workspace = normalizeProjectWorkspace({
+      rootName: "project",
+      rootPath: "/project",
+      scannedAt: 1,
+      files: [],
+      resources: [
+        { kind: "file", name: "alpha.md", path: "/project/docs/alpha.md", relativePath: "docs/alpha.md" },
+        { kind: "directory", name: "docs", path: "/project/docs", relativePath: "docs" },
+        { kind: "directory", name: "archive", path: "/project/archive", relativePath: "archive" },
+        { kind: "file", name: "zeta.md", path: "/project/docs/zeta.md", relativePath: "docs/zeta.md" }
+      ],
+      resourceOrder: {
+        version: 1,
+        directories: {
+          "": { directories: ["docs", "archive"], files: [] },
+          docs: { directories: [], files: ["docs/zeta.md", "docs/alpha.md"] }
+        }
+      }
+    });
+
+    expect(workspace?.resourceOrder?.directories[""]?.directories).toEqual(["docs", "archive"]);
+    const tree = buildProjectResourceTree(workspace?.resources ?? [], [], workspace?.resourceOrder);
+
+    expect(tree.map((node) => node.name)).toEqual(["docs", "archive"]);
+    expect(tree[0]?.kind === "directory" ? tree[0].children.map((node) => node.name) : []).toEqual(["zeta.md", "alpha.md"]);
+  });
+
   it("keeps full resources out of persisted workspace snapshots", () => {
     const workspace = normalizeProjectWorkspace({
       rootName: "project",

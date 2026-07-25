@@ -8,27 +8,15 @@ import {
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent
 } from "react";
+import { Flip } from "gsap/Flip";
 import {
-  Archive,
-  Code,
   Collapse,
-  EmptyPage,
   Expand,
   Folder,
   FolderPlus,
-  Html5,
   InputSearch,
-  JpgFormat,
-  Network,
-  Notes,
-  Page,
   Plus,
-  MediaImage,
-  PngFormat,
-  Refresh as RefreshCw,
-  SvgFormat,
-  TableRows,
-  WebpFormat
+  Refresh as RefreshCw
 } from "iconoir-react/regular";
 
 import { Button } from "@/components/ui/button";
@@ -42,9 +30,8 @@ import {
   EditorTreeRow
 } from "@/features/mermaid-editor/components/editor-ui";
 import { WorkspaceWindowHeader } from "@/features/mermaid-editor/components/floating-chrome";
-import { isCsvTableFilePath } from "@/features/mermaid-editor/lib/csv-table-document";
 import { EDITOR_CHROME_CLASSES } from "@/features/mermaid-editor/lib/editor-chrome";
-import type { RuntimeFileRef } from "@/features/mermaid-editor/lib/editor-runtime";
+import type { RuntimeFileRef, RuntimeProjectResourceKind, RuntimeProjectResourcePlacement } from "@/features/mermaid-editor/lib/editor-runtime";
 import type { ExplorerWorkspaceTreeState } from "@/features/mermaid-editor/lib/explorer-tree-state";
 import { isHtmlDocumentFilePath } from "@/features/mermaid-editor/lib/html-document";
 import { isSupportedImagePath } from "@/features/mermaid-editor/lib/node-assets";
@@ -54,6 +41,7 @@ import {
   isProjectFileActive,
   projectResourcesFromFiles,
   projectTreeDirectoryIds,
+  sortProjectResources,
   type ProjectFileEntry,
   type ProjectResourceEntry,
   type ProjectTreeNode,
@@ -65,15 +53,31 @@ import {
   CreateProjectDirectoryDialog,
   CreateProjectFileDialog,
   DeleteProjectResourcesDialog,
-  MoveProjectResourcesDialog,
-  RenameProjectResourceDialog
+  MoveProjectResourcesDialog
 } from "@/features/mermaid-editor/components/explorer-panel-dialogs";
+import { ProjectFileRow } from "@/features/mermaid-editor/components/explorer-panel-file-row";
+import { ExplorerInlineRename } from "@/features/mermaid-editor/components/explorer-panel-inline-rename";
+import {
+  isDirectoryDropAllowed,
+  orderedRelativePathsForDrop,
+  parentResourceDirectory,
+  resolveExplorerDropIntentAtPoint,
+  sameExplorerDropIntent,
+  type ExplorerDropIntent
+} from "@/features/mermaid-editor/components/explorer-panel-drag";
+import { ExplorerDragOverlay, ExplorerInsertionIndicator } from "@/features/mermaid-editor/components/explorer-panel-drag-overlay";
+import {
+  ProjectResourceIcon,
+  type ExplorerResourceStatus
+} from "@/features/mermaid-editor/components/explorer-resource-ui";
+import { gsap, useEditorMotion } from "@/features/mermaid-editor/lib/use-gsap-motion";
 
 const EMPTY_EXPANDED_DIRECTORY_PATHS: string[] = [];
 const PROJECT_RESOURCE_ICON_CLASS_NAME = "shrink-0";
-const ARCHIVE_FILE_EXTENSIONS = new Set(["zip", "tar", "gz", "tgz", "7z", "rar", "bz2", "xz"]);
-const CODE_FILE_EXTENSIONS = new Set(["js", "jsx", "ts", "tsx", "css", "scss", "sass", "json", "jsonc", "yaml", "yml", "xml", "toml", "cjs", "mjs", "py", "sh", "sql"]);
-const TEXT_FILE_EXTENSIONS = new Set(["txt", "log", "rst"]);
+
+export type { ExplorerResourceStatus } from "@/features/mermaid-editor/components/explorer-resource-ui";
+
+gsap.registerPlugin(Flip);
 
 type ExplorerFilePointerDrag = {
   pointerId: number;
@@ -84,15 +88,20 @@ type ExplorerFilePointerDrag = {
   startY: number;
   lastX: number;
   lastY: number;
+  sourceWidth: number;
+  sourceHeight: number;
+  pointerOffsetX: number;
+  pointerOffsetY: number;
   dragging: boolean;
   documentCanvasKind?: "markdown" | "html";
 };
 
-type ExplorerDirectoryDropTarget = {
-  directoryPath: string;
+type ExplorerDragOverlayState = {
+  resource: ProjectResourceEntry;
+  count: number;
+  width: number;
+  height: number;
 };
-
-export type ExplorerResourceStatus = "clean" | "dirty" | "saving" | "conflict" | "error" | "external-changed" | "missing" | "unsupported" | "readonly";
 
 export type ExplorerProjectFileKind = "markdown" | "mermaid" | "csv" | "html";
 
@@ -127,6 +136,7 @@ export function ExplorerPanel({
   onRenameProjectResource,
   onMoveProjectFile: _onMoveProjectFile,
   onMoveProjectResources,
+  onReorderProjectResources,
   onCopyProjectResources,
   onImportProjectResources,
   onDeleteProjectResources,
@@ -152,7 +162,8 @@ export function ExplorerPanel({
   onCreateProjectDirectory: (request: ExplorerCreateProjectDirectoryRequest) => void;
   onRenameProjectResource: (resource: ProjectResourceEntry, name: string) => void;
   onMoveProjectFile: (file: ProjectResourceEntry, targetDirectoryPath: string) => void;
-  onMoveProjectResources: (resources: ProjectResourceEntry[], targetDirectoryPath: string) => void;
+  onMoveProjectResources: (resources: ProjectResourceEntry[], targetDirectoryPath: string, placement?: RuntimeProjectResourcePlacement) => void;
+  onReorderProjectResources: (parentDirectoryPath: string, kind: RuntimeProjectResourceKind, orderedRelativePaths: string[]) => void;
   onCopyProjectResources: (resources: ProjectResourceEntry[], targetDirectoryPath: string) => void;
   onImportProjectResources: (externalPaths: string[], targetDirectoryPath: string) => void;
   onDeleteProjectResources: (resources: ProjectResourceEntry[]) => void;
@@ -160,11 +171,12 @@ export function ExplorerPanel({
   onProjectDocumentPointerDrag: (file: ProjectFileEntry, kind: "markdown" | "html", point: { x: number; y: number }, phase: "move" | "drop" | "cancel") => void;
   onStatus: (message: string) => void;
 }) {
+  const motion = useEditorMotion();
   const resources = useMemo(
-    () => projectWorkspace?.resources ?? projectResourcesFromFiles(projectFiles),
-    [projectFiles, projectWorkspace?.resources]
+    () => sortProjectResources(projectWorkspace?.resources ?? projectResourcesFromFiles(projectFiles), projectWorkspace?.resourceOrder),
+    [projectFiles, projectWorkspace?.resourceOrder, projectWorkspace?.resources]
   );
-  const tree = useMemo(() => buildProjectResourceTree(resources, projectFiles), [projectFiles, resources]);
+  const tree = useMemo(() => buildProjectResourceTree(resources, projectFiles, projectWorkspace?.resourceOrder), [projectFiles, projectWorkspace?.resourceOrder, resources]);
   const resourcesByPath = useMemo(() => new Map(resources.map((resource) => [resource.path, resource])), [resources]);
   const directoryPaths = useMemo(
     () => new Set(projectTreeDirectoryIds(tree).map((id) => id.slice("dir:".length))),
@@ -181,12 +193,13 @@ export function ExplorerPanel({
   const [createDirectoryDialog, setCreateDirectoryDialog] = useState<{ directoryPath: string } | null>(null);
   const [moveResourcesDialog, setMoveResourcesDialog] = useState<{ resources: ProjectResourceEntry[]; targetDirectoryPath: string } | null>(null);
   const [deleteResourcesDialog, setDeleteResourcesDialog] = useState<{ resources: ProjectResourceEntry[] } | null>(null);
-  const [renameResource, setRenameResource] = useState<ProjectResourceEntry | null>(null);
+  const [renamingResourcePath, setRenamingResourcePath] = useState<string | null>(null);
   const [selectedResourcePaths, setSelectedResourcePaths] = useState<Set<string>>(() => new Set());
   const [selectionAnchorPath, setSelectionAnchorPath] = useState<string | null>(null);
   const [resourceClipboard, setResourceClipboard] = useState<ProjectResourceEntry[]>([]);
   const [draggedResourcePath, setDraggedResourcePath] = useState<string | null>(null);
-  const [dropTargetDirectoryPath, setDropTargetDirectoryPath] = useState<string | null>(null);
+  const [dropIntent, setDropIntent] = useState<ExplorerDropIntent | null>(null);
+  const [dragOverlay, setDragOverlay] = useState<ExplorerDragOverlayState | null>(null);
   const pendingRenameClickRef = useRef<number | null>(null);
   const activeFile = useMemo(
     () => projectFiles.find((file) => isProjectFileActive(file, currentFileRef)),
@@ -200,6 +213,10 @@ export function ExplorerPanel({
   const lastActiveRevealKeyRef = useRef<string | null>(null);
   const pendingActiveRevealKeyRef = useRef<string | null>(null);
   const filePointerDragRef = useRef<ExplorerFilePointerDrag | null>(null);
+  const dropIntentRef = useRef<ExplorerDropIntent | null>(null);
+  const dragOverlayRef = useRef<HTMLDivElement | null>(null);
+  const layoutAnimationFrameRef = useRef<number | null>(null);
+  const layoutAnimationVersionRef = useRef(0);
   const projectAvailable = runtimeKind === "desktop";
   const selectedResources = useMemo(
     () => [...selectedResourcePaths].map((path) => resourcesByPath.get(path)).filter((resource): resource is ProjectResourceEntry => Boolean(resource)),
@@ -218,10 +235,14 @@ export function ExplorerPanel({
       const next = new Set([...current].filter((path) => resourcesByPath.has(path)));
       return samePathSet(next, current) ? current : next;
     });
+    setRenamingResourcePath((current) => current && !resourcesByPath.has(current) ? null : current);
   }, [resourcesByPath]);
 
   useEffect(() => () => {
     if (pendingRenameClickRef.current) window.clearTimeout(pendingRenameClickRef.current);
+    layoutAnimationVersionRef.current += 1;
+    if (layoutAnimationFrameRef.current !== null) window.cancelAnimationFrame(layoutAnimationFrameRef.current);
+    clearExplorerRowLayoutTransforms(explorerRowLayoutTargets(treeRef.current));
   }, []);
 
   useEffect(() => {
@@ -266,11 +287,33 @@ export function ExplorerPanel({
     const drag = filePointerDragRef.current;
     filePointerDragRef.current = null;
     setDraggedResourcePath(null);
-    setDropTargetDirectoryPath(null);
+    dropIntentRef.current = null;
+    setDropIntent(null);
+    setDragOverlay(null);
     if (drag?.documentCanvasKind && drag.file) {
       onProjectDocumentPointerDrag(drag.file, drag.documentCanvasKind, { x: drag.lastX, y: drag.lastY }, "cancel");
     }
   }, [onProjectDocumentPointerDrag, projectBusy]);
+
+  useEffect(() => {
+    const element = dragOverlayRef.current;
+    if (!element || !dragOverlay) return;
+    try {
+      const drag = filePointerDragRef.current;
+      if (drag) {
+        const point = dragOverlayPoint(drag.lastX, drag.lastY, drag);
+        gsap.set(element, { x: point.x, y: point.y });
+      }
+      if (!motion.reduced) {
+        gsap.fromTo(element, { scale: 0.98, autoAlpha: 0.92 }, { scale: 1, autoAlpha: 1, duration: 0.1, ease: "power2.out" });
+      }
+    } catch {
+      // Drag preview positioning is decorative; the resource drop contract still owns behavior.
+    }
+    return () => {
+      gsap.killTweensOf(element);
+    };
+  }, [dragOverlay, motion.reduced]);
 
   function updateExpansion(nextRootExpanded: boolean, nextPaths: string[]) {
     onTreeStateChange({ rootExpanded: nextRootExpanded, expandedDirectoryPaths: nextPaths });
@@ -294,6 +337,16 @@ export function ExplorerPanel({
   function moveResource(resource: ProjectResourceEntry) {
     const resources = contextualResources(resource);
     setMoveResourcesDialog({ resources, targetDirectoryPath: parentResourceDirectory(resource.relativePath) });
+  }
+
+  function startInlineRename(resource: ProjectResourceEntry) {
+    if (projectBusy) return;
+    setRenamingResourcePath(resource.path);
+  }
+
+  function commitInlineRename(resource: ProjectResourceEntry, name: string) {
+    setRenamingResourcePath(null);
+    onRenameProjectResource(resource, name);
   }
 
   function copyResourcesToClipboard(resources: ProjectResourceEntry[]) {
@@ -351,20 +404,22 @@ export function ExplorerPanel({
     setSelectionAnchorPath(resource.path);
   }
 
-  function handleResourceClick(resource: ProjectResourceEntry, event: ReactMouseEvent<HTMLButtonElement>) {
+  function handleResourceClick(resource: ProjectResourceEntry, event: ReactMouseEvent<HTMLButtonElement>, nameClickOverride?: boolean) {
+    if (renamingResourcePath === resource.path) return;
     const selected = selectedResourcePaths.has(resource.path);
-    const nameClick = Boolean((event.target as HTMLElement | null)?.closest("[data-project-resource-name]"));
+    const nameClick = nameClickOverride ?? isResourceNameEventTarget(event.target);
     focusAndSelectResource(resource, event);
     if (selected && nameClick && !event.metaKey && !event.ctrlKey && !event.shiftKey) {
       if (pendingRenameClickRef.current) window.clearTimeout(pendingRenameClickRef.current);
       pendingRenameClickRef.current = window.setTimeout(() => {
-        setRenameResource(resource);
+        startInlineRename(resource);
         pendingRenameClickRef.current = null;
       }, 260);
     }
   }
 
   function handleResourceDoubleClick(resource: ProjectResourceEntry, file: ProjectFileEntry | undefined) {
+    if (renamingResourcePath === resource.path) return;
     if (pendingRenameClickRef.current) {
       window.clearTimeout(pendingRenameClickRef.current);
       pendingRenameClickRef.current = null;
@@ -402,7 +457,8 @@ export function ExplorerPanel({
   }
 
   function startFilePointerDrag(resource: ProjectResourceEntry, file: ProjectFileEntry | undefined, event: ReactPointerEvent<HTMLButtonElement>) {
-    if (projectBusy || event.button !== 0) return;
+    if (projectBusy || event.button !== 0 || renamingResourcePath === resource.path) return;
+    const sourceRect = event.currentTarget.getBoundingClientRect();
     event.currentTarget.setPointerCapture(event.pointerId);
     filePointerDragRef.current = {
       pointerId: event.pointerId,
@@ -413,6 +469,10 @@ export function ExplorerPanel({
       startY: event.clientY,
       lastX: event.clientX,
       lastY: event.clientY,
+      sourceWidth: sourceRect.width,
+      sourceHeight: sourceRect.height,
+      pointerOffsetX: event.clientX - sourceRect.left,
+      pointerOffsetY: event.clientY - sourceRect.top,
       dragging: false,
       documentCanvasKind: undefined
     };
@@ -426,14 +486,17 @@ export function ExplorerPanel({
     if (!drag.dragging && Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY) < 6) return;
     if (!drag.dragging) {
       drag.dragging = true;
+      animateExplorerRowLayout();
       setDraggedResourcePath(drag.resource.path);
+      setDragOverlay({ resource: drag.resource, count: drag.resources.length, width: drag.sourceWidth, height: drag.sourceHeight });
+      updateDragOverlayPosition(event.clientX, event.clientY);
     }
     event.preventDefault();
+    updateDragOverlayPosition(event.clientX, event.clientY);
 
-    const target = explorerDirectoryDropTargetAtPoint(treeRef.current, event.clientX, event.clientY);
-    if (target) {
-      const sourceDirectoryPath = parentResourceDirectory(drag.resource.relativePath);
-      setDropTargetDirectoryPath(target.directoryPath === sourceDirectoryPath ? null : target.directoryPath);
+    const intent = dropIntentAtPoint(drag, event.clientX, event.clientY);
+    if (intent) {
+      updateDropIntent(intent);
       if (drag.documentCanvasKind && drag.file) {
         onProjectDocumentPointerDrag(drag.file, drag.documentCanvasKind, { x: event.clientX, y: event.clientY }, "cancel");
         drag.documentCanvasKind = undefined;
@@ -441,7 +504,18 @@ export function ExplorerPanel({
       return;
     }
 
-    setDropTargetDirectoryPath(null);
+    if (explorerInsertionAtPoint(treeRef.current, event.clientX, event.clientY)) {
+      return;
+    }
+
+    updateDropIntent(null);
+    if (explorerRowAtPoint(treeRef.current, event.clientX, event.clientY)) {
+      if (drag.documentCanvasKind && drag.file) {
+        onProjectDocumentPointerDrag(drag.file, drag.documentCanvasKind, { x: event.clientX, y: event.clientY }, "cancel");
+        drag.documentCanvasKind = undefined;
+      }
+      return;
+    }
     const documentKind = projectDocumentNodeKind(drag.resource);
     if (drag.resources.length === 1 && drag.file && documentKind) {
       onProjectDocumentPointerDrag(drag.file, documentKind, { x: event.clientX, y: event.clientY }, "move");
@@ -452,19 +526,29 @@ export function ExplorerPanel({
   function finishFilePointerDrag(event: ReactPointerEvent<HTMLButtonElement>) {
     const drag = filePointerDragRef.current;
     if (!drag || drag.pointerId !== event.pointerId) return false;
+    const intent = drag.dragging
+      ? dropIntentAtPoint(drag, event.clientX, event.clientY) ??
+        (explorerInsertionAtPoint(treeRef.current, event.clientX, event.clientY) ? dropIntentRef.current : null)
+      : null;
+    const rowAtPoint = drag.dragging ? explorerRowAtPoint(treeRef.current, event.clientX, event.clientY) : null;
     filePointerDragRef.current = null;
     setDraggedResourcePath(null);
-    setDropTargetDirectoryPath(null);
+    updateDropIntent(null);
+    setDragOverlay(null);
     if (!drag.dragging) return false;
     event.preventDefault();
 
-    const target = explorerDirectoryDropTargetAtPoint(treeRef.current, event.clientX, event.clientY);
-    if (target) {
+    if (intent) {
       if (drag.documentCanvasKind && drag.file) {
         onProjectDocumentPointerDrag(drag.file, drag.documentCanvasKind, { x: event.clientX, y: event.clientY }, "cancel");
       }
-      if (!projectBusy && target.directoryPath !== parentResourceDirectory(drag.resource.relativePath)) {
-        onMoveProjectResources(drag.resources, target.directoryPath);
+      commitResourceDrop(drag, intent);
+      return true;
+    }
+
+    if (rowAtPoint) {
+      if (drag.documentCanvasKind && drag.file) {
+        onProjectDocumentPointerDrag(drag.file, drag.documentCanvasKind, { x: event.clientX, y: event.clientY }, "cancel");
       }
       return true;
     }
@@ -481,9 +565,118 @@ export function ExplorerPanel({
     if (!drag || drag.pointerId !== event.pointerId) return;
     filePointerDragRef.current = null;
     setDraggedResourcePath(null);
-    setDropTargetDirectoryPath(null);
+    updateDropIntent(null);
+    setDragOverlay(null);
     if (drag.documentCanvasKind && drag.file) {
       onProjectDocumentPointerDrag(drag.file, drag.documentCanvasKind, { x: event.clientX, y: event.clientY }, "cancel");
+    }
+  }
+
+  function dropIntentAtPoint(drag: ExplorerFilePointerDrag, x: number, y: number) {
+    const intent = resolveExplorerDropIntentAtPoint(treeRef.current, x, y, {
+      sortingEnabled: !filtering,
+      draggedKind: drag.resource.kind
+    });
+    if (!intent) return null;
+    if (intent.kind === "directory") {
+      return isDirectoryDropAllowed(resources, drag.resources, intent.directoryPath) ? intent : null;
+    }
+    if (drag.resource.kind !== intent.resourceKind) return null;
+    const sameGroup = drag.resources.every((resource) =>
+      resource.kind === intent.resourceKind &&
+      parentResourceDirectory(resource.relativePath) === intent.parentDirectoryPath
+    );
+    if (sameGroup) return intent;
+    return isDirectoryDropAllowed(resources, drag.resources, intent.parentDirectoryPath) ? intent : null;
+  }
+
+  function commitResourceDrop(drag: ExplorerFilePointerDrag, intent: ExplorerDropIntent) {
+    if (projectBusy) return;
+    if (intent.kind === "directory") {
+      onMoveProjectResources(drag.resources, intent.directoryPath);
+      return;
+    }
+
+    const sameGroup = drag.resources.every((resource) =>
+      resource.kind === intent.resourceKind &&
+      parentResourceDirectory(resource.relativePath) === intent.parentDirectoryPath
+    );
+    if (sameGroup) {
+      const nextOrder = orderedRelativePathsForDrop(resources, drag.resources, intent);
+      if (nextOrder) onReorderProjectResources(intent.parentDirectoryPath, intent.resourceKind, nextOrder);
+      return;
+    }
+
+    onMoveProjectResources(drag.resources, intent.parentDirectoryPath, {
+      kind: intent.resourceKind,
+      parentDirectoryPath: intent.parentDirectoryPath,
+      beforeRelativePath: intent.beforeRelativePath
+    });
+  }
+
+  function updateDragOverlayPosition(x: number, y: number) {
+    const element = dragOverlayRef.current;
+    if (!element) return;
+    const point = dragOverlayPoint(x, y, filePointerDragRef.current);
+    const nextX = point.x;
+    const nextY = point.y;
+    try {
+      gsap.set(element, { x: nextX, y: nextY });
+    } catch {
+      element.style.transform = `translate3d(${nextX}px, ${nextY}px, 0)`;
+    }
+  }
+
+  function updateDropIntent(nextIntent: ExplorerDropIntent | null) {
+    dropIntentRef.current = nextIntent;
+    setDropIntent((current) => {
+      if (sameExplorerDropIntent(current, nextIntent)) return current;
+      animateExplorerRowLayout();
+      return nextIntent;
+    });
+  }
+
+  function animateExplorerRowLayout() {
+    const root = treeRef.current;
+    if (!root) return;
+    const targets = explorerRowLayoutTargets(root);
+    if (!targets.length) return;
+    const version = layoutAnimationVersionRef.current + 1;
+    layoutAnimationVersionRef.current = version;
+    if (layoutAnimationFrameRef.current !== null) {
+      window.cancelAnimationFrame(layoutAnimationFrameRef.current);
+      layoutAnimationFrameRef.current = null;
+    }
+    try {
+      gsap.killTweensOf(targets);
+      if (motion.reduced || motion.duration.layout <= 0) {
+        clearExplorerRowLayoutTransforms(targets);
+        return;
+      }
+      const state = Flip.getState(targets);
+      layoutAnimationFrameRef.current = window.requestAnimationFrame(() => {
+        layoutAnimationFrameRef.current = null;
+        if (layoutAnimationVersionRef.current !== version) return;
+        const nextTargets = explorerRowLayoutTargets(root);
+        try {
+          Flip.from(state, {
+            duration: Math.min(0.18, motion.duration.layout),
+            ease: "power2.out",
+            absolute: false,
+            overwrite: true,
+            onComplete: () => {
+              if (layoutAnimationVersionRef.current !== version) return;
+              clearExplorerRowLayoutTransforms(nextTargets);
+            }
+          });
+        } catch {
+          // Layout animation is decorative; pointer drop behavior must remain deterministic.
+          clearExplorerRowLayoutTransforms(nextTargets);
+        }
+      });
+    } catch {
+      // GSAP Flip can be unavailable in test-like DOMs.
+      clearExplorerRowLayoutTransforms(targets);
     }
   }
 
@@ -505,7 +698,7 @@ export function ExplorerPanel({
     } else if (event.key === "F2" && item.resource) {
       event.preventDefault();
       const targets = contextualResources(item.resource);
-      if (targets.length === 1) setRenameResource(targets[0]);
+      if (targets.length === 1) startInlineRename(targets[0]);
     } else if ((event.key === "Delete" || (event.metaKey && event.key === "Backspace")) && selectedResources.length) {
       event.preventDefault();
       requestDeleteResources(item.resource ? contextualResources(item.resource) : selectedResources);
@@ -617,7 +810,7 @@ export function ExplorerPanel({
 	                onMove={moveResource}
 	                onCreateFile={createFileInDirectory}
 	                onCreateDirectory={createDirectoryInDirectory}
-	                onRename={setRenameResource}
+	                onRename={startInlineRename}
 	                onDelete={requestDeleteResources}
 	                onCopyResources={copyResourcesToClipboard}
 	                onPasteResources={pasteResources}
@@ -627,11 +820,11 @@ export function ExplorerPanel({
 	                <EditorTreeRow
                   data-tree-item-id={rootItemId}
                   data-project-directory-path=""
-                  data-project-drop-target={dropTargetDirectoryPath === "" || undefined}
+                  data-project-drop-target={dropIntent?.kind === "directory" && dropIntent.directoryPath === "" || undefined}
                   aria-level={1}
 	                  aria-expanded={filtering || rootExpanded}
 	                  tabIndex={focusedItemId === rootItemId ? 0 : -1}
-                  className={cn(dropTargetDirectoryPath === "" && "text-[hsl(var(--ui-tree-selected-foreground))] before:bg-[hsl(var(--ui-tree-selected-background))]")}
+                  className={cn(dropIntent?.kind === "directory" && dropIntent.directoryPath === "" && "text-[hsl(var(--ui-tree-selected-foreground))] before:bg-[hsl(var(--ui-tree-selected-background))]")}
                   title={projectWorkspace.rootPath}
                   onFocus={() => setFocusedItemId(rootItemId)}
                   onKeyDown={(event) => {
@@ -652,10 +845,11 @@ export function ExplorerPanel({
 	              </ProjectResourceContextMenu>
 	              {(filtering || rootExpanded) ? (
 	                <EditorTreeGroup>
-	                  {filteredTree.length ? filteredTree.map((node) => (
+	                  {filteredTree.length ? filteredTree.map((node, index, siblings) => (
 	                    <ProjectTreeNodeRow
                       key={node.id}
                       node={node}
+                      siblings={siblings}
                       level={2}
                       parentPath=""
 	                      expandedDirectoryPaths={expandedDirectorySet}
@@ -680,7 +874,8 @@ export function ExplorerPanel({
                       onProjectDocumentPointerDrag={onProjectDocumentPointerDrag}
                       projectBusy={projectBusy}
                       draggedResourcePath={draggedResourcePath}
-                      dropTargetDirectoryPath={dropTargetDirectoryPath}
+                      dropIntent={dropIntent}
+                      renamingResourcePath={renamingResourcePath}
                       onStartFilePointerDrag={startFilePointerDrag}
                       onMoveFilePointerDrag={moveFilePointerDrag}
                       onFinishFilePointerDrag={finishFilePointerDrag}
@@ -689,7 +884,9 @@ export function ExplorerPanel({
 	                      onMoveResource={moveResource}
 	                      onCreateFile={createFileInDirectory}
 	                      onCreateDirectory={createDirectoryInDirectory}
-	                      onRenameResource={setRenameResource}
+	                      onRenameResource={startInlineRename}
+                      onCommitRename={commitInlineRename}
+                      onCancelRename={() => setRenamingResourcePath(null)}
 	                      onDeleteResources={requestDeleteResources}
 	                      onCopyResources={copyResourcesToClipboard}
 	                      onPasteResources={pasteResources}
@@ -706,6 +903,16 @@ export function ExplorerPanel({
               <div role="status" className="px-3 py-2 text-xs text-muted-foreground">资源较多，仅显示前 10,000 项。</div>
             ) : null}
 	          </EditorTree>
+          {dragOverlay ? (
+            <ExplorerDragOverlay
+              ref={dragOverlayRef}
+              icon={<ProjectResourceIcon resource={dragOverlay.resource} />}
+              label={dragOverlay.resource.name}
+              count={dragOverlay.count}
+              width={dragOverlay.width}
+              height={dragOverlay.height}
+            />
+          ) : null}
 	          </>
 	        )}
 	        {projectWorkspace && createFileDialog ? (
@@ -729,18 +936,6 @@ export function ExplorerPanel({
 	            onCreate={(request) => {
 	              setCreateDirectoryDialog(null);
 	              onCreateProjectDirectory(request);
-	            }}
-	          />
-	        ) : null}
-	        {projectWorkspace && renameResource ? (
-	          <RenameProjectResourceDialog
-	            resource={renameResource}
-	            projectBusy={projectBusy}
-	            onClose={() => setRenameResource(null)}
-	            onRename={(name) => {
-	              const resource = renameResource;
-	              setRenameResource(null);
-	              onRenameProjectResource(resource, name);
 	            }}
 	          />
 	        ) : null}
@@ -800,6 +995,7 @@ function WorkspaceFolderEmptyState({ projectAvailable, projectBusy, onOpenProjec
 
 function ProjectTreeNodeRow({
   node,
+  siblings,
   level,
   parentPath,
   expandedDirectoryPaths,
@@ -824,7 +1020,8 @@ function ProjectTreeNodeRow({
   onProjectDocumentPointerDrag,
   projectBusy,
   draggedResourcePath,
-  dropTargetDirectoryPath,
+  dropIntent,
+  renamingResourcePath,
   onStartFilePointerDrag,
   onMoveFilePointerDrag,
   onFinishFilePointerDrag,
@@ -834,6 +1031,8 @@ function ProjectTreeNodeRow({
   onCreateFile,
   onCreateDirectory,
   onRenameResource,
+  onCommitRename,
+  onCancelRename,
   onDeleteResources,
   onCopyResources,
   onPasteResources,
@@ -843,6 +1042,7 @@ function ProjectTreeNodeRow({
   onUnsupportedResource
 }: {
   node: ProjectTreeNode;
+  siblings: ProjectTreeNode[];
   level: number;
   parentPath: string;
   expandedDirectoryPaths: Set<string>;
@@ -857,7 +1057,7 @@ function ProjectTreeNodeRow({
   onFocusItem: (id: string) => void;
   onTreeKeyDown: (event: ReactKeyboardEvent<HTMLButtonElement>, item: { id: string; kind: "root" | "directory" | "file"; expanded?: boolean; relativePath?: string; parentPath?: string; resource?: ProjectResourceEntry; file?: ProjectFileEntry }) => void;
   onToggleDirectory: (relativePath: string) => void;
-  onSelectResource: (resource: ProjectResourceEntry, event: ReactMouseEvent<HTMLButtonElement>) => void;
+  onSelectResource: (resource: ProjectResourceEntry, event: ReactMouseEvent<HTMLButtonElement>, nameClick?: boolean) => void;
   onContextMenuResource: (resource: ProjectResourceEntry) => void;
   onDoubleClickResource: (resource: ProjectResourceEntry, file: ProjectFileEntry | undefined) => void;
   onOpenProjectFile: (file: ProjectFileEntry) => void;
@@ -867,7 +1067,8 @@ function ProjectTreeNodeRow({
   onProjectDocumentPointerDrag: (file: ProjectFileEntry, kind: "markdown" | "html", point: { x: number; y: number }, phase: "move" | "drop" | "cancel") => void;
   projectBusy: boolean;
   draggedResourcePath: string | null;
-  dropTargetDirectoryPath: string | null;
+  dropIntent: ExplorerDropIntent | null;
+  renamingResourcePath: string | null;
   onStartFilePointerDrag: (resource: ProjectResourceEntry, file: ProjectFileEntry | undefined, event: ReactPointerEvent<HTMLButtonElement>) => void;
   onMoveFilePointerDrag: (event: ReactPointerEvent<HTMLButtonElement>) => void;
   onFinishFilePointerDrag: (event: ReactPointerEvent<HTMLButtonElement>) => boolean;
@@ -877,6 +1078,8 @@ function ProjectTreeNodeRow({
   onCreateFile: (directoryPath: string) => void;
   onCreateDirectory: (directoryPath: string) => void;
   onRenameResource: (resource: ProjectResourceEntry) => void;
+  onCommitRename: (resource: ProjectResourceEntry, name: string) => void;
+  onCancelRename: () => void;
   onDeleteResources: (resources: ProjectResourceEntry[]) => void;
   onCopyResources: (resources: ProjectResourceEntry[]) => void;
   onPasteResources: (directoryPath: string) => void;
@@ -885,13 +1088,103 @@ function ProjectTreeNodeRow({
   onShowInFileManager: (resource: ProjectResourceEntry) => void;
   onUnsupportedResource: (resource: ProjectResourceEntry) => void;
 }) {
+  const suppressClickRef = useRef(false);
+  const pointerDownNameRef = useRef(false);
+  const showInsertionBefore = shouldShowInsertionBefore(dropIntent, node, parentPath);
+  const showInsertionAfter = shouldShowAppendInsertionAfter(dropIntent, node, siblings, parentPath);
+
   if (node.kind === "directory") {
     const expanded = filtering || expandedDirectoryPaths.has(node.relativePath);
     const resource = nodeResourceFromDirectory(node);
     const selected = selectedResourcePaths.has(resource.path);
+    const dragging = draggedResourcePath === resource.path;
+    const renaming = renamingResourcePath === resource.path;
+    const directoryDropTarget = dropIntent?.kind === "directory" && dropIntent.directoryPath === node.relativePath;
+    const row = (
+      <EditorTreeRow
+        data-tree-item-id={node.id}
+        data-project-resource-path={resource.path}
+        data-project-resource-relative-path={resource.relativePath}
+        data-project-resource-kind="directory"
+        data-project-resource-parent-path={parentPath}
+        data-project-directory-path={node.relativePath}
+        data-project-drop-target={directoryDropTarget || undefined}
+        data-project-resource-dragging={dragging || undefined}
+        aria-level={level}
+        aria-expanded={expanded}
+        aria-selected={selected || undefined}
+        tabIndex={focusedItemId === node.id ? 0 : -1}
+        active={selected}
+        className={cn(
+          dragging && "pointer-events-none absolute inset-x-0 top-0 cursor-grabbing opacity-0",
+          directoryDropTarget && "text-[hsl(var(--ui-tree-selected-foreground))] before:bg-[hsl(var(--ui-tree-selected-background))]"
+        )}
+        title={node.path}
+        onFocus={() => onFocusItem(node.id)}
+        onKeyDown={(event) => {
+          if (renaming) return;
+          if (!openContextMenuFromKeyboard(event)) {
+            onTreeKeyDown(event, { id: node.id, kind: "directory", expanded, relativePath: node.relativePath, parentPath, resource });
+          }
+        }}
+        onPointerDown={renaming ? undefined : (event) => {
+          pointerDownNameRef.current = isResourceNameEventTarget(event.target);
+          onStartFilePointerDrag(resource, undefined, event);
+        }}
+        onPointerMove={renaming ? undefined : onMoveFilePointerDrag}
+        onPointerUp={renaming ? undefined : (event) => {
+          if (onFinishFilePointerDrag(event)) suppressClickRef.current = true;
+        }}
+        onPointerCancel={renaming ? undefined : (event) => {
+          pointerDownNameRef.current = false;
+          onCancelFilePointerDrag(event);
+        }}
+        onLostPointerCapture={renaming ? undefined : onCancelFilePointerDrag}
+        onClick={(event) => {
+          if (suppressClickRef.current) {
+            suppressClickRef.current = false;
+            pointerDownNameRef.current = false;
+            event.preventDefault();
+            return;
+          }
+          const nameClick = pointerDownNameRef.current || isResourceNameEventTarget(event.target);
+          pointerDownNameRef.current = false;
+          if (!renaming) onSelectResource(resource, event, nameClick);
+        }}
+        onDoubleClick={() => { if (!renaming) onDoubleClickResource(resource, undefined); }}
+        onContextMenu={(mouseEvent) => {
+          if (renaming) {
+            mouseEvent.preventDefault();
+            return;
+          }
+          onContextMenuResource(resource);
+        }}
+        onDragOver={(event) => {
+          event.preventDefault();
+          event.dataTransfer.dropEffect = "copy";
+        }}
+        onDrop={(event) => handleExternalResourceDropFromRow(node.relativePath, event, onImportExternalResources)}
+      >
+        <Folder className={PROJECT_RESOURCE_ICON_CLASS_NAME} data-project-resource-icon="folder" />
+        {renaming ? (
+          <ExplorerInlineRename
+            resource={resource}
+            projectBusy={projectBusy}
+            onCancel={onCancelRename}
+            onCommit={(name) => onCommitRename(resource, name)}
+          />
+        ) : (
+          <span className="min-w-0 truncate" data-project-resource-name>{node.name}</span>
+        )}
+      </EditorTreeRow>
+    );
+
     return (
+      <>
+      <ExplorerInsertionIndicator active={showInsertionBefore} />
       <EditorTreeItem>
-        <ProjectResourceContextMenu
+        {renaming ? row : (
+          <ProjectResourceContextMenu
           menu={{ kind: "file", resource }}
           rootName={rootName}
           projectBusy={projectBusy}
@@ -911,43 +1204,16 @@ function ProjectTreeNodeRow({
           onCopyPaths={onCopyPaths}
           onShowInFileManager={onShowInFileManager}
         >
-          <EditorTreeRow
-            data-tree-item-id={node.id}
-            data-project-resource-path={resource.path}
-            data-project-directory-path={node.relativePath}
-            data-project-drop-target={dropTargetDirectoryPath === node.relativePath || undefined}
-            aria-level={level}
-            aria-expanded={expanded}
-            aria-selected={selected || undefined}
-            tabIndex={focusedItemId === node.id ? 0 : -1}
-            active={selected}
-            className={cn(dropTargetDirectoryPath === node.relativePath && "text-[hsl(var(--ui-tree-selected-foreground))] before:bg-[hsl(var(--ui-tree-selected-background))]")}
-            title={node.path}
-            onFocus={() => onFocusItem(node.id)}
-            onKeyDown={(event) => {
-              if (!openContextMenuFromKeyboard(event)) {
-                onTreeKeyDown(event, { id: node.id, kind: "directory", expanded, relativePath: node.relativePath, parentPath, resource });
-              }
-            }}
-            onClick={(event) => onSelectResource(resource, event)}
-            onDoubleClick={() => onDoubleClickResource(resource, undefined)}
-            onContextMenu={() => onContextMenuResource(resource)}
-            onDragOver={(event) => {
-              event.preventDefault();
-              event.dataTransfer.dropEffect = "copy";
-            }}
-            onDrop={(event) => handleExternalResourceDropFromRow(node.relativePath, event, onImportExternalResources)}
-          >
-            <Folder className={PROJECT_RESOURCE_ICON_CLASS_NAME} data-project-resource-icon="folder" />
-            <span className="min-w-0 truncate" data-project-resource-name>{node.name}</span>
-          </EditorTreeRow>
+          {row}
         </ProjectResourceContextMenu>
-        {expanded ? (
+        )}
+        {expanded && !dragging ? (
           <EditorTreeGroup>
-            {node.children.map((child) => (
+            {node.children.map((child, _index, childSiblings) => (
               <ProjectTreeNodeRow
                 key={child.id}
                 node={child}
+                siblings={childSiblings}
                 level={level + 1}
                 parentPath={node.relativePath}
                 expandedDirectoryPaths={expandedDirectoryPaths}
@@ -972,7 +1238,8 @@ function ProjectTreeNodeRow({
                 onProjectDocumentPointerDrag={onProjectDocumentPointerDrag}
                 projectBusy={projectBusy}
                 draggedResourcePath={draggedResourcePath}
-                dropTargetDirectoryPath={dropTargetDirectoryPath}
+                dropIntent={dropIntent}
+                renamingResourcePath={renamingResourcePath}
                 onStartFilePointerDrag={onStartFilePointerDrag}
                 onMoveFilePointerDrag={onMoveFilePointerDrag}
                 onFinishFilePointerDrag={onFinishFilePointerDrag}
@@ -982,6 +1249,8 @@ function ProjectTreeNodeRow({
                 onCreateFile={onCreateFile}
                 onCreateDirectory={onCreateDirectory}
                 onRenameResource={onRenameResource}
+                onCommitRename={onCommitRename}
+                onCancelRename={onCancelRename}
                 onDeleteResources={onDeleteResources}
                 onCopyResources={onCopyResources}
                 onPasteResources={onPasteResources}
@@ -994,10 +1263,14 @@ function ProjectTreeNodeRow({
           </EditorTreeGroup>
         ) : null}
       </EditorTreeItem>
+      <ExplorerInsertionIndicator active={showInsertionAfter} />
+      </>
     );
   }
 
   return (
+    <>
+    <ExplorerInsertionIndicator active={showInsertionBefore} />
     <ProjectFileRow
       node={node}
       level={level}
@@ -1020,6 +1293,7 @@ function ProjectTreeNodeRow({
       onOpenProjectImageWindow={onOpenProjectImageWindow}
       projectBusy={projectBusy}
       dragging={draggedResourcePath === node.resource.path}
+      renaming={renamingResourcePath === node.resource.path}
       onStartFilePointerDrag={onStartFilePointerDrag}
       onMoveFilePointerDrag={onMoveFilePointerDrag}
       onFinishFilePointerDrag={onFinishFilePointerDrag}
@@ -1029,184 +1303,17 @@ function ProjectTreeNodeRow({
       onCreateFile={onCreateFile}
       onCreateDirectory={onCreateDirectory}
       onRenameResource={onRenameResource}
+      onCommitRename={onCommitRename}
+      onCancelRename={onCancelRename}
       onDeleteResources={onDeleteResources}
       onCopyResources={onCopyResources}
       onPasteResources={onPasteResources}
       onCopyPaths={onCopyPaths}
       onShowInFileManager={onShowInFileManager}
-      onUnsupportedResource={onUnsupportedResource}
     />
+    <ExplorerInsertionIndicator active={showInsertionAfter} />
+    </>
   );
-}
-
-function ProjectFileRow({
-  node,
-  level,
-  parentPath,
-  focused,
-  selected,
-  selectedResources,
-  resourceClipboard,
-  status,
-  currentFileRef,
-  activeRowRef,
-  onFocusItem,
-  onTreeKeyDown,
-  onSelectResource,
-  onContextMenuResource,
-  onDoubleClickResource,
-  onOpenProjectFile,
-  onOpenProjectMarkdownWindow,
-  onOpenProjectHtmlWindow,
-  onOpenProjectImageWindow,
-  projectBusy,
-  dragging,
-  onStartFilePointerDrag,
-  onMoveFilePointerDrag,
-  onFinishFilePointerDrag,
-  onCancelFilePointerDrag,
-  rootName,
-  onMoveResource,
-  onCreateFile,
-  onCreateDirectory,
-  onRenameResource,
-  onDeleteResources,
-  onCopyResources,
-  onPasteResources,
-  onCopyPaths,
-  onShowInFileManager,
-  onUnsupportedResource: _onUnsupportedResource
-}: {
-  node: Extract<ProjectTreeNode, { kind: "file" }>;
-  level: number;
-  parentPath: string;
-  focused: boolean;
-  selected: boolean;
-  selectedResources: ProjectResourceEntry[];
-  resourceClipboard: ProjectResourceEntry[];
-  status?: ExplorerResourceStatus;
-  currentFileRef: RuntimeFileRef | null;
-  activeRowRef: { current: HTMLButtonElement | null };
-  onFocusItem: (id: string) => void;
-  onTreeKeyDown: (event: ReactKeyboardEvent<HTMLButtonElement>, item: { id: string; kind: "root" | "directory" | "file"; parentPath?: string; resource?: ProjectResourceEntry; file?: ProjectFileEntry }) => void;
-  onSelectResource: (resource: ProjectResourceEntry, event: ReactMouseEvent<HTMLButtonElement>) => void;
-  onContextMenuResource: (resource: ProjectResourceEntry) => void;
-  onDoubleClickResource: (resource: ProjectResourceEntry, file: ProjectFileEntry | undefined) => void;
-  onOpenProjectFile: (file: ProjectFileEntry) => void;
-  onOpenProjectMarkdownWindow: (file: ProjectFileEntry) => void;
-  onOpenProjectHtmlWindow: (file: ProjectFileEntry) => void;
-  onOpenProjectImageWindow: (file: ProjectFileEntry) => void;
-  projectBusy: boolean;
-  dragging: boolean;
-  onStartFilePointerDrag: (resource: ProjectResourceEntry, file: ProjectFileEntry | undefined, event: ReactPointerEvent<HTMLButtonElement>) => void;
-  onMoveFilePointerDrag: (event: ReactPointerEvent<HTMLButtonElement>) => void;
-  onFinishFilePointerDrag: (event: ReactPointerEvent<HTMLButtonElement>) => boolean;
-  onCancelFilePointerDrag: (event: ReactPointerEvent<HTMLButtonElement>) => void;
-  rootName: string;
-  onMoveResource: (resource: ProjectResourceEntry) => void;
-  onCreateFile: (directoryPath: string) => void;
-  onCreateDirectory: (directoryPath: string) => void;
-  onRenameResource: (resource: ProjectResourceEntry) => void;
-  onDeleteResources: (resources: ProjectResourceEntry[]) => void;
-  onCopyResources: (resources: ProjectResourceEntry[]) => void;
-  onPasteResources: (directoryPath: string) => void;
-  onCopyPaths: (resources: ProjectResourceEntry[], relative?: boolean) => void;
-  onShowInFileManager: (resource: ProjectResourceEntry) => void;
-  onUnsupportedResource: (resource: ProjectResourceEntry) => void;
-}) {
-  const htmlFile = isHtmlDocumentFilePath(node.resource.path);
-  const imageFile = isSupportedImagePath(node.resource.path);
-  const file = node.file ?? (node.resource.documentKind || htmlFile || imageFile ? resourceProjectFile(node.resource) : undefined);
-  const active = file ? isProjectFileActive(file, currentFileRef) : false;
-  const suppressClickRef = useRef(false);
-
-  return (
-    <EditorTreeItem>
-      <ProjectResourceContextMenu
-        menu={{ kind: "file", resource: node.resource, file }}
-        rootName={rootName}
-        projectBusy={projectBusy}
-        selectedResources={selectedResources}
-        resourceClipboard={resourceClipboard}
-        onOpenProjectFile={onOpenProjectFile}
-        onOpenProjectMarkdownWindow={onOpenProjectMarkdownWindow}
-        onOpenProjectHtmlWindow={onOpenProjectHtmlWindow}
-        onOpenProjectImageWindow={onOpenProjectImageWindow}
-        onMove={onMoveResource}
-        onCreateFile={onCreateFile}
-        onCreateDirectory={onCreateDirectory}
-        onRename={onRenameResource}
-        onDelete={onDeleteResources}
-        onCopyResources={onCopyResources}
-        onPasteResources={onPasteResources}
-        onCopyPaths={onCopyPaths}
-        onShowInFileManager={onShowInFileManager}
-      >
-        <EditorTreeRow
-          ref={(element) => { if (active) activeRowRef.current = element; }}
-          active={active || selected}
-          data-tree-item-id={node.id}
-          data-project-resource-path={node.resource.path}
-          data-resource-supported={Boolean(file)}
-          data-project-resource-dragging={dragging || undefined}
-          aria-level={level}
-          aria-selected={active || selected}
-          tabIndex={focused ? 0 : -1}
-          className={cn(!projectBusy && "cursor-grab active:cursor-grabbing", dragging && "opacity-60", !file && "text-muted-foreground")}
-          title={file ? node.resource.path : `${node.resource.path}\n当前文件类型暂不支持打开`}
-          onFocus={() => onFocusItem(node.id)}
-          onKeyDown={(event) => {
-            if (!openContextMenuFromKeyboard(event)) {
-              onTreeKeyDown(event, { id: node.id, kind: "file", parentPath, resource: node.resource, file });
-            }
-          }}
-          onPointerDown={(event) => onStartFilePointerDrag(node.resource, file, event)}
-          onPointerMove={onMoveFilePointerDrag}
-          onPointerUp={(event) => {
-            if (onFinishFilePointerDrag(event)) suppressClickRef.current = true;
-          }}
-          onPointerCancel={onCancelFilePointerDrag}
-          onLostPointerCapture={onCancelFilePointerDrag}
-          onClick={(event) => {
-            if (suppressClickRef.current) {
-              suppressClickRef.current = false;
-              event.preventDefault();
-              return;
-            }
-            onSelectResource(node.resource, event);
-          }}
-          onDoubleClick={() => onDoubleClickResource(node.resource, file)}
-          onContextMenu={() => onContextMenuResource(node.resource)}
-        >
-          <ProjectResourceIcon resource={node.resource} />
-          <span className="min-w-0 truncate" data-project-resource-name>{node.name}</span>
-          <ProjectResourceStatusBadge status={status || (!file ? "unsupported" : undefined)} />
-        </EditorTreeRow>
-      </ProjectResourceContextMenu>
-    </EditorTreeItem>
-  );
-}
-
-function ProjectResourceIcon({ resource }: { resource: ProjectResourceEntry }) {
-  const className = PROJECT_RESOURCE_ICON_CLASS_NAME;
-  const extension = projectResourceExtension(resource);
-  if (resource.documentKind === "mermaid") return <Network className={className} data-project-resource-icon="mermaid" />;
-  if (resource.documentKind === "markdown") return <Notes className={className} data-project-resource-icon="markdown" />;
-  if (isCsvTableFilePath(resource.path)) return <TableRows className={className} data-project-resource-icon="csv" />;
-  if (isHtmlDocumentFilePath(resource.path)) return <Html5 className={className} data-project-resource-icon="html" />;
-  if (extension === "png") return <PngFormat className={className} data-project-resource-icon="png" />;
-  if (extension === "jpg" || extension === "jpeg") return <JpgFormat className={className} data-project-resource-icon="jpg" />;
-  if (extension === "svg") return <SvgFormat className={className} data-project-resource-icon="svg" />;
-  if (extension === "webp") return <WebpFormat className={className} data-project-resource-icon="webp" />;
-  if (isSupportedImagePath(resource.path)) return <MediaImage className={className} data-project-resource-icon="image" />;
-  if (ARCHIVE_FILE_EXTENSIONS.has(extension)) return <Archive className={className} data-project-resource-icon="archive" />;
-  if (CODE_FILE_EXTENSIONS.has(extension)) return <Code className={className} data-project-resource-icon="code" />;
-  if (TEXT_FILE_EXTENSIONS.has(extension)) return <Page className={className} data-project-resource-icon="text" />;
-  return <EmptyPage className={className} data-project-resource-icon="file" />;
-}
-
-function projectResourceExtension(resource: ProjectResourceEntry) {
-  return resource.name.toLowerCase().split(".").at(-1) || "";
 }
 
 function openContextMenuFromKeyboard(event: ReactKeyboardEvent<HTMLButtonElement>) {
@@ -1224,12 +1331,29 @@ function openContextMenuFromKeyboard(event: ReactKeyboardEvent<HTMLButtonElement
   return true;
 }
 
+function isResourceNameEventTarget(target: EventTarget | null) {
+  return Boolean((target as HTMLElement | null)?.closest("[data-project-resource-name]"));
+}
+
 function visibleTreeItems(root: HTMLDivElement | null) {
   return root ? [...root.querySelectorAll<HTMLButtonElement>('[role="treeitem"]')] : [];
 }
 
 function visibleResourceRows(root: HTMLDivElement | null) {
   return root ? [...root.querySelectorAll<HTMLButtonElement>('[data-project-resource-path]')] : [];
+}
+
+function explorerRowLayoutTargets(root: HTMLDivElement | null) {
+  return root ? [...root.querySelectorAll<HTMLElement>("[data-project-resource-path],[data-project-resource-insertion]")] : [];
+}
+
+function clearExplorerRowLayoutTransforms(targets: HTMLElement[]) {
+  if (!targets.length) return;
+  try {
+    gsap.set(targets, { clearProps: "transform" });
+  } catch {
+    for (const target of targets) target.style.transform = "";
+  }
 }
 
 function focusTreeItem(item: HTMLButtonElement | undefined, onFocusItem: (id: string) => void) {
@@ -1239,15 +1363,6 @@ function focusTreeItem(item: HTMLButtonElement | undefined, onFocusItem: (id: st
   item.focus();
 }
 
-function resourceProjectFile(resource: ProjectResourceEntry): ProjectFileEntry {
-  return {
-    name: resource.name,
-    path: resource.path,
-    relativePath: resource.relativePath,
-    ...(resource.modifiedAt ? { modifiedAt: resource.modifiedAt } : {})
-  };
-}
-
 function nodeResourceFromDirectory(node: Extract<ProjectTreeNode, { kind: "directory" }>): ProjectResourceEntry {
   return {
     kind: "directory",
@@ -1255,27 +1370,6 @@ function nodeResourceFromDirectory(node: Extract<ProjectTreeNode, { kind: "direc
     path: node.path,
     relativePath: node.relativePath
   };
-}
-
-function ProjectResourceStatusBadge({ status }: { status?: ExplorerResourceStatus }) {
-  if (!status || status === "clean") return null;
-  const meta = explorerResourceStatusMeta(status);
-  return (
-    <span className="ml-auto shrink-0 rounded-sm px-1 text-[10px] text-muted-foreground" title={meta.label} aria-label={meta.label}>
-      {meta.mark}
-    </span>
-  );
-}
-
-function explorerResourceStatusMeta(status: ExplorerResourceStatus) {
-  if (status === "dirty") return { mark: "M", label: "未保存" };
-  if (status === "saving") return { mark: "S", label: "保存中" };
-  if (status === "conflict") return { mark: "!", label: "保存冲突" };
-  if (status === "error") return { mark: "!", label: "错误" };
-  if (status === "external-changed") return { mark: "*", label: "外部已变更" };
-  if (status === "missing") return { mark: "?", label: "文件缺失" };
-  if (status === "readonly") return { mark: "R", label: "只读" };
-  return { mark: "-", label: "当前类型暂不支持打开" };
 }
 
 function projectDocumentNodeKind(resource: ProjectResourceEntry): "markdown" | "html" | undefined {
@@ -1296,10 +1390,35 @@ function samePathSet(left: ReadonlySet<string>, right: ReadonlySet<string>) {
   return true;
 }
 
-function parentResourceDirectory(relativePath: string) {
-  const segments = relativePath.replaceAll("\\", "/").split("/");
-  segments.pop();
-  return segments.join("/");
+function shouldShowInsertionBefore(dropIntent: ExplorerDropIntent | null, node: ProjectTreeNode, parentPath: string) {
+  if (dropIntent?.kind !== "order" || dropIntent.beforeRelativePath !== node.relativePath) return false;
+  return dropIntent.parentDirectoryPath === parentPath && dropIntent.resourceKind === node.kind;
+}
+
+function shouldShowAppendInsertionAfter(dropIntent: ExplorerDropIntent | null, node: ProjectTreeNode, siblings: readonly ProjectTreeNode[], parentPath: string) {
+  if (dropIntent?.kind !== "order" || dropIntent.beforeRelativePath !== null) return false;
+  if (dropIntent.parentDirectoryPath !== parentPath || dropIntent.resourceKind !== node.kind) return false;
+  const lastSameKind = [...siblings].reverse().find((sibling) => sibling.kind === node.kind);
+  return lastSameKind?.id === node.id;
+}
+
+function explorerRowAtPoint(root: HTMLDivElement | null, x: number, y: number) {
+  if (!root || typeof document === "undefined" || typeof document.elementFromPoint !== "function") return null;
+  const element = document.elementFromPoint(x, y);
+  const row = element?.closest<HTMLElement>("[data-project-resource-path],[data-project-directory-path]");
+  return row && root.contains(row) ? row : null;
+}
+
+function explorerInsertionAtPoint(root: HTMLDivElement | null, x: number, y: number) {
+  if (!root || typeof document === "undefined" || typeof document.elementFromPoint !== "function") return false;
+  const element = document.elementFromPoint(x, y);
+  const insertion = element?.closest<HTMLElement>("[data-project-resource-insertion]");
+  return Boolean(insertion && root.contains(insertion));
+}
+
+function dragOverlayPoint(x: number, y: number, drag: ExplorerFilePointerDrag | null) {
+  if (!drag) return { x: x + 12, y: y + 12 };
+  return { x: x - drag.pointerOffsetX, y: y - drag.pointerOffsetY };
 }
 
 function filterProjectTree(nodes: ProjectTreeNode[], query: string): ProjectTreeNode[] {
@@ -1315,15 +1434,6 @@ function filterProjectTreeNode(node: ProjectTreeNode, tokens: string[]): Project
   const children = node.children.flatMap((child) => filterProjectTreeNode(child, tokens));
   if (matched) return [node];
   return children.length ? [{ ...node, children }] : [];
-}
-
-function explorerDirectoryDropTargetAtPoint(root: HTMLDivElement | null, x: number, y: number): ExplorerDirectoryDropTarget | null {
-  if (!root || typeof document === "undefined" || typeof document.elementFromPoint !== "function") return null;
-  const element = document.elementFromPoint(x, y);
-  const row = element?.closest<HTMLElement>("[data-project-directory-path]");
-  if (!row || !root.contains(row)) return null;
-  const directoryPath = row.dataset.projectDirectoryPath;
-  return typeof directoryPath === "string" ? { directoryPath } : null;
 }
 
 function handleExternalResourceDropFromRow(

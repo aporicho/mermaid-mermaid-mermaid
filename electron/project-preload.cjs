@@ -21,6 +21,9 @@ function createProjectPreloadBridge(ipcRenderer) {
     moveProjectResources(request) {
       return ipcRenderer.invoke("mmm:project:move-resources", request);
     },
+    reorderProjectResources(request) {
+      return ipcRenderer.invoke("mmm:project:reorder-resources", request);
+    },
     copyProjectResources(request) {
       return ipcRenderer.invoke("mmm:project:copy-resources", request);
     },

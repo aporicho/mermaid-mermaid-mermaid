@@ -1,5 +1,9 @@
 const fsp = require("node:fs/promises");
 const path = require("node:path");
+const {
+  readProjectExplorerOrderForRoot,
+  sortProjectResourcesWithExplorerOrder
+} = require("./project-explorer-order.cjs");
 
 const PROJECT_FILE_LIMIT = 500;
 const PROJECT_RESOURCE_LIMIT = 10_000;
@@ -11,13 +15,17 @@ async function scanProjectFolder(rootPath) {
   const resources = [];
   const state = { truncated: false, resourcesTruncated: false };
   await collectProjectFiles(root, root, files, resources, state);
+  const resourceOrder = await readProjectExplorerOrderForRoot(root).catch(() => null);
   files.sort((left, right) => left.relativePath.toLowerCase().localeCompare(right.relativePath.toLowerCase()));
-  resources.sort(compareProjectResources);
+  const orderedResources = resourceOrder
+    ? sortProjectResourcesWithExplorerOrder(resources, resourceOrder)
+    : resources.sort(compareProjectResources);
   return {
     rootName: path.basename(root) || root,
     rootPath: root,
     files,
-    resources,
+    resources: orderedResources,
+    ...(resourceOrder ? { resourceOrder } : {}),
     scannedAt: Date.now(),
     truncated: state.truncated,
     resourcesTruncated: state.resourcesTruncated

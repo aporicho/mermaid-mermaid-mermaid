@@ -1,6 +1,12 @@
 const fs = require("node:fs");
 const fsp = require("node:fs/promises");
 const path = require("node:path");
+const {
+  appendProjectExplorerOrderResources,
+  deleteProjectExplorerOrderResources,
+  moveProjectExplorerOrderResources,
+  renameProjectExplorerOrderResource
+} = require("./project-explorer-order.cjs");
 
 const MAX_CSV_FILE_BYTES = 1_048_576;
 const MAX_PROJECT_FILE_BYTES = 16 * 1_048_576;
@@ -39,6 +45,7 @@ async function createProjectFile(request) {
     await handle.sync();
     await handle.close();
     handle = undefined;
+    await recordExplorerOrderUpdate(() => appendProjectExplorerOrderResources(rootContext.root, [projectResourceFromPath(rootContext.root, filePath, "file")]));
     return { status: "created", file, text };
   } catch (error) {
     await handle?.close().catch(() => undefined);
@@ -77,6 +84,7 @@ async function createProjectDirectory(request) {
   const resource = projectResourceFromPath(rootContext.root, directoryPath, "directory");
   try {
     await fsp.mkdir(directoryPath);
+    await recordExplorerOrderUpdate(() => appendProjectExplorerOrderResources(rootContext.root, [resource]));
     return { status: "created", resource };
   } catch (error) {
     if (error?.code === "EEXIST") return { status: "exists", resource };
@@ -98,6 +106,7 @@ async function renameProjectResource(request) {
   if (await pathExists(targetPath)) return { status: "exists", resource: targetResource, sourcePath: source.path };
   try {
     await fsp.rename(source.path, targetPath);
+    await recordExplorerOrderUpdate(() => renameProjectExplorerOrderResource(rootContext.root, source, targetResource));
     return { status: "renamed", resource: targetResource, sourcePath: source.path };
   } catch (error) {
     if (error?.code === "EEXIST" || error?.code === "ENOTEMPTY") {
@@ -115,6 +124,7 @@ async function moveProjectResources(request) {
   const targetDirectory = await resolveProjectDirectory(rootContext, request?.targetDirectoryPath);
   const sources = await resolveProjectResourceSelection(rootContext, request?.sourcePaths ?? request?.sourcePath);
   const results = [];
+  const movedResources = [];
   for (const source of dedupeNestedResources(sources)) {
     assertMutableProjectResource(rootContext, source);
     if (source.kind === "directory" && isPathInside(source.path, targetDirectory)) {
@@ -136,6 +146,7 @@ async function moveProjectResources(request) {
     try {
       await fsp.rename(source.path, targetPath);
       results.push({ status: "moved", resource: targetResource, sourcePath: source.path });
+      movedResources.push({ source, target: targetResource });
     } catch (error) {
       if (error?.code === "EEXIST" || error?.code === "ENOTEMPTY") {
         results.push({ status: "exists", resource: targetResource, sourcePath: source.path });
@@ -147,6 +158,7 @@ async function moveProjectResources(request) {
       throw error;
     }
   }
+  await recordExplorerOrderUpdate(() => moveProjectExplorerOrderResources(rootContext.root, movedResources, normalizeProjectResourcePlacement(request?.placement)));
   return { status: "completed", results };
 }
 
@@ -155,6 +167,7 @@ async function copyProjectResources(request) {
   const targetDirectory = await resolveProjectDirectory(rootContext, request?.targetDirectoryPath);
   const sources = await resolveProjectResourceSelection(rootContext, request?.sourcePaths ?? request?.sourcePath);
   const results = [];
+  const copiedResources = [];
   for (const source of dedupeNestedResources(sources)) {
     assertMutableProjectResource(rootContext, source);
     if (source.kind === "directory" && isPathInside(source.path, targetDirectory)) {
@@ -168,7 +181,9 @@ async function copyProjectResources(request) {
     }
     await copyResourcePath(source.path, targetPath, { skipProjectDirectories: true });
     results.push({ status: "copied", resource: targetResource, sourcePath: source.path });
+    copiedResources.push(targetResource);
   }
+  await recordExplorerOrderUpdate(() => appendProjectExplorerOrderResources(rootContext.root, copiedResources));
   return { status: "completed", results };
 }
 
@@ -177,6 +192,7 @@ async function importProjectResources(request) {
   const targetDirectory = await resolveProjectDirectory(rootContext, request?.targetDirectoryPath);
   const sources = await resolveExternalResourceSelection(request?.externalPaths ?? request?.sourcePaths ?? request?.sourcePath);
   const results = [];
+  const importedResources = [];
   for (const source of dedupeExternalResources(sources)) {
     const targetPath = path.join(targetDirectory, source.name);
     const targetResource = projectResourceFromPath(rootContext.root, targetPath, source.kind);
@@ -186,7 +202,9 @@ async function importProjectResources(request) {
     }
     await copyResourcePath(source.path, targetPath, { skipProjectDirectories: true });
     results.push({ status: "imported", resource: targetResource, sourcePath: source.path });
+    importedResources.push(targetResource);
   }
+  await recordExplorerOrderUpdate(() => appendProjectExplorerOrderResources(rootContext.root, importedResources));
   return { status: "completed", results };
 }
 
@@ -201,6 +219,7 @@ async function deleteProjectResources(request, options = {}) {
     else await fsp.rm(resource.path, { recursive: true, force: false });
     deleted.push(resource);
   }
+  await recordExplorerOrderUpdate(() => deleteProjectExplorerOrderResources(rootContext.root, deleted));
   return { status: "deleted", resources: deleted };
 }
 
@@ -363,6 +382,17 @@ function normalizeProjectResourceName(name) {
   return value;
 }
 
+function normalizeProjectResourcePlacement(value) {
+  if (!value || typeof value !== "object") return undefined;
+  const kind = value.kind === "directory" || value.kind === "file" ? value.kind : undefined;
+  if (!kind) return undefined;
+  return {
+    kind,
+    parentDirectoryPath: String(value.parentDirectoryPath ?? value.targetDirectoryPath ?? ""),
+    beforeRelativePath: typeof value.beforeRelativePath === "string" ? value.beforeRelativePath : ""
+  };
+}
+
 async function resolveProjectResourceSelection(rootContext, sourcePaths) {
   const paths = Array.isArray(sourcePaths) ? sourcePaths : [sourcePaths];
   const resources = [];
@@ -449,6 +479,14 @@ async function pathExists(filePath) {
     if (error?.code === "ENOENT") return false;
     throw error;
   });
+}
+
+async function recordExplorerOrderUpdate(update) {
+  try {
+    await update();
+  } catch {
+    // Explorer order metadata is a UI preference; it must not block the filesystem mutation that already succeeded.
+  }
 }
 
 function dedupeNestedResources(resources) {

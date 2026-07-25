@@ -13,6 +13,7 @@
   "desktopName": "mermaid-canvas-editor.desktop",
   "scripts": {
     "dev": "vite --host 127.0.0.1 --port 5173",
+    "dev:e2e": "vite --host 127.0.0.1 --port 5174 --mode e2e",
     "ready": "bash scripts/ready.sh",
     "mmm": "node --import tsx src/cli/index.ts",
     "build": "tsc --noEmit && vite build",
@@ -30,6 +31,8 @@
     "windows:launch": "node scripts/run-on-windows.mjs --launch-only",
     "lint": "eslint .",
     "test": "vitest run",
+    "test:e2e": "playwright test",
+    "test:e2e:headed": "playwright test --headed",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -93,6 +96,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.17.0",
+    "@playwright/test": "^1.62.0",
     "@tailwindcss/vite": "^4.3.3",
     "@types/d3-shape": "^3.1.8",
     "@types/jsdom": "^28.0.3",

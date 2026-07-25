@@ -349,6 +349,7 @@ export function MermaidEditor() {
     moveProjectFile,
     moveProjectResources,
     renameProjectResource,
+    reorderProjectResources,
     showProjectResourceInFileManager
   } = useProjectFileActions({ runtime, projectWorkspace, fileRef, graph, detachedMarkdownWindows, detachedHtmlWindows, detachedImageWindows, setProjectBusy, setFileRef, setFileName, setRecentFiles, setDetachedMarkdownWindows, setDetachedHtmlWindows, setDetachedImageWindows, refreshProjectWorkspace, openProjectFile, beforeMove: flushLinkedFileWrites, applyEditorCommand, onDetachedMarkdownWindowMoved: (sourceFile, targetFile) => { const sourcePanelId = markdownWindowPanelId(sourceFile); const targetPanelId = markdownWindowPanelId(targetFile); const windowState = workspacePanelWindowState(sourcePanelId); removeWorkspacePanel(sourcePanelId); bringWorkspacePanelToFront(targetPanelId); setWorkspacePanelWindowState(targetPanelId, windowState); }, onDetachedHtmlWindowMoved: (sourceFile, targetFile) => { const sourcePanelId = htmlWindowPanelId(sourceFile); const targetPanelId = htmlWindowPanelId(targetFile); const windowState = workspacePanelWindowState(sourcePanelId); removeWorkspacePanel(sourcePanelId); bringWorkspacePanelToFront(targetPanelId); setWorkspacePanelWindowState(targetPanelId, windowState); }, onDetachedImageWindowMoved: (sourceFile, targetFile) => { const sourcePanelId = imageWindowPanelId(sourceFile); const targetPanelId = imageWindowPanelId(targetFile); const windowState = workspacePanelWindowState(sourcePanelId); removeWorkspacePanel(sourcePanelId); bringWorkspacePanelToFront(targetPanelId); setWorkspacePanelWindowState(targetPanelId, windowState); }, onMarkdownFileMoved: markdownFolds.migrateMarkdownFoldState, setStatus, showFileWorkflowError });
   const { markdownDocuments, htmlDocuments, csvTables } = useLinkedProjectDocuments({
@@ -604,6 +605,7 @@ export function MermaidEditor() {
           createProjectFile={createProjectFile} createProjectDirectory={createProjectDirectory}
           renameProjectResource={renameProjectResource}
           moveProjectFile={moveProjectFile} moveProjectResources={moveProjectResources}
+          reorderProjectResources={reorderProjectResources}
           copyProjectResources={copyProjectResources} importProjectResources={importProjectResources}
           deleteProjectResources={deleteProjectResources} showProjectResourceInFileManager={showProjectResourceInFileManager}
           openProjectFile={openProjectFile}
