@@ -522,7 +522,7 @@ describe("ExplorerPanel", () => {
 
     for (const group of tree?.querySelectorAll<HTMLElement>('[role="group"]') ?? []) {
       expect([...group.children].every((child) => child.hasAttribute("data-editor-tree-item"))).toBe(true);
-      expect(group.lastElementChild?.className).toContain("last:before:h");
+      expect(group.lastElementChild?.getAttribute("data-tree-visual-last")).toBe("true");
     }
     expect(buttonNamed("note.md")?.className).toContain("before:-left-[100vw]");
   });

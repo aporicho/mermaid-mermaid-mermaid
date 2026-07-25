@@ -44,6 +44,7 @@ export function ProjectFileRow({
   onOpenProjectImageWindow,
   projectBusy,
   dragging,
+  visualLast,
   renaming,
   onStartFilePointerDrag,
   onMoveFilePointerDrag,
@@ -83,6 +84,7 @@ export function ProjectFileRow({
   onOpenProjectImageWindow: (file: ProjectFileEntry) => void;
   projectBusy: boolean;
   dragging: boolean;
+  visualLast: boolean;
   renaming: boolean;
   onStartFilePointerDrag: (resource: ProjectResourceEntry, file: ProjectFileEntry | undefined, event: ReactPointerEvent<HTMLButtonElement>) => void;
   onMoveFilePointerDrag: (event: ReactPointerEvent<HTMLButtonElement>) => void;
@@ -179,7 +181,7 @@ export function ProjectFileRow({
   );
 
   return (
-    <EditorTreeItem>
+    <EditorTreeItem visualLast={visualLast} connectorHidden={dragging}>
       {renaming ? row : (
         <ProjectResourceContextMenu
           menu={{ kind: "file", resource: node.resource, file }}

@@ -1092,6 +1092,7 @@ function ProjectTreeNodeRow({
   const pointerDownNameRef = useRef(false);
   const showInsertionBefore = shouldShowInsertionBefore(dropIntent, node, parentPath);
   const showInsertionAfter = shouldShowAppendInsertionAfter(dropIntent, node, siblings, parentPath);
+  const visualLast = isVisualLastTreeNode(node, siblings, draggedResourcePath);
 
   if (node.kind === "directory") {
     const expanded = filtering || expandedDirectoryPaths.has(node.relativePath);
@@ -1182,7 +1183,7 @@ function ProjectTreeNodeRow({
     return (
       <>
       <ExplorerInsertionIndicator active={showInsertionBefore} />
-      <EditorTreeItem>
+      <EditorTreeItem visualLast={visualLast} connectorHidden={dragging}>
         {renaming ? row : (
           <ProjectResourceContextMenu
           menu={{ kind: "file", resource }}
@@ -1293,6 +1294,7 @@ function ProjectTreeNodeRow({
       onOpenProjectImageWindow={onOpenProjectImageWindow}
       projectBusy={projectBusy}
       dragging={draggedResourcePath === node.resource.path}
+      visualLast={visualLast}
       renaming={renamingResourcePath === node.resource.path}
       onStartFilePointerDrag={onStartFilePointerDrag}
       onMoveFilePointerDrag={onMoveFilePointerDrag}
@@ -1400,6 +1402,15 @@ function shouldShowAppendInsertionAfter(dropIntent: ExplorerDropIntent | null, n
   if (dropIntent.parentDirectoryPath !== parentPath || dropIntent.resourceKind !== node.kind) return false;
   const lastSameKind = [...siblings].reverse().find((sibling) => sibling.kind === node.kind);
   return lastSameKind?.id === node.id;
+}
+
+function isVisualLastTreeNode(node: ProjectTreeNode, siblings: readonly ProjectTreeNode[], draggedResourcePath: string | null) {
+  const visibleSiblings = siblings.filter((sibling) => projectTreeNodeResourcePath(sibling) !== draggedResourcePath);
+  return visibleSiblings.at(-1)?.id === node.id;
+}
+
+function projectTreeNodeResourcePath(node: ProjectTreeNode) {
+  return node.kind === "directory" ? node.path : node.resource.path;
 }
 
 function explorerRowAtPoint(root: HTMLDivElement | null, x: number, y: number) {

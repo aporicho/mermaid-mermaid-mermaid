@@ -38,9 +38,7 @@ export function ExplorerInsertionIndicator({ active }: { active: boolean }) {
     <div
       role="presentation"
       data-project-resource-insertion
-      className="relative h-2 min-w-0"
-    >
-      <span className="absolute left-2 right-1 top-1/2 h-0.5 -translate-y-1/2 rounded-full bg-primary" />
-    </div>
+      className="h-2 min-w-0"
+    />
   );
 }

@@ -22,21 +22,26 @@ export const EditorTree = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivEleme
 
 export type EditorTreeItemProps = HTMLAttributes<HTMLDivElement> & {
   root?: boolean;
+  visualLast?: boolean;
+  connectorHidden?: boolean;
 };
 
-export function EditorTreeItem({ root = false, className, ...props }: EditorTreeItemProps) {
+export function EditorTreeItem({ root = false, visualLast = false, connectorHidden = false, className, ...props }: EditorTreeItemProps) {
   return (
     <div
       role="none"
       data-slot="editor-tree-item"
       data-editor-tree-item
       data-tree-root={root || undefined}
+      data-tree-visual-last={visualLast || undefined}
+      data-tree-connector-hidden={connectorHidden || undefined}
       className={cn(
         "relative grid min-w-0",
         !root && [
           "before:pointer-events-none before:absolute before:bottom-0 before:left-[var(--editor-tree-rail)] before:top-0 before:z-10 before:border-l-[length:var(--ui-tree-connector-width)] before:[border-left-style:var(--ui-tree-connector-style,solid)] before:border-[hsl(var(--ui-tree-connector)/var(--ui-tree-connector-opacity))]",
           "after:pointer-events-none after:absolute after:left-[var(--editor-tree-rail)] after:top-[var(--editor-tree-row-center)] after:z-10 after:w-[var(--editor-tree-branch)] after:border-t-[length:var(--ui-tree-connector-width)] after:[border-top-style:var(--ui-tree-connector-style,solid)] after:border-[hsl(var(--ui-tree-connector)/var(--ui-tree-connector-opacity))]",
-          "last:before:bottom-auto last:before:h-[var(--editor-tree-row-center)]"
+          visualLast && "before:bottom-auto before:h-[var(--editor-tree-row-center)]",
+          connectorHidden && "before:hidden after:hidden"
         ],
         className
       )}

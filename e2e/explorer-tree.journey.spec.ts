@@ -185,6 +185,32 @@ test.describe("Explorer tree journeys", () => {
     await expectLastEvent(page, { type: "canvas-drag", relativePath: "docs/note.md", kind: "markdown", phase: "drop" });
   });
 
+  test("opens an unmarked gap while dragging the last visible file", async ({ page }) => {
+    const sourceItem = connectorItemForResource(page, "README.txt");
+    const previousItem = connectorItemForResource(page, "ideas.md");
+
+    await expect(sourceItem).toHaveAttribute("data-tree-visual-last", "true");
+    await startDraggingRow(page, resourceRow(page, "README.txt"));
+
+    await expect(sourceItem).toHaveAttribute("data-tree-connector-hidden", "true");
+    await expectConnectorPseudoDisplay(sourceItem, "none");
+    await expect(previousItem).toHaveAttribute("data-tree-visual-last", "true");
+
+    const previousBox = await requiredBox(resourceRow(page, "ideas.md"));
+    await page.mouse.move(previousBox.x + previousBox.width / 2, previousBox.y + previousBox.height * 0.75, { steps: 8 });
+
+    const insertion = page.locator("[data-project-resource-insertion]");
+    await expect(insertion).toBeVisible();
+    await expect(insertion).not.toHaveAttribute("data-editor-tree-item", "true");
+    await expect(insertion).toHaveText("");
+    await expect(insertion).toHaveCSS("height", "8px");
+    await expect(previousItem).toHaveAttribute("data-tree-visual-last", "true");
+
+    await page.mouse.up();
+    await expect(page.locator("[data-project-resource-insertion]")).toHaveCount(0);
+    await expectTreeRowsSettled(page);
+  });
+
   test("keeps tree row spacing stable after repeated animated reorders", async ({ page }) => {
     await expectTreeRowsSettled(page);
     await dragRow(page, resourceRow(page, "docs/cover.png"), resourceRow(page, "docs/people.csv"), { targetRatioY: 0.25 });
@@ -238,6 +264,10 @@ function resourceRow(page: Page, relativePath: string) {
 
 function resourceName(page: Page, relativePath: string) {
   return resourceRow(page, relativePath).locator("[data-project-resource-name]");
+}
+
+function connectorItemForResource(page: Page, relativePath: string) {
+  return resourceRow(page, relativePath).locator("xpath=ancestor::*[@data-editor-tree-item][1]");
 }
 
 async function selectResourceRow(page: Page, relativePath: string) {
@@ -318,6 +348,13 @@ async function expectDraggingRowPreview(page: Page, source: Locator, sourceBox: 
 async function expectCollapsedSourceSlot(source: Locator) {
   await expect(source).toHaveCSS("position", "absolute");
   await expect.poll(async () => source.evaluate((element) => element.closest("[data-editor-tree-item]")?.getBoundingClientRect().height ?? 9_999)).toBeLessThan(1);
+}
+
+async function expectConnectorPseudoDisplay(item: Locator, display: string) {
+  await expect.poll(() => item.evaluate((element) => ({
+    before: getComputedStyle(element, "::before").display,
+    after: getComputedStyle(element, "::after").display
+  }))).toEqual({ before: display, after: display });
 }
 
 async function expectTreeRowsSettled(page: Page) {
