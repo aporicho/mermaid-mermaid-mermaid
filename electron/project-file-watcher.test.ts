@@ -77,6 +77,29 @@ describe("project file watcher", () => {
     expect(watcher.close).toHaveBeenCalledTimes(1);
   });
 
+  it("keeps the root watcher alive while extra file targets change", async () => {
+    const root = await mkdtemp(join(tmpdir(), "mmm-watch-"));
+    temporaryDirectories.push(root);
+    const watchers: FakeWatcher[] = [];
+    const service = createProjectFileWatcher({
+      send: vi.fn(),
+      watch: vi.fn(() => {
+        const watcher = new FakeWatcher();
+        watchers.push(watcher);
+        return watcher;
+      })
+    });
+    const webContents = { id: 5, isDestroyed: () => false };
+
+    await service.setTargets(webContents, { rootPath: root, extraPaths: ["/outside/first.md"] });
+    await service.setTargets(webContents, { rootPath: root, extraPaths: ["/outside/second.md"] });
+
+    expect(watchers).toHaveLength(3);
+    expect(watchers[0].close).not.toHaveBeenCalled();
+    expect(watchers[1].close).toHaveBeenCalledTimes(1);
+    await service.closeAll();
+  });
+
   it("serializes rapid target updates for the same window", async () => {
     vi.useFakeTimers();
     const roots = await Promise.all([0, 1, 2].map(async () => {

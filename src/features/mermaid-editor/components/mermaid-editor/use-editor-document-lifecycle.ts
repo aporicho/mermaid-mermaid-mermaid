@@ -154,7 +154,7 @@ export function useEditorDocumentLifecycle({
     name: string,
     file: RuntimeFileRef | null,
     source: FileOpenSource = "picker",
-    options: { savedContent?: string; bufferId?: string; status?: "clean" | "dirty" | "saving" | "conflict" | "error" } = {}
+    options: { savedContent?: string; bufferId?: string; status?: EditorDocumentBuffer["status"] } = {}
   ) {
     flushSourceHistory();
     const nextDocumentKind = documentKindFromPath(file?.path || name) || "mermaid";

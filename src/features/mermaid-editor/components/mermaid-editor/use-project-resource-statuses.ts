@@ -9,7 +9,7 @@ export function useProjectResourceStatuses(buffers: readonly EditorDocumentBuffe
     for (const buffer of buffers) {
       const path = buffer.fileRef?.path;
       if (!path || buffer.status === "clean") continue;
-      statuses[path] = buffer.status;
+      statuses[path] = buffer.status === "deleted" ? "missing" : buffer.status;
     }
     return statuses;
   }, [buffers]);

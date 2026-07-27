@@ -34,8 +34,8 @@ function createProjectFileWatcher({ send, watch = chokidar.watch, batchDelayMs =
   }
 
   async function applyTargets(webContents, request) {
-    await removeSubscriberNow(webContents.id);
     const targets = await normalizeWatchTargets(request);
+    const previousKeys = subscriptions.get(webContents.id) || [];
     const keys = [];
 
     if (targets.rootPath) {
@@ -52,7 +52,10 @@ function createProjectFileWatcher({ send, watch = chokidar.watch, batchDelayMs =
       keys.push(key);
     }
 
+    // Subscribe to every new target before releasing obsolete targets. This keeps
+    // the project root continuously watched while floating windows come and go.
     subscriptions.set(webContents.id, keys);
+    await removeSubscriberFromKeys(webContents.id, previousKeys.filter((key) => !keys.includes(key)));
     return { status: "watching", rootPath: targets.rootPath, extraPaths: targets.extraPaths };
   }
 
@@ -67,7 +70,7 @@ function createProjectFileWatcher({ send, watch = chokidar.watch, batchDelayMs =
       ignored: rootPath ? (candidate) => ignoredProjectPath(rootPath, candidate) : undefined,
       persistent: true
     });
-    const entry = { key, rootPath, targetPath, watcher, subscribers: new Map(), pending, timer: undefined };
+    const entry = { key, rootPath, targetPath, watcher, subscribers: new Map(), pending, timer: undefined, version: 0 };
     const queue = (kind, changedPath, directory = false) => queueChange(entry, kind, changedPath, directory);
     watcher.on("add", (changedPath) => queue("added", changedPath));
     watcher.on("change", (changedPath) => queue("changed", changedPath));
@@ -96,10 +99,12 @@ function createProjectFileWatcher({ send, watch = chokidar.watch, batchDelayMs =
     const changes = [...entry.pending.values()];
     entry.pending.clear();
     if (!changes.length) return;
+    entry.version += 1;
     const payload = {
       rootPath: entry.rootPath,
       changes,
-      observedAt: Date.now()
+      observedAt: Date.now(),
+      version: entry.version
     };
     for (const webContents of entry.subscribers.values()) {
       if (!webContents.isDestroyed?.()) send(webContents, payload);
@@ -114,6 +119,10 @@ function createProjectFileWatcher({ send, watch = chokidar.watch, batchDelayMs =
   async function removeSubscriberNow(webContentsId) {
     const keys = subscriptions.get(webContentsId) || [];
     subscriptions.delete(webContentsId);
+    await removeSubscriberFromKeys(webContentsId, keys);
+  }
+
+  async function removeSubscriberFromKeys(webContentsId, keys) {
     await Promise.all(keys.map(async (key) => {
       const entry = entries.get(key);
       if (!entry) return;

@@ -1,7 +1,6 @@
-import { openExternalUrl } from "@/features/mermaid-editor/lib/editor-runtime/shared";
+import { ensureRuntimeDocumentFileName, openExternalUrl } from "@/features/mermaid-editor/lib/editor-runtime/shared";
 import { createWebRuntime } from "@/features/mermaid-editor/lib/editor-runtime/web-runtime";
 import { getElectronBridge } from "@/features/mermaid-editor/lib/editor-runtime/electron-bridge";
-import { ensureRuntimeDocumentFileName } from "@/features/mermaid-editor/lib/editor-runtime/shared";
 import type {
   EditorRuntime,
   RuntimeImageAssetResult,
@@ -13,6 +12,7 @@ import { createElectronCsvFileOperations } from "@/features/mermaid-editor/lib/e
 import { createElectronMarkdownFoldOperations } from "@/features/mermaid-editor/lib/editor-runtime/electron-markdown-fold";
 import { createElectronRuntimeMonitoring } from "@/features/mermaid-editor/lib/editor-runtime/electron-runtime-monitoring";
 import type { EditorDocumentSession } from "@/features/mermaid-editor/lib/editor-document-session";
+import { createElectronDocumentHubOperations } from "@/features/mermaid-editor/lib/editor-runtime/electron-document-hub";
 export function createElectronRuntime(): EditorRuntime {
   const bridge = getElectronBridge();
   const fallback = createWebRuntime();
@@ -22,6 +22,7 @@ export function createElectronRuntime(): EditorRuntime {
   return {
     ...fallback,
     ...createElectronCsvFileOperations(bridge),
+    ...createElectronDocumentHubOperations(bridge),
     ...createElectronMarkdownFoldOperations(bridge), ...createElectronRuntimeMonitoring(bridge),
     kind: "desktop",
     host: "electron",
@@ -62,7 +63,7 @@ export function createElectronRuntime(): EditorRuntime {
       if (!opened) return { status: "cancelled" };
       return {
         status: "opened",
-        file: { name: opened.name, path: opened.path, revision: opened.revision },
+        file: { name: opened.name, path: opened.path, revision: opened.revision, documentId: opened.documentId, workingRevision: opened.workingRevision },
         text: opened.text
       };
     },
@@ -70,7 +71,7 @@ export function createElectronRuntime(): EditorRuntime {
       const opened = await bridge.openFilePath(path);
       return {
         status: "opened",
-        file: { name: opened.name, path: opened.path, revision: opened.revision },
+        file: { name: opened.name, path: opened.path, revision: opened.revision, documentId: opened.documentId, workingRevision: opened.workingRevision },
         text: opened.text
       };
     },
@@ -78,6 +79,7 @@ export function createElectronRuntime(): EditorRuntime {
       if (!file?.path) return this.saveFileAs(documentText, suggestedName, documentKind);
       const saved = await bridge.saveFile(file.path, documentText, {
         expectedRevision: file.revision,
+        expectedWorkingRevision: file.workingRevision, documentId: file.documentId,
         overwrite: options?.overwrite === true
       });
       if (saved.status === "conflict") {
@@ -90,7 +92,7 @@ export function createElectronRuntime(): EditorRuntime {
       }
       return {
         status: "saved",
-        file: { name: ensureRuntimeDocumentFileName(saved.file.name, documentKind), path: saved.file.path, revision: saved.revision }
+        file: { name: ensureRuntimeDocumentFileName(saved.file.name, documentKind), path: saved.file.path, revision: saved.revision, documentId: saved.snapshot?.documentId, workingRevision: saved.snapshot?.workingRevision }
       };
     },
     async saveFileAs(documentText, suggestedName, documentKind) {
@@ -99,7 +101,7 @@ export function createElectronRuntime(): EditorRuntime {
       if (saved.status !== "saved") return { status: "cancelled" };
       return {
         status: "saved",
-        file: { name: ensureRuntimeDocumentFileName(saved.file.name, documentKind), path: saved.file.path, revision: saved.revision }
+        file: { name: ensureRuntimeDocumentFileName(saved.file.name, documentKind), path: saved.file.path, revision: saved.revision, documentId: saved.snapshot?.documentId, workingRevision: saved.snapshot?.workingRevision }
       };
     },
     async createProjectDocument(request) {

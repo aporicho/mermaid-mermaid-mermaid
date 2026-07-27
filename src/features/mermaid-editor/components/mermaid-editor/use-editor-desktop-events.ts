@@ -35,6 +35,7 @@ type UseEditorDesktopEventsArgs = {
   setLastSavedDocument: StateSetter<string>;
   setStatus: StateSetter<string>;
   setDetachedMarkdownWindows: StateSetter<DetachedMarkdownWindow[]>;
+  reconcileProjectWorkspace?: () => void;
 };
 
 export function useEditorDesktopEvents({
@@ -59,7 +60,8 @@ export function useEditorDesktopEvents({
   setFileRef,
   setLastSavedDocument,
   setStatus,
-  setDetachedMarkdownWindows
+  setDetachedMarkdownWindows,
+  reconcileProjectWorkspace
 }: UseEditorDesktopEventsArgs) {
   const desktopFileWorkflowInitializedRef = useRef(false);
   const canCloseWindowRef = useRef(false);
@@ -69,10 +71,13 @@ export function useEditorDesktopEvents({
   const beforeCloseRef = useRef(beforeDesktopWindowClose);
   const applyLoadedDocumentRef = useRef(applyLoadedDocument);
   const applyStoredEditorStateRef = useRef(applyStoredEditorState);
+  const reconcileProjectWorkspaceRef = useRef(reconcileProjectWorkspace);
 
   useEffect(() => {
     function markWindowFocus() {
+      const wasBackgroundedFor = Date.now() - lastWindowFocusAtRef.current;
       lastWindowFocusAtRef.current = Date.now();
+      if (wasBackgroundedFor > 2_000) reconcileProjectWorkspaceRef.current?.();
     }
 
     window.addEventListener("focus", markWindowFocus);
@@ -110,6 +115,7 @@ export function useEditorDesktopEvents({
     beforeCloseRef.current = beforeDesktopWindowClose;
     applyLoadedDocumentRef.current = applyLoadedDocument;
     applyStoredEditorStateRef.current = applyStoredEditorState;
+    reconcileProjectWorkspaceRef.current = reconcileProjectWorkspace;
   });
 
   useEffect(() => {
@@ -155,11 +161,10 @@ export function useEditorDesktopEvents({
         const cleanStoredFile = Boolean(
           restored.preferences.restoreLastFile &&
             restored.fileRef?.path &&
-            restored.lastSavedDocument &&
             restored.currentDocument === restored.lastSavedDocument
         );
         if (!cleanStoredFile || !restored.fileRef?.path) {
-          if (restored.lastSavedDocument && restored.currentDocument !== restored.lastSavedDocument) {
+          if (restored.currentDocument !== restored.lastSavedDocument) {
             setStatus("已恢复未保存草稿。");
           }
           return;

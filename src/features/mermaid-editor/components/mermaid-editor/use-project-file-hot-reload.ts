@@ -11,7 +11,7 @@ import type {
 } from "@/features/mermaid-editor/lib/editor-runtime";
 import { isSupportedImagePath } from "@/features/mermaid-editor/lib/node-assets";
 import { isHtmlDocumentFilePath } from "@/features/mermaid-editor/lib/html-document";
-import type { ProjectWorkspace } from "@/features/mermaid-editor/lib/project-workspace";
+import { applyProjectWorkspaceChanges, type ProjectWorkspace } from "@/features/mermaid-editor/lib/project-workspace";
 import type { DetachedHtmlWindow, DetachedImageWindow, DetachedMarkdownWindow } from "@/features/mermaid-editor/lib/workspace-panels";
 
 type SetState<T> = Dispatch<SetStateAction<T>>;
@@ -19,6 +19,7 @@ type SetState<T> = Dispatch<SetStateAction<T>>;
 type ProjectFileHotReloadArgs = {
   runtime: EditorRuntime;
   projectWorkspace: ProjectWorkspace | null;
+  setProjectWorkspace: SetState<ProjectWorkspace | null>;
   fileRef: RuntimeFileRef | null;
   detachedMarkdownWindows: DetachedMarkdownWindow[];
   setDetachedMarkdownWindows: SetState<DetachedMarkdownWindow[]>;
@@ -26,10 +27,9 @@ type ProjectFileHotReloadArgs = {
   setDetachedHtmlWindows: SetState<DetachedHtmlWindow[]>;
   detachedImageWindows: DetachedImageWindow[];
   setDetachedImageWindows: SetState<DetachedImageWindow[]>;
-  setFileRef: SetState<RuntimeFileRef | null>;
   setStatus: SetState<string>;
-  handleExternalDocumentChange: (opened: Extract<RuntimeOpenFileResult, { status: "opened" }>) => Promise<unknown>;
   refreshProjectWorkspace: (rootPath?: string) => Promise<void>;
+  invalidateProjectWorkspaceRequests: () => void;
   reloadExternalCsvFiles: (paths: ReadonlySet<string> | readonly string[]) => Promise<void>;
   updateMarkdownPreviewFromText: (path: string, text: string) => void;
   markMarkdownPreviewMissing: (path: string) => void;
@@ -40,6 +40,7 @@ type ProjectFileHotReloadArgs = {
 export function useProjectFileHotReload(args: ProjectFileHotReloadArgs) {
   const argsRef = useRef(args);
   const requestRevisionRef = useRef(new Map<string, number>());
+  const workspaceVersionRef = useRef(new Map<string, number>());
   argsRef.current = args;
 
   const extraPaths = [args.fileRef?.path, ...args.detachedMarkdownWindows.map((window) => window.file.path), ...args.detachedHtmlWindows.map((window) => window.file.path), ...args.detachedImageWindows.map(imageWindowWatchPath)]
@@ -61,7 +62,7 @@ export function useProjectFileHotReload(args: ProjectFileHotReloadArgs) {
     let disposed = false;
     let stopListening: (() => void) | undefined;
     void args.runtime.listenForProjectFileChanges((batch) => {
-      if (!disposed) void handleProjectFileChanges(argsRef.current, requestRevisionRef.current, batch);
+      if (!disposed) void handleProjectFileChanges(argsRef.current, requestRevisionRef.current, workspaceVersionRef.current, batch);
     }).then((cleanup) => {
       if (disposed) cleanup();
       else stopListening = cleanup;
@@ -78,12 +79,26 @@ export function useProjectFileHotReload(args: ProjectFileHotReloadArgs) {
 async function handleProjectFileChanges(
   args: ProjectFileHotReloadArgs,
   requestRevisions: Map<string, number>,
+  workspaceVersions: Map<string, number>,
   batch: RuntimeProjectFileChangeBatch
 ) {
   const changes = collapseChanges(batch.changes);
   if (!changes.length) return;
 
-  if (batch.rootPath) void args.refreshProjectWorkspace(batch.rootPath);
+  if (batch.rootPath) {
+    const key = comparablePath(batch.rootPath);
+    if (args.projectWorkspace && comparablePath(args.projectWorkspace.rootPath) === key) {
+      args.invalidateProjectWorkspaceRequests();
+      const previousVersion = workspaceVersions.get(key);
+      if (batch.version) workspaceVersions.set(key, batch.version);
+      args.setProjectWorkspace((current) => current && comparablePath(current.rootPath) === key
+        ? applyProjectWorkspaceChanges(current, changes, batch.observedAt)
+        : current);
+      if (batch.version && previousVersion && batch.version !== previousVersion + 1) {
+        void args.refreshProjectWorkspace(batch.rootPath);
+      }
+    }
+  }
   const fileChanges = changes.filter((change) => !change.directory);
   const csvPaths = new Set(fileChanges.filter((change) => isCsvPath(change.path)).map((change) => change.path));
   if (csvPaths.size) void args.reloadExternalCsvFiles(csvPaths);
@@ -120,10 +135,7 @@ async function handleProjectFileChanges(
     : undefined;
   if (currentChange) {
     if (currentChange.kind === "removed") {
-      args.setFileRef((current) => current?.path && comparablePath(current.path) === comparablePath(currentChange.path)
-        ? { name: current.name }
-        : current);
-      args.setStatus(`${args.fileRef?.name || "当前文档"} 已从磁盘移除；内容已保留，下次保存将另存为。`);
+      args.setStatus(`${args.fileRef?.name || "当前文档"} 已从磁盘移除；内容和原路径均已保留，可重新创建或另存为。`);
     }
   }
 
@@ -153,7 +165,6 @@ async function handleChangedDocument(
   try {
     const result = await readFile(path);
     if (result.status !== "opened" || !isLatestRequest(requestRevisions, requestKey, revision)) return;
-    await args.handleExternalDocumentChange(result);
     if (isSupportedMarkdownFilePath(path)) args.updateMarkdownPreviewFromText(path, result.text);
   } catch (error) {
     args.showFileWorkflowError(error, `从磁盘刷新文档失败：${path}`);

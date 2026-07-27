@@ -35,8 +35,8 @@ describe("useProjectFileHotReload", () => {
   });
 
   it("routes changed documents through revision-aware external-change handling", async () => {
-    const handleExternalDocumentChange = vi.fn(async () => undefined);
     const updateMarkdownPreviewFromText = vi.fn();
+    const invalidateProjectWorkspaceRequests = vi.fn();
     const runtime = createRuntime(async (path) => ({
       status: "opened" as const,
       file: { name: path.endsWith("floating.md") ? "floating.md" : "notes.md", path },
@@ -46,7 +46,7 @@ describe("useProjectFileHotReload", () => {
     await act(async () => {
       root.render(<Probe
         runtime={runtime}
-        handleExternalDocumentChange={handleExternalDocumentChange}
+        invalidateProjectWorkspaceRequests={invalidateProjectWorkspaceRequests}
         updateMarkdownPreviewFromText={updateMarkdownPreviewFromText}
       />);
       await settle();
@@ -65,12 +65,6 @@ describe("useProjectFileHotReload", () => {
       await settle();
     });
 
-    expect(handleExternalDocumentChange).toHaveBeenCalledTimes(2);
-    expect(handleExternalDocumentChange).toHaveBeenCalledWith(expect.objectContaining({
-      status: "opened",
-      file: { name: "notes.md", path: "/project/notes.md" },
-      text: "# Current disk"
-    }));
     expect(updateMarkdownPreviewFromText).toHaveBeenCalledWith("/project/notes.md", "# Current disk");
     expect(updateMarkdownPreviewFromText).toHaveBeenCalledWith("/project/floating.md", "# Floating disk");
     expect(container.querySelector("[data-window-value]")?.getAttribute("data-window-value")).toBe("# Floating local");
@@ -79,6 +73,7 @@ describe("useProjectFileHotReload", () => {
       rootPath: "/project",
       extraPaths: expect.arrayContaining(["/project/notes.md", "/project/floating.md", "/project/index.html", "/project/image.png"])
     }));
+    expect(invalidateProjectWorkspaceRequests).toHaveBeenCalledOnce();
   });
 
   it("marks removed files missing and routes CSV/image changes to their consumers", async () => {
@@ -115,7 +110,7 @@ describe("useProjectFileHotReload", () => {
     expect(markMarkdownPreviewMissing).toHaveBeenCalledWith("/project/floating.md");
     expect(reloadExternalCsvFiles).toHaveBeenCalledWith(new Set(["/project/table.csv"]));
     expect(refreshImageAssets).toHaveBeenCalledTimes(1);
-    expect(container.querySelector("[data-current-path]")?.getAttribute("data-current-path")).toBe("");
+    expect(container.querySelector("[data-current-path]")?.getAttribute("data-current-path")).toBe("/project/notes.md");
     expect(container.querySelector("[data-window-missing]")?.getAttribute("data-window-missing")).toBe("true");
     expect(container.querySelector("[data-image-revision]")?.getAttribute("data-image-revision")).toBe("1");
     expect(container.querySelector("[data-image-missing]")?.getAttribute("data-image-missing")).toBe("true");
@@ -136,20 +131,20 @@ describe("useProjectFileHotReload", () => {
 
 function Probe({
   runtime,
-  handleExternalDocumentChange = vi.fn(async () => undefined),
+  invalidateProjectWorkspaceRequests = vi.fn(),
   updateMarkdownPreviewFromText = vi.fn(),
   markMarkdownPreviewMissing = vi.fn(),
   reloadExternalCsvFiles = vi.fn(async () => undefined),
   refreshImageAssets = vi.fn()
 }: {
   runtime: EditorRuntime;
-  handleExternalDocumentChange?: (opened: Extract<Awaited<ReturnType<EditorRuntime["openFilePath"]>>, { status: "opened" }>) => Promise<unknown>;
+  invalidateProjectWorkspaceRequests?: () => void;
   updateMarkdownPreviewFromText?: (path: string, text: string) => void;
   markMarkdownPreviewMissing?: (path: string) => void;
   reloadExternalCsvFiles?: (paths: ReadonlySet<string> | readonly string[]) => Promise<void>;
   refreshImageAssets?: () => void;
 }) {
-  const [fileRef, setFileRef] = useState<RuntimeFileRef | null>({ name: "notes.md", path: "/project/notes.md" });
+  const [fileRef] = useState<RuntimeFileRef | null>({ name: "notes.md", path: "/project/notes.md" });
   const [windows, setWindows] = useState<DetachedMarkdownWindow[]>([{
     id: "markdown:/project/floating.md",
     file: { name: "floating.md", path: "/project/floating.md" },
@@ -171,6 +166,7 @@ function Probe({
   useProjectFileHotReload({
     runtime,
     projectWorkspace: workspace,
+    setProjectWorkspace: vi.fn(),
     fileRef,
     detachedMarkdownWindows: windows,
     setDetachedMarkdownWindows: setWindows,
@@ -178,9 +174,8 @@ function Probe({
     setDetachedHtmlWindows: setHtmlWindows,
     detachedImageWindows: imageWindows,
     setDetachedImageWindows: setImageWindows,
-    setFileRef,
     setStatus: vi.fn(),
-    handleExternalDocumentChange,
+    invalidateProjectWorkspaceRequests,
     refreshProjectWorkspace: vi.fn(async () => undefined),
     reloadExternalCsvFiles,
     updateMarkdownPreviewFromText,

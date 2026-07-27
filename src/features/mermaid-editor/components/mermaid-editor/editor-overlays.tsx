@@ -18,12 +18,15 @@ import type { UnsavedPromptChoice } from "@/features/mermaid-editor/lib/desktop-
 import type { CanvasNode, CanvasNodeAction } from "@/features/mermaid-editor/lib/editor-types";
 import type { FileWorkflowError } from "@/features/mermaid-editor/lib/file-workflow";
 import type { ProjectFileEntry } from "@/features/mermaid-editor/lib/project-workspace";
+import type { RuntimeDocumentSnapshot } from "@/features/mermaid-editor/lib/editor-runtime";
+import { DocumentMergeDialog } from "@/features/mermaid-editor/components/document-merge-dialog";
 
 type EditorOverlaysProps = {
   fileDropFeedback: FileDropFeedback | null;
   fileWorkflowError: FileWorkflowError | null;
   unsavedPrompt: UnsavedPromptState | null;
   fileConflictPrompt: FileConflictPromptState | null;
+  documentConflict: RuntimeDocumentSnapshot | null;
   nodeActionEditorNode?: CanvasNode;
   markdownDocumentDialog?: ComponentProps<typeof MarkdownDocumentDialog>;
   htmlDocumentDialog?: ComponentProps<typeof HtmlDocumentDialog>;
@@ -34,6 +37,7 @@ type EditorOverlaysProps = {
   onCloseFileWorkflowError: () => void;
   onResolveUnsavedPrompt: (choice: UnsavedPromptChoice) => void;
   onResolveFileConflictPrompt: (choice: FileConflictChoice) => void;
+  onResolveDocumentConflict: (content: string, diskRevision: string | null) => Promise<void>;
   onCloseNodeActionEditor: () => void;
   onSaveCanvasNodeAction: (nodeId: string, action: CanvasNodeAction | undefined) => void;
   onExecuteNodeActionDraft: (action: CanvasNodeAction) => void;
@@ -44,6 +48,7 @@ export function EditorOverlays({
   fileWorkflowError,
   unsavedPrompt,
   fileConflictPrompt,
+  documentConflict,
   nodeActionEditorNode,
   markdownDocumentDialog,
   htmlDocumentDialog,
@@ -54,6 +59,7 @@ export function EditorOverlays({
   onCloseFileWorkflowError,
   onResolveUnsavedPrompt,
   onResolveFileConflictPrompt,
+  onResolveDocumentConflict,
   onCloseNodeActionEditor,
   onSaveCanvasNodeAction,
   onExecuteNodeActionDraft
@@ -69,6 +75,7 @@ export function EditorOverlays({
       {fileWorkflowError ? <FileWorkflowErrorBanner error={fileWorkflowError} onClose={onCloseFileWorkflowError} /> : null}
       {unsavedPrompt ? <UnsavedFilePrompt prompt={unsavedPrompt} onResolve={onResolveUnsavedPrompt} /> : null}
       {fileConflictPrompt ? <FileConflictPrompt fileName={fileConflictPrompt.fileName} path={fileConflictPrompt.path} onResolve={onResolveFileConflictPrompt} /> : null}
+      {documentConflict?.conflict ? <DocumentMergeDialog key={`${documentConflict.documentId}:${documentConflict.conflict.diskRevision}:${documentConflict.workingRevision}`} snapshot={documentConflict} onResolve={onResolveDocumentConflict} /> : null}
       {nodeActionEditorNode ? (
         <NodeActionEditorDialog
           node={nodeActionEditorNode}

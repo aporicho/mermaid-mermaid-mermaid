@@ -127,6 +127,28 @@ export function useEditorAgentDocuments(args: UseEditorAgentDocumentsArgs): Runt
         return applyDetachedDocument(documentId as MarkdownWindowPanelId, nextText, autoSave);
       }
 
+      let syncedFile = args.fileRef;
+      if (args.fileRef?.path) {
+        const hubResult = await args.runtime.syncDocumentWorkingCopy({
+          documentId: args.fileRef.documentId,
+          path: args.fileRef.path,
+          content: nextText,
+          expectedWorkingRevision: args.fileRef.workingRevision,
+          label: "Agent 修改",
+          origin: "agent"
+        });
+        if (hubResult.status === "stale") {
+          return {
+            applied: false,
+            saved: false,
+            code: "REVISION_MISMATCH",
+            message: "共享工作副本已变化，请重新读取后再修改。",
+            currentRevision: hubResult.snapshot?.workingRevision
+          };
+        }
+        if (hubResult.snapshot) syncedFile = hubResult.snapshot.file;
+      }
+
       args.flushSourceHistory();
       if (args.documentKind === "markdown") {
         args.applyMarkdownSource(nextText);
@@ -136,14 +158,15 @@ export function useEditorAgentDocuments(args: UseEditorAgentDocumentsArgs): Runt
         args.flushSourceHistory();
       }
 
-      const saved = autoSave ? await saveMain(nextText) : false;
+      if (syncedFile) args.setFileRef(syncedFile);
+      const saved = autoSave ? await saveMain(nextText, syncedFile) : false;
       args.setStatus(saved ? "Agent 已应用并保存修改。" : "Agent 已应用修改。");
       return { applied: true, saved, changed: true, revision: await revisionFor(nextText) };
     }
 
-    async function saveMain(nextText: string) {
-      if (!args.fileRef) return false;
-      const result = await args.runtime.saveFile(args.fileRef, nextText, args.fileName, args.documentKind);
+    async function saveMain(nextText: string, file = args.fileRef) {
+      if (!file) return false;
+      const result = await args.runtime.saveFile(file, nextText, args.fileName, args.documentKind);
       if (result.status !== "saved") return false;
       args.setFileRef(result.file);
       args.setFileName(result.file.name);
@@ -158,8 +181,26 @@ export function useEditorAgentDocuments(args: UseEditorAgentDocumentsArgs): Runt
       let saved = false;
       let savedFile = target.file;
       const buffer = args.findFileDocumentBuffer(target.file);
+      if (target.file.path) {
+        const hubResult = await args.runtime.syncDocumentWorkingCopy({
+          documentId: target.file.documentId,
+          path: target.file.path,
+          content: nextText,
+          expectedWorkingRevision: target.file.workingRevision,
+          label: "Agent 修改 Markdown",
+          origin: "agent"
+        });
+        if (hubResult.status === "stale") return {
+          applied: false,
+          saved: false,
+          code: "REVISION_MISMATCH",
+          message: "共享工作副本已变化，请重新读取后再修改。",
+          currentRevision: hubResult.snapshot?.workingRevision
+        };
+        if (hubResult.snapshot) savedFile = hubResult.snapshot.file;
+      }
       if (buffer) {
-        args.updateDocumentBuffer(buffer.id, { content: nextText, status: nextText === buffer.savedContent ? "clean" : "dirty" });
+        args.updateDocumentBuffer(buffer.id, { content: nextText, status: nextText === buffer.savedContent ? "clean" : "dirty", fileRef: savedFile });
         if (autoSave) {
           saved = await args.saveDocumentBufferById(buffer.id);
           const latest = args.findFileDocumentBuffer(target.file);
@@ -201,7 +242,7 @@ export function useEditorAgentDocuments(args: UseEditorAgentDocumentsArgs): Runt
 }
 
 function documentIdForMain(file: RuntimeFileRef | null, generation: number) {
-  return file?.path ? `document:${file.path}` : `document:untitled:${generation}`;
+  return file?.documentId || (file?.path ? `document:${file.path}` : `document:untitled:${generation}`);
 }
 
 function referencesForMain(

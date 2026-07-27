@@ -138,37 +138,43 @@ export function useEditorWindowActions({
     }
 
     const buffered = findFileDocumentBuffer(file);
-    if (buffered) {
-      const nextWindow: DetachedMarkdownWindow = {
-        id: panelId,
-        file: { ...file, revision: buffered.revision || undefined },
-        title: buffered.fileName,
-        value: buffered.content,
-        savedValue: buffered.savedContent
-      };
-      setDetachedMarkdownWindows((current) => [...current, nextWindow]);
-      bringWorkspacePanelToFront(panelId);
-      setWorkspacePanelWindowState(panelId, "normal");
-      setStatus(`已在窗口中恢复 ${buffered.fileName}。`);
-      return;
-    }
-
     try {
-      const result = await runtime.openFilePath(file.path);
-      if (result.status !== "opened") return;
-      const title = result.file.name || file.name;
+      const restored = buffered && (buffered.content !== buffered.savedContent || buffered.status === "deleted")
+        ? await runtime.syncDocumentWorkingCopy({
+            documentId: buffered.fileRef?.documentId,
+            path: file.path,
+            content: buffered.content,
+            baseContent: buffered.savedContent,
+            baseRevision: buffered.revision || undefined,
+            expectedWorkingRevision: buffered.fileRef?.workingRevision,
+            label: "恢复 Markdown 工作副本",
+            origin: "view"
+          })
+        : null;
+      const opened = restored?.snapshot || await runtime.openDocumentSnapshot(file.path);
+      if (!opened) return;
+      const title = opened.file.name || file.name;
       const nextWindow: DetachedMarkdownWindow = {
         id: panelId,
-        file: result.file,
+        file: opened.file,
         title,
-        value: result.text,
-        savedValue: result.text
+        value: opened.content,
+        savedValue: opened.savedContent,
+        ...(opened.syncState === "deleted" ? { missing: true } : {})
       };
-      registerDocumentBuffer({ documentKind: "markdown", fileName: title, fileRef: result.file, content: result.text, savedContent: result.text });
+      if (buffered) updateDocumentBuffer(buffered.id, {
+        fileName: title,
+        fileRef: opened.file,
+        content: opened.content,
+        savedContent: opened.savedContent,
+        revision: opened.diskRevision,
+        status: opened.syncState === "deleted" ? "deleted" : opened.syncState === "conflict" ? "conflict" : opened.dirty ? "dirty" : "clean"
+      });
+      else registerDocumentBuffer({ documentKind: "markdown", fileName: title, fileRef: opened.file, content: opened.content, savedContent: opened.savedContent });
       setDetachedMarkdownWindows((current) => [...current, nextWindow]);
       bringWorkspacePanelToFront(panelId);
       setWorkspacePanelWindowState(panelId, "normal");
-      setRecentFiles((current) => upsertRecentFile(current, result.file));
+      setRecentFiles((current) => upsertRecentFile(current, opened.file));
       setStatus(`已在窗口中打开 ${title}。`);
     } catch (error) {
       showFileWorkflowError(error, "打开 Markdown 窗口失败。");
@@ -187,7 +193,7 @@ export function useEditorWindowActions({
     removeWorkspacePanel(panelId);
   }
 
-  function openProjectHtmlWindow(file: ProjectFileEntry) {
+  async function openProjectHtmlWindow(file: ProjectFileEntry) {
     if (!isHtmlDocumentFilePath(file.path)) return;
     if (runtime.host !== "electron") {
       setStatus("本地 HTML 预览仅在桌面版可用。");
@@ -201,7 +207,7 @@ export function useEditorWindowActions({
       return;
     }
 
-    const runtimeFile = { name: file.name, path };
+    let runtimeFile: RuntimeFileRef & { path: string } = { name: file.name, path };
     const panelId = htmlWindowPanelId(runtimeFile);
     const existingWindow = detachedHtmlWindows.find((window) => window.id === panelId);
     if (existingWindow) {
@@ -210,6 +216,13 @@ export function useEditorWindowActions({
       return;
     }
 
+    try {
+      const snapshot = await runtime.openDocumentSnapshot(path);
+      if (snapshot) runtimeFile = { ...snapshot.file, path: snapshot.file.path || path };
+    } catch (error) {
+      showFileWorkflowError(error, "读取 HTML 文件失败。");
+      return;
+    }
     const title = file.name || runtimeFileNameFromPath(path) || "HTML 预览";
     setDetachedHtmlWindows((current) => [...current, { id: panelId, file: runtimeFile, title, url }]);
     bringWorkspacePanelToFront(panelId);

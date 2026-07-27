@@ -2,7 +2,7 @@ import { documentKindFromPath, type DocumentKind } from "@/features/mermaid-edit
 
 export const EDITOR_DOCUMENT_SESSION_VERSION = 1 as const;
 
-export type EditorDocumentBufferStatus = "clean" | "dirty" | "saving" | "conflict" | "error";
+export type EditorDocumentBufferStatus = "clean" | "dirty" | "saving" | "conflict" | "deleted" | "error";
 
 export type EditorDocumentIdentity =
   | { kind: "file"; path: string }
@@ -11,6 +11,9 @@ export type EditorDocumentIdentity =
 export type EditorDocumentFileRef = {
   name: string;
   path?: string;
+  revision?: string;
+  documentId?: string;
+  workingRevision?: string;
 };
 
 export type EditorDocumentBuffer = {
@@ -248,7 +251,10 @@ function normalizeEditorDocumentIdentity(value: unknown): EditorDocumentIdentity
 function normalizeDocumentFileRef(value: unknown): EditorDocumentFileRef | null {
   if (!isRecord(value) || typeof value.name !== "string" || !value.name.trim()) return null;
   const path = typeof value.path === "string" && value.path.trim() ? value.path : undefined;
-  return { name: value.name.trim(), ...(path ? { path } : {}) };
+  const revision = typeof value.revision === "string" && value.revision.trim() ? value.revision : undefined;
+  const documentId = typeof value.documentId === "string" && value.documentId.trim() ? value.documentId : undefined;
+  const workingRevision = typeof value.workingRevision === "string" && value.workingRevision.trim() ? value.workingRevision : undefined;
+  return { name: value.name.trim(), ...(path ? { path } : {}), ...(revision ? { revision } : {}), ...(documentId ? { documentId } : {}), ...(workingRevision ? { workingRevision } : {}) };
 }
 
 function normalizeDocumentKind(value: unknown, filePath?: string): DocumentKind {
@@ -257,13 +263,14 @@ function normalizeDocumentKind(value: unknown, filePath?: string): DocumentKind 
 }
 
 function normalizeBufferStatus(value: unknown, content: string, savedContent: string): EditorDocumentBufferStatus {
+  if (value === "deleted") return "deleted";
   if (content === savedContent) return "clean";
   if (value === "conflict" || value === "error") return value;
   return value === "saving" ? "saving" : "dirty";
 }
 
 function normalizeBufferStatusValue(value: unknown): EditorDocumentBufferStatus | undefined {
-  return value === "clean" || value === "dirty" || value === "saving" || value === "conflict" || value === "error" ? value : undefined;
+  return value === "clean" || value === "dirty" || value === "saving" || value === "conflict" || value === "deleted" || value === "error" ? value : undefined;
 }
 
 function normalizeRevision(value: unknown) {

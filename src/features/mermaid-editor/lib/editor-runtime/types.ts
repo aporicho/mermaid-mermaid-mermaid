@@ -6,6 +6,7 @@ import type { RuntimeCsvFileOperations } from "@/features/mermaid-editor/lib/edi
 import type { RuntimeProjectFileOperations } from "@/features/mermaid-editor/lib/editor-runtime/project-file-types";
 import type { RuntimeDesktopWindowOperations } from "@/features/mermaid-editor/lib/editor-runtime/desktop-window-types";
 import type { RuntimeProjectFileWatchOperations } from "@/features/mermaid-editor/lib/editor-runtime/project-file-watch-types";
+import type { RuntimeDocumentHubOperations } from "@/features/mermaid-editor/lib/editor-runtime/document-hub-types";
 export type { RuntimeLinkPreviewRequest, RuntimeLinkPreviewResult } from "@/features/mermaid-editor/lib/editor-runtime/link-preview-types";
 
 export type EditorDraftState = Record<string, unknown>;
@@ -26,6 +27,10 @@ export type RuntimeFileRef = {
   handle?: BrowserFileHandle;
   /** Content revision captured when the file was opened or last saved. */
   revision?: string;
+  /** Stable main-process identity for this physical document. */
+  documentId?: string;
+  /** Revision of the shared working copy, including unsaved edits. */
+  workingRevision?: string;
 };
 
 export type RuntimeOpenFileResult =
@@ -162,7 +167,7 @@ export type RuntimeEmbeddedBrowserResult =
 
 export type EditorRuntimeHost = "web" | "electron";
 
-export type EditorRuntime = RuntimeAgentOperations & RuntimeCsvFileOperations & RuntimeDesktopWindowOperations & RuntimeProjectFileOperations & RuntimeProjectFileWatchOperations & import("@/features/mermaid-editor/lib/editor-runtime/markdown-fold-types").RuntimeMarkdownFoldOperations & {
+export type EditorRuntime = RuntimeAgentOperations & RuntimeCsvFileOperations & RuntimeDesktopWindowOperations & RuntimeProjectFileOperations & RuntimeProjectFileWatchOperations & RuntimeDocumentHubOperations & import("@/features/mermaid-editor/lib/editor-runtime/markdown-fold-types").RuntimeMarkdownFoldOperations & {
   kind: "web" | "desktop";
   host: EditorRuntimeHost;
   openExternalUrl: (url: string) => void;

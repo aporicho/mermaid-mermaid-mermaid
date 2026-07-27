@@ -30,8 +30,7 @@ export function useFileSaveWorkflow(
   const buffers = createDocumentBufferSaveWorkflow(args, {
     ...dependencies,
     requestConflictChoice,
-    saveActiveDocument: active.saveMermaidFile,
-    finishActiveSave: active.finishActiveSave
+    saveActiveDocument: active.saveMermaidFile
   });
 
   return {

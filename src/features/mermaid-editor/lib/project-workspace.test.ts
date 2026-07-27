@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildProjectFileTree,
   buildProjectResourceTree,
+  applyProjectWorkspaceChanges,
   filterProjectFiles,
   isRuntimePathInsideProjectWorkspace,
   isProjectFileActive,
@@ -166,6 +167,33 @@ describe("project workspace", () => {
     expect(normalizeProjectWorkspace(projectWorkspaceForStorage(workspace))?.resources).toEqual([
       expect.objectContaining({ kind: "file", name: "diagram.mmd", documentKind: "mermaid" })
     ]);
+  });
+
+  it("applies watcher changes directly without replacing the workspace snapshot", () => {
+    const workspace = normalizeProjectWorkspace({
+      rootName: "project",
+      rootPath: "/project",
+      scannedAt: 1,
+      files: [{ name: "old.md", path: "/project/docs/old.md", relativePath: "docs/old.md" }],
+      resources: [
+        { kind: "directory", name: "docs", path: "/project/docs", relativePath: "docs" },
+        { kind: "file", name: "old.md", path: "/project/docs/old.md", relativePath: "docs/old.md" }
+      ]
+    })!;
+
+    const updated = applyProjectWorkspaceChanges(workspace, [
+      { kind: "removed", directory: false, path: "/project/docs/old.md" },
+      { kind: "added", directory: false, path: "/project/docs/new.md", modifiedAt: 25 },
+      { kind: "added", directory: true, path: "/project/assets" }
+    ], 30);
+
+    expect(updated.scannedAt).toBe(30);
+    expect(updated.resources).toEqual(expect.arrayContaining([
+      expect.objectContaining({ kind: "directory", relativePath: "assets" }),
+      expect.objectContaining({ kind: "file", relativePath: "docs/new.md", modifiedAt: 25 })
+    ]));
+    expect(updated.resources).not.toEqual(expect.arrayContaining([expect.objectContaining({ relativePath: "docs/old.md" })]));
+    expect(updated.files).toEqual([expect.objectContaining({ name: "new.md", relativePath: "docs/new.md" })]);
   });
 
   it("keeps parent directories when building a filtered tree", () => {

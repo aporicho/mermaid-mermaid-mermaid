@@ -2,12 +2,14 @@ const { contextBridge, ipcRenderer, webUtils } = require("electron");
 const { createProjectPreloadBridge } = require("./project-preload.cjs");
 const { createWindowFullscreenPreloadBridge } = require("./window-fullscreen-preload.cjs");
 const { createPiAgentPreloadBridge } = require("./pi-agent-preload.cjs");
+const { createDocumentPreloadBridge } = require("./document-preload.cjs");
 
 contextBridge.exposeInMainWorld("mmmElectron", {
   host: "electron",
   ...createProjectPreloadBridge(ipcRenderer),
   ...createWindowFullscreenPreloadBridge(ipcRenderer),
   ...createPiAgentPreloadBridge(ipcRenderer),
+  ...createDocumentPreloadBridge(ipcRenderer),
   openExternalUrl(url) {
     return ipcRenderer.invoke("mmm:open-external-url", url);
   },
@@ -45,16 +47,6 @@ contextBridge.exposeInMainWorld("mmmElectron", {
   },
   readEditorSession() { return ipcRenderer.invoke("mmm:editor-session:read"); },
   writeEditorSession(session) { return ipcRenderer.invoke("mmm:editor-session:write", session); },
-  openFile() {
-    return ipcRenderer.invoke("mmm:file:open");
-  },
-  openFilePath(path) {
-    return ipcRenderer.invoke("mmm:file:open-path", path);
-  },
-  saveFile(path, text, options) { return ipcRenderer.invoke("mmm:file:save", { path, text, ...options }); },
-  saveFileAs(suggestedName, text) {
-    return ipcRenderer.invoke("mmm:file:save-as", { suggestedName, text });
-  },
   readCsvFile(request) {
     return ipcRenderer.invoke("mmm:csv:read", request);
   },

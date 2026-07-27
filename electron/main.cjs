@@ -13,7 +13,6 @@ const {
 } = require("./image-assets.cjs");
 const { resolveLinkPreview } = require("./link-preview.cjs");
 const { registerProjectDocumentIpc } = require("./project-documents-ipc.cjs");
-const { readProjectCsvFile, writeProjectCsvFile } = require("./project-csv.cjs");
 const {
   moveProjectMarkdownFoldState,
   readProjectMarkdownFoldState,
@@ -24,7 +23,7 @@ const { createPiAgentManager } = require("./pi-agent-manager.cjs");
 const { cleanupLegacyAiBridgeDiscovery, registerPiAgentIpc } = require("./pi-agent-ipc.cjs");
 const { listSystemFonts } = require("./system-fonts.cjs");
 const { createProjectFileWatcher } = require("./project-file-watcher.cjs");
-const { readDocumentFile, writeDocumentFile } = require("./document-files.cjs");
+const { createDocumentIpc } = require("./document-ipc.cjs");
 const { createEditorSessionStore } = require("./editor-sessions.cjs");
 const { writeJsonAtomically } = require("./atomic-json-file.cjs");
 const { scanProjectFolder: scanProjectFolderSnapshot } = require("./project-workspace.cjs");
@@ -37,12 +36,6 @@ const PROJECT_DIR = path.resolve(__dirname, "..");
 const DIST_INDEX = path.join(PROJECT_DIR, "dist", "index.html");
 const PRELOAD_PATH = path.join(__dirname, "preload.cjs");
 const CLOSE_REQUEST_TIMEOUT_MS = 3000;
-const DOCUMENT_FILTERS = [
-  {
-    name: "Project Documents",
-    extensions: ["mmd", "mermaid", "md", "markdown", "json"]
-  }
-];
 const IMAGE_FILTERS = [{ name: "Images", extensions: ["png", "jpg", "jpeg", "webp", "gif", "svg", "avif", "ico"] }];
 const embeddedBrowsers = new Map();
 const forceCloseWindowIds = new Set();
@@ -66,6 +59,8 @@ const projectFileWatcher = createProjectFileWatcher({
     webContents.send("mmm:project-files:changed", payload);
   }
 });
+const documentIpc = createDocumentIpc({ ipcMain, dialog, BrowserWindow });
+const { documentHub } = documentIpc;
 // Keep one Electron main process for shared services, but allow every launch request to create its own editor window.
 const hasSingleInstanceLock = app.requestSingleInstanceLock();
 let mainWindow = null;
@@ -121,6 +116,7 @@ app.on("before-quit", () => {
   terminalManager.closeAll();
   void piAgentManager.closeAll();
   void projectFileWatcher.closeAll();
+  void documentHub.closeAll();
 });
 
 function createMainWindow(openFiles = []) {
@@ -144,6 +140,7 @@ function createMainWindow(openFiles = []) {
   attachWindowCleanup(window);
   window.on("focus", () => {
     mainWindow = window;
+    void documentHub.refreshSubscriber(window.webContents.id);
   });
   loadAppUrl(window, appUrl());
 
@@ -242,16 +239,16 @@ function registerIpc() {
   ipcMain.handle("mmm:editor-session:write", async (event, session) => {
     await editorSessions().write(session); claimedEditorSessionIds.set(event.sender.id, session.windowId);
   });
-  ipcMain.handle("mmm:file:open", (event) => openFileDialog(BrowserWindow.fromWebContents(event.sender)));
-  ipcMain.handle("mmm:file:open-path", (_event, filePath) => openFilePath(filePath));
-  ipcMain.handle("mmm:file:save", (_event, request) => saveFilePath(request?.path, request?.text, { expectedRevision: request?.expectedRevision, overwrite: request?.overwrite === true }));
-  ipcMain.handle("mmm:file:save-as", (event, request) => saveFileDialog(BrowserWindow.fromWebContents(event.sender), request?.suggestedName, request?.text));
-  registerProjectDocumentIpc({ ipcMain, shell });
+  documentIpc.register();
+  registerProjectDocumentIpc({
+    ipcMain,
+    shell,
+    onMove: (sourcePath, targetPath) => documentHub.movePath(sourcePath, targetPath),
+    onDelete: (sourcePath) => documentHub.markDeletedPath(sourcePath)
+  });
   ipcMain.handle("mmm:markdown-folds:read", (_event, request) => readProjectMarkdownFoldState(request));
   ipcMain.handle("mmm:markdown-folds:write", (_event, request) => writeProjectMarkdownFoldState(request));
   ipcMain.handle("mmm:markdown-folds:move", (_event, request) => moveProjectMarkdownFoldState(request));
-  ipcMain.handle("mmm:csv:read", (_event, request) => readProjectCsvFile(request));
-  ipcMain.handle("mmm:csv:write", (_event, request) => writeProjectCsvFile(request));
   ipcMain.handle("mmm:image:pick", (event, documentPath) => pickImageAssetDialog(BrowserWindow.fromWebContents(event.sender), documentPath));
   ipcMain.handle("mmm:image:import-path", (_event, request) => importImageAssetPath(request?.documentPath, request?.imagePath));
   ipcMain.handle("mmm:image:import-bytes", (_event, request) => importImageAssetBytes(request?.documentPath, request?.fileName, request?.bytes));
@@ -312,34 +309,6 @@ function appStatePath() { return path.join(app.getPath("userData"), "app-state.j
 function editorSessions() {
   if (!editorSessionStoreInstance) editorSessionStoreInstance = createEditorSessionStore(path.join(app.getPath("userData"), "editor-sessions.json"));
   return editorSessionStoreInstance;
-}
-
-async function openFileDialog(owner) {
-  const result = await dialog.showOpenDialog(owner ?? undefined, {
-    properties: ["openFile"],
-    filters: DOCUMENT_FILTERS
-  });
-  if (result.canceled || !result.filePaths[0]) return null;
-  return openFilePath(result.filePaths[0]);
-}
-
-async function openFilePath(filePath) {
-  assertSupportedDocumentPath(filePath);
-  return readDocumentFile(filePath);
-}
-
-async function saveFilePath(filePath, text, options = {}) {
-  assertSupportedDocumentPath(filePath);
-  return writeDocumentFile(filePath, text, options);
-}
-
-async function saveFileDialog(owner, suggestedName, text) {
-  const result = await dialog.showSaveDialog(owner ?? undefined, {
-    defaultPath: typeof suggestedName === "string" ? suggestedName : "diagram.mmd",
-    filters: DOCUMENT_FILTERS
-  });
-  if (result.canceled || !result.filePath) return null;
-  return saveFilePath(result.filePath, text, { overwrite: true });
 }
 
 async function pickImageAssetDialog(owner, documentPath) {
@@ -410,6 +379,7 @@ function attachWindowCleanup(window) {
     windowFileRouter.clear(webContentsId);
     claimedEditorSessionIds.delete(webContentsId);
     void projectFileWatcher.removeSubscriber(webContentsId);
+    void documentHub.releaseSubscriber(webContentsId);
     void piAgentManager.stop(webContentsId);
     if (mainWindows.delete(window) && mainWindow === window) {
       mainWindow = [...mainWindows].at(-1) || null;
@@ -426,12 +396,6 @@ function clearPendingClose(windowId) {
 function clearPendingCloseTimer(windowId) {
   const timer = pendingCloseTimers.get(windowId); if (!timer) return;
   clearTimeout(timer); pendingCloseTimers.delete(windowId);
-}
-
-function assertSupportedDocumentPath(filePath) {
-  if (!isSupportedDocumentPath(filePath)) {
-    throw fileWorkflowError("unsupported_type", "Only .mmd, .mermaid, .md, or .markdown files are supported.", filePath);
-  }
 }
 
 function isSupportedDocumentPath(filePath) {
@@ -457,13 +421,6 @@ function mergeDocumentFiles(current, incoming) {
     if (!merged.some((item) => item.path === file.path)) merged.push(file);
   }
   return merged;
-}
-
-function fileWorkflowError(code, message, filePath) {
-  const error = new Error(message);
-  error.code = code;
-  error.path = filePath;
-  return error;
 }
 
 function readableError(error) {

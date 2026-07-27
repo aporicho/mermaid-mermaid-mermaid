@@ -1,3 +1,5 @@
+import { useRef } from "react";
+
 import type { StoredEditorDraftOverrides } from "@/features/mermaid-editor/lib/editor-state";
 import type { RuntimeFileRef } from "@/features/mermaid-editor/lib/editor-runtime";
 import {
@@ -30,6 +32,12 @@ export function useProjectWorkspaceWorkflow(
     setProjectWorkspace,
     setStatus
   } = args;
+  const workspaceRequestRevisionRef = useRef(0);
+
+  function invalidateProjectWorkspaceRequests() {
+    workspaceRequestRevisionRef.current += 1;
+    setProjectBusy(false);
+  }
 
   const syncWorkspaceForOpenedFile: SyncWorkspaceForOpenedFile = async (
     file: RuntimeFileRef | null,
@@ -45,10 +53,12 @@ export function useProjectWorkspaceWorkflow(
     }
 
     setProjectBusy(true);
+    const requestRevision = ++workspaceRequestRevisionRef.current;
     try {
       const result = await runtime.readProjectFolder(rootPath);
       if (result.status !== "opened") return;
       const workspace = normalizeProjectWorkspace(result.workspace);
+      if (requestRevision !== workspaceRequestRevisionRef.current) return;
       if (!workspace) {
         showFileWorkflowError({ code: "read_failed", message: "工作区文件夹扫描结果无效。", path: rootPath }, "同步文件夹失败。");
         return;
@@ -60,12 +70,13 @@ export function useProjectWorkspaceWorkflow(
     } catch (error) {
       if (!isAbortError(error)) showFileWorkflowError(error, "同步文件夹失败。");
     } finally {
-      setProjectBusy(false);
+      if (requestRevision === workspaceRequestRevisionRef.current) setProjectBusy(false);
     }
   };
 
   async function openProjectFolder() {
     setProjectBusy(true);
+    const requestRevision = ++workspaceRequestRevisionRef.current;
     try {
       const result = await runtime.openProjectFolder();
       if (result.status === "cancelled") return;
@@ -75,6 +86,7 @@ export function useProjectWorkspaceWorkflow(
       }
 
       const workspace = normalizeProjectWorkspace(result.workspace);
+      if (requestRevision !== workspaceRequestRevisionRef.current) return;
       if (!workspace) {
         showFileWorkflowError({ code: "read_failed", message: "工作区文件夹扫描结果无效。" }, "打开工作区文件夹失败。");
         return;
@@ -91,13 +103,14 @@ export function useProjectWorkspaceWorkflow(
     } catch (error) {
       if (!isAbortError(error)) showFileWorkflowError(error, "打开工作区文件夹失败。");
     } finally {
-      setProjectBusy(false);
+      if (requestRevision === workspaceRequestRevisionRef.current) setProjectBusy(false);
     }
   }
 
   async function refreshProjectWorkspace(rootPath = projectWorkspace?.rootPath) {
     if (!rootPath) return;
     setProjectBusy(true);
+    const requestRevision = ++workspaceRequestRevisionRef.current;
     try {
       const result = await runtime.readProjectFolder(rootPath);
       if (result.status === "unsupported") {
@@ -107,6 +120,7 @@ export function useProjectWorkspaceWorkflow(
       if (result.status === "cancelled") return;
 
       const workspace = normalizeProjectWorkspace(result.workspace);
+      if (requestRevision !== workspaceRequestRevisionRef.current) return;
       if (!workspace) {
         showFileWorkflowError({ code: "read_failed", message: "工作区文件夹扫描结果无效。", path: rootPath }, "刷新工作区文件夹失败。");
         return;
@@ -122,7 +136,7 @@ export function useProjectWorkspaceWorkflow(
     } catch (error) {
       if (!isAbortError(error)) showFileWorkflowError(error, "刷新工作区文件夹失败。");
     } finally {
-      setProjectBusy(false);
+      if (requestRevision === workspaceRequestRevisionRef.current) setProjectBusy(false);
     }
   }
 
@@ -140,6 +154,7 @@ export function useProjectWorkspaceWorkflow(
     syncWorkspaceForOpenedFile,
     openProjectFolder,
     refreshProjectWorkspace,
-    closeProjectWorkspace
+    closeProjectWorkspace,
+    invalidateProjectWorkspaceRequests
   };
 }

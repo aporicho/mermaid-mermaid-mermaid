@@ -12,14 +12,12 @@ type BufferSaveDependencies = {
   syncWorkspaceForOpenedFile: SyncWorkspaceForOpenedFile;
   requestConflictChoice: (buffer: EditorDocumentBuffer) => Promise<"overwrite" | "reload" | "save-as" | "cancel">;
   saveActiveDocument: () => Promise<boolean>;
-  finishActiveSave: (file: RuntimeFileRef) => Promise<boolean>;
 };
 
 export function createDocumentBufferSaveWorkflow(args: UseEditorFileWorkflowArgs, dependencies: BufferSaveDependencies) {
   const {
-    runtime, captureActiveDocumentBuffer, findFileDocumentBuffer, markDocumentBufferSaved,
-    updateDocumentBuffer, reloadDocumentFromDisk, setFileRef, setFileName, setLastSavedDocument,
-    setRecentFiles, setStatus, isDirtyRef
+    runtime, captureActiveDocumentBuffer, markDocumentBufferSaved,
+    updateDocumentBuffer, reloadDocumentFromDisk, setRecentFiles
   } = args;
 
   async function reloadBufferFromDisk(buffer: EditorDocumentBuffer, active: boolean) {
@@ -100,59 +98,7 @@ export function createDocumentBufferSaveWorkflow(args: UseEditorFileWorkflowArgs
     return true;
   }
 
-  async function handleExternalDocumentChange(opened: { status: "opened"; file: RuntimeFileRef; text: string }) {
-    const captured = captureActiveDocumentBuffer();
-    const buffer = findFileDocumentBuffer(opened.file);
-    if (!buffer) return "ignored" as const;
-    const active = captured.activeBufferId === buffer.id;
-    if (opened.text === buffer.content) {
-      updateDocumentBuffer(buffer.id, {
-        fileRef: opened.file, revision: opened.file.revision || null,
-        ...(editorDocumentBufferIsDirty(buffer) ? {} : { savedContent: opened.text, status: "clean" as const })
-      });
-      return "unchanged" as const;
-    }
-    if (!editorDocumentBufferIsDirty(buffer)) {
-      applyDiskBuffer(buffer, opened);
-      if (active) reloadDocumentFromDisk(opened.text, opened.file.name, opened.file);
-      return "reloaded" as const;
-    }
-
-    updateDocumentBuffer(buffer.id, { status: "conflict" });
-    const choice = await dependencies.requestConflictChoice({ ...buffer, status: "conflict" });
-    if (choice === "cancel") return "conflict" as const;
-    if (choice === "reload") {
-      applyDiskBuffer(buffer, opened);
-      if (active) reloadDocumentFromDisk(opened.text, opened.file.name, opened.file);
-      return "reloaded" as const;
-    }
-    if (choice === "save-as") {
-      const result = await runtime.saveFileAs(buffer.content, buffer.fileName, buffer.documentKind);
-      if (result.status !== "saved") return "conflict" as const;
-      markDocumentBufferSaved(buffer.id, result.file, buffer.content);
-      setRecentFiles((current) => upsertRecentFile(current, result.file));
-      if (active) {
-        setFileRef(result.file); setFileName(result.file.name); setLastSavedDocument(buffer.content); isDirtyRef.current = false;
-      }
-      return "saved" as const;
-    }
-
-    const result = await runtime.saveFile({ ...opened.file, revision: opened.file.revision }, buffer.content, buffer.fileName, buffer.documentKind, { overwrite: true });
-    if (result.status !== "saved") return "conflict" as const;
-    if (active) await dependencies.finishActiveSave(result.file);
-    else markDocumentBufferSaved(buffer.id, result.file, buffer.content);
-    setStatus(`已保存 ${result.file.name}。`);
-    return "saved" as const;
-  }
-
-  function applyDiskBuffer(buffer: EditorDocumentBuffer, opened: { file: RuntimeFileRef; text: string }) {
-    updateDocumentBuffer(buffer.id, {
-      fileRef: opened.file, content: opened.text, savedContent: opened.text,
-      revision: opened.file.revision || null, status: "clean"
-    });
-  }
-
-  return { saveAllDocuments, saveDocumentBufferById, saveAutoSaveEligibleDocuments, handleExternalDocumentChange };
+  return { saveAllDocuments, saveDocumentBufferById, saveAutoSaveEligibleDocuments };
 }
 
 function orderedDirtyBuffers(session: EditorDocumentSession) {

@@ -29,7 +29,8 @@ export function useEditorFileWorkflow(args: UseEditorFileWorkflowArgs) {
     syncWorkspaceForOpenedFile,
     openProjectFolder,
     refreshProjectWorkspace,
-    closeProjectWorkspace
+    closeProjectWorkspace,
+    invalidateProjectWorkspaceRequests
   } = useProjectWorkspaceWorkflow(args, {
     persistStoredEditorDraft: persistStoredEditorDraft as (overrides?: StoredEditorDraftOverrides) => Promise<void>,
     showFileWorkflowError
@@ -42,7 +43,6 @@ export function useEditorFileWorkflow(args: UseEditorFileWorkflowArgs) {
     saveAllDocuments,
     saveDocumentBufferById,
     saveAutoSaveEligibleDocuments,
-    handleExternalDocumentChange,
     resolveFileConflictPrompt
   } = useFileSaveWorkflow(args, {
     persistStoredEditorDraft: persistStoredEditorDraft as (overrides?: StoredEditorDraftOverrides) => Promise<void>,
@@ -112,6 +112,7 @@ export function useEditorFileWorkflow(args: UseEditorFileWorkflowArgs) {
     openRuntimeFileRequest,
     openProjectFolder,
     refreshProjectWorkspace,
+    invalidateProjectWorkspaceRequests,
     closeProjectWorkspace,
     updateBrowserFileDragFeedback,
     handleBrowserFileDragLeave,
@@ -125,7 +126,6 @@ export function useEditorFileWorkflow(args: UseEditorFileWorkflowArgs) {
     saveMermaidFileAsResult,
     saveAllDocuments,
     saveDocumentBufferById,
-    saveAutoSaveEligibleDocuments,
-    handleExternalDocumentChange
+    saveAutoSaveEligibleDocuments
   };
 }

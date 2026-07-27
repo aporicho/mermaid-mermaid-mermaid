@@ -56,9 +56,11 @@ export function useEditorDocumentSession({
     if (!previous) return sessionRef.current;
     const content = activeDocument.content;
     const savedContent = activeDocument.savedContent;
-    const status = previous.status === "conflict" && content !== savedContent
-      ? "conflict"
-      : content === savedContent ? "clean" : "dirty";
+    const status = previous.status === "deleted"
+      ? "deleted"
+      : previous.status === "conflict" && content !== savedContent
+        ? "conflict"
+        : content === savedContent ? "clean" : "dirty";
     const nextRevision = activeDocument.fileRef?.revision || previous.revision;
     if (
       previous.documentKind === activeDocument.documentKind &&
@@ -68,7 +70,9 @@ export function useEditorDocumentSession({
       previous.status === status &&
       previous.revision === nextRevision &&
       previous.fileRef?.name === activeDocument.fileRef?.name &&
-      previous.fileRef?.path === activeDocument.fileRef?.path
+      previous.fileRef?.path === activeDocument.fileRef?.path &&
+      previous.fileRef?.documentId === activeDocument.fileRef?.documentId &&
+      previous.fileRef?.workingRevision === activeDocument.fileRef?.workingRevision
     ) return sessionRef.current;
     const buffer = createEditorDocumentBuffer({
       ...previous,
@@ -259,6 +263,10 @@ function createInitialSession(initialSession: EditorDocumentSession | null | und
 
 function bufferForRuntimeFile(session: EditorDocumentSession, file: RuntimeFileRef | null | undefined) {
   if (!file) return null;
+  if (file.documentId) {
+    const byDocumentId = session.buffers.find((buffer) => buffer.fileRef?.documentId === file.documentId);
+    if (byDocumentId) return byDocumentId;
+  }
   const id = editorDocumentBufferId(identityForDocument(file));
   return session.buffers.find((buffer) => buffer.id === id) || null;
 }
@@ -270,7 +278,13 @@ function identityForDocument(file: RuntimeFileRef | null | undefined) {
 
 function serializableFileRef(file: RuntimeFileRef | null | undefined) {
   if (!file) return null;
-  return { name: file.name, ...(file.path ? { path: file.path } : {}) };
+  return {
+    name: file.name,
+    ...(file.path ? { path: file.path } : {}),
+    ...(file.revision ? { revision: file.revision } : {}),
+    ...(file.documentId ? { documentId: file.documentId } : {}),
+    ...(file.workingRevision ? { workingRevision: file.workingRevision } : {})
+  };
 }
 
 function createSessionId(prefix: string) {

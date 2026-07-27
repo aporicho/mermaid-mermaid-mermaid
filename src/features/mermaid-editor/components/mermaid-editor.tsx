@@ -11,7 +11,7 @@ import { EditorWorkspaceSurface } from "@/features/mermaid-editor/components/mer
 import { EditorWorkspacePanels } from "@/features/mermaid-editor/components/mermaid-editor/editor-workspace-panels";
 import { useEditorDocumentModel } from "@/features/mermaid-editor/components/mermaid-editor/use-editor-document-model";
 import { useEditorDocumentSession } from "@/features/mermaid-editor/components/mermaid-editor/use-editor-document-session";
-import { useEditorSessionWorkspace } from "@/features/mermaid-editor/components/mermaid-editor/use-editor-session-workspace";
+import { useDocumentHubWorkspace } from "@/features/mermaid-editor/components/mermaid-editor/use-document-hub-workspace";
 import { useEditorFileWorkflow } from "@/features/mermaid-editor/components/mermaid-editor/use-editor-file-workflow";
 import { useEditorExplorerTreeModel } from "@/features/mermaid-editor/components/mermaid-editor/use-editor-explorer-tree-model";
 import { useEditorKeyboardShortcuts } from "@/features/mermaid-editor/components/mermaid-editor/use-editor-keyboard-shortcuts";
@@ -257,10 +257,10 @@ export function MermaidEditor() {
     showFileWorkflowError, resolveUnsavedPrompt, resolveFileConflictPrompt, prepareWindowClose,
     applyLoadedDocument, applyStoredEditorState,
     openMermaidFile, newMermaidFile, newMarkdownFile, openFallbackFile,
-    openRuntimeFileRequest, openProjectFolder, refreshProjectWorkspace,
+    openRuntimeFileRequest, openProjectFolder, refreshProjectWorkspace, invalidateProjectWorkspaceRequests,
     updateBrowserFileDragFeedback, handleBrowserFileDragLeave, handleBrowserFileDrop, handleRuntimeFileDropRequest,
     openRecentFile, openProjectFile, saveMermaidFile, saveMermaidFileAs,
-    saveDocumentBufferById, saveAutoSaveEligibleDocuments, handleExternalDocumentChange
+    saveDocumentBufferById, saveAutoSaveEligibleDocuments
   } = useEditorFileWorkflow({
     runtime,
     fileInputRef,
@@ -337,9 +337,8 @@ export function MermaidEditor() {
     recordRecentAction
   });
   applyLoadedDocumentRef.current = (text, name, file) => applyLoadedDocument(text, name, file, "watch");
-  useEditorSessionWorkspace({
-    documentSession, preferences, saveAutoSaveEligibleDocuments, setDetachedMarkdownWindows
-  });
+  const documentHubWorkspace = useDocumentHubWorkspace({ runtime, documentSession, preferences, saveAutoSaveEligibleDocuments,
+    setDetachedMarkdownWindows, setFileRef, setFileName, applyLoadedDocument, setStatus, showFileWorkflowError });
   const {
     copyProjectResources,
     createProjectDirectory,
@@ -386,7 +385,8 @@ export function MermaidEditor() {
     setFileRef,
     setLastSavedDocument,
     setDetachedMarkdownWindows,
-    setStatus
+    setStatus,
+    reconcileProjectWorkspace: () => { if (projectWorkspace?.rootPath) void refreshProjectWorkspace(projectWorkspace.rootPath); }
   });
   const {
     openProjectMarkdownWindow, openProjectHtmlWindow, openProjectImageWindow, openImageWindow, navigateDetachedImageWindow,
@@ -423,10 +423,10 @@ export function MermaidEditor() {
     saveDocumentBufferById,
     onMarkdownFileSaved: updateMarkdownDocumentPreviewFromText
   });
-  useProjectFileHotReload({ runtime, projectWorkspace, fileRef,
-    detachedMarkdownWindows, setDetachedMarkdownWindows, setFileRef, setStatus,
+  useProjectFileHotReload({ runtime, projectWorkspace, setProjectWorkspace, fileRef,
+    detachedMarkdownWindows, setDetachedMarkdownWindows, setStatus,
     detachedHtmlWindows, setDetachedHtmlWindows, detachedImageWindows, setDetachedImageWindows,
-    handleExternalDocumentChange, refreshProjectWorkspace, reloadExternalCsvFiles,
+    refreshProjectWorkspace, invalidateProjectWorkspaceRequests, reloadExternalCsvFiles,
     updateMarkdownPreviewFromText: updateMarkdownDocumentPreviewFromText,
     markMarkdownPreviewMissing: markMarkdownDocumentPreviewMissing,
     refreshImageAssets, showFileWorkflowError
@@ -495,10 +495,8 @@ export function MermaidEditor() {
     editorSession: documentSession.session,
     detachedMarkdownWindows
   });
-
   const closeFloatingOverlays = closeFloatingOverlayState;
   const projectResourceStatuses = useProjectResourceStatuses(documentSession.session.buffers);
-
   useEditorKeyboardShortcuts({
     graph,
     selection,
@@ -679,6 +677,7 @@ export function MermaidEditor() {
           fileWorkflowError={fileWorkflowError}
           unsavedPrompt={unsavedPrompt}
           fileConflictPrompt={fileConflictPrompt}
+          documentConflict={documentHubWorkspace.documentConflict}
           nodeActionEditorNode={nodeActionEditorNode}
           markdownDocumentDialog={markdownDocuments.dialogProps} htmlDocumentDialog={htmlDocuments.dialogProps} csvTableDialog={csvTables.dialogProps}
           projectFiles={projectFiles}
@@ -687,6 +686,7 @@ export function MermaidEditor() {
           onCloseFileWorkflowError={() => setFileWorkflowError(null)}
           onResolveUnsavedPrompt={resolveUnsavedPrompt}
           onResolveFileConflictPrompt={resolveFileConflictPrompt}
+          onResolveDocumentConflict={documentHubWorkspace.resolveDocumentConflict}
           onCloseNodeActionEditor={() => setNodeActionEditor(null)}
           onSaveCanvasNodeAction={saveCanvasNodeAction}
           onExecuteNodeActionDraft={executeNodeActionDraft}

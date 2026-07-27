@@ -1,5 +1,6 @@
 import type { RuntimeFileRef } from "@/features/mermaid-editor/lib/editor-runtime";
 import { documentKindFromPath, type DocumentKind } from "@/features/mermaid-editor/lib/document-kind";
+import type { RuntimeProjectFileChange } from "@/features/mermaid-editor/lib/editor-runtime/project-file-watch-types";
 
 export type ProjectFileEntry = {
   name: string;
@@ -64,6 +65,59 @@ export type ProjectResourceTreeNode = ProjectTreeNode;
 
 export const PROJECT_FILE_LIMIT = 500;
 export const PROJECT_RESOURCE_LIMIT = 10_000;
+
+export function applyProjectWorkspaceChanges(
+  workspace: ProjectWorkspace,
+  changes: readonly RuntimeProjectFileChange[],
+  observedAt = Date.now()
+): ProjectWorkspace {
+  const root = normalizeComparablePath(workspace.rootPath).replace(/\/$/, "");
+  const resources = new Map((workspace.resources ?? projectResourcesFromFiles(workspace.files)).map((resource) => [projectResourcePathKey(resource.path), resource]));
+  let changed = false;
+
+  for (const change of changes) {
+    const normalizedPath = normalizeComparablePath(change.path);
+    const pathKey = projectResourcePathKey(change.path);
+    const relativePath = relativeProjectResourcePath(root, normalizedPath);
+    if (!relativePath) continue;
+    if (change.kind === "removed") {
+      for (const key of resources.keys()) {
+        if (key === pathKey || key.startsWith(`${pathKey}/`)) {
+          resources.delete(key);
+          changed = true;
+        }
+      }
+      continue;
+    }
+
+    const existing = resources.get(pathKey);
+    const resource: ProjectResourceEntry = {
+      kind: change.directory ? "directory" : "file",
+      name: fileNameFromPath(relativePath),
+      path: change.path,
+      relativePath,
+      ...(!change.directory && documentKindFromPath(change.path) ? { documentKind: documentKindFromPath(change.path) } : {}),
+      ...(change.modifiedAt ? { modifiedAt: change.modifiedAt } : existing?.modifiedAt ? { modifiedAt: existing.modifiedAt } : {})
+    };
+    if (!existing || !sameProjectResource(existing, resource)) {
+      resources.set(pathKey, resource);
+      changed = true;
+    }
+  }
+
+  if (!changed) return workspace.scannedAt === observedAt ? workspace : { ...workspace, scannedAt: observedAt };
+  const nextResources = sortProjectResources([...resources.values()].slice(0, PROJECT_RESOURCE_LIMIT), workspace.resourceOrder);
+  const files = nextResources
+    .filter((resource): resource is ProjectResourceEntry & { documentKind: DocumentKind } => resource.kind === "file" && Boolean(resource.documentKind))
+    .map((resource) => ({
+      name: resource.name,
+      path: resource.path,
+      relativePath: resource.relativePath,
+      ...(resource.modifiedAt ? { modifiedAt: resource.modifiedAt } : {})
+    }))
+    .slice(0, PROJECT_FILE_LIMIT);
+  return { ...workspace, resources: nextResources, files, scannedAt: observedAt };
+}
 
 export function normalizeProjectWorkspace(value: unknown): ProjectWorkspace | null {
   if (!value || typeof value !== "object") return null;
@@ -314,6 +368,23 @@ function normalizeProjectFileEntry(value: unknown): ProjectFileEntry | null {
     relativePath: relativePath.replaceAll("\\", "/"),
     ...(modifiedAt ? { modifiedAt } : {})
   };
+}
+
+function relativeProjectResourcePath(root: string, candidate: string) {
+  const shouldIgnoreCase = isWindowsLikePath(root) || isWindowsLikePath(candidate);
+  const comparableRoot = shouldIgnoreCase ? root.toLowerCase() : root;
+  const comparableCandidate = shouldIgnoreCase ? candidate.toLowerCase() : candidate;
+  if (!comparableCandidate.startsWith(`${comparableRoot}/`)) return "";
+  return candidate.slice(root.length + 1).replace(/^\/+|\/+$/g, "");
+}
+
+function sameProjectResource(left: ProjectResourceEntry, right: ProjectResourceEntry) {
+  return left.kind === right.kind && left.name === right.name && left.path === right.path && left.relativePath === right.relativePath && left.modifiedAt === right.modifiedAt && left.documentKind === right.documentKind;
+}
+
+function projectResourcePathKey(value: string) {
+  const normalized = normalizeComparablePath(value);
+  return isWindowsLikePath(value) ? normalized.toLowerCase() : normalized;
 }
 
 function normalizeProjectResourceEntry(value: unknown): ProjectResourceEntry | null {
