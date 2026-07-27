@@ -86,7 +86,7 @@ export function useKonvaDragMembership({
     dragRef,
     subgraphDragFrameRef,
     dragFinalPositionsRef,
-    dragPreviewPositions,
+    dragPreviewStore,
     beginDragRuntimeState,
     markDragPositionsCommitted,
     scheduleDragPreviewPositionsVisual,
@@ -126,8 +126,9 @@ export function useKonvaDragMembership({
   function startSubgraphDrag(subgraphId: string, geometry: SubgraphGeometry) {
     if (!dragEnabled) return;
     if (dragRef.current) return;
-    const ids = selectedSubgraphIds.has(subgraphId) ? selection.subgraphIds || [] : [subgraphId];
-    const nodeIds = unique(ids.flatMap((id) => descendantNodeIds(graph, id)));
+    const rootIds = selectedSubgraphIds.has(subgraphId) ? selection.subgraphIds || [] : [subgraphId];
+    const ids = unique(rootIds.flatMap((id) => [id, ...descendantSubgraphIds(graph, id)]));
+    const nodeIds = unique(rootIds.flatMap((id) => descendantNodeIds(graph, id)));
     if (!nodeIds.length) return;
     const screen = pointerScreenPoint() || { x: 0, y: 0 };
     const world = pointerWorldPoint() || { x: geometry.frame.x, y: geometry.frame.y };
@@ -153,9 +154,9 @@ export function useKonvaDragMembership({
   }
 
   function moveSelectedNodes(node: CanvasNode, target: Konva.Node) {
-    if (!dragRef.current) return;
+    if (!dragRef.current) return null;
     const origin = dragRef.current[node.id];
-    if (!origin) return;
+    if (!origin) return null;
     const deltaX = target.x() - origin.x;
     const deltaY = target.y() - origin.y;
     const alignment = dragAlignmentRef.current;
@@ -174,6 +175,7 @@ export function useKonvaDragMembership({
     if (draggedPosition) target.position(draggedPosition);
     setAlignmentGuides((current) => sameAlignmentGuides(current, snap.guides) ? current : snap.guides);
     scheduleDragPreviewPositionsVisual(positions);
+    return positions;
   }
 
   function moveSelectedSubgraphs(subgraphId: string, target: Konva.Node) {
@@ -187,7 +189,10 @@ export function useKonvaDragMembership({
     ) as CanvasNodePreviewPositions;
     const draggedFrame = subgraphDragFrameRef.current[subgraphId];
     if (draggedFrame) target.position({ x: draggedFrame.x + deltaX, y: draggedFrame.y + deltaY });
-    scheduleDragPreviewPositionsVisual(positions);
+    const subgraphPositions = Object.fromEntries(
+      Object.entries(subgraphDragFrameRef.current).map(([id, frame]) => [id, { x: frame.x + deltaX, y: frame.y + deltaY }])
+    );
+    scheduleDragPreviewPositionsVisual(positions, subgraphPositions);
   }
 
   function finishDragWithMembership(positions: CanvasNodePreviewPositions) {
@@ -243,7 +248,7 @@ export function useKonvaDragMembership({
 
   return {
     alignmentGuides,
-    dragPreviewPositions,
+    dragPreviewStore,
     clearAlignmentGuides: () => setAlignmentGuides([]),
     startNodeDrag,
     startSubgraphDrag,

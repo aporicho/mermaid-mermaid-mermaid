@@ -228,7 +228,19 @@ function registerIpc() {
 
   ipcMain.handle("mmm:app-state:read", readAppState);
   ipcMain.handle("mmm:fonts:list", listSystemFonts);
-  ipcMain.handle("mmm:system:memory-info", () => ({ totalBytes: os.totalmem() }));
+  ipcMain.handle("mmm:system:memory-info", (event) => {
+    const result = { totalBytes: os.totalmem() };
+    if (app.isPackaged) return result;
+    const rendererPid = event.sender.getOSProcessId();
+    const rendererMetric = app.getAppMetrics().find((metric) => metric.pid === rendererPid);
+    return {
+      ...result,
+      graphics: {
+        gpuFeatureStatus: app.getGPUFeatureStatus(),
+        ...(rendererMetric?.memory ? { rendererMemory: rendererMetric.memory } : {})
+      }
+    };
+  });
   ipcMain.handle("mmm:app-state:write", (_event, state) => writeAppState(state));
   ipcMain.handle("mmm:editor-session:read", async (event) => {
     const existingId = claimedEditorSessionIds.get(event.sender.id);

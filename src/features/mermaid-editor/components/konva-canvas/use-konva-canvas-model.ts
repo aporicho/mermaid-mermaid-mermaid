@@ -1,7 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import type Konva from "konva";
-import type { Dispatch, SetStateAction } from "react";
-
 import type { KonvaCanvasModelStageProps } from "@/features/mermaid-editor/components/konva-canvas/konva-canvas-stage-types";
 import type { KonvaCanvasProps } from "@/features/mermaid-editor/components/konva-canvas/types";
 import { useContainerSize } from "@/features/mermaid-editor/components/konva-canvas/use-container-size";
@@ -37,14 +35,13 @@ import {
 } from "@/features/mermaid-editor/lib/subgraph-geometry";
 import { arrangeNodeRects, type NodeArrangementOperation } from "@/features/mermaid-editor/lib/node-arrangement";
 import { useKonvaTableInteraction } from "@/features/mermaid-editor/components/konva-canvas/use-konva-table-interaction";
-
+import { useCanvasImageWarm } from "@/features/mermaid-editor/components/konva-canvas/use-canvas-image-warm";
 type UseKonvaCanvasModelArgs = KonvaCanvasProps & {
   mermaidEdgeRoutes: NonNullable<KonvaCanvasProps["mermaidEdgeRoutes"]>;
   imageDisplaySrcBySrc: NonNullable<KonvaCanvasProps["imageDisplaySrcBySrc"]>;
   visualTokens: NonNullable<KonvaCanvasProps["visualTokens"]>;
 };
 const DEFAULT_KONVA_TYPOGRAPHY = createDefaultEditorTypography();
-
 export function useKonvaCanvasModel({
   graph,
   selection,
@@ -162,7 +159,6 @@ export function useKonvaCanvasModel({
     hoveredNodeId,
     hoveredSubgraphId,
     hoveredEdgeId,
-    dragPreviewPositions: dragRuntime.dragPreviewPositions,
     nodeMotion,
     nodeProximityScale: proximity.nodeProximityScale,
     nodeThemeTokens,
@@ -173,6 +169,7 @@ export function useKonvaCanvasModel({
     subgraphThemeTokens,
     visualTokens
   });
+  useCanvasImageWarm(renderModel.warmRenderedNodes, imageDisplaySrcBySrc);
   const dragMembership = useKonvaDragMembership({
     dragRuntime,
     graph,
@@ -329,6 +326,8 @@ export function useKonvaCanvasModel({
     selectedNodeRects: renderModel.selectedNodeRects,
     scopedSubgraphGeometries: renderModel.scopedSubgraphGeometries,
     scopedVisibleEdges: renderModel.scopedVisibleEdges,
+    dragPreviewEdges: renderModel.dragPreviewEdges,
+    resolveDragEdgeGeometryMap: renderModel.resolveDragEdgeGeometryMap,
     scopedRenderedNodes: renderModel.scopedRenderedNodes,
     exitingNodes,
     nodeGeometryById: renderModel.nodeGeometryById,
@@ -357,6 +356,7 @@ export function useKonvaCanvasModel({
     nodeEditorRef,
     nodeEditorMeasureRef,
     selectedTableCell,
+    dragPreviewStore: dragRuntime.dragPreviewStore,
     onWheel: viewportController.onWheel,
     onMoveNode: dragMembership.moveSelectedNodes,
     onMoveSubgraph: dragMembership.moveSelectedSubgraphs,
@@ -415,5 +415,4 @@ export function useKonvaCanvasModel({
     stageProps
   };
 }
-
 export type KonvaCanvasModel = ReturnType<typeof useKonvaCanvasModel>;

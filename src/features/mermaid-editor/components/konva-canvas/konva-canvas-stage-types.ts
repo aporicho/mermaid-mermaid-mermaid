@@ -3,6 +3,7 @@ import type { KonvaEventObject } from "konva/lib/Node";
 import type { PointerEvent as ReactPointerEvent, RefObject } from "react";
 
 import type { InlineEdit, InlineEditStyle } from "@/features/mermaid-editor/components/konva-canvas/inline-edit-overlays";
+import type { CanvasDragPreviewStore } from "@/features/mermaid-editor/components/konva-canvas/canvas-drag-preview-store";
 import type { TableCellToolbarOperation } from "@/features/mermaid-editor/components/konva-canvas/table-cell-toolbar";
 import type { CanvasEdgeMotionVisual, CanvasNodeMotionVisual } from "@/features/mermaid-editor/components/konva-canvas/types";
 import type { useKonvaNodeEditorLayout } from "@/features/mermaid-editor/components/konva-canvas/use-konva-inline-edit-session";
@@ -10,7 +11,7 @@ import type { useKonvaRenderModel } from "@/features/mermaid-editor/components/k
 import type { AlignmentGuide, AlignmentRect } from "@/features/mermaid-editor/lib/alignment-guides";
 import type { CanvasGridSpec } from "@/features/mermaid-editor/lib/canvas-grid";
 import type { CanvasPoint, HitTarget, InteractionState } from "@/features/mermaid-editor/lib/canvas-interaction";
-import type { CanvasProximityScales } from "@/features/mermaid-editor/lib/canvas-motion";
+import type { CanvasNodePreviewPositions, CanvasProximityScales } from "@/features/mermaid-editor/lib/canvas-motion";
 import type { CanvasVisualTokens } from "@/features/mermaid-editor/lib/canvas-visual-state";
 import type { EdgeLabelGeometryTokens } from "@/features/mermaid-editor/lib/edge-label-geometry";
 import type { EditorTypographyTokens, MarkdownThemeTokens, SpecialNodeThemeTokens } from "@/features/mermaid-editor/lib/editor-theme";
@@ -56,6 +57,8 @@ export type KonvaCanvasStageProps = {
   selectedNodeRects: AlignmentRect[];
   scopedSubgraphGeometries: RenderModel["scopedSubgraphGeometries"];
   scopedVisibleEdges: RenderModel["scopedVisibleEdges"];
+  dragPreviewEdges: RenderModel["dragPreviewEdges"];
+  resolveDragEdgeGeometryMap: RenderModel["resolveDragEdgeGeometryMap"];
   scopedRenderedNodes: RenderModel["scopedRenderedNodes"];
   exitingNodes: CanvasNode[];
   nodeGeometryById: RenderModel["nodeGeometryById"];
@@ -85,6 +88,7 @@ export type KonvaCanvasStageProps = {
   nodeEditorRef: RefObject<HTMLTextAreaElement | null>;
   nodeEditorMeasureRef: RefObject<HTMLDivElement | null>;
   selectedTableCell: TableCellSelection | null;
+  dragPreviewStore: CanvasDragPreviewStore;
   onWheel: (event: KonvaEventObject<WheelEvent>) => void;
   onCanvasPointerDown: (event: KonvaEventObject<MouseEvent>, explicitHit?: HitTarget, worldOverride?: CanvasPoint) => void;
   onCanvasPointerMove: (event: KonvaEventObject<MouseEvent>) => void;
@@ -96,7 +100,7 @@ export type KonvaCanvasStageProps = {
   onCanvasDoubleClick: (event: KonvaEventObject<MouseEvent>, hit: HitTarget) => void;
   onStartNodeDrag: (nodeId: string) => void;
   onStartSubgraphDrag: (subgraphId: string) => void;
-  onMoveNode: (node: CanvasNode, target: Konva.Node) => void;
+  onMoveNode: (node: CanvasNode, target: Konva.Node) => CanvasNodePreviewPositions | null;
   onMoveSubgraph: (subgraphId: string, target: Konva.Node) => void;
   onEndDrag: () => void;
   onArrangeNodes: (operation: NodeArrangementOperation) => void;

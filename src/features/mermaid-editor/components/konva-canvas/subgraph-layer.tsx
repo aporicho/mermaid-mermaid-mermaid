@@ -1,8 +1,10 @@
+import { useEffect, useRef, type RefObject } from "react";
 import { Circle, Group, Rect, Text } from "react-konva";
 import type Konva from "konva";
 import type { KonvaEventObject } from "konva/lib/Node";
 
 import type { InlineEdit } from "@/features/mermaid-editor/components/konva-canvas/inline-edit-overlays";
+import type { CanvasDragPreviewStore } from "@/features/mermaid-editor/components/konva-canvas/canvas-drag-preview-store";
 import type { useKonvaRenderModel } from "@/features/mermaid-editor/components/konva-canvas/use-konva-render-model";
 import type { CanvasPoint, HitTarget, InteractionState } from "@/features/mermaid-editor/lib/canvas-interaction";
 import {
@@ -12,6 +14,7 @@ import {
   subgraphTitleHitId
 } from "@/features/mermaid-editor/lib/canvas-hit-target";
 import type { EditorMode, MermaidGraph } from "@/features/mermaid-editor/lib/editor-types";
+import { descendantSubgraphIds } from "@/features/mermaid-editor/lib/editor-actions";
 import {
   canvasStrokeDash,
   canvasStrokeEnabled,
@@ -25,6 +28,9 @@ type RenderedSubgraphGeometry = RenderModel["scopedSubgraphGeometries"][number];
 type SubgraphAnchor = RenderedSubgraphGeometry["anchorsLocal"][number];
 
 type KonvaSubgraphLayerProps = {
+  contentLayerRef: RefObject<Konva.Layer | null>;
+  interactionLayerRef: RefObject<Konva.Layer | null>;
+  dragPreviewStore: CanvasDragPreviewStore;
   graph: MermaidGraph;
   mode: EditorMode;
   panningRequested: boolean;
@@ -49,6 +55,9 @@ type KonvaSubgraphLayerProps = {
 };
 
 export function KonvaSubgraphLayer({
+  contentLayerRef,
+  interactionLayerRef,
+  dragPreviewStore,
   graph,
   mode,
   panningRequested,
@@ -71,6 +80,69 @@ export function KonvaSubgraphLayer({
   onCanvasDoubleClick,
   onSubgraphAnchorPointerDown
 }: KonvaSubgraphLayerProps) {
+  const promotedSubgraphsRef = useRef<PromotedSubgraph[]>([]);
+
+  useEffect(() => dragPreviewStore.subscribe(() => {
+    const snapshot = dragPreviewStore.getSnapshot();
+    const interactionLayer = interactionLayerRef.current;
+    const stage = interactionLayer?.getStage();
+    if (!interactionLayer || !stage) return;
+    if (!snapshot) {
+      if (promotedSubgraphsRef.current.length === 0) return;
+      restorePromotedSubgraphs(promotedSubgraphsRef.current);
+      promotedSubgraphsRef.current = [];
+      contentLayerRef.current?.drawScene();
+      interactionLayer.drawScene();
+      return;
+    }
+    let contentChanged = false;
+    for (const [id, position] of Object.entries(snapshot.subgraphPositions)) {
+      let promoted = promotedSubgraphsRef.current.find((item) => item.id === id);
+      if (!promoted) {
+        const group = stage.findOne((candidate: Konva.Node) => candidate.id() === subgraphHitId(id));
+        const parent = group?.getParent();
+        if (group && parent && parent !== interactionLayer) {
+          promoted = { id, node: group, parent, zIndex: group.zIndex() };
+          promotedSubgraphsRef.current.push(promoted);
+          group.moveTo(interactionLayer);
+          contentChanged = true;
+        }
+      }
+      promoted?.node.position(position);
+    }
+    if (contentChanged) contentLayerRef.current?.drawScene();
+    interactionLayer.drawScene();
+  }), [contentLayerRef, dragPreviewStore, interactionLayerRef]);
+
+  useEffect(() => () => restorePromotedSubgraphs(promotedSubgraphsRef.current), []);
+
+  function promoteSubgraphs(subgraphId: string, target: Konva.Node) {
+    restorePromotedSubgraphs(promotedSubgraphsRef.current);
+    promotedSubgraphsRef.current = [];
+    const interactionLayer = interactionLayerRef.current;
+    const stage = target.getStage();
+    if (!interactionLayer || !stage) return;
+    const rootIds = selectedSubgraphIds.has(subgraphId) ? [...selectedSubgraphIds] : [subgraphId];
+    const movingIds = [...new Set(rootIds.flatMap((id) => [id, ...descendantSubgraphIds(graph, id)]))];
+    for (const id of movingIds) {
+      const group = stage.findOne((candidate: Konva.Node) => candidate.id() === subgraphHitId(id));
+      const parent = group?.getParent();
+      if (!group || !parent || parent === interactionLayer) continue;
+      promotedSubgraphsRef.current.push({ id, node: group, parent, zIndex: group.zIndex() });
+      group.moveTo(interactionLayer);
+    }
+    contentLayerRef.current?.drawScene();
+    interactionLayer.drawScene();
+  }
+
+  function finishSubgraphDrag() {
+    restorePromotedSubgraphs(promotedSubgraphsRef.current);
+    promotedSubgraphsRef.current = [];
+    contentLayerRef.current?.drawScene();
+    interactionLayerRef.current?.drawScene();
+    onEndDrag();
+  }
+
   return (
     <>
       {[...scopedSubgraphGeometries]
@@ -110,9 +182,10 @@ export function KonvaSubgraphLayer({
                   return;
                 }
                 onStartSubgraphDrag(geometry.id);
+                promoteSubgraphs(geometry.id, event.target);
               }}
               onDragMove={(event) => onMoveSubgraph(geometry.id, event.target)}
-              onDragEnd={onEndDrag}
+              onDragEnd={finishSubgraphDrag}
               onClick={(event) => onCanvasClick(event, { kind: "subgraph", id: geometry.id })}
               onDblClick={(event) => onCanvasDoubleClick(event, { kind: "subgraph", id: geometry.id })}
             >
@@ -197,6 +270,20 @@ export function KonvaSubgraphLayer({
         })}
     </>
   );
+}
+
+type PromotedSubgraph = {
+  id: string;
+  node: Konva.Node;
+  parent: Konva.Container;
+  zIndex: number;
+};
+
+function restorePromotedSubgraphs(promoted: PromotedSubgraph[]) {
+  for (const item of promoted) item.node.moveTo(item.parent);
+  for (const item of [...promoted].sort((left, right) => left.zIndex - right.zIndex)) {
+    item.node.zIndex(Math.min(item.zIndex, Math.max(0, item.parent.getChildren().length - 1)));
+  }
 }
 
 function SubgraphAnchorHandle({

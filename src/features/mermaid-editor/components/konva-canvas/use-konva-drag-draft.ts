@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 
+import { CanvasDragPreviewStore, type CanvasSubgraphPreviewPositions } from "@/features/mermaid-editor/components/konva-canvas/canvas-drag-preview-store";
 import type { CanvasNodePreviewPositions } from "@/features/mermaid-editor/lib/canvas-motion";
 
 type DragPositionMap = Record<string, { x: number; y: number }>;
@@ -10,27 +11,29 @@ export function useKonvaDragDraft() {
   const dragFinalPositionsRef = useRef<CanvasNodePreviewPositions | null>(null);
   const committedDragPositionsRef = useRef<CanvasNodePreviewPositions | null>(null);
   const dragPreviewFrameRef = useRef<number | null>(null);
-  const pendingDragPreviewPositionsRef = useRef<CanvasNodePreviewPositions | null>(null);
-  const [dragPreviewPositions, setDragPreviewPositions] = useState<CanvasNodePreviewPositions | null>(null);
+  const pendingDragPreviewRef = useRef<{ nodePositions: CanvasNodePreviewPositions; subgraphPositions: CanvasSubgraphPreviewPositions } | null>(null);
+  const dragPreviewStoreRef = useRef<CanvasDragPreviewStore | null>(null);
+  dragPreviewStoreRef.current ??= new CanvasDragPreviewStore();
+  const dragPreviewStore = dragPreviewStoreRef.current;
 
-  function setDragPreviewPositionsVisual(positions: CanvasNodePreviewPositions | null) {
-    pendingDragPreviewPositionsRef.current = null;
+  function setDragPreviewPositionsVisual(positions: CanvasNodePreviewPositions | null, subgraphPositions: CanvasSubgraphPreviewPositions = {}) {
+    pendingDragPreviewRef.current = null;
     if (dragPreviewFrameRef.current !== null) {
       window.cancelAnimationFrame(dragPreviewFrameRef.current);
       dragPreviewFrameRef.current = null;
     }
-    setDragPreviewPositions(positions);
+    dragPreviewStore.publish(positions ? { nodePositions: positions, subgraphPositions } : null);
   }
 
-  function scheduleDragPreviewPositionsVisual(positions: CanvasNodePreviewPositions) {
+  function scheduleDragPreviewPositionsVisual(positions: CanvasNodePreviewPositions, subgraphPositions: CanvasSubgraphPreviewPositions = {}) {
     dragFinalPositionsRef.current = positions;
-    pendingDragPreviewPositionsRef.current = positions;
+    pendingDragPreviewRef.current = { nodePositions: positions, subgraphPositions };
     if (dragPreviewFrameRef.current !== null) return;
     dragPreviewFrameRef.current = window.requestAnimationFrame(() => {
       dragPreviewFrameRef.current = null;
-      const pending = pendingDragPreviewPositionsRef.current;
-      pendingDragPreviewPositionsRef.current = null;
-      if (pending) setDragPreviewPositions(pending);
+      const pending = pendingDragPreviewRef.current;
+      pendingDragPreviewRef.current = null;
+      if (pending) dragPreviewStore.publish(pending);
     });
   }
 
@@ -47,11 +50,11 @@ export function useKonvaDragDraft() {
   function clearDragRuntimeState() {
     if (dragPreviewFrameRef.current !== null) window.cancelAnimationFrame(dragPreviewFrameRef.current);
     dragPreviewFrameRef.current = null;
-    pendingDragPreviewPositionsRef.current = null;
+    pendingDragPreviewRef.current = null;
     dragRef.current = null;
     subgraphDragFrameRef.current = null;
     dragFinalPositionsRef.current = null;
-    setDragPreviewPositions(null);
+    dragPreviewStore.publish(null);
   }
 
   useEffect(() => {
@@ -66,7 +69,7 @@ export function useKonvaDragDraft() {
     subgraphDragFrameRef,
     dragFinalPositionsRef,
     committedDragPositionsRef,
-    dragPreviewPositions,
+    dragPreviewStore,
     beginDragRuntimeState,
     markDragPositionsCommitted,
     setDragPreviewPositionsVisual,

@@ -47,6 +47,7 @@ type KonvaEdgeLayerProps = {
   onCanvasClick: (event: KonvaEventObject<MouseEvent>, hit: HitTarget) => void;
   onCanvasDoubleClick: (event: KonvaEventObject<MouseEvent>, hit: HitTarget) => void;
   onCanvasTap: (event: KonvaEventObject<Event>, hit: HitTarget) => void;
+  interactive?: boolean;
 };
 
 type KonvaEdgeOverlayLayerProps = {
@@ -80,7 +81,8 @@ export function KonvaEdgeLayer({
   retargetPreview,
   onCanvasClick,
   onCanvasDoubleClick,
-  onCanvasTap
+  onCanvasTap,
+  interactive = true
 }: KonvaEdgeLayerProps) {
   return (
     <>
@@ -99,7 +101,7 @@ export function KonvaEdgeLayer({
         const edgeLabelGeometry = edgeLabel || isEditingEdgeLabel ? buildEdgeLabelGeometry(edgeLabel, geometry.labelPoint, edgeLabelSpec) : null;
 
         return (
-          <Group key={edge.id}>
+          <Group key={edge.id} listening={interactive}>
             {geometry.pathData ? (
               <>
                 <Path
@@ -111,6 +113,7 @@ export function KonvaEdgeLayer({
                   fillEnabled={false}
                   perfectDrawEnabled={false}
                   shadowForStrokeEnabled={false}
+                  visible={interactive}
                   onClick={(event) => onCanvasClick(event, { kind: "edge", id: edge.id })}
                   onDblClick={(event) => onCanvasDoubleClick(event, { kind: "edge", id: edge.id })}
                   onTap={(event) => onCanvasTap(event, { kind: "edge", id: edge.id })}
@@ -141,6 +144,7 @@ export function KonvaEdgeLayer({
                   pointerWidth={0}
                   perfectDrawEnabled={false}
                   shadowForStrokeEnabled={false}
+                  visible={interactive}
                   onClick={(event) => onCanvasClick(event, { kind: "edge", id: edge.id })}
                   onDblClick={(event) => onCanvasDoubleClick(event, { kind: "edge", id: edge.id })}
                   onTap={(event) => onCanvasTap(event, { kind: "edge", id: edge.id })}
@@ -170,6 +174,7 @@ export function KonvaEdgeLayer({
                 name={CANVAS_HIT_NAMES.edgeLabel}
                 x={edgeLabelGeometry.frame.x}
                 y={edgeLabelGeometry.frame.y}
+                listening={interactive}
                 onClick={(event) => onCanvasClick(event, { kind: "edgeLabel", id: edge.id })}
                 onDblClick={(event) => onCanvasDoubleClick(event, { kind: "edgeLabel", id: edge.id })}
               >

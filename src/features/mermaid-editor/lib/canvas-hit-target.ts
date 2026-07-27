@@ -23,6 +23,10 @@ export function nodeHitId(nodeId: string) {
   return `node:${encodePart(nodeId)}`;
 }
 
+export function nodeVisualId(nodeId: string) {
+  return `node-visual:${encodePart(nodeId)}`;
+}
+
 export function nodeAnchorHitId(nodeId: string, anchor: string) {
   return `node-anchor:${encodePart(nodeId)}:${encodePart(anchor)}`;
 }

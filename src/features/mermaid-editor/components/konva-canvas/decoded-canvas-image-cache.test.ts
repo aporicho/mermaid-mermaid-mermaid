@@ -38,6 +38,38 @@ describe("decoded canvas image cache", () => {
     reused.release();
   });
 
+  it("warms a full-resolution image without pinning it as an active entry", async () => {
+    const loadImage = vi.fn(async () => fakeImage(1200, 800));
+    const cache = new DecodedCanvasImageCache({ loadImage, budgetBytes: 10_000_000 });
+    const warmed = await cache.warm("warm-cover");
+
+    expect(warmed).toBe(cache.peek("warm-cover"));
+    expect(cache.snapshot()).toMatchObject({ entries: 1, activeEntries: 0, bytes: 3_840_000 });
+    const retained = cache.retain("warm-cover");
+    expect(await retained.promise).toBe(warmed);
+    expect(loadImage).toHaveBeenCalledTimes(1);
+    retained.release();
+  });
+
+  it("defers ready notifications to the next animation frame", async () => {
+    const frames: FrameRequestCallback[] = [];
+    vi.stubGlobal("requestAnimationFrame", vi.fn((callback: FrameRequestCallback) => {
+      frames.push(callback);
+      return frames.length;
+    }));
+    const cache = new DecodedCanvasImageCache({ loadImage: async () => fakeImage(8, 8) });
+    const listener = vi.fn();
+    cache.subscribe("cover-a", listener);
+    const retained = cache.retain("cover-a");
+    await retained.promise;
+
+    expect(listener).not.toHaveBeenCalled();
+    frames[0](performance.now());
+    expect(listener).toHaveBeenCalledOnce();
+    retained.release();
+    vi.unstubAllGlobals();
+  });
+
   it("evicts the least-recently-used inactive image while protecting active images", async () => {
     const loadImage = vi.fn(async () => fakeImage(4, 4));
     const cache = new DecodedCanvasImageCache({ loadImage, budgetBytes: 100 });

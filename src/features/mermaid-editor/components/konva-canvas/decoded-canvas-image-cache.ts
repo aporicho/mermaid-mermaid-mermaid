@@ -1,4 +1,4 @@
-import { incrementPerformanceCounter, recordPerformanceMetric } from "@/features/mermaid-editor/lib/editor-performance";
+import { incrementPerformanceCounter, recordPerformanceMetric, updatePerformanceDiagnostic } from "@/features/mermaid-editor/lib/editor-performance";
 
 const MEBIBYTE = 1024 * 1024;
 const GIBIBYTE = 1024 * MEBIBYTE;
@@ -17,6 +17,12 @@ type CacheEntry = {
   image: HTMLImageElement | null;
   bytes: number;
   promise: Promise<HTMLImageElement | null>;
+  snapshot: DecodedCanvasImageCacheSnapshot;
+};
+
+export type DecodedCanvasImageCacheSnapshot = {
+  state: "pending" | "ready" | "failed";
+  image: HTMLImageElement | null;
 };
 
 export type RetainedDecodedCanvasImage = {
@@ -38,11 +44,14 @@ export function resolveCanvasImageCacheBudget(totalSystemMemoryBytes?: number | 
 
 export class DecodedCanvasImageCache {
   private readonly entries = new Map<string, CacheEntry>();
+  private readonly listeners = new Map<string, Set<() => void>>();
+  private readonly pendingNotificationKeys = new Set<string>();
   private readonly maxEntries: number;
   private readonly loadImage: ImageLoader;
   private budgetBytes: number;
   private totalBytes = 0;
   private clock = 0;
+  private notificationScheduled = false;
 
   constructor(options: {
     budgetBytes?: number;
@@ -74,7 +83,8 @@ export class DecodedCanvasImageCache {
       state: "pending",
       image: null,
       bytes: 0,
-      promise: Promise.resolve(null)
+      promise: Promise.resolve(null),
+      snapshot: { state: "pending", image: null }
     };
     const pendingEntry = entry;
     const startedAt = now();
@@ -82,6 +92,7 @@ export class DecodedCanvasImageCache {
       if (this.entries.get(key) !== pendingEntry) return null;
       pendingEntry.state = "ready";
       pendingEntry.image = image;
+      pendingEntry.snapshot = { state: "ready", image };
       pendingEntry.bytes = decodedImageBytes(image);
       this.totalBytes += pendingEntry.bytes;
       recordPerformanceMetric("canvas-image-decode", now() - startedAt, {
@@ -91,16 +102,41 @@ export class DecodedCanvasImageCache {
         bytes: pendingEntry.bytes
       });
       this.evictUnusedEntries();
+      this.scheduleNotification(key);
       return image;
     }).catch(() => {
       pendingEntry.state = "failed";
+      pendingEntry.snapshot = { state: "failed", image: null };
       incrementPerformanceCounter("canvas-image-cache-load-error");
       if (pendingEntry.refs === 0) this.entries.delete(key);
+      this.scheduleNotification(key);
       return null;
     });
     this.entries.set(key, pendingEntry);
     this.evictUnusedEntries();
     return retainedEntry(pendingEntry, () => this.release(pendingEntry));
+  }
+
+  warm(source: string) {
+    const retained = this.retain(source);
+    retained.release();
+    return retained.promise;
+  }
+
+  subscribe(source: string, listener: () => void) {
+    const key = source.trim();
+    if (!key) return () => undefined;
+    const listeners = this.listeners.get(key) ?? new Set<() => void>();
+    listeners.add(listener);
+    this.listeners.set(key, listeners);
+    return () => {
+      listeners.delete(listener);
+      if (listeners.size === 0) this.listeners.delete(key);
+    };
+  }
+
+  sourceSnapshot(source: string): DecodedCanvasImageCacheSnapshot | null {
+    return this.entries.get(source.trim())?.snapshot ?? null;
   }
 
   peek(source: string) {
@@ -148,6 +184,21 @@ export class DecodedCanvasImageCache {
     if (entry.refs > 0 || this.entries.get(entry.key) !== entry) return;
     this.entries.delete(entry.key);
     this.totalBytes = Math.max(0, this.totalBytes - entry.bytes);
+  }
+
+  private scheduleNotification(key: string) {
+    this.pendingNotificationKeys.add(key);
+    if (this.notificationScheduled) return;
+    this.notificationScheduled = true;
+    scheduleCanvasImageNotification(() => {
+      this.notificationScheduled = false;
+      const keys = [...this.pendingNotificationKeys];
+      this.pendingNotificationKeys.clear();
+      for (const pendingKey of keys) {
+        for (const listener of this.listeners.get(pendingKey) ?? []) listener();
+      }
+      updatePerformanceDiagnostic("canvasImageCache", this.snapshot());
+    });
   }
 }
 
@@ -232,4 +283,12 @@ function isXiaohongshuImageHost(hostname: string) {
 
 function now() {
   return globalThis.performance?.now?.() ?? Date.now();
+}
+
+function scheduleCanvasImageNotification(callback: () => void) {
+  if (typeof globalThis.requestAnimationFrame === "function") {
+    globalThis.requestAnimationFrame(() => callback());
+    return;
+  }
+  queueMicrotask(callback);
 }

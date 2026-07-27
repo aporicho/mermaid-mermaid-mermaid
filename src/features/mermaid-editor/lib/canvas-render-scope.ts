@@ -46,7 +46,8 @@ export type ResolveCanvasRenderScopeInput = {
   overscanPx?: number;
 };
 
-export const DEFAULT_CANVAS_RENDER_SCOPE_OVERSCAN_PX = 1200;
+export const DEFAULT_CANVAS_RENDER_SCOPE_OVERSCAN_PX = 600;
+export const DEFAULT_CANVAS_IMAGE_WARM_SCOPE_OVERSCAN_PX = 1200;
 
 export function resolveCanvasRenderScope(input: ResolveCanvasRenderScopeInput): CanvasRenderScope {
   const edges = input.edges || input.graph.edges;

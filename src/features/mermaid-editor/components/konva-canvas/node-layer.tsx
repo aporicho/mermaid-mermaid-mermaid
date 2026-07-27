@@ -18,9 +18,10 @@ import type { CanvasPoint, HitTarget, InteractionState } from "@/features/mermai
 import {
   CANVAS_HIT_NAMES,
   nodeAnchorHitId,
-  nodeHitId
+  nodeHitId,
+  nodeVisualId
 } from "@/features/mermaid-editor/lib/canvas-hit-target";
-import { centerScaleTransform } from "@/features/mermaid-editor/lib/canvas-motion";
+import { centerScaleTransform, type CanvasNodePreviewPositions } from "@/features/mermaid-editor/lib/canvas-motion";
 import {
   getAnchorVisualState,
   getNodeVisualState,
@@ -71,7 +72,7 @@ type KonvaNodeLayerProps = {
   specialNodeTokens: SpecialNodeThemeTokens;
   selectedTableCell: TableCellSelection | null;
   onStartNodeDrag: (nodeId: string) => void;
-  onMoveNode: (node: CanvasNode, target: Konva.Node) => void;
+  onMoveNode: (node: CanvasNode, target: Konva.Node) => CanvasNodePreviewPositions | null;
   onEndDrag: () => void;
   onCanvasClick: (event: KonvaEventObject<MouseEvent>, hit: HitTarget) => void;
   onCanvasDoubleClick: (event: KonvaEventObject<MouseEvent>, hit: HitTarget) => void;
@@ -212,26 +213,27 @@ export function KonvaNodeLayer({
 
         return (
           <Group
-            id={nodeHitId(node.id)}
-            name={CANVAS_HIT_NAMES.node}
+            id={isTableNode ? nodeHitId(node.id) : nodeVisualId(node.id)}
+            name={isTableNode ? CANVAS_HIT_NAMES.node : undefined}
             key={node.id}
             x={geometry.frame.x}
             y={geometry.frame.y}
             opacity={motionVisual?.opacity ?? 1}
-            draggable={dragEnabled && mode === "select" && !panningRequested && interactionState.kind !== "panning"}
-            onDragStart={(event) => {
+            listening={isTableNode}
+            draggable={isTableNode && dragEnabled && mode === "select" && !panningRequested && interactionState.kind !== "panning"}
+            onDragStart={isTableNode ? (event) => {
               if (event.evt.button !== 0) {
                 event.target.stopDrag();
                 return;
               }
               onStartNodeDrag(node.id);
               promoteDraggedNodes(node.id, event.target);
-            }}
-            onDragMove={(event) => onMoveNode(node, event.target)}
-            onDragEnd={finishPromotedNodeDrag}
-            onClick={(event) => onCanvasClick(event, { kind: "node", id: node.id })}
-            onDblClick={(event) => onCanvasDoubleClick(event, { kind: "node", id: node.id })}
-            onContextMenu={(event) => onNodeContextMenu(event, node)}
+            } : undefined}
+            onDragMove={isTableNode ? (event) => { onMoveNode(node, event.target); } : undefined}
+            onDragEnd={isTableNode ? finishPromotedNodeDrag : undefined}
+            onClick={isTableNode ? (event) => onCanvasClick(event, { kind: "node", id: node.id }) : undefined}
+            onDblClick={isTableNode ? (event) => onCanvasDoubleClick(event, { kind: "node", id: node.id }) : undefined}
+            onContextMenu={isTableNode ? (event) => onNodeContextMenu(event, node) : undefined}
           >
             <Group
               x={nodeVisualTransform.x}

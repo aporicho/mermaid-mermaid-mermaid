@@ -3,10 +3,11 @@ import { Layer, Stage } from "react-konva";
 import { Konva } from "konva/lib/Global";
 import type KonvaTypes from "konva";
 
-import { AlignmentGuideOverlay, CanvasGrid } from "@/features/mermaid-editor/components/konva-canvas/canvas-overlays";
-import { KonvaEdgeLayer, KonvaEdgeOverlayLayer } from "@/features/mermaid-editor/components/konva-canvas/edge-layer";
+import { CanvasGrid } from "@/features/mermaid-editor/components/konva-canvas/canvas-overlays";
+import { KonvaEdgeLayer } from "@/features/mermaid-editor/components/konva-canvas/edge-layer";
 import { InlineEditOverlays } from "@/features/mermaid-editor/components/konva-canvas/inline-edit-overlays";
 import { KonvaNodeLayer } from "@/features/mermaid-editor/components/konva-canvas/node-layer";
+import { KonvaInteractionLayerContent } from "@/features/mermaid-editor/components/konva-canvas/interaction-layer-content";
 import { NodeActionTooltip, NodeContextMenu } from "@/features/mermaid-editor/components/konva-canvas/node-action-ui";
 import { CanvasSelectionToolbars } from "@/features/mermaid-editor/components/konva-canvas/canvas-selection-toolbars";
 import { KonvaSubgraphLayer } from "@/features/mermaid-editor/components/konva-canvas/subgraph-layer";
@@ -17,11 +18,13 @@ import { resolveNodeEditorTypography } from "./resolve-node-editor-typography";
 import type { KonvaCanvasStageProps } from "@/features/mermaid-editor/components/konva-canvas/konva-canvas-stage-types";
 import { canvasPixelRatio } from "@/features/mermaid-editor/lib/canvas-render-quality";
 import { recordPerformanceMetric } from "@/features/mermaid-editor/lib/editor-performance";
+import { flushCanvasHitGraph } from "@/features/mermaid-editor/components/konva-canvas/canvas-layer-draw-scheduler";
 export type { KonvaCanvasStageProps } from "@/features/mermaid-editor/components/konva-canvas/konva-canvas-stage-types";
 
 Konva.pixelRatio = canvasPixelRatio(globalThis.devicePixelRatio);
 
-export function KonvaCanvasStage({
+export function KonvaCanvasStage(stageProps: KonvaCanvasStageProps) {
+  const {
   containerRef,
   stageRef,
   dimensions,
@@ -45,11 +48,9 @@ export function KonvaCanvasStage({
   runtimeCreateScale,
   imageDisplaySrcBySrc,
   markdownDocumentPreviewByNodeId,
-  alignmentGuides,
   hoveredNodeId,
   hoveredSubgraphId,
   hoveredEdgeId,
-  hoveredHitTarget,
   selectedSubgraphIds,
   selectedNodeRects,
   scopedSubgraphGeometries,
@@ -63,13 +64,8 @@ export function KonvaCanvasStage({
   nodeMotion,
   nodeProximityScale,
   resolvedEdgeGeometry,
-  selectedSingleEdge,
-  selectedSingleEdgeGeometry,
-  selectionBox,
   retargetDraft,
   connectionPreview,
-  connectionDraftGeometry,
-  connectionDraftVisual,
   retargetPreview,
   retargetDraftGeometry,
   connectionTargetNodeId,
@@ -83,6 +79,7 @@ export function KonvaCanvasStage({
   nodeEditorRef,
   nodeEditorMeasureRef,
   selectedTableCell,
+  dragPreviewStore,
   onWheel,
   onCanvasPointerDown,
   onCanvasPointerMove,
@@ -111,7 +108,7 @@ export function KonvaCanvasStage({
   onInlineEditChange,
   onInlineEditCommit,
   onTablePaste
-}: KonvaCanvasStageProps) {
+  } = stageProps;
   const contentLayerRef = useRef<KonvaTypes.Layer | null>(null);
   const nodeLayerRef = useRef<KonvaTypes.Layer | null>(null);
   const interactionLayerRef = useRef<KonvaTypes.Layer | null>(null);
@@ -170,6 +167,7 @@ export function KonvaCanvasStage({
         onContextMenu={preventNativeContextMenu}
         onPointerMove={onCanvasPointerTracking}
         onPointerLeave={onCanvasPointerLeave}
+        onPointerDownCapture={() => flushCanvasHitGraph(stageRef.current)}
       >
         <Stage
           ref={stageRef}
@@ -183,9 +181,12 @@ export function KonvaCanvasStage({
         >
           {viewFilters.grid ? <CanvasGrid dimensions={dimensions} viewport={viewport} visualTokens={visualTokens} gridSpec={gridSpec} /> : null}
 
-          <Layer ref={contentLayerRef} imageSmoothingEnabled>
+          <Layer ref={contentLayerRef} name="canvas-content-layer" imageSmoothingEnabled>
             {viewFilters.subgraphs ? (
               <KonvaSubgraphLayer
+                contentLayerRef={contentLayerRef}
+                interactionLayerRef={interactionLayerRef}
+                dragPreviewStore={dragPreviewStore}
                 graph={graph}
                 mode={mode}
                 panningRequested={panningRequested}
@@ -232,7 +233,7 @@ export function KonvaCanvasStage({
 
           </Layer>
 
-          <Layer ref={nodeLayerRef} imageSmoothingEnabled>
+          <Layer ref={nodeLayerRef} name="canvas-node-layer" imageSmoothingEnabled>
             <KonvaNodeLayer
               nodeLayerRef={nodeLayerRef}
               interactionLayerRef={interactionLayerRef}
@@ -280,22 +281,12 @@ export function KonvaCanvasStage({
 
           </Layer>
 
-          <Layer ref={interactionLayerRef} imageSmoothingEnabled>
-            <KonvaEdgeOverlayLayer
-              viewFilters={viewFilters}
-              mode={mode}
-              hoveredHitTarget={hoveredHitTarget}
-              visualTokens={visualTokens}
-              retargetDraft={retargetDraft}
-              connectionDraftGeometry={connectionDraftGeometry}
-              connectionDraftVisual={connectionDraftVisual}
-              selectionBox={selectionBox}
-              selectedSingleEdge={selectedSingleEdge}
-              selectedSingleEdgeGeometry={selectedSingleEdgeGeometry}
-              onEdgeEndpointPointerDown={(event, hit) => onCanvasPointerDown(event, hit)}
+          <Layer ref={interactionLayerRef} name="canvas-interaction-layer" imageSmoothingEnabled>
+            <KonvaInteractionLayerContent
+              nodeLayerRef={nodeLayerRef}
+              interactionLayerRef={interactionLayerRef}
+              stageProps={stageProps}
             />
-
-            {alignmentGuides.length ? <AlignmentGuideOverlay guides={alignmentGuides} visualTokens={visualTokens} /> : null}
           </Layer>
         </Stage>
         <CanvasSelectionToolbars

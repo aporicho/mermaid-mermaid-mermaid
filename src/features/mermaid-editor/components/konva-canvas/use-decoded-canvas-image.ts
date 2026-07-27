@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useSyncExternalStore } from "react";
 
 import { decodedCanvasImageCache } from "@/features/mermaid-editor/components/konva-canvas/decoded-canvas-image-cache";
 
@@ -8,39 +8,23 @@ export type DecodedCanvasImageState = {
 };
 
 const IDLE_STATE: DecodedCanvasImageState = { image: null, status: "idle" };
-type SourceImageState = DecodedCanvasImageState & { src: string };
 
 export function useDecodedCanvasImage(src: string): DecodedCanvasImageState {
-  const cachedImage = src ? decodedCanvasImageCache.peek(src) : null;
-  const [state, setState] = useState<SourceImageState>(() => sourceImageState(cachedImage, src));
+  const subscribe = useCallback(
+    (listener: () => void) => decodedCanvasImageCache.subscribe(src, listener),
+    [src]
+  );
+  const getSnapshot = useCallback(() => decodedCanvasImageCache.sourceSnapshot(src), [src]);
+  const snapshot = useSyncExternalStore(subscribe, getSnapshot, () => null);
 
   useEffect(() => {
-    if (!src) {
-      setState({ ...IDLE_STATE, src: "" });
-      return;
-    }
-
-    let active = true;
+    if (!src) return;
     const retained = decodedCanvasImageCache.retain(src);
-    const readyImage = decodedCanvasImageCache.peek(src);
-    setState(sourceImageState(readyImage, src));
-    if (!readyImage) {
-      void retained.promise.then((image) => {
-        if (!active) return;
-        setState(image ? { src, image, status: "loaded" } : { src, image: null, status: "error" });
-      });
-    }
-
-    return () => {
-      active = false;
-      retained.release();
-    };
+    return retained.release;
   }, [src]);
 
-  return state.src === src ? state : sourceImageState(cachedImage, src);
-}
-
-function sourceImageState(image: HTMLImageElement | null, src: string): SourceImageState {
-  if (image) return { src, image, status: "loaded" };
-  return src ? { src, image: null, status: "loading" } : { ...IDLE_STATE, src: "" };
+  if (!src) return IDLE_STATE;
+  if (snapshot?.state === "ready" && snapshot.image) return { image: snapshot.image, status: "loaded" };
+  if (snapshot?.state === "failed") return { image: null, status: "error" };
+  return { image: null, status: "loading" };
 }

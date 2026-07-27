@@ -4,6 +4,7 @@ import { Group, Image as KonvaImage, Rect, Text } from "react-konva";
 
 import { CanvasNodeActionBadge } from "@/features/mermaid-editor/components/konva-canvas/node-action-ui";
 import { useDecodedCanvasImage } from "@/features/mermaid-editor/components/konva-canvas/use-decoded-canvas-image";
+import { coverCanvasImageSourceCrop } from "@/features/mermaid-editor/lib/canvas-image-crop";
 import type { CanvasVisualTokens } from "@/features/mermaid-editor/lib/canvas-visual-state";
 import type { CanvasNodePreview } from "@/features/mermaid-editor/lib/editor-types";
 import type { EditorTypographyTokens, SpecialNodeThemeTokens, TypographyRoleTokens } from "@/features/mermaid-editor/lib/editor-theme";
@@ -183,43 +184,23 @@ const CanvasNodeLinkCover = memo(function CanvasNodeLinkCover({
     );
   }
 
-  const imageRect = coverImageRect({ width: image.naturalWidth, height: image.naturalHeight }, width, height);
+  const sourceCrop = coverCanvasImageSourceCrop(image.naturalWidth, image.naturalHeight, width, height);
   return (
     <Group x={inset} y={inset} clipFunc={(context) => roundedRectClip(context, width, height, radius)} listening={false}>
       <KonvaImage
         image={image}
-        x={imageRect.x}
-        y={imageRect.y}
-        width={imageRect.width}
-        height={imageRect.height}
+        width={width}
+        height={height}
+        cropX={sourceCrop.x}
+        cropY={sourceCrop.y}
+        cropWidth={sourceCrop.width}
+        cropHeight={sourceCrop.height}
         listening={false}
         perfectDrawEnabled={false}
       />
     </Group>
   );
 });
-
-function coverImageRect(cover: Pick<NonNullable<CanvasNodePreview["cover"]>, "width" | "height"> | undefined, boxWidth: number, boxHeight: number) {
-  const imageWidth = cover?.width;
-  const imageHeight = cover?.height;
-  if (!isPositiveFiniteNumber(imageWidth) || !isPositiveFiniteNumber(imageHeight)) {
-    return { x: 0, y: 0, width: boxWidth, height: boxHeight };
-  }
-
-  const scale = Math.max(boxWidth / imageWidth, boxHeight / imageHeight);
-  const width = imageWidth * scale;
-  const height = imageHeight * scale;
-  return {
-    x: (boxWidth - width) / 2,
-    y: (boxHeight - height) / 2,
-    width,
-    height
-  };
-}
-
-function isPositiveFiniteNumber(value: unknown): value is number {
-  return typeof value === "number" && Number.isFinite(value) && value > 0;
-}
 
 function roundedRectClip(context: Konva.Context, width: number, height: number, radius: number) {
   const r = Math.min(Math.max(0, radius), width / 2, height / 2);

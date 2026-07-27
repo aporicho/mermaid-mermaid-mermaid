@@ -244,14 +244,14 @@ export function useKonvaCanvasPointerInteraction({
 
   function handleCanvasPointerMove(event: KonvaEventObject<MouseEvent>) {
     const hit = hitTargetFromEvent(event);
-    hoverState.updateHoverFromHit(hit);
+    const activeInteraction = interactionStateRef.current;
+    if (activeInteraction.kind !== "draggingNodes" && activeInteraction.kind !== "draggingSubgraphs" && activeInteraction.kind !== "panning") hoverState.updateHoverFromHit(hit);
 
     const pointer = viewportController.pointerScreenPoint();
     const world = viewportController.pointerWorldPoint();
     if (!pointer || !world) return;
     viewportController.trackPointerWorldPoint(world);
 
-    const activeInteraction = interactionStateRef.current;
     if (activeInteraction.kind === "panning") {
       viewportController.scheduleViewportChange(
         {

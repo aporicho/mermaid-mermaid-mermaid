@@ -7,6 +7,10 @@ import { createWheelIntentTracker } from "@/features/mermaid-editor/lib/canvas-v
 import type { CanvasPoint, HitTarget, InteractionState } from "@/features/mermaid-editor/lib/canvas-interaction";
 import type { EdgeRouting, EditorMode, LayoutMode, MermaidGraph, Selection, ViewportState } from "@/features/mermaid-editor/lib/editor-types";
 import type { ViewFilters } from "@/features/mermaid-editor/lib/view-filters";
+import {
+  cancelCanvasHitGraphDraw,
+  drawCanvasViewportScene
+} from "@/features/mermaid-editor/components/konva-canvas/canvas-layer-draw-scheduler";
 import type { EditorCommand } from "@/features/mermaid-editor/lib/interaction/commands";
 import { commandFromInteractionIntent } from "@/features/mermaid-editor/lib/interaction/commands";
 import { buildInteractionContext } from "@/features/mermaid-editor/lib/interaction/context";
@@ -62,7 +66,7 @@ export function useKonvaViewport({
     if (!stage) return;
     stage.position({ x: nextViewport.x, y: nextViewport.y });
     stage.scale({ x: nextViewport.scale, y: nextViewport.scale });
-    stage.batchDraw();
+    drawCanvasViewportScene(stage);
   }, [stageRef]);
 
   const {
@@ -210,6 +214,11 @@ export function useKonvaViewport({
   useLayoutEffect(() => {
     syncScheduledViewport({ viewport, source: "api" }, { applyVisual: true });
   }, [dimensions.height, dimensions.width, syncScheduledViewport, viewport]);
+
+  useEffect(() => {
+    const stage = stageRef.current;
+    return () => cancelCanvasHitGraphDraw(stage);
+  }, [stageRef]);
 
   useEffect(() => {
     const container = containerRef.current;

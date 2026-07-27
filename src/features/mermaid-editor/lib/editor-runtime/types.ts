@@ -12,7 +12,17 @@ export type { RuntimeLinkPreviewRequest, RuntimeLinkPreviewResult } from "@/feat
 export type EditorDraftState = Record<string, unknown>;
 
 export type RuntimeSystemFont = { family: string; monospace: boolean };
-export type RuntimeSystemMemoryInfo = { totalBytes: number | null };
+export type RuntimeSystemMemoryInfo = {
+  totalBytes: number | null;
+  graphics?: {
+    gpuFeatureStatus: Record<string, string>;
+    rendererMemory?: {
+      workingSetSize: number;
+      peakWorkingSetSize: number;
+      privateBytes: number;
+    };
+  };
+};
 
 export type BrowserWritableFile = { write: (data: string) => Promise<void>; close: () => Promise<void> };
 

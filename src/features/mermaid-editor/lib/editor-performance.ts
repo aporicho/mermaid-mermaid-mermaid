@@ -8,6 +8,7 @@ export type PerformanceMetric = {
 export type PerformanceStore = {
   metrics: PerformanceMetric[];
   counters: Record<string, number>;
+  diagnostics?: Record<string, unknown>;
 };
 
 export type PerformanceSummary = {
@@ -38,6 +39,13 @@ export function incrementPerformanceCounter(name: string, amount = 1) {
 
   const store = performanceStore();
   store.counters[name] = (store.counters[name] || 0) + amount;
+}
+
+export function updatePerformanceDiagnostic(name: string, value: unknown) {
+  if (!isPerformanceEnabled()) return;
+  const store = performanceStore();
+  store.diagnostics ??= {};
+  store.diagnostics[name] = value;
 }
 
 export function measurePerformance<T>(name: string, run: () => T, detail?: PerformanceMetric["detail"]): T {

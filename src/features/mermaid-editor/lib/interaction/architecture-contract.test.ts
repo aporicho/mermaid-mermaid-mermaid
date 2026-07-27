@@ -516,7 +516,8 @@ describe("interaction architecture contract", () => {
     expect(stage).toContain("<Stage");
     expect(stage).toContain("KonvaSubgraphLayer");
     expect(stage).toContain("KonvaEdgeLayer");
-    expect(stage).toContain("KonvaEdgeOverlayLayer");
+    expect(stage).toContain("KonvaInteractionLayerContent");
+    expect(readProjectFile("src/features/mermaid-editor/components/konva-canvas/interaction-layer-content.tsx")).toContain("KonvaEdgeOverlayLayer");
     expect(stage).toContain("KonvaNodeLayer");
     expect(canvas).toContain("useKonvaCanvasModel");
     expect(canvas).toContain("useKonvaCanvasPointerInteraction");
