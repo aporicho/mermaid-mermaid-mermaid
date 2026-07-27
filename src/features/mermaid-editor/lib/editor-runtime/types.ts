@@ -12,6 +12,7 @@ export type { RuntimeLinkPreviewRequest, RuntimeLinkPreviewResult } from "@/feat
 export type EditorDraftState = Record<string, unknown>;
 
 export type RuntimeSystemFont = { family: string; monospace: boolean };
+export type RuntimeSystemMemoryInfo = { totalBytes: number | null };
 
 export type BrowserWritableFile = { write: (data: string) => Promise<void>; close: () => Promise<void> };
 
@@ -179,6 +180,7 @@ export type EditorRuntime = RuntimeAgentOperations & RuntimeCsvFileOperations & 
   loadDraft: () => EditorDraftState | null;
   loadSavedState: () => Promise<EditorDraftState | null>;
   listSystemFonts: () => Promise<RuntimeSystemFont[]>;
+  readSystemMemoryInfo: () => Promise<RuntimeSystemMemoryInfo>;
   saveDraft: (draft: EditorDraftState) => Promise<void>;
   openFile: () => Promise<RuntimeOpenFileResult>;
   openFilePath: (path: string) => Promise<RuntimeOpenFileResult>;

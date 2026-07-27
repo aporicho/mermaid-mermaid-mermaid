@@ -1,4 +1,4 @@
-import { useEffect, useRef, type RefObject } from "react";
+import { useCallback, useEffect, useRef, type RefObject } from "react";
 import { Circle, Group, Text } from "react-konva";
 import type Konva from "konva";
 import type { KonvaEventObject } from "konva/lib/Node";
@@ -130,6 +130,14 @@ export function KonvaNodeLayer({
   onResizeTableColumn
 }: KonvaNodeLayerProps) {
   const promotedNodesRef = useRef<PromotedNode[]>([]);
+  const renderedNodesRef = useRef(scopedRenderedNodes);
+  const openNodeActionRef = useRef(onOpenNodeAction);
+  renderedNodesRef.current = scopedRenderedNodes;
+  openNodeActionRef.current = onOpenNodeAction;
+  const openLinkCardAction = useCallback((nodeId: string) => {
+    const node = renderedNodesRef.current.find((candidate) => candidate.id === nodeId);
+    if (node) openNodeActionRef.current?.(node);
+  }, []);
   useEffect(() => () => {
     restorePromotedNodes(promotedNodesRef.current);
     promotedNodesRef.current = [];
@@ -294,7 +302,8 @@ export function KonvaNodeLayer({
               ) : null}
               {linkPreview ? (
                 <CanvasNodeLinkCard
-                  node={node}
+                  nodeId={node.id}
+                  label={node.label}
                   preview={linkPreview}
                   width={geometry.frame.width}
                   height={geometry.frame.height}
@@ -304,7 +313,7 @@ export function KonvaNodeLayer({
                   actionTypography={typography.canvas.actionBadge}
                   specialNode={specialNodeTokens}
                   visualState={nodeVisual.kind}
-                  onOpenNodeAction={onOpenNodeAction}
+                  onOpenNodeAction={openLinkCardAction}
                 />
               ) : null}
               {isMarkdownDocument ? (
@@ -490,7 +499,8 @@ export function KonvaNodeLayer({
               ) : null}
               {linkPreview ? (
                 <CanvasNodeLinkCard
-                  node={node}
+                  nodeId={node.id}
+                  label={node.label}
                   preview={linkPreview}
                   width={geometry.frame.width}
                   height={geometry.frame.height}

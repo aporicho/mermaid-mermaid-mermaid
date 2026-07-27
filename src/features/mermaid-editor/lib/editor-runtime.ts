@@ -24,6 +24,7 @@ export type {
   RuntimeOpenFileResult,
   RuntimeSaveFileResult,
   RuntimeSystemFont,
+  RuntimeSystemMemoryInfo,
   RuntimeTerminalDataEvent,
   RuntimeTerminalExitEvent,
   RuntimeTerminalOpenResult,

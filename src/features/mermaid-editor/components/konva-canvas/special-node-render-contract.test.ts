@@ -42,9 +42,10 @@ describe("special node render token contract", () => {
       expect(geometry, token).toContain(token);
     }
     expect(link).toContain("memo(function CanvasNodeLinkCard");
-    expect(link).toContain("useLinkCardCoverRaster");
+    expect(link).toContain("useDecodedCanvasImage");
+    expect(link).not.toContain("useLinkCardCoverRaster");
     expect(link).toContain("perfectDrawEnabled={false}");
-    expect(nodeLayer).toContain("onOpenNodeAction={onOpenNodeAction}");
+    expect(nodeLayer).toContain("onOpenNodeAction={openLinkCardAction}");
   });
 
   it("consumes every Markdown subtype appearance token", () => {
@@ -65,6 +66,8 @@ describe("special node render token contract", () => {
       expect(image, token).toContain(token);
     }
     expect(image).not.toContain("specialNode.common");
+    expect(image).toContain("memo(function CanvasNodeImageSurface");
+    expect(source("src/features/mermaid-editor/components/konva-canvas/node-image.tsx")).toContain("useDecodedCanvasImage");
   });
 
   it("consumes every HTML subtype appearance token", () => {

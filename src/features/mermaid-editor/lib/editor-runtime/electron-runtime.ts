@@ -16,7 +16,6 @@ import { createElectronDocumentHubOperations } from "@/features/mermaid-editor/l
 export function createElectronRuntime(): EditorRuntime {
   const bridge = getElectronBridge();
   const fallback = createWebRuntime();
-
   if (!bridge) return fallback;
 
   return {
@@ -51,6 +50,7 @@ export function createElectronRuntime(): EditorRuntime {
     async listSystemFonts() {
       return bridge.listSystemFonts();
     },
+    async readSystemMemoryInfo() { return bridge.readSystemMemoryInfo(); },
     async saveDraft(draft) {
       const editorSession = draft.editorSession as EditorDocumentSession | undefined;
       await Promise.all([

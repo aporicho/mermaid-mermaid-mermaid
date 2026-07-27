@@ -1,5 +1,6 @@
 const { app, BrowserWindow, Menu, WebContentsView, dialog, ipcMain, net, protocol, shell } = require("electron");
 const fsp = require("node:fs/promises");
+const os = require("node:os");
 const path = require("node:path");
 const { pathToFileURL } = require("node:url");
 const {
@@ -227,6 +228,7 @@ function registerIpc() {
 
   ipcMain.handle("mmm:app-state:read", readAppState);
   ipcMain.handle("mmm:fonts:list", listSystemFonts);
+  ipcMain.handle("mmm:system:memory-info", () => ({ totalBytes: os.totalmem() }));
   ipcMain.handle("mmm:app-state:write", (_event, state) => writeAppState(state));
   ipcMain.handle("mmm:editor-session:read", async (event) => {
     const existingId = claimedEditorSessionIds.get(event.sender.id);

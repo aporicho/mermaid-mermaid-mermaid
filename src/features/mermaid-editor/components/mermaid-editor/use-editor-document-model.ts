@@ -24,6 +24,7 @@ import { type ProjectWorkspace } from "@/features/mermaid-editor/lib/project-wor
 import { parentDirectoryPath } from "@/features/mermaid-editor/lib/runtime-paths";
 import { hiddenFilterCount, type ViewFilters } from "@/features/mermaid-editor/lib/view-filters";
 import { type WorkspaceView } from "@/features/mermaid-editor/lib/workspace-view";
+import { configureDecodedCanvasImageCacheForSystemMemory } from "@/features/mermaid-editor/components/konva-canvas/decoded-canvas-image-cache";
 
 import { diagramTypeLabel, resolveGraphImageDisplaySources } from "./editor-shell-utils";
 
@@ -62,6 +63,18 @@ export function useEditorDocumentModel({ initial, runtime }: UseEditorDocumentMo
   const [imageDisplaySrcBySrc, setImageDisplaySrcBySrc] = useState<Record<string, string>>({});
   const [imageAssetRevision, setImageAssetRevision] = useState(0);
   const documentGenerationRef = useRef(0);
+
+  useEffect(() => {
+    let active = true;
+    void runtime.readSystemMemoryInfo().then(({ totalBytes }) => {
+      if (active) configureDecodedCanvasImageCacheForSystemMemory(totalBytes);
+    }).catch(() => {
+      if (active) configureDecodedCanvasImageCacheForSystemMemory(null);
+    });
+    return () => {
+      active = false;
+    };
+  }, [runtime]);
 
   function beginDocumentSession() {
     documentGenerationRef.current += 1;

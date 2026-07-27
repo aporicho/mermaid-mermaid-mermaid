@@ -19,6 +19,7 @@ function electronBridge(): ElectronBridge {
     onDesktopWindowCloseRequest: vi.fn(() => () => undefined),
     readAppState: vi.fn(() => Promise.resolve(null)),
     listSystemFonts: vi.fn(() => Promise.resolve([])),
+    readSystemMemoryInfo: vi.fn(() => Promise.resolve({ totalBytes: 32 * 1024 ** 3 })),
     writeAppState: vi.fn(() => Promise.resolve()),
     readEditorSession: vi.fn(() => Promise.resolve(null)),
     writeEditorSession: vi.fn(() => Promise.resolve()),
@@ -160,6 +161,14 @@ describe("createEditorRuntime", () => {
 
     expect(runtime.kind).toBe("web");
     expect(runtime.host).toBe("web");
+  });
+
+  it("reads physical system memory through the Electron bridge", async () => {
+    const bridge = electronBridge();
+    window.mmmElectron = bridge;
+
+    await expect(createEditorRuntime().readSystemMemoryInfo()).resolves.toEqual({ totalBytes: 32 * 1024 ** 3 });
+    expect(bridge.readSystemMemoryInfo).toHaveBeenCalledOnce();
   });
 
   it("forwards project CSV reads, conflict-safe writes and creation to Electron", async () => {

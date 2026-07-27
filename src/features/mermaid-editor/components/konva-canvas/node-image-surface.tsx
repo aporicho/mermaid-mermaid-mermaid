@@ -1,3 +1,4 @@
+import { memo } from "react";
 import type Konva from "konva";
 import { Group, Rect } from "react-konva";
 
@@ -6,7 +7,7 @@ import type { SpecialNodeThemeTokens } from "@/features/mermaid-editor/lib/edito
 import { resolveSpecialNodeBorder, specialNodeBorderDash } from "@/features/mermaid-editor/lib/editor-theme/special-node-theme";
 import type { SpecialNodeVisualState } from "@/features/mermaid-editor/lib/editor-theme/special-node-types";
 
-export function CanvasNodeImageSurface({
+export const CanvasNodeImageSurface = memo(function CanvasNodeImageSurface({
   src,
   width,
   height,
@@ -53,7 +54,7 @@ export function CanvasNodeImageSurface({
       />
     </Group>
   );
-}
+});
 
 function roundedRectClip(context: Konva.Context, width: number, height: number, radius: number) {
   const r = Math.min(Math.max(0, radius), width / 2, height / 2);

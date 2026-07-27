@@ -67,6 +67,7 @@ export type ElectronBridge = ElectronMarkdownFoldBridge & ElectronMonitoringBrid
   onDesktopWindowCloseRequest: (handler: () => boolean | Promise<boolean>) => () => void;
   readAppState: () => Promise<EditorDraftState | null>;
   listSystemFonts: () => Promise<RuntimeSystemFont[]>;
+  readSystemMemoryInfo: () => Promise<{ totalBytes: number | null }>;
   writeAppState: (state: EditorDraftState) => Promise<void>;
   readEditorSession: () => Promise<EditorDocumentSession | null>;
   writeEditorSession: (session: EditorDocumentSession) => Promise<void>;
