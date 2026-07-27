@@ -91,7 +91,7 @@ export function SettingsAccordionCard({
             </AccordionPrimitive.Header>
           </CardAction>
         </CardHeader>
-        <AccordionContent className="pb-0">
+        <AccordionContent className="pb-px">
           <CardContent className={cn("pt-(--card-spacing)", contentClassName)}>{children}</CardContent>
         </AccordionContent>
       </Card>

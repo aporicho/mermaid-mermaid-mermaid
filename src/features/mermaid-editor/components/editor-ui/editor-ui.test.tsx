@@ -227,6 +227,10 @@ describe("editor UI semantic components", () => {
     expect(colors?.getAttribute("aria-expanded")).toBe("true");
     expect(layout?.getAttribute("aria-expanded")).toBe("true");
     expect(container.querySelectorAll('[data-settings-accordion-card]')).toHaveLength(3);
+
+    const layoutCard = layout?.closest('[data-settings-accordion-card]');
+    const layoutContentInset = layoutCard?.querySelector(':scope > [data-slot="accordion-content"] > div');
+    expect(layoutContentInset?.className).toContain("pb-px");
   });
 
   it("groups collapse and reset controls without making the card title interactive", () => {
