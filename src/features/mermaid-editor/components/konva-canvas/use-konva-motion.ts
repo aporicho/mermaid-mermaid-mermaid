@@ -5,8 +5,10 @@ import type {
   CanvasNodeMotionVisual
 } from "@/features/mermaid-editor/components/konva-canvas/types";
 import {
+  canvasNodePreviewPositionsMatchGraph,
   resolveCanvasMotionChanges,
   snapshotCanvasNodes,
+  type CanvasNodePreviewPositions,
   type CanvasMotionNodeSnapshot
 } from "@/features/mermaid-editor/lib/canvas-motion";
 import type { InteractionState } from "@/features/mermaid-editor/lib/canvas-interaction";
@@ -19,9 +21,10 @@ type UseKonvaMotionArgs = {
   selection: Selection;
   interactionState: InteractionState;
   runtimeMotion: RuntimeEditorMotion;
+  committedDragPositionsRef: { current: CanvasNodePreviewPositions | null };
 };
 
-export function useKonvaMotion({ graph, selection, interactionState, runtimeMotion }: UseKonvaMotionArgs) {
+export function useKonvaMotion({ graph, selection, interactionState, runtimeMotion, committedDragPositionsRef }: UseKonvaMotionArgs) {
   const previousNodeSnapshotRef = useRef<Map<string, CanvasMotionNodeSnapshot>>(snapshotCanvasNodes(graph));
   const previousFullNodeByIdRef = useRef<Map<string, CanvasNode>>(new Map(graph.nodes.map((node) => [node.id, node])));
   const previousSelectionRef = useRef(selection);
@@ -131,13 +134,15 @@ export function useKonvaMotion({ graph, selection, interactionState, runtimeMoti
   }, []);
 
   useEffect(() => {
+    const committedDragPositions = committedDragPositionsRef.current;
     const changes = resolveCanvasMotionChanges({
       previousNodes: previousNodeSnapshotRef.current,
       graph,
       previousSelection: previousSelectionRef.current,
       selection,
       motion: runtimeMotion,
-      interactionKind: interactionState.kind
+      interactionKind: interactionState.kind,
+      suppressedLayoutPositions: committedDragPositions
     });
     const currentNodeById = new Map(graph.nodes.map((node) => [node.id, node]));
     const previousFullNodeById = previousFullNodeByIdRef.current;
@@ -145,6 +150,7 @@ export function useKonvaMotion({ graph, selection, interactionState, runtimeMoti
     previousNodeSnapshotRef.current = snapshotCanvasNodes(graph);
     previousFullNodeByIdRef.current = new Map(graph.nodes.map((node) => [node.id, node]));
     previousSelectionRef.current = selection;
+    if (canvasNodePreviewPositionsMatchGraph(graph, committedDragPositions)) committedDragPositionsRef.current = null;
 
     if (!changes.animateLayout && !changes.highlightedNodeIds.length && !changes.highlightedEdgeIds.length) return;
 

@@ -6,7 +6,7 @@ import { InputGroup, InputGroupAddon, InputGroupInput, InputGroupText } from "@/
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
-import { EditorIconButton, EditorSearchField } from "@/features/mermaid-editor/components/editor-ui";
+import { EditorIconButton, EditorSearchField, SettingsAccordion } from "@/features/mermaid-editor/components/editor-ui";
 import { FontFamilyCombobox } from "@/features/mermaid-editor/components/theme-settings-typography";
 import type { RuntimeSystemFont } from "@/features/mermaid-editor/lib/editor-runtime";
 import {
@@ -45,8 +45,14 @@ export function ThemeSettingsMarkdown({
 }) {
   const [query, setQuery] = useState("");
   const [openCategories, setOpenCategories] = useState<Set<MarkdownElementCategory>>(() => new Set());
-  const [openElements, setOpenElements] = useState<Set<string>>(() => new Set());
+  const [openElements, setOpenElements] = useState<Partial<Record<MarkdownElementCategory, string[]>>>({});
   const normalizedQuery = query.trim().toLocaleLowerCase();
+  const categories = MARKDOWN_ELEMENT_CATEGORIES.map((category) => ({
+    category,
+    elements: MARKDOWN_ELEMENT_DEFINITIONS.filter((element) => element.category === category.id)
+      .map((element) => ({ element, fields: fieldsForElement(element.path, normalizedQuery, element.title) }))
+      .filter(({ fields }) => fields.length > 0)
+  })).filter(({ elements }) => elements.length > 0);
 
   return (
     <div className="grid gap-4" data-markdown-theme-settings>
@@ -63,35 +69,34 @@ export function ThemeSettingsMarkdown({
         </EditorIconButton>
       </div>
 
-      {MARKDOWN_ELEMENT_CATEGORIES.map((category) => {
-        const elements = MARKDOWN_ELEMENT_DEFINITIONS.filter((element) => element.category === category.id)
-          .map((element) => ({ element, fields: fieldsForElement(element.path, normalizedQuery, element.title) }))
-          .filter(({ fields }) => fields.length > 0);
-        if (!elements.length) return null;
-        const categoryOpen = normalizedQuery ? true : openCategories.has(category.id);
-        return (
-          <div key={category.id} data-markdown-category={category.id} aria-label={`${category.title}：${category.description}`}>
+      <SettingsAccordion
+        value={normalizedQuery ? categories.map(({ category }) => `category-${category.id}`) : [...openCategories].map((category) => `category-${category}`)}
+        onValueChange={(values) => {
+          if (!normalizedQuery) setOpenCategories(new Set(values.map((entry) => entry.replace(/^category-/, "") as MarkdownElementCategory)));
+        }}
+      >
+        {categories.map(({ category, elements }) => (
             <ThemeSettingsCollapsible
-              open={categoryOpen}
-              onOpenChange={() => {
-                if (!normalizedQuery) setOpenCategories((current) => toggleSetValue(current, category.id));
-              }}
+              key={category.id}
+              value={`category-${category.id}`}
               title={category.title}
               description={category.description}
               resetLabel={`重置${category.title}`}
               resetDisabled={resetDisabled}
               onReset={() => onResetCategory(category.id)}
+              markdownCategory={category.id}
             >
-              <div className="grid gap-3 p-3 pt-0">
+              <SettingsAccordion
+                value={normalizedQuery ? elements.map(({ element }) => `element-${element.id}`) : openElements[category.id] ?? []}
+                onValueChange={(values) => {
+                  if (!normalizedQuery) setOpenElements((current) => ({ ...current, [category.id]: values }));
+                }}
+              >
                 {elements.map(({ element, fields }) => {
-                  const open = normalizedQuery ? true : openElements.has(element.id);
                   return (
                     <ThemeSettingsCollapsible
                       key={element.id}
-                      open={open}
-                      onOpenChange={() => {
-                        if (!normalizedQuery) setOpenElements((current) => toggleSetValue(current, element.id));
-                      }}
+                      value={`element-${element.id}`}
                       title={element.title}
                       description={element.description}
                       resetLabel={`重置${element.title}`}
@@ -99,7 +104,7 @@ export function ThemeSettingsMarkdown({
                       onReset={() => onResetPath(element.path)}
                       markdownElement={element.id}
                     >
-                      <div className="editor-ui-panel-body grid gap-3 sm:grid-cols-2">
+                      <div className="grid gap-3 sm:grid-cols-2">
                         {fields.map((definition) => (
                           <MarkdownTokenField
                             key={definition.path.join(".")}
@@ -116,11 +121,10 @@ export function ThemeSettingsMarkdown({
                     </ThemeSettingsCollapsible>
                   );
                 })}
-              </div>
+              </SettingsAccordion>
             </ThemeSettingsCollapsible>
-          </div>
-        );
-      })}
+        ))}
+      </SettingsAccordion>
     </div>
   );
 }
@@ -256,10 +260,4 @@ function fieldsForElement(path: readonly string[], query: string, title: string)
 
 function valueAtPath(value: unknown, path: readonly string[]) {
   return path.reduce<unknown>((current, key) => (current as Record<string, unknown>)?.[key], value);
-}
-
-function toggleSetValue<T>(current: Set<T>, value: T) {
-  const next = new Set(current);
-  if (next.has(value)) next.delete(value); else next.add(value);
-  return next;
 }

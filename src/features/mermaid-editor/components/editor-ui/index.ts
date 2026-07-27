@@ -7,6 +7,7 @@ export * from "./list";
 export * from "./menu";
 export * from "./panel";
 export * from "./point-menu";
+export * from "./settings";
 export * from "./toolbar";
 export * from "./tree";
 export * from "./window-titlebar";

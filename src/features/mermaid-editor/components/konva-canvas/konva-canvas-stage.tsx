@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { Layer, Stage } from "react-konva";
 import { Konva } from "konva/lib/Global";
 import type KonvaTypes from "konva";
@@ -113,14 +113,28 @@ export function KonvaCanvasStage({
   onTablePaste
 }: KonvaCanvasStageProps) {
   const contentLayerRef = useRef<KonvaTypes.Layer | null>(null);
+  const nodeLayerRef = useRef<KonvaTypes.Layer | null>(null);
+  const interactionLayerRef = useRef<KonvaTypes.Layer | null>(null);
   const contentDrawStartedAtRef = useRef(0);
   const nodeEditorTypography = resolveNodeEditorTypography(graph, inlineEdit, typography);
   const hoveredActionNode = hoveredNodeId ? graph.nodes.find((node) => node.id === hoveredNodeId) : undefined;
   const hoveredAction = normalizeNodeAction(hoveredActionNode?.action);
   const hoveredActionGeometry = hoveredActionNode ? nodeGeometryById.get(hoveredActionNode.id) : undefined;
+  const linkCardDrawStats = useMemo(() => {
+    let cards = 0;
+    let sourcePixels = 0;
+    for (const node of scopedRenderedNodes) {
+      if (node.preview?.kind !== "link-card") continue;
+      cards += 1;
+      const width = node.preview.cover?.width;
+      const height = node.preview.cover?.height;
+      if (typeof width === "number" && typeof height === "number" && width > 0 && height > 0) sourcePixels += width * height;
+    }
+    return { cards, sourcePixels };
+  }, [scopedRenderedNodes]);
 
   useEffect(() => {
-    const layer = contentLayerRef.current;
+    const layer = nodeLayerRef.current;
     if (!layer) return;
     const handleBeforeDraw = () => {
       contentDrawStartedAtRef.current = performance.now();
@@ -130,7 +144,9 @@ export function KonvaCanvasStage({
       recordPerformanceMetric("canvas-content-draw", performance.now() - contentDrawStartedAtRef.current, {
         nodes: scopedRenderedNodes.length,
         edges: scopedVisibleEdges.length,
-        subgraphs: scopedSubgraphGeometries.length
+        subgraphs: scopedSubgraphGeometries.length,
+        linkCards: linkCardDrawStats.cards,
+        linkCardSourcePixels: linkCardDrawStats.sourcePixels
       });
       contentDrawStartedAtRef.current = 0;
     };
@@ -140,7 +156,7 @@ export function KonvaCanvasStage({
       layer.off("beforeDraw", handleBeforeDraw);
       layer.off("afterDraw", handleAfterDraw);
     };
-  }, [scopedRenderedNodes.length, scopedSubgraphGeometries.length, scopedVisibleEdges.length]);
+  }, [linkCardDrawStats, scopedRenderedNodes.length, scopedSubgraphGeometries.length, scopedVisibleEdges.length]);
 
   return (
     <section className="relative h-full min-h-0 bg-card">
@@ -214,7 +230,12 @@ export function KonvaCanvasStage({
               onCanvasTap={onCanvasTap}
             />
 
+          </Layer>
+
+          <Layer ref={nodeLayerRef} imageSmoothingEnabled>
             <KonvaNodeLayer
+              nodeLayerRef={nodeLayerRef}
+              interactionLayerRef={interactionLayerRef}
               viewFilters={viewFilters}
               mode={mode}
               panningRequested={panningRequested}
@@ -257,6 +278,9 @@ export function KonvaCanvasStage({
               onResizeTableColumn={onResizeTableColumn}
             />
 
+          </Layer>
+
+          <Layer ref={interactionLayerRef} imageSmoothingEnabled>
             <KonvaEdgeOverlayLayer
               viewFilters={viewFilters}
               mode={mode}

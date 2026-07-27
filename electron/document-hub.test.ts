@@ -123,6 +123,56 @@ describe("document hub", () => {
     await hub.closeAll();
   });
 
+  it("semantically merges independent Mermaid node moves", async () => {
+    const base = mermaidDocument({ A: [10, 20], B: [100, 20] }, 160);
+    const { hub, filePath, first } = await fixture(base, "diagram.mmd");
+    const opened = await hub.open(first, filePath);
+    await hub.syncWorkingCopy(first, {
+      documentId: opened.documentId,
+      content: mermaidDocument({ A: [30, 20], B: [100, 20] }, 220),
+      expectedWorkingRevision: opened.workingRevision
+    });
+    await writeFile(filePath, mermaidDocument({ A: [10, 20], B: [140, 20] }, 80), "utf8");
+
+    const refreshed = await hub.refreshPath(filePath);
+
+    expect(refreshed.conflict).toBeNull();
+    expect(refreshed.syncState).toBe("clean");
+    expect(mermaidLayout(refreshed.content)).toMatchObject({
+      viewport: { x: 220, y: 90, scale: 1 },
+      nodes: { A: { x: 30, y: 20 }, B: { x: 140, y: 20 } }
+    });
+    await hub.closeAll();
+  });
+
+  it("resolves a same-node Mermaid move as one labeled position conflict", async () => {
+    const base = mermaidDocument({ A: [10, 20], B: [100, 20] }, 160);
+    const { hub, filePath, first } = await fixture(base, "diagram.mmd");
+    const opened = await hub.open(first, filePath);
+    await hub.syncWorkingCopy(first, {
+      documentId: opened.documentId,
+      content: mermaidDocument({ A: [30, 24], B: [100, 20] }, 220),
+      expectedWorkingRevision: opened.workingRevision
+    });
+    await writeFile(filePath, mermaidDocument({ A: [44, 36], B: [140, 20] }, 80), "utf8");
+
+    const conflicted = await hub.refreshPath(filePath);
+    const hunk = conflicted.conflict.conflicts[0];
+    const resolved = await hub.resolveConflict(first, {
+      documentId: opened.documentId,
+      content: conflicted.conflict.resolutionTemplate.replace(hunk.token, hunk.local),
+      diskRevision: conflicted.conflict.diskRevision
+    });
+
+    expect(conflicted.conflict.conflicts).toHaveLength(1);
+    expect(hunk).toMatchObject({ kind: "canvas-node-position", label: "节点 A 的位置" });
+    expect(mermaidLayout(resolved.snapshot.content)).toMatchObject({
+      viewport: { x: 220, y: 90, scale: 1 },
+      nodes: { A: { x: 30, y: 24 }, B: { x: 140, y: 20 } }
+    });
+    await hub.closeAll();
+  });
+
   it("keeps overlapping edits for explicit per-hunk resolution", async () => {
     const { hub, filePath, first } = await fixture("base\nnext\n");
     const opened = await hub.open(first, filePath);
@@ -202,10 +252,10 @@ describe("three-way text merge", () => {
   });
 });
 
-async function fixture(content: string) {
+async function fixture(content: string, fileName = "notes.md") {
   const directory = await mkdtemp(join(tmpdir(), "mmm-document-hub-"));
   directories.push(directory);
-  const filePath = join(directory, "notes.md");
+  const filePath = join(directory, fileName);
   await writeFile(filePath, content, "utf8");
   const events: Array<{ target: number; payload: unknown }> = [];
   const hub = createDocumentHub({
@@ -217,6 +267,22 @@ async function fixture(content: string) {
   const first = webContents(1);
   const second = webContents(2);
   return { directory, events, filePath, first, hub, second };
+}
+
+function mermaidDocument(nodes: Record<string, [number, number]>, viewportX: number) {
+  const layout = {
+    version: 1,
+    edgeRouting: "bezier",
+    layoutMode: "manual",
+    viewport: { x: viewportX, y: 90, scale: 1 },
+    nodes: Object.fromEntries(Object.entries(nodes).map(([id, [x, y]]) => [id, { x, y, fill: "#fff" }]))
+  };
+  return `%% canvas-layout: ${JSON.stringify(layout)}\nflowchart LR\n  A[Alpha] --> B[Beta]\n`;
+}
+
+function mermaidLayout(document: string) {
+  const line = document.split(/\r?\n/, 1)[0];
+  return JSON.parse(line.slice(line.indexOf(":") + 1).trim());
 }
 
 function webContents(id: number) {

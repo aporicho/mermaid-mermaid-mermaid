@@ -30,6 +30,9 @@ type EmbeddedBrowserSurfaceProps = {
 
 type EmbeddedBrowserCallbacks = Pick<EmbeddedBrowserSurfaceProps, "onStatus" | "onBrowserError" | "onBrowserFocus" | "onBrowserHandleChange" | "onBrowserStateChange">;
 
+const EMBEDDED_BROWSER_VISIBILITY_SYNC_INTERVAL_MS = 100;
+const EMBEDDED_BROWSER_STYLE_SYNC_INTERVAL_MS = 250;
+
 export function EmbeddedBrowserSurface({
   panelId,
   url,
@@ -84,6 +87,9 @@ export function EmbeddedBrowserSurface({
     let nativeCreated = false;
     let readyToShow = false;
     let lastVisible: boolean | null = null;
+    let lastVisibilitySyncAt = Number.NEGATIVE_INFINITY;
+    let cachedBorderRadius: number | undefined;
+    let nextStyleSyncAt = 0;
     const initialUrl = desiredUrlRef.current;
     const browserLabel = `browser_${hashText(`${instanceIdRef.current}:${panelId}:${initialUrl}:${retryRevision}:${creationSeqRef.current++}`)}`;
     syncErrorReportedRef.current = false;
@@ -147,9 +153,15 @@ export function EmbeddedBrowserSurface({
 
       const syncBrowserRect = (force = false) => {
         if (!nativeCreated) return;
+        const now = performance.now();
+        if (force || cachedBorderRadius === undefined || now >= nextStyleSyncAt) {
+          cachedBorderRadius = embeddedBrowserPanelBorderRadius(surface);
+          nextStyleSyncAt = now + EMBEDDED_BROWSER_STYLE_SYNC_INTERVAL_MS;
+        }
         syncRuntimeEmbeddedBrowserRect(surfaceRef.current, browserRef.current, lastRectKey, (nextKey) => {
           lastRectKey = nextKey;
         }, {
+          borderRadius: cachedBorderRadius,
           force,
           onError: reportSyncError,
           titlebarHotZoneHeight: embeddedBrowserTitlebarHotZoneHeight(workspaceHeaderRef.current)
@@ -158,6 +170,7 @@ export function EmbeddedBrowserSurface({
 
       const syncBrowserVisibility = (force = false) => {
         if (!nativeCreated || !readyToShow) return;
+        lastVisibilitySyncAt = performance.now();
         const surface = surfaceRef.current;
         const shouldShow = surface !== null
           && !isEmbeddedBrowserSurfaceOccluded(surface);
@@ -166,10 +179,12 @@ export function EmbeddedBrowserSurface({
         void (shouldShow ? browser.show() : browser.hide()).catch((error) => reportSyncError("visibility", error));
       };
 
-      const sync = () => {
+      const sync = (timestamp: number) => {
         if (disposed) return;
         syncBrowserRect();
-        syncBrowserVisibility();
+        if (timestamp - lastVisibilitySyncAt >= EMBEDDED_BROWSER_VISIBILITY_SYNC_INTERVAL_MS) {
+          syncBrowserVisibility();
+        }
         frameId = window.requestAnimationFrame(sync);
       };
 
@@ -189,7 +204,7 @@ export function EmbeddedBrowserSurface({
             syncBrowserVisibility(true);
           });
         });
-        if (!frameId) sync();
+        if (!frameId) frameId = window.requestAnimationFrame(sync);
         if (desiredUrlRef.current !== loadedUrlRef.current) {
           loadedUrlRef.current = desiredUrlRef.current;
           void browser.navigate(desiredUrlRef.current).catch((error) => reportSyncError("navigation", error));
@@ -316,13 +331,14 @@ function syncRuntimeEmbeddedBrowserRect(
   lastRectKey: string,
   updateLastRectKey: (key: string) => void,
   options: {
+    borderRadius?: number;
     force?: boolean;
     onError?: (operation: string, error: unknown) => void;
     titlebarHotZoneHeight?: number;
   } = {}
 ) {
   if (!surface || !browser) return;
-  const rect = embeddedBrowserViewRect(surface, options.titlebarHotZoneHeight);
+  const rect = embeddedBrowserViewRect(surface, options.titlebarHotZoneHeight, options.borderRadius);
   const rectKey = embeddedBrowserRectKey(rect);
   if (!options.force && rectKey === lastRectKey) return;
   updateLastRectKey(rectKey);
@@ -344,10 +360,8 @@ function formatEmbeddedBrowserError(error: unknown) {
   }
 }
 
-function embeddedBrowserViewRect(surface: HTMLElement, titlebarHotZoneHeight = 0) {
+function embeddedBrowserViewRect(surface: HTMLElement, titlebarHotZoneHeight = 0, borderRadius = embeddedBrowserPanelBorderRadius(surface)) {
   const bounds = surface.getBoundingClientRect();
-  const panel = surface.closest<HTMLElement>(".editor-ui-panel");
-  const borderRadius = panel ? Number.parseFloat(window.getComputedStyle(panel).borderTopLeftRadius) : 0;
   return embeddedBrowserLogicalRect({
     left: bounds.left,
     top: bounds.top,
@@ -356,6 +370,13 @@ function embeddedBrowserViewRect(surface: HTMLElement, titlebarHotZoneHeight = 0
     borderRadius: Number.isFinite(borderRadius) ? borderRadius : 0,
     titlebarHotZoneHeight
   });
+}
+
+function embeddedBrowserPanelBorderRadius(surface: HTMLElement) {
+  const panel = surface.closest<HTMLElement>(".editor-ui-panel");
+  if (!panel) return 0;
+  const borderRadius = Number.parseFloat(window.getComputedStyle(panel).borderTopLeftRadius);
+  return Number.isFinite(borderRadius) ? borderRadius : 0;
 }
 
 export function embeddedBrowserTitlebarHotZoneHeight(header: { autoHide: boolean; visible: boolean; headerHeightPx: number } | null) {

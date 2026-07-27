@@ -127,21 +127,29 @@ export function useKonvaRenderModel({
     [baseNodeGeometries, baseSubgraphGeometries]
   );
   const renderedGraph = useMemo(() => (renderedNodes === graph.nodes ? graph : { ...graph, nodes: renderedNodes }), [graph, renderedNodes]);
+  const dragChangesSubgraphGeometry = useMemo(() => {
+    if (!dragPreviewPositions) return false;
+    const movedNodeIds = new Set(Object.keys(dragPreviewPositions));
+    return (graph.subgraphs || []).some((subgraph) => subgraph.nodeIds.some((id) => movedNodeIds.has(id)));
+  }, [dragPreviewPositions, graph.subgraphs]);
   const renderedSubgraphGeometries = useMemo(
-    () => renderedGraph === graph ? baseSubgraphGeometries : buildSubgraphGeometries(renderedGraph, renderedNodeGeometries, subgraphThemeTokens),
-    [baseSubgraphGeometries, graph, renderedGraph, renderedNodeGeometries, subgraphThemeTokens]
+    () => renderedGraph === graph || (Boolean(dragPreviewPositions) && !dragChangesSubgraphGeometry)
+      ? baseSubgraphGeometries
+      : buildSubgraphGeometries(renderedGraph, renderedNodeGeometries, subgraphThemeTokens),
+    [baseSubgraphGeometries, dragChangesSubgraphGeometry, dragPreviewPositions, graph, renderedGraph, renderedNodeGeometries, subgraphThemeTokens]
   );
   const geometryIndex = useMemo(() => createCanvasGeometryIndex(baseNodeGeometries, baseSubgraphGeometries), [baseNodeGeometries, baseSubgraphGeometries]);
   const nodeGeometryById = useMemo(() => new Map(renderedNodeGeometries.map((geometry) => [geometry.id, geometry])), [renderedNodeGeometries]);
+  const selectionNodeGeometryById = interactionState.kind === "draggingNodes" ? baseNodeGeometryById : nodeGeometryById;
   const selectedNodeRects = useMemo(
     () =>
       graph.nodes.flatMap((node) => {
         if (!selectedNodeIds.has(node.id)) return [];
-        const geometry = nodeGeometryById.get(node.id);
+        const geometry = selectionNodeGeometryById.get(node.id);
         if (!geometry) return [];
         return [geometry.alignmentRect];
       }),
-    [graph.nodes, nodeGeometryById, selectedNodeIds]
+    [graph.nodes, selectedNodeIds, selectionNodeGeometryById]
   );
   const subgraphGeometryById = useMemo(() => new Map(renderedSubgraphGeometries.map((geometry) => [geometry.id, geometry])), [renderedSubgraphGeometries]);
   const routedNodeRects = useMemo(() => renderedNodeGeometries.map((geometry) => geometry.routedRect), [renderedNodeGeometries]);
@@ -210,6 +218,8 @@ export function useKonvaRenderModel({
   const connectionInvalidNodeId = connectionPreview?.invalidNodeId ?? retargetPreview?.invalidNodeId ?? null;
   const connectionTargetSubgraphId = connectionPreview?.targetSubgraphId ?? retargetPreview?.targetSubgraphId ?? null;
   const connectionInvalidSubgraphId = connectionPreview?.invalidSubgraphId ?? retargetPreview?.invalidSubgraphId ?? null;
+  const scopeNodeGeometries = interactionState.kind === "draggingNodes" ? baseNodeGeometries : renderedNodeGeometries;
+  const scopeSubgraphGeometries = interactionState.kind === "draggingNodes" ? baseSubgraphGeometries : renderedSubgraphGeometries;
   const renderScope = useMemo(
     () =>
       measurePerformance("canvas-render-scope", () => resolveCanvasRenderScope({
@@ -217,8 +227,8 @@ export function useKonvaRenderModel({
           viewport,
           canvasSize: dimensions,
           viewFilters,
-          nodeBounds: renderedNodeGeometries,
-          subgraphBounds: renderedSubgraphGeometries,
+          nodeBounds: scopeNodeGeometries,
+          subgraphBounds: scopeSubgraphGeometries,
           geometryIndex,
           edges: visibleEdges,
           selection,
@@ -245,8 +255,8 @@ export function useKonvaRenderModel({
       hoveredSubgraphId,
       inlineEdit,
       interactionState,
-      renderedNodeGeometries,
-      renderedSubgraphGeometries,
+      scopeNodeGeometries,
+      scopeSubgraphGeometries,
       selection,
       viewFilters,
       viewport,

@@ -3,6 +3,7 @@ const fsp = require("node:fs/promises");
 const path = require("node:path");
 const chokidar = require("chokidar");
 const { diffArrays } = require("diff");
+const { mergeMermaidDocument, normalizeMermaidLayoutDocument } = require("./mermaid-document-merge.cjs");
 
 const MAX_HISTORY = 80;
 const TEXT_EXTENSIONS = new Set(["mmd", "mermaid", "md", "markdown", "csv", "html", "htm"]);
@@ -72,7 +73,7 @@ function createDocumentHub({ readDocument, writeDocument, send, watch = chokidar
       if (expected && expected !== document.workingRevision) {
         if (content === document.workingContent) return { status: "unchanged", snapshot: snapshot(document) };
         if (typeof request?.baseContent !== "string") return { status: "stale", snapshot: snapshot(document) };
-        const staleMerge = mergeText(request.baseContent, content, document.workingContent);
+        const staleMerge = mergeDocumentText(document.kind, request.baseContent, content, document.workingContent);
         if (staleMerge.conflicts.length) {
           document.conflict = {
             baseContent: request.baseContent,
@@ -91,7 +92,7 @@ function createDocumentHub({ readDocument, writeDocument, send, watch = chokidar
       const ownerId = webContents?.id;
       if (!expected && document.workingContent !== document.baseContent && document.leaseOwnerId && document.leaseOwnerId !== ownerId && content !== document.workingContent) {
         if (typeof request?.baseContent !== "string") return { status: "stale", snapshot: snapshot(document) };
-        const sharedMerge = mergeText(request.baseContent, content, document.workingContent);
+        const sharedMerge = mergeDocumentText(document.kind, request.baseContent, content, document.workingContent);
         if (sharedMerge.conflicts.length) {
           document.conflict = {
             baseContent: request.baseContent,
@@ -108,7 +109,7 @@ function createDocumentHub({ readDocument, writeDocument, send, watch = chokidar
         content = sharedMerge.text;
       }
       if (!expected && typeof request?.baseContent === "string" && content !== request.baseContent && document.workingContent === document.baseContent) {
-        const restored = mergeText(request.baseContent, content, document.baseContent);
+        const restored = mergeDocumentText(document.kind, request.baseContent, content, document.baseContent);
         if (restored.conflicts.length) {
           document.conflict = {
             baseContent: request.baseContent,
@@ -214,7 +215,8 @@ function createDocumentHub({ readDocument, writeDocument, send, watch = chokidar
         return { status: "stale", snapshot: snapshot(document) };
       }
       pushHistory(document, "解决外部修改冲突", "merge");
-      document.workingContent = typeof request?.content === "string" ? request.content : document.workingContent;
+      const resolvedContent = typeof request?.content === "string" ? request.content : document.workingContent;
+      document.workingContent = document.kind === "mermaid" ? normalizeMermaidLayoutDocument(resolvedContent) : resolvedContent;
       document.baseContent = document.conflict.diskContent;
       document.baseRevision = document.conflict.diskRevision;
       document.diskRevision = document.conflict.diskRevision;
@@ -383,7 +385,7 @@ function createDocumentHub({ readDocument, writeDocument, send, watch = chokidar
       if (previousDiskRevision || !previouslyExisted) broadcast(document, undefined, reason || "disk");
       return "reloaded";
     }
-    const merge = mergeText(document.baseContent, document.workingContent, disk.text);
+    const merge = mergeDocumentText(document.kind, document.baseContent, document.workingContent, disk.text);
     if (!merge.conflicts.length) {
       pushHistory(document, "自动合并磁盘修改", "disk-merge");
       document.baseContent = disk.text;
@@ -591,7 +593,20 @@ function historyEntry(document, label, origin) {
   return { content: document.workingContent, label, origin, at: Date.now() };
 }
 
-function mergeText(baseText, localText, diskText) {
+function mergeDocumentText(kind, baseText, localText, diskText) {
+  if (kind === "mermaid") {
+    const structured = mergeMermaidDocument(
+      baseText,
+      localText,
+      diskText,
+      (baseBody, localBody, diskBody) => mergeText(baseBody, localBody, diskBody, { tokenNamespace: "MMM_TEXT_CONFLICT" })
+    );
+    if (structured) return structured;
+  }
+  return mergeText(baseText, localText, diskText);
+}
+
+function mergeText(baseText, localText, diskText, options = {}) {
   if (localText === diskText) return { text: localText, conflicts: [], resolutionTemplate: localText };
   if (localText === baseText) return { text: diskText, conflicts: [], resolutionTemplate: diskText };
   if (diskText === baseText) return { text: localText, conflicts: [], resolutionTemplate: localText };
@@ -609,14 +624,16 @@ function mergeText(baseText, localText, diskText) {
     consumedDisk.add(diskIndex);
     const start = Math.min(local.start, disk.start);
     const end = Math.max(local.end, disk.end);
-    const token = `\uE000MMM_CONFLICT_${conflicts.length}\uE001`;
+    const token = `\uE000${options.tokenNamespace || "MMM_CONFLICT"}_${conflicts.length}\uE001`;
     conflicts.push({
       start,
       end,
       base: base.slice(start, end).join(""),
       local: replacementForUnion(base, local, start, end),
       disk: replacementForUnion(base, disk, start, end),
-      token
+      token,
+      kind: "text",
+      label: `文本冲突 ${conflicts.length + 1}`
     });
   }
   const unique = [];

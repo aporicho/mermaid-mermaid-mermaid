@@ -23,7 +23,6 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
@@ -33,14 +32,22 @@ import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "
 import { Item, ItemActions, ItemContent, ItemDescription, ItemMedia, ItemTitle } from "@/components/ui/item";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Separator } from "@/components/ui/separator";
 import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { EditorConfirmDialog, EditorIconButton } from "@/features/mermaid-editor/components/editor-ui";
+import {
+  EditorConfirmDialog,
+  EditorIconButton,
+  SettingsAccordion,
+  SettingsAccordionCard,
+  SettingsTabs,
+  SettingsTabsBody,
+  SettingsTabsContent,
+  SettingsTabsList
+} from "@/features/mermaid-editor/components/editor-ui";
 import { WorkspaceWindowHeader } from "@/features/mermaid-editor/components/floating-chrome";
 import { cn } from "@/lib/utils";
 
@@ -74,38 +81,38 @@ export function AgentSettingsPanel({ controller, onBack }: { controller: AgentCo
             {!controller.overviewBusy && controller.status === "ready" ? <Button onClick={() => void controller.loadOverview(true)}>重新载入</Button> : null}
           </Empty>
       ) : (
-          <Tabs orientation="vertical" value={page} onValueChange={setPage} className="grid min-h-0 flex-1 grid-cols-[11.5rem_minmax(0,1fr)] max-[700px]:grid-cols-[3.5rem_minmax(0,1fr)]">
-            <TabsList className="m-2 h-fit flex-col items-stretch justify-start">
+          <SettingsTabs value={page} onValueChange={setPage}>
+            <SettingsTabsList aria-label="Agent 设置分类">
               <SettingsTab value="models" icon={<User data-icon="inline-start" />} label="模型与账户" />
               <SettingsTab value="tools" icon={<Tools data-icon="inline-start" />} label="工具与命令" />
               <SettingsTab value="resources" icon={<Package data-icon="inline-start" />} label="资源与包" />
               <SettingsTab value="settings" icon={<Settings data-icon="inline-start" />} label="设置" />
               <SettingsTab value="trust" icon={<Key data-icon="inline-start" />} label="信任与诊断" />
-            </TabsList>
-            <ScrollArea className="min-h-0">
-              {controller.error ? <div className="mx-5 mt-4"><Notice tone="danger" icon={<WarningTriangle />} text={controller.error} /></div> : null}
-              <SettingsPage value="models"><ModelsPage controller={controller} overview={controller.overview} /></SettingsPage>
-              <SettingsPage value="tools"><ToolsPage controller={controller} overview={controller.overview} /></SettingsPage>
-              <SettingsPage value="resources"><ResourcesPage controller={controller} overview={controller.overview} /></SettingsPage>
-              <SettingsPage value="settings"><PiSettingsPage controller={controller} overview={controller.overview} /></SettingsPage>
-              <SettingsPage value="trust"><TrustPage controller={controller} overview={controller.overview} /></SettingsPage>
-            </ScrollArea>
-          </Tabs>
+            </SettingsTabsList>
+            <SettingsTabsBody>
+              <SettingsPage value="models" error={controller.error}><ModelsPage controller={controller} overview={controller.overview} /></SettingsPage>
+              <SettingsPage value="tools" error={controller.error}><ToolsPage controller={controller} overview={controller.overview} /></SettingsPage>
+              <SettingsPage value="resources" error={controller.error}><ResourcesPage controller={controller} overview={controller.overview} /></SettingsPage>
+              <SettingsPage value="settings" error={controller.error}><PiSettingsPage controller={controller} overview={controller.overview} /></SettingsPage>
+              <SettingsPage value="trust" error={controller.error}><TrustPage controller={controller} overview={controller.overview} /></SettingsPage>
+            </SettingsTabsBody>
+          </SettingsTabs>
       )}
     </div>
   );
 }
 
 function SettingsTab({ value, icon, label }: { value: string; icon: ReactNode; label: string }) {
-  return <TabsTrigger value={value} aria-label={label} className="w-full flex-none justify-start max-[700px]:justify-center">{icon}<span className="max-[700px]:sr-only">{label}</span></TabsTrigger>;
+  return <TabsTrigger value={value} aria-label={label} className="w-full flex-none justify-start">{icon}<span>{label}</span></TabsTrigger>;
 }
 
-function SettingsPage({ value, children }: { value: string; children: ReactNode }) {
-  return <TabsContent value={value} className="m-0 p-5">{children}</TabsContent>;
+function SettingsPage({ value, error, children }: { value: string; error?: string | null; children: ReactNode }) {
+  return <SettingsTabsContent value={value} contentClassName="grid gap-4 p-5">{error ? <Notice tone="danger" icon={<WarningTriangle />} text={error} /> : null}{children}</SettingsTabsContent>;
 }
 
 function ModelsPage({ controller, overview }: ControlProps) {
   const [query, setQuery] = useState("");
+  const [openSections, setOpenSections] = useState<string[]>([]);
   const [providerEditor, setProviderEditor] = useState<{ provider?: any; config?: any; custom: boolean } | null>(null);
   const providers = [...(overview.models?.providers || [])].sort((a: any, b: any) => Number(Boolean(b.configured)) - Number(Boolean(a.configured)));
   const providerConfigs = overview.models?.config?.providers || [];
@@ -117,23 +124,27 @@ function ModelsPage({ controller, overview }: ControlProps) {
   const available = visibleProviders.filter((provider: any) => !provider.configured);
   const visibleModels = models.filter((model: any) => `${model.name || ""} ${model.id || ""} ${model.provider || ""}`.toLowerCase().includes(normalizedQuery));
 
-  return <Section action={<div className="flex gap-1"><Button variant="ghost" size="sm" onClick={() => setProviderEditor({ custom: true })}><Plus data-icon="inline-start" />自定义</Button><Button variant="ghost" size="icon" aria-label="刷新模型" onClick={() => void controller.loadOverview(true)}><Refresh data-icon="inline-start" /></Button></div>}>
+  return <div className="grid gap-4">
+    <div className="flex justify-end gap-1"><Button variant="ghost" size="sm" onClick={() => setProviderEditor({ custom: true })}><Plus data-icon="inline-start" />自定义</Button><Button variant="ghost" size="icon" aria-label="刷新模型" onClick={() => void controller.loadOverview(true)}><Refresh data-icon="inline-start" /></Button></div>
     <AuthFlowPanel controller={controller} />
     {overview.models?.config?.error ? <Notice tone="danger" icon={<WarningTriangle />} text={`models.json：${overview.models.config.error}`} /> : null}
-    <InputGroup className="mb-4">
+    <InputGroup>
       <InputGroupAddon><Search /></InputGroupAddon>
       <InputGroupInput value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索服务商或模型" aria-label="搜索服务商或模型" />
     </InputGroup>
-    {configured.length ? <div className="grid gap-1">{configured.map((provider: any) => <ProviderItem key={provider.id} provider={provider} config={providerConfigById.get(provider.id)} controller={controller} onEdit={() => setProviderEditor({ provider, config: providerConfigById.get(provider.id), custom: provider.origin === "custom" })} />)}</div> : null}
-    {available.length ? <Collapsible defaultOpen={!configured.length} className="mt-2">
-      <CollapsibleTrigger asChild><Button variant="ghost" className="w-full justify-between"><span>添加服务商</span><span className="text-xs text-muted-foreground">{available.length}</span></Button></CollapsibleTrigger>
-      <CollapsibleContent className="mt-1 grid gap-1">{available.map((provider: any) => <ProviderItem key={provider.id} provider={provider} config={providerConfigById.get(provider.id)} controller={controller} onEdit={() => setProviderEditor({ provider, config: providerConfigById.get(provider.id), custom: provider.origin === "custom" })} />)}</CollapsibleContent>
-    </Collapsible> : null}
-    <Separator className="my-5" />
-    <SectionLabel>可用模型</SectionLabel>
-    {visibleModels.length ? <div className="grid gap-0.5 sm:grid-cols-2">{visibleModels.map((model: any) => <Item key={`${model.provider}:${model.id}`}><ItemContent><ItemTitle>{model.name || model.id}</ItemTitle><ItemDescription>{providerDisplayName(providers, model.provider)}</ItemDescription></ItemContent><Badge tone={model.available ? "accent" : "neutral"}>{model.available ? "可用" : "不可用"}</Badge></Item>)}</div> : <InlineEmpty text="没有匹配的模型" />}
+    <SettingsAccordion value={openSections} onValueChange={setOpenSections}>
+      {configured.length ? <SettingsAccordionCard value="configured" title="已连接服务商" action={<Badge>{configured.length}</Badge>}>
+        <div className="grid gap-1">{configured.map((provider: any) => <ProviderItem key={provider.id} provider={provider} config={providerConfigById.get(provider.id)} controller={controller} onEdit={() => setProviderEditor({ provider, config: providerConfigById.get(provider.id), custom: provider.origin === "custom" })} />)}</div>
+      </SettingsAccordionCard> : null}
+      {available.length ? <SettingsAccordionCard value="available" title="添加服务商" action={<Badge>{available.length}</Badge>}>
+        <div className="grid gap-1">{available.map((provider: any) => <ProviderItem key={provider.id} provider={provider} config={providerConfigById.get(provider.id)} controller={controller} onEdit={() => setProviderEditor({ provider, config: providerConfigById.get(provider.id), custom: provider.origin === "custom" })} />)}</div>
+      </SettingsAccordionCard> : null}
+      <SettingsAccordionCard value="models" title="可用模型" action={<Badge>{visibleModels.length}</Badge>}>
+        {visibleModels.length ? <div className="grid gap-0.5 sm:grid-cols-2">{visibleModels.map((model: any) => <Item key={`${model.provider}:${model.id}`}><ItemContent><ItemTitle>{model.name || model.id}</ItemTitle><ItemDescription>{providerDisplayName(providers, model.provider)}</ItemDescription></ItemContent><Badge tone={model.available ? "accent" : "neutral"}>{model.available ? "可用" : "不可用"}</Badge></Item>)}</div> : <InlineEmpty text="没有匹配的模型" />}
+      </SettingsAccordionCard>
+    </SettingsAccordion>
     <ProviderConfigDialog controller={controller} state={providerEditor} revision={overview.models?.config?.revision} onOpenChange={(open) => { if (!open) setProviderEditor(null); }} />
-  </Section>;
+  </div>;
 }
 
 function ProviderItem({ provider, config, controller, onEdit }: { provider: any; config?: any; controller: AgentController; onEdit: () => void }) {
@@ -242,10 +253,14 @@ function ProviderConfigDialog({
   const [draft, setDraft] = useState<ProviderDraft>(() => providerDraft(state));
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [openSections, setOpenSections] = useState<string[]>([]);
+  const [openCompatibilitySections, setOpenCompatibilitySections] = useState<string[]>([]);
 
   useEffect(() => {
     setDraft(providerDraft(state));
     setConfirmDelete(false);
+    setOpenSections([]);
+    setOpenCompatibilitySections([]);
   }, [state]);
 
   if (!state) return null;
@@ -312,75 +327,89 @@ function ProviderConfigDialog({
         <DialogDescription className="sr-only">配置连接、认证、模型和兼容性。</DialogDescription>
       </DialogHeader>
       <ScrollArea className="min-h-0">
-        <div className="grid gap-5 pr-3">
-          <FieldGroup className="grid gap-3 sm:grid-cols-2">
-            {newCustomProvider ? <Field>
-              <FieldLabel htmlFor="agent-provider-id">Provider ID</FieldLabel>
-              <Input id="agent-provider-id" value={draft.id} placeholder="my-provider" onChange={(event) => setDraft((current) => ({ ...current, id: event.target.value.toLowerCase() }))} />
-            </Field> : null}
-            <Field>
-              <FieldLabel htmlFor="agent-provider-name">显示名称</FieldLabel>
-              <Input id="agent-provider-name" value={draft.name} placeholder="自定义服务商" onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))} />
-            </Field>
-            <Field className="sm:col-span-2">
-              <FieldLabel htmlFor="agent-provider-base-url">Base URL</FieldLabel>
-              <Input id="agent-provider-base-url" value={draft.baseUrl} placeholder={state.custom ? "http://localhost:11434/v1" : "留空以使用默认端点"} onChange={(event) => setDraft((current) => ({ ...current, baseUrl: event.target.value }))} />
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="agent-provider-api">API 协议</FieldLabel>
-              <Select value={draft.api || "inherit"} onValueChange={(value) => setDraft((current) => ({ ...current, api: value === "inherit" ? "" : value }))}><SelectTrigger id="agent-provider-api"><SelectValue /></SelectTrigger><SelectContent><SelectGroup>{!state.custom ? <SelectItem value="inherit">跟随 Provider</SelectItem> : null}{MODEL_APIS.map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}</SelectGroup></SelectContent></Select>
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="agent-provider-auth-mode">认证方式</FieldLabel>
-              <Select value={draft.authMode} onValueChange={(value) => setDraft((current) => ({ ...current, authMode: value as ProviderDraft["authMode"] }))}><SelectTrigger id="agent-provider-auth-mode"><SelectValue /></SelectTrigger><SelectContent><SelectGroup>
-                <SelectItem value="stored">安全存储 API Key</SelectItem>
-                <SelectItem value="environment">环境变量</SelectItem>
-                <SelectItem value="local">本地免认证</SelectItem>
-                <SelectItem value="radius">Radius OAuth</SelectItem>
-                <SelectItem value="preserve">保持现有来源</SelectItem>
-              </SelectGroup></SelectContent></Select>
-            </Field>
-            {draft.authMode === "environment" ? <Field>
-              <FieldLabel htmlFor="agent-provider-env-name">环境变量</FieldLabel>
-              <Input id="agent-provider-env-name" value={draft.envName} placeholder="OPENAI_API_KEY" onChange={(event) => setDraft((current) => ({ ...current, envName: event.target.value }))} />
-            </Field> : null}
-          </FieldGroup>
-
-          {state.custom ? <FieldSet>
-            <FieldLegend variant="label">模型</FieldLegend>
-            <div className="flex justify-end"><Button variant="ghost" size="sm" onClick={() => setDraft((current) => ({ ...current, models: [...current.models, blankProviderModel()] }))}><Plus data-icon="inline-start" />添加模型</Button></div>
-            <FieldGroup className="gap-4">{draft.models.map((model, index) => <FieldSet key={index}>
-              <FieldLegend variant="label">模型 {index + 1}</FieldLegend>
-              <FieldGroup className="grid gap-2 sm:grid-cols-2">
-              <Field><FieldLabel htmlFor={`agent-provider-model-${index}-id`}>模型 ID</FieldLabel><Input id={`agent-provider-model-${index}-id`} value={model.id} placeholder="model-id" onChange={(event) => updateModel(index, { id: event.target.value })} /></Field>
-              <Field><FieldLabel htmlFor={`agent-provider-model-${index}-name`}>显示名称</FieldLabel><Input id={`agent-provider-model-${index}-name`} value={model.name} placeholder="可选" onChange={(event) => updateModel(index, { name: event.target.value })} /></Field>
-              <Field><FieldLabel htmlFor={`agent-provider-model-${index}-context`}>上下文长度</FieldLabel><Input id={`agent-provider-model-${index}-context`} type="number" min={1} value={model.contextWindow} onChange={(event) => updateModel(index, { contextWindow: Number(event.target.value) })} /></Field>
-              <Field><FieldLabel htmlFor={`agent-provider-model-${index}-max-output`}>最大输出</FieldLabel><Input id={`agent-provider-model-${index}-max-output`} type="number" min={1} value={model.maxTokens} onChange={(event) => updateModel(index, { maxTokens: Number(event.target.value) })} /></Field>
-              <Field><FieldLabel htmlFor={`agent-provider-model-${index}-api`}>模型 API 覆盖</FieldLabel><Select value={model.api || "inherit"} onValueChange={(value) => updateModel(index, { api: value === "inherit" ? "" : value })}><SelectTrigger id={`agent-provider-model-${index}-api`}><SelectValue /></SelectTrigger><SelectContent><SelectGroup><SelectItem value="inherit">跟随 Provider</SelectItem>{MODEL_APIS.map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}</SelectGroup></SelectContent></Select></Field>
-              <Field><FieldLabel htmlFor={`agent-provider-model-${index}-base-url`}>模型 Base URL</FieldLabel><Input id={`agent-provider-model-${index}-base-url`} value={model.baseUrl} placeholder="跟随 Provider" onChange={(event) => updateModel(index, { baseUrl: event.target.value })} /></Field>
-              <SettingSwitch label="推理模型" checked={model.reasoning} onCheckedChange={(reasoning) => updateModel(index, { reasoning })} />
-              <SettingSwitch label="支持图片" checked={model.input.includes("image")} onCheckedChange={(image) => updateModel(index, { input: image ? ["text", "image"] : ["text"] })} />
-              {draft.models.length > 1 ? <Button variant="ghost" size="sm" className="sm:col-span-2 sm:justify-self-end" onClick={() => setDraft((current) => ({ ...current, models: current.models.filter((_, modelIndex) => modelIndex !== index) }))}><Trash data-icon="inline-start" />移除模型</Button> : null}
+        <div className="pr-3">
+          <SettingsAccordion value={openSections} onValueChange={setOpenSections}>
+            <SettingsAccordionCard value="connection" title="连接与认证">
+              <FieldGroup className="grid gap-3 sm:grid-cols-2">
+                {newCustomProvider ? <Field>
+                  <FieldLabel htmlFor="agent-provider-id">Provider ID</FieldLabel>
+                  <Input id="agent-provider-id" value={draft.id} placeholder="my-provider" onChange={(event) => setDraft((current) => ({ ...current, id: event.target.value.toLowerCase() }))} />
+                </Field> : null}
+                <Field>
+                  <FieldLabel htmlFor="agent-provider-name">显示名称</FieldLabel>
+                  <Input id="agent-provider-name" value={draft.name} placeholder="自定义服务商" onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))} />
+                </Field>
+                <Field className="sm:col-span-2">
+                  <FieldLabel htmlFor="agent-provider-base-url">Base URL</FieldLabel>
+                  <Input id="agent-provider-base-url" value={draft.baseUrl} placeholder={state.custom ? "http://localhost:11434/v1" : "留空以使用默认端点"} onChange={(event) => setDraft((current) => ({ ...current, baseUrl: event.target.value }))} />
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="agent-provider-api">API 协议</FieldLabel>
+                  <Select value={draft.api || "inherit"} onValueChange={(value) => setDraft((current) => ({ ...current, api: value === "inherit" ? "" : value }))}><SelectTrigger id="agent-provider-api"><SelectValue /></SelectTrigger><SelectContent><SelectGroup>{!state.custom ? <SelectItem value="inherit">跟随 Provider</SelectItem> : null}{MODEL_APIS.map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}</SelectGroup></SelectContent></Select>
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="agent-provider-auth-mode">认证方式</FieldLabel>
+                  <Select value={draft.authMode} onValueChange={(value) => setDraft((current) => ({ ...current, authMode: value as ProviderDraft["authMode"] }))}><SelectTrigger id="agent-provider-auth-mode"><SelectValue /></SelectTrigger><SelectContent><SelectGroup>
+                    <SelectItem value="stored">安全存储 API Key</SelectItem>
+                    <SelectItem value="environment">环境变量</SelectItem>
+                    <SelectItem value="local">本地免认证</SelectItem>
+                    <SelectItem value="radius">Radius OAuth</SelectItem>
+                    <SelectItem value="preserve">保持现有来源</SelectItem>
+                  </SelectGroup></SelectContent></Select>
+                </Field>
+                {draft.authMode === "environment" ? <Field>
+                  <FieldLabel htmlFor="agent-provider-env-name">环境变量</FieldLabel>
+                  <Input id="agent-provider-env-name" value={draft.envName} placeholder="OPENAI_API_KEY" onChange={(event) => setDraft((current) => ({ ...current, envName: event.target.value }))} />
+                </Field> : null}
               </FieldGroup>
-            </FieldSet>)}</FieldGroup>
-          </FieldSet> : null}
+            </SettingsAccordionCard>
 
-          <Collapsible>
-            <CollapsibleTrigger asChild><Button variant="ghost" className="w-full justify-between">高级兼容性<span className="text-xs text-muted-foreground">{state.config?.headerKeys?.length ? `${state.config.headerKeys.length} 个保留 Header` : ""}</span></Button></CollapsibleTrigger>
-            <CollapsibleContent className="mt-2">
+            {state.custom ? <SettingsAccordionCard
+              value="models"
+              title="模型"
+              action={<Button variant="ghost" size="sm" onClick={() => setDraft((current) => ({ ...current, models: [...current.models, blankProviderModel()] }))}><Plus data-icon="inline-start" />添加模型</Button>}
+            >
+              <FieldGroup className="gap-4">{draft.models.map((model, index) => <FieldSet key={index}>
+                <FieldLegend variant="label">模型 {index + 1}</FieldLegend>
+                <FieldGroup className="grid gap-2 sm:grid-cols-2">
+                <Field><FieldLabel htmlFor={`agent-provider-model-${index}-id`}>模型 ID</FieldLabel><Input id={`agent-provider-model-${index}-id`} value={model.id} placeholder="model-id" onChange={(event) => updateModel(index, { id: event.target.value })} /></Field>
+                <Field><FieldLabel htmlFor={`agent-provider-model-${index}-name`}>显示名称</FieldLabel><Input id={`agent-provider-model-${index}-name`} value={model.name} placeholder="可选" onChange={(event) => updateModel(index, { name: event.target.value })} /></Field>
+                <Field><FieldLabel htmlFor={`agent-provider-model-${index}-context`}>上下文长度</FieldLabel><Input id={`agent-provider-model-${index}-context`} type="number" min={1} value={model.contextWindow} onChange={(event) => updateModel(index, { contextWindow: Number(event.target.value) })} /></Field>
+                <Field><FieldLabel htmlFor={`agent-provider-model-${index}-max-output`}>最大输出</FieldLabel><Input id={`agent-provider-model-${index}-max-output`} type="number" min={1} value={model.maxTokens} onChange={(event) => updateModel(index, { maxTokens: Number(event.target.value) })} /></Field>
+                <Field><FieldLabel htmlFor={`agent-provider-model-${index}-api`}>模型 API 覆盖</FieldLabel><Select value={model.api || "inherit"} onValueChange={(value) => updateModel(index, { api: value === "inherit" ? "" : value })}><SelectTrigger id={`agent-provider-model-${index}-api`}><SelectValue /></SelectTrigger><SelectContent><SelectGroup><SelectItem value="inherit">跟随 Provider</SelectItem>{MODEL_APIS.map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}</SelectGroup></SelectContent></Select></Field>
+                <Field><FieldLabel htmlFor={`agent-provider-model-${index}-base-url`}>模型 Base URL</FieldLabel><Input id={`agent-provider-model-${index}-base-url`} value={model.baseUrl} placeholder="跟随 Provider" onChange={(event) => updateModel(index, { baseUrl: event.target.value })} /></Field>
+                <SettingSwitch label="推理模型" checked={model.reasoning} onCheckedChange={(reasoning) => updateModel(index, { reasoning })} />
+                <SettingSwitch label="支持图片" checked={model.input.includes("image")} onCheckedChange={(image) => updateModel(index, { input: image ? ["text", "image"] : ["text"] })} />
+                {draft.models.length > 1 ? <Button variant="ghost" size="sm" className="sm:col-span-2 sm:justify-self-end" onClick={() => setDraft((current) => ({ ...current, models: current.models.filter((_, modelIndex) => modelIndex !== index) }))}><Trash data-icon="inline-start" />移除模型</Button> : null}
+                </FieldGroup>
+              </FieldSet>)}</FieldGroup>
+            </SettingsAccordionCard> : null}
+
+            <SettingsAccordionCard
+              value="compatibility"
+              title="高级兼容性"
+              action={state.config?.headerKeys?.length ? <Badge>{state.config.headerKeys.length} Headers</Badge> : null}
+            >
               <FieldGroup className="gap-1">
               <SettingSwitch label="自动添加 Authorization Header" checked={draft.authHeader} onCheckedChange={(authHeader) => setDraft((current) => ({ ...current, authHeader }))} />
               <SettingSwitch label="支持 Developer Role" checked={draft.compat.supportsDeveloperRole} onCheckedChange={(value) => setDraft((current) => ({ ...current, compat: { ...current.compat, supportsDeveloperRole: value } }))} />
               <SettingSwitch label="支持 Reasoning Effort" checked={draft.compat.supportsReasoningEffort} onCheckedChange={(value) => setDraft((current) => ({ ...current, compat: { ...current.compat, supportsReasoningEffort: value } }))} />
               </FieldGroup>
-              <div className="mt-3 flex items-center"><SectionLabel>自定义 Headers</SectionLabel><Button variant="ghost" size="sm" className="ml-auto" onClick={() => setDraft((current) => ({ ...current, headers: [...current.headers, { name: "", value: "", preserve: false }] }))}><Plus data-icon="inline-start" />添加</Button></div>
-              <FieldGroup className="gap-2">{draft.headers.map((header, index) => <FieldGroup key={index} className="grid grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)_auto] gap-2 px-2">
-                <Field><FieldLabel className="sr-only" htmlFor={`agent-provider-header-${index}-name`}>Header 名称</FieldLabel><Input id={`agent-provider-header-${index}-name`} value={header.name} placeholder="X-Custom-Header" onChange={(event) => setDraft((current) => ({ ...current, headers: current.headers.map((item, itemIndex) => itemIndex === index ? { ...item, name: event.target.value } : item) }))} /></Field>
-                <Field><FieldLabel className="sr-only" htmlFor={`agent-provider-header-${index}-value`}>{header.name || "Header"} 值</FieldLabel><Input id={`agent-provider-header-${index}-value`} type="password" value={header.value} placeholder={header.preserve ? "保持现有值" : "$ENV_OR_VALUE"} onChange={(event) => setDraft((current) => ({ ...current, headers: current.headers.map((item, itemIndex) => itemIndex === index ? { ...item, value: event.target.value } : item) }))} /></Field>
-                <Button variant="ghost" size="icon" aria-label={`移除 ${header.name || "Header"}`} onClick={() => setDraft((current) => ({ ...current, headers: current.headers.filter((_, itemIndex) => itemIndex !== index) }))}><Trash data-icon="inline-start" /></Button>
-              </FieldGroup>)}</FieldGroup>
-            </CollapsibleContent>
-          </Collapsible>
+              <SettingsAccordion className="mt-3" value={openCompatibilitySections} onValueChange={setOpenCompatibilitySections}>
+                <SettingsAccordionCard
+                  value="headers"
+                  title="自定义 Headers"
+                  action={<Button variant="ghost" size="sm" onClick={() => setDraft((current) => ({ ...current, headers: [...current.headers, { name: "", value: "", preserve: false }] }))}><Plus data-icon="inline-start" />添加</Button>}
+                >
+                  <FieldGroup className="gap-2">{draft.headers.map((header, index) => <FieldGroup key={index} className="grid grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)_auto] gap-2 px-2">
+                    <Field><FieldLabel className="sr-only" htmlFor={`agent-provider-header-${index}-name`}>Header 名称</FieldLabel><Input id={`agent-provider-header-${index}-name`} value={header.name} placeholder="X-Custom-Header" onChange={(event) => setDraft((current) => ({ ...current, headers: current.headers.map((item, itemIndex) => itemIndex === index ? { ...item, name: event.target.value } : item) }))} /></Field>
+                    <Field><FieldLabel className="sr-only" htmlFor={`agent-provider-header-${index}-value`}>{header.name || "Header"} 值</FieldLabel><Input id={`agent-provider-header-${index}-value`} type="password" value={header.value} placeholder={header.preserve ? "保持现有值" : "$ENV_OR_VALUE"} onChange={(event) => setDraft((current) => ({ ...current, headers: current.headers.map((item, itemIndex) => itemIndex === index ? { ...item, value: event.target.value } : item) }))} /></Field>
+                    <Button variant="ghost" size="icon" aria-label={`移除 ${header.name || "Header"}`} onClick={() => setDraft((current) => ({ ...current, headers: current.headers.filter((_, itemIndex) => itemIndex !== index) }))}><Trash data-icon="inline-start" /></Button>
+                  </FieldGroup>)}</FieldGroup>
+                </SettingsAccordionCard>
+              </SettingsAccordion>
+            </SettingsAccordionCard>
+          </SettingsAccordion>
         </div>
       </ScrollArea>
       <DialogFooter>
@@ -437,20 +466,22 @@ function blankProviderModel(): ProviderModelDraft {
 }
 
 function ToolsPage({ controller, overview }: ControlProps) {
+  const [openSections, setOpenSections] = useState<string[]>([]);
   const all = overview.tools?.all || [];
   const active = new Set<string>(overview.tools?.active || []);
   const core = all.filter((tool: any) => toolName(tool).startsWith("mmm_"));
   const project = all.filter((tool: any) => !toolName(tool).startsWith("mmm_"));
-  return <Section>
-    <SectionLabel>编辑器上下文</SectionLabel>
-    <div className="grid gap-0.5">{core.map((tool: any) => <ToolItem key={toolName(tool)} tool={tool} checked locked controller={controller} active={active} scratch={false} />)}</div>
-    <Separator className="my-5" />
-    <SectionLabel>项目工具</SectionLabel>
-    {project.length ? <div className="grid gap-0.5">{project.map((tool: any) => <ToolItem key={toolName(tool)} tool={tool} checked={active.has(toolName(tool))} controller={controller} active={active} scratch={Boolean(overview.scratch)} />)}</div> : <InlineEmpty text="没有项目工具" />}
-    <Separator className="my-5" />
-    <SectionLabel>命令</SectionLabel>
-    {(overview.commands || []).length ? <div className="grid gap-0.5">{(overview.commands || []).map((command: any) => <Item key={`${command.source}:${command.name}`}><ItemContent><ItemTitle className="font-mono">/{command.name}</ItemTitle>{command.description ? <ItemDescription>{command.description}</ItemDescription> : null}</ItemContent></Item>)}</div> : <InlineEmpty text="没有可用命令" />}
-  </Section>;
+  return <SettingsAccordion value={openSections} onValueChange={setOpenSections}>
+    <SettingsAccordionCard value="context" title="编辑器上下文" action={<Badge>{core.length}</Badge>}>
+      {core.length ? <div className="grid gap-0.5">{core.map((tool: any) => <ToolItem key={toolName(tool)} tool={tool} checked locked controller={controller} active={active} scratch={false} />)}</div> : <InlineEmpty text="没有编辑器上下文工具" />}
+    </SettingsAccordionCard>
+    <SettingsAccordionCard value="project" title="项目工具" action={<Badge>{project.length}</Badge>}>
+      {project.length ? <div className="grid gap-0.5">{project.map((tool: any) => <ToolItem key={toolName(tool)} tool={tool} checked={active.has(toolName(tool))} controller={controller} active={active} scratch={Boolean(overview.scratch)} />)}</div> : <InlineEmpty text="没有项目工具" />}
+    </SettingsAccordionCard>
+    <SettingsAccordionCard value="commands" title="命令" action={<Badge>{(overview.commands || []).length}</Badge>}>
+      {(overview.commands || []).length ? <div className="grid gap-0.5">{(overview.commands || []).map((command: any) => <Item key={`${command.source}:${command.name}`}><ItemContent><ItemTitle className="font-mono">/{command.name}</ItemTitle>{command.description ? <ItemDescription>{command.description}</ItemDescription> : null}</ItemContent></Item>)}</div> : <InlineEmpty text="没有可用命令" />}
+    </SettingsAccordionCard>
+  </SettingsAccordion>;
 }
 
 function ToolItem({ tool, checked, locked = false, controller, active, scratch }: { tool: any; checked: boolean; locked?: boolean; controller: AgentController; active: Set<string>; scratch: boolean }) {
@@ -470,33 +501,38 @@ function ToolItem({ tool, checked, locked = false, controller, active, scratch }
 function ResourcesPage({ controller, overview }: ControlProps) {
   const resources = overview.resources || {};
   const [source, setSource] = useState("");
+  const [openSections, setOpenSections] = useState<string[]>([]);
   const packages = overview.packages || [];
-  return <Section action={<Button variant="ghost" size="icon" aria-label="重新载入资源" onClick={() => void controller.runControl({ type: "reload" })}><Refresh data-icon="inline-start" /></Button>}>
-    <ResourceGroup title="Skills" items={(resources.skills?.skills || []).map((item: any) => item.name || item.path)} />
-    <ResourceGroup title="Extensions" items={(resources.extensions || []).filter((item: any) => !item.hidden).map((item: any) => item.path)} />
-    <ResourceGroup title="Prompts" items={(resources.prompts?.prompts || []).map((item: any) => item.name || item.path)} />
-    <Separator className="my-5" />
-    <SectionLabel>Packages</SectionLabel>
-    {packages.length ? <div className="grid gap-0.5">{packages.map((item: any, index: number) => {
-      const packageSource = typeof item === "string" ? item : item.source || item.path || `package-${index}`;
-      return <Item key={`${packageSource}-${index}`}><ItemMedia><Package /></ItemMedia><ItemContent><ItemTitle>{packageSource}</ItemTitle></ItemContent><ItemActions><Button variant="ghost" size="icon" aria-label={`更新 ${packageSource}`} onClick={() => void controller.runControl({ type: "package_update", source: packageSource })}><Refresh data-icon="inline-start" /></Button><Button variant="ghost" size="icon" aria-label={`移除 ${packageSource}`} onClick={() => void controller.runControl({ type: "package_remove", source: packageSource })}><Trash data-icon="inline-start" /></Button></ItemActions></Item>;
-    })}</div> : <InlineEmpty text="没有安装包" />}
-    <Field className="mt-4">
-      <FieldLabel className="sr-only" htmlFor="agent-package-source">安装包来源</FieldLabel>
-      <InputGroup>
-        <InputGroupInput id="agent-package-source" value={source} onChange={(event) => setSource(event.target.value)} placeholder="npm 包、Git URL 或本地路径" />
-        <InputGroupAddon align="inline-end"><InputGroupButton disabled={!source.trim()} onClick={() => void controller.runControl({ type: "package_install", source }).then(() => setSource("")).catch((error) => controller.setError(readableError(error)))}><Download data-icon="inline-start" />安装</InputGroupButton></InputGroupAddon>
-      </InputGroup>
-    </Field>
-  </Section>;
+  return <div className="grid gap-4">
+    <div className="flex justify-end"><Button variant="ghost" size="icon" aria-label="重新载入资源" onClick={() => void controller.runControl({ type: "reload" })}><Refresh data-icon="inline-start" /></Button></div>
+    <SettingsAccordion value={openSections} onValueChange={setOpenSections}>
+      <ResourceGroup value="skills" title="Skills" items={(resources.skills?.skills || []).map((item: any) => item.name || item.path)} />
+      <ResourceGroup value="extensions" title="Extensions" items={(resources.extensions || []).filter((item: any) => !item.hidden).map((item: any) => item.path)} />
+      <ResourceGroup value="prompts" title="Prompts" items={(resources.prompts?.prompts || []).map((item: any) => item.name || item.path)} />
+      <SettingsAccordionCard value="packages" title="Packages" action={<Badge>{packages.length}</Badge>}>
+        {packages.length ? <div className="grid gap-0.5">{packages.map((item: any, index: number) => {
+          const packageSource = typeof item === "string" ? item : item.source || item.path || `package-${index}`;
+          return <Item key={`${packageSource}-${index}`}><ItemMedia><Package /></ItemMedia><ItemContent><ItemTitle>{packageSource}</ItemTitle></ItemContent><ItemActions><Button variant="ghost" size="icon" aria-label={`更新 ${packageSource}`} onClick={() => void controller.runControl({ type: "package_update", source: packageSource })}><Refresh data-icon="inline-start" /></Button><Button variant="ghost" size="icon" aria-label={`移除 ${packageSource}`} onClick={() => void controller.runControl({ type: "package_remove", source: packageSource })}><Trash data-icon="inline-start" /></Button></ItemActions></Item>;
+        })}</div> : <InlineEmpty text="没有安装包" />}
+        <Field className="mt-4">
+          <FieldLabel className="sr-only" htmlFor="agent-package-source">安装包来源</FieldLabel>
+          <InputGroup>
+            <InputGroupInput id="agent-package-source" value={source} onChange={(event) => setSource(event.target.value)} placeholder="npm 包、Git URL 或本地路径" />
+            <InputGroupAddon align="inline-end"><InputGroupButton disabled={!source.trim()} onClick={() => void controller.runControl({ type: "package_install", source }).then(() => setSource("")).catch((error) => controller.setError(readableError(error)))}><Download data-icon="inline-start" />安装</InputGroupButton></InputGroupAddon>
+          </InputGroup>
+        </Field>
+      </SettingsAccordionCard>
+    </SettingsAccordion>
+  </div>;
 }
 
-function ResourceGroup({ title, items }: { title: string; items: string[] }) {
-  return <Collapsible className="mb-2"><CollapsibleTrigger asChild><Button variant="ghost" className="w-full justify-between"><span>{title}</span><span className="text-xs text-muted-foreground">{items.length}</span></Button></CollapsibleTrigger><CollapsibleContent className="grid gap-0.5 pl-2">{items.length ? items.map((item, index) => <Item key={`${item}-${index}`} className="py-1.5"><ItemContent><ItemTitle>{item}</ItemTitle></ItemContent></Item>) : <InlineEmpty text="无" />}</CollapsibleContent></Collapsible>;
+function ResourceGroup({ value, title, items }: { value: string; title: string; items: string[] }) {
+  return <SettingsAccordionCard value={value} title={title} action={<Badge>{items.length}</Badge>}>{items.length ? <div className="grid gap-0.5">{items.map((item, index) => <Item key={`${item}-${index}`} className="py-1.5"><ItemContent><ItemTitle>{item}</ItemTitle></ItemContent></Item>)}</div> : <InlineEmpty text="无" />}</SettingsAccordionCard>;
 }
 
 function PiSettingsPage({ controller, overview }: ControlProps) {
   const [scope, setScope] = useState<"global" | "project">("global");
+  const [openSections, setOpenSections] = useState<string[]>([]);
   const sourceSettings = overview.settings?.[scope] || {};
   const [text, setText] = useState(() => JSON.stringify(sourceSettings, null, 2));
   const parsed = useMemo(() => safeParseObject(text), [text]);
@@ -508,22 +544,27 @@ function PiSettingsPage({ controller, overview }: ControlProps) {
     setText(JSON.stringify(next, null, 2));
   }
 
-  return <Section>
+  return <div className="grid gap-4">
     <ToggleGroup type="single" value={scope} variant="outline" size="sm" className="mb-4 w-fit" onValueChange={(value) => { if (value === "global" || value === "project") setScope(value); }} aria-label="设置范围">
       <ToggleGroupItem value="global">全局</ToggleGroupItem>
       <ToggleGroupItem value="project">项目</ToggleGroupItem>
     </ToggleGroup>
-    <FieldGroup className="gap-1">
-      <SettingSwitch label="隐藏思考过程" checked={Boolean(parsed.value?.hideThinkingBlock)} onCheckedChange={(value) => updateSetting("hideThinkingBlock", value)} />
-      <SettingSwitch label="启用 Skill 命令" checked={parsed.value?.enableSkillCommands !== false} onCheckedChange={(value) => updateSetting("enableSkillCommands", value)} />
-      <SettingToggle label="运行中消息" value={String(parsed.value?.steeringMode || "one-at-a-time")} values={["one-at-a-time", "all"]} onValueChange={(value) => updateSetting("steeringMode", value)} />
-      <SettingToggle label="后续消息" value={String(parsed.value?.followUpMode || "one-at-a-time")} values={["one-at-a-time", "all"]} onValueChange={(value) => updateSetting("followUpMode", value)} />
-      {scope === "global" ? <SettingToggle label="默认项目信任" value={String(parsed.value?.defaultProjectTrust || "ask")} values={["ask", "always", "never"]} onValueChange={(value) => updateSetting("defaultProjectTrust", value)} /> : null}
-    </FieldGroup>
-    <Separator className="my-5" />
-    <Collapsible><CollapsibleTrigger asChild><Button variant="ghost" className="w-full justify-between">高级 JSON<span className="text-xs text-muted-foreground">{parsed.error ? "格式错误" : ""}</span></Button></CollapsibleTrigger><CollapsibleContent className="mt-2"><Field data-invalid={Boolean(parsed.error)}><FieldLabel className="sr-only" htmlFor="agent-settings-json">高级 JSON</FieldLabel><Textarea id="agent-settings-json" value={text} onChange={(event) => setText(event.target.value)} spellCheck={false} className="min-h-72 font-mono text-xs" aria-invalid={Boolean(parsed.error)} />{parsed.error ? <FieldError>{parsed.error}</FieldError> : null}</Field></CollapsibleContent></Collapsible>
+    <SettingsAccordion value={openSections} onValueChange={setOpenSections}>
+      <SettingsAccordionCard value="common" title="常用设置">
+        <FieldGroup className="gap-1">
+          <SettingSwitch label="隐藏思考过程" checked={Boolean(parsed.value?.hideThinkingBlock)} onCheckedChange={(value) => updateSetting("hideThinkingBlock", value)} />
+          <SettingSwitch label="启用 Skill 命令" checked={parsed.value?.enableSkillCommands !== false} onCheckedChange={(value) => updateSetting("enableSkillCommands", value)} />
+          <SettingToggle label="运行中消息" value={String(parsed.value?.steeringMode || "one-at-a-time")} values={["one-at-a-time", "all"]} onValueChange={(value) => updateSetting("steeringMode", value)} />
+          <SettingToggle label="后续消息" value={String(parsed.value?.followUpMode || "one-at-a-time")} values={["one-at-a-time", "all"]} onValueChange={(value) => updateSetting("followUpMode", value)} />
+          {scope === "global" ? <SettingToggle label="默认项目信任" value={String(parsed.value?.defaultProjectTrust || "ask")} values={["ask", "always", "never"]} onValueChange={(value) => updateSetting("defaultProjectTrust", value)} /> : null}
+        </FieldGroup>
+      </SettingsAccordionCard>
+      <SettingsAccordionCard value="advanced" title="高级 JSON" action={parsed.error ? <Badge tone="danger">格式错误</Badge> : null}>
+        <Field data-invalid={Boolean(parsed.error)}><FieldLabel className="sr-only" htmlFor="agent-settings-json">高级 JSON</FieldLabel><Textarea id="agent-settings-json" value={text} onChange={(event) => setText(event.target.value)} spellCheck={false} className="min-h-72 font-mono text-xs" aria-invalid={Boolean(parsed.error)} />{parsed.error ? <FieldError>{parsed.error}</FieldError> : null}</Field>
+      </SettingsAccordionCard>
+    </SettingsAccordion>
     <div className="mt-4 flex justify-end"><Button disabled={!parsed.value} onClick={() => void controller.runControl({ type: "replace_settings", scope, value: parsed.value, expectedRevision: overview.settings?.revisions?.[scope] }).catch((error) => controller.setError(readableError(error)))}>保存</Button></div>
-  </Section>;
+  </div>;
 }
 
 function SettingSwitch({ label, checked, onCheckedChange }: { label: string; checked: boolean; onCheckedChange: (checked: boolean) => void }) {
@@ -537,22 +578,17 @@ function SettingToggle({ label, value, values, onValueChange }: { label: string;
 }
 
 function TrustPage({ controller, overview }: ControlProps) {
+  const [openSections, setOpenSections] = useState<string[]>([]);
   const trustId = useId();
   const trust = overview.trust || {};
-  return <Section>
-    <Field orientation="horizontal" data-disabled={Boolean(overview.scratch)}><FieldLabel htmlFor={trustId}><Item><ItemMedia><Key /></ItemMedia><ItemContent><ItemTitle>项目资源</ItemTitle><ItemDescription>{overview.scratch ? "临时画布不加载项目资源" : trust.trusted ? "已信任 .pi 资源" : "未信任项目资源"}</ItemDescription></ItemContent></Item></FieldLabel><Switch id={trustId} aria-label="信任项目资源" disabled={Boolean(overview.scratch)} checked={Boolean(trust.trusted)} onCheckedChange={(trusted) => void controller.runControl({ type: "trust_set", trusted }).catch((error) => controller.setError(readableError(error)))} /></Field>
-    <Separator className="my-5" />
-    <SectionLabel>诊断</SectionLabel>
-    {(overview.diagnostics || []).length ? <div className="grid gap-2">{overview.diagnostics.map((item: any, index: number) => <Notice key={index} tone={item.type === "error" ? "danger" : "neutral"} icon={item.type === "error" ? <WarningTriangle /> : <CheckCircle />} text={item.message || String(item)} />)}</div> : <Notice tone="neutral" icon={<CheckCircle />} text="没有运行时诊断" />}
-  </Section>;
-}
-
-function Section({ action, children }: { action?: ReactNode; children: ReactNode }) {
-  return <section>{action ? <div className="mb-4 flex justify-end">{action}</div> : null}{children}</section>;
-}
-
-function SectionLabel({ children }: { children: ReactNode }) {
-  return <h3 className="mb-2 px-2 text-xs font-medium text-muted-foreground">{children}</h3>;
+  return <SettingsAccordion value={openSections} onValueChange={setOpenSections}>
+    <SettingsAccordionCard value="trust" title="项目资源">
+      <Field orientation="horizontal" data-disabled={Boolean(overview.scratch)}><FieldLabel htmlFor={trustId}><Item><ItemMedia><Key /></ItemMedia><ItemContent><ItemTitle>项目资源</ItemTitle><ItemDescription>{overview.scratch ? "临时画布不加载项目资源" : trust.trusted ? "已信任 .pi 资源" : "未信任项目资源"}</ItemDescription></ItemContent></Item></FieldLabel><Switch id={trustId} aria-label="信任项目资源" disabled={Boolean(overview.scratch)} checked={Boolean(trust.trusted)} onCheckedChange={(trusted) => void controller.runControl({ type: "trust_set", trusted }).catch((error) => controller.setError(readableError(error)))} /></Field>
+    </SettingsAccordionCard>
+    <SettingsAccordionCard value="diagnostics" title="诊断" action={<Badge>{(overview.diagnostics || []).length}</Badge>}>
+      {(overview.diagnostics || []).length ? <div className="grid gap-2">{overview.diagnostics.map((item: any, index: number) => <Notice key={index} tone={item.type === "error" ? "danger" : "neutral"} icon={item.type === "error" ? <WarningTriangle /> : <CheckCircle />} text={item.message || String(item)} />)}</div> : <Notice tone="neutral" icon={<CheckCircle />} text="没有运行时诊断" />}
+    </SettingsAccordionCard>
+  </SettingsAccordion>;
 }
 
 function InlineEmpty({ text }: { text: string }) {

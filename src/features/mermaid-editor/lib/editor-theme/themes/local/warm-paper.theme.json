@@ -111,7 +111,7 @@
       "icon": {
         "family": "iconoir",
         "sizeSm": 16,
-        "sizeButton": 16,
+        "sizeButton": 18,
         "strokeWidth": 2.2,
         "buttonHeightSm": 32,
         "buttonHeightMd": 40
@@ -161,16 +161,16 @@
       "typography": {
         "body": {
           "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
-          "fontSize": 14,
+          "fontSize": 15,
           "fontWeight": 400,
-          "lineHeight": 20,
+          "lineHeight": 22,
           "letterSpacing": 0
         },
         "heading": {
           "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
-          "fontSize": 14,
+          "fontSize": 15,
           "fontWeight": 500,
-          "lineHeight": 20,
+          "lineHeight": 22,
           "letterSpacing": 0
         },
         "metadata": {
@@ -1168,72 +1168,72 @@
       "interface": {
         "body": {
           "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
-          "fontSize": 14,
+          "fontSize": 15,
           "fontWeight": 400,
-          "lineHeight": 20,
+          "lineHeight": 22,
           "letterSpacing": 0
         },
         "heading": {
           "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+          "fontSize": 15,
+          "fontWeight": 500,
+          "lineHeight": 22,
+          "letterSpacing": 0
+        },
+        "control": {
+          "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
           "fontSize": 14,
           "fontWeight": 500,
           "lineHeight": 20,
           "letterSpacing": 0
         },
-        "control": {
-          "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
-          "fontSize": 13,
-          "fontWeight": 500,
-          "lineHeight": 18,
-          "letterSpacing": 0
-        },
         "navigation": {
           "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
-          "fontSize": 12,
+          "fontSize": 14,
           "fontWeight": 500,
-          "lineHeight": 18,
+          "lineHeight": 20,
           "letterSpacing": 0
         },
         "menu": {
           "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
-          "fontSize": 12,
+          "fontSize": 14,
           "fontWeight": 400,
-          "lineHeight": 18,
+          "lineHeight": 20,
           "letterSpacing": 0
         },
         "tree": {
           "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
           "fontSize": 14,
           "fontWeight": 500,
-          "lineHeight": 18,
+          "lineHeight": 20,
           "letterSpacing": 0
         },
         "tooltip": {
           "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
-          "fontSize": 12,
+          "fontSize": 13,
           "fontWeight": 400,
-          "lineHeight": 18,
+          "lineHeight": 19,
           "letterSpacing": 0
         },
         "metadata": {
           "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
-          "fontSize": 12,
+          "fontSize": 13,
           "fontWeight": 400,
-          "lineHeight": 18,
+          "lineHeight": 19,
           "letterSpacing": 0
         },
         "status": {
           "family": "\"Noto Sans SC Variable\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
-          "fontSize": 12,
+          "fontSize": 13,
           "fontWeight": 400,
-          "lineHeight": 18,
+          "lineHeight": 19,
           "letterSpacing": 0
         },
         "technical": {
           "family": "Maple Mono, SF Mono, Cascadia Code, JetBrains Mono, Noto Sans SC Variable, ui-monospace, monospace",
-          "fontSize": 12,
+          "fontSize": 13,
           "fontWeight": 400,
-          "lineHeight": 18,
+          "lineHeight": 19,
           "letterSpacing": 0
         }
       },

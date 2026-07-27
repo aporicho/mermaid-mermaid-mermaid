@@ -1,3 +1,4 @@
+import { useEffect, useRef, type RefObject } from "react";
 import { Circle, Group, Text } from "react-konva";
 import type Konva from "konva";
 import type { KonvaEventObject } from "konva/lib/Node";
@@ -29,7 +30,6 @@ import {
 import type { CanvasNode, EditorMode, Selection } from "@/features/mermaid-editor/lib/editor-types";
 import { normalizeNodeAction } from "@/features/mermaid-editor/lib/node-actions";
 import { normalizeImageAsset } from "@/features/mermaid-editor/lib/node-assets";
-import { normalizeCanvasNodePreview } from "@/features/mermaid-editor/lib/node-preview";
 import type { MarkdownDocumentPreview } from "@/features/mermaid-editor/lib/markdown-document";
 import type { NodeGeometryTokens } from "@/features/mermaid-editor/lib/node-geometry";
 import { buildNodeGeometry } from "@/features/mermaid-editor/lib/node-geometry";
@@ -41,6 +41,8 @@ import type { TableCellSelection, TableHeaderSelection } from "@/features/mermai
 type RenderModel = ReturnType<typeof useKonvaRenderModel>;
 
 type KonvaNodeLayerProps = {
+  nodeLayerRef: RefObject<Konva.Layer | null>;
+  interactionLayerRef: RefObject<Konva.Layer | null>;
   viewFilters: ViewFilters;
   mode: EditorMode;
   panningRequested: boolean;
@@ -84,6 +86,8 @@ type KonvaNodeLayerProps = {
 };
 
 export function KonvaNodeLayer({
+  nodeLayerRef,
+  interactionLayerRef,
   viewFilters,
   mode,
   panningRequested,
@@ -125,7 +129,40 @@ export function KonvaNodeLayer({
   onStartTableHeaderEdit,
   onResizeTableColumn
 }: KonvaNodeLayerProps) {
+  const promotedNodesRef = useRef<PromotedNode[]>([]);
+  useEffect(() => () => {
+    restorePromotedNodes(promotedNodesRef.current);
+    promotedNodesRef.current = [];
+  }, []);
   if (!viewFilters.nodes) return null;
+
+  function promoteDraggedNodes(nodeId: string, target: Konva.Node) {
+    restorePromotedNodes(promotedNodesRef.current);
+    promotedNodesRef.current = [];
+    const interactionLayer = interactionLayerRef.current;
+    const stage = target.getStage();
+    if (!interactionLayer || !stage) return;
+    const movingIds = selection.nodeIds.includes(nodeId) ? selection.nodeIds : [nodeId];
+    const promoted: PromotedNode[] = [];
+    for (const id of movingIds) {
+      const candidate = stage.findOne((item: Konva.Node) => item.id() === nodeHitId(id));
+      const parent = candidate?.getParent();
+      if (!candidate || !parent || parent === interactionLayer) continue;
+      promoted.push({ node: candidate, parent, zIndex: candidate.zIndex() });
+    }
+    for (const item of promoted) item.node.moveTo(interactionLayer);
+    promotedNodesRef.current = promoted;
+    nodeLayerRef.current?.batchDraw();
+    interactionLayer.batchDraw();
+  }
+
+  function finishPromotedNodeDrag() {
+    restorePromotedNodes(promotedNodesRef.current);
+    promotedNodesRef.current = [];
+    nodeLayerRef.current?.batchDraw();
+    interactionLayerRef.current?.batchDraw();
+    onEndDrag();
+  }
 
   return (
     <>
@@ -148,7 +185,7 @@ export function KonvaNodeLayer({
         const connectionAnchorsVisible = nodeConnectionAnchorsVisible(node.id, connectionPreview, retargetPreview);
         const nodeAnchorsVisible = anchorVisual.visible || connectionAnchorsVisible;
         const nodeKind = resolveCanvasNodeKind(node);
-        const linkPreview = nodeKind === "link-card" ? normalizeCanvasNodePreview(node.preview) : undefined;
+        const linkPreview = nodeKind === "link-card" ? node.preview : undefined;
         const imageAsset = normalizeImageAsset(node.asset);
         const isMarkdownDocument = nodeKind === "markdown-document";
         const isHtmlDocument = nodeKind === "html-document";
@@ -180,9 +217,10 @@ export function KonvaNodeLayer({
                 return;
               }
               onStartNodeDrag(node.id);
+              promoteDraggedNodes(node.id, event.target);
             }}
             onDragMove={(event) => onMoveNode(node, event.target)}
-            onDragEnd={onEndDrag}
+            onDragEnd={finishPromotedNodeDrag}
             onClick={(event) => onCanvasClick(event, { kind: "node", id: node.id })}
             onDblClick={(event) => onCanvasDoubleClick(event, { kind: "node", id: node.id })}
             onContextMenu={(event) => onNodeContextMenu(event, node)}
@@ -266,7 +304,7 @@ export function KonvaNodeLayer({
                   actionTypography={typography.canvas.actionBadge}
                   specialNode={specialNodeTokens}
                   visualState={nodeVisual.kind}
-                  onOpen={() => onOpenNodeAction?.(node)}
+                  onOpenNodeAction={onOpenNodeAction}
                 />
               ) : null}
               {isMarkdownDocument ? (
@@ -367,7 +405,7 @@ export function KonvaNodeLayer({
         const geometry = buildNodeGeometry(node, geometrySpec);
         const motionVisual = nodeMotion[node.id] ?? { x: node.x, y: node.y, opacity: 0, scale: runtimeCreateScale, highlight: 0 };
         const nodeKind = resolveCanvasNodeKind(node);
-        const linkPreview = nodeKind === "link-card" ? normalizeCanvasNodePreview(node.preview) : undefined;
+        const linkPreview = nodeKind === "link-card" ? node.preview : undefined;
         const imageAsset = normalizeImageAsset(node.asset);
         const isLinkCardNode = nodeKind === "link-card";
         const isMarkdownDocument = nodeKind === "markdown-document";
@@ -513,6 +551,19 @@ export function KonvaNodeLayer({
       })}
     </>
   );
+}
+
+type PromotedNode = {
+  node: Konva.Node;
+  parent: Konva.Container;
+  zIndex: number;
+};
+
+function restorePromotedNodes(promoted: PromotedNode[]) {
+  for (const item of promoted) item.node.moveTo(item.parent);
+  for (const item of [...promoted].sort((left, right) => left.zIndex - right.zIndex)) {
+    item.node.zIndex(Math.min(item.zIndex, Math.max(0, item.parent.getChildren().length - 1)));
+  }
 }
 
 function nodeConnectionAnchorTarget(

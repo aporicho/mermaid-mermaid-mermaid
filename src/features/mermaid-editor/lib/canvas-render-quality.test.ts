@@ -7,9 +7,9 @@ import {
 } from "@/features/mermaid-editor/lib/canvas-render-quality";
 
 describe("canvas render quality", () => {
-  it("supersamples standard displays while respecting native high-DPI rendering", () => {
+  it("supersamples standard displays while capping high-DPI rendering cost", () => {
     expect(canvasPixelRatio(1)).toBe(MIN_CANVAS_PIXEL_RATIO);
-    expect(canvasPixelRatio(2.5)).toBe(2.5);
+    expect(canvasPixelRatio(2.5)).toBe(MAX_CANVAS_PIXEL_RATIO);
   });
 
   it("caps invalid or extreme ratios to a safe rendering range", () => {

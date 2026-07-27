@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { Refresh } from "iconoir-react/regular";
 
 import { Button } from "@/components/ui/button";
+import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EditorEmptyState, EditorIconButton, EditorList, EditorListRow, EditorSearchField } from "@/features/mermaid-editor/components/editor-ui";
 import {
   BUILT_IN_EDITOR_THEME_CATALOG,
@@ -45,36 +46,41 @@ export function ThemeSettingsLibrary({
   }
 
   return (
-    <div className="grid gap-3" data-theme-settings-library>
-      <EditorSearchField value={query} placeholder={`搜索 ${BUILT_IN_EDITOR_THEMES.length} 个主题`} onChange={(event) => setQuery(event.target.value)} />
-      <EditorList className="max-h-[min(520px,60vh)] overflow-y-auto border bg-background p-1">
-        {visibleEntries.map((entry) => (
+    <Card size="sm" data-theme-settings-library>
+      <CardHeader>
+        <CardTitle>主题</CardTitle>
+        <CardAction className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={() => onPreview("custom", toCustomTheme(activeTheme))}>复制当前</Button>
+          <EditorIconButton context="inline" label="恢复默认主题" onClick={() => onPreview(DEFAULT_EDITOR_THEME.id, customTheme)}>
+            <Refresh data-icon />
+          </EditorIconButton>
+        </CardAction>
+      </CardHeader>
+      <CardContent className="grid gap-3">
+        <EditorSearchField value={query} placeholder={`搜索 ${BUILT_IN_EDITOR_THEMES.length} 个主题`} onChange={(event) => setQuery(event.target.value)} />
+        <EditorList>
+          {visibleEntries.map((entry) => (
+            <EditorListRow
+              key={entry.id}
+              type="button"
+              selected={entry.id === themeId}
+              icon={<span className="flex shrink-0 overflow-hidden border">{entry.swatches.map((color, index) => <span key={`${color}-${index}`} className="h-7 w-5" style={{ backgroundColor: color }} />)}</span>}
+              title={entry.name}
+              aria-label={`${entry.name}，${entry.source.name}，${themeModeLabel(entry.mode)}`}
+              onClick={() => selectTheme(entry.id)}
+            />
+          ))}
           <EditorListRow
-            key={entry.id}
             type="button"
-            selected={entry.id === themeId}
-            icon={<span className="flex shrink-0 overflow-hidden border">{entry.swatches.map((color, index) => <span key={`${color}-${index}`} className="h-7 w-5" style={{ backgroundColor: color }} />)}</span>}
-            title={entry.name}
-            aria-label={`${entry.name}，${entry.source.name}，${themeModeLabel(entry.mode)}`}
-            onClick={() => selectTheme(entry.id)}
+            selected={themeId === "custom"}
+            icon={<span className="size-7 shrink-0 border" style={{ backgroundColor: activeTheme.interface.colors.primary }} />}
+            title="自定义主题"
+            aria-label="自定义主题，当前编辑副本"
+            onClick={() => selectTheme("custom")}
           />
-        ))}
-        <EditorListRow
-          type="button"
-          selected={themeId === "custom"}
-          icon={<span className="size-7 shrink-0 border" style={{ backgroundColor: activeTheme.interface.colors.primary }} />}
-          title="自定义主题"
-          aria-label="自定义主题，当前编辑副本"
-          onClick={() => selectTheme("custom")}
-        />
-        {visibleEntries.length === 0 ? <EditorEmptyState title="没有匹配主题" /> : null}
-      </EditorList>
-      <div className="flex flex-wrap gap-2">
-        <Button variant="outline" size="sm" onClick={() => onPreview("custom", toCustomTheme(activeTheme))}>复制当前</Button>
-        <EditorIconButton context="inline" label="恢复默认主题" onClick={() => onPreview(DEFAULT_EDITOR_THEME.id, customTheme)}>
-          <Refresh data-icon />
-        </EditorIconButton>
-      </div>
-    </div>
+          {visibleEntries.length === 0 ? <EditorEmptyState title="没有匹配主题" /> : null}
+        </EditorList>
+      </CardContent>
+    </Card>
   );
 }

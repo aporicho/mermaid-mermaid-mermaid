@@ -394,6 +394,37 @@ describe("floating chrome", () => {
     expect(Number.parseFloat(panel.style.top)).toBe(initialTop + 25);
   });
 
+  it("coalesces workspace drag samples into one visual frame and commits position on release", () => {
+    const { panel } = renderWorkspacePanel();
+    const header = requiredElement<HTMLElement>("[data-workspace-panel-header='true']");
+    const initialLeft = Number.parseFloat(panel.style.left);
+    const initialTop = Number.parseFloat(panel.style.top);
+    const frameCallbacks: FrameRequestCallback[] = [];
+    const requestFrame = vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
+      frameCallbacks.push(callback);
+      return frameCallbacks.length;
+    });
+    vi.spyOn(window, "cancelAnimationFrame").mockImplementation(() => undefined);
+
+    dispatchDragPointer(header, "pointerdown", 100, 100);
+    dispatchDragPointer(panel, "pointermove", 120, 110);
+    dispatchDragPointer(panel, "pointermove", 140, 125);
+    dispatchDragPointer(panel, "pointermove", 160, 130);
+
+    expect(requestFrame).toHaveBeenCalledTimes(1);
+    expect(Number.parseFloat(panel.style.left)).toBe(initialLeft);
+    expect(Number.parseFloat(panel.style.top)).toBe(initialTop);
+    act(() => frameCallbacks[0](performance.now()));
+    expect(panel.style.transform).toBe("translate3d(60px, 30px, 0)");
+    expect(panel.dataset.floatingPanelGesture).toBe("true");
+
+    dispatchDragPointer(panel, "pointerup", 160, 130);
+    expect(panel.style.transform).toBe("");
+    expect(Number.parseFloat(panel.style.left)).toBe(initialLeft + 60);
+    expect(Number.parseFloat(panel.style.top)).toBe(initialTop + 30);
+    expect(panel.dataset.floatingPanelGesture).toBe("false");
+  });
+
   it("opens workspace headers hidden and reveals them from an 8px top-edge drag zone", () => {
     vi.useFakeTimers();
     const panel = renderWorkspaceHeaderPanel();

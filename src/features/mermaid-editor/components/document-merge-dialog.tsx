@@ -7,7 +7,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import type { RuntimeDocumentSnapshot } from "@/features/mermaid-editor/lib/editor-runtime";
+import type { RuntimeDocumentConflictHunk, RuntimeDocumentSnapshot } from "@/features/mermaid-editor/lib/editor-runtime";
 
 type ConflictChoice = "local" | "disk";
 
@@ -59,8 +59,8 @@ export function DocumentMergeDialog({
             {conflict.conflicts.map((hunk, index) => (
               <Item key={hunk.token}>
                 <ItemContent>
-                  <ItemTitle>冲突 {index + 1}</ItemTitle>
-                  <ItemDescription><code>{hunk.base || "新增内容"}</code></ItemDescription>
+                  <ItemTitle>{hunk.label || `冲突 ${index + 1}`}</ItemTitle>
+                  <ItemDescription><code>{conflictSummary(hunk)}</code></ItemDescription>
                 </ItemContent>
                 <ItemActions>
                   <ToggleGroup
@@ -88,6 +88,36 @@ export function DocumentMergeDialog({
       </DialogContent>
     </Dialog>
   );
+}
+
+function conflictSummary(hunk: RuntimeDocumentConflictHunk) {
+  if (hunk.kind === "canvas-node-position") {
+    return `基线 ${positionSummary(hunk.base)} · 本地 ${positionSummary(hunk.local)} · 磁盘 ${positionSummary(hunk.disk)}`;
+  }
+  if (hunk.kind?.startsWith("canvas-")) {
+    return `基线 ${compactJson(hunk.base)} · 本地 ${compactJson(hunk.local)} · 磁盘 ${compactJson(hunk.disk)}`;
+  }
+  return hunk.base || "新增内容";
+}
+
+function positionSummary(value: string) {
+  try {
+    const parsed = JSON.parse(value) as { x?: unknown; y?: unknown } | null;
+    if (!parsed) return "无";
+    if (typeof parsed.x === "number" && typeof parsed.y === "number") return `(${formatCoordinate(parsed.x)}, ${formatCoordinate(parsed.y)})`;
+  } catch {
+    // Fall through to a compact raw value for forward-compatible conflict data.
+  }
+  return compactJson(value);
+}
+
+function formatCoordinate(value: number) {
+  return Number.isInteger(value) ? String(value) : value.toFixed(2).replace(/0+$/, "").replace(/\.$/, "");
+}
+
+function compactJson(value: string) {
+  const compact = value.replace(/\s+/g, " ").trim() || "无";
+  return compact.length > 96 ? `${compact.slice(0, 93)}…` : compact;
 }
 
 function MergeColumn({ title, value }: { title: string; value: string }) {

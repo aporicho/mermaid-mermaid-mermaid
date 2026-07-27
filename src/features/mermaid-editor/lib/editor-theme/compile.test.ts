@@ -11,8 +11,8 @@ describe("editor theme document application", () => {
     expect(BASE_INTERFACE).toMatchObject({
       surface: { focusRingWidth: 3, opacity: 1, backdropBlur: 0 },
       radius: { app: 14, controlSm: 6, controlMd: 8, controlLg: 10 },
-      spacing: { controlGap: 6, controlPaddingX: 10, controlPaddingY: 4, iconButtonSize: 32 },
-      icon: { buttonHeightSm: 28, buttonHeightMd: 32 }
+      spacing: { controlGap: 8, controlPaddingX: 12, controlPaddingY: 6, iconButtonSize: 36 },
+      icon: { buttonHeightSm: 32, buttonHeightMd: 36 }
     });
 
     const variables = themeToCssVariables(DEFAULT_EDITOR_THEME);

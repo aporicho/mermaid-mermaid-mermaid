@@ -84,6 +84,7 @@ export function resolveCanvasMotionChanges(input: {
   selection: Selection;
   motion: RuntimeEditorMotion;
   interactionKind: string;
+  suppressedLayoutPositions?: CanvasNodePreviewPositions | null;
 }): CanvasMotionChangeSet {
   const currentNodes = snapshotCanvasNodes(input.graph);
   const createdNodeIds: string[] = [];
@@ -96,7 +97,10 @@ export function resolveCanvasMotionChanges(input: {
       createdNodeIds.push(node.id);
       continue;
     }
-    if (previous.x !== node.x || previous.y !== node.y) movedNodeIds.push(node.id);
+    if (previous.x !== node.x || previous.y !== node.y) {
+      const suppressed = input.suppressedLayoutPositions?.[node.id];
+      if (!suppressed || suppressed.x !== node.x || suppressed.y !== node.y) movedNodeIds.push(node.id);
+    }
   }
 
   for (const previousId of input.previousNodes.keys()) {
@@ -117,6 +121,19 @@ export function resolveCanvasMotionChanges(input: {
     highlightedEdgeIds,
     animateLayout: animatableInteraction && shouldAnimateCanvasItemCount(changedCount, input.motion)
   };
+}
+
+export function canvasNodePreviewPositionsMatchGraph(
+  graph: MermaidGraph,
+  positions: CanvasNodePreviewPositions | null | undefined
+) {
+  if (!positions) return false;
+  const nodeById = new Map(graph.nodes.map((node) => [node.id, node]));
+  const entries = Object.entries(positions);
+  return entries.length > 0 && entries.every(([id, position]) => {
+    const node = nodeById.get(id);
+    return node?.x === position.x && node.y === position.y;
+  });
 }
 
 export function centerScaleTransform(frame: CanvasMotionFrame): CanvasCenterScaleTransform {

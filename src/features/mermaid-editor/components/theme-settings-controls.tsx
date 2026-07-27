@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { InputGroup, InputGroupAddon, InputGroupInput, InputGroupText } from "@/components/ui/input-group";
@@ -15,6 +14,7 @@ import {
   SelectValue
 } from "@/components/ui/select";
 import { isHexColor, MERMAID_FONT_FAMILY, MONO_FONT_FAMILY } from "@/features/mermaid-editor/lib/editor-theme";
+import { SettingsAccordion, SettingsAccordionCard } from "@/features/mermaid-editor/components/editor-ui";
 
 import {
   appearanceTokenDefinition,
@@ -43,7 +43,6 @@ export function ThemeSettingsGroup({
   query?: string;
   resetDisabled?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const normalizedQuery = query.trim().toLocaleLowerCase();
   const entries = useMemo(() => flattenFields(value).filter(({ path }) => {
@@ -62,8 +61,7 @@ export function ThemeSettingsGroup({
 
   return (
     <ThemeSettingsCollapsible
-      open={normalizedQuery ? true : open}
-      onOpenChange={normalizedQuery ? () => {} : setOpen}
+      value={definition.id}
       title={definition.title}
       description={definition.description}
       resetLabel={`重置${definition.title}`}
@@ -71,34 +69,29 @@ export function ThemeSettingsGroup({
       onReset={onReset}
       groupId={definition.id}
     >
-      <div className="editor-ui-panel-body grid gap-3">
+      <div className="grid gap-3">
         {commonEntries.map(({ path, value: fieldValue }) => (
           <ThemeSettingsField key={path.join(".")} path={[...definition.path, ...path]} value={fieldValue} onChange={(nextValue) => onChange(path, nextValue)} />
         ))}
         {advancedEntries.length ? (
-          <Accordion
-            type="multiple"
+          <SettingsAccordion
             value={normalizedQuery || advancedOpen ? [ADVANCED_ITEM_VALUE] : []}
             onValueChange={(items) => {
               if (!normalizedQuery) setAdvancedOpen(items.includes(ADVANCED_ITEM_VALUE));
             }}
-            className="border-t pt-2"
-            data-theme-settings-accordion
-            data-accordion-type="multiple"
           >
-            <AccordionItem value={ADVANCED_ITEM_VALUE}>
-              <AccordionTrigger aria-label={`${advancedOpen ? "收起" : "展开"}${definition.title}高级选项`}>
-                高级
-              </AccordionTrigger>
-              <AccordionContent>
-              <div className="grid gap-3 pt-2">
+            <SettingsAccordionCard
+              value={ADVANCED_ITEM_VALUE}
+              title="高级"
+              triggerAriaLabel={`${advancedOpen ? "收起" : "展开"}${definition.title}高级选项`}
+            >
+              <div className="grid gap-3">
                 {advancedEntries.map(({ path, value: fieldValue }) => (
                   <ThemeSettingsField key={path.join(".")} path={[...definition.path, ...path]} value={fieldValue} onChange={(nextValue) => onChange(path, nextValue)} />
                 ))}
               </div>
-              </AccordionContent>
-            </AccordionItem>
-          </Accordion>
+            </SettingsAccordionCard>
+          </SettingsAccordion>
         ) : null}
       </div>
     </ThemeSettingsCollapsible>

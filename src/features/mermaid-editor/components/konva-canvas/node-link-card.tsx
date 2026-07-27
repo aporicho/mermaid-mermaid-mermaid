@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
-import { Group, Rect, Text } from "react-konva";
+import { memo, useCallback, useMemo, useState } from "react";
+import { Group, Image as KonvaImage, Rect, Text } from "react-konva";
 import type Konva from "konva";
 
 import { CanvasNodeActionBadge } from "@/features/mermaid-editor/components/konva-canvas/node-action-ui";
 import { CanvasNodeImage, type CanvasNodeImageLoadStatus } from "@/features/mermaid-editor/components/konva-canvas/node-image";
+import { useLinkCardCoverRaster } from "@/features/mermaid-editor/components/konva-canvas/use-link-card-cover-raster";
 import type { CanvasVisualTokens } from "@/features/mermaid-editor/lib/canvas-visual-state";
 import type { CanvasNode, CanvasNodePreview } from "@/features/mermaid-editor/lib/editor-types";
 import { normalizeCanvasNodePreview, themedLinkCardLayout } from "@/features/mermaid-editor/lib/node-preview";
@@ -11,7 +12,7 @@ import type { EditorTypographyTokens, SpecialNodeThemeTokens, TypographyRoleToke
 import { resolveSpecialNodeBorder, specialNodeBorderDash } from "@/features/mermaid-editor/lib/editor-theme/special-node-theme";
 import type { SpecialNodeVisualState } from "@/features/mermaid-editor/lib/editor-theme/special-node-types";
 
-export function CanvasNodeLinkCard({
+export const CanvasNodeLinkCard = memo(function CanvasNodeLinkCard({
   node,
   preview,
   width,
@@ -24,7 +25,7 @@ export function CanvasNodeLinkCard({
   actionTypography,
   specialNode,
   visualState,
-  onOpen
+  onOpenNodeAction
 }: {
   node: CanvasNode;
   preview: CanvasNodePreview;
@@ -38,18 +39,25 @@ export function CanvasNodeLinkCard({
   actionTypography: TypographyRoleTokens;
   specialNode: SpecialNodeThemeTokens;
   visualState?: SpecialNodeVisualState;
-  onOpen?: () => void;
+  onOpenNodeAction?: (node: CanvasNode) => void;
 }) {
-  const normalized = normalizeCanvasNodePreview(preview);
-  const [coverLoadStatus, setCoverLoadStatus] = useState<CanvasNodeImageLoadStatus>(coverSrc ? "loading" : "idle");
-
-  useEffect(() => {
-    setCoverLoadStatus(coverSrc ? "loading" : "idle");
+  const normalized = useMemo(() => normalizeCanvasNodePreview(preview), [preview]);
+  const [fallbackCoverLoad, setFallbackCoverLoad] = useState<{ src: string; status: CanvasNodeImageLoadStatus }>({ src: "", status: "idle" });
+  const layout = normalized ? themedLinkCardLayout(normalized, specialNode.linkCard) : null;
+  const coverRaster = useLinkCardCoverRaster(coverSrc && layout ? {
+    src: coverSrc,
+    width: layout.coverWidth,
+    height: layout.coverHeight,
+    radius: specialNode.linkCard.coverRadius
+  } : null);
+  const fallbackCoverStatus = fallbackCoverLoad.src === coverSrc ? fallbackCoverLoad.status : "idle";
+  const updateFallbackCoverStatus = useCallback((status: CanvasNodeImageLoadStatus) => {
+    setFallbackCoverLoad({ src: coverSrc || "", status });
   }, [coverSrc]);
+  const openNodeAction = useCallback(() => onOpenNodeAction?.(node), [node, onOpenNodeAction]);
 
-  if (!normalized) return null;
+  if (!normalized || !layout) return null;
 
-  const layout = themedLinkCardLayout(normalized, specialNode.linkCard);
   const inset = specialNode.linkCard.inset;
   const coverWidth = layout.coverWidth;
   const coverHeight = layout.coverHeight;
@@ -59,8 +67,9 @@ export function CanvasNodeLinkCard({
   const coverImage = coverImageRect(normalized.cover, coverWidth, coverHeight);
   const title = normalized.title || node.label;
   const contentWidth = Math.max(0, width - specialNode.linkCard.contentPaddingX * 2);
-  const showCoverPlaceholder = !coverSrc || coverLoadStatus !== "loaded";
-  const showCoverImage = Boolean(coverSrc && coverLoadStatus !== "error");
+  const showOptimizedCover = Boolean(coverRaster.image);
+  const showFallbackCover = Boolean(coverSrc && coverRaster.status === "error" && fallbackCoverStatus !== "error");
+  const showCoverPlaceholder = !coverSrc || (!showOptimizedCover && fallbackCoverStatus !== "loaded");
   const surface = specialNode.linkCard.surface;
   const surfaceBorder = visualState
     ? resolveSpecialNodeBorder(surface, specialNode.linkCard.state, visualState)
@@ -111,9 +120,20 @@ export function CanvasNodeLinkCard({
           listening={false}
         />
       ) : null}
-      {showCoverImage && coverSrc ? (
+      {coverRaster.image ? (
+        <KonvaImage
+          image={coverRaster.image}
+          x={inset}
+          y={inset}
+          width={coverWidth}
+          height={coverHeight}
+          listening={false}
+          perfectDrawEnabled={false}
+        />
+      ) : null}
+      {showFallbackCover && coverSrc ? (
         <Group x={inset} y={inset} clipFunc={(context) => roundedRectClip(context, coverWidth, coverHeight, specialNode.linkCard.coverRadius)}>
-          <CanvasNodeImage src={coverSrc} x={coverImage.x} y={coverImage.y} width={coverImage.width} height={coverImage.height} onLoadStatusChange={setCoverLoadStatus} />
+          <CanvasNodeImage src={coverSrc} x={coverImage.x} y={coverImage.y} width={coverImage.width} height={coverImage.height} onLoadStatusChange={updateFallbackCoverStatus} />
         </Group>
       ) : null}
       <Rect
@@ -159,10 +179,10 @@ export function CanvasNodeLinkCard({
         fill={specialNode.shared.textColor}
         listening={false}
       />
-      <CanvasNodeActionBadge actionKind="url" x={width - 30} y={10} visualTokens={visualTokens} typography={actionTypography} onOpen={onOpen} />
+      <CanvasNodeActionBadge actionKind="url" x={width - 30} y={10} visualTokens={visualTokens} typography={actionTypography} onOpen={openNodeAction} />
     </Group>
   );
-}
+});
 
 function coverImageRect(cover: CanvasNodePreview["cover"], boxWidth: number, boxHeight: number) {
   const imageWidth = cover?.width;

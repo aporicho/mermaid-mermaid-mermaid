@@ -11,6 +11,8 @@ export type RuntimeDocumentConflictHunk = {
   local: string;
   disk: string;
   token: string;
+  kind?: "text" | "canvas-node-position" | "canvas-node-layout" | "canvas-edge-layout" | "canvas-setting";
+  label?: string;
 };
 
 export type RuntimeDocumentConflict = {

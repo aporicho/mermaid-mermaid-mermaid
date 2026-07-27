@@ -125,18 +125,18 @@ export const BASE_INTERFACE: InterfaceThemeTokens = {
     panelPadding: 16,
     panelHeaderHeight: 52,
     panelFooterHeight: 56,
-    controlGap: 6,
-    controlPaddingX: 10,
-    controlPaddingY: 4,
-    iconButtonSize: 32
+    controlGap: 8,
+    controlPaddingX: 12,
+    controlPaddingY: 6,
+    iconButtonSize: 36
   },
   icon: {
     family: "iconoir",
     sizeSm: 16,
-    sizeButton: 16,
+    sizeButton: 18,
     strokeWidth: 2.2,
-    buttonHeightSm: 28,
-    buttonHeightMd: 32
+    buttonHeightSm: 32,
+    buttonHeightMd: 36
   },
   scrollbar: {
     size: 10,

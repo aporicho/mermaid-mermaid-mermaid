@@ -84,7 +84,15 @@ describe("Agent shadcn composition contract", () => {
     expect(settings).toContain("<FieldGroup");
     expect(settings).toContain("<FieldSet");
     expect(settings).toContain("<ToggleGroup");
+    expect(settings).toContain("<SettingsTabs");
+    expect(settings).toContain("<SettingsTabsList");
+    expect(settings).toContain("<SettingsTabsContent");
+    expect(settings).toContain("<SettingsAccordion");
+    expect(settings).toContain("<SettingsAccordionCard");
     expect(settings).toContain("<DialogFooter");
+    expect(settings).not.toContain('from "@/components/ui/collapsible"');
+    expect(settings).not.toContain("<Collapsible");
+    expect(settings).not.toContain("overflow-y-auto");
     expect(settings).not.toContain("function Field(");
     expect(functionSource(settings, "InlineEmpty", "Notice")).toContain("<Empty");
     expect(functionSource(settings, "Notice", "toolName")).toContain("<Alert");

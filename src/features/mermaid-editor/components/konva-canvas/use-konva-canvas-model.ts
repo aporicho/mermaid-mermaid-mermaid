@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type Konva from "konva";
 import type { Dispatch, SetStateAction } from "react";
 
@@ -43,7 +43,6 @@ type UseKonvaCanvasModelArgs = KonvaCanvasProps & {
   imageDisplaySrcBySrc: NonNullable<KonvaCanvasProps["imageDisplaySrcBySrc"]>;
   visualTokens: NonNullable<KonvaCanvasProps["visualTokens"]>;
 };
-
 const DEFAULT_KONVA_TYPOGRAPHY = createDefaultEditorTypography();
 
 export function useKonvaCanvasModel({
@@ -80,6 +79,8 @@ export function useKonvaCanvasModel({
   const interactionGenerationRef = useRef(0);
   const selectionVersionRef = useRef(0);
   const lastSelectionKeyRef = useRef(selectionVersionKey(selection));
+  const onOpenNodeActionRef = useRef(onOpenNodeAction); onOpenNodeActionRef.current = onOpenNodeAction;
+  const openNodeAction: NonNullable<typeof onOpenNodeAction> = useCallback((node) => onOpenNodeActionRef.current?.(node), []);
   const dimensions = useContainerSize(containerRef);
   const [interactionState, setInteractionState] = useState<InteractionState>(idleInteraction);
   const dragRuntime = useKonvaDragDraft();
@@ -90,7 +91,10 @@ export function useKonvaCanvasModel({
     hoveredEdgeId,
     hoveredHitTarget
   } = hoverState;
-  const motion = useKonvaMotion({ graph, selection, interactionState, runtimeMotion });
+  const motion = useKonvaMotion({
+    graph, selection, interactionState, runtimeMotion,
+    committedDragPositionsRef: dragRuntime.committedDragPositionsRef
+  });
   const {
     nodeMotion,
     edgeMotion,
@@ -358,7 +362,7 @@ export function useKonvaCanvasModel({
     onMoveSubgraph: dragMembership.moveSelectedSubgraphs,
     onEndDrag: dragMembership.finishKonvaDrag,
     onArrangeNodes: arrangeSelectedNodes,
-    onOpenNodeAction,
+    onOpenNodeAction: openNodeAction,
     onOpenNodeImage,
     onEditNodeAction,
     onRequestMarkdownDocumentPreview,

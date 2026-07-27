@@ -111,7 +111,7 @@ export function FloatingPanel({
       ref={panel.rootRef}
       className={cn(
         "pointer-events-auto absolute",
-        !panel.framePanel && "will-change-transform",
+        (!panel.framePanel || panel.dragging) && "will-change-transform",
         !panel.framePanel && floatingPanelPlacementClass[placement],
         !open && "pointer-events-none",
         (panel.dragging || panel.resizing) && "select-none",
@@ -127,6 +127,9 @@ export function FloatingPanel({
       data-floating-panel-kind={kind}
       data-floating-panel-id={panelId}
       data-floating-panel-active={active ? "true" : "false"}
+      data-floating-panel-dragging={panel.dragging ? "true" : "false"}
+      data-floating-panel-resizing={panel.resizing ? "true" : "false"}
+      data-floating-panel-gesture={panel.dragging || panel.resizing ? "true" : "false"}
       data-floating-panel-dismiss-mode={panel.resolvedDismissMode}
       data-floating-panel-window-state={windowState}
       data-floating-panel-titlebar-auto-hide={workspaceHeader ? (workspaceHeader.autoHide ? "true" : "false") : undefined}

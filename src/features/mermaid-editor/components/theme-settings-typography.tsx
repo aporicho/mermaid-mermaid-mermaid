@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { Check, NavArrowDown, Refresh } from "iconoir-react/regular";
 
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { InputGroup, InputGroupInput } from "@/components/ui/input-group";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Slider } from "@/components/ui/slider";
-import { EditorIconButton, EditorSearchField } from "@/features/mermaid-editor/components/editor-ui";
+import { EditorIconButton, EditorSearchField, SettingsAccordion } from "@/features/mermaid-editor/components/editor-ui";
 import type { RuntimeSystemFont } from "@/features/mermaid-editor/lib/editor-runtime";
 import {
   type EditorTypographyTokens,
@@ -55,6 +55,7 @@ export function ThemeSettingsTypography({
   visibleGroups,
   visibleRoles,
   groupTitle,
+  itemValue,
   systemFonts,
   loading,
   error,
@@ -70,6 +71,7 @@ export function ThemeSettingsTypography({
   visibleGroups?: readonly TypographyGroupKey[];
   visibleRoles?: readonly string[];
   groupTitle?: string;
+  itemValue?: string;
   systemFonts: RuntimeSystemFont[];
   loading: boolean;
   error: string | null;
@@ -85,53 +87,60 @@ export function ThemeSettingsTypography({
   const [openGroups, setOpenGroups] = useState<Set<TypographyGroupKey>>(() => new Set());
   const effectiveQuery = externalQuery ?? query;
   const normalizedQuery = effectiveQuery.trim().toLocaleLowerCase();
+  const definitions = TYPOGRAPHY_GROUPS.filter((definition) => !visibleGroups || visibleGroups.includes(definition.key)).map((definition) => {
+    const roles: [string, TypographyRoleTokens][] = (Object.entries(value[definition.key]) as [string, TypographyRoleTokens][]).filter(([key]) => !visibleRoles || visibleRoles.includes(key));
+    const filteredRoles: [string, TypographyRoleTokens][] = normalizedQuery ? roles.filter(([key]) => `${ROLE_LABELS[key] || key} ${definition.title} typography.${definition.key}.${key}`.toLocaleLowerCase().includes(normalizedQuery)) : roles;
+    return { definition, filteredRoles };
+  }).filter(({ filteredRoles }) => filteredRoles.length > 0);
+
+  const items = definitions.map(({ definition, filteredRoles }) => (
+    <ThemeSettingsCollapsible
+      key={definition.key}
+      value={itemValue ?? `typography-${definition.key}`}
+      title={groupTitle ?? definition.title}
+      resetLabel={`重置${groupTitle ?? definition.title}`}
+      resetDisabled={resetDisabled}
+      onReset={() => visibleRoles?.length && onResetVisibleRoles ? onResetVisibleRoles(definition.key, visibleRoles) : onResetGroup(definition.key)}
+      typographyGroup={definition.key}
+    >
+      <div className="grid gap-3">
+        {filteredRoles.map(([roleKey, role]) => (
+          <TypographyRoleEditor
+            key={roleKey}
+            roleKey={roleKey}
+            label={ROLE_LABELS[roleKey] || roleKey}
+            value={role}
+            fonts={systemFonts}
+            loading={loading}
+            error={error}
+            monospacePreferred={isMonospaceRole(definition.key, roleKey)}
+            resetDisabled={resetDisabled}
+            onChange={(next) => onChangeRole(definition.key, roleKey, next)}
+            onReset={() => onResetRole(definition.key, roleKey)}
+          />
+        ))}
+      </div>
+    </ThemeSettingsCollapsible>
+  ));
+
+  if (!showSearch) return <Fragment>{items}</Fragment>;
 
   return (
     <div className="grid gap-4">
-      {showSearch ? <EditorSearchField
+      <EditorSearchField
         value={effectiveQuery}
         onChange={(event) => setQuery(event.target.value)}
         placeholder="搜索文字…"
         aria-label="搜索文字角色"
-      /> : null}
-      {TYPOGRAPHY_GROUPS.filter((definition) => !visibleGroups || visibleGroups.includes(definition.key)).map((definition) => {
-        const roles: [string, TypographyRoleTokens][] = (Object.entries(value[definition.key]) as [string, TypographyRoleTokens][]).filter(([key]) => !visibleRoles || visibleRoles.includes(key));
-        const filteredRoles: [string, TypographyRoleTokens][] = normalizedQuery ? roles.filter(([key]) => `${ROLE_LABELS[key] || key} ${definition.title} typography.${definition.key}.${key}`.toLocaleLowerCase().includes(normalizedQuery)) : roles;
-        if (!filteredRoles.length) return null;
-        const open = normalizedQuery ? true : openGroups.has(definition.key);
-        return (
-          <ThemeSettingsCollapsible
-            key={definition.key}
-            open={open}
-            onOpenChange={() => {
-              if (!normalizedQuery) setOpenGroups((current) => toggleSetValue(current, definition.key));
-            }}
-            title={groupTitle ?? definition.title}
-            resetLabel={`重置${groupTitle ?? definition.title}`}
-            resetDisabled={resetDisabled}
-            onReset={() => visibleRoles?.length && onResetVisibleRoles ? onResetVisibleRoles(definition.key, visibleRoles) : onResetGroup(definition.key)}
-            typographyGroup={definition.key}
-          >
-              <div className="editor-ui-panel-body grid gap-3">
-                {filteredRoles.map(([roleKey, role]) => (
-                  <TypographyRoleEditor
-                    key={roleKey}
-                    roleKey={roleKey}
-                    label={ROLE_LABELS[roleKey] || roleKey}
-                    value={role}
-                    fonts={systemFonts}
-                    loading={loading}
-                    error={error}
-                    monospacePreferred={isMonospaceRole(definition.key, roleKey)}
-                    resetDisabled={resetDisabled}
-                    onChange={(next) => onChangeRole(definition.key, roleKey, next)}
-                    onReset={() => onResetRole(definition.key, roleKey)}
-                  />
-                ))}
-              </div>
-          </ThemeSettingsCollapsible>
-        );
-      })}
+      />
+      <SettingsAccordion
+        value={normalizedQuery ? definitions.map(({ definition }) => `typography-${definition.key}`) : [...openGroups].map((key) => `typography-${key}`)}
+        onValueChange={(values) => {
+          if (!normalizedQuery) setOpenGroups(new Set(values.map((entry) => entry.replace(/^typography-/, "") as TypographyGroupKey)));
+        }}
+      >
+        {items}
+      </SettingsAccordion>
     </div>
   );
 }
@@ -284,10 +293,5 @@ function isMonospaceRole(group: TypographyGroupKey, role: string) {
   return group === "source" || group === "terminal" && role !== "heading" || group === "interface" && role === "technical" || group === "markdownCard" && role === "path";
 }
 
-function toggleSetValue<T>(current: Set<T>, value: T) {
-  const next = new Set(current);
-  if (next.has(value)) next.delete(value); else next.add(value);
-  return next;
-}
 
 export { TYPOGRAPHY_GROUPS };

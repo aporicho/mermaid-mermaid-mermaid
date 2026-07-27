@@ -81,13 +81,14 @@ export function useKonvaDragMembership({
   onEditorCommand
 }: UseKonvaDragMembershipArgs) {
   const [alignmentGuides, setAlignmentGuides] = useState<AlignmentGuide[]>([]);
-  const dragAlignmentRef = useRef<{ movingRects: Record<string, AlignmentRect>; staticIndex: AlignmentSnapIndex } | null>(null);
+  const dragAlignmentRef = useRef<{ movingBounds: AlignmentRect | null; staticIndex: AlignmentSnapIndex } | null>(null);
   const {
     dragRef,
     subgraphDragFrameRef,
     dragFinalPositionsRef,
     dragPreviewPositions,
-    setDragPreviewPositionsVisual,
+    beginDragRuntimeState,
+    markDragPositionsCommitted,
     scheduleDragPreviewPositionsVisual,
     clearDragRuntimeState
   } = dragRuntime;
@@ -114,12 +115,11 @@ export function useKonvaDragMembership({
       const rect = geometryById.get(item.id)?.alignmentRect;
       return rect ? [rect] : [];
     });
-    dragAlignmentRef.current = { movingRects, staticIndex: createAlignmentSnapIndex(staticRects) };
+    dragAlignmentRef.current = { movingBounds: selectionBounds(Object.values(movingRects)), staticIndex: createAlignmentSnapIndex(staticRects) };
     stopActiveMotionTweens();
     for (const id of Object.keys(dragRef.current)) clearNodeMotionVisual(id);
     clearNodeProximityScales(true, { preservePointer: true });
-    setDragPreviewPositionsVisual(null);
-    dragFinalPositionsRef.current = null;
+    beginDragRuntimeState();
     onEditorCommand({ type: "history.capture", source: "pointer" });
   }
 
@@ -142,14 +142,13 @@ export function useKonvaDragMembership({
     stopActiveMotionTweens();
     for (const id of Object.keys(dragRef.current)) clearNodeMotionVisual(id);
     clearNodeProximityScales(true, { preservePointer: true });
-    setDragPreviewPositionsVisual(null);
+    beginDragRuntimeState();
     subgraphDragFrameRef.current = Object.fromEntries(
       ids.map((id) => {
         const item = subgraphGeometryById.get(id);
         return [id, item ? { x: item.frame.x, y: item.frame.y } : { x: geometry.frame.x, y: geometry.frame.y }];
       })
     );
-    dragFinalPositionsRef.current = null;
     onEditorCommand({ type: "history.capture", source: "pointer" });
   }
 
@@ -160,10 +159,9 @@ export function useKonvaDragMembership({
     const deltaX = target.x() - origin.x;
     const deltaY = target.y() - origin.y;
     const alignment = dragAlignmentRef.current;
-    const movingRects = alignment
-      ? Object.values(alignment.movingRects).map((rect) => ({ ...rect, x: rect.x + deltaX, y: rect.y + deltaY }))
-      : [];
-    const movingBounds = selectionBounds(movingRects);
+    const movingBounds = alignment?.movingBounds
+      ? { ...alignment.movingBounds, x: alignment.movingBounds.x + deltaX, y: alignment.movingBounds.y + deltaY }
+      : null;
     const snap = movingBounds && alignment
       ? computeAlignmentSnapWithIndex(movingBounds, alignment.staticIndex, currentViewport().scale)
       : { dx: 0, dy: 0, guides: [] };
@@ -174,7 +172,7 @@ export function useKonvaDragMembership({
     ) as CanvasNodePreviewPositions;
     const draggedPosition = positions[node.id];
     if (draggedPosition) target.position(draggedPosition);
-    setAlignmentGuides(snap.guides);
+    setAlignmentGuides((current) => sameAlignmentGuides(current, snap.guides) ? current : snap.guides);
     scheduleDragPreviewPositionsVisual(positions);
   }
 
@@ -233,7 +231,10 @@ export function useKonvaDragMembership({
 
   function finishKonvaDrag() {
     const positions = dragFinalPositionsRef.current;
-    if (positions) finishDragWithMembership(positions);
+    if (positions) {
+      markDragPositionsCommitted(positions);
+      finishDragWithMembership(positions);
+    }
     clearDragRuntimeState();
     dragAlignmentRef.current = null;
     setAlignmentGuides([]);
@@ -250,4 +251,16 @@ export function useKonvaDragMembership({
     moveSelectedSubgraphs,
     finishKonvaDrag
   };
+}
+
+function sameAlignmentGuides(left: AlignmentGuide[], right: AlignmentGuide[]) {
+  return left.length === right.length && left.every((guide, index) => {
+    const candidate = right[index];
+    return candidate
+      && guide.axis === candidate.axis
+      && guide.value === candidate.value
+      && guide.from === candidate.from
+      && guide.to === candidate.to
+      && guide.kind === candidate.kind;
+  });
 }

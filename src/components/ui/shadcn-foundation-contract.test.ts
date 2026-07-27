@@ -16,6 +16,7 @@ const UI_COMPONENTS = [
   "skeleton",
   "slider",
   "sonner",
+  "tabs",
   "toggle-group",
   "toggle"
 ] as const;
@@ -68,6 +69,34 @@ describe("shadcn foundation contract", () => {
     expect(readProjectFile("src/components/ui/select.tsx")).toContain("useOverlayPortalContainer");
     expect(readProjectFile("src/components/ui/sheet.tsx")).toContain("useOverlayPortalContainer");
     expect(readProjectFile("src/components/ui/sidebar.tsx")).toContain("SidebarProvider");
+  });
+
+  it("keeps every tabs trigger at the standard themed control size", () => {
+    const tabs = readProjectFile("src/components/ui/tabs.tsx");
+
+    expect(tabs).toContain("min-h-[var(--ui-control-height-md)]");
+    expect(tabs).toContain("px-[var(--ui-control-padding-x)]");
+    expect(tabs).toContain("py-[var(--ui-control-padding-y)]");
+    expect(tabs).toContain("min-h-[calc(var(--ui-control-height-md)+6px)]");
+    expect(tabs).not.toContain("py-0.5");
+    expect(tabs).not.toContain("calc(var(--ui-control-padding-x)*.6)");
+  });
+
+  it("lets nested accordion content grow after opening", () => {
+    const accordion = readProjectFile("src/components/ui/accordion.tsx");
+
+    expect(accordion).toContain("data-open:animate-accordion-down");
+    expect(accordion).not.toContain("h-(--radix-accordion-content-height)");
+  });
+
+  it("hides native number input spinners globally", () => {
+    const styles = readProjectFile("src/styles/globals.css");
+
+    expect(styles).toContain('input[type="number"]');
+    expect(styles).toContain('input[type="number"]::-webkit-inner-spin-button');
+    expect(styles).toContain('input[type="number"]::-webkit-outer-spin-button');
+    expect(styles).toContain("-moz-appearance: textfield");
+    expect(styles).toContain("-webkit-appearance: none");
   });
 
   it("routes finite business choices through the shadcn toggle group", () => {

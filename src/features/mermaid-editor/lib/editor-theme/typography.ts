@@ -26,16 +26,16 @@ const mono = (fontSize: number, fontWeight = 400, lineHeight = Math.round(fontSi
 export function createDefaultEditorTypography(): EditorTypographyTokens {
   return {
     interface: {
-      body: sans(14, 400, 20),
-      heading: sans(14, 500, 20),
-      control: sans(13, 500, 18),
-      navigation: sans(12, 500, 18),
-      menu: sans(12, 400, 18),
-      tree: sans(12, 400, 18),
-      tooltip: sans(12, 400, 18),
-      metadata: sans(12, 400, 18),
-      status: sans(12, 400, 18),
-      technical: mono(12, 400, 18)
+      body: sans(15, 400, 22),
+      heading: sans(15, 500, 22),
+      control: sans(14, 500, 20),
+      navigation: sans(14, 500, 20),
+      menu: sans(14, 400, 20),
+      tree: sans(14, 400, 20),
+      tooltip: sans(13, 400, 19),
+      metadata: sans(13, 400, 19),
+      status: sans(13, 400, 19),
+      technical: mono(13, 400, 19)
     },
     canvas: {
       node: sans(14, 700, 18),

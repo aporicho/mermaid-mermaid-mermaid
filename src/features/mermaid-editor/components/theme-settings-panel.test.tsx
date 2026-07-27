@@ -40,10 +40,13 @@ describe("ThemeSettingsPanel", () => {
     vi.unstubAllGlobals();
   });
 
-  it("renders as workspace content with a category tree and no embedded preview", () => {
+  it("renders as workspace content with scrollable category tabs and no embedded preview", () => {
     renderPanel();
 
     expect(container?.querySelector("[data-theme-settings-panel]")).not.toBeNull();
+    expect(container?.querySelectorAll('[role="tab"]')).toHaveLength(11);
+    expect(container?.querySelector('[data-settings-tabs-navigation][data-slot="scroll-area"]')).not.toBeNull();
+    expect(container?.querySelector('[data-settings-tabs-scroll-area][data-slot="scroll-area"]')).not.toBeNull();
     expect(container?.querySelector(".fixed")).toBeNull();
     expect(container?.textContent).toContain("主题库");
     expect(container?.textContent).toContain("诊断");
@@ -252,24 +255,35 @@ describe("ThemeSettingsPanel", () => {
     expect(container?.querySelector('[data-theme-token-path="markdown.codeBlock.fontFamily"]')).not.toBeNull();
   });
 
-  it("uses one collapsed interaction for every logical settings group", () => {
+  it("uses collapsed multi-open cards for every logical settings group", () => {
     renderPanel();
 
     clickButton("界面");
-    expect(expandedStates('[data-theme-settings-group] > header > button[aria-expanded]')).not.toContain("true");
+    const interfaceGroups = container?.querySelectorAll('[data-theme-settings-group]') ?? [];
+    expect(interfaceGroups.length).toBeGreaterThan(1);
+    expect(expandedStates('[data-theme-settings-group] button[aria-expanded]')).not.toContain("true");
+    clickButton("基础色彩");
+    clickButton("边框与焦点");
+    expect(container?.querySelector('[data-theme-settings-group="interface-colors"] button[aria-expanded="true"]')).not.toBeNull();
+    expect(container?.querySelector('[data-theme-settings-group="interface-surface"] button[aria-expanded="true"]')).not.toBeNull();
 
     clickButton("画布");
-    expect(expandedStates('[data-theme-settings-group] > header > button[aria-expanded]')).not.toContain("true");
+    expect(expandedStates('[data-theme-settings-group] button[aria-expanded]')).not.toContain("true");
 
     clickButton("Markdown");
-    expect(expandedStates('[data-markdown-category] > section > header > button[aria-expanded]')).not.toContain("true");
+    expect(expandedStates('[data-markdown-category] button[aria-expanded]')).not.toContain("true");
+    clickButton("基础");
+    expect(container?.querySelector('[data-markdown-category="base"] [data-settings-accordion-card] [data-settings-accordion-card]')).not.toBeNull();
 
     clickButton("Markdown 节点");
-    expect(expandedStates('[data-theme-settings-group] > header > button[aria-expanded]')).not.toContain("true");
+    expect(expandedStates('[data-theme-settings-group] button[aria-expanded]')).not.toContain("true");
 
     clickButton("特殊节点");
-    expect(expandedStates('[data-typography-group] > header > button[aria-expanded]')).not.toContain("true");
-    expect([...(container?.querySelectorAll('[data-theme-settings-accordion]') ?? [])].every((accordion) => accordion.getAttribute("data-accordion-type") === "multiple")).toBe(true);
+    expect(expandedStates('[data-typography-group] button[aria-expanded]')).not.toContain("true");
+    const accordions = [...(container?.querySelectorAll('[data-settings-accordion]') ?? [])];
+    expect(accordions.length).toBeGreaterThan(0);
+    expect(accordions.every((accordion) => accordion.getAttribute("data-accordion-type") === "multiple")).toBe(true);
+    expect(container?.querySelector('[data-settings-accordion-card][data-size="sm"]')).not.toBeNull();
   });
 
   it("uses shadcn sliders alongside numeric inputs instead of native range controls", () => {
@@ -327,9 +341,14 @@ describe("ThemeSettingsPanel", () => {
   }
 
   function clickButton(label: string) {
-    const button = [...(container?.querySelectorAll("button") ?? [])].find((entry) => entry.textContent === label);
+    const buttons = [...(container?.querySelectorAll("button") ?? [])];
+    const button = buttons.find((entry) => entry.textContent === label)
+      ?? buttons.find((entry) => entry.getAttribute("aria-expanded") !== null && entry.getAttribute("aria-label")?.includes(label));
     expect(button).toBeDefined();
-    act(() => button?.click());
+    act(() => {
+      button?.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, button: 0 }));
+      button?.click();
+    });
   }
 
   function changeInput(input: HTMLInputElement | null | undefined, value: string) {

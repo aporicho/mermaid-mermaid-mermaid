@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { DEFAULT_EDITOR_MOTION } from "@/features/mermaid-editor/lib/editor-theme";
 import { resolveRuntimeEditorMotion } from "@/features/mermaid-editor/lib/editor-motion";
 import {
+  canvasNodePreviewPositionsMatchGraph,
   centerScaleTransform,
   mergeCanvasNodePreviewPositions,
   proximityScaleAtDistance,
@@ -105,6 +106,51 @@ describe("canvas motion", () => {
 
     expect(changes.movedNodeIds).toEqual(["A"]);
     expect(changes.animateLayout).toBe(false);
+  });
+
+  it("does not animate a committed drag after the interaction returns to idle", () => {
+    const previous = graph([{ id: "A", label: "A", x: 0, y: 0, fill: "#ffffff" }]);
+    const current = graph([{ id: "A", label: "A", x: 80, y: 24, fill: "#ffffff" }]);
+    const committed = { A: { x: 80, y: 24 } };
+
+    const changes = resolveCanvasMotionChanges({
+      previousNodes: snapshotCanvasNodes(previous),
+      graph: current,
+      previousSelection: emptySelection,
+      selection: emptySelection,
+      motion: resolveRuntimeEditorMotion(DEFAULT_EDITOR_MOTION),
+      interactionKind: "idle",
+      suppressedLayoutPositions: committed
+    });
+
+    expect(changes.movedNodeIds).toEqual([]);
+    expect(changes.animateLayout).toBe(false);
+    expect(canvasNodePreviewPositionsMatchGraph(current, committed)).toBe(true);
+    expect(canvasNodePreviewPositionsMatchGraph(previous, committed)).toBe(false);
+  });
+
+  it("still animates unrelated layout changes beside a committed drag", () => {
+    const previous = graph([
+      { id: "A", label: "A", x: 0, y: 0, fill: "#ffffff" },
+      { id: "B", label: "B", x: 100, y: 0, fill: "#ffffff" }
+    ]);
+    const current = graph([
+      { id: "A", label: "A", x: 80, y: 24, fill: "#ffffff" },
+      { id: "B", label: "B", x: 140, y: 0, fill: "#ffffff" }
+    ]);
+
+    const changes = resolveCanvasMotionChanges({
+      previousNodes: snapshotCanvasNodes(previous),
+      graph: current,
+      previousSelection: emptySelection,
+      selection: emptySelection,
+      motion: resolveRuntimeEditorMotion(DEFAULT_EDITOR_MOTION),
+      interactionKind: "idle",
+      suppressedLayoutPositions: { A: { x: 80, y: 24 } }
+    });
+
+    expect(changes.movedNodeIds).toEqual(["B"]);
+    expect(changes.animateLayout).toBe(true);
   });
 
   it("skips layout animation when the change exceeds the motion budget", () => {

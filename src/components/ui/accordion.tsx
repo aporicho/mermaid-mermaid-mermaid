@@ -32,7 +32,7 @@ const AccordionTrigger = React.forwardRef<
       ref={ref}
       data-slot="accordion-trigger"
       className={cn(
-        "group/accordion-trigger type-interface-control relative flex min-h-[var(--ui-control-height-md)] flex-1 items-start justify-between gap-[var(--ui-control-gap)] rounded-lg border border-transparent py-[var(--ui-control-padding-y)] text-left transition-all outline-none hover:underline focus-visible:border-ring focus-visible:ring-[length:var(--ui-focus-ring-width)] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-[var(--ui-disabled-opacity)] **:data-[slot=accordion-trigger-icon]:ml-auto **:data-[slot=accordion-trigger-icon]:size-[var(--ui-icon-size-button)] **:data-[slot=accordion-trigger-icon]:text-muted-foreground",
+        "group/accordion-trigger type-interface-control relative flex min-h-[var(--ui-control-height-md)] flex-1 items-start justify-between gap-[var(--ui-control-gap)] rounded-lg border border-transparent py-[var(--ui-control-padding-y)] text-left transition-all outline-none focus-visible:border-ring focus-visible:ring-[length:var(--ui-focus-ring-width)] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-[var(--ui-disabled-opacity)] **:data-[slot=accordion-trigger-icon]:ml-auto **:data-[slot=accordion-trigger-icon]:size-[var(--ui-icon-size-button)] **:data-[slot=accordion-trigger-icon]:text-muted-foreground",
         className
       )}
       {...props}
@@ -55,7 +55,7 @@ const AccordionContent = React.forwardRef<
     className="overflow-hidden data-open:animate-accordion-down data-closed:animate-accordion-up motion-reduce:animate-none"
     {...props}
   >
-    <div className={cn("h-(--radix-accordion-content-height) pb-2.5 pt-0 [&_a]:underline [&_a]:underline-offset-3 [&_a]:hover:text-foreground [&_p:not(:last-child)]:mb-4", className)}>{children}</div>
+    <div className={cn("pb-2.5 pt-0 [&_a]:underline [&_a]:underline-offset-3 [&_a]:hover:text-foreground [&_p:not(:last-child)]:mb-4", className)}>{children}</div>
   </AccordionPrimitive.Content>
 ));
 AccordionContent.displayName = AccordionPrimitive.Content.displayName;

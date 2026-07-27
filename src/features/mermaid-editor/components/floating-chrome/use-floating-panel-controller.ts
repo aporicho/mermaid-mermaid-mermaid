@@ -9,11 +9,9 @@ import {
   resizeFloatingPanelFrame,
   shouldDragFloatingPanel,
   type FloatingPanelDismissMode,
-  type FloatingPanelFrame,
   type FloatingPanelKind,
   type FloatingPanelOffset,
   type FloatingPanelPlacement,
-  type FloatingPanelRect,
   type FloatingPanelResizeHandle,
   type FloatingPanelSize,
   type FloatingPanelWindowState
@@ -26,23 +24,13 @@ import {
 import { isDragExcluded } from "./floating-panel-frame";
 import { useFloatingPanelFrameState } from "./use-floating-panel-frame-state";
 import { useFloatingPanelMotion } from "./use-floating-panel-motion";
-
-type FloatingPanelDragState = {
-  pointerId: number;
-  startClientX: number;
-  startClientY: number;
-  startOffset: FloatingPanelOffset;
-  startRect: FloatingPanelRect;
-  startFrame?: FloatingPanelFrame;
-};
-
-type FloatingPanelResizeState = {
-  pointerId: number;
-  startClientX: number;
-  startClientY: number;
-  startFrame: FloatingPanelFrame;
-  handle: FloatingPanelResizeHandle;
-};
+import {
+  releaseFloatingPanelPointerCapture,
+  useFloatingPanelVisualDraft,
+  writeFloatingPanelFrame,
+  type FloatingPanelDragState,
+  type FloatingPanelResizeState
+} from "./use-floating-panel-visual-draft";
 
 export type FloatingPanelControllerInput = {
   open: boolean;
@@ -105,6 +93,7 @@ export function useFloatingPanelController({
   const previousInitialFrameSizeKeyRef = useRef(initialFrameSizeKey);
   const dragStateRef = useRef<FloatingPanelDragState | null>(null);
   const resizeStateRef = useRef<FloatingPanelResizeState | null>(null);
+  const visualDraft = useFloatingPanelVisualDraft(rootRef);
   const hiddenOffset = floatingPanelHiddenOffset(placement);
   const resolvedDismissMode = dismissMode ?? defaultFloatingPanelDismissMode(kind);
   const draggablePanel = shouldDragFloatingPanel(kind, draggable);
@@ -186,6 +175,7 @@ export function useFloatingPanelController({
     const surface = surfaceRef.current;
     if (!surface) return;
     const rect = surface.getBoundingClientRect();
+    visualDraft.clear();
     dragStateRef.current = {
       pointerId: event.pointerId,
       startClientX: event.clientX,
@@ -217,8 +207,10 @@ export function useFloatingPanelController({
       y: dragState.startOffset.y + event.clientY - dragState.startClientY
     };
     if (framePanel && dragState.startFrame) {
-      setPanelFrame(
-        constrainFloatingPanelFrame({
+      visualDraft.schedule({
+        kind: "frame-drag",
+        origin: dragState.startFrame,
+        frame: constrainFloatingPanelFrame({
           frame: {
             ...dragState.startFrame,
             x: dragState.startFrame.x + event.clientX - dragState.startClientX,
@@ -227,12 +219,13 @@ export function useFloatingPanelController({
           viewport,
           minSize: resolvedMinSize
         })
-      );
+      });
       event.preventDefault();
       return;
     }
-    setDragOffset(
-      constrainFloatingPanelOffset({
+    visualDraft.schedule({
+      kind: "offset",
+      offset: constrainFloatingPanelOffset({
         desired,
         startOffset: dragState.startOffset,
         startRect: dragState.startRect,
@@ -241,21 +234,31 @@ export function useFloatingPanelController({
           height: window.innerHeight
         }
       })
-    );
+    });
     event.preventDefault();
   }
 
   function endDrag(event: ReactPointerEvent<HTMLDivElement>) {
     const dragState = dragStateRef.current;
     if (!dragState || dragState.pointerId !== event.pointerId) return;
+    const draft = visualDraft.flush();
+    if (draft?.kind === "frame-drag") {
+      const root = rootRef.current;
+      if (root) writeFloatingPanelFrame(root, draft.frame);
+      setPanelFrame(draft.frame);
+    } else if (draft?.kind === "offset") {
+      setDragOffset(draft.offset);
+    }
+    visualDraft.clear();
     dragStateRef.current = null;
     setDragging(false);
-    releasePointerCapture(event);
+    releaseFloatingPanelPointerCapture(event.currentTarget, event.pointerId);
   }
 
   function startResize(event: ReactPointerEvent<HTMLDivElement>, handle: FloatingPanelResizeHandle) {
     focusPanel();
     if (!framePanel || !resizablePanel || !open || event.button !== 0 || fullscreen) return;
+    visualDraft.clear();
     resizeStateRef.current = {
       pointerId: event.pointerId,
       startClientX: event.clientX,
@@ -277,8 +280,9 @@ export function useFloatingPanelController({
   function moveResize(event: ReactPointerEvent<HTMLDivElement>) {
     const resizeState = resizeStateRef.current;
     if (!resizeState || resizeState.pointerId !== event.pointerId) return;
-    setPanelFrame(
-      resizeFloatingPanelFrame({
+    visualDraft.schedule({
+      kind: "frame-resize",
+      frame: resizeFloatingPanelFrame({
         startFrame: resizeState.startFrame,
         handle: resizeState.handle,
         delta: {
@@ -288,16 +292,23 @@ export function useFloatingPanelController({
         viewport,
         minSize: resolvedMinSize
       })
-    );
+    });
     event.preventDefault();
   }
 
   function endResize(event: ReactPointerEvent<HTMLDivElement>) {
     const resizeState = resizeStateRef.current;
     if (!resizeState || resizeState.pointerId !== event.pointerId) return;
+    const draft = visualDraft.flush();
+    if (draft?.kind === "frame-resize") {
+      const root = rootRef.current;
+      if (root) writeFloatingPanelFrame(root, draft.frame);
+      setPanelFrame(draft.frame);
+    }
+    visualDraft.clear();
     resizeStateRef.current = null;
     setResizing(false);
-    releasePointerCapture(event);
+    releaseFloatingPanelPointerCapture(event.currentTarget, event.pointerId);
   }
 
   const rootStyle: CSSProperties = framePanel
@@ -331,13 +342,4 @@ export function useFloatingPanelController({
     focusPanel,
     startResize
   };
-}
-
-function releasePointerCapture(event: ReactPointerEvent<HTMLDivElement>) {
-  if (typeof event.currentTarget.hasPointerCapture !== "function" || !event.currentTarget.hasPointerCapture(event.pointerId)) return;
-  try {
-    event.currentTarget.releasePointerCapture(event.pointerId);
-  } catch {
-    // The browser may release capture before React receives the final event.
-  }
 }

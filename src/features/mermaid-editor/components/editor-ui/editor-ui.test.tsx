@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import { TabsTrigger } from "@/components/ui/tabs";
 import {
   EditorConfirmDialog,
   EditorDialog,
@@ -14,7 +15,13 @@ import {
   EditorIconButton,
   EditorMenuToggleItem,
   EditorPointMenu,
-  EditorToolbar
+  EditorToolbar,
+  SettingsAccordion,
+  SettingsAccordionCard,
+  SettingsTabs,
+  SettingsTabsBody,
+  SettingsTabsContent,
+  SettingsTabsList
 } from "@/features/mermaid-editor/components/editor-ui";
 
 describe("editor UI semantic components", () => {
@@ -181,5 +188,88 @@ describe("editor UI semantic components", () => {
     const menu = document.body.querySelector('[role="menu"]');
     expect(menu?.getAttribute("aria-label")).toBe("资源操作");
     expect(menu?.querySelector('[role="menuitem"]')?.textContent).toBe("重命名");
+  });
+
+  it("composes settings from scrollable tabs and nested multi-open cards", () => {
+    act(() => {
+      root.render(
+        <SettingsTabs defaultValue="appearance">
+          <SettingsTabsList aria-label="设置分类">
+            <TabsTrigger value="appearance">外观</TabsTrigger>
+          </SettingsTabsList>
+          <SettingsTabsBody>
+            <SettingsTabsContent value="appearance">
+              <SettingsAccordion defaultValue={[]}>
+                <SettingsAccordionCard value="colors" title="颜色">颜色设置</SettingsAccordionCard>
+                <SettingsAccordionCard value="layout" title="布局">
+                  <SettingsAccordion defaultValue={[]}>
+                    <SettingsAccordionCard value="spacing" title="间距">间距设置</SettingsAccordionCard>
+                  </SettingsAccordion>
+                </SettingsAccordionCard>
+              </SettingsAccordion>
+            </SettingsTabsContent>
+          </SettingsTabsBody>
+        </SettingsTabs>
+      );
+    });
+
+    expect(container.querySelectorAll('[data-slot="scroll-area"]')).toHaveLength(2);
+    expect(container.querySelectorAll('[data-settings-accordion-card]')).toHaveLength(2);
+    const colors = container.querySelector<HTMLButtonElement>('button[aria-label="折叠或展开颜色"]');
+    const layout = container.querySelector<HTMLButtonElement>('button[aria-label="折叠或展开布局"]');
+    expect(colors?.getAttribute("aria-expanded")).toBe("false");
+    expect(layout?.getAttribute("aria-expanded")).toBe("false");
+
+    act(() => {
+      colors?.click();
+      layout?.click();
+    });
+    expect(colors?.getAttribute("aria-expanded")).toBe("true");
+    expect(layout?.getAttribute("aria-expanded")).toBe("true");
+    expect(container.querySelectorAll('[data-settings-accordion-card]')).toHaveLength(3);
+  });
+
+  it("groups collapse and reset controls without making the card title interactive", () => {
+    const onReset = vi.fn();
+    act(() => {
+      root.render(
+        <TooltipProvider delayDuration={0}>
+          <SettingsAccordion defaultValue={[]}>
+            <SettingsAccordionCard
+              value="appearance"
+              title="外观"
+              controlAction={(
+                <EditorIconButton context="inline" variant="outline" label="重置外观" onClick={onReset}>
+                  <span>重置</span>
+                </EditorIconButton>
+              )}
+            >
+              外观设置
+            </SettingsAccordionCard>
+          </SettingsAccordion>
+        </TooltipProvider>
+      );
+    });
+
+    const title = container.querySelector('[data-slot="card-title"]');
+    const group = container.querySelector('[data-slot="button-group"]');
+    const collapse = group?.querySelector<HTMLButtonElement>('button[aria-expanded]');
+    const reset = group?.querySelector<HTMLButtonElement>('button[aria-label="重置外观"]');
+    expect(title?.textContent).toBe("外观");
+    expect(title?.closest("button")).toBeNull();
+    expect(container.querySelector('[data-slot="card-action"]')?.className).toContain("row-span-1");
+    expect(group?.querySelectorAll("button")).toHaveLength(2);
+    expect(collapse?.getAttribute("aria-expanded")).toBe("false");
+
+    act(() => reset?.click());
+    expect(onReset).toHaveBeenCalledOnce();
+    expect(collapse?.getAttribute("aria-expanded")).toBe("false");
+
+    const header = container.querySelector<HTMLElement>("[data-settings-accordion-header]");
+    act(() => header?.click());
+    expect(collapse?.getAttribute("aria-expanded")).toBe("true");
+
+    act(() => collapse?.click());
+    expect(collapse?.getAttribute("aria-expanded")).toBe("false");
   });
 });

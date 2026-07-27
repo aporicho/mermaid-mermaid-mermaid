@@ -202,6 +202,27 @@ flowchart LR
     expect(state.lastSavedDocument).not.toContain('"theme"');
   });
 
+  it("applies merged manual-layout coordinates without reflowing them", () => {
+    const { lifecycle, state } = createLifecycleHarness();
+    const file = { name: "diagram.mmd", path: "/project/diagram.mmd" };
+
+    lifecycle.applyLoadedDocument(
+      `%% canvas-layout: {"version":1,"edgeRouting":"bezier","layoutMode":"manual","viewport":{"x":220,"y":90,"scale":1},"nodes":{"A":{"x":30,"y":24,"fill":"#fff"},"B":{"x":140,"y":20,"fill":"#eee"}}}
+flowchart LR
+  A[Alpha] --> B[Beta]`,
+      file.name,
+      file,
+      "watch"
+    );
+
+    expect(state.viewport).toEqual({ x: 220, y: 90, scale: 1 });
+    expect(state.layoutMode).toBe("manual");
+    expect(state.graph.nodes).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: "A", x: 30, y: 24 }),
+      expect.objectContaining({ id: "B", x: 140, y: 20 })
+    ]));
+  });
+
   it("restores automatic layout with the stored theme geometry", () => {
     const { lifecycle, state } = createLifecycleHarness();
     const customTheme: EditorTheme = structuredClone(DEFAULT_EDITOR_THEME);

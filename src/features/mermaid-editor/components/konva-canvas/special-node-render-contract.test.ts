@@ -32,6 +32,7 @@ describe("special node render token contract", () => {
 
   it("consumes every link-card subtype token", () => {
     const link = source("src/features/mermaid-editor/components/konva-canvas/node-link-card.tsx");
+    const nodeLayer = source("src/features/mermaid-editor/components/konva-canvas/node-layer.tsx");
     const geometry = source("src/features/mermaid-editor/lib/node-preview.ts");
     for (const token of [
       "linkCard.state", "linkCard.inset", "linkCard.coverBackground", "linkCard.coverBorder", "linkCard.coverRadius",
@@ -40,6 +41,10 @@ describe("special node render token contract", () => {
     for (const token of ["tokens.width", "tokens.coverFallbackHeight", "tokens.coverMinHeight", "tokens.coverMaxHeight", "tokens.providerGap", "tokens.titleGap"]) {
       expect(geometry, token).toContain(token);
     }
+    expect(link).toContain("memo(function CanvasNodeLinkCard");
+    expect(link).toContain("useLinkCardCoverRaster");
+    expect(link).toContain("perfectDrawEnabled={false}");
+    expect(nodeLayer).toContain("onOpenNodeAction={onOpenNodeAction}");
   });
 
   it("consumes every Markdown subtype appearance token", () => {

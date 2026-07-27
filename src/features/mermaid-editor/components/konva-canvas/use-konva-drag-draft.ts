@@ -8,6 +8,7 @@ export function useKonvaDragDraft() {
   const dragRef = useRef<DragPositionMap | null>(null);
   const subgraphDragFrameRef = useRef<DragPositionMap | null>(null);
   const dragFinalPositionsRef = useRef<CanvasNodePreviewPositions | null>(null);
+  const committedDragPositionsRef = useRef<CanvasNodePreviewPositions | null>(null);
   const dragPreviewFrameRef = useRef<number | null>(null);
   const pendingDragPreviewPositionsRef = useRef<CanvasNodePreviewPositions | null>(null);
   const [dragPreviewPositions, setDragPreviewPositions] = useState<CanvasNodePreviewPositions | null>(null);
@@ -33,6 +34,16 @@ export function useKonvaDragDraft() {
     });
   }
 
+  function beginDragRuntimeState() {
+    committedDragPositionsRef.current = null;
+    setDragPreviewPositionsVisual(null);
+    dragFinalPositionsRef.current = null;
+  }
+
+  function markDragPositionsCommitted(positions: CanvasNodePreviewPositions) {
+    committedDragPositionsRef.current = positions;
+  }
+
   function clearDragRuntimeState() {
     if (dragPreviewFrameRef.current !== null) window.cancelAnimationFrame(dragPreviewFrameRef.current);
     dragPreviewFrameRef.current = null;
@@ -46,6 +57,7 @@ export function useKonvaDragDraft() {
   useEffect(() => {
     return () => {
       if (dragPreviewFrameRef.current !== null) window.cancelAnimationFrame(dragPreviewFrameRef.current);
+      committedDragPositionsRef.current = null;
     };
   }, []);
 
@@ -53,7 +65,10 @@ export function useKonvaDragDraft() {
     dragRef,
     subgraphDragFrameRef,
     dragFinalPositionsRef,
+    committedDragPositionsRef,
     dragPreviewPositions,
+    beginDragRuntimeState,
+    markDragPositionsCommitted,
     setDragPreviewPositionsVisual,
     scheduleDragPreviewPositionsVisual,
     clearDragRuntimeState

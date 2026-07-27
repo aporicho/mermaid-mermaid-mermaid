@@ -2,13 +2,17 @@ import { useEffect, useMemo, useState } from "react";
 import { ColorWheel, WarningTriangle } from "iconoir-react/regular";
 
 import { Button } from "@/components/ui/button";
+import { TabsTrigger } from "@/components/ui/tabs";
 import {
-  EditorList,
-  EditorListRow,
   EditorNotice,
   EditorPanelFooter,
   EditorSearchField,
-  EditorStatusBadge
+  EditorStatusBadge,
+  SettingsAccordion,
+  SettingsTabs,
+  SettingsTabsBody,
+  SettingsTabsContent,
+  SettingsTabsList
 } from "@/features/mermaid-editor/components/editor-ui";
 import { WorkspaceWindowHeader } from "@/features/mermaid-editor/components/floating-chrome";
 import {
@@ -20,7 +24,6 @@ import {
   type MarkdownElementCategory,
   type TypographyRoleTokens
 } from "@/features/mermaid-editor/lib/editor-theme";
-import { cn } from "@/lib/utils";
 import type { EditorRuntime, RuntimeSystemFont } from "@/features/mermaid-editor/lib/editor-runtime";
 
 import { ThemeSettingsGroup } from "./theme-settings-controls";
@@ -64,6 +67,7 @@ export function ThemeSettingsPanel({
 }) {
   const [activeCategory, setActiveCategory] = useState<ThemeSettingsCategoryId>("library");
   const [query, setQuery] = useState("");
+  const [openGroupsByCategory, setOpenGroupsByCategory] = useState<Partial<Record<ThemeSettingsCategoryId, string[]>>>({});
   const groups = useMemo(() => THEME_TOKEN_GROUPS.filter((group) => group.category === activeCategory), [activeCategory]);
   const diagnostics = useMemo(() => compileEditorTheme(activeTheme).diagnostics, [activeTheme]);
   const [systemFonts, setSystemFonts] = useState<RuntimeSystemFont[]>([]);
@@ -163,6 +167,7 @@ export function ThemeSettingsPanel({
           visibleGroups={[definition.typographyGroup]}
           visibleRoles={definition.typographyRoles}
           groupTitle={definition.title}
+          itemValue={definition.id}
           systemFonts={systemFonts}
           loading={fontsLoading}
           error={fontsError}
@@ -199,54 +204,63 @@ export function ThemeSettingsPanel({
         status={hasDraft ? <EditorStatusBadge tone="accent">未应用</EditorStatusBadge> : null}
       />
 
-      <div className="grid min-h-0 flex-1 grid-cols-[148px_minmax(0,1fr)] max-[520px]:grid-cols-[120px_minmax(0,1fr)]">
-        <nav className="min-h-0 overflow-y-auto border-r bg-muted/20 p-2" aria-label="主题设置分类">
-          <EditorList>
+      <SettingsTabs
+        value={activeCategory}
+        onValueChange={(value) => {
+          setActiveCategory(value as ThemeSettingsCategoryId);
+          setQuery("");
+        }}
+      >
+        <SettingsTabsList aria-label="主题设置分类">
             {THEME_SETTINGS_CATEGORIES.map((entry) => (
-            <EditorListRow
-              key={entry.id}
-              type="button"
-              title={entry.label}
-              selected={entry.id === activeCategory}
-              className={cn("type-interface-navigation", entry.id !== activeCategory && "text-muted-foreground")}
-              onClick={() => { setActiveCategory(entry.id); setQuery(""); }}
-            />
-          ))}
-          </EditorList>
-        </nav>
+              <TabsTrigger key={entry.id} value={entry.id} className="w-full flex-none justify-start">
+                {entry.label}
+              </TabsTrigger>
+            ))}
+        </SettingsTabsList>
 
-        <main className="min-h-0 overflow-y-auto p-4">
-          {activeCategory === "library" ? (
-            <ThemeSettingsLibrary themeId={themeId} customTheme={customTheme} activeTheme={activeTheme} onPreview={onPreview} />
-          ) : (
-            <div className="grid gap-4">
-              {activeCategory === "markdown" ? (
-                <ThemeSettingsMarkdown
-                  value={activeTheme.markdown}
-                  systemFonts={systemFonts}
-                  loading={fontsLoading}
-                  error={fontsError}
-                  resetDisabled={activeTheme.id !== "custom"}
-                  onChange={updateMarkdownField}
-                  onResetPath={resetMarkdownPath}
-                  onResetCategory={resetMarkdownCategory}
-                  onResetAll={() => resetMarkdownPath([])}
-                />
-              ) : null}
-              {activeCategory !== "markdown" ? (
-                <EditorSearchField
-                  value={query}
-                  onChange={(event) => setQuery(event.target.value)}
-                  placeholder="搜索外观…"
-                  aria-label="搜索外观 token"
-                />
-              ) : null}
-              {groups.map(renderTokenGroup)}
-              {activeCategory === "diagnostics" ? <ThemeDiagnostics diagnostics={diagnostics} /> : null}
-            </div>
-          )}
-        </main>
-      </div>
+        <SettingsTabsBody>
+          <SettingsTabsContent key={activeCategory} value={activeCategory}>
+            {activeCategory === "library" ? (
+              <ThemeSettingsLibrary themeId={themeId} customTheme={customTheme} activeTheme={activeTheme} onPreview={onPreview} />
+            ) : (
+              <div className="grid gap-4">
+                {activeCategory === "markdown" ? (
+                  <ThemeSettingsMarkdown
+                    value={activeTheme.markdown}
+                    systemFonts={systemFonts}
+                    loading={fontsLoading}
+                    error={fontsError}
+                    resetDisabled={activeTheme.id !== "custom"}
+                    onChange={updateMarkdownField}
+                    onResetPath={resetMarkdownPath}
+                    onResetCategory={resetMarkdownCategory}
+                    onResetAll={() => resetMarkdownPath([])}
+                  />
+                ) : (
+                  <>
+                    <EditorSearchField
+                      value={query}
+                      onChange={(event) => setQuery(event.target.value)}
+                      placeholder="搜索外观…"
+                      aria-label="搜索外观 token"
+                    />
+                    <SettingsAccordion
+                      value={query.trim() ? groups.map((group) => group.id) : openGroupsByCategory[activeCategory] ?? []}
+                      onValueChange={(values) => {
+                        if (!query.trim()) setOpenGroupsByCategory((current) => ({ ...current, [activeCategory]: values }));
+                      }}
+                    >
+                      {groups.map(renderTokenGroup)}
+                    </SettingsAccordion>
+                    {activeCategory === "diagnostics" ? <ThemeDiagnostics diagnostics={diagnostics} /> : null}
+                  </>
+                )}
+              </div>
+            )}
+          </SettingsTabsContent>
+        </SettingsTabsBody>
+      </SettingsTabs>
 
       <EditorPanelFooter className="justify-end">
         <div className="flex shrink-0 gap-2">
