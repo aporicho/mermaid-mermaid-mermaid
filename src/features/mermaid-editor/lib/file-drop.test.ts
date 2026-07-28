@@ -18,6 +18,13 @@ describe("file drop helpers", () => {
     expect(result).toMatchObject({ kind: "document", documentKind: "markdown", file: { path: "/tmp/notes.md" } });
   });
 
+  it.each([
+    ["/tmp/notes.txt", "text"],
+    ["/tmp/people.csv", "csv"]
+  ] as const)("detects %s as a main document", (path, documentKind) => {
+    expect(classifyFileDrop([{ path }])).toMatchObject({ kind: "document", documentKind, file: { path } });
+  });
+
   it("detects document files from HTML file names when no path is available", () => {
     const result = classifyFileDrop([{ name: "notes.md" }]);
 
@@ -39,7 +46,7 @@ describe("file drop helpers", () => {
   it("keeps every supported image in its original order", () => {
     const result = classifyFileDrop([
       { path: "/tmp/first.png" },
-      { path: "/tmp/notes.txt" },
+      { path: "/tmp/notes.log" },
       { path: "/tmp/second.webp" },
       { path: "/tmp/third.svg" }
     ]);

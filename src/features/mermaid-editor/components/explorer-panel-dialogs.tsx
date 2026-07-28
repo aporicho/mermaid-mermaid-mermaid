@@ -8,7 +8,7 @@ import { EditorDialog, EditorField, EditorList, EditorListRow } from "@/features
 import type { RuntimeProjectFileKind } from "@/features/mermaid-editor/lib/editor-runtime";
 import type { ProjectResourceEntry } from "@/features/mermaid-editor/lib/project-workspace";
 
-type ExplorerProjectFileKind = "markdown" | "mermaid" | "csv" | "html";
+type ExplorerProjectFileKind = "markdown" | "mermaid" | "csv" | "html" | "text";
 
 type ExplorerCreateProjectFileRequest = {
   directoryPath: string;
@@ -25,7 +25,8 @@ const EXPLORER_FILE_KINDS = [
   { kind: "markdown", label: "Markdown", defaultFileName: "document.md", extension: ".md" },
   { kind: "mermaid", label: "Mermaid", defaultFileName: "diagram.mmd", extension: ".mmd" },
   { kind: "csv", label: "CSV", defaultFileName: "table.csv", extension: ".csv" },
-  { kind: "html", label: "HTML", defaultFileName: "index.html", extension: ".html" }
+  { kind: "html", label: "HTML", defaultFileName: "index.html", extension: ".html" },
+  { kind: "text", label: "TXT", defaultFileName: "notes.txt", extension: ".txt" }
 ] as const satisfies readonly { kind: ExplorerProjectFileKind; label: string; defaultFileName: string; extension: string }[];
 
 export function CreateProjectFileDialog({ directoryPath, rootName, projectBusy, onClose, onCreate }: {

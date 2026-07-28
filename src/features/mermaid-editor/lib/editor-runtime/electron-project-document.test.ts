@@ -92,7 +92,7 @@ describe("Electron project document creation", () => {
     await expect(createProjectDocument({ rootPath, fileName: "notes.md", documentKind: "mermaid", text: "" })).rejects.toThrow();
   });
 
-  it("creates a root-level CSV text file once without adding CSV to DocumentKind", async () => {
+  it("creates a root-level CSV text file once", async () => {
     const rootPath = await mkdtemp(path.join(tmpdir(), "mmm-project-document-"));
     roots.push(rootPath);
     const request = { rootPath, fileName: "people.csv", kind: "csv", text: "Name\r\nAlice" };
@@ -103,7 +103,7 @@ describe("Electron project document creation", () => {
     expect(await readFile(path.join(rootPath, "people.csv"), "utf8")).toBe("keep me");
     await expect(createProjectTextFile({ ...request, fileName: "../escape.csv" })).rejects.toThrow();
     await expect(createProjectTextFile({ ...request, fileName: "people.md" })).rejects.toThrow();
-    await expect(createProjectTextFile({ ...request, fileName: "huge.csv", text: "x".repeat(1_048_577) })).rejects.toThrow();
+    await expect(createProjectTextFile({ ...request, fileName: "huge.csv", text: "x".repeat(1_048_577) })).resolves.toMatchObject({ status: "created" });
   });
 
   it("creates every supported project file kind in an existing nested directory", async () => {
@@ -114,6 +114,7 @@ describe("Electron project document creation", () => {
       ["mermaid", "diagram.mmd", "flowchart TD"],
       ["markdown", "notes.markdown", "# Notes\n"],
       ["csv", "table.csv", "A\r\n1"],
+      ["text", "notes.txt", "Plain text"],
       ["html", "index.html", "<!doctype html>"]
     ] as const;
 

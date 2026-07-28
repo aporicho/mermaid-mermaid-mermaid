@@ -1,6 +1,7 @@
 import { Suspense, lazy } from "react";
 
 import { MarkdownPanel } from "@/features/mermaid-editor/components/markdown-panel";
+import { MainPlainDocumentPanel } from "@/features/mermaid-editor/components/main-plain-document-panel";
 import { PreviewPanel } from "@/features/mermaid-editor/components/preview-panel";
 import { SourcePanel } from "@/features/mermaid-editor/components/source-panel";
 import type { CanvasLiveState } from "@/features/mermaid-editor/components/mermaid-editor/editor-shell-utils";
@@ -24,10 +25,10 @@ import type { EditorCommand } from "@/features/mermaid-editor/lib/interaction/co
 import type { ViewFilters } from "@/features/mermaid-editor/lib/view-filters";
 import type { WorkspaceView } from "@/features/mermaid-editor/lib/workspace-view";
 import type { MarkdownDocumentPreview } from "@/features/mermaid-editor/lib/markdown-document";
+import type { TextDocumentPreview } from "@/features/mermaid-editor/lib/text-document";
 import type { MarkdownFoldSnapshot } from "@/features/mermaid-editor/lib/markdown-fold-state";
 import { mermaidGraphImageNavigation } from "@/features/mermaid-editor/lib/canvas-image-window";
 import type { ImageWindowOpenRequest } from "@/features/mermaid-editor/lib/workspace-panels";
-
 const KonvaCanvas = lazy(() => import("@/features/mermaid-editor/components/konva-canvas").then((mod) => ({ default: mod.KonvaCanvas })));
 
 type EditorWorkspaceSurfaceProps = {
@@ -47,6 +48,7 @@ type EditorWorkspaceSurfaceProps = {
   layoutMode: LayoutMode;
   imageDisplaySrcBySrc: Record<string, string>;
   markdownDocumentPreviewByNodeId: Record<string, MarkdownDocumentPreview>;
+  textDocumentPreviewByNodeId: Record<string, TextDocumentPreview>;
   markdownSpellcheckEnabled: boolean;
   markdownContentWidth: number;
   markdownTextScale: number;
@@ -58,6 +60,7 @@ type EditorWorkspaceSurfaceProps = {
   fontRevision: number;
   motion: RuntimeEditorMotion;
   source: string;
+  isDirty: boolean; canUndo: boolean; canRedo: boolean;
   previewSource: string;
   diagnostics: EditorDiagnostic[];
   mermaidThemeVariables: MermaidThemeVariables;
@@ -66,6 +69,7 @@ type EditorWorkspaceSurfaceProps = {
   markdownFoldState: MarkdownFoldSnapshot | null | undefined;
   onMarkdownFoldStateChange?: (snapshot: MarkdownFoldSnapshot) => void;
   onSourceChange: (value: string) => void;
+  onSave: () => void; onUndo: () => void; onRedo: () => void;
   onRunSource: () => void;
   onEditorCommand: (command: EditorCommand) => void;
   onOpenNodeAction: (node: CanvasNode) => void;
@@ -74,6 +78,7 @@ type EditorWorkspaceSurfaceProps = {
   onPointerWorldChange: (point: { x: number; y: number }) => void;
   onLiveStateChange: (state: CanvasLiveState) => void;
   onRequestMarkdownDocumentPreview: (node: CanvasNode) => void;
+  onRequestTextDocumentPreview: (node: CanvasNode) => void;
 };
 
 export function EditorWorkspaceSurface({
@@ -93,6 +98,7 @@ export function EditorWorkspaceSurface({
   layoutMode,
   imageDisplaySrcBySrc,
   markdownDocumentPreviewByNodeId,
+  textDocumentPreviewByNodeId,
   markdownSpellcheckEnabled,
   markdownContentWidth,
   markdownTextScale,
@@ -104,6 +110,9 @@ export function EditorWorkspaceSurface({
   fontRevision,
   motion,
   source,
+  isDirty,
+  canUndo,
+  canRedo,
   previewSource,
   diagnostics,
   mermaidThemeVariables,
@@ -112,6 +121,9 @@ export function EditorWorkspaceSurface({
   markdownFoldState,
   onMarkdownFoldStateChange,
   onSourceChange,
+  onSave,
+  onUndo,
+  onRedo,
   onRunSource,
   onEditorCommand,
   onOpenNodeAction,
@@ -119,8 +131,28 @@ export function EditorWorkspaceSurface({
   onEditNodeAction,
   onPointerWorldChange,
   onLiveStateChange,
-  onRequestMarkdownDocumentPreview
+  onRequestMarkdownDocumentPreview,
+  onRequestTextDocumentPreview
 }: EditorWorkspaceSurfaceProps) {
+  if ((workspaceView === "text" && documentKind === "text") || (workspaceView === "csv" && documentKind === "csv")) {
+    return (
+      <MainPlainDocumentPanel
+        key={`${fileRef?.path || fileName}:${documentKind}`}
+        documentKind={documentKind}
+        title={fileName}
+        path={fileRef?.path}
+        value={source}
+        dirty={isDirty}
+        canUndo={canUndo}
+        canRedo={canRedo}
+        onChange={onSourceChange}
+        onSave={onSave}
+        onUndo={onUndo}
+        onRedo={onRedo}
+      />
+    );
+  }
+
   if (workspaceView === "canvas" && isCanvasEditable) {
     const documentIdentity = fileRef?.path || fileName;
     return (
@@ -137,6 +169,7 @@ export function EditorWorkspaceSurface({
           layoutMode={layoutMode}
           imageDisplaySrcBySrc={imageDisplaySrcBySrc}
           markdownDocumentPreviewByNodeId={markdownDocumentPreviewByNodeId}
+          textDocumentPreviewByNodeId={textDocumentPreviewByNodeId}
           visualTokens={visualTokens}
           geometryTokens={geometryTokens}
           typography={typography}
@@ -156,6 +189,7 @@ export function EditorWorkspaceSurface({
           onPointerWorldChange={onPointerWorldChange}
           onLiveStateChange={onLiveStateChange}
           onRequestMarkdownDocumentPreview={onRequestMarkdownDocumentPreview}
+          onRequestTextDocumentPreview={onRequestTextDocumentPreview}
         />
       </Suspense>
     );

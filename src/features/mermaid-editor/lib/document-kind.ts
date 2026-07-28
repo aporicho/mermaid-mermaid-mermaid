@@ -1,6 +1,6 @@
-export type DocumentKind = "mermaid" | "markdown";
+export type DocumentKind = "mermaid" | "markdown" | "text" | "csv";
 
-export type DocumentWorkspaceView = "canvas" | "render" | "source" | "markdown";
+export type DocumentWorkspaceView = "canvas" | "render" | "source" | "markdown" | "text" | "csv";
 export type DocumentWorkspaceProfile = "default" | "flowchart";
 
 export type DocumentWorkspaceViewProfile = {
@@ -21,6 +21,8 @@ export type DocumentKindDescriptor = {
 
 export const MERMAID_FILE_EXTENSIONS = [".mmd", ".mermaid"] as const;
 export const MARKDOWN_FILE_EXTENSIONS = [".md", ".markdown"] as const;
+export const TEXT_FILE_EXTENSIONS = [".txt"] as const;
+export const CSV_FILE_EXTENSIONS = [".csv"] as const;
 export const DOCUMENT_KIND_DESCRIPTORS = [
   {
     kind: "mermaid",
@@ -49,6 +51,30 @@ export const DOCUMENT_KIND_DESCRIPTORS = [
         views: ["markdown", "source"]
       }
     }
+  },
+  {
+    kind: "text",
+    label: "文本",
+    defaultFileName: "document.txt",
+    extensions: TEXT_FILE_EXTENSIONS,
+    workspace: {
+      default: {
+        defaultView: "text",
+        views: ["text"]
+      }
+    }
+  },
+  {
+    kind: "csv",
+    label: "CSV",
+    defaultFileName: "table.csv",
+    extensions: CSV_FILE_EXTENSIONS,
+    workspace: {
+      default: {
+        defaultView: "csv",
+        views: ["csv", "source"]
+      }
+    }
   }
 ] as const satisfies readonly DocumentKindDescriptor[];
 export const DOCUMENT_KIND_REGISTRY = DOCUMENT_KIND_DESCRIPTORS;
@@ -68,6 +94,14 @@ export function isSupportedMermaidFilePath(path: string | undefined) {
 
 export function isSupportedMarkdownFilePath(path: string | undefined) {
   return documentKindFromPath(path) === "markdown";
+}
+
+export function isSupportedTextFilePath(path: string | undefined) {
+  return documentKindFromPath(path) === "text";
+}
+
+export function isSupportedCsvFilePath(path: string | undefined) {
+  return documentKindFromPath(path) === "csv";
 }
 
 export function isSupportedDocumentFilePath(path: string | undefined) {

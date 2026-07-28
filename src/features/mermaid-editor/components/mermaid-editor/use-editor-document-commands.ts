@@ -265,8 +265,8 @@ export function useEditorDocumentCommands({
   );
 
   function restoreSnapshot(next: EditorSnapshot) {
-    if (next.documentKind === "markdown") {
-      setDocumentKind("markdown");
+    if (next.documentKind !== "mermaid") {
+      setDocumentKind(next.documentKind);
       setSource(next.source);
       setGraph(createEmptyDocumentGraph());
       setDiagramType("unknown");
@@ -276,7 +276,7 @@ export function useEditorDocumentCommands({
       setViewport(next.viewport);
       setEdgeRouting(next.edgeRouting);
       setLayoutMode(next.layoutMode);
-      setWorkspaceView(workspaceViewForDocument("render-only", workspaceView, "markdown"));
+      setWorkspaceView(workspaceViewForDocument("render-only", workspaceView, next.documentKind));
       return;
     }
 
@@ -349,7 +349,7 @@ export function useEditorDocumentCommands({
   }
 
   function applySource(nextSource: string) {
-    if (documentKind === "markdown") {
+    if (documentKind !== "mermaid") {
       applyMarkdownSource(nextSource);
       return;
     }
@@ -391,8 +391,9 @@ export function useEditorDocumentCommands({
     setEditableKind("render-only");
     setSelection(emptySelection);
     setDiagnostics([]);
-    setStatus("Markdown 已更新。");
-    if (startedSourceEdit) recordRecentAction("source.edit", { kind: "source" }, "用户开始编辑 Markdown。");
+    const label = documentKindLabel(documentKind);
+    setStatus(`${label} 已更新。`);
+    if (startedSourceEdit) recordRecentAction("source.edit", { kind: "source" }, `用户开始编辑 ${label}。`);
     if (sourceEditTimerRef.current) window.clearTimeout(sourceEditTimerRef.current);
     sourceEditTimerRef.current = window.setTimeout(() => {
       flushSourceHistory();

@@ -2,7 +2,7 @@ import type { DocumentKind } from "@/features/mermaid-editor/lib/document-kind";
 import type { RuntimeFileRef } from "@/features/mermaid-editor/lib/editor-runtime/types";
 import type { ProjectWorkspace } from "@/features/mermaid-editor/lib/project-workspace";
 
-export type RuntimeProjectFileKind = DocumentKind | "csv" | "html";
+export type RuntimeProjectFileKind = DocumentKind | "csv" | "html" | "text";
 
 export type RuntimeCreateProjectDocumentResult =
   | { status: "created"; file: RuntimeFileRef; text: string }

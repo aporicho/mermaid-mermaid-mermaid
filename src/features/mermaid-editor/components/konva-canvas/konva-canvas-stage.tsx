@@ -52,6 +52,7 @@ export function KonvaCanvasStage(stageProps: KonvaCanvasStageProps) {
   runtimeCreateScale,
   imageDisplaySrcBySrc,
   markdownDocumentPreviewByNodeId,
+  textDocumentPreviewByNodeId,
   hoveredNodeId,
   hoveredSubgraphId,
   hoveredEdgeId,
@@ -94,6 +95,7 @@ export function KonvaCanvasStage(stageProps: KonvaCanvasStageProps) {
   onOpenNodeAction,
   onEditNodeAction,
   onRequestMarkdownDocumentPreview,
+  onRequestTextDocumentPreview,
   onTableCellOperation,
   onInlineEditChange,
   onInlineEditCommit,
@@ -283,6 +285,7 @@ export function KonvaCanvasStage(stageProps: KonvaCanvasStageProps) {
                 nodeProximityScale={nodeProximityScale}
                 imageDisplaySrcBySrc={imageDisplaySrcBySrc}
                 markdownDocumentPreviewByNodeId={markdownDocumentPreviewByNodeId}
+                textDocumentPreviewByNodeId={textDocumentPreviewByNodeId}
                 runtimeCreateScale={runtimeCreateScale}
                 visualTokens={visualTokens}
                 nodeThemeTokens={nodeThemeTokens}
@@ -293,6 +296,7 @@ export function KonvaCanvasStage(stageProps: KonvaCanvasStageProps) {
                 selectedTableCell={selectedTableCell}
                 onOpenNodeAction={onOpenNodeAction}
                 onRequestMarkdownDocumentPreview={onRequestMarkdownDocumentPreview}
+                onRequestTextDocumentPreview={onRequestTextDocumentPreview}
               />
             </CanvasNodeTextureCacheProvider>
 

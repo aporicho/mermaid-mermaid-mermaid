@@ -15,6 +15,6 @@ export type ElectronAgentBridge = {
   runAgentControl: <T = unknown>(command: RuntimeAgentControlCommand) => Promise<T>;
   respondAgentExtensionUi: (response: RuntimeAgentExtensionUiResponse) => Promise<void>;
   respondAgentHost: (response: RuntimeAgentHostResponse) => Promise<void>;
-  stopAgent: () => Promise<void>;
+  stopAgent: (agentInstanceId?: string) => Promise<void>;
   onAgentEvent: (handler: (event: RuntimeAgentEvent) => void) => () => void;
 };

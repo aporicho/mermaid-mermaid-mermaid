@@ -6,6 +6,8 @@ import { beginMarkdownDocumentDrag } from "@/features/mermaid-editor/lib/markdow
 
 function createHandlers(addProjectMarkdownFile = vi.fn()) {
   const addProjectHtmlFile = vi.fn();
+  const addProjectTextFile = vi.fn();
+  const addProjectCsvFile = vi.fn();
   const external = {
     enter: vi.fn(), over: vi.fn(), leave: vi.fn(), drop: vi.fn(), runtime: vi.fn()
   };
@@ -22,13 +24,15 @@ function createHandlers(addProjectMarkdownFile = vi.fn()) {
     workspaceSurfaceRef: { current: workspaceSurface } as unknown as RefObject<HTMLDivElement>,
     addProjectMarkdownFile,
     addProjectHtmlFile,
+    addProjectTextFile,
+    addProjectCsvFile,
     setStatus: vi.fn(),
     setFileDropFeedback,
     usesRuntimeFileDrops: true,
     projectWorkspace: null,
     external
   });
-  return { handlers, addProjectMarkdownFile, addProjectHtmlFile, external, setFileDropFeedback, workspaceSurface };
+  return { handlers, addProjectMarkdownFile, addProjectHtmlFile, addProjectTextFile, addProjectCsvFile, external, setFileDropFeedback, workspaceSurface };
 }
 
 describe("Markdown document drops", () => {

@@ -46,6 +46,13 @@ process.on("message", (message) => {
     return;
   }
   if (message.type === "control") {
+    if (message.command?.type === "interrupt") {
+      void interruptAgent().then(
+        (result) => send({ type: "control_response", id: message.id, ok: true, result }),
+        (error) => send({ type: "control_response", id: message.id, ok: false, error: readableError(error) })
+      );
+      return;
+    }
     if (message.command?.type === "cancel_login") {
       const cancelled = agentModels?.cancelLogin(message.command.providerId) ?? false;
       send({ type: "control_response", id: message.id, ok: true, result: { cancelled } });
@@ -104,7 +111,7 @@ async function initialize(input) {
       sessionStartEvent,
       ...(bootstrap.scratch ? { noTools: "builtin" } : {})
     });
-    ensureCoreToolsActive(result.session);
+    ensureAllToolsActive(result.session);
     return {
       ...result,
       services,
@@ -152,7 +159,8 @@ function normalizeBootstrap(input) {
     projectRoot: input.projectRoot ? resolve(String(input.projectRoot)) : null,
     scratch: Boolean(input.scratch),
     sessionDir: input.sessionDir ? resolve(String(input.sessionDir)) : undefined,
-    migrationSource: input.migrationSource ? resolve(String(input.migrationSource)) : undefined
+    migrationSource: input.migrationSource ? resolve(String(input.migrationSource)) : undefined,
+    createNewSession: Boolean(input.createNewSession)
   };
 }
 
@@ -160,6 +168,7 @@ function initialSessionManager(input) {
   if (input.migrationSource && existsSync(input.migrationSource)) {
     return SessionManager.forkFrom(input.migrationSource, input.cwd, input.sessionDir);
   }
+  if (input.createNewSession) return SessionManager.create(input.cwd, input.sessionDir);
   if (input.scratch) return SessionManager.continueRecent(input.cwd, input.sessionDir);
   return SessionManager.continueRecent(input.cwd, input.sessionDir);
 }
@@ -320,7 +329,7 @@ async function handleControl(command) {
   if (type === "export_html") return { path: await runtime.session.exportToHtml(command.outputPath) };
   if (type === "reload") {
     await runtime.session.reload();
-    ensureCoreToolsActive(runtime.session);
+    ensureAllToolsActive(runtime.session);
     return buildOverview();
   }
   if (type === "set_active_tools") {
@@ -429,7 +438,7 @@ async function replaceSettings(command) {
   await writeJsonLocked(path, value);
   await runtime.services.settingsManager.reload();
   await runtime.session.reload();
-  ensureCoreToolsActive(runtime.session);
+  ensureAllToolsActive(runtime.session);
   return settingsSnapshot();
 }
 
@@ -458,7 +467,7 @@ async function packageInstall(command) {
   await manager.installAndPersist(source, { local: Boolean(command.local) });
   await runtime.services.settingsManager.flush();
   await runtime.session.reload();
-  ensureCoreToolsActive(runtime.session);
+  ensureAllToolsActive(runtime.session);
   return buildOverview();
 }
 
@@ -469,7 +478,7 @@ async function packageRemove(command) {
   await manager.removeAndPersist(source, { local: Boolean(command.local) });
   await runtime.services.settingsManager.flush();
   await runtime.session.reload();
-  ensureCoreToolsActive(runtime.session);
+  ensureAllToolsActive(runtime.session);
   return buildOverview();
 }
 
@@ -477,16 +486,20 @@ async function packageUpdate(command) {
   const manager = packageManagerWithProgress();
   await manager.update(command.source ? String(command.source) : undefined);
   await runtime.session.reload();
-  ensureCoreToolsActive(runtime.session);
+  ensureAllToolsActive(runtime.session);
   return buildOverview();
 }
 
-function ensureCoreToolsActive(session) {
-  const active = session.getActiveToolNames().map(String);
-  const required = session.getAllTools()
-    .map((tool) => String(tool?.name || tool))
-    .filter((name) => name.startsWith("mmm_"));
-  session.setActiveToolsByName([...new Set([...required, ...active])]);
+function ensureAllToolsActive(session) {
+  session.setActiveToolsByName(session.getAllTools().map((tool) => String(tool?.name || tool)).filter(Boolean));
+}
+
+async function interruptAgent() {
+  if (!runtime) throw new Error("Pi Agent is not ready.");
+  const queued = runtime.session.clearQueue();
+  await runtime.session.abort();
+  send({ type: "control_event", event: { type: "interrupted" } });
+  return { interrupted: true, queued };
 }
 
 function packageManagerWithProgress() {

@@ -84,7 +84,7 @@ describe("ExplorerPanel", () => {
     container.remove();
   });
 
-  it("renders a rooted full resource tree and keeps unsupported files read-only", () => {
+  it("renders a rooted full resource tree and opens plain-text resources", () => {
     const onStatus = vi.fn();
     const onOpenProjectFile = vi.fn();
     renderExplorer({ onStatus, onOpenProjectFile });
@@ -96,11 +96,10 @@ describe("ExplorerPanel", () => {
     expect(buttonNamed("docs")?.textContent).toBe("docs");
     expect(buttonNamed("empty")).not.toBeNull();
     expect(buttonNamed("cover.png")?.dataset.resourceSupported).toBe("true");
-    expect(buttonNamed("README.txt")?.dataset.resourceSupported).toBe("false");
+    expect(buttonNamed("README.txt")?.dataset.resourceSupported).toBe("true");
 
     act(() => buttonNamed("README.txt")?.dispatchEvent(new MouseEvent("dblclick", { bubbles: true })));
-    expect(onStatus).toHaveBeenCalledWith("暂不支持打开 README.txt。");
-    expect(onOpenProjectFile).not.toHaveBeenCalled();
+    expect(onOpenProjectFile).toHaveBeenCalledWith(expect.objectContaining({ name: "README.txt", path: "/project/README.txt" }));
 
     act(() => buttonNamed("note.md")?.dispatchEvent(new MouseEvent("dblclick", { bubbles: true })));
     expect(onOpenProjectFile).toHaveBeenCalledWith(markdownFile);
@@ -308,6 +307,22 @@ describe("ExplorerPanel", () => {
     act(() => buttonNamed("note.md")?.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, clientX: 20, clientY: 30 })));
     act(() => buttonWithText("在浮窗中打开")?.click());
     expect(onOpenProjectMarkdownWindow).toHaveBeenCalledWith(markdownFile);
+  });
+
+  it.each([
+    { name: "README.txt", callback: "text" as const },
+    { name: "people.csv", callback: "csv" as const }
+  ])("keeps floating-window access for $name in the context menu", ({ name, callback }) => {
+    const onOpenProjectTextWindow = vi.fn();
+    const onOpenProjectCsvWindow = vi.fn();
+    renderExplorer({ onOpenProjectTextWindow, onOpenProjectCsvWindow });
+
+    act(() => buttonNamed(name)?.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, clientX: 20, clientY: 30 })));
+    act(() => buttonWithText("在浮窗中打开")?.click());
+
+    const expected = expect.objectContaining({ name });
+    if (callback === "text") expect(onOpenProjectTextWindow).toHaveBeenCalledWith(expected);
+    else expect(onOpenProjectCsvWindow).toHaveBeenCalledWith(expected);
   });
 
   it("opens a resource menu from the keyboard and restores tree focus on Escape", async () => {
@@ -592,6 +607,8 @@ describe("ExplorerPanel", () => {
     onOpenProjectMarkdownWindow = vi.fn(),
     onOpenProjectHtmlWindow = vi.fn(),
     onOpenProjectImageWindow = vi.fn(),
+    onOpenProjectTextWindow = onOpenProjectFile,
+    onOpenProjectCsvWindow = onOpenProjectFile,
     onProjectDocumentPointerDrag = vi.fn(),
     currentFileRef = null,
     initialExpandedPaths = ["docs"],
@@ -602,7 +619,7 @@ describe("ExplorerPanel", () => {
     onOpenProjectFile?: (file: ProjectFileEntry) => void;
     onOpenProject?: () => void;
     onRefreshProject?: () => void;
-    onCreateProjectFile?: (request: { directoryPath: string; fileName: string; kind: "markdown" | "mermaid" | "csv" | "html" }) => void;
+    onCreateProjectFile?: (request: { directoryPath: string; fileName: string; kind: "markdown" | "mermaid" | "csv" | "html" | "text" }) => void;
     onCreateProjectDirectory?: (request: { directoryPath: string; directoryName: string }) => void;
     onRenameProjectResource?: (resource: ProjectResourceEntry, name: string) => void;
     onMoveProjectFile?: (file: ProjectResourceEntry, targetDirectoryPath: string) => void;
@@ -615,7 +632,9 @@ describe("ExplorerPanel", () => {
     onOpenProjectMarkdownWindow?: (file: ProjectFileEntry) => void;
     onOpenProjectHtmlWindow?: (file: ProjectFileEntry) => void;
     onOpenProjectImageWindow?: (file: ProjectFileEntry) => void;
-    onProjectDocumentPointerDrag?: (file: ProjectFileEntry, kind: "markdown" | "html", point: { x: number; y: number }, phase: "move" | "drop" | "cancel") => void;
+    onOpenProjectTextWindow?: (file: ProjectFileEntry) => void;
+    onOpenProjectCsvWindow?: (file: ProjectFileEntry) => void;
+    onProjectDocumentPointerDrag?: (file: ProjectFileEntry, kind: "markdown" | "html" | "text" | "csv", point: { x: number; y: number }, phase: "move" | "drop" | "cancel") => void;
     currentFileRef?: { name: string; path: string } | null;
     initialExpandedPaths?: string[];
     projectBusy?: boolean;
@@ -647,6 +666,8 @@ describe("ExplorerPanel", () => {
             onOpenProjectMarkdownWindow={onOpenProjectMarkdownWindow}
             onOpenProjectHtmlWindow={onOpenProjectHtmlWindow}
             onOpenProjectImageWindow={onOpenProjectImageWindow}
+            onOpenProjectTextWindow={onOpenProjectTextWindow}
+            onOpenProjectCsvWindow={onOpenProjectCsvWindow}
             onCreateProjectFile={onCreateProjectFile}
             onCreateProjectDirectory={onCreateProjectDirectory}
             onRenameProjectResource={onRenameProjectResource}

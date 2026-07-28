@@ -6,7 +6,7 @@ import type { EditorRuntime, RuntimeFileDropRequest, RuntimeFileOpenRequest, Run
 import { normalizeRecentFiles, type RecentFileEntry } from "@/features/mermaid-editor/lib/file-workflow";
 import { normalizeProjectWorkspace, type ProjectWorkspace } from "@/features/mermaid-editor/lib/project-workspace";
 import { normalizeExplorerTreeState, type StoredExplorerTreeState } from "@/features/mermaid-editor/lib/explorer-tree-state";
-import type { DetachedMarkdownWindow } from "@/features/mermaid-editor/lib/workspace-panels";
+import { csvWindowPanelId, textWindowPanelId, type DetachedCsvWindow, type DetachedMarkdownWindow, type DetachedTextWindow } from "@/features/mermaid-editor/lib/workspace-panels";
 
 import type { FileOpenSource } from "./use-editor-file-workflow";
 
@@ -35,6 +35,8 @@ type UseEditorDesktopEventsArgs = {
   setLastSavedDocument: StateSetter<string>;
   setStatus: StateSetter<string>;
   setDetachedMarkdownWindows: StateSetter<DetachedMarkdownWindow[]>;
+  setDetachedTextWindows: StateSetter<DetachedTextWindow[]>;
+  setDetachedCsvWindows: StateSetter<DetachedCsvWindow[]>;
   reconcileProjectWorkspace?: () => void;
 };
 
@@ -61,6 +63,8 @@ export function useEditorDesktopEvents({
   setLastSavedDocument,
   setStatus,
   setDetachedMarkdownWindows,
+  setDetachedTextWindows,
+  setDetachedCsvWindows,
   reconcileProjectWorkspace
 }: UseEditorDesktopEventsArgs) {
   const desktopFileWorkflowInitializedRef = useRef(false);
@@ -149,6 +153,8 @@ export function useEditorDesktopEvents({
         setProjectWorkspace(storedProjectWorkspace);
         setExplorerTreeState(normalizeExplorerTreeState(stored.explorerTreeState));
         setDetachedMarkdownWindows(normalizeStoredMarkdownWindows(stored.detachedMarkdownWindows));
+        setDetachedTextWindows(normalizeStoredTextWindows(stored.detachedTextWindows));
+        setDetachedCsvWindows(normalizeStoredCsvWindows(stored.detachedCsvWindows));
         if (storedProjectWorkspace) void refreshRestoredProjectWorkspace(storedProjectWorkspace.rootPath);
         if (!storedPreferences.restoreLastFile) {
           setFileName(FALLBACK_FILE_NAME);
@@ -249,10 +255,34 @@ export function useEditorDesktopEvents({
     setRecentFiles,
     setStatus,
     setDetachedMarkdownWindows,
+    setDetachedTextWindows,
+    setDetachedCsvWindows,
     showFileWorkflowError
   ]);
 
   return { startDesktopWindowDragHandle, toggleDesktopWindowMaximizeHandle };
+}
+
+function normalizeStoredTextWindows(value: unknown): DetachedTextWindow[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((candidate) => {
+    if (!candidate || typeof candidate !== "object") return [];
+    const record = candidate as Partial<DetachedTextWindow>;
+    if (typeof record.title !== "string" || typeof record.value !== "string" || typeof record.savedValue !== "string") return [];
+    if (!record.file || typeof record.file.name !== "string" || typeof record.file.path !== "string") return [];
+    return [{ ...record, id: textWindowPanelId(record.file), file: record.file } as DetachedTextWindow];
+  });
+}
+
+function normalizeStoredCsvWindows(value: unknown): DetachedCsvWindow[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((candidate) => {
+    if (!candidate || typeof candidate !== "object") return [];
+    const record = candidate as Partial<DetachedCsvWindow>;
+    if (typeof record.title !== "string" || typeof record.value !== "string" || typeof record.savedValue !== "string") return [];
+    if (!record.file || typeof record.file.name !== "string" || typeof record.file.path !== "string") return [];
+    return [{ ...record, id: csvWindowPanelId(record.file), file: record.file, headerMode: record.headerMode === "header" || record.headerMode === "none" ? record.headerMode : "auto" } as DetachedCsvWindow];
+  });
 }
 
 function normalizeStoredMarkdownWindows(value: unknown): DetachedMarkdownWindow[] {

@@ -3,9 +3,9 @@ import { layoutFromGraph } from "@/features/mermaid-editor/lib/canvas-layout";
 import {
   BLANK_MARKDOWN_SOURCE,
   FALLBACK_FILE_NAME,
-  FALLBACK_MARKDOWN_FILE_NAME,
   buildFallbackCleanDocument,
   createEmptyDocumentGraph,
+  fallbackFileNameForKind,
   serializableRuntimeFileRef,
   type StoredEditor,
   type StoredEditorDraftOverrides
@@ -33,7 +33,7 @@ import { workspaceViewForDocument, type WorkspaceView } from "@/features/mermaid
 import { cleanCloseDocument } from "@/features/mermaid-editor/lib/desktop-close-workflow";
 import type { NodeGeometrySpec } from "@/features/mermaid-editor/lib/node-geometry";
 import type { EditorDocumentSession } from "@/features/mermaid-editor/lib/editor-document-session";
-import type { DetachedMarkdownWindow } from "@/features/mermaid-editor/lib/workspace-panels";
+import type { DetachedCsvWindow, DetachedMarkdownWindow, DetachedTextWindow } from "@/features/mermaid-editor/lib/workspace-panels";
 
 export type UseEditorDraftPersistenceArgs = {
   runtime: EditorRuntime;
@@ -59,6 +59,8 @@ export type UseEditorDraftPersistenceArgs = {
   preferences: EditorPreferences;
   editorSession: EditorDocumentSession;
   detachedMarkdownWindows: DetachedMarkdownWindow[];
+  detachedTextWindows: DetachedTextWindow[];
+  detachedCsvWindows: DetachedCsvWindow[];
 };
 
 export function useEditorDraftPersistence({
@@ -84,7 +86,9 @@ export function useEditorDraftPersistence({
   customTheme,
   preferences,
   editorSession,
-  detachedMarkdownWindows
+  detachedMarkdownWindows,
+  detachedTextWindows,
+  detachedCsvWindows
 }: UseEditorDraftPersistenceArgs) {
   function buildStoredEditorDraft(overrides: StoredEditorDraftOverrides = {}): StoredEditor {
     const draftDocumentKind = overrides.documentKind ?? documentKind;
@@ -122,6 +126,14 @@ export function useEditorDraftPersistence({
         ...window,
         file: serializableRuntimeFileRef(window.file) || { name: window.title }
       })),
+      detachedTextWindows: detachedTextWindows.map((window) => ({
+        ...window,
+        file: { ...(serializableRuntimeFileRef(window.file) || { name: window.title }), path: window.file.path }
+      })),
+      detachedCsvWindows: detachedCsvWindows.map((window) => ({
+        ...window,
+        file: { ...(serializableRuntimeFileRef(window.file) || { name: window.title }), path: window.file.path }
+      })),
       preferences
     };
   }
@@ -131,17 +143,19 @@ export function useEditorDraftPersistence({
   }
 
   async function persistDiscardedCloseDraft(editorSessionOverride?: EditorDocumentSession) {
-    if (documentKind === "markdown") {
-      const keepCurrentFile = Boolean(lastSavedDocument?.trim());
-      await persistStoredEditorDraft({
-        documentKind: "markdown",
-        source: keepCurrentFile ? lastSavedDocument : BLANK_MARKDOWN_SOURCE,
+    if (documentKind !== "mermaid") {
+      const keepCurrentFile = Boolean(fileRef || lastSavedDocument?.trim());
+      const fallbackSource = documentKind === "markdown" ? BLANK_MARKDOWN_SOURCE : "";
+      const fallbackFileName = fallbackFileNameForKind(documentKind);
+      await persistDiscardedEditorDraft({
+        documentKind,
+        source: keepCurrentFile ? lastSavedDocument : fallbackSource,
         graph: createEmptyDocumentGraph(),
-        fileName: keepCurrentFile ? fileName : FALLBACK_MARKDOWN_FILE_NAME,
+        fileName: keepCurrentFile ? fileName : fallbackFileName,
         fileRef: keepCurrentFile ? fileRef : null,
-        lastSavedDocument: keepCurrentFile ? lastSavedDocument : BLANK_MARKDOWN_SOURCE,
+        lastSavedDocument: keepCurrentFile ? lastSavedDocument : fallbackSource,
         editorSession: editorSessionOverride,
-        workspaceView: workspaceViewForDocument("render-only", workspaceView, "markdown")
+        workspaceView: workspaceViewForDocument("render-only", workspaceView, documentKind)
       });
       return;
     }
@@ -154,7 +168,7 @@ export function useEditorDraftPersistence({
     const normalizedDocument = buildMermaidDocument(loaded.source, nextGraph, nextViewport, loaded.edgeRouting, nextLayoutMode);
     const keepCurrentFile = Boolean(lastSavedDocument?.trim());
 
-    await persistStoredEditorDraft({
+    await persistDiscardedEditorDraft({
       source: loaded.source,
       graph: nextGraph,
       viewport: nextViewport,
@@ -166,6 +180,13 @@ export function useEditorDraftPersistence({
       editorSession: editorSessionOverride,
       workspaceView: workspaceViewForDocument(loaded.editableKind, workspaceView, "mermaid")
     });
+  }
+
+  async function persistDiscardedEditorDraft(overrides: StoredEditorDraftOverrides) {
+    const draft = buildStoredEditorDraft(overrides);
+    draft.detachedTextWindows = draft.detachedTextWindows?.map((window) => ({ ...window, value: window.savedValue }));
+    draft.detachedCsvWindows = draft.detachedCsvWindows?.map((window) => ({ ...window, value: window.savedValue }));
+    await runtime.saveDraft(draft);
   }
 
   return {

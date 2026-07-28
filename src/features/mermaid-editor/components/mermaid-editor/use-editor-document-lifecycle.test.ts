@@ -267,4 +267,43 @@ flowchart LR
     expect(syncedFiles).toEqual([file]);
   });
 
+  it.each([
+    { kind: "text" as const, name: "notes.txt", view: "text" as const, content: "Plain text\n" },
+    { kind: "csv" as const, name: "people.csv", view: "csv" as const, content: "Name,Age\nAlice,30\n" }
+  ])("opens $kind documents into the main $view editor", ({ kind, name, view, content }) => {
+    const { lifecycle, state, isDirtyRef, syncedFiles } = createLifecycleHarness();
+    const file = { name, path: `/project/${name}` };
+
+    lifecycle.applyLoadedDocument(content, file.name, file);
+
+    expect(state.documentKind).toBe(kind);
+    expect(state.workspaceView).toBe(view);
+    expect(state.fileName).toBe(name);
+    expect(state.source).toBe(content);
+    expect(state.lastSavedDocument).toBe(content);
+    expect(isDirtyRef.current).toBe(false);
+    expect(syncedFiles).toEqual([file]);
+  });
+
+  it("restores a CSV main-editor draft without parsing it as Mermaid", () => {
+    const { lifecycle, state, isDirtyRef } = createLifecycleHarness();
+    lifecycle.applyStoredEditorState({
+      documentKind: "csv",
+      source: "Name,Age\nAlice,30\n",
+      viewport: { x: 160, y: 90, scale: 1 },
+      leftCollapsed: false,
+      rightCollapsed: true,
+      workspaceView: "csv",
+      fileName: "people.csv",
+      fileRef: { name: "people.csv", path: "/project/people.csv" },
+      lastSavedDocument: "Name,Age\nAlice,30\n"
+    });
+
+    expect(state.documentKind).toBe("csv");
+    expect(state.workspaceView).toBe("csv");
+    expect(state.source).toBe("Name,Age\nAlice,30\n");
+    expect(state.graph.nodes).toEqual([]);
+    expect(isDirtyRef.current).toBe(false);
+  });
+
 });

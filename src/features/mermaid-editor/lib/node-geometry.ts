@@ -12,6 +12,7 @@ import {
   MARKDOWN_DOCUMENT_NODE_WIDTH
 } from "@/features/mermaid-editor/lib/markdown-document";
 import { HTML_DOCUMENT_NODE_HEIGHT, HTML_DOCUMENT_NODE_WIDTH } from "@/features/mermaid-editor/lib/html-document";
+import { TEXT_DOCUMENT_NODE_HEIGHT, TEXT_DOCUMENT_NODE_WIDTH } from "@/features/mermaid-editor/lib/text-document";
 import {
   buildTableNodeLayout,
   DEFAULT_TABLE_NODE_TOKENS,
@@ -155,6 +156,7 @@ export function buildNodeGeometry(node: CanvasNode, spec: NodeGeometrySpec): Nod
   if (kind === "table") return buildTableLoadingNodeGeometry(node);
   if (kind === "markdown-document") return buildMarkdownDocumentNodeGeometry(node, spec.specialNode);
   if (kind === "html-document") return buildHtmlDocumentNodeGeometry(node, spec.specialNode);
+  if (kind === "text-document") return buildTextDocumentNodeGeometry(node, spec.specialNode);
 
   if (kind === "link-card") return buildLinkCardNodeGeometry(node, spec.specialNode);
 
@@ -256,6 +258,40 @@ function buildMarkdownDocumentNodeGeometry(node: CanvasNode, specialNode?: Speci
     y: frame.y + anchor.y
   }));
 
+  return {
+    id: node.id,
+    frame,
+    textBox,
+    anchorsLocal,
+    anchorsWorld,
+    alignmentRect: { id: node.id, ...frame },
+    routedRect: { id: node.id, ...frame, shape: DEFAULT_FLOWCHART_NODE_SHAPE }
+  };
+}
+
+function buildTextDocumentNodeGeometry(node: CanvasNode, specialNode?: SpecialNodeThemeTokens): NodeGeometry {
+  const tokens = specialNode?.textDocument;
+  const frame = {
+    x: node.x,
+    y: node.y,
+    width: tokens?.width ?? TEXT_DOCUMENT_NODE_WIDTH,
+    height: tokens?.height ?? TEXT_DOCUMENT_NODE_HEIGHT
+  };
+  const paddingTop = tokens?.paddingTop ?? 18;
+  const paddingRight = tokens?.paddingRight ?? 18;
+  const paddingLeft = tokens?.paddingLeft ?? 18;
+  const textBox = {
+    x: paddingLeft,
+    y: paddingTop,
+    width: Math.max(0, frame.width - paddingLeft - paddingRight),
+    height: 24
+  };
+  const anchorsLocal = localAnchorPoints(DEFAULT_FLOWCHART_NODE_SHAPE, frame.width, frame.height);
+  const anchorsWorld = anchorsLocal.map((anchor) => ({
+    ...anchor,
+    x: frame.x + anchor.x,
+    y: frame.y + anchor.y
+  }));
   return {
     id: node.id,
     frame,

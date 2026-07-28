@@ -15,6 +15,8 @@ export function createElectronDocumentHubOperations(bridge: ElectronBridge): Run
     async recreateDocument(request) { return bridge.recreateDocument(request); },
     async undoDocumentTransaction(request) { return bridge.undoDocumentTransaction(request); },
     async redoDocumentTransaction(request) { return bridge.redoDocumentTransaction(request); },
+    async saveDocumentWorkingCopy(request) { return bridge.saveDocumentWorkingCopy(request); },
+    async discardDocumentWorkingCopy(request) { return bridge.discardDocumentWorkingCopy(request); },
     async listenForDocumentHubEvents(handler) { return bridge.onDocumentHubEvent(handler); }
   };
 }

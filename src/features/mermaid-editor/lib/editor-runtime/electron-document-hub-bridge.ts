@@ -1,4 +1,4 @@
-import type { RuntimeDocumentHubEvent, RuntimeDocumentSnapshot } from "@/features/mermaid-editor/lib/editor-runtime/document-hub-types";
+import type { RuntimeDocumentFormat, RuntimeDocumentHubEvent, RuntimeDocumentSnapshot } from "@/features/mermaid-editor/lib/editor-runtime/document-hub-types";
 
 export type ElectronOpenedFile = {
   name: string;
@@ -10,6 +10,7 @@ export type ElectronOpenedFile = {
   documentId?: string;
   syncState?: string;
   saveState?: string;
+  format?: RuntimeDocumentFormat;
 };
 
 export type ElectronSavedFile = { name: string; path: string };
@@ -26,6 +27,7 @@ export type ElectronDocumentHubBridge = {
     expectedWorkingRevision?: string;
     documentId?: string;
     overwrite?: boolean;
+    format?: RuntimeDocumentFormat;
   }) => Promise<ElectronDocumentWriteResult>;
   saveFileAs: (suggestedName: string, text: string) => Promise<ElectronDocumentWriteResult | null>;
   getDocumentSnapshot: (request: { documentId?: string; path?: string }) => Promise<RuntimeDocumentSnapshot | null>;
@@ -36,5 +38,7 @@ export type ElectronDocumentHubBridge = {
   recreateDocument: (request: { documentId: string }) => Promise<unknown>;
   undoDocumentTransaction: (request: { documentId: string }) => Promise<unknown>;
   redoDocumentTransaction: (request: { documentId: string }) => Promise<unknown>;
+  saveDocumentWorkingCopy: (request: Record<string, unknown>) => Promise<unknown>;
+  discardDocumentWorkingCopy: (request: { documentId?: string; path?: string }) => Promise<unknown>;
   onDocumentHubEvent: (handler: (event: RuntimeDocumentHubEvent) => void) => () => void;
 };

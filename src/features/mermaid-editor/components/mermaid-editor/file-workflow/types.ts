@@ -26,6 +26,7 @@ import type { FileDropFeedback } from "@/features/mermaid-editor/components/file
 import type { UnsavedPromptChoice } from "@/features/mermaid-editor/lib/desktop-close-workflow";
 import type { NodeGeometrySpec } from "@/features/mermaid-editor/lib/node-geometry";
 import type { EditorDocumentBuffer } from "@/features/mermaid-editor/lib/editor-document-session";
+import type { DetachedCsvWindow, DetachedTextWindow } from "@/features/mermaid-editor/lib/workspace-panels";
 import type { EditorDocumentSessionBindings } from "./session-types";
 
 export type FileOpenSource = "picker" | "recent" | "project" | "drop" | "external" | "restore" | "watch" | "buffer";
@@ -82,6 +83,8 @@ export type UseEditorFileWorkflowArgs = {
   themeId: EditorThemeId;
   customTheme: EditorTheme | null;
   preferences: EditorPreferences;
+  detachedTextWindows: DetachedTextWindow[];
+  detachedCsvWindows: DetachedCsvWindow[];
   currentDocument: string;
   canvasLiveState: CanvasLiveState;
   isCanvasEditable: boolean;
@@ -121,6 +124,9 @@ export type UseEditorFileWorkflowArgs = {
   flushSourceHistory: () => void;
   flushLinkedFileWrites?: (options?: { overwriteConflicts?: boolean }) => Promise<boolean>;
   discardLinkedFileWrites?: () => Promise<void>;
+  listAdditionalDirtyDocuments?: () => string[];
+  saveAdditionalDocuments?: () => Promise<boolean>;
+  discardAdditionalDocuments?: () => Promise<void>;
   applyEditorCommand: (command: EditorCommand) => void;
   recordRecentAction: (type: string, target?: EditorRecentAction["target"], summary?: string) => void;
 } & EditorDocumentSessionBindings;

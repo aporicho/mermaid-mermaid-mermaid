@@ -195,6 +195,28 @@ export type SpecialNodeHtmlDocumentTokens = {
   excerptOpacity: number;
 };
 
+export type SpecialNodeTextDocumentTokens = {
+  surface: SpecialNodeSurfaceTokens;
+  state: SpecialNodeStateTokens;
+  width: number;
+  height: number;
+  paddingTop: number;
+  paddingRight: number;
+  paddingBottom: number;
+  paddingLeft: number;
+  titleGap: number;
+  titleFontFamily: string;
+  titleFontSize: number;
+  titleFontWeight: number;
+  titleColor: string;
+  bodyFontFamily: string;
+  bodyFontSize: number;
+  bodyFontWeight: number;
+  bodyLineHeight: number;
+  bodyColor: string;
+  excerptOpacity: number;
+};
+
 export type SpecialNodeTableTokens = {
   surface: SpecialNodeSurfaceTokens;
   state: SpecialNodeStateTokens;
@@ -218,6 +240,7 @@ export type SpecialNodeThemeTokens = {
   linkCard: SpecialNodeLinkCardTokens;
   markdownDocument: SpecialNodeMarkdownDocumentTokens;
   htmlDocument: SpecialNodeHtmlDocumentTokens;
+  textDocument: SpecialNodeTextDocumentTokens;
   image: SpecialNodeImageTokens;
   table: SpecialNodeTableTokens;
 };

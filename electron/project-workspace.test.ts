@@ -37,7 +37,7 @@ describe("Electron project workspace scanner", () => {
 
     const workspace = await scanProjectFolder(root);
 
-    expect(workspace.files.map((file) => file.relativePath)).toEqual(["docs/diagram.mmd"]);
+    expect(workspace.files.map((file) => file.relativePath)).toEqual(["docs/diagram.mmd", "docs/people.csv"]);
     expect(workspace.resources).toEqual(expect.arrayContaining([
       expect.objectContaining({ kind: "directory", relativePath: "docs" }),
       expect.objectContaining({ kind: "directory", relativePath: "docs/empty" }),

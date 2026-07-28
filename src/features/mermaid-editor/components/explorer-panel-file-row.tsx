@@ -13,6 +13,8 @@ import {
 } from "@/features/mermaid-editor/components/explorer-resource-ui";
 import type { RuntimeFileRef } from "@/features/mermaid-editor/lib/editor-runtime";
 import { isHtmlDocumentFilePath } from "@/features/mermaid-editor/lib/html-document";
+import { isCsvTableFilePath } from "@/features/mermaid-editor/lib/csv-table-document";
+import { isTextDocumentFilePath } from "@/features/mermaid-editor/lib/text-document";
 import { isSupportedImagePath } from "@/features/mermaid-editor/lib/node-assets";
 import {
   isProjectFileActive,
@@ -38,10 +40,10 @@ export function ProjectFileRow({
   onSelectResource,
   onContextMenuResource,
   onDoubleClickResource,
-  onOpenProjectFile,
   onOpenProjectMarkdownWindow,
   onOpenProjectHtmlWindow,
   onOpenProjectImageWindow,
+  onOpenProjectAuxiliaryWindow,
   projectBusy,
   dragging,
   visualLast,
@@ -82,6 +84,7 @@ export function ProjectFileRow({
   onOpenProjectMarkdownWindow: (file: ProjectFileEntry) => void;
   onOpenProjectHtmlWindow: (file: ProjectFileEntry) => void;
   onOpenProjectImageWindow: (file: ProjectFileEntry) => void;
+  onOpenProjectAuxiliaryWindow: (file: ProjectFileEntry) => void;
   projectBusy: boolean;
   dragging: boolean;
   visualLast: boolean;
@@ -105,7 +108,7 @@ export function ProjectFileRow({
 }) {
   const htmlFile = isHtmlDocumentFilePath(node.resource.path);
   const imageFile = isSupportedImagePath(node.resource.path);
-  const file = node.file ?? (node.resource.documentKind || htmlFile || imageFile ? resourceProjectFile(node.resource) : undefined);
+  const file = node.file ?? (node.resource.documentKind || htmlFile || imageFile || isTextDocumentFilePath(node.resource.path) || isCsvTableFilePath(node.resource.path) ? resourceProjectFile(node.resource) : undefined);
   const active = file ? isProjectFileActive(file, currentFileRef) : false;
   const suppressClickRef = useRef(false);
   const pointerDownNameRef = useRef(false);
@@ -189,10 +192,11 @@ export function ProjectFileRow({
           projectBusy={projectBusy}
           selectedResources={selectedResources}
           resourceClipboard={resourceClipboard}
-          onOpenProjectFile={onOpenProjectFile}
+          onOpenProjectFile={(file) => onDoubleClickResource(node.resource, file)}
           onOpenProjectMarkdownWindow={onOpenProjectMarkdownWindow}
           onOpenProjectHtmlWindow={onOpenProjectHtmlWindow}
           onOpenProjectImageWindow={onOpenProjectImageWindow}
+          onOpenProjectAuxiliaryWindow={onOpenProjectAuxiliaryWindow}
           onMove={onMoveResource}
           onCreateFile={onCreateFile}
           onCreateDirectory={onCreateDirectory}

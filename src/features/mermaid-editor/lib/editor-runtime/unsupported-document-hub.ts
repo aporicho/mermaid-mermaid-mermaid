@@ -10,6 +10,8 @@ export function createUnsupportedDocumentHubOperations(): RuntimeDocumentHubOper
     async recreateDocument() { return { status: "missing" }; },
     async undoDocumentTransaction() { return { status: "empty" }; },
     async redoDocumentTransaction() { return { status: "empty" }; },
+    async saveDocumentWorkingCopy() { return { status: "missing" }; },
+    async discardDocumentWorkingCopy() { return { status: "missing" }; },
     async listenForDocumentHubEvents() { return () => undefined; }
   };
 }

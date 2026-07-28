@@ -19,7 +19,7 @@ export const CANVAS_NODE_TEXTURE_CACHE_SETTLE_MS = 80;
 export const CANVAS_NODE_TEXTURE_CACHE_RESOLUTION_HEADROOM = 1.25;
 export const CANVAS_NODE_TEXTURE_CACHE_HIT_PIXEL_RATIO = 0.01;
 
-export type CanvasNodeTextureCacheKind = "standard" | "image" | "link-card" | "markdown-document" | "html-document" | "table";
+export type CanvasNodeTextureCacheKind = "standard" | "image" | "link-card" | "markdown-document" | "html-document" | "text-document" | "table";
 
 export type CanvasNodeTextureCacheDescriptor = {
   id: string;
@@ -485,6 +485,7 @@ function emptyKindCounts(): Record<CanvasNodeTextureCacheKind, number> {
     "link-card": 0,
     "markdown-document": 0,
     "html-document": 0,
+    "text-document": 0,
     table: 0
   };
 }

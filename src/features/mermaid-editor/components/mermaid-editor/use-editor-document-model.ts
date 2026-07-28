@@ -91,7 +91,7 @@ export function useEditorDocumentModel({ initial, runtime }: UseEditorDocumentMo
 
   const currentDocument = useMemo(
     () => {
-      if (documentKind === "markdown") return source;
+      if (documentKind !== "mermaid") return source;
       return buildMermaidDocument(source, graph, viewport, edgeRouting, layoutMode);
     },
     [documentKind, source, graph, viewport, edgeRouting, layoutMode]
@@ -114,7 +114,7 @@ export function useEditorDocumentModel({ initial, runtime }: UseEditorDocumentMo
         : "scratch",
     [projectWorkspace?.rootPath, terminalCwd]
   );
-  const isDirty = !lastSavedDocument || currentDocument !== lastSavedDocument;
+  const isDirty = fileRef ? currentDocument !== lastSavedDocument : !lastSavedDocument || currentDocument !== lastSavedDocument;
   const isCanvasEditable = documentKind === "mermaid" && editableKind === "flowchart";
   const canvasViewTooltip = isCanvasEditable ? "无限画布" : `${diagramTypeLabel(diagramType)} 仅支持渲染`;
 

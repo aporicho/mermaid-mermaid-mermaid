@@ -6,7 +6,7 @@ const { diffArrays } = require("diff");
 const { mergeMermaidDocument, normalizeMermaidLayoutDocument } = require("./mermaid-document-merge.cjs");
 
 const MAX_HISTORY = 80;
-const TEXT_EXTENSIONS = new Set(["mmd", "mermaid", "md", "markdown", "csv", "html", "htm"]);
+const TEXT_EXTENSIONS = new Set(["mmd", "mermaid", "md", "markdown", "csv", "html", "htm", "txt"]);
 
 function createDocumentHub({ readDocument, writeDocument, send, watch = chokidar.watch } = {}) {
   if (typeof readDocument !== "function" || typeof writeDocument !== "function") {
@@ -187,7 +187,8 @@ function createDocumentHub({ readDocument, writeDocument, send, watch = chokidar
       try {
         const result = await writeDocument(canonical, document.workingContent, {
           expectedRevision,
-          overwrite: request?.overwrite === true
+          overwrite: request?.overwrite === true,
+          format: request?.format || document.format
         });
         if (result.status === "conflict") {
           document.saveState = "idle";
@@ -243,6 +244,29 @@ function createDocumentHub({ readDocument, writeDocument, send, watch = chokidar
     const document = resolveDocument(request);
     if (!document) return { status: "missing" };
     return save(webContents, { path: document.path, text: document.workingContent, overwrite: true });
+  }
+
+  async function discard(webContents, request) {
+    const document = resolveDocument(request);
+    if (!document) return { status: "missing" };
+    return enqueue(document.path, async () => {
+      const disk = await readDocument(document.path).catch((error) => error?.code === "ENOENT" ? null : Promise.reject(error));
+      pushHistory(document, "丢弃未保存修改", "discard");
+      document.workingContent = disk?.text ?? document.baseContent;
+      document.baseContent = disk?.text ?? document.baseContent;
+      document.baseRevision = disk?.revision ?? document.baseRevision;
+      document.diskRevision = disk?.revision ?? null;
+      document.modifiedAt = disk?.modifiedAt ?? document.modifiedAt;
+      document.format = disk?.format || document.format;
+      document.exists = Boolean(disk);
+      document.conflict = null;
+      document.error = null;
+      document.saveState = "idle";
+      bumpWorkingVersion(document);
+      updateDerivedState(document);
+      broadcast(document, webContents?.id, "discarded");
+      return { status: "discarded", snapshot: snapshot(document) };
+    });
   }
 
   function get(request) {
@@ -372,8 +396,9 @@ function createDocumentHub({ readDocument, writeDocument, send, watch = chokidar
     const previouslyExisted = document.exists;
     const previousDiskRevision = document.diskRevision;
     document.exists = true;
-    document.diskRevision = disk.revision;
-    document.modifiedAt = disk.modifiedAt || Date.now();
+      document.diskRevision = disk.revision;
+      document.modifiedAt = disk.modifiedAt || Date.now();
+      document.format = disk.format || document.format;
     if (document.workingContent === document.baseContent) {
       pushHistory(document, "从磁盘刷新", "disk");
       document.baseContent = disk.text;
@@ -479,6 +504,7 @@ function createDocumentHub({ readDocument, writeDocument, send, watch = chokidar
   return {
     acquireLease,
     closeAll,
+    discard,
     get,
     markDeletedPath,
     movePath,
@@ -511,6 +537,7 @@ function createDocumentRecord(filePath, disk, initialContent = "") {
     baseRevision: revision,
     diskRevision: revision,
     modifiedAt: disk?.modifiedAt || 0,
+    format: disk?.format || { encoding: "utf8", bom: false, lineEnding: "lf" },
     syncState: disk ? "clean" : "deleted",
     saveState: "idle",
     error: null,
@@ -541,6 +568,7 @@ function snapshot(document) {
     baseRevision: document.baseRevision,
     diskRevision: document.diskRevision,
     modifiedAt: document.modifiedAt,
+    format: document.format,
     exists: document.exists,
     syncState: document.syncState,
     saveState: document.saveState,
@@ -565,6 +593,7 @@ function applySavedResult(document, result) {
   document.baseRevision = result.revision;
   document.diskRevision = result.revision;
   document.modifiedAt = result.modifiedAt || Date.now();
+  document.format = result.format || document.format;
   document.exists = true;
   document.saveState = "idle";
   document.error = null;
@@ -723,13 +752,14 @@ function documentKind(filePath) {
   if (extension === "md" || extension === "markdown") return "markdown";
   if (extension === "csv") return "csv";
   if (extension === "html" || extension === "htm") return "html";
+  if (extension === "txt") return "text";
   return "mermaid";
 }
 
 function assertTextPath(filePath) {
   const extension = path.extname(String(filePath || "")).slice(1).toLowerCase();
   if (!TEXT_EXTENSIONS.has(extension)) {
-    const error = new Error("Only Mermaid, Markdown, CSV, and HTML documents are managed by the Document Hub.");
+    const error = new Error("Only Mermaid, Markdown, CSV, HTML, and plain-text documents are managed by the Document Hub.");
     error.code = "unsupported_type";
     error.path = filePath;
     throw error;

@@ -168,7 +168,7 @@ export function createElectronRuntime(): EditorRuntime {
     async runAgentControl(command) { return bridge.runAgentControl(command); },
     async respondAgentExtensionUi(response) { await bridge.respondAgentExtensionUi(response); },
     async respondAgentHost(response) { await bridge.respondAgentHost(response); },
-    async stopAgent() { await bridge.stopAgent(); },
+    async stopAgent(agentInstanceId) { await bridge.stopAgent(agentInstanceId); },
     async listenForAgentEvents(handler) { return bridge.onAgentEvent(handler); },
     async listTerminalShells() {
       return bridge.listTerminalShells();

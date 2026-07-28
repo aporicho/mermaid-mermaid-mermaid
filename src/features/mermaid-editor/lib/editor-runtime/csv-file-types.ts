@@ -1,12 +1,14 @@
+import type { RuntimeDocumentFormat } from "@/features/mermaid-editor/lib/editor-runtime/document-hub-types";
 import type { RuntimeFileRef } from "@/features/mermaid-editor/lib/editor-runtime/types";
 
-export const MAX_RUNTIME_CSV_FILE_BYTES = 1_048_576;
+export const MAX_RUNTIME_CSV_FILE_BYTES = Number.POSITIVE_INFINITY;
 
 export type RuntimeCsvFileSnapshot = {
   file: RuntimeFileRef;
   text: string;
   revision: string;
   modifiedAt: number;
+  format?: RuntimeDocumentFormat;
 };
 
 export type RuntimeReadCsvFileResult =
@@ -30,6 +32,6 @@ export type RuntimeCsvFileTarget = {
 
 export type RuntimeCsvFileOperations = {
   readCsvFile: (request: RuntimeCsvFileTarget) => Promise<RuntimeReadCsvFileResult>;
-  writeCsvFile: (request: RuntimeCsvFileTarget & { text: string; expectedRevision: string }) => Promise<RuntimeWriteCsvFileResult>;
-  createProjectTextFile: (request: { rootPath: string; fileName: string; kind: "csv"; text: string }) => Promise<RuntimeCreateProjectTextFileResult>;
+  writeCsvFile: (request: RuntimeCsvFileTarget & { text: string; expectedRevision: string; format?: RuntimeDocumentFormat }) => Promise<RuntimeWriteCsvFileResult>;
+  createProjectTextFile: (request: { rootPath: string; fileName: string; kind: "csv" | "text"; text: string }) => Promise<RuntimeCreateProjectTextFileResult>;
 };

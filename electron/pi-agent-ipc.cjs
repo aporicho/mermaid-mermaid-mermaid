@@ -8,7 +8,7 @@ function registerPiAgentIpc({ ipcMain, manager }) {
   ipcMain.handle("mmm:agent:control", (event, command) => manager.control(event.sender, command));
   ipcMain.handle("mmm:agent:extension-ui-response", (event, response) => manager.extensionUiResponse(event.sender, response));
   ipcMain.handle("mmm:agent:host-response", (event, response) => manager.respondHost(event.sender, response));
-  ipcMain.handle("mmm:agent:stop", (event) => manager.stop(event.sender.id));
+  ipcMain.handle("mmm:agent:stop", (event, request) => manager.stop(event.sender.id, request?.agentInstanceId));
 }
 
 async function cleanupLegacyAiBridgeDiscovery() {

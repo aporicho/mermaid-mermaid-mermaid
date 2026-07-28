@@ -6,8 +6,7 @@ import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
 const require = createRequire(import.meta.url);
-const { MAX_CSV_FILE_BYTES, readProjectCsvFile, writeProjectCsvFile } = require("../../../../../electron/project-csv.cjs") as {
-  MAX_CSV_FILE_BYTES: number;
+const { readProjectCsvFile, writeProjectCsvFile } = require("../../../../../electron/project-csv.cjs") as {
   readProjectCsvFile: (request: { rootPath: string; path: string }) => Promise<{
     file: { name: string; path: string };
     text: string;
@@ -73,23 +72,23 @@ describe("Electron project CSV files", () => {
     expect(results.map((result) => result.status).sort()).toEqual(["conflict", "saved"]);
   });
 
-  it("rejects traversal, non-CSV files, symlinks, invalid UTF-8 and oversized files", async () => {
+  it("rejects traversal, non-CSV files and symlinks while accepting supported encodings and large files", async () => {
     const rootPath = await temporaryRoot();
     const outsideRoot = await temporaryRoot();
     const outsideCsv = path.join(outsideRoot, "outside.csv");
     await writeFile(outsideCsv, "A\r\n1", "utf8");
     const linkedCsv = path.join(rootPath, "linked.csv");
     await symlink(outsideCsv, linkedCsv);
-    const invalidCsv = path.join(rootPath, "invalid.csv");
-    await writeFile(invalidCsv, Uint8Array.from([0xff, 0xfe]));
+    const utf16Csv = path.join(rootPath, "utf16.csv");
+    await writeFile(utf16Csv, Buffer.concat([Buffer.from([0xff, 0xfe]), Buffer.from("A\r\n1", "utf16le")]));
     const hugeCsv = path.join(rootPath, "huge.csv");
-    await writeFile(hugeCsv, Buffer.alloc(MAX_CSV_FILE_BYTES + 1));
+    await writeFile(hugeCsv, Buffer.alloc(2 * 1_048_576, 0x41));
 
     await expect(readProjectCsvFile({ rootPath, path: outsideCsv })).rejects.toMatchObject({ code: "permission_denied" });
     await expect(readProjectCsvFile({ rootPath, path: path.join(rootPath, "notes.txt") })).rejects.toMatchObject({ code: "unsupported_type" });
     await expect(readProjectCsvFile({ rootPath, path: linkedCsv })).rejects.toMatchObject({ code: "permission_denied" });
-    await expect(readProjectCsvFile({ rootPath, path: invalidCsv })).rejects.toMatchObject({ code: "read_failed" });
-    await expect(readProjectCsvFile({ rootPath, path: hugeCsv })).rejects.toMatchObject({ code: "read_failed" });
+    await expect(readProjectCsvFile({ rootPath, path: utf16Csv })).resolves.toMatchObject({ text: "A\r\n1", format: { encoding: "utf16le" } });
+    await expect(readProjectCsvFile({ rootPath, path: hugeCsv })).resolves.toMatchObject({ text: expect.stringMatching(/^A{2097152}$/) });
   });
 });
 

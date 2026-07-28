@@ -3,6 +3,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { DocumentKind } from "@/features/mermaid-editor/lib/document-kind";
 import type { BrowserToolWindowRequest } from "@/features/mermaid-editor/lib/browser-tool-window";
 import type { RuntimeFileRef } from "@/features/mermaid-editor/lib/editor-runtime";
+import type { RuntimeDocumentFormat } from "@/features/mermaid-editor/lib/editor-runtime/document-hub-types";
+import type { CsvHeaderMode } from "@/features/mermaid-editor/lib/csv-document-model";
 import {
   bringFloatingPanelToFront,
   floatingPanelStackIndex,
@@ -15,7 +17,9 @@ export type MarkdownWindowPanelId = `markdown:${string}`;
 export type BrowserWindowPanelId = `browser:${string}`;
 export type HtmlWindowPanelId = `html:${string}`;
 export type ImageWindowPanelId = `image:${string}`;
-export type WorkspaceFloatingPanelId = StaticWorkspacePanelId | MarkdownWindowPanelId | BrowserWindowPanelId | HtmlWindowPanelId | ImageWindowPanelId;
+export type TextWindowPanelId = `text:${string}`;
+export type CsvWindowPanelId = `csv:${string}`;
+export type WorkspaceFloatingPanelId = StaticWorkspacePanelId | MarkdownWindowPanelId | BrowserWindowPanelId | HtmlWindowPanelId | ImageWindowPanelId | TextWindowPanelId | CsvWindowPanelId;
 
 export type DetachedMarkdownWindow = {
   id: MarkdownWindowPanelId;
@@ -29,6 +33,31 @@ export type DetachedMarkdownWindow = {
 export type DetachedBrowserWindow = {
   id: BrowserWindowPanelId;
   request: BrowserToolWindowRequest;
+};
+
+export type DetachedTextWindow = {
+  id: TextWindowPanelId;
+  file: RuntimeFileRef & { path: string };
+  title: string;
+  value: string;
+  savedValue: string;
+  format?: RuntimeDocumentFormat;
+  open?: boolean;
+  missing?: boolean;
+};
+
+export type DetachedCsvWindow = {
+  id: CsvWindowPanelId;
+  file: RuntimeFileRef & { path: string };
+  title: string;
+  value: string;
+  savedValue: string;
+  format?: RuntimeDocumentFormat;
+  headerMode: CsvHeaderMode;
+  canUndo?: boolean;
+  canRedo?: boolean;
+  open?: boolean;
+  missing?: boolean;
 };
 
 export type DetachedHtmlWindow = {
@@ -93,7 +122,7 @@ const DEFAULT_WORKSPACE_PANEL_WINDOW_STATES: Record<StaticWorkspacePanelId, Floa
   theme: "normal"
 };
 
-export const WORKSPACE_PANEL_DEFAULT_SIZES: Record<StaticWorkspacePanelId | "markdown" | "browser" | "html" | "image", { width: number; height: number }> = {
+export const WORKSPACE_PANEL_DEFAULT_SIZES: Record<StaticWorkspacePanelId | "markdown" | "browser" | "html" | "image" | "text" | "csv", { width: number; height: number }> = {
   explorer: { width: 360, height: 640 },
   inspector: { width: 360, height: 640 },
   terminal: { width: 860, height: 320 },
@@ -102,10 +131,12 @@ export const WORKSPACE_PANEL_DEFAULT_SIZES: Record<StaticWorkspacePanelId | "mar
   markdown: MARKDOWN_WINDOW_A4_SIZE,
   browser: { width: 1040, height: 720 },
   html: { width: 1040, height: 720 },
-  image: { width: 960, height: 720 }
+  image: { width: 960, height: 720 },
+  text: { width: 720, height: 900 },
+  csv: { width: 1120, height: 760 }
 };
 
-export const WORKSPACE_PANEL_MIN_SIZES: Record<StaticWorkspacePanelId | "markdown" | "browser" | "html" | "image", { width: number; height: number }> = {
+export const WORKSPACE_PANEL_MIN_SIZES: Record<StaticWorkspacePanelId | "markdown" | "browser" | "html" | "image" | "text" | "csv", { width: number; height: number }> = {
   explorer: { width: 320, height: 220 },
   inspector: { width: 320, height: 220 },
   terminal: { width: 560, height: 260 },
@@ -114,7 +145,9 @@ export const WORKSPACE_PANEL_MIN_SIZES: Record<StaticWorkspacePanelId | "markdow
   markdown: { width: 420, height: 300 },
   browser: { width: 640, height: 420 },
   html: { width: 640, height: 420 },
-  image: { width: 420, height: 300 }
+  image: { width: 420, height: 300 },
+  text: { width: 420, height: 300 },
+  csv: { width: 640, height: 420 }
 };
 
 export function markdownWindowPanelId(file: Pick<RuntimeFileRef, "name" | "path">): MarkdownWindowPanelId {
@@ -129,6 +162,14 @@ export function imageWindowPanelId(file: Pick<RuntimeFileRef, "name" | "path">):
   return `image:${file.path || file.name}` as ImageWindowPanelId;
 }
 
+export function textWindowPanelId(file: Pick<RuntimeFileRef, "name" | "path" | "documentId">): TextWindowPanelId {
+  return `text:${file.documentId || file.path || file.name}` as TextWindowPanelId;
+}
+
+export function csvWindowPanelId(file: Pick<RuntimeFileRef, "name" | "path" | "documentId">): CsvWindowPanelId {
+  return `csv:${file.documentId || file.path || file.name}` as CsvWindowPanelId;
+}
+
 export function useWorkspacePanels({
   leftCollapsed,
   rightCollapsed,
@@ -139,7 +180,9 @@ export function useWorkspacePanels({
   detachedMarkdownWindows,
   detachedBrowserWindows,
   detachedHtmlWindows,
-  detachedImageWindows
+  detachedImageWindows,
+  detachedTextWindows = [],
+  detachedCsvWindows = []
 }: {
   leftCollapsed: boolean;
   rightCollapsed: boolean;
@@ -151,6 +194,8 @@ export function useWorkspacePanels({
   detachedBrowserWindows: DetachedBrowserWindow[];
   detachedHtmlWindows: DetachedHtmlWindow[];
   detachedImageWindows: DetachedImageWindow[];
+  detachedTextWindows?: DetachedTextWindow[];
+  detachedCsvWindows?: DetachedCsvWindow[];
 }) {
   const [workspacePanelStack, setWorkspacePanelStack] = useState<WorkspaceFloatingPanelId[]>(DEFAULT_WORKSPACE_PANEL_STACK);
   const [workspacePanelWindowStates, setWorkspacePanelWindowStates] = useState<Record<string, FloatingPanelWindowState>>(() => ({
@@ -168,8 +213,10 @@ export function useWorkspacePanels({
     panelIds.push(...detachedBrowserWindows.map((window) => window.id));
     panelIds.push(...detachedHtmlWindows.map((window) => window.id));
     panelIds.push(...detachedImageWindows.map((window) => window.id));
+    panelIds.push(...detachedTextWindows.filter((window) => window.open !== false).map((window) => window.id));
+    panelIds.push(...detachedCsvWindows.filter((window) => window.open !== false).map((window) => window.id));
     return panelIds;
-  }, [agentOpen, detachedBrowserWindows, detachedHtmlWindows, detachedImageWindows, detachedMarkdownWindows, documentKind, leftCollapsed, rightCollapsed, terminalOpen, themeSettingsOpen]);
+  }, [agentOpen, detachedBrowserWindows, detachedCsvWindows, detachedHtmlWindows, detachedImageWindows, detachedMarkdownWindows, detachedTextWindows, documentKind, leftCollapsed, rightCollapsed, terminalOpen, themeSettingsOpen]);
 
   const activeWorkspacePanel = useMemo(() => {
     for (let index = workspacePanelStack.length - 1; index >= 0; index -= 1) {
@@ -184,7 +231,7 @@ export function useWorkspacePanels({
   }, []);
 
   const setWorkspacePanelWindowState = useCallback((panelId: WorkspaceFloatingPanelId, state: FloatingPanelWindowState) => {
-    const fullscreenAllowed = panelId === "agent" || panelId === "terminal" || panelId.startsWith("markdown:") || panelId.startsWith("browser:") || panelId.startsWith("html:") || panelId.startsWith("image:");
+    const fullscreenAllowed = panelId === "agent" || panelId === "terminal" || panelId.startsWith("markdown:") || panelId.startsWith("browser:") || panelId.startsWith("html:") || panelId.startsWith("image:") || panelId.startsWith("text:") || panelId.startsWith("csv:");
     const nextState = state === "fullscreen" && !fullscreenAllowed ? "normal" : state;
     if (nextState === "fullscreen") {
       setWorkspacePanelStack((current) => bringFloatingPanelToFront(current, panelId));

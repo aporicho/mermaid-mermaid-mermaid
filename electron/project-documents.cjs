@@ -8,14 +8,15 @@ const {
   renameProjectExplorerOrderResource
 } = require("./project-explorer-order.cjs");
 
-const MAX_CSV_FILE_BYTES = 1_048_576;
+const MAX_CSV_FILE_BYTES = Number.POSITIVE_INFINITY;
 const MAX_PROJECT_FILE_BYTES = 16 * 1_048_576;
 const SKIPPED_PROJECT_DIRECTORIES = new Set([".git", ".hg", ".svn", ".mermaid-canvas-editor", "node_modules", "dist", "build", ".vite", ".next", "target", "dist-electron"]);
 const PROJECT_FILE_EXTENSIONS = {
   mermaid: [".mmd", ".mermaid"],
   markdown: [".md", ".markdown"],
   csv: [".csv"],
-  html: [".html", ".htm"]
+  html: [".html", ".htm"],
+  text: [".txt"]
 };
 
 async function createProjectFile(request) {
@@ -30,8 +31,8 @@ async function createProjectFile(request) {
 
   const text = typeof request?.text === "string" ? request.text : "";
   const textBytes = Buffer.byteLength(text, "utf8");
-  const maximumBytes = kind === "csv" ? MAX_CSV_FILE_BYTES : MAX_PROJECT_FILE_BYTES;
-  if (textBytes > maximumBytes) {
+  const maximumBytes = kind === "csv" ? null : MAX_PROJECT_FILE_BYTES;
+  if (maximumBytes && textBytes > maximumBytes) {
     throw projectFileError("write_failed", `Project ${kind} file cannot exceed ${maximumBytes} bytes.`, filePath);
   }
 
@@ -244,14 +245,14 @@ async function createProjectDocument(request) {
 }
 
 async function createProjectTextFile(request) {
-  if (request?.kind !== "csv") {
-    throw projectFileError("unsupported_type", "Only CSV project text files are supported.");
+  if (request?.kind !== "csv" && request?.kind !== "text") {
+    throw projectFileError("unsupported_type", "Only CSV and TXT project text files are supported.");
   }
   return createProjectFile({
     rootPath: request?.rootPath,
     directoryPath: "",
     fileName: request?.fileName,
-    kind: "csv",
+    kind: request.kind,
     text: request?.text
   });
 }
@@ -339,7 +340,7 @@ async function assertNoSymbolicLinkComponents(root, candidate) {
 function normalizeProjectFileKind(kind) {
   const value = String(kind || "");
   if (!Object.hasOwn(PROJECT_FILE_EXTENSIONS, value)) {
-    throw projectFileError("unsupported_type", "Project file kind must be mermaid, markdown, csv, or html.");
+    throw projectFileError("unsupported_type", "Project file kind must be mermaid, markdown, csv, html, or text.");
   }
   return value;
 }

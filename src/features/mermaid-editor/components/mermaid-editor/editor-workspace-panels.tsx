@@ -1,7 +1,5 @@
 import { Suspense, lazy } from "react";
-
 import type { ExplorerResourceStatus } from "@/features/mermaid-editor/components/explorer-panel";
-import type { AgentController } from "@/features/mermaid-editor/components/agent/use-agent-session";
 import { WorkspaceFloatingWindow } from "@/features/mermaid-editor/components/floating-chrome";
 import { InspectorPanel } from "@/features/mermaid-editor/components/inspector-panel";
 import { DetachedWorkspaceWindows } from "@/features/mermaid-editor/components/mermaid-editor/detached-workspace-windows";
@@ -10,7 +8,7 @@ import { ExplorerWorkspaceWindow } from "@/features/mermaid-editor/components/me
 import { NativeWebWorkspaceWindows } from "@/features/mermaid-editor/components/mermaid-editor/native-web-workspace-windows";
 import type { DocumentKind } from "@/features/mermaid-editor/lib/document-kind";
 import { EDITOR_CHROME_CLASSES } from "@/features/mermaid-editor/lib/editor-chrome";
-import type { EditorRuntime, RuntimeAgentTextSelection, RuntimeFileRef, RuntimeProjectFileKind, RuntimeProjectResourceKind, RuntimeProjectResourcePlacement } from "@/features/mermaid-editor/lib/editor-runtime";
+import type { EditorRuntime, RuntimeAgentDocumentBridge, RuntimeAgentTextSelection, RuntimeFileRef, RuntimeProjectFileKind, RuntimeProjectResourceKind, RuntimeProjectResourcePlacement } from "@/features/mermaid-editor/lib/editor-runtime";
 import type { MarkdownFoldSnapshot } from "@/features/mermaid-editor/lib/markdown-fold-state";
 import type { CanvasNode, MermaidGraph, Selection } from "@/features/mermaid-editor/lib/editor-types";
 import type { EditorTheme, EditorThemeId, XtermThemeTokens } from "@/features/mermaid-editor/lib/editor-theme";
@@ -23,10 +21,10 @@ import {
   WORKSPACE_PANEL_MIN_SIZES,
   type DetachedMarkdownWindow,
   type DetachedBrowserWindow,
-  type DetachedHtmlWindow, type DetachedImageWindow,
+  type DetachedHtmlWindow, type DetachedImageWindow, type DetachedTextWindow, type DetachedCsvWindow,
   type BrowserWindowPanelId,
   type MarkdownWindowPanelId,
-  type HtmlWindowPanelId, type ImageWindowPanelId,
+  type HtmlWindowPanelId, type ImageWindowPanelId, type TextWindowPanelId, type CsvWindowPanelId,
   type ChromeWorkspacePanelId,
   type WorkspaceFloatingPanelId
 } from "@/features/mermaid-editor/lib/workspace-panels";
@@ -34,34 +32,22 @@ import { cn } from "@/lib/utils";
 const ThemeSettingsPanel = lazy(() => import("@/features/mermaid-editor/components/theme-settings-panel").then((mod) => ({ default: mod.ThemeSettingsPanel })));
 
 type EditorWorkspacePanelsProps = {
-  runtime: EditorRuntime;
-  documentKind: DocumentKind;
-  leftCollapsed: boolean;
-  rightCollapsed: boolean;
-  agentOpen: boolean;
-  agentController: AgentController;
-  terminalOpen: boolean;
-  themeSettingsOpen: boolean;
+  runtime: EditorRuntime; documentKind: DocumentKind;
+  leftCollapsed: boolean; rightCollapsed: boolean;
+  agentOpen: boolean; agentDocumentBridge: RuntimeAgentDocumentBridge; terminalOpen: boolean; themeSettingsOpen: boolean;
   activeWorkspacePanel: WorkspaceFloatingPanelId | null; fullscreenWorkspacePanel: WorkspaceFloatingPanelId | null;
-  graph: MermaidGraph;
-  selection: Selection;
-  projectWorkspace: ProjectWorkspace | null;
-  projectFiles: ProjectFileEntry[];
-  projectResourceStatuses: Record<string, ExplorerResourceStatus | undefined>;
-  explorerTreeState: ExplorerWorkspaceTreeState | null;
+  graph: MermaidGraph; selection: Selection;
+  projectWorkspace: ProjectWorkspace | null; projectFiles: ProjectFileEntry[];
+  projectResourceStatuses: Record<string, ExplorerResourceStatus | undefined>; explorerTreeState: ExplorerWorkspaceTreeState | null;
   onExplorerTreeStateChange: (state: Omit<ExplorerWorkspaceTreeState, "rootPath" | "updatedAt">) => void;
-  projectBusy: boolean;
-  fileRef: RuntimeFileRef | null;
-  terminalCwd?: string;
-  terminalContextKey: string;
-  activeTheme: EditorTheme;
-  editingThemeId: EditorThemeId;
-  editingCustomTheme: EditorTheme | null;
-  themeDraftDirty: boolean;
-  terminalTheme: XtermThemeTokens;
+  projectBusy: boolean; fileRef: RuntimeFileRef | null;
+  terminalCwd?: string; terminalContextKey: string;
+  activeTheme: EditorTheme; editingThemeId: EditorThemeId; editingCustomTheme: EditorTheme | null;
+  themeDraftDirty: boolean; terminalTheme: XtermThemeTokens;
   detachedMarkdownWindows: DetachedMarkdownWindow[];
   detachedBrowserWindows: DetachedBrowserWindow[];
   detachedHtmlWindows: DetachedHtmlWindow[]; detachedImageWindows: DetachedImageWindow[];
+  detachedTextWindows: DetachedTextWindow[]; detachedCsvWindows: DetachedCsvWindow[];
   markdownSpellcheckEnabled: boolean; markdownContentWidth: number; markdownTextScale: number;
   workspaceTitlebarAutoHide: boolean;
   onMarkdownTextScaleChange: (value: number) => void;
@@ -89,13 +75,19 @@ type EditorWorkspacePanelsProps = {
   openProjectFile: (file: ProjectFileEntry) => void | Promise<unknown>;
   openProjectMarkdownWindow: (file: ProjectFileEntry) => void | Promise<unknown>;
   openProjectHtmlWindow: (file: ProjectFileEntry) => void | Promise<unknown>; openProjectImageWindow: (file: ProjectFileEntry) => void | Promise<unknown>;
-  onProjectDocumentPointerDrag: (file: ProjectFileEntry, kind: "markdown" | "html", point: { x: number; y: number }, phase: "move" | "drop" | "cancel") => void;
+  openProjectTextWindow: (file: ProjectFileEntry) => void | Promise<unknown>; openProjectCsvWindow: (file: ProjectFileEntry) => void | Promise<unknown>;
+  onProjectDocumentPointerDrag: (file: ProjectFileEntry, kind: "markdown" | "html" | "text" | "csv", point: { x: number; y: number }, phase: "move" | "drop" | "cancel") => void;
   applyEditorCommand: (command: EditorCommand) => void;
   executeCanvasNodeAction: (node: CanvasNode) => void | Promise<unknown>;
   editCanvasNodeAction: (node: CanvasNode) => void;
   closeDetachedMarkdownWindow: (panelId: MarkdownWindowPanelId) => void; saveDetachedMarkdownWindow: (panelId: MarkdownWindowPanelId) => void | Promise<unknown>; updateDetachedMarkdownWindow: (panelId: MarkdownWindowPanelId, value: string) => void;
   closeDetachedBrowserWindow: (panelId: BrowserWindowPanelId) => void;
   closeDetachedHtmlWindow: (panelId: HtmlWindowPanelId) => void; closeDetachedImageWindow: (panelId: ImageWindowPanelId) => void; navigateDetachedImageWindow: (panelId: ImageWindowPanelId, direction: -1 | 1) => void;
+  closeDetachedTextWindow: (panelId: TextWindowPanelId) => void; closeDetachedCsvWindow: (panelId: CsvWindowPanelId) => void;
+  saveDetachedTextWindow: (panelId: TextWindowPanelId) => void | Promise<unknown>; saveDetachedCsvWindow: (panelId: CsvWindowPanelId) => void | Promise<unknown>;
+  updateDetachedTextWindow: (panelId: TextWindowPanelId, value: string) => void; updateDetachedCsvWindow: (panelId: CsvWindowPanelId, value: string) => void;
+  undoDetachedCsvWindow: (panelId: CsvWindowPanelId) => void | Promise<unknown>; redoDetachedCsvWindow: (panelId: CsvWindowPanelId) => void | Promise<unknown>;
+  setDetachedCsvHeaderMode: (panelId: CsvWindowPanelId, mode: DetachedCsvWindow["headerMode"]) => void;
   onDetachedMarkdownSelectionChange: (panelId: MarkdownWindowPanelId, selection: RuntimeAgentTextSelection | null) => void;
   markdownFoldBindingFor: (file: RuntimeFileRef) => { foldState: MarkdownFoldSnapshot | null | undefined; onFoldStateChange?: (snapshot: MarkdownFoldSnapshot) => void };
   onStatus: (message: string) => void;
@@ -104,7 +96,7 @@ type EditorWorkspacePanelsProps = {
 export function EditorWorkspacePanels({
   runtime, documentKind,
   leftCollapsed, rightCollapsed,
-  agentOpen, agentController, terminalOpen, themeSettingsOpen,
+  agentOpen, agentDocumentBridge, terminalOpen, themeSettingsOpen,
   activeWorkspacePanel, fullscreenWorkspacePanel, graph,
   selection, projectWorkspace,
   projectFiles, projectResourceStatuses, explorerTreeState,
@@ -116,7 +108,7 @@ export function EditorWorkspacePanels({
   editingCustomTheme,
   themeDraftDirty,
   terminalTheme,
-  detachedMarkdownWindows, detachedBrowserWindows, detachedHtmlWindows, detachedImageWindows,
+  detachedMarkdownWindows, detachedBrowserWindows, detachedHtmlWindows, detachedImageWindows, detachedTextWindows, detachedCsvWindows,
   markdownSpellcheckEnabled, markdownContentWidth, markdownTextScale, workspaceTitlebarAutoHide, onMarkdownTextScaleChange,
   bringWorkspacePanelToFront,
   workspacePanelStackPosition,
@@ -134,7 +126,7 @@ export function EditorWorkspacePanels({
   deleteProjectResources, showProjectResourceInFileManager,
   openProjectFile,
   openProjectMarkdownWindow,
-  openProjectHtmlWindow, openProjectImageWindow,
+  openProjectHtmlWindow, openProjectImageWindow, openProjectTextWindow, openProjectCsvWindow,
   onProjectDocumentPointerDrag,
   applyEditorCommand,
   executeCanvasNodeAction,
@@ -142,6 +134,8 @@ export function EditorWorkspacePanels({
   closeDetachedMarkdownWindow,
   closeDetachedBrowserWindow,
   closeDetachedHtmlWindow, closeDetachedImageWindow, navigateDetachedImageWindow,
+  closeDetachedTextWindow, closeDetachedCsvWindow, saveDetachedTextWindow, saveDetachedCsvWindow,
+  updateDetachedTextWindow, updateDetachedCsvWindow, undoDetachedCsvWindow, redoDetachedCsvWindow, setDetachedCsvHeaderMode,
   saveDetachedMarkdownWindow,
   updateDetachedMarkdownWindow, markdownFoldBindingFor,
   onDetachedMarkdownSelectionChange,
@@ -170,6 +164,7 @@ export function EditorWorkspacePanels({
         onShowProjectResourceInFileManager={showProjectResourceInFileManager}
         onOpenProjectFile={openProjectFile} onOpenProjectMarkdownWindow={openProjectMarkdownWindow}
         onOpenProjectHtmlWindow={openProjectHtmlWindow} onOpenProjectImageWindow={openProjectImageWindow}
+        onOpenProjectTextWindow={openProjectTextWindow} onOpenProjectCsvWindow={openProjectCsvWindow}
         onProjectDocumentPointerDrag={onProjectDocumentPointerDrag}
         onStatus={onStatus}
       />
@@ -177,7 +172,8 @@ export function EditorWorkspacePanels({
         runtime={runtime}
         agentOpen={agentOpen}
         terminalOpen={terminalOpen}
-        agentController={agentController}
+        agentDocumentBridge={agentDocumentBridge}
+        agentProjectRoot={projectWorkspace?.rootPath}
         terminalCwd={terminalCwd}
         terminalContextKey={terminalContextKey}
         activeTheme={activeTheme}
@@ -247,6 +243,7 @@ export function EditorWorkspacePanels({
       </WorkspaceFloatingWindow>
       <DetachedWorkspaceWindows
         markdownWindows={detachedMarkdownWindows} markdownSpellcheckEnabled={markdownSpellcheckEnabled}
+        textWindows={detachedTextWindows} csvWindows={detachedCsvWindows}
         markdownContentWidth={markdownContentWidth} markdownTextScale={markdownTextScale}
         workspaceTitlebarAutoHide={workspaceTitlebarAutoHide} onMarkdownTextScaleChange={onMarkdownTextScaleChange}
         activePanel={activeWorkspacePanel}
@@ -258,6 +255,10 @@ export function EditorWorkspacePanels({
         saveMarkdownWindow={saveDetachedMarkdownWindow}
         updateMarkdownWindow={updateDetachedMarkdownWindow} markdownFoldBindingFor={markdownFoldBindingFor}
         onMarkdownSelectionChange={onDetachedMarkdownSelectionChange}
+        closeTextWindow={closeDetachedTextWindow} closeCsvWindow={closeDetachedCsvWindow}
+        saveTextWindow={saveDetachedTextWindow} saveCsvWindow={saveDetachedCsvWindow}
+        updateTextWindow={updateDetachedTextWindow} updateCsvWindow={updateDetachedCsvWindow}
+        undoCsvWindow={undoDetachedCsvWindow} redoCsvWindow={redoDetachedCsvWindow} setCsvHeaderMode={setDetachedCsvHeaderMode}
       />
       <NativeWebWorkspaceWindows
         runtime={runtime}

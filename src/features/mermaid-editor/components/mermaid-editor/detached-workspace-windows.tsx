@@ -1,4 +1,6 @@
 import { MarkdownWindowPanel } from "@/features/mermaid-editor/components/detached-window-panels";
+import { CsvEditorPanel } from "@/features/mermaid-editor/components/csv-editor-panel";
+import { TextEditorPanel } from "@/features/mermaid-editor/components/text-editor-panel";
 import { WorkspaceFloatingWindow } from "@/features/mermaid-editor/components/floating-chrome";
 import type { FloatingPanelWindowState } from "@/features/mermaid-editor/lib/floating-chrome";
 import type { RuntimeAgentTextSelection, RuntimeFileRef } from "@/features/mermaid-editor/lib/editor-runtime";
@@ -7,12 +9,18 @@ import {
   WORKSPACE_PANEL_DEFAULT_SIZES,
   WORKSPACE_PANEL_MIN_SIZES,
   type DetachedMarkdownWindow,
+  type DetachedCsvWindow,
+  type DetachedTextWindow,
+  type CsvWindowPanelId,
+  type TextWindowPanelId,
   type MarkdownWindowPanelId,
   type WorkspaceFloatingPanelId
 } from "@/features/mermaid-editor/lib/workspace-panels";
 
 type DetachedWorkspaceWindowsProps = {
   markdownWindows: DetachedMarkdownWindow[];
+  textWindows: DetachedTextWindow[];
+  csvWindows: DetachedCsvWindow[];
   markdownSpellcheckEnabled: boolean;
   markdownContentWidth: number;
   markdownTextScale: number;
@@ -31,10 +39,21 @@ type DetachedWorkspaceWindowsProps = {
     foldState: MarkdownFoldSnapshot | null | undefined;
     onFoldStateChange?: (snapshot: MarkdownFoldSnapshot) => void;
   };
+  closeTextWindow: (panelId: TextWindowPanelId) => void;
+  closeCsvWindow: (panelId: CsvWindowPanelId) => void;
+  saveTextWindow: (panelId: TextWindowPanelId) => void | Promise<unknown>;
+  saveCsvWindow: (panelId: CsvWindowPanelId) => void | Promise<unknown>;
+  updateTextWindow: (panelId: TextWindowPanelId, value: string) => void;
+  updateCsvWindow: (panelId: CsvWindowPanelId, value: string) => void;
+  undoCsvWindow: (panelId: CsvWindowPanelId) => void | Promise<unknown>;
+  redoCsvWindow: (panelId: CsvWindowPanelId) => void | Promise<unknown>;
+  setCsvHeaderMode: (panelId: CsvWindowPanelId, mode: DetachedCsvWindow["headerMode"]) => void;
 };
 
 export function DetachedWorkspaceWindows({
   markdownWindows,
+  textWindows,
+  csvWindows,
   markdownSpellcheckEnabled,
   markdownContentWidth,
   markdownTextScale,
@@ -49,7 +68,16 @@ export function DetachedWorkspaceWindows({
   saveMarkdownWindow,
   updateMarkdownWindow,
   onMarkdownSelectionChange,
-  markdownFoldBindingFor
+  markdownFoldBindingFor,
+  closeTextWindow,
+  closeCsvWindow,
+  saveTextWindow,
+  saveCsvWindow,
+  updateTextWindow,
+  updateCsvWindow,
+  undoCsvWindow,
+  redoCsvWindow,
+  setCsvHeaderMode
 }: DetachedWorkspaceWindowsProps) {
   return (
     <>
@@ -89,6 +117,61 @@ export function DetachedWorkspaceWindows({
           />
         </WorkspaceFloatingWindow>;
       })}
+      {textWindows.filter((textWindow) => textWindow.open !== false).map((textWindow) => (
+        <WorkspaceFloatingWindow
+          key={textWindow.id}
+          open
+          placement="center-panel"
+          panelId={textWindow.id}
+          titlebarAutoHide={workspaceTitlebarAutoHide}
+          active={activePanel === textWindow.id}
+          stackIndex={panelStackPosition(textWindow.id)}
+          onFocusPanel={() => bringPanelToFront(textWindow.id)}
+          defaultSize={WORKSPACE_PANEL_DEFAULT_SIZES.text}
+          minSize={WORKSPACE_PANEL_MIN_SIZES.text}
+          windowState={panelWindowState(textWindow.id)}
+          onWindowStateChange={(state) => setPanelWindowState(textWindow.id, state)}
+          onClose={() => closeTextWindow(textWindow.id)}
+          closeLabel="关闭文本编辑器"
+          tooltipSide="top"
+        >
+          <TextEditorPanel title={textWindow.title} path={textWindow.file.path} value={textWindow.value} dirty={textWindow.value !== textWindow.savedValue} onSave={() => void saveTextWindow(textWindow.id)} onChange={(value) => updateTextWindow(textWindow.id, value)} />
+        </WorkspaceFloatingWindow>
+      ))}
+      {csvWindows.filter((csvWindow) => csvWindow.open !== false).map((csvWindow) => (
+        <WorkspaceFloatingWindow
+          key={csvWindow.id}
+          open
+          placement="center-panel"
+          panelId={csvWindow.id}
+          titlebarAutoHide={workspaceTitlebarAutoHide}
+          active={activePanel === csvWindow.id}
+          stackIndex={panelStackPosition(csvWindow.id)}
+          onFocusPanel={() => bringPanelToFront(csvWindow.id)}
+          defaultSize={WORKSPACE_PANEL_DEFAULT_SIZES.csv}
+          minSize={WORKSPACE_PANEL_MIN_SIZES.csv}
+          windowState={panelWindowState(csvWindow.id)}
+          onWindowStateChange={(state) => setPanelWindowState(csvWindow.id, state)}
+          onClose={() => closeCsvWindow(csvWindow.id)}
+          closeLabel="关闭 CSV 编辑器"
+          tooltipSide="top"
+        >
+          <CsvEditorPanel
+            title={csvWindow.title}
+            path={csvWindow.file.path}
+            value={csvWindow.value}
+            dirty={csvWindow.value !== csvWindow.savedValue}
+            headerMode={csvWindow.headerMode}
+            canUndo={csvWindow.canUndo}
+            canRedo={csvWindow.canRedo}
+            onHeaderModeChange={(mode) => setCsvHeaderMode(csvWindow.id, mode)}
+            onSave={() => void saveCsvWindow(csvWindow.id)}
+            onUndo={() => void undoCsvWindow(csvWindow.id)}
+            onRedo={() => void redoCsvWindow(csvWindow.id)}
+            onChange={(value) => updateCsvWindow(csvWindow.id, value)}
+          />
+        </WorkspaceFloatingWindow>
+      ))}
     </>
   );
 }

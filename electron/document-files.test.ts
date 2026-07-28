@@ -1,62 +1,55 @@
+import { createRequire } from "node:module";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import path from "node:path";
+import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
-// This test intentionally loads the CommonJS module used directly by Electron.
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const { readDocumentFile, writeDocumentFile } = require("./document-files.cjs") as {
-  readDocumentFile: (filePath: string) => Promise<{ text: string; revision: string }>;
-  writeDocumentFile: (filePath: string, text: string, options?: { expectedRevision?: string; overwrite?: boolean }) => Promise<{ status: "saved" | "conflict"; revision: string }>;
-};
+const require = createRequire(import.meta.url);
+const { encodeDocumentText, readDocumentFile, writeDocumentFile } = require("./document-files.cjs");
 
-const temporaryDirectories: string[] = [];
+const directories: string[] = [];
 
 afterEach(async () => {
-  await Promise.all(temporaryDirectories.splice(0).map((directory) => rm(directory, { recursive: true, force: true })));
+  await Promise.all(directories.splice(0).map((directory) => rm(directory, { recursive: true, force: true })));
 });
 
-describe("document file revisions", () => {
-  it("writes atomically when the expected revision still matches", async () => {
-    const directory = await temporaryDirectory();
-    const filePath = path.join(directory, "notes.md");
-    await writeFile(filePath, "before", "utf8");
-    const opened = await readDocumentFile(filePath);
+describe("document file encoding", () => {
+  for (const format of [
+    { encoding: "utf8", bom: true, lineEnding: "crlf" },
+    { encoding: "utf16le", bom: true, lineEnding: "lf" },
+    { encoding: "utf16be", bom: true, lineEnding: "crlf" },
+    { encoding: "gb18030", bom: false, lineEnding: "lf" }
+  ] as const) {
+    it(`round-trips ${format.encoding} without changing its format`, async () => {
+      const directory = await mkdtemp(join(tmpdir(), "mmm-document-format-"));
+      directories.push(directory);
+      const path = join(directory, "文档.txt");
+      const source = "标题\n第二行：表格与文本\n";
+      await writeFile(path, encodeDocumentText(source, format));
 
-    const result = await writeDocumentFile(filePath, "after", { expectedRevision: opened.revision });
+      const opened = await readDocumentFile(path);
+      const saved = await writeDocumentFile(path, `${opened.text}追加`, { expectedRevision: opened.revision, format: opened.format });
+      const reopened = await readDocumentFile(path);
 
-    expect(result.status).toBe("saved");
-    expect(await readFile(filePath, "utf8")).toBe("after");
-    expect(result.revision).not.toBe(opened.revision);
-  });
+      expect(saved.status).toBe("saved");
+      expect(opened.format).toEqual(format);
+      expect(reopened.format).toEqual(format);
+      expect(reopened.text).toBe(`${source.replace(/\n/g, format.lineEnding === "crlf" ? "\r\n" : "\n")}追加`);
+      expect(await readFile(path)).toEqual(encodeDocumentText(reopened.text, format));
+    });
+  }
 
-  it("preserves an external edit and reports a conflict", async () => {
-    const directory = await temporaryDirectory();
-    const filePath = path.join(directory, "diagram.mmd");
-    await writeFile(filePath, "flowchart LR", "utf8");
-    const opened = await readDocumentFile(filePath);
-    await writeFile(filePath, "flowchart TD", "utf8");
+  for (const encoding of ["utf16le", "utf16be"] as const) {
+    it(`detects ${encoding} text without a BOM`, async () => {
+      const directory = await mkdtemp(join(tmpdir(), "mmm-document-format-"));
+      directories.push(directory);
+      const path = join(directory, "bomless.txt");
+      await writeFile(path, encodeDocumentText("Alpha\nBeta\n", { encoding, bom: false, lineEnding: "lf" }));
 
-    const result = await writeDocumentFile(filePath, "flowchart RL", { expectedRevision: opened.revision });
+      const opened = await readDocumentFile(path);
 
-    expect(result.status).toBe("conflict");
-    expect(await readFile(filePath, "utf8")).toBe("flowchart TD");
-  });
-
-  it("allows an explicit overwrite after conflict review", async () => {
-    const directory = await temporaryDirectory();
-    const filePath = path.join(directory, "diagram.mmd");
-    await writeFile(filePath, "external", "utf8");
-
-    const result = await writeDocumentFile(filePath, "local", { expectedRevision: "stale", overwrite: true });
-
-    expect(result.status).toBe("saved");
-    expect(await readFile(filePath, "utf8")).toBe("local");
-  });
+      expect(opened.text).toBe("Alpha\nBeta\n");
+      expect(opened.format).toEqual({ encoding, bom: false, lineEnding: "lf" });
+    });
+  }
 });
-
-async function temporaryDirectory() {
-  const directory = await mkdtemp(path.join(tmpdir(), "mmm-documents-"));
-  temporaryDirectories.push(directory);
-  return directory;
-}

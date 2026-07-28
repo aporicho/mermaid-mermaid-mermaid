@@ -16,6 +16,7 @@ import type { EdgeLabelGeometryTokens } from "@/features/mermaid-editor/lib/edge
 import type { EditorTypographyTokens, MarkdownThemeTokens, SpecialNodeThemeTokens } from "@/features/mermaid-editor/lib/editor-theme";
 import type { CanvasNode, EditorMode, MermaidGraph, Selection, ViewportState } from "@/features/mermaid-editor/lib/editor-types";
 import type { MarkdownDocumentPreview } from "@/features/mermaid-editor/lib/markdown-document";
+import type { TextDocumentPreview } from "@/features/mermaid-editor/lib/text-document";
 import type { NodeGeometryTokens } from "@/features/mermaid-editor/lib/node-geometry";
 import type { NodeArrangementOperation } from "@/features/mermaid-editor/lib/node-arrangement";
 import type { TableCellNavigation, TableCellSelection, TableHeaderSelection } from "@/features/mermaid-editor/lib/table-node";
@@ -54,6 +55,7 @@ export type KonvaCanvasStageProps = {
   runtimeCreateScale: number;
   imageDisplaySrcBySrc: Record<string, string>;
   markdownDocumentPreviewByNodeId: Record<string, MarkdownDocumentPreview>;
+  textDocumentPreviewByNodeId: Record<string, TextDocumentPreview>;
   alignmentGuides: AlignmentGuide[];
   hoveredNodeId: string | null;
   hoveredSubgraphId: string | null;
@@ -113,6 +115,7 @@ export type KonvaCanvasStageProps = {
   onOpenNodeImage?: (node: CanvasNode) => void;
   onEditNodeAction?: (node: CanvasNode) => void;
   onRequestMarkdownDocumentPreview?: (node: CanvasNode) => void;
+  onRequestTextDocumentPreview?: (node: CanvasNode) => void;
   onSelectTableCell: (selection: TableCellSelection | null) => void;
   onStartTableCellEdit: (selection: TableCellSelection) => void;
   onStartTableHeaderEdit: (selection: TableHeaderSelection) => void;

@@ -5,7 +5,7 @@ const { readProjectCsvFile } = require("./project-csv.cjs");
 
 const DOCUMENT_FILTERS = [{
   name: "Project Documents",
-  extensions: ["mmd", "mermaid", "md", "markdown"]
+  extensions: ["mmd", "mermaid", "md", "markdown", "txt", "csv"]
 }];
 
 function createDocumentIpc({ ipcMain, dialog, BrowserWindow }) {
@@ -40,6 +40,8 @@ function createDocumentIpc({ ipcMain, dialog, BrowserWindow }) {
     ipcMain.handle("mmm:document-hub:recreate", (event, request) => documentHub.recreate(event.sender, request));
     ipcMain.handle("mmm:document-hub:undo", (event, request) => documentHub.undo(event.sender, request));
     ipcMain.handle("mmm:document-hub:redo", (event, request) => documentHub.redo(event.sender, request));
+    ipcMain.handle("mmm:document-hub:save", (event, request) => documentHub.save(event.sender, request));
+    ipcMain.handle("mmm:document-hub:discard", (event, request) => documentHub.discard(event.sender, request));
     ipcMain.handle("mmm:csv:read", readCsv);
     ipcMain.handle("mmm:csv:write", writeCsv);
   }
@@ -87,16 +89,11 @@ function createDocumentIpc({ ipcMain, dialog, BrowserWindow }) {
 
   async function writeCsv(event, request) {
     const validated = await readProjectCsvFile(request);
-    if (Buffer.byteLength(typeof request?.text === "string" ? request.text : "", "utf8") > 1_048_576) {
-      const error = new Error("CSV file exceeds 1048576 bytes.");
-      error.code = "write_failed";
-      error.path = validated.file.path;
-      throw error;
-    }
     const result = await documentHub.save(event.sender, {
       path: validated.file.path,
       text: request?.text,
-      expectedRevision: request?.expectedRevision
+      expectedRevision: request?.expectedRevision,
+      format: request?.format
     });
     if (result.status === "conflict") {
       return { status: "conflict", revision: result.revision, modifiedAt: result.modifiedAt };
@@ -124,11 +121,11 @@ function snapshotAsOpenedFile(snapshot) {
 function assertSupportedDocumentPath(filePath) {
   if (typeof filePath !== "string" || !filePath) throw unsupportedDocumentError(filePath);
   const extension = path.extname(path.basename(filePath).toLowerCase()).replace(/^\./, "");
-  if (!["mmd", "mermaid", "md", "markdown"].includes(extension)) throw unsupportedDocumentError(filePath);
+  if (!["mmd", "mermaid", "md", "markdown", "txt", "csv"].includes(extension)) throw unsupportedDocumentError(filePath);
 }
 
 function unsupportedDocumentError(filePath) {
-  const error = new Error("Only .mmd, .mermaid, .md, or .markdown files are supported.");
+  const error = new Error("Only Mermaid, Markdown, TXT, or CSV files are supported.");
   error.code = "unsupported_type";
   error.path = filePath;
   return error;

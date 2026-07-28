@@ -174,6 +174,27 @@ export function createDefaultSpecialNodeTheme(source: SpecialNodeThemeSource): S
       pathOpacity: 0.62,
       excerptOpacity: 0.74
     },
+    textDocument: {
+      surface: surface(interfaceColors.card, ordinaryBorder, ordinaryNode.roundedRadius, ordinaryNode.shadow),
+      state: cloneState(interaction),
+      width: 420,
+      height: 594,
+      paddingTop: 24,
+      paddingRight: 24,
+      paddingBottom: 24,
+      paddingLeft: 24,
+      titleGap: 18,
+      titleFontFamily: source.markdown.heading.h1.fontFamily,
+      titleFontSize: 24,
+      titleFontWeight: source.markdown.heading.h1.fontWeight,
+      titleColor: ordinaryNode.textColor,
+      bodyFontFamily: source.markdown.body.fontFamily,
+      bodyFontSize: 16,
+      bodyFontWeight: source.markdown.body.fontWeight,
+      bodyLineHeight: 25.6,
+      bodyColor: ordinaryNode.textColor,
+      excerptOpacity: 0.82
+    },
     image: {
       surface: surface(
         interfaceColors.muted,
@@ -298,6 +319,7 @@ function migrateLegacySpecialNodeTheme(raw: unknown, fallback: SpecialNodeThemeT
   const markdownPreviewContent = objectValue(markdownDocument.previewContent);
   const markdownPreviewLayout = objectValue(markdownPreviewContent.layout);
   const htmlDocument = objectValue(source.htmlDocument);
+  const textDocument = objectValue(source.textDocument);
   const image = objectValue(source.image);
   const table = objectValue(source.table);
 
@@ -352,6 +374,11 @@ function migrateLegacySpecialNodeTheme(raw: unknown, fallback: SpecialNodeThemeT
       ...htmlDocument,
       surface: mergeObjects(commonSurface, objectValue(htmlDocument.surface)),
       state: mergeObjects(commonState, objectValue(htmlDocument.state))
+    },
+    textDocument: {
+      ...textDocument,
+      surface: mergeObjects(fallback.textDocument.surface, objectValue(textDocument.surface)),
+      state: mergeObjects(fallback.textDocument.state, objectValue(textDocument.state))
     },
     image: {
       ...image,
@@ -564,6 +591,18 @@ const SPECIAL_NODE_NUMBER_RANGES: Record<string, readonly [number, number]> = {
   "htmlDocument.width": [160, 960],
   "htmlDocument.height": [96, 720],
   "htmlDocument.badgeSize": [16, 128],
+  "textDocument.width": [240, 960],
+  "textDocument.height": [320, 1400],
+  "textDocument.paddingTop": [0, 160],
+  "textDocument.paddingRight": [0, 160],
+  "textDocument.paddingBottom": [0, 160],
+  "textDocument.paddingLeft": [0, 160],
+  "textDocument.titleGap": [0, 96],
+  "textDocument.titleFontSize": [8, 96],
+  "textDocument.titleFontWeight": [100, 900],
+  "textDocument.bodyFontSize": [8, 48],
+  "textDocument.bodyFontWeight": [100, 900],
+  "textDocument.bodyLineHeight": [8, 96],
   "table.minColumnWidth": [24, 480],
   "table.minRowHeight": [16, 240],
   "table.resizeHandleWidth": [2, 32]

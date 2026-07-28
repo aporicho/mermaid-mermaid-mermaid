@@ -30,8 +30,8 @@ type ExplorerE2EEvent =
   | { type: "import"; externalPaths: string[]; targetDirectoryPath: string }
   | { type: "delete"; relativePaths: string[] }
   | { type: "show-in-file-manager"; relativePath: string }
-  | { type: "open-file"; surface: "editor" | "markdown-window" | "html-window" | "image-window"; relativePath: string }
-  | { type: "canvas-drag"; relativePath: string; kind: "markdown" | "html"; phase: "move" | "drop" | "cancel"; point: { x: number; y: number } }
+  | { type: "open-file"; surface: "editor" | "markdown-window" | "html-window" | "image-window" | "text-window" | "csv-window"; relativePath: string }
+  | { type: "canvas-drag"; relativePath: string; kind: "markdown" | "html" | "text" | "csv"; phase: "move" | "drop" | "cancel"; point: { x: number; y: number } }
   | { type: "status"; message: string }
   | { type: "focus-panel" }
   | { type: "close-panel" }
@@ -201,6 +201,8 @@ export function ExplorerE2EHarness() {
             onOpenProjectMarkdownWindow={(file) => record({ type: "open-file", surface: "markdown-window", relativePath: file.relativePath })}
             onOpenProjectHtmlWindow={(file) => record({ type: "open-file", surface: "html-window", relativePath: file.relativePath })}
             onOpenProjectImageWindow={(file) => record({ type: "open-file", surface: "image-window", relativePath: file.relativePath })}
+            onOpenProjectTextWindow={(file) => record({ type: "open-file", surface: "text-window", relativePath: file.relativePath })}
+            onOpenProjectCsvWindow={(file) => record({ type: "open-file", surface: "csv-window", relativePath: file.relativePath })}
             onProjectDocumentPointerDrag={(file, kind, point, phase) => record({ type: "canvas-drag", relativePath: file.relativePath, kind, phase, point })}
             onStatus={status}
           />

@@ -14,9 +14,11 @@ function createPiAgentManager({ shell }) {
 
   async function start(webContents, request = {}) {
     const ownerId = webContents.id;
+    const agentInstanceId = normalizeAgentInstanceId(request.agentInstanceId);
+    const key = recordKey(ownerId, agentInstanceId);
     const requestedCwd = typeof request.cwd === "string" && request.cwd ? path.resolve(request.cwd) : null;
     const scratch = !requestedCwd;
-    const current = records.get(ownerId);
+    const current = records.get(key);
     if (current && current.bootstrap.scratch === scratch && (scratch || current.bootstrap.cwd === requestedCwd)) {
       return { status: current.ready ? "ready" : "starting", state: current.state };
     }
@@ -25,14 +27,14 @@ function createPiAgentManager({ shell }) {
     let migratedScratchDir;
     if (current?.bootstrap.scratch && !scratch) {
       try {
-        const migration = await control(webContents, { type: "prepare_migration" });
+        const migration = await control(webContents, { type: "prepare_migration", agentInstanceId });
         migrationSource = migration?.sessionFile;
         migratedScratchDir = current.bootstrap.scratchDir;
       } catch {
         // A scratch transcript without a persisted turn can safely start a fresh project session.
       }
     }
-    if (current) await stop(ownerId, { preserveScratch: Boolean(migratedScratchDir) });
+    if (current) await stop(ownerId, agentInstanceId, { preserveScratch: Boolean(migratedScratchDir) });
 
     const scratchDir = scratch ? fs.mkdtempSync(path.join(os.tmpdir(), "mmm-pi-agent-")) : null;
     const cwd = requestedCwd || scratchDir;
@@ -42,7 +44,8 @@ function createPiAgentManager({ shell }) {
       scratch,
       scratchDir,
       sessionDir: scratchDir ? path.join(scratchDir, "sessions") : undefined,
-      migrationSource
+      migrationSource,
+      createNewSession: Boolean(request.createNewSession)
     };
     const child = fork(WORKER_PATH, [], {
       cwd,
@@ -52,6 +55,8 @@ function createPiAgentManager({ shell }) {
     });
     const record = {
       ownerId,
+      key,
+      agentInstanceId,
       webContents,
       child,
       bootstrap,
@@ -65,7 +70,7 @@ function createPiAgentManager({ shell }) {
       startTimer: null,
       sessionFile: null
     };
-    records.set(ownerId, record);
+    records.set(key, record);
     attachRecord(record);
     child.send({ type: "initialize", bootstrap });
 
@@ -75,7 +80,7 @@ function createPiAgentManager({ shell }) {
       record.startTimer = setTimeout(() => {
         record.startTimer = null;
         reject(new Error("Pi Agent startup timed out."));
-        void stop(ownerId);
+        void stop(ownerId, agentInstanceId);
       }, START_TIMEOUT_MS);
       record.startTimer.unref?.();
       record.migratedScratchDir = migratedScratchDir;
@@ -93,11 +98,11 @@ function createPiAgentManager({ shell }) {
     child.on("message", (message) => handleWorkerMessage(record, message));
     child.on("error", (error) => failRecord(record, error));
     child.on("exit", (code, signal) => {
-      const wasCurrent = records.get(record.ownerId) === record;
+      const wasCurrent = records.get(record.key) === record;
       releaseSession(record);
       rejectPending(record, new Error(`Pi Agent exited${code === null ? "" : ` with code ${code}`}${signal ? ` (${signal})` : ""}.`));
       if (wasCurrent) {
-        records.delete(record.ownerId);
+        records.delete(record.key);
         emit(record, { lane: "control", payload: { type: "stopped", code, signal } });
       }
     });
@@ -169,13 +174,13 @@ function createPiAgentManager({ shell }) {
   }
 
   function rpc(webContents, command) {
-    const record = requireRecord(webContents.id);
+    const record = requireRecord(webContents.id, command?.agentInstanceId);
     if (!command || typeof command !== "object" || typeof command.type !== "string") throw new Error("Invalid Pi RPC command.");
     const normalized = { ...command, id: typeof command.id === "string" && command.id ? command.id : `rpc_${crypto.randomUUID()}` };
     if (normalized.type === "switch_session") {
       const target = path.resolve(String(normalized.sessionPath || ""));
       const owner = sessionOwners.get(target);
-      if (owner && owner !== record.ownerId) {
+      if (owner && owner !== record.key) {
         emit(record, { lane: "rpc", payload: { id: normalized.id, type: "response", command: "switch_session", success: false, error: "This session is already open in another window." } });
         return { accepted: false, id: normalized.id };
       }
@@ -186,12 +191,12 @@ function createPiAgentManager({ shell }) {
   }
 
   function extensionUiResponse(webContents, response) {
-    const record = requireRecord(webContents.id);
+    const record = requireRecord(webContents.id, response?.agentInstanceId);
     record.child.stdin.write(`${JSON.stringify({ ...response, type: "extension_ui_response" })}\n`);
   }
 
   function control(webContents, command) {
-    const record = requireRecord(webContents.id);
+    const record = requireRecord(webContents.id, command?.agentInstanceId);
     if (command?.type === "delete_session") return trashSession(record, command.path);
     const id = `control_${crypto.randomUUID()}`;
     return new Promise((resolvePromise, reject) => {
@@ -201,7 +206,7 @@ function createPiAgentManager({ shell }) {
   }
 
   function respondHost(webContents, response) {
-    const record = requireRecord(webContents.id);
+    const record = requireRecord(webContents.id, response?.agentInstanceId);
     record.child.send({ type: "host_response", id: response?.id, result: response?.result, error: response?.error });
   }
 
@@ -209,15 +214,16 @@ function createPiAgentManager({ shell }) {
     const target = path.resolve(String(sessionPath || ""));
     if (!target.endsWith(".jsonl")) throw new Error("Only Pi JSONL session files can be removed.");
     const owner = sessionOwners.get(target);
-    if (owner) throw new Error(owner === record.ownerId ? "Switch away from the active session before removing it." : "This session is open in another window.");
+    if (owner) throw new Error(owner === record.key ? "Switch away from the active session before removing it." : "This session is open in another agent session.");
     await shell.trashItem(target);
     return { trashed: true, path: target };
   }
 
-  async function stop(ownerId, options = {}) {
-    const record = records.get(ownerId);
+  async function stop(ownerId, agentInstanceId, options = {}) {
+    const key = recordKey(ownerId, normalizeAgentInstanceId(agentInstanceId));
+    const record = records.get(key);
     if (!record) return;
-    records.delete(ownerId);
+    records.delete(key);
     releaseSession(record);
     rejectPending(record, new Error("Pi Agent stopped."));
     if (record.startTimer) clearTimeout(record.startTimer);
@@ -229,7 +235,7 @@ function createPiAgentManager({ shell }) {
   }
 
   async function closeAll() {
-    await Promise.all(Array.from(records.keys(), (ownerId) => stop(ownerId)));
+    await Promise.all(Array.from(records.values(), (record) => stop(record.ownerId, record.agentInstanceId)));
   }
 
   function updateState(record, state) {
@@ -241,24 +247,24 @@ function createPiAgentManager({ shell }) {
     if (!sessionFile) return;
     const target = path.resolve(sessionFile);
     const owner = sessionOwners.get(target);
-    if (owner && owner !== record.ownerId) return;
+    if (owner && owner !== record.key) return;
     releaseSession(record);
     record.sessionFile = target;
-    sessionOwners.set(target, record.ownerId);
+    sessionOwners.set(target, record.key);
   }
 
   function releaseSession(record) {
-    if (record.sessionFile && sessionOwners.get(record.sessionFile) === record.ownerId) sessionOwners.delete(record.sessionFile);
+    if (record.sessionFile && sessionOwners.get(record.sessionFile) === record.key) sessionOwners.delete(record.sessionFile);
     record.sessionFile = null;
   }
 
   function emit(record, event) {
-    if (!record.webContents.isDestroyed()) record.webContents.send("mmm:agent:event", event);
+    if (!record.webContents.isDestroyed()) record.webContents.send("mmm:agent:event", { ...event, agentInstanceId: record.agentInstanceId });
   }
 
-  function requireRecord(ownerId) {
-    const record = records.get(ownerId);
-    if (!record) throw new Error("Pi Agent is not running for this window.");
+  function requireRecord(ownerId, agentInstanceId) {
+    const record = records.get(recordKey(ownerId, normalizeAgentInstanceId(agentInstanceId)));
+    if (!record) throw new Error("Pi Agent instance is not running for this window.");
     return record;
   }
 
@@ -277,6 +283,15 @@ function createPiAgentManager({ shell }) {
   }
 
   return { start, rpc, control, extensionUiResponse, respondHost, stop, closeAll };
+}
+
+function normalizeAgentInstanceId(value) {
+  const normalized = typeof value === "string" ? value.trim() : "";
+  return normalized && /^[A-Za-z0-9._:-]{1,128}$/.test(normalized) ? normalized : "primary";
+}
+
+function recordKey(ownerId, agentInstanceId) {
+  return `${ownerId}:${agentInstanceId}`;
 }
 
 module.exports = { createPiAgentManager };

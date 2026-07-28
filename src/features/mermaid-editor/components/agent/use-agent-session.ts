@@ -91,12 +91,16 @@ const LONG_RPC_TIMEOUT_MS = 30 * 60_000;
 export function useAgentSession({
   runtime,
   enabled,
+  agentInstanceId = "primary",
+  createNewSession = false,
   cwd,
   projectRoot,
   documentBridge
 }: {
   runtime: EditorRuntime;
   enabled: boolean;
+  agentInstanceId?: string;
+  createNewSession?: boolean;
   cwd?: string;
   projectRoot?: string;
   documentBridge: RuntimeAgentDocumentBridge;
@@ -112,6 +116,7 @@ export function useAgentSession({
   const [overview, setOverview] = useState<Record<string, any> | null>(null);
   const [overviewBusy, setOverviewBusy] = useState(false);
   const [busyAction, setBusyAction] = useState<string | null>(null);
+  const [interrupting, setInterrupting] = useState(false);
   const [interaction, setInteraction] = useState<AgentInteractionRequest | null>(null);
   const [documents, setDocuments] = useState<RuntimeAgentDocumentSummary[]>([]);
   const [composerRequest, setComposerRequest] = useState<string | null>(null);
@@ -191,7 +196,7 @@ export function useAgentSession({
       pendingRpcRef.current.set(id, { resolve: resolve as (value: unknown) => void, reject, timeout });
     });
     try {
-      const accepted = await runtime.sendAgentRpc({ ...command, id });
+      const accepted = await runtime.sendAgentRpc({ ...command, id, agentInstanceId });
       if (!accepted.accepted) {
         const pending = pendingRpcRef.current.get(id);
         pendingRpcRef.current.delete(id);
@@ -209,7 +214,7 @@ export function useAgentSession({
       }
     }
     return promise;
-  }, [runtime]);
+  }, [agentInstanceId, runtime]);
 
   const refreshTranscript = useCallback(async () => {
     const response = await sendRpc<{ messages?: unknown[] }>({ type: "get_messages" });
@@ -261,8 +266,8 @@ export function useAgentSession({
       const request = event.payload;
       if (request.method.startsWith("document.")) {
         void handleDocumentHostRequest(documentBridgeRef.current, request.method, request.params || {})
-          .then((result) => runtime.respondAgentHost({ id: request.id, result }))
-          .catch((requestError) => runtime.respondAgentHost({ id: request.id, error: readableError(requestError) }));
+          .then((result) => runtime.respondAgentHost({ id: request.id, result, agentInstanceId }))
+          .catch((requestError) => runtime.respondAgentHost({ id: request.id, error: readableError(requestError), agentInstanceId }));
         return;
       }
       setInteraction(hostInteraction(request.id, request.method, request.params || {}));
@@ -282,6 +287,11 @@ export function useAgentSession({
         setStatus("idle");
         setActivity(null);
         rejectPendingRpcs("Pi Agent stopped before the command completed.");
+      }
+      if (payload.type === "interrupted") {
+        setInterrupting(false);
+        setActivity(null);
+        setSessionState((current) => current ? { ...current, isStreaming: false } : current);
       }
       if (payload.type === "package_progress") {
         const progress = payload.event as Record<string, unknown> | undefined;
@@ -406,13 +416,13 @@ export function useAgentSession({
     if (payload.type === "model_select" || payload.type === "thinking_level_select" || payload.type === "session_info_changed") {
       void Promise.all([refreshSessionState(), refreshAvailableThinkingLevels()]).catch(() => undefined);
     }
-  }, [refreshAvailableThinkingLevels, refreshSessionState, refreshTranscript, rejectPendingRpcs, runtime, scheduleStreamingRender]);
+  }, [agentInstanceId, refreshAvailableThinkingLevels, refreshSessionState, refreshTranscript, rejectPendingRpcs, runtime, scheduleStreamingRender]);
 
   useEffect(() => {
     let disposed = false;
     let unlisten: (() => void) | undefined;
     void runtime.listenForAgentEvents((event) => {
-      if (!disposed) handleAgentEvent(event);
+      if (!disposed && (event.agentInstanceId || "primary") === agentInstanceId) handleAgentEvent(event);
     }).then((cleanup) => {
       if (disposed) cleanup();
       else unlisten = cleanup;
@@ -421,7 +431,7 @@ export function useAgentSession({
       disposed = true;
       unlisten?.();
     };
-  }, [handleAgentEvent, runtime]);
+  }, [agentInstanceId, handleAgentEvent, runtime]);
 
   useEffect(() => () => {
     rejectPendingRpcs("Pi Agent view was disposed.");
@@ -438,7 +448,7 @@ export function useAgentSession({
     let disposed = false;
     setStatus("starting");
     setError(null);
-    void runtime.startAgent({ cwd, projectRoot }).then(async (result) => {
+    void runtime.startAgent({ cwd, projectRoot, agentInstanceId, createNewSession }).then(async (result) => {
       if (disposed) return;
       if (result.status === "unsupported") {
         setStatus("error");
@@ -470,18 +480,18 @@ export function useAgentSession({
     return () => {
       disposed = true;
     };
-  }, [cwd, enabled, projectRoot, refreshDocuments, runtime, sendRpc, startupAttempt]);
+  }, [agentInstanceId, createNewSession, cwd, enabled, projectRoot, refreshDocuments, runtime, sendRpc, startupAttempt]);
 
   const retryAgent = useCallback(async () => {
     setError(null);
     setStatus("starting");
     rejectPendingRpcs("Pi Agent is restarting.");
     try {
-      await runtime.stopAgent();
+      await runtime.stopAgent(agentInstanceId);
     } finally {
       setStartupAttempt((current) => current + 1);
     }
-  }, [rejectPendingRpcs, runtime]);
+  }, [agentInstanceId, rejectPendingRpcs, runtime]);
 
   const sendPrompt = useCallback(async (text: string, explicit: RuntimeAgentReference[] = []) => {
     const prompt = text.trim();
@@ -494,6 +504,7 @@ export function useAgentSession({
     const implicitReference = active?.selection && active.selection.text ? selectionReference(active) : null;
     const references = dedupeReferences([...(implicitReference ? [implicitReference] : []), ...explicit]);
     await runtime.runAgentControl({
+      agentInstanceId,
       type: "set_turn_context",
       context: {
         sentAt: new Date().toISOString(),
@@ -522,21 +533,21 @@ export function useAgentSession({
       setTranscript((current) => current.filter((item) => item.id !== optimisticId));
       throw promptError;
     }
-  }, [availableModels, refreshDocuments, runtime, sendRpc, sessionState?.isStreaming, sessionState?.model]);
+  }, [agentInstanceId, availableModels, refreshDocuments, runtime, sendRpc, sessionState?.isStreaming, sessionState?.model]);
 
   const resolveInteraction = useCallback(async (result: { value?: string; confirmed?: boolean; index?: number; cancelled?: boolean }) => {
     const current = interaction;
     if (!current) return;
     setInteraction(null);
-    if (current.source === "extension") await runtime.respondAgentExtensionUi({ id: current.id, ...result });
-    else await runtime.respondAgentHost({ id: current.id, result });
-  }, [interaction, runtime]);
+    if (current.source === "extension") await runtime.respondAgentExtensionUi({ id: current.id, ...result, agentInstanceId });
+    else await runtime.respondAgentHost({ id: current.id, result, agentInstanceId });
+  }, [agentInstanceId, interaction, runtime]);
 
   const loadOverview = useCallback(async (force = false) => {
     if (overview && !force) return overview;
     if (overviewPromiseRef.current) return overviewPromiseRef.current;
     setOverviewBusy(true);
-    const request = runtime.runAgentControl<Record<string, any>>({ type: "overview" });
+    const request = runtime.runAgentControl<Record<string, any>>({ type: "overview", agentInstanceId });
     overviewPromiseRef.current = request;
     try {
       const next = await request;
@@ -549,7 +560,7 @@ export function useAgentSession({
       if (overviewPromiseRef.current === request) overviewPromiseRef.current = null;
       setOverviewBusy(false);
     }
-  }, [overview, runtime]);
+  }, [agentInstanceId, overview, runtime]);
 
   const runControl = useCallback(async <T,>(command: Record<string, unknown>) => {
     setBusyAction(String(command.type || "control"));
@@ -559,18 +570,34 @@ export function useAgentSession({
       setAuthFlow({ providerId: String(command.providerId || ""), status: "pending", message: "正在开始认证" });
     }
     try {
-      const result = await runtime.runAgentControl<T>(command as { type: string; [key: string]: unknown });
+      const result = await runtime.runAgentControl<T>({ ...command, type: String(command.type || "control"), agentInstanceId });
       if (command.type !== "set_turn_context" && command.type !== "prepare_migration") await loadOverview(true);
       if (command.type === "cancel_login") setAuthFlow((current) => current ? { ...current, status: "cancelled", message: "认证已取消" } : null);
       return result;
     } finally {
       setBusyAction(null);
     }
-  }, [loadOverview, runtime]);
+  }, [agentInstanceId, loadOverview, runtime]);
 
   const refreshConversation = useCallback(async () => {
     await Promise.all([refreshTranscript(), refreshSessionState(), refreshDocuments(), refreshAvailableThinkingLevels()]);
   }, [refreshAvailableThinkingLevels, refreshDocuments, refreshSessionState, refreshTranscript]);
+
+  const interrupt = useCallback(async () => {
+    if (interrupting) return;
+    setInterrupting(true);
+    setActivity("正在停止当前任务");
+    try {
+      await runtime.runAgentControl({ type: "interrupt", agentInstanceId });
+      streamingTextRef.current = "";
+      streamingThinkingRef.current = "";
+      setSessionState((current) => current ? { ...current, isStreaming: false } : current);
+      await Promise.all([refreshTranscript(), refreshSessionState()]);
+    } finally {
+      setInterrupting(false);
+      setActivity(null);
+    }
+  }, [agentInstanceId, interrupting, refreshSessionState, refreshTranscript, runtime]);
 
   const createSession = useCallback(async () => {
     await sendRpc({ type: "new_session" });
@@ -592,6 +619,7 @@ export function useAgentSession({
 
   return {
     status,
+    agentInstanceId,
     error,
     workerState,
     sessionState,
@@ -602,6 +630,7 @@ export function useAgentSession({
     overview,
     overviewBusy,
     busyAction,
+    interrupting,
     interaction,
     documents,
     references,
@@ -620,6 +649,7 @@ export function useAgentSession({
     setError,
     sendRpc,
     sendPrompt,
+    interrupt,
     createSession,
     switchSession,
     refreshDocuments,

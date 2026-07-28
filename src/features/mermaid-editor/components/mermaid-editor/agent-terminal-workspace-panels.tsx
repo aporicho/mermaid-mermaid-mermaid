@@ -1,9 +1,8 @@
 import { lazy, Suspense } from "react";
 
-import type { AgentController } from "@/features/mermaid-editor/components/agent/use-agent-session";
 import { WorkspaceFloatingWindow } from "@/features/mermaid-editor/components/floating-chrome";
 import { TerminalPanel } from "@/features/mermaid-editor/components/terminal-panel";
-import type { EditorRuntime } from "@/features/mermaid-editor/lib/editor-runtime";
+import type { EditorRuntime, RuntimeAgentDocumentBridge } from "@/features/mermaid-editor/lib/editor-runtime";
 import type { EditorTheme, XtermThemeTokens } from "@/features/mermaid-editor/lib/editor-theme";
 import type { FloatingPanelWindowState } from "@/features/mermaid-editor/lib/floating-chrome";
 import {
@@ -13,13 +12,14 @@ import {
   type WorkspaceFloatingPanelId
 } from "@/features/mermaid-editor/lib/workspace-panels";
 
-const AgentPanel = lazy(() => import("@/features/mermaid-editor/components/agent/agent-panel").then((module) => ({ default: module.AgentPanel })));
+const ParallelAgentPanel = lazy(() => import("@/features/mermaid-editor/components/agent/parallel-agent-panel").then((module) => ({ default: module.ParallelAgentPanel })));
 
 type AgentTerminalWorkspacePanelsProps = {
   runtime: EditorRuntime;
   agentOpen: boolean;
   terminalOpen: boolean;
-  agentController: AgentController;
+  agentDocumentBridge: RuntimeAgentDocumentBridge;
+  agentProjectRoot?: string;
   terminalCwd?: string;
   terminalContextKey: string;
   activeTheme: EditorTheme;
@@ -78,11 +78,15 @@ export function AgentTerminalWorkspacePanels(props: AgentTerminalWorkspacePanels
       onClose={() => props.closePanel("agent")}
       closeLabel="关闭 Pi Agent"
       tooltipSide="top"
+      mountStrategy="keep-alive"
     >
       <Suspense fallback={<div className="grid h-full place-items-center text-sm text-muted-foreground">正在载入 Pi Agent…</div>}>
-        <AgentPanel
+        <ParallelAgentPanel
           runtime={props.runtime}
-          controller={props.agentController}
+          enabled={props.agentOpen}
+          cwd={props.terminalCwd}
+          projectRoot={props.agentProjectRoot}
+          documentBridge={props.agentDocumentBridge}
         />
       </Suspense>
     </WorkspaceFloatingWindow>

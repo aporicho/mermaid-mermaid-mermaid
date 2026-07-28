@@ -658,6 +658,8 @@ describe("interaction architecture contract", () => {
       "src/features/mermaid-editor/components/detached-window-panels.tsx"
     ].map(readProjectFile);
 
+    expect(agentWindows.match(/mountStrategy="keep-alive"/g)).toHaveLength(2);
+
     for (const host of workspaceHosts) {
       expect(host).toContain("WorkspaceFloatingWindow");
       expect(host).not.toContain("<FloatingPanel");
@@ -905,9 +907,12 @@ describe("interaction architecture contract", () => {
 
   it("keeps Agent, desktop, and clipboard controllers outside the MermaidEditor composition file", () => {
     const editor = readProjectFile("src/features/mermaid-editor/components/mermaid-editor.tsx");
+    const parallelAgent = readProjectFile("src/features/mermaid-editor/components/agent/parallel-agent-panel.tsx");
     const actions = readProjectFile("src/features/mermaid-editor/components/mermaid-editor/use-editor-command-actions.ts");
 
-    expect(editor).toContain("useAgentSession");
+    expect(editor).not.toContain("useAgentSession");
+    expect(parallelAgent).toContain("useAgentSession");
+    expect(parallelAgent).toContain("agentInstanceId");
     expect(editor).toContain("useEditorAgentDocuments");
     expect(editor).toContain("useEditorDesktopEvents");
     expect(actions).toContain("useEditorClipboardActions");

@@ -36,6 +36,12 @@ function createDocumentPreloadBridge(ipcRenderer) {
     redoDocumentTransaction(request) {
       return ipcRenderer.invoke("mmm:document-hub:redo", request);
     },
+    saveDocumentWorkingCopy(request) {
+      return ipcRenderer.invoke("mmm:document-hub:save", request);
+    },
+    discardDocumentWorkingCopy(request) {
+      return ipcRenderer.invoke("mmm:document-hub:discard", request);
+    },
     onDocumentHubEvent(handler) {
       const listener = (_event, payload) => handler(payload);
       ipcRenderer.on("mmm:document-hub:changed", listener);

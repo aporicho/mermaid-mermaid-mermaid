@@ -63,7 +63,9 @@ test.describe("Explorer tree journeys", () => {
     await expectEvent(page, { type: "open-file", surface: "editor", relativePath: "docs/note.md" });
 
     await resourceRow(page, "README.txt").dblclick();
-    await expectEvent(page, { type: "status", message: "暂不支持打开 README.txt。" });
+    await expectEvent(page, { type: "open-file", surface: "editor", relativePath: "README.txt" });
+    await resourceRow(page, "docs/theme.css").dblclick();
+    await expectEvent(page, { type: "status", message: "暂不支持打开 theme.css。" });
   });
 
   test("renames inline from both selected-name click and F2 without opening a dialog", async ({ page }) => {
@@ -155,6 +157,17 @@ test.describe("Explorer tree journeys", () => {
     await expectEvent(page, { type: "open-file", surface: "html-window", relativePath: "docs/index.html" });
     await resourceRow(page, "docs/cover.png").dblclick();
     await expectEvent(page, { type: "open-file", surface: "image-window", relativePath: "docs/cover.png" });
+    await resourceRow(page, "docs/people.csv").dblclick();
+    await expectEvent(page, { type: "open-file", surface: "editor", relativePath: "docs/people.csv" });
+    await resourceRow(page, "README.txt").dblclick();
+    await expectEvent(page, { type: "open-file", surface: "editor", relativePath: "README.txt" });
+
+    await resourceRow(page, "docs/people.csv").click({ button: "right" });
+    await menuItem(page.getByRole("menu", { name: "people.csv 操作" }), "在浮窗中打开").click();
+    await expectEvent(page, { type: "open-file", surface: "csv-window", relativePath: "docs/people.csv" });
+    await resourceRow(page, "README.txt").click({ button: "right" });
+    await menuItem(page.getByRole("menu", { name: "README.txt 操作" }), "在浮窗中打开").click();
+    await expectEvent(page, { type: "open-file", surface: "text-window", relativePath: "README.txt" });
   });
 
   test("drags rows with overlay, insertion gap, reorder, directory move, and canvas handoff", async ({ page }) => {

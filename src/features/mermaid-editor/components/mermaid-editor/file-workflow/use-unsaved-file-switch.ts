@@ -12,6 +12,9 @@ export function useUnsavedFileSwitch(
     setUnsavedPrompt,
     flushLinkedFileWrites,
     discardLinkedFileWrites,
+    listAdditionalDirtyDocuments,
+    saveAdditionalDocuments,
+    discardAdditionalDocuments,
     captureActiveDocumentBuffer,
     discardAllDocumentChanges
   }: UseEditorFileWorkflowArgs,
@@ -25,7 +28,6 @@ export function useUnsavedFileSwitch(
     saveAllDocuments: () => Promise<boolean>;
   }
 ) {
-
   function requestUnsavedChoice(targetNames: string[]): Promise<UnsavedPromptChoice> {
     return new Promise((resolve) => {
       setUnsavedPrompt({
@@ -38,7 +40,6 @@ export function useUnsavedFileSwitch(
       } satisfies UnsavedPromptState);
     });
   }
-
   function resolveUnsavedPrompt(choice: UnsavedPromptChoice) {
     setUnsavedPrompt((current) => {
       current?.resolve(choice);
@@ -56,13 +57,16 @@ export function useUnsavedFileSwitch(
     const dirtyBuffers = captured.openOrder
       .map((id) => captured.buffers.find((buffer) => buffer.id === id))
       .filter((buffer) => buffer && editorDocumentBufferIsDirty(buffer));
-    if (!dirtyBuffers.length && !isDirtyRef.current) return true;
-    const choice = await requestUnsavedChoice(dirtyBuffers.map((buffer) => buffer!.fileName));
+    const additionalDirtyNames = listAdditionalDirtyDocuments?.() ?? [];
+    if (!dirtyBuffers.length && !additionalDirtyNames.length && !isDirtyRef.current) return true;
+    const targetNames = [...dirtyBuffers.map((buffer) => buffer!.fileName), ...additionalDirtyNames];
+    const choice = await requestUnsavedChoice(targetNames.length ? targetNames : ["当前文档"]);
     const decision = resolveWindowCloseChoice(choice);
     if (decision.shouldSave) {
       if (flushLinkedFileWrites && !(await flushLinkedFileWrites())) return false;
       const saved = await saveAllDocuments();
-      return resolveWindowCloseChoice(choice, saved).shouldClose;
+      const additionalSaved = !saveAdditionalDocuments || await saveAdditionalDocuments();
+      return resolveWindowCloseChoice(choice, saved && additionalSaved).shouldClose;
     }
 
     if (decision.shouldPreserve) {
@@ -75,6 +79,7 @@ export function useUnsavedFileSwitch(
 
     if (decision.shouldDiscard) {
       await discardLinkedFileWrites?.();
+      await discardAdditionalDocuments?.();
       const cleanSession = discardAllDocumentChanges();
       try {
         await persistDiscardedCloseDraft(cleanSession);

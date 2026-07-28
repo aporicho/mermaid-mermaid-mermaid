@@ -1,6 +1,6 @@
 import { applyDagreAutoLayout } from "@/features/mermaid-editor/lib/canvas-auto-layout";
 import { applyLayout, edgeRoutingFromLayout, layoutModeFromLayout, parseCanvasLayout } from "@/features/mermaid-editor/lib/canvas-layout";
-import { documentKindFromPath, type DocumentKind } from "@/features/mermaid-editor/lib/document-kind";
+import { documentKindDescriptor, documentKindFromPath, type DocumentKind } from "@/features/mermaid-editor/lib/document-kind";
 import { ensureRuntimeDocumentFileName, createEditorRuntime, type RuntimeFileRef } from "@/features/mermaid-editor/lib/editor-runtime";
 import {
   DEFAULT_EDGE_ROUTING,
@@ -38,7 +38,7 @@ import { normalizeProjectWorkspace, type ProjectWorkspace } from "@/features/mer
 import { DEFAULT_VIEW_FILTERS, normalizeViewFilters, type ViewFilters } from "@/features/mermaid-editor/lib/view-filters";
 import { workspaceViewForDocument, type WorkspaceView } from "@/features/mermaid-editor/lib/workspace-view";
 import { normalizeEditorDocumentSession } from "@/features/mermaid-editor/lib/editor-document-session";
-import type { DetachedMarkdownWindow } from "@/features/mermaid-editor/lib/workspace-panels";
+import type { DetachedCsvWindow, DetachedMarkdownWindow, DetachedTextWindow } from "@/features/mermaid-editor/lib/workspace-panels";
 
 export const FALLBACK_FILE_NAME = "diagram.mmd";
 export const FALLBACK_MARKDOWN_FILE_NAME = "document.md";
@@ -69,6 +69,8 @@ export type StoredEditor = {
   preferences?: Partial<EditorPreferences>;
   editorSession?: EditorDocumentSession;
   detachedMarkdownWindows?: DetachedMarkdownWindow[];
+  detachedTextWindows?: DetachedTextWindow[];
+  detachedCsvWindows?: DetachedCsvWindow[];
 };
 
 export type StoredEditorApplyResult = {
@@ -110,12 +112,11 @@ export function createEmptyDocumentGraph(): MermaidGraph {
 }
 
 export function fallbackFileNameForKind(documentKind: DocumentKind) {
-  if (documentKind === "markdown") return FALLBACK_MARKDOWN_FILE_NAME;
-  return FALLBACK_FILE_NAME;
+  return documentKindDescriptor(documentKind).defaultFileName;
 }
 
 export function normalizeStoredDocumentKind(value: unknown, fileName?: string, filePath?: string): DocumentKind {
-  if (value === "markdown" || value === "mermaid") return value;
+  if (value === "markdown" || value === "mermaid" || value === "text" || value === "csv") return value;
   return documentKindFromPath(filePath || fileName) || "mermaid";
 }
 
@@ -165,18 +166,19 @@ export function loadInitialState() {
     }
     const explorerTreeState = normalizeExplorerTreeState(stored.explorerTreeState);
     const storedDocumentKind = normalizeStoredDocumentKind(stored.documentKind, stored.fileName, stored.fileRef?.path);
-    if (storedDocumentKind === "markdown") {
+    if (storedDocumentKind !== "mermaid") {
       const preferences = normalizeEditorPreferences(stored.preferences);
       const projectWorkspace = normalizeProjectWorkspace(stored.projectWorkspace);
       const recentFiles = normalizeRecentFiles(stored.recentFiles);
       const viewFilters = normalizeViewFilters(stored.viewFilters, { showGrid: stored.showGrid, showEdges: stored.showEdges });
-      const fileName = ensureRuntimeDocumentFileName(stored.fileName || stored.fileRef?.name || FALLBACK_MARKDOWN_FILE_NAME, "markdown");
+      const fallbackFileName = fallbackFileNameForKind(storedDocumentKind);
+      const fileName = ensureRuntimeDocumentFileName(stored.fileName || stored.fileRef?.name || fallbackFileName, storedDocumentKind);
       const themeId = normalizeThemeId(stored.themeId);
       const customTheme = stored.customTheme ? normalizeEditorTheme(stored.customTheme) : null;
 
       return {
-        documentKind: "markdown" as DocumentKind,
-        source: stored.source || BLANK_MARKDOWN_SOURCE,
+        documentKind: storedDocumentKind,
+        source: stored.source || (storedDocumentKind === "markdown" ? BLANK_MARKDOWN_SOURCE : ""),
         graph: createEmptyDocumentGraph(),
         diagramType: "unknown" as DiagramType,
         editableKind: "render-only" as EditableKind,
@@ -190,10 +192,10 @@ export function loadInitialState() {
           recentFiles,
           fileRef: stored.fileRef || null,
           fileName,
-          fallbackFileName: FALLBACK_MARKDOWN_FILE_NAME
+          fallbackFileName
         }),
         rightCollapsed: preferences.startWithPanelsCollapsed ? true : stored.rightCollapsed || false,
-        workspaceView: workspaceViewForDocument("render-only", stored.workspaceView, "markdown"),
+        workspaceView: workspaceViewForDocument("render-only", stored.workspaceView, storedDocumentKind),
         viewFilters,
         fileName,
         fileRef: stored.fileRef || null,

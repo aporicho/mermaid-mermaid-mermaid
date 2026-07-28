@@ -24,6 +24,8 @@ import {
   ContextMenuTrigger
 } from "@/components/ui/context-menu";
 import { isHtmlDocumentFilePath } from "@/features/mermaid-editor/lib/html-document";
+import { isCsvTableFilePath } from "@/features/mermaid-editor/lib/csv-table-document";
+import { isTextDocumentFilePath } from "@/features/mermaid-editor/lib/text-document";
 import { isSupportedImagePath } from "@/features/mermaid-editor/lib/node-assets";
 import type { ProjectFileEntry, ProjectResourceEntry } from "@/features/mermaid-editor/lib/project-workspace";
 
@@ -46,6 +48,7 @@ export function ProjectResourceContextMenu({
   onOpenProjectMarkdownWindow,
   onOpenProjectHtmlWindow,
   onOpenProjectImageWindow,
+  onOpenProjectAuxiliaryWindow,
   onMove,
   onCreateFile,
   onCreateDirectory,
@@ -66,6 +69,7 @@ export function ProjectResourceContextMenu({
   onOpenProjectMarkdownWindow: (file: ProjectFileEntry) => void;
   onOpenProjectHtmlWindow: (file: ProjectFileEntry) => void;
   onOpenProjectImageWindow: (file: ProjectFileEntry) => void;
+  onOpenProjectAuxiliaryWindow?: (file: ProjectFileEntry) => void;
   onMove: (resource: ProjectResourceEntry) => void;
   onCreateFile: (directoryPath: string) => void;
   onCreateDirectory: (directoryPath: string) => void;
@@ -90,6 +94,7 @@ export function ProjectResourceContextMenu({
   const markdownFile = fileMenu && resource?.kind === "file" && resource.documentKind === "markdown" && Boolean(menu.file);
   const htmlFile = fileMenu && resource?.kind === "file" && isHtmlDocumentFilePath(resource.path) && Boolean(menu.file);
   const imageFile = fileMenu && resource?.kind === "file" && isSupportedImagePath(resource.path) && Boolean(menu.file);
+  const auxiliaryFile = fileMenu && resource?.kind === "file" && (isTextDocumentFilePath(resource.path) || isCsvTableFilePath(resource.path)) && Boolean(menu.file);
   const targetName = fileMenu ? menu.resource.name : menu.directoryPath.split("/").at(-1) || rootName;
 
   return (
@@ -114,6 +119,12 @@ export function ProjectResourceContextMenu({
                 ) : null}
                 {markdownFile ? (
                   <ContextMenuItem title={menu.file.path} onSelect={() => onOpenProjectMarkdownWindow(menu.file!)}>
+                    <OpenNewWindow data-icon />
+                    <span className="truncate">在浮窗中打开</span>
+                  </ContextMenuItem>
+                ) : null}
+                {auxiliaryFile && onOpenProjectAuxiliaryWindow ? (
+                  <ContextMenuItem title={menu.file.path} onSelect={() => onOpenProjectAuxiliaryWindow(menu.file!)}>
                     <OpenNewWindow data-icon />
                     <span className="truncate">在浮窗中打开</span>
                   </ContextMenuItem>

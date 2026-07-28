@@ -6,6 +6,7 @@ import {
   GitBranch as Workflow,
   Minus,
   SquareCursor as SquareDashedMousePointer,
+  TableRows,
   Text,
   Xmark
 } from "iconoir-react/regular";
@@ -20,7 +21,9 @@ const workspaceViewLabels: Record<WorkspaceView, string> = {
   canvas: "画布",
   render: "预览",
   source: "源码",
-  markdown: "Markdown"
+  markdown: "Markdown",
+  text: "文本编辑器",
+  csv: "CSV 表格"
 };
 
 export function WorkspaceViewCluster({
@@ -42,7 +45,7 @@ export function WorkspaceViewCluster({
     <FloatingButtonCluster orientation="vertical">
       {views.map((view) => {
         const label = view === "canvas" ? canvasViewTooltip : workspaceViewLabels[view];
-        const Icon = view === "canvas" ? SquareDashedMousePointer : view === "render" ? Workflow : view === "markdown" ? Text : Code;
+        const Icon = view === "canvas" ? SquareDashedMousePointer : view === "render" ? Workflow : view === "csv" ? TableRows : view === "markdown" || view === "text" ? Text : Code;
         return (
           <FloatingIconButton
             key={view}

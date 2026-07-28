@@ -1,6 +1,8 @@
 import type { DocumentKind } from "@/features/mermaid-editor/lib/document-kind";
 
 export type RuntimeAgentStartRequest = {
+  agentInstanceId?: string;
+  createNewSession?: boolean;
   cwd?: string;
   projectRoot?: string;
 };
@@ -19,6 +21,7 @@ export type RuntimeAgentStartResult = {
 };
 
 export type RuntimeAgentRpcCommand = {
+  agentInstanceId?: string;
   id?: string;
   type: string;
   [key: string]: unknown;
@@ -30,15 +33,16 @@ export type RuntimeAgentRpcResponse = {
 };
 
 export type RuntimeAgentControlCommand = {
+  agentInstanceId?: string;
   type: string;
   [key: string]: unknown;
 };
 
 export type RuntimeAgentEvent =
-  | { lane: "rpc"; payload: Record<string, unknown> }
-  | { lane: "control"; payload: Record<string, unknown> }
-  | { lane: "host"; payload: RuntimeAgentHostRequest }
-  | { lane: "diagnostic"; payload: { level: "info" | "warning" | "error"; message: string } };
+  | { agentInstanceId?: string; lane: "rpc"; payload: Record<string, unknown> }
+  | { agentInstanceId?: string; lane: "control"; payload: Record<string, unknown> }
+  | { agentInstanceId?: string; lane: "host"; payload: RuntimeAgentHostRequest }
+  | { agentInstanceId?: string; lane: "diagnostic"; payload: { level: "info" | "warning" | "error"; message: string } };
 
 export type RuntimeAgentHostRequest = {
   id: string;
@@ -47,12 +51,14 @@ export type RuntimeAgentHostRequest = {
 };
 
 export type RuntimeAgentHostResponse = {
+  agentInstanceId?: string;
   id: string;
   result?: unknown;
   error?: string;
 };
 
 export type RuntimeAgentExtensionUiResponse = {
+  agentInstanceId?: string;
   id: string;
   confirmed?: boolean;
   value?: string;
@@ -102,6 +108,6 @@ export type RuntimeAgentOperations = {
   runAgentControl: <T = unknown>(command: RuntimeAgentControlCommand) => Promise<T>;
   respondAgentExtensionUi: (response: RuntimeAgentExtensionUiResponse) => Promise<void>;
   respondAgentHost: (response: RuntimeAgentHostResponse) => Promise<void>;
-  stopAgent: () => Promise<void>;
+  stopAgent: (agentInstanceId?: string) => Promise<void>;
   listenForAgentEvents: (handler: (event: RuntimeAgentEvent) => void) => Promise<() => void>;
 };

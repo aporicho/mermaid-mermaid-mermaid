@@ -43,6 +43,7 @@ import type {
   RuntimeWriteCsvFileResult
 } from "@/features/mermaid-editor/lib/editor-runtime/csv-file-types";
 import type { EditorDocumentSession } from "@/features/mermaid-editor/lib/editor-document-session";
+import type { RuntimeDocumentFormat } from "@/features/mermaid-editor/lib/editor-runtime/document-hub-types";
 import type {
   ElectronDocumentHubBridge,
   ElectronSavedFile
@@ -78,7 +79,7 @@ export type ElectronBridge = ElectronMarkdownFoldBridge & ElectronMonitoringBrid
     documentKind: DocumentKind;
     text: string;
   }) => Promise<ElectronCreateProjectDocumentResult>;
-  createProjectTextFile: (request: { rootPath: string; fileName: string; kind: "csv"; text: string }) => Promise<RuntimeCreateProjectTextFileResult>;
+  createProjectTextFile: (request: { rootPath: string; fileName: string; kind: "csv" | "text"; text: string }) => Promise<RuntimeCreateProjectTextFileResult>;
   createProjectFile: (request: RuntimeCreateProjectFileRequest) => Promise<RuntimeCreateProjectFileResult>;
   moveProjectFile: (request: RuntimeMoveProjectFileRequest) => Promise<RuntimeMoveProjectFileResult>;
   createProjectDirectory: (request: RuntimeCreateProjectDirectoryRequest) => Promise<RuntimeCreateProjectDirectoryResult>;
@@ -90,7 +91,7 @@ export type ElectronBridge = ElectronMarkdownFoldBridge & ElectronMonitoringBrid
   deleteProjectResources: (request: RuntimeDeleteProjectResourcesRequest) => Promise<RuntimeDeleteProjectResourcesResult>;
   showProjectResourceInFileManager: (request: RuntimeShowProjectResourceRequest) => Promise<RuntimeShowProjectResourceResult>;
   readCsvFile: (request: { rootPath: string; path: string }) => Promise<RuntimeCsvFileSnapshot>;
-  writeCsvFile: (request: { rootPath: string; path: string; text: string; expectedRevision: string }) => Promise<RuntimeWriteCsvFileResult>;
+  writeCsvFile: (request: { rootPath: string; path: string; text: string; expectedRevision: string; format?: RuntimeDocumentFormat }) => Promise<RuntimeWriteCsvFileResult>;
   pickImageAsset: (documentPath: string | null) => Promise<ElectronImageAsset | null>;
   importImageAssetPath: (documentPath: string, imagePath: string) => Promise<ElectronImageAsset>;
   importImageAssetBytes: (documentPath: string, fileName: string, bytes: number[]) => Promise<ElectronImageAsset>;

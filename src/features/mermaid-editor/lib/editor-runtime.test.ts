@@ -35,6 +35,8 @@ function electronBridge(): ElectronBridge {
     recreateDocument: vi.fn(() => Promise.resolve({ status: "missing" as const })),
     undoDocumentTransaction: vi.fn(() => Promise.resolve({ status: "empty" as const })),
     redoDocumentTransaction: vi.fn(() => Promise.resolve({ status: "empty" as const })),
+    saveDocumentWorkingCopy: vi.fn(() => Promise.resolve({ status: "missing" as const })),
+    discardDocumentWorkingCopy: vi.fn(() => Promise.resolve({ status: "missing" as const })),
     onDocumentHubEvent: vi.fn(() => () => undefined),
     createProjectDocument: vi.fn(() => Promise.resolve({
       status: "created" as const,

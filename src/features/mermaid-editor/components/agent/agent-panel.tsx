@@ -330,7 +330,7 @@ function AgentComposer({ controller }: { controller: AgentController }) {
         <ModelCombobox controller={controller} />
         <ThinkingSelect controller={controller} />
         <TranscriptModeSelect controller={controller} />
-        {isStreaming ? <IconButton label="停止生成" onClick={() => void controller.sendRpc({ type: "abort" }).catch((error) => controller.setError(readableError(error)))}><Xmark data-icon="inline-start" /></IconButton> : null}
+        {isStreaming || controller.interrupting ? <IconButton label="立即中断" disabled={controller.interrupting} onClick={() => void controller.interrupt().catch((error) => controller.setError(readableError(error)))}>{controller.interrupting ? <Spinner data-icon="inline-start" /> : <Xmark data-icon="inline-start" />}</IconButton> : null}
         <IconButton label="发送" variant="default" disabled={!canSend} onClick={() => void send()}><SendDiagonal data-icon="inline-start" /></IconButton>
       </InputGroupAddon>
     </InputGroup>

@@ -44,6 +44,7 @@ export function useKonvaCanvasModel({
   layoutMode,
   imageDisplaySrcBySrc,
   markdownDocumentPreviewByNodeId = {},
+  textDocumentPreviewByNodeId = {},
   visualTokens = CANVAS_VISUAL_TOKENS,
   geometryTokens,
   typography = DEFAULT_KONVA_TYPOGRAPHY,
@@ -56,6 +57,7 @@ export function useKonvaCanvasModel({
   onOpenNodeImage,
   onEditNodeAction,
   onRequestMarkdownDocumentPreview,
+  onRequestTextDocumentPreview,
   onPointerWorldChange,
   onLiveStateChange
 }: UseKonvaCanvasModelArgs) {
@@ -308,6 +310,7 @@ export function useKonvaCanvasModel({
     runtimeCreateScale: runtimeMotion.canvas.createScale,
     imageDisplaySrcBySrc,
     markdownDocumentPreviewByNodeId,
+    textDocumentPreviewByNodeId,
     alignmentGuides: dragMembership.alignmentGuides,
     hoveredNodeId,
     hoveredSubgraphId,
@@ -357,6 +360,7 @@ export function useKonvaCanvasModel({
     onOpenNodeImage,
     onEditNodeAction,
     onRequestMarkdownDocumentPreview,
+    onRequestTextDocumentPreview,
     onSelectTableCell: setSelectedTableCell,
     onStartTableCellEdit: inlineEditSession.startTableCellEdit,
     onStartTableHeaderEdit: inlineEditSession.startTableHeaderEdit,

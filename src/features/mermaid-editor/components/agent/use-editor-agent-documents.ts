@@ -232,7 +232,7 @@ export function useEditorAgentDocuments(args: UseEditorAgentDocumentsArgs): Runt
         args.bringWorkspacePanelToFront(target.id);
       } else {
         const view = request.view;
-        if (view === "source" || view === "markdown" || view === "canvas" || view === "render") args.setWorkspaceView(view);
+        if (view === "source" || view === "markdown" || view === "canvas" || view === "render" || view === "text" || view === "csv") args.setWorkspaceView(view);
       }
       return { revealed: true };
     }

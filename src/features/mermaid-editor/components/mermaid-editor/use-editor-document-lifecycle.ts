@@ -12,6 +12,7 @@ import {
   FALLBACK_MARKDOWN_FILE_NAME,
   createEmptyDocumentGraph,
   ensureEditorDocumentFileName,
+  fallbackFileNameForKind,
   normalizeStoredDocumentKind,
   nodeGeometrySpecForTheme,
   normalizeThemeId,
@@ -32,7 +33,7 @@ import {
 } from "@/features/mermaid-editor/lib/file-workflow";
 import { shouldCollapseExplorerOnStartup } from "@/features/mermaid-editor/lib/explorer-state";
 import { normalizeExplorerTreeState, type StoredExplorerTreeState } from "@/features/mermaid-editor/lib/explorer-tree-state";
-import { documentKindFromPath, type DocumentKind } from "@/features/mermaid-editor/lib/document-kind";
+import { documentKindFromPath, documentKindLabel, type DocumentKind } from "@/features/mermaid-editor/lib/document-kind";
 import { normalizeProjectWorkspace, type ProjectWorkspace } from "@/features/mermaid-editor/lib/project-workspace";
 import type {
   DiagramType,
@@ -158,21 +159,22 @@ export function useEditorDocumentLifecycle({
   ) {
     flushSourceHistory();
     const nextDocumentKind = documentKindFromPath(file?.path || name) || "mermaid";
-    if (nextDocumentKind === "markdown") {
+    if (nextDocumentKind !== "mermaid") {
       const savedDocument = text;
       const savedContent = options.savedContent ?? savedDocument;
+      const nextFileName = ensureEditorDocumentFileName(name, nextDocumentKind);
 
       beginDocumentSession();
       activateDocumentBuffer({
-        documentKind: "markdown",
-        fileName: ensureEditorDocumentFileName(name, "markdown"),
+        documentKind: nextDocumentKind,
+        fileName: nextFileName,
         fileRef: file,
         content: savedDocument,
         savedContent,
         status: options.status,
         bufferId: options.bufferId
       });
-      setDocumentKind("markdown");
+      setDocumentKind(nextDocumentKind);
       setSource(text);
       setGraph(createEmptyDocumentGraph());
       setDiagramType("unknown");
@@ -180,17 +182,17 @@ export function useEditorDocumentLifecycle({
       setViewport({ x: 160, y: 90, scale: 1 });
       setEdgeRouting(DEFAULT_EDGE_ROUTING);
       setLayoutMode(DEFAULT_LAYOUT_MODE);
-      setWorkspaceView("markdown");
+      setWorkspaceView(workspaceViewForDocument("render-only", undefined, nextDocumentKind));
       setSelection(createEmptyDocumentSelection());
       setDiagnostics([]);
       setHistory(createHistory());
-      setFileName(ensureEditorDocumentFileName(name, "markdown"));
+      setFileName(nextFileName);
       setFileRef(file);
       setLastSavedDocument(savedContent);
       isDirtyRef.current = savedDocument !== savedContent;
       setRecentFiles((current) => upsertRecentFile(current, file));
       setFileWorkflowError(null);
-      setStatus(source === "watch" ? `已从磁盘刷新 ${name}。` : `已打开 ${name}。`);
+      setStatus(source === "watch" ? `已从磁盘刷新 ${name}。` : `已在${documentKindLabel(nextDocumentKind)}编辑器中打开 ${name}。`);
       if (source !== "watch") recordRecentAction(source === "restore" ? "document.restore" : "document.open", { kind: "document" }, `打开 ${name}。`);
       if (source !== "restore" && source !== "watch") void syncWorkspaceForOpenedFile(file);
       return;
@@ -244,15 +246,16 @@ export function useEditorDocumentLifecycle({
     if (restoredSession) replaceEditorDocumentSession(restoredSession);
     beginDocumentSession();
     const storedDocumentKind = normalizeStoredDocumentKind(stored.documentKind, stored.fileName, stored.fileRef?.path);
-    if (storedDocumentKind === "markdown") {
+    if (storedDocumentKind !== "mermaid") {
       const nextPreferences = normalizeEditorPreferences(stored.preferences);
       const nextViewFilters = normalizeViewFilters(stored.viewFilters, { showGrid: stored.showGrid, showEdges: stored.showEdges });
       const nextProjectWorkspace = normalizeProjectWorkspace(stored.projectWorkspace);
       const nextRecentFiles = normalizeRecentFiles(stored.recentFiles);
-      const nextSource = stored.source || BLANK_MARKDOWN_SOURCE;
-      const nextFileName = ensureEditorDocumentFileName(stored.fileName || stored.fileRef?.name || FALLBACK_MARKDOWN_FILE_NAME, "markdown");
+      const nextSource = stored.source || (storedDocumentKind === "markdown" ? BLANK_MARKDOWN_SOURCE : "");
+      const fallbackFileName = fallbackFileNameForKind(storedDocumentKind);
+      const nextFileName = ensureEditorDocumentFileName(stored.fileName || stored.fileRef?.name || fallbackFileName, storedDocumentKind);
 
-      setDocumentKind("markdown");
+      setDocumentKind(storedDocumentKind);
       setSource(nextSource);
       setGraph(createEmptyDocumentGraph());
       setDiagramType("unknown");
@@ -267,10 +270,10 @@ export function useEditorDocumentLifecycle({
         recentFiles: nextRecentFiles,
         fileRef: stored.fileRef || null,
         fileName: nextFileName,
-        fallbackFileName: FALLBACK_MARKDOWN_FILE_NAME
+        fallbackFileName
       }));
       setRightCollapsed(nextPreferences.startWithPanelsCollapsed ? true : stored.rightCollapsed || false);
-      setWorkspaceView(workspaceViewForDocument("render-only", stored.workspaceView, "markdown"));
+      setWorkspaceView(workspaceViewForDocument("render-only", stored.workspaceView, storedDocumentKind));
       setViewFilters(nextViewFilters);
       setSelection(createEmptyDocumentSelection());
       setDiagnostics([]);
@@ -281,14 +284,14 @@ export function useEditorDocumentLifecycle({
       setProjectWorkspace(nextProjectWorkspace);
       setExplorerTreeState(normalizeExplorerTreeState(stored.explorerTreeState));
       setLastSavedDocument(stored.lastSavedDocument || "");
-      isDirtyRef.current = !stored.lastSavedDocument || nextSource !== stored.lastSavedDocument;
+      isDirtyRef.current = stored.fileRef ? nextSource !== (stored.lastSavedDocument || "") : !stored.lastSavedDocument || nextSource !== stored.lastSavedDocument;
       setThemeId(normalizeThemeId(stored.themeId));
       setCustomTheme(stored.customTheme ? normalizeEditorTheme(stored.customTheme) : null);
       setPreferences(nextPreferences);
       setFileWorkflowError(null);
 
       return {
-        documentKind: "markdown",
+        documentKind: storedDocumentKind,
         currentDocument: nextSource,
         fileRef: stored.fileRef || null,
         lastSavedDocument: stored.lastSavedDocument || "",
@@ -344,7 +347,7 @@ export function useEditorDocumentLifecycle({
     setProjectWorkspace(nextProjectWorkspace);
     setExplorerTreeState(normalizeExplorerTreeState(stored.explorerTreeState));
     setLastSavedDocument(stored.lastSavedDocument || "");
-    isDirtyRef.current = !stored.lastSavedDocument || currentStoredDocument !== stored.lastSavedDocument;
+    isDirtyRef.current = stored.fileRef ? currentStoredDocument !== (stored.lastSavedDocument || "") : !stored.lastSavedDocument || currentStoredDocument !== stored.lastSavedDocument;
     setThemeId(nextThemeId);
     setCustomTheme(nextCustomTheme);
     setPreferences(nextPreferences);

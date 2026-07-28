@@ -6,6 +6,7 @@ import type { RuntimeEditorMotion } from "@/features/mermaid-editor/lib/editor-m
 import type { CanvasNode, EdgeRouting, EditorMode, LayoutMode, MermaidGraph, Selection, ViewportState } from "@/features/mermaid-editor/lib/editor-types";
 import type { EditorCommand } from "@/features/mermaid-editor/lib/interaction/commands";
 import type { MarkdownDocumentPreview } from "@/features/mermaid-editor/lib/markdown-document";
+import type { TextDocumentPreview } from "@/features/mermaid-editor/lib/text-document";
 import type { ViewFilters } from "@/features/mermaid-editor/lib/view-filters";
 
 export type ViewportCommandSource = Extract<EditorCommand, { type: "viewport.set" }>["source"];
@@ -61,6 +62,7 @@ export type KonvaCanvasProps = {
   layoutMode: LayoutMode;
   imageDisplaySrcBySrc?: Record<string, string>;
   markdownDocumentPreviewByNodeId?: Record<string, MarkdownDocumentPreview>;
+  textDocumentPreviewByNodeId?: Record<string, TextDocumentPreview>;
   visualTokens?: CanvasVisualTokens;
   geometryTokens?: EditorThemeGeometryTokens;
   typography?: EditorTypographyTokens;
@@ -73,6 +75,7 @@ export type KonvaCanvasProps = {
   onOpenNodeImage?: (node: CanvasNode) => void;
   onEditNodeAction?: (node: CanvasNode) => void;
   onRequestMarkdownDocumentPreview?: (node: CanvasNode) => void;
+  onRequestTextDocumentPreview?: (node: CanvasNode) => void;
   onPointerWorldChange?: (point: CanvasPoint) => void;
   onLiveStateChange?: (state: CanvasLiveState) => void;
 };

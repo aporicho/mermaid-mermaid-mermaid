@@ -770,6 +770,48 @@
         "excerptOpacity": 0.75,
         "placeholderOpacity": 0.56
       },
+      "textDocument": {
+        "surface": {
+          "background": "#fffdfa",
+          "border": {
+            "color": "#2a251f",
+            "width": 0,
+            "style": "solid",
+            "customDash": []
+          },
+          "radius": 14,
+          "shadow": {
+            "color": "#2a251f",
+            "blur": 0,
+            "opacity": 0,
+            "offsetX": 0,
+            "offsetY": 0
+          }
+        },
+        "state": {
+          "selectedBorderColor": "#ff4050",
+          "errorBorderColor": "#9b5a50",
+          "editingBorderColor": "#ff4050",
+          "emphasizedBorderWidth": 1.5
+        },
+        "width": 420,
+        "height": 594,
+        "paddingTop": 24,
+        "paddingRight": 24,
+        "paddingBottom": 24,
+        "paddingLeft": 24,
+        "titleGap": 18,
+        "titleFontFamily": "\"方正屏显雅宋简体\", \"Songti SC\", \"Noto Serif SC\", serif",
+        "titleFontSize": 24,
+        "titleFontWeight": 700,
+        "titleColor": "#342a23",
+        "bodyFontFamily": "\"方正屏显雅宋简体\", system-ui, sans-serif",
+        "bodyFontSize": 16,
+        "bodyFontWeight": 400,
+        "bodyLineHeight": 25.6,
+        "bodyColor": "#342a23",
+        "excerptOpacity": 0.82
+      },
       "htmlDocument": {
         "surface": {
           "background": "#fcf8f2",

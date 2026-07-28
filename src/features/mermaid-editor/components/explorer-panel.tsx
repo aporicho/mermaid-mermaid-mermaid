@@ -34,6 +34,8 @@ import { EDITOR_CHROME_CLASSES } from "@/features/mermaid-editor/lib/editor-chro
 import type { RuntimeFileRef, RuntimeProjectResourceKind, RuntimeProjectResourcePlacement } from "@/features/mermaid-editor/lib/editor-runtime";
 import type { ExplorerWorkspaceTreeState } from "@/features/mermaid-editor/lib/explorer-tree-state";
 import { isHtmlDocumentFilePath } from "@/features/mermaid-editor/lib/html-document";
+import { isCsvTableFilePath } from "@/features/mermaid-editor/lib/csv-table-document";
+import { isTextDocumentFilePath } from "@/features/mermaid-editor/lib/text-document";
 import { isSupportedImagePath } from "@/features/mermaid-editor/lib/node-assets";
 import { projectDirectoryAncestors, validExpandedDirectoryPaths } from "@/features/mermaid-editor/lib/explorer-tree-state";
 import {
@@ -93,7 +95,7 @@ type ExplorerFilePointerDrag = {
   pointerOffsetX: number;
   pointerOffsetY: number;
   dragging: boolean;
-  documentCanvasKind?: "markdown" | "html";
+  documentCanvasKind?: "markdown" | "html" | "text" | "csv";
 };
 
 type ExplorerDragOverlayState = {
@@ -103,7 +105,7 @@ type ExplorerDragOverlayState = {
   height: number;
 };
 
-export type ExplorerProjectFileKind = "markdown" | "mermaid" | "csv" | "html";
+export type ExplorerProjectFileKind = "markdown" | "mermaid" | "csv" | "html" | "text";
 
 export type ExplorerCreateProjectFileRequest = {
   directoryPath: string;
@@ -131,6 +133,8 @@ export function ExplorerPanel({
   onOpenProjectMarkdownWindow,
   onOpenProjectHtmlWindow,
   onOpenProjectImageWindow,
+  onOpenProjectTextWindow = onOpenProjectFile,
+  onOpenProjectCsvWindow = onOpenProjectFile,
   onCreateProjectFile,
   onCreateProjectDirectory,
   onRenameProjectResource,
@@ -158,6 +162,8 @@ export function ExplorerPanel({
   onOpenProjectMarkdownWindow: (file: ProjectFileEntry) => void;
   onOpenProjectHtmlWindow: (file: ProjectFileEntry) => void;
   onOpenProjectImageWindow: (file: ProjectFileEntry) => void;
+  onOpenProjectTextWindow?: (file: ProjectFileEntry) => void;
+  onOpenProjectCsvWindow?: (file: ProjectFileEntry) => void;
   onCreateProjectFile: (request: ExplorerCreateProjectFileRequest) => void;
   onCreateProjectDirectory: (request: ExplorerCreateProjectDirectoryRequest) => void;
   onRenameProjectResource: (resource: ProjectResourceEntry, name: string) => void;
@@ -168,7 +174,7 @@ export function ExplorerPanel({
   onImportProjectResources: (externalPaths: string[], targetDirectoryPath: string) => void;
   onDeleteProjectResources: (resources: ProjectResourceEntry[]) => void;
   onShowProjectResourceInFileManager: (resource: ProjectResourceEntry) => void;
-  onProjectDocumentPointerDrag: (file: ProjectFileEntry, kind: "markdown" | "html", point: { x: number; y: number }, phase: "move" | "drop" | "cancel") => void;
+  onProjectDocumentPointerDrag: (file: ProjectFileEntry, kind: "markdown" | "html" | "text" | "csv", point: { x: number; y: number }, phase: "move" | "drop" | "cancel") => void;
   onStatus: (message: string) => void;
 }) {
   const motion = useEditorMotion();
@@ -434,10 +440,18 @@ export function ExplorerPanel({
   function openProjectResource(resource: ProjectResourceEntry, file: ProjectFileEntry | undefined) {
     const htmlFile = isHtmlDocumentFilePath(resource.path);
     const imageFile = isSupportedImagePath(resource.path);
+    const textFile = isTextDocumentFilePath(resource.path);
+    const csvFile = isCsvTableFilePath(resource.path);
     if (file && imageFile) onOpenProjectImageWindow(file);
     else if (file && htmlFile) onOpenProjectHtmlWindow(file);
+    else if (file && (textFile || csvFile)) onOpenProjectFile(file);
     else if (file) onOpenProjectFile(file);
     else onStatus(`暂不支持打开 ${resource.name}。`);
+  }
+
+  function openProjectAuxiliaryWindow(file: ProjectFileEntry) {
+    if (isTextDocumentFilePath(file.path)) onOpenProjectTextWindow(file);
+    else if (isCsvTableFilePath(file.path)) onOpenProjectCsvWindow(file);
   }
 
   function expandAllDirectories() {
@@ -871,6 +885,7 @@ export function ExplorerPanel({
                       onOpenProjectMarkdownWindow={onOpenProjectMarkdownWindow}
                       onOpenProjectHtmlWindow={onOpenProjectHtmlWindow}
                       onOpenProjectImageWindow={onOpenProjectImageWindow}
+                      onOpenProjectAuxiliaryWindow={openProjectAuxiliaryWindow}
                       onProjectDocumentPointerDrag={onProjectDocumentPointerDrag}
                       projectBusy={projectBusy}
                       draggedResourcePath={draggedResourcePath}
@@ -1017,6 +1032,7 @@ function ProjectTreeNodeRow({
   onOpenProjectMarkdownWindow,
   onOpenProjectHtmlWindow,
   onOpenProjectImageWindow,
+  onOpenProjectAuxiliaryWindow,
   onProjectDocumentPointerDrag,
   projectBusy,
   draggedResourcePath,
@@ -1064,7 +1080,8 @@ function ProjectTreeNodeRow({
   onOpenProjectMarkdownWindow: (file: ProjectFileEntry) => void;
   onOpenProjectHtmlWindow: (file: ProjectFileEntry) => void;
   onOpenProjectImageWindow: (file: ProjectFileEntry) => void;
-  onProjectDocumentPointerDrag: (file: ProjectFileEntry, kind: "markdown" | "html", point: { x: number; y: number }, phase: "move" | "drop" | "cancel") => void;
+  onOpenProjectAuxiliaryWindow: (file: ProjectFileEntry) => void;
+  onProjectDocumentPointerDrag: (file: ProjectFileEntry, kind: "markdown" | "html" | "text" | "csv", point: { x: number; y: number }, phase: "move" | "drop" | "cancel") => void;
   projectBusy: boolean;
   draggedResourcePath: string | null;
   dropIntent: ExplorerDropIntent | null;
@@ -1236,6 +1253,7 @@ function ProjectTreeNodeRow({
                 onOpenProjectMarkdownWindow={onOpenProjectMarkdownWindow}
                 onOpenProjectHtmlWindow={onOpenProjectHtmlWindow}
                 onOpenProjectImageWindow={onOpenProjectImageWindow}
+                onOpenProjectAuxiliaryWindow={onOpenProjectAuxiliaryWindow}
                 onProjectDocumentPointerDrag={onProjectDocumentPointerDrag}
                 projectBusy={projectBusy}
                 draggedResourcePath={draggedResourcePath}
@@ -1292,6 +1310,7 @@ function ProjectTreeNodeRow({
       onOpenProjectMarkdownWindow={onOpenProjectMarkdownWindow}
       onOpenProjectHtmlWindow={onOpenProjectHtmlWindow}
       onOpenProjectImageWindow={onOpenProjectImageWindow}
+      onOpenProjectAuxiliaryWindow={onOpenProjectAuxiliaryWindow}
       projectBusy={projectBusy}
       dragging={draggedResourcePath === node.resource.path}
       visualLast={visualLast}
@@ -1374,9 +1393,11 @@ function nodeResourceFromDirectory(node: Extract<ProjectTreeNode, { kind: "direc
   };
 }
 
-function projectDocumentNodeKind(resource: ProjectResourceEntry): "markdown" | "html" | undefined {
+function projectDocumentNodeKind(resource: ProjectResourceEntry): "markdown" | "html" | "text" | "csv" | undefined {
   if (resource.documentKind === "markdown") return "markdown";
   if (isHtmlDocumentFilePath(resource.path)) return "html";
+  if (isTextDocumentFilePath(resource.path)) return "text";
+  if (isCsvTableFilePath(resource.path)) return "csv";
   return undefined;
 }
 

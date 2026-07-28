@@ -1,8 +1,8 @@
-const crypto = require("node:crypto");
 const fsp = require("node:fs/promises");
 const path = require("node:path");
+const { readDocumentFile, writeDocumentFile } = require("./document-files.cjs");
 
-const MAX_CSV_FILE_BYTES = 1_048_576;
+const MAX_CSV_FILE_BYTES = Number.POSITIVE_INFINITY;
 const fileLocks = new Map();
 
 async function readProjectCsvFile(request) {
@@ -18,51 +18,24 @@ async function writeProjectCsvFile(request) {
       return { status: "conflict", revision: current.revision, modifiedAt: current.modifiedAt };
     }
 
-    const text = typeof request?.text === "string" ? request.text : "";
-    const bytes = Buffer.from(text, "utf8");
-    if (bytes.byteLength > MAX_CSV_FILE_BYTES) throw csvError("write_failed", `CSV file exceeds ${MAX_CSV_FILE_BYTES} bytes.`, target.path);
-    const originalMode = (await fsp.stat(target.path)).mode & 0o777;
-    const temporaryPath = path.join(path.dirname(target.path), `.${path.basename(target.path)}.${crypto.randomUUID()}.tmp`);
-    let handle;
-    try {
-      handle = await fsp.open(temporaryPath, "wx", originalMode);
-      await handle.chmod(originalMode);
-      await handle.writeFile(bytes);
-      await handle.sync();
-      await handle.close();
-      handle = undefined;
-      const beforeReplace = await csvSnapshot(target);
-      if (beforeReplace.revision !== current.revision) {
-        await fsp.unlink(temporaryPath);
-        return { status: "conflict", revision: beforeReplace.revision, modifiedAt: beforeReplace.modifiedAt };
-      }
-      await fsp.rename(temporaryPath, target.path);
-      await syncDirectory(path.dirname(target.path));
-    } catch (error) {
-      await handle?.close().catch(() => undefined);
-      await fsp.unlink(temporaryPath).catch(() => undefined);
-      throw csvError("write_failed", error instanceof Error ? error.message : "CSV write failed.", target.path);
-    }
-    const saved = await csvSnapshot(target);
-    return { status: "saved", file: saved.file, revision: saved.revision, modifiedAt: saved.modifiedAt };
+    const saved = await writeDocumentFile(target.path, typeof request?.text === "string" ? request.text : "", {
+      expectedRevision: current.revision,
+      format: request?.format
+    });
+    return saved.status === "conflict"
+      ? { status: "conflict", revision: saved.revision, modifiedAt: saved.modifiedAt }
+      : { status: "saved", file: saved.file, revision: saved.revision, modifiedAt: saved.modifiedAt, format: saved.format };
   });
 }
 
 async function csvSnapshot(target) {
-  const bytes = await fsp.readFile(target.path);
-  if (bytes.byteLength > MAX_CSV_FILE_BYTES) throw csvError("read_failed", `CSV file exceeds ${MAX_CSV_FILE_BYTES} bytes.`, target.path);
-  let text;
-  try {
-    text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
-  } catch {
-    throw csvError("read_failed", "CSV file must be valid UTF-8.", target.path);
-  }
-  const stats = await fsp.stat(target.path);
+  const document = await readDocumentFile(target.path);
   return {
     file: { name: path.basename(target.path), path: target.path },
-    text,
-    revision: crypto.createHash("sha256").update(bytes).digest("hex"),
-    modifiedAt: stats.mtimeMs
+    text: document.text,
+    revision: document.revision,
+    modifiedAt: document.modifiedAt,
+    format: document.format
   };
 }
 
@@ -85,7 +58,6 @@ async function resolveCsvTarget(request, mustExist) {
   if (!isPathInside(root, realPath)) throw csvError("permission_denied", "CSV path must stay inside the project root.", candidate);
   const stats = await fsp.stat(realPath);
   if (!stats.isFile()) throw csvError("unsupported_type", "CSV target must be a regular file.", realPath);
-  if (stats.size > MAX_CSV_FILE_BYTES) throw csvError("read_failed", `CSV file exceeds ${MAX_CSV_FILE_BYTES} bytes.`, realPath);
   return { root, path: realPath };
 }
 
@@ -110,18 +82,6 @@ function withFileLock(filePath, task) {
   return current.finally(() => {
     if (fileLocks.get(filePath) === current) fileLocks.delete(filePath);
   });
-}
-
-async function syncDirectory(directory) {
-  let handle;
-  try {
-    handle = await fsp.open(directory, "r");
-    await handle.sync();
-  } catch {
-    // Some platforms do not permit opening directories; the file rename is still atomic.
-  } finally {
-    await handle?.close().catch(() => undefined);
-  }
 }
 
 function csvError(code, message, filePath) {

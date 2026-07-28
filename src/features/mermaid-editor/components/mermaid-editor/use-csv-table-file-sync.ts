@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
 
-import { parseCanvasTableCsv, serializeCanvasTableCsv } from "@/features/mermaid-editor/lib/canvas-table-csv";
 import { applyCanvasTablePresentation } from "@/features/mermaid-editor/lib/canvas-table-content";
+import { parseCsvDocument, serializeCsvDocument, type CsvDialect } from "@/features/mermaid-editor/lib/csv-document-model";
 import {
   csvTableDocumentAction,
   csvTableDocumentReferenceKey,
@@ -15,8 +15,6 @@ import type { NodeGeometrySpec } from "@/features/mermaid-editor/lib/node-geomet
 import type { ProjectFileEntry, ProjectWorkspace } from "@/features/mermaid-editor/lib/project-workspace";
 import { parentDirectoryPath } from "@/features/mermaid-editor/lib/runtime-paths";
 
-type CsvFormat = { bom: boolean; lineEnding: "\n" | "\r\n" };
-
 type CsvBinding = {
   key: string;
   sourcePath: string;
@@ -24,7 +22,8 @@ type CsvBinding = {
   revision?: string;
   savedText?: string;
   desiredText?: string;
-  format: CsvFormat;
+  dialect: CsvDialect;
+  fullRows: string[][];
   loading: boolean;
   writing: boolean;
   blocked: boolean;
@@ -109,7 +108,7 @@ export function useCsvTableFileSync({
       let binding = bindings.get(node.id);
       if (!binding || binding.key !== key) {
         if (binding) retireCsvBinding(context, binding);
-        binding = { key, sourcePath: action.path, file, format: { bom: false, lineEnding: "\r\n" }, loading: false, writing: false, blocked: false };
+        binding = { key, sourcePath: action.path, file, dialect: { delimiter: ",", lineEnding: "crlf", trailingNewline: false }, fullRows: [], loading: false, writing: false, blocked: false };
         bindings.set(node.id, binding);
       } else {
         binding.sourcePath = action.path;
@@ -126,7 +125,7 @@ export function useCsvTableFileSync({
         continue;
       }
       if (!node.content || !binding.revision || binding.loading || binding.blocked) continue;
-      const text = serializeWithFormat(node.content, binding.format);
+      const text = serializeWithBinding(node.content, binding);
       if (text === binding.savedText && !binding.writing) continue;
       binding.desiredText = text;
       if (!binding.writing) void startCsvFlush(context, node.id, binding);
@@ -157,7 +156,7 @@ export function useCsvTableFileSync({
     if (!aliveRef.current) return false;
     for (const [nodeId, binding] of bindingsRef.current) {
       const content = graphRef.current.nodes.find((node) => node.id === nodeId)?.content;
-      if (content && binding.revision) binding.desiredText = serializeWithFormat(content, binding.format);
+      if (content && binding.revision) binding.desiredText = serializeWithBinding(content, binding);
       if (binding.blockReason === "write") {
         binding.blocked = false;
         binding.blockReason = undefined;
@@ -290,16 +289,18 @@ async function loadCsvNode(context: CsvSyncContext, nodeId: string, binding: Csv
       context.showFileWorkflowError(new Error(result.message), "无法读取 CSV 表格。");
       return;
     }
-    const format = detectCsvFormat(result.snapshot.text);
-    const content = applyCanvasTablePresentation(parseCanvasTableCsv(result.snapshot.text, { previousContent }), presentation);
+    const parsed = parseCsvDocument(result.snapshot.text);
+    if (parsed.error) throw new Error(`${parsed.error.line}:${parsed.error.column} ${parsed.error.message}`);
+    const content = applyCanvasTablePresentation(csvPreviewContent(parsed.rows, previousContent), presentation);
     binding.file = {
       ...binding.file,
       name: result.snapshot.file.name,
       path: result.snapshot.file.path || binding.file.path
     };
     binding.revision = result.snapshot.revision;
-    binding.format = format;
-    binding.savedText = serializeWithFormat(content, format);
+    binding.dialect = parsed.dialect;
+    binding.fullRows = parsed.rows.map((row) => [...row]);
+    binding.savedText = result.snapshot.text;
     binding.desiredText = binding.savedText;
     context.setGraph((current) => {
       if (!isCurrentCsvLoad(context, nodeId, binding, documentGeneration)) return current;
@@ -333,7 +334,7 @@ function startCsvFlush(context: CsvSyncContext, nodeId: string, binding: CsvBind
     if (binding.pending === pending) binding.pending = undefined;
     const current = context.graphRef.current.nodes.find((node) => node.id === nodeId)?.content;
     if (context.aliveRef.current && current && !binding.blocked && context.bindingsRef.current.get(nodeId) === binding) {
-      binding.desiredText = serializeWithFormat(current, binding.format);
+      binding.desiredText = serializeWithBinding(current, binding);
       if (binding.desiredText !== binding.savedText) void startCsvFlush(context, nodeId, binding);
     }
     if (binding.desiredText === binding.savedText) context.retiredRef.current.delete(binding);
@@ -409,13 +410,36 @@ function runtimeFile(file: ProjectFileEntry): RuntimeFileRef {
   return { name: file.name, path: file.path };
 }
 
-function detectCsvFormat(source: string): CsvFormat {
+function csvPreviewContent(rows: string[][], previous?: CanvasTableContent): CanvasTableContent {
+  const columnCount = Math.max(1, Math.min(4, rows[0]?.length || 1));
+  const columns = Array.from({ length: columnCount }, (_, index) => ({
+    id: previous?.columns[index]?.id || `column-${index + 1}`,
+    label: rows[0]?.[index] || `列 ${index + 1}`,
+    width: Math.min(160, previous?.columns[index]?.width || 150),
+    align: previous?.columns[index]?.align || "left" as const
+  }));
+  const sourceRows = rows.slice(1, 9);
   return {
-    bom: source.startsWith("\ufeff"),
-    lineEnding: source.includes("\r\n") ? "\r\n" : "\n"
+    kind: "table",
+    version: 1,
+    columns,
+    rows: (sourceRows.length ? sourceRows : [Array.from({ length: columnCount }, () => "")]).map((row, rowIndex) => ({
+      id: previous?.rows[rowIndex]?.id || `row-${rowIndex + 1}`,
+      cells: Object.fromEntries(columns.map((column, columnIndex) => [column.id, row[columnIndex] || ""]))
+    }))
   };
 }
 
-function serializeWithFormat(content: CanvasTableContent, format: CsvFormat) {
-  return serializeCanvasTableCsv(content, format);
+function serializeWithBinding(content: CanvasTableContent, binding: CsvBinding) {
+  const rows = binding.fullRows.length ? binding.fullRows.map((row) => [...row]) : [[...content.columns.map((column) => column.label)]];
+  const width = Math.max(rows[0]?.length || 0, content.columns.length);
+  for (const row of rows) while (row.length < width) row.push("");
+  if (!rows.length) rows.push(Array.from({ length: width }, () => ""));
+  content.columns.forEach((column, columnIndex) => { rows[0][columnIndex] = column.label; });
+  content.rows.forEach((row, rowIndex) => {
+    while (rows.length <= rowIndex + 1) rows.push(Array.from({ length: width }, () => ""));
+    content.columns.forEach((column, columnIndex) => { rows[rowIndex + 1][columnIndex] = row.cells[column.id] || ""; });
+  });
+  binding.fullRows = rows;
+  return serializeCsvDocument(rows, binding.dialect);
 }

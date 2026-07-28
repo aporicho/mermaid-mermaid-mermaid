@@ -14,7 +14,8 @@ export function createElectronCsvFileOperations(bridge: ElectronBridge): Runtime
         rootPath: request.rootPath,
         path: request.file.path,
         text: request.text,
-        expectedRevision: request.expectedRevision
+        expectedRevision: request.expectedRevision,
+        format: request.format
       });
     },
     createProjectTextFile(request) {

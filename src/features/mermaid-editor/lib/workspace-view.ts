@@ -12,7 +12,7 @@ import {
 export type WorkspaceView = DocumentWorkspaceView;
 
 export function normalizeWorkspaceView(value: unknown): WorkspaceView | undefined {
-  return value === "canvas" || value === "render" || value === "source" || value === "markdown" ? value : undefined;
+  return value === "canvas" || value === "render" || value === "source" || value === "markdown" || value === "text" || value === "csv" ? value : undefined;
 }
 
 export function workspaceViewForDocument(editableKind: EditableKind, value: unknown, documentKind: DocumentKind = "mermaid"): WorkspaceView {

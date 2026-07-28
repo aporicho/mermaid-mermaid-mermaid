@@ -7,6 +7,7 @@ import { CanvasNodeImageSurface } from "@/features/mermaid-editor/components/kon
 import { CanvasNodeLinkCard } from "@/features/mermaid-editor/components/konva-canvas/node-link-card";
 import { MarkdownDocumentCard } from "@/features/mermaid-editor/components/konva-canvas/markdown-document-card";
 import { HtmlDocumentCard } from "@/features/mermaid-editor/components/konva-canvas/html-document-card";
+import { TextDocumentCard } from "@/features/mermaid-editor/components/konva-canvas/text-document-card";
 import { CanvasNodeShape } from "@/features/mermaid-editor/components/konva-canvas/node-shapes";
 import { CanvasTableNode, CanvasTableNodePlaceholder } from "@/features/mermaid-editor/components/konva-canvas/table-node";
 import { CanvasStaticCacheGroup, canvasStaticCacheKey } from "@/features/mermaid-editor/components/konva-canvas/canvas-static-cache-group";
@@ -24,6 +25,7 @@ import type { CanvasNode, Selection } from "@/features/mermaid-editor/lib/editor
 import { normalizeNodeAction } from "@/features/mermaid-editor/lib/node-actions";
 import { normalizeImageAsset } from "@/features/mermaid-editor/lib/node-assets";
 import type { MarkdownDocumentPreview } from "@/features/mermaid-editor/lib/markdown-document";
+import type { TextDocumentPreview } from "@/features/mermaid-editor/lib/text-document";
 import type { NodeGeometryTokens } from "@/features/mermaid-editor/lib/node-geometry";
 import { buildNodeGeometry } from "@/features/mermaid-editor/lib/node-geometry";
 import type { ViewFilters } from "@/features/mermaid-editor/lib/view-filters";
@@ -50,6 +52,7 @@ type KonvaNodeLayerProps = {
   nodeProximityScale: Record<string, number>;
   imageDisplaySrcBySrc: Record<string, string>;
   markdownDocumentPreviewByNodeId: Record<string, MarkdownDocumentPreview>;
+  textDocumentPreviewByNodeId: Record<string, TextDocumentPreview>;
   runtimeCreateScale: number;
   visualTokens: CanvasVisualTokens;
   nodeThemeTokens: NodeGeometryTokens;
@@ -60,6 +63,7 @@ type KonvaNodeLayerProps = {
   selectedTableCell: TableCellSelection | null;
   onOpenNodeAction?: (node: CanvasNode) => void;
   onRequestMarkdownDocumentPreview?: (node: CanvasNode) => void;
+  onRequestTextDocumentPreview?: (node: CanvasNode) => void;
 };
 
 export function KonvaNodeLayer({
@@ -79,6 +83,7 @@ export function KonvaNodeLayer({
   nodeProximityScale,
   imageDisplaySrcBySrc,
   markdownDocumentPreviewByNodeId,
+  textDocumentPreviewByNodeId,
   runtimeCreateScale,
   visualTokens,
   nodeThemeTokens,
@@ -89,6 +94,7 @@ export function KonvaNodeLayer({
   selectedTableCell,
   onOpenNodeAction,
   onRequestMarkdownDocumentPreview,
+  onRequestTextDocumentPreview,
 }: KonvaNodeLayerProps) {
   const renderedNodesRef = useRef(scopedRenderedNodes);
   const openNodeActionRef = useRef(onOpenNodeAction);
@@ -121,6 +127,7 @@ export function KonvaNodeLayer({
         const imageAsset = normalizeImageAsset(node.asset);
         const isMarkdownDocument = nodeKind === "markdown-document";
         const isHtmlDocument = nodeKind === "html-document";
+        const isTextDocument = nodeKind === "text-document";
         const isImageNode = nodeKind === "image";
         const isTableNode = nodeKind === "table";
         const isStandardNode = nodeKind === "standard";
@@ -322,6 +329,18 @@ export function KonvaNodeLayer({
                   fontRevision={fontRevision}
                 />
               ) : null}
+              {isTextDocument ? (
+                <TextDocumentCard
+                  node={node}
+                  width={geometry.frame.width}
+                  height={geometry.frame.height}
+                  specialNode={specialNodeTokens}
+                  visualState={nodeVisual.kind}
+                  preview={textDocumentPreviewByNodeId[node.id]}
+                  fontRevision={fontRevision}
+                  onRequestPreview={onRequestTextDocumentPreview}
+                />
+              ) : null}
             </Group>
           </Group>
         );
@@ -336,6 +355,7 @@ export function KonvaNodeLayer({
         const isLinkCardNode = nodeKind === "link-card";
         const isMarkdownDocument = nodeKind === "markdown-document";
         const isHtmlDocument = nodeKind === "html-document";
+        const isTextDocument = nodeKind === "text-document";
         const isImageNode = nodeKind === "image";
         const isTableNode = nodeKind === "table";
         const imageDisplaySrc = imageAsset ? imageDisplaySrcBySrc[imageAsset.src] || imageAsset.src : undefined;
@@ -369,7 +389,7 @@ export function KonvaNodeLayer({
               scaleX={motionVisual.scale}
               scaleY={motionVisual.scale}
             >
-              {!isImageNode && !isLinkCardNode && !isMarkdownDocument && !isHtmlDocument && !isTableNode ? (
+              {!isImageNode && !isLinkCardNode && !isMarkdownDocument && !isHtmlDocument && !isTextDocument && !isTableNode ? (
                 <CanvasNodeShape
                   node={node}
                   width={geometry.frame.width}
@@ -464,7 +484,19 @@ export function KonvaNodeLayer({
                   cacheEnabled={false}
                 />
               ) : null}
-              {!isImageNode && !isLinkCardNode && !isMarkdownDocument && !isHtmlDocument && !isTableNode ? (
+              {isTextDocument ? (
+                <TextDocumentCard
+                  node={node}
+                  width={geometry.frame.width}
+                  height={geometry.frame.height}
+                  specialNode={specialNodeTokens}
+                  visualState={nodeVisual.kind}
+                  preview={textDocumentPreviewByNodeId[node.id]}
+                  fontRevision={fontRevision}
+                  cacheEnabled={false}
+                />
+              ) : null}
+              {!isImageNode && !isLinkCardNode && !isMarkdownDocument && !isHtmlDocument && !isTextDocument && !isTableNode ? (
                 <Text
                   x={geometry.textBox.x}
                   y={geometry.textBox.y}

@@ -1,4 +1,4 @@
-import { documentKindFromPath, type DocumentKind } from "@/features/mermaid-editor/lib/document-kind";
+import { documentKindDescriptor, documentKindFromPath, type DocumentKind } from "@/features/mermaid-editor/lib/document-kind";
 
 export const EDITOR_DOCUMENT_SESSION_VERSION = 1 as const;
 
@@ -258,7 +258,7 @@ function normalizeDocumentFileRef(value: unknown): EditorDocumentFileRef | null 
 }
 
 function normalizeDocumentKind(value: unknown, filePath?: string): DocumentKind {
-  if (value === "markdown" || value === "mermaid") return value;
+  if (value === "markdown" || value === "mermaid" || value === "text" || value === "csv") return value;
   return documentKindFromPath(filePath) || "mermaid";
 }
 
@@ -286,8 +286,7 @@ function normalizeFileName(value: string, documentKind: DocumentKind) {
 }
 
 function defaultFileName(documentKind: DocumentKind) {
-  if (documentKind === "markdown") return "document.md";
-  return "diagram.mmd";
+  return documentKindDescriptor(documentKind).defaultFileName;
 }
 
 function normalizeFileIdentityPath(value: string) {

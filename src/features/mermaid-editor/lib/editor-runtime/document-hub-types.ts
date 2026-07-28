@@ -1,6 +1,12 @@
 import type { RuntimeFileRef } from "@/features/mermaid-editor/lib/editor-runtime/types";
 
-export type RuntimeHubDocumentKind = "mermaid" | "markdown" | "csv" | "html";
+export type RuntimeHubDocumentKind = "mermaid" | "markdown" | "csv" | "html" | "text";
+export type RuntimeDocumentEncoding = "utf8" | "utf16le" | "utf16be" | "gb18030";
+export type RuntimeDocumentFormat = {
+  encoding: RuntimeDocumentEncoding;
+  bom: boolean;
+  lineEnding: "lf" | "crlf";
+};
 export type RuntimeDocumentSyncState = "clean" | "dirty" | "conflict" | "deleted";
 export type RuntimeDocumentSaveState = "idle" | "saving" | "error";
 
@@ -35,6 +41,7 @@ export type RuntimeDocumentSnapshot = {
   baseRevision: string | null;
   diskRevision: string | null;
   modifiedAt: number;
+  format?: RuntimeDocumentFormat;
   exists: boolean;
   syncState: RuntimeDocumentSyncState;
   saveState: RuntimeDocumentSaveState;
@@ -70,5 +77,15 @@ export type RuntimeDocumentHubOperations = {
   recreateDocument: (request: { documentId: string }) => Promise<unknown>;
   undoDocumentTransaction: (request: { documentId: string }) => Promise<unknown>;
   redoDocumentTransaction: (request: { documentId: string }) => Promise<unknown>;
+  saveDocumentWorkingCopy: (request: {
+    documentId?: string;
+    path: string;
+    text?: string;
+    expectedRevision?: string;
+    expectedWorkingRevision?: string;
+    overwrite?: boolean;
+    format?: RuntimeDocumentFormat;
+  }) => Promise<unknown>;
+  discardDocumentWorkingCopy: (request: { documentId?: string; path?: string }) => Promise<unknown>;
   listenForDocumentHubEvents: (handler: (event: RuntimeDocumentHubEvent) => void) => Promise<() => void>;
 };
