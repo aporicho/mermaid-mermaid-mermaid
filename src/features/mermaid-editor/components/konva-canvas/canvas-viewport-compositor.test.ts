@@ -72,6 +72,114 @@ describe("canvas viewport compositor", () => {
     expect(scene.transformWrites.at(-1)).toBe("");
   });
 
+  it("draws the active layer in the same task as a live viewport transform", () => {
+    const animationFrames = new Map<number, FrameRequestCallback>();
+    let nextFrameId = 1;
+    vi.stubGlobal("requestAnimationFrame", vi.fn((callback: FrameRequestCallback) => {
+      const id = nextFrameId++;
+      animationFrames.set(id, callback);
+      return id;
+    }));
+    vi.stubGlobal("cancelAnimationFrame", vi.fn((id: number) => animationFrames.delete(id)));
+    const background = fakeLayer();
+    const scene = fakeLayer();
+    const active = fakeLayer();
+    const compositor = new CanvasViewportCompositor({ x: 0, y: 0, scale: 1 });
+
+    compositor.configureSurface(resolveCanvasViewportSurface({ width: 1200, height: 800 }));
+    compositor.attach({
+      stage: { position: vi.fn(), scale: vi.fn() } as unknown as Konva.Stage,
+      backgroundLayer: background.layer,
+      sceneLayer: scene.layer,
+      activeLayer: active.layer
+    });
+    compositor.beginNavigation();
+    compositor.apply({ x: 20, y: 12, scale: 1.1 });
+
+    expect(scene.style.transform).not.toBe("matrix(1, 0, 0, 1, 0, 0)");
+    expect(active.layer.drawScene).toHaveBeenCalledTimes(1);
+    expect(animationFrames.size).toBe(0);
+  });
+
+  it("coalesces scene invalidations until navigation ends", () => {
+    const animationFrames = new Map<number, FrameRequestCallback>();
+    let nextFrameId = 1;
+    vi.stubGlobal("requestAnimationFrame", vi.fn((callback: FrameRequestCallback) => {
+      const id = nextFrameId++;
+      animationFrames.set(id, callback);
+      return id;
+    }));
+    vi.stubGlobal("cancelAnimationFrame", vi.fn((id: number) => animationFrames.delete(id)));
+    const background = fakeLayer();
+    const scene = fakeLayer();
+    const active = fakeLayer();
+    const compositor = new CanvasViewportCompositor({ x: 0, y: 0, scale: 1 });
+    compositor.configureSurface(resolveCanvasViewportSurface({ width: 1200, height: 800 }));
+    compositor.attach({
+      stage: { position: vi.fn(), scale: vi.fn() } as unknown as Konva.Stage,
+      backgroundLayer: background.layer,
+      sceneLayer: scene.layer,
+      activeLayer: active.layer
+    });
+
+    compositor.beginNavigation();
+    compositor.invalidateScene("image-decode");
+    compositor.invalidateScene("texture-cache");
+    expect(scene.layer.drawScene).not.toHaveBeenCalled();
+    compositor.endNavigation();
+    expect(animationFrames.size).toBe(1);
+    runAllAnimationFrames(animationFrames);
+
+    expect(background.layer.drawScene).toHaveBeenCalledTimes(1);
+    expect(scene.layer.drawScene).toHaveBeenCalledTimes(1);
+  });
+
+  it("holds a composited guard until a rebase has redrawn every layer", () => {
+    const animationFrames = new Map<number, FrameRequestCallback>();
+    let nextFrameId = 1;
+    vi.stubGlobal("requestAnimationFrame", vi.fn((callback: FrameRequestCallback) => {
+      const id = nextFrameId++;
+      animationFrames.set(id, callback);
+      return id;
+    }));
+    vi.stubGlobal("cancelAnimationFrame", vi.fn((id: number) => animationFrames.delete(id)));
+    const background = fakeLayer();
+    const scene = fakeLayer();
+    const active = fakeLayer();
+    const context = {
+      setTransform: vi.fn(),
+      clearRect: vi.fn(),
+      drawImage: vi.fn()
+    };
+    const guard = {
+      width: 0,
+      height: 0,
+      hidden: true,
+      style: { width: "", height: "", display: "none" },
+      getContext: vi.fn(() => context)
+    } as unknown as HTMLCanvasElement;
+    const compositor = new CanvasViewportCompositor({ x: 0, y: 0, scale: 1 });
+    const nextViewport = { x: 40, y: 25, scale: 1.2 };
+    compositor.configureSurface(resolveCanvasViewportSurface({ width: 1200, height: 800 }));
+    compositor.attach({
+      stage: { position: vi.fn(), scale: vi.fn() } as unknown as Konva.Stage,
+      backgroundLayer: background.layer,
+      sceneLayer: scene.layer,
+      activeLayer: active.layer,
+      rebaseGuardCanvas: guard
+    });
+    compositor.beginNavigation();
+    compositor.apply(nextViewport);
+    compositor.commitScene(nextViewport, "test-rebase");
+
+    expect(guard.hidden).toBe(false);
+    expect(context.drawImage).toHaveBeenCalledTimes(3);
+    expect(scene.layer.drawScene).toHaveBeenCalledTimes(1);
+    expect(active.layer.drawScene).toHaveBeenCalledTimes(2);
+    runAllAnimationFrames(animationFrames);
+    expect(guard.hidden).toBe(true);
+  });
+
   it("lets the React scene commit win before the interaction-end fallback", () => {
     const animationFrames = new Map<number, FrameRequestCallback>();
     let nextFrameId = 1;
@@ -138,10 +246,11 @@ function fakeLayer() {
     transformOrigin: "",
     willChange: ""
   };
+  const canvas = { style, width: 1600, height: 1000 };
   const layer = {
     listening: vi.fn(),
     getHitCanvas: () => ({ setSize: vi.fn() }),
-    getNativeCanvasElement: () => ({ style }),
+    getNativeCanvasElement: () => canvas,
     drawScene: vi.fn()
   } as unknown as Konva.Layer;
   return { layer, style, transformWrites };

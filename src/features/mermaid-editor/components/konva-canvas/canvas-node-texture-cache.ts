@@ -117,6 +117,8 @@ export class CanvasNodeTextureCacheController {
   private canvasPixelRatio = 1;
   private destroyed = false;
   private active = false;
+  private onVisualInvalidated: (layer: Konva.Layer | null, reason: string) => void = () => undefined;
+  private readonly pendingVisualInvalidations = new Map<Konva.Layer | null, Set<string>>();
 
   constructor(options: { budgetBytes?: number; disabled?: boolean } = {}) {
     this.usesConfiguredBudget = options.budgetBytes === undefined;
@@ -135,6 +137,10 @@ export class CanvasNodeTextureCacheController {
     this.active = true;
     if (this.usesConfiguredBudget) this.budgetBytes = configuredBudgetBytes;
     activeControllers.add(this);
+  }
+
+  setVisualInvalidationListener(listener: (layer: Konva.Layer | null, reason: string) => void) {
+    this.onVisualInvalidated = listener;
   }
 
   configureCanvasPixelRatio(pixelRatio: number) {
@@ -216,6 +222,7 @@ export class CanvasNodeTextureCacheController {
     const entry = this.entries.get(id);
     if (!entry || entry.group !== group) return;
     this.removeEntry(entry, "unmounted");
+    this.scheduleBuilds();
     this.publishSnapshot();
   }
 
@@ -268,13 +275,17 @@ export class CanvasNodeTextureCacheController {
     for (const entry of [...this.entries.values()]) this.removeEntry(entry, "destroyed");
     this.active = false;
     activeControllers.delete(this);
+    this.pendingVisualInvalidations.clear();
     this.publishSnapshot();
   }
 
   private scheduleBuilds() {
     if (this.disabled || this.destroyed || this.viewportActive || this.interactionActive || this.idleHandle !== null) return;
     const next = this.nextBuildEntry();
-    if (!next) return;
+    if (!next) {
+      this.flushVisualInvalidations();
+      return;
+    }
     next.queued = true;
     this.idleHandle = scheduleIdle((deadline) => {
       this.idleHandle = null;
@@ -343,7 +354,7 @@ export class CanvasNodeTextureCacheController {
         bytes,
         pixelRatio
       });
-      entry.group.getLayer()?.batchDraw();
+      this.queueVisualInvalidation(entry.group.getLayer(), `texture-cache-build-${entry.kind}`);
     } catch {
       entry.group.clearCache();
       this.totalBytes = Math.max(0, this.totalBytes - previousBytes);
@@ -353,6 +364,7 @@ export class CanvasNodeTextureCacheController {
       entry.maxSharpScale = 0;
       entry.blocked = "error";
       incrementPerformanceCounter("canvas-node-texture-cache-build-error");
+      this.queueVisualInvalidation(entry.group.getLayer(), `texture-cache-build-error-${entry.kind}`);
     }
     this.publishSnapshot();
   }
@@ -397,7 +409,7 @@ export class CanvasNodeTextureCacheController {
     entry.maxSharpScale = 0;
     if (reason === "evicted") incrementPerformanceCounter("canvas-node-texture-cache-eviction");
     else incrementPerformanceCounter(`canvas-node-texture-cache-clear-${reason}`);
-    entry.group.getLayer()?.batchDraw();
+    this.queueVisualInvalidation(entry.group.getLayer(), `texture-cache-clear-${reason}`);
   }
 
   private removeEntry(entry: CacheEntry, reason: string) {
@@ -414,6 +426,20 @@ export class CanvasNodeTextureCacheController {
 
   private resetBlockedEntries() {
     for (const entry of this.entries.values()) entry.blocked = false;
+  }
+
+  private queueVisualInvalidation(layer: Konva.Layer | null, reason: string) {
+    const reasons = this.pendingVisualInvalidations.get(layer) ?? new Set<string>();
+    reasons.add(reason);
+    this.pendingVisualInvalidations.set(layer, reasons);
+  }
+
+  private flushVisualInvalidations() {
+    if (this.viewportActive || this.interactionActive || this.destroyed) return;
+    for (const [layer, reasons] of this.pendingVisualInvalidations) {
+      this.onVisualInvalidated(layer, [...reasons].join("+"));
+    }
+    this.pendingVisualInvalidations.clear();
   }
 
   private publishSnapshot() {

@@ -102,6 +102,7 @@ export function KonvaCanvasStage(stageProps: KonvaCanvasStageProps) {
   const backgroundLayerRef = useRef<KonvaTypes.Layer | null>(null);
   const sceneLayerRef = useRef<KonvaTypes.Layer | null>(null);
   const interactionLayerRef = useRef<KonvaTypes.Layer | null>(null);
+  const rebaseGuardRef = useRef<HTMLCanvasElement | null>(null);
   const contentDrawStartedAtRef = useRef(0);
   const nodeEditorTypography = resolveNodeEditorTypography(graph, inlineEdit, typography);
   const hoveredActionNode = hoveredNodeId ? graph.nodes.find((node) => node.id === hoveredNodeId) : undefined;
@@ -168,18 +169,21 @@ export function KonvaCanvasStage(stageProps: KonvaCanvasStageProps) {
       stage,
       backgroundLayer: backgroundLayerRef.current,
       sceneLayer,
-      activeLayer
+      activeLayer,
+      rebaseGuardCanvas: rebaseGuardRef.current
     });
-    return () => viewportCompositor.detach();
-  }, [stageRef, viewportCompositor, viewportSurface]);
+    nodeTextureCacheController.setVisualInvalidationListener((layer, reason) => {
+      viewportCompositor.invalidateLayer(layer, reason);
+    });
+    return () => {
+      nodeTextureCacheController.setVisualInvalidationListener(() => undefined);
+      viewportCompositor.detach();
+    };
+  }, [nodeTextureCacheController, stageRef, viewportCompositor, viewportSurface]);
 
   useLayoutEffect(() => {
     viewportCompositor.commitScene(viewport, "react");
   }, [stableSceneRevision, viewport, viewportCompositor]);
-
-  useLayoutEffect(() => {
-    viewportCompositor.scheduleActiveDraw();
-  });
 
   const surfaceViewport = useMemo(() => ({
     x: viewportSurface.padding + viewport.x,
@@ -295,14 +299,16 @@ export function KonvaCanvasStage(stageProps: KonvaCanvasStageProps) {
           </Layer>
 
           <Layer ref={interactionLayerRef} name="canvas-interaction-layer" imageSmoothingEnabled listening={false}>
-            <KonvaInteractionLayerContent
-              sceneLayerRef={sceneLayerRef}
-              interactionLayerRef={interactionLayerRef}
-              stageProps={stageProps}
-            />
+            <KonvaInteractionLayerContent stageProps={stageProps} />
           </Layer>
         </Stage>
         </div>
+        <canvas
+          ref={rebaseGuardRef}
+          className="pointer-events-none absolute inset-0 z-[1]"
+          aria-hidden="true"
+          hidden
+        />
         <CanvasSelectionToolbars
           graph={graph}
           selection={selection}

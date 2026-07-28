@@ -126,15 +126,13 @@ export function KonvaNodeLayer({
         const isStandardNode = nodeKind === "standard";
         const nodeAction = isStandardNode && normalizeNodeAction(node.action);
         const nodeInlineEditing = inlineEdit?.type === "node" && inlineEdit.id === node.id;
-        const staticNodeVisual = nodeVisual.kind === "dragging"
-          ? nodeVisual
-          : {
-              ...nodeVisual,
-              kind: "normal" as const,
-              stroke: visualTokens.ordinaryNode.borderColor,
-              strokeWidth: visualTokens.ordinaryNode.borderWidth,
-              shadow: visualTokens.ordinaryNode.shadow
-            };
+        const staticNodeVisual = {
+          ...nodeVisual,
+          kind: "normal" as const,
+          stroke: visualTokens.ordinaryNode.borderColor,
+          strokeWidth: visualTokens.ordinaryNode.borderWidth,
+          shadow: visualTokens.ordinaryNode.shadow
+        };
         const imageDisplaySrc = imageAsset ? imageDisplaySrcBySrc[imageAsset.src] || imageAsset.src : undefined;
         const previewCoverSrc = linkPreview?.cover?.src ? imageDisplaySrcBySrc[linkPreview.cover.src] || linkPreview.cover.src : undefined;
         const nodeVisualTransform = centerScaleTransform(geometry.frame);
@@ -162,6 +160,17 @@ export function KonvaNodeLayer({
             >
               {isStandardNode ? (
                 <>
+                  {nodeVisual.kind === "dragging" && nodeVisual.shadow.opacity > 0 ? (
+                    <CanvasNodeShape
+                      node={node}
+                      width={geometry.frame.width}
+                      height={geometry.frame.height}
+                      strokeWidth={0}
+                      visualState={nodeVisual}
+                      visualTokens={visualTokens}
+                      paintMode="surface"
+                    />
+                  ) : null}
                   <CanvasStaticCacheGroup
                     cacheId={`${node.id}:standard-static`}
                     cacheKey={canvasStaticCacheKey(
@@ -180,7 +189,7 @@ export function KonvaNodeLayer({
                       fontRevision
                     )}
                     cacheKind="standard"
-                    cacheEnabled={standardNodeCacheEligible(node, nodeAction, visualTokens) && nodeVisual.kind !== "dragging" && !nodeInlineEditing}
+                    cacheEnabled={standardNodeCacheEligible(node, nodeAction, visualTokens) && !nodeInlineEditing}
                     cachePriority={1}
                   >
                     <CanvasNodeShape
@@ -211,7 +220,7 @@ export function KonvaNodeLayer({
                       listening={false}
                     />
                   </CanvasStaticCacheGroup>
-                  {nodeVisual.kind !== "normal" && nodeVisual.kind !== "hovered" && nodeVisual.kind !== "dragging" ? (
+                  {nodeVisual.kind !== "normal" && nodeVisual.kind !== "hovered" ? (
                     <CanvasNodeShape
                       node={node}
                       width={geometry.frame.width}

@@ -179,7 +179,7 @@ export function useKonvaCanvasModel({
     clearNodeProximityScales: proximity.clearNodeProximityScales,
     onEditorCommand
   });
-  const nodeProximityInteractive = shouldRunCanvasProximity({
+  const nodeProximityInteractive = !viewportComposition.navigationActive && shouldRunCanvasProximity({
     reduced: runtimeMotion.reduced,
     viewNodes: viewFilters.nodes,
     panningRequested,

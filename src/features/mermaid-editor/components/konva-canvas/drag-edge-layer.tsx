@@ -1,10 +1,10 @@
-import { useMemo, useSyncExternalStore } from "react";
+import { useMemo } from "react";
 
 import { KonvaEdgeLayer } from "@/features/mermaid-editor/components/konva-canvas/edge-layer";
 import type { KonvaCanvasStageProps } from "@/features/mermaid-editor/components/konva-canvas/konva-canvas-stage-types";
+import type { CanvasDragPreviewSnapshot } from "@/features/mermaid-editor/components/konva-canvas/canvas-drag-preview-store";
 
 type DragEdgeLayerProps = Pick<KonvaCanvasStageProps,
-  | "dragPreviewStore"
   | "dragPreviewEdges"
   | "resolveDragEdgeGeometryMap"
   | "viewFilters"
@@ -18,17 +18,16 @@ type DragEdgeLayerProps = Pick<KonvaCanvasStageProps,
 >;
 
 export function KonvaDragEdgeLayer({
-  dragPreviewStore,
+  dragPreview,
   dragPreviewEdges,
   resolveDragEdgeGeometryMap,
   ...props
-}: DragEdgeLayerProps) {
-  const snapshot = useSyncExternalStore(dragPreviewStore.subscribe, dragPreviewStore.getSnapshot, () => null);
+}: DragEdgeLayerProps & { dragPreview: CanvasDragPreviewSnapshot | null }) {
   const geometryById = useMemo(
-    () => snapshot ? resolveDragEdgeGeometryMap(snapshot) : new Map(),
-    [resolveDragEdgeGeometryMap, snapshot]
+    () => dragPreview ? resolveDragEdgeGeometryMap(dragPreview) : new Map(),
+    [dragPreview, resolveDragEdgeGeometryMap]
   );
-  if (!snapshot || dragPreviewEdges.length === 0) return null;
+  if (!dragPreview || dragPreviewEdges.length === 0) return null;
 
   return <KonvaEdgeLayer
     {...props}

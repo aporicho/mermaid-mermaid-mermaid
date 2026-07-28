@@ -10,40 +10,23 @@ export function useKonvaDragDraft() {
   const subgraphDragFrameRef = useRef<DragPositionMap | null>(null);
   const dragFinalPositionsRef = useRef<CanvasNodePreviewPositions | null>(null);
   const committedDragPositionsRef = useRef<CanvasNodePreviewPositions | null>(null);
-  const dragPreviewFrameRef = useRef<number | null>(null);
-  const pendingDragPreviewRef = useRef<{ nodePositions: CanvasNodePreviewPositions; subgraphPositions: CanvasSubgraphPreviewPositions } | null>(null);
   const dragPreviewStoreRef = useRef<CanvasDragPreviewStore | null>(null);
   dragPreviewStoreRef.current ??= new CanvasDragPreviewStore();
   const dragPreviewStore = dragPreviewStoreRef.current;
 
   function setDragPreviewPositionsVisual(positions: CanvasNodePreviewPositions | null, subgraphPositions: CanvasSubgraphPreviewPositions = {}) {
-    pendingDragPreviewRef.current = null;
-    if (dragPreviewFrameRef.current !== null) {
-      window.cancelAnimationFrame(dragPreviewFrameRef.current);
-      dragPreviewFrameRef.current = null;
-    }
     dragPreviewStore.publish(positions ? { nodePositions: positions, subgraphPositions } : null);
   }
 
   function scheduleDragPreviewPositionsVisual(positions: CanvasNodePreviewPositions, subgraphPositions: CanvasSubgraphPreviewPositions = {}) {
     dragFinalPositionsRef.current = positions;
-    pendingDragPreviewRef.current = { nodePositions: positions, subgraphPositions };
-    if (dragPreviewFrameRef.current !== null) return;
-    dragPreviewFrameRef.current = window.requestAnimationFrame(() => {
-      dragPreviewFrameRef.current = null;
-      const pending = pendingDragPreviewRef.current;
-      pendingDragPreviewRef.current = null;
-      if (pending) dragPreviewStore.publish(pending);
-    });
+    // Pointer movement is already coalesced by the canvas pointer scheduler.
+    // Publishing here avoids a second RAF that previously made nodes, edges,
+    // and guides trail the pointer by one full frame.
+    dragPreviewStore.publish({ nodePositions: positions, subgraphPositions });
   }
 
-  function flushScheduledDragPreview() {
-    if (dragPreviewFrameRef.current !== null) window.cancelAnimationFrame(dragPreviewFrameRef.current);
-    dragPreviewFrameRef.current = null;
-    const pending = pendingDragPreviewRef.current;
-    pendingDragPreviewRef.current = null;
-    if (pending) dragPreviewStore.publish(pending);
-  }
+  function flushScheduledDragPreview() {}
 
   function beginDragRuntimeState() {
     committedDragPositionsRef.current = null;
@@ -56,9 +39,6 @@ export function useKonvaDragDraft() {
   }
 
   function clearDragRuntimeState() {
-    if (dragPreviewFrameRef.current !== null) window.cancelAnimationFrame(dragPreviewFrameRef.current);
-    dragPreviewFrameRef.current = null;
-    pendingDragPreviewRef.current = null;
     dragRef.current = null;
     subgraphDragFrameRef.current = null;
     dragFinalPositionsRef.current = null;
@@ -66,9 +46,6 @@ export function useKonvaDragDraft() {
   }
 
   function preserveCommittedDragPreview() {
-    if (dragPreviewFrameRef.current !== null) window.cancelAnimationFrame(dragPreviewFrameRef.current);
-    dragPreviewFrameRef.current = null;
-    pendingDragPreviewRef.current = null;
     dragRef.current = null;
     subgraphDragFrameRef.current = null;
     dragFinalPositionsRef.current = null;
@@ -80,7 +57,6 @@ export function useKonvaDragDraft() {
 
   useEffect(() => {
     return () => {
-      if (dragPreviewFrameRef.current !== null) window.cancelAnimationFrame(dragPreviewFrameRef.current);
       committedDragPositionsRef.current = null;
     };
   }, []);

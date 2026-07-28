@@ -1,6 +1,4 @@
-import type Konva from "konva";
-import type { RefObject } from "react";
-import { useMemo } from "react";
+import { useMemo, useSyncExternalStore } from "react";
 
 import { AlignmentGuideOverlay } from "@/features/mermaid-editor/components/konva-canvas/canvas-overlays";
 import { CanvasActiveDragVisuals } from "@/features/mermaid-editor/components/konva-canvas/active-drag-visuals";
@@ -10,12 +8,8 @@ import { CanvasConnectionAnchorOverlay } from "@/features/mermaid-editor/compone
 import type { KonvaCanvasStageProps } from "@/features/mermaid-editor/components/konva-canvas/konva-canvas-stage-types";
 
 export function KonvaInteractionLayerContent({
-  sceneLayerRef,
-  interactionLayerRef,
   stageProps
 }: {
-  sceneLayerRef: RefObject<Konva.Layer | null>;
-  interactionLayerRef: RefObject<Konva.Layer | null>;
   stageProps: KonvaCanvasStageProps;
 }) {
   const {
@@ -26,34 +20,34 @@ export function KonvaInteractionLayerContent({
     selectedSingleEdge, selectedSingleEdgeGeometry, alignmentGuides,
     nodeMotion, nodeProximityScale, connectionTargetNodeId, connectionInvalidNodeId,
     connectionTargetSubgraphId, connectionInvalidSubgraphId, connectionPreview,
-    nodeGeometryById, scopedSubgraphGeometries
+    nodeGeometryById, scopedSubgraphGeometries, viewportCompositor
   } = stageProps;
+  const dragPreview = useSyncExternalStore(dragPreviewStore.subscribe, dragPreviewStore.getSnapshot, () => null);
   const hoveredTableNodeId = hoveredHitTarget.kind === "tableCell" || hoveredHitTarget.kind === "tableHeader"
     ? hoveredNodeId
     : null;
   const activeNodeIds = useMemo(() => [...new Set([
-    ...selection.nodeIds,
+    ...(interactionState.kind === "draggingNodes" ? [...selection.nodeIds, interactionState.nodeId] : []),
     ...Object.keys(nodeMotion),
     ...Object.entries(nodeProximityScale).filter(([, scale]) => Math.abs(scale - 1) > 0.0001).map(([id]) => id),
     hoveredTableNodeId, connectionTargetNodeId, connectionInvalidNodeId,
     inlineEdit?.type === "node" || inlineEdit?.type === "tableCell" || inlineEdit?.type === "tableHeader" ? inlineEdit.id : null
-  ].filter((id): id is string => Boolean(id)))] , [connectionInvalidNodeId, connectionTargetNodeId, hoveredTableNodeId, inlineEdit, nodeMotion, nodeProximityScale, selection.nodeIds]);
+  ].filter((id): id is string => Boolean(id)))] , [connectionInvalidNodeId, connectionTargetNodeId, hoveredTableNodeId, inlineEdit, interactionState, nodeMotion, nodeProximityScale, selection.nodeIds]);
   const activeSubgraphIds = useMemo(() => [...new Set([
-    ...(selection.subgraphIds || []),
+    ...(interactionState.kind === "draggingSubgraphs" ? [...(selection.subgraphIds || []), interactionState.subgraphId] : []),
     connectionTargetSubgraphId, connectionInvalidSubgraphId,
     inlineEdit?.type === "subgraph" ? inlineEdit.id : null
-  ].filter((id): id is string => Boolean(id)))] , [connectionInvalidSubgraphId, connectionTargetSubgraphId, inlineEdit, selection.subgraphIds]);
+  ].filter((id): id is string => Boolean(id)))] , [connectionInvalidSubgraphId, connectionTargetSubgraphId, inlineEdit, interactionState, selection.subgraphIds]);
 
   return <>
     <CanvasActiveDragVisuals
-      sceneLayerRef={sceneLayerRef}
-      activeLayerRef={interactionLayerRef}
-      dragPreviewStore={dragPreviewStore}
+      dragPreview={dragPreview}
       activeNodeIds={activeNodeIds}
       activeSubgraphIds={activeSubgraphIds}
+      viewportCompositor={viewportCompositor}
     />
     <KonvaDragEdgeLayer
-      dragPreviewStore={dragPreviewStore}
+      dragPreview={dragPreview}
       dragPreviewEdges={dragPreviewEdges}
       resolveDragEdgeGeometryMap={resolveDragEdgeGeometryMap}
       viewFilters={viewFilters}

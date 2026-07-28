@@ -74,6 +74,27 @@ describe("canvas node texture cache", () => {
     expect(controller.snapshot()).toMatchObject({ cachedEntries: 0, queuedEntries: 0 });
     controller.destroy();
   });
+
+  it("routes cache redraws through the compositor invalidation listener", () => {
+    const group = fakeGroup({ width: 120, height: 80 });
+    const controller = new CanvasNodeTextureCacheController({ budgetBytes: 32 * 1024 * 1024, disabled: false });
+    const invalidate = vi.fn();
+    controller.setVisualInvalidationListener(invalidate);
+    controller.upsert({
+      id: "node:coordinated",
+      key: "v1",
+      kind: "standard",
+      group: group.node,
+      enabled: true,
+      priority: 1
+    });
+
+    vi.advanceTimersByTime(20);
+
+    expect(invalidate).toHaveBeenCalledWith(group.layer, "texture-cache-build-standard");
+    expect(group.batchDraw).not.toHaveBeenCalled();
+    controller.destroy();
+  });
 });
 
 function fakeGroup(rect: { width: number; height: number }) {
@@ -81,14 +102,16 @@ function fakeGroup(rect: { width: number; height: number }) {
   const cache = vi.fn(() => { cached = true; });
   const clearCache = vi.fn(() => { cached = false; });
   const hitSetSize = vi.fn();
+  const batchDraw = vi.fn();
+  const layer = { batchDraw } as unknown as Konva.Layer;
   const node = {
     getStage: () => ({}),
     getClientRect: () => ({ x: 0, y: 0, ...rect }),
     cache,
     clearCache,
     isCached: () => cached,
-    getLayer: () => ({ batchDraw: vi.fn() }),
+    getLayer: () => layer,
     _cache: new Map([["canvas", { hit: { setSize: hitSetSize } }]])
   } as unknown as Konva.Group;
-  return { node, cache, clearCache, hitSetSize };
+  return { node, layer, cache, clearCache, hitSetSize, batchDraw };
 }

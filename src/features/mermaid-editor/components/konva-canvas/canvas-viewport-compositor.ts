@@ -26,6 +26,7 @@ type AttachedLayers = {
   backgroundLayer: Konva.Layer | null;
   sceneLayer: Konva.Layer;
   activeLayer: Konva.Layer;
+  rebaseGuardCanvas?: HTMLCanvasElement | null;
 };
 
 export class CanvasViewportCompositor {
@@ -37,12 +38,20 @@ export class CanvasViewportCompositor {
   private settleTimer: ReturnType<typeof setTimeout> | null = null;
   private fallbackCommitFrame: number | null = null;
   private activeDrawFrame: number | null = null;
+  private sceneDrawFrame: number | null = null;
+  private guardReleaseFrame: number | null = null;
+  private readonly pendingSceneInvalidations = new Set<string>();
   private navigationActive = false;
   private onBaseViewportChange: (viewport: ViewportState) => void = () => undefined;
+  private onNavigationActiveChange: (active: boolean) => void = () => undefined;
   private compositeFrames = 0;
   private sceneDraws = 0;
   private activeDraws = 0;
   private rebases = 0;
+  private frameGeneration = 0;
+  private stableViewportGeneration = 0;
+  private activeViewportGeneration = 0;
+  private guardedRebases = 0;
 
   constructor(initialViewport: ViewportState = { x: 0, y: 0, scale: 1 }) {
     this.liveViewport = initialViewport;
@@ -51,6 +60,10 @@ export class CanvasViewportCompositor {
 
   setBaseViewportListener(listener: (viewport: ViewportState) => void) {
     this.onBaseViewportChange = listener;
+  }
+
+  setNavigationActiveListener(listener: (active: boolean) => void) {
+    this.onNavigationActiveChange = listener;
   }
 
   configureSurface(surface: CanvasViewportSurface) {
@@ -82,7 +95,12 @@ export class CanvasViewportCompositor {
     this.requestedBase = null;
     this.applyStageViewport(viewport);
     this.applyStableComposite(viewport);
+    const generation = ++this.frameGeneration;
+    this.stableViewportGeneration = generation;
+    this.flushActiveDraw("sync");
+    this.activeViewportGeneration = generation;
     this.onBaseViewportChange(viewport);
+    this.publishDiagnostics();
   }
 
   acceptExternalViewport(viewport: ViewportState) {
@@ -94,9 +112,16 @@ export class CanvasViewportCompositor {
     this.liveViewport = viewport;
     const attached = this.attached;
     if (!attached) return;
+    this.releaseRebaseGuardNow();
     this.applyStageViewport(viewport);
     this.applyStableComposite(viewport);
-    this.scheduleActiveDraw();
+    const generation = ++this.frameGeneration;
+    this.stableViewportGeneration = generation;
+    // The stable canvases and the active canvas must expose the same viewport
+    // generation in one browser frame. Deferring this draw by another RAF used
+    // to leave selected/hovered nodes one frame behind the scene.
+    this.flushActiveDraw("viewport");
+    this.activeViewportGeneration = generation;
     this.compositeFrames += 1;
     incrementPerformanceCounter("canvas-compositor-frame");
 
@@ -109,6 +134,9 @@ export class CanvasViewportCompositor {
     const attached = this.attached;
     if (!attached) return;
     const liveViewport = this.liveViewport;
+    const guarded = !sameViewport(this.baseViewport, viewport) && this.captureRebaseGuard();
+    this.cancelSceneDraw();
+    this.pendingSceneInvalidations.clear();
     this.applyStageViewport(viewport);
     this.configureSceneOnlyLayers();
     measurePerformance("canvas-compositor-scene-commit", () => {
@@ -121,14 +149,45 @@ export class CanvasViewportCompositor {
     this.requestedBase = null;
     this.applyStageViewport(liveViewport);
     this.applyStableComposite(liveViewport);
-    this.scheduleActiveDraw();
+    const generation = ++this.frameGeneration;
+    this.stableViewportGeneration = generation;
+    this.flushActiveDraw("scene-commit");
+    this.activeViewportGeneration = generation;
+    if (guarded) this.releaseRebaseGuardNextFrame();
     if (this.fallbackCommitFrame !== null) cancelAnimationFrame(this.fallbackCommitFrame);
     this.fallbackCommitFrame = null;
     this.publishDiagnostics();
   }
 
   invalidateScene(reason = "scene") {
-    this.commitScene(this.liveViewport, reason);
+    this.pendingSceneInvalidations.add(reason);
+    if (this.navigationActive) return;
+    this.scheduleSceneDraw();
+  }
+
+  invalidateLayer(layer: Konva.Layer | null | undefined, reason = "layer") {
+    const attached = this.attached;
+    if (!attached || !layer) return;
+    if (layer === attached.activeLayer) {
+      this.scheduleActiveDraw();
+      return;
+    }
+    if (layer === attached.sceneLayer || layer === attached.backgroundLayer) this.invalidateScene(reason);
+  }
+
+  commitActiveVisualMutation(sceneMembershipChanged: boolean, reason = "active-visual") {
+    if (sceneMembershipChanged) {
+      // Reparenting a visual changes two native canvases. Redraw both inside
+      // one task so the browser can never paint the old scene and new active
+      // layer (or the reverse) as separate frames.
+      this.commitScene(this.liveViewport, reason);
+      return;
+    }
+    const generation = ++this.frameGeneration;
+    this.stableViewportGeneration = generation;
+    this.flushActiveDraw(reason);
+    this.activeViewportGeneration = generation;
+    this.publishDiagnostics();
   }
 
   scheduleActiveDraw() {
@@ -137,19 +196,22 @@ export class CanvasViewportCompositor {
       this.activeDrawFrame = null;
       const activeLayer = this.attached?.activeLayer;
       if (!activeLayer) return;
+      const generation = ++this.frameGeneration;
+      this.stableViewportGeneration = generation;
       measurePerformance("canvas-compositor-active-draw", () => activeLayer.drawScene());
+      this.activeViewportGeneration = generation;
       this.activeDraws += 1;
       incrementPerformanceCounter("canvas-compositor-active-draw");
       this.publishDiagnostics();
     });
   }
 
-  flushActiveDraw() {
+  flushActiveDraw(reason = "flush") {
     if (this.activeDrawFrame !== null) cancelAnimationFrame(this.activeDrawFrame);
     this.activeDrawFrame = null;
     const activeLayer = this.attached?.activeLayer;
     if (!activeLayer) return;
-    measurePerformance("canvas-compositor-active-draw", () => activeLayer.drawScene(), { reason: "flush" });
+    measurePerformance("canvas-compositor-active-draw", () => activeLayer.drawScene(), { reason });
     this.activeDraws += 1;
     incrementPerformanceCounter("canvas-compositor-active-draw");
     this.publishDiagnostics();
@@ -158,14 +220,22 @@ export class CanvasViewportCompositor {
   beginNavigation() {
     if (this.navigationActive) return;
     this.navigationActive = true;
+    this.onNavigationActiveChange(true);
     if (this.settleTimer !== null) clearTimeout(this.settleTimer);
     this.settleTimer = null;
+    this.cancelSceneDraw();
   }
 
   endNavigation() {
+    if (!this.navigationActive) return;
     this.navigationActive = false;
-    this.flushActiveDraw();
-    if (!sameViewport(this.baseViewport, this.liveViewport)) this.requestRebase(this.liveViewport, "interaction-end");
+    this.onNavigationActiveChange(false);
+    this.flushActiveDraw("interaction-end");
+    if (!sameViewport(this.baseViewport, this.liveViewport)) {
+      this.requestRebase(this.liveViewport, "interaction-end");
+    } else if (this.pendingSceneInvalidations.size > 0) {
+      this.scheduleSceneDraw();
+    }
   }
 
   currentViewport() {
@@ -209,6 +279,21 @@ export class CanvasViewportCompositor {
       this.settleTimer = null;
       if (!sameViewport(this.baseViewport, this.liveViewport)) this.requestRebase(this.liveViewport, "settle");
     }, CANVAS_COMPOSITOR_SETTLE_MS);
+  }
+
+  private scheduleSceneDraw() {
+    if (this.navigationActive || this.sceneDrawFrame !== null || this.pendingSceneInvalidations.size === 0) return;
+    this.sceneDrawFrame = requestAnimationFrame(() => {
+      this.sceneDrawFrame = null;
+      if (this.navigationActive || this.pendingSceneInvalidations.size === 0) return;
+      const reason = [...this.pendingSceneInvalidations].join("+");
+      this.commitScene(this.liveViewport, reason);
+    });
+  }
+
+  private cancelSceneDraw() {
+    if (this.sceneDrawFrame !== null) cancelAnimationFrame(this.sceneDrawFrame);
+    this.sceneDrawFrame = null;
   }
 
   private applyStageViewport(viewport: ViewportState) {
@@ -259,6 +344,74 @@ export class CanvasViewportCompositor {
 
   private detachCanvasTransforms() {
     this.clearStableTransforms();
+    this.hideRebaseGuard();
+  }
+
+  private captureRebaseGuard() {
+    const attached = this.attached;
+    const guard = attached?.rebaseGuardCanvas;
+    if (!attached || !guard || this.surface.viewportWidth <= 0 || this.surface.viewportHeight <= 0) return false;
+    const layers = this.allLayers();
+    const sourceCanvases = layers.map((layer) => layer.getNativeCanvasElement());
+    const source = sourceCanvases.find((canvas) => canvas.width > 0 && canvas.height > 0);
+    if (!source) return false;
+    const pixelRatio = Math.max(1, source.width / Math.max(1, this.surface.width));
+    const width = Math.max(1, Math.ceil(this.surface.viewportWidth * pixelRatio));
+    const height = Math.max(1, Math.ceil(this.surface.viewportHeight * pixelRatio));
+    if (guard.width !== width) guard.width = width;
+    if (guard.height !== height) guard.height = height;
+    guard.style.width = `${this.surface.viewportWidth}px`;
+    guard.style.height = `${this.surface.viewportHeight}px`;
+    const context = guard.getContext("2d");
+    if (!context) return false;
+    context.setTransform(1, 0, 0, 1, 0, 0);
+    context.clearRect(0, 0, width, height);
+    const stableTransform = resolveCanvasCompositeTransform(this.baseViewport, this.liveViewport, this.surface.padding);
+    for (const layer of layers) {
+      const canvas = layer.getNativeCanvasElement();
+      if (!canvas.width || !canvas.height) continue;
+      const stable = layer !== attached.activeLayer;
+      const ratio = stable ? stableTransform.ratio : 1;
+      const translateX = -this.surface.padding + (stable ? stableTransform.translateX : 0);
+      const translateY = -this.surface.padding + (stable ? stableTransform.translateY : 0);
+      context.setTransform(
+        pixelRatio * ratio,
+        0,
+        0,
+        pixelRatio * ratio,
+        pixelRatio * translateX,
+        pixelRatio * translateY
+      );
+      context.drawImage(canvas, 0, 0, canvas.width, canvas.height, 0, 0, this.surface.width, this.surface.height);
+    }
+    context.setTransform(1, 0, 0, 1, 0, 0);
+    guard.hidden = false;
+    guard.style.display = "block";
+    this.guardedRebases += 1;
+    incrementPerformanceCounter("canvas-compositor-guarded-rebase");
+    return true;
+  }
+
+  private releaseRebaseGuardNextFrame() {
+    if (this.guardReleaseFrame !== null) cancelAnimationFrame(this.guardReleaseFrame);
+    this.guardReleaseFrame = requestAnimationFrame(() => {
+      this.guardReleaseFrame = null;
+      this.hideRebaseGuard();
+    });
+  }
+
+  private releaseRebaseGuardNow() {
+    if (this.guardReleaseFrame === null) return;
+    cancelAnimationFrame(this.guardReleaseFrame);
+    this.guardReleaseFrame = null;
+    this.hideRebaseGuard();
+  }
+
+  private hideRebaseGuard() {
+    const guard = this.attached?.rebaseGuardCanvas;
+    if (!guard) return;
+    guard.hidden = true;
+    guard.style.display = "none";
   }
 
   private stableLayers() {
@@ -275,9 +428,14 @@ export class CanvasViewportCompositor {
     if (this.settleTimer !== null) clearTimeout(this.settleTimer);
     if (this.fallbackCommitFrame !== null) cancelAnimationFrame(this.fallbackCommitFrame);
     if (this.activeDrawFrame !== null) cancelAnimationFrame(this.activeDrawFrame);
+    if (this.sceneDrawFrame !== null) cancelAnimationFrame(this.sceneDrawFrame);
+    if (this.guardReleaseFrame !== null) cancelAnimationFrame(this.guardReleaseFrame);
     this.settleTimer = null;
     this.fallbackCommitFrame = null;
     this.activeDrawFrame = null;
+    this.sceneDrawFrame = null;
+    this.guardReleaseFrame = null;
+    this.pendingSceneInvalidations.clear();
   }
 
   private publishDiagnostics() {
@@ -293,13 +451,19 @@ export class CanvasViewportCompositor {
       hitBufferPixels: this.allLayers().length,
       baseViewport: this.baseViewport,
       liveViewport: this.liveViewport,
-      navigationActive: this.navigationActive
+      navigationActive: this.navigationActive,
+      frameGeneration: this.frameGeneration,
+      stableViewportGeneration: this.stableViewportGeneration,
+      activeViewportGeneration: this.activeViewportGeneration,
+      guardedRebases: this.guardedRebases,
+      queuedSceneInvalidations: this.pendingSceneInvalidations.size
     });
   }
 }
 
 export function useCanvasViewportCompositor(viewport: ViewportState, dimensions: { width: number; height: number }) {
   const [renderViewport, setRenderViewport] = useState(viewport);
+  const [navigationActive, setNavigationActive] = useState(false);
   const controllerRef = useRef<CanvasViewportCompositor | null>(null);
   controllerRef.current ??= new CanvasViewportCompositor(viewport);
   const controller = controllerRef.current;
@@ -310,6 +474,7 @@ export function useCanvasViewportCompositor(viewport: ViewportState, dimensions:
 
   useLayoutEffect(() => {
     controller.setBaseViewportListener((next) => setRenderViewport((current) => sameViewport(current, next) ? current : next));
+    controller.setNavigationActiveListener(setNavigationActive);
     controller.configureSurface(surface);
   }, [controller, surface]);
 
@@ -320,7 +485,7 @@ export function useCanvasViewportCompositor(viewport: ViewportState, dimensions:
 
   useEffect(() => () => controller.detach(), [controller]);
 
-  return { controller, renderViewport, surface };
+  return { controller, renderViewport, surface, navigationActive };
 }
 
 export function resolveCanvasViewportSurface(dimensions: { width: number; height: number }): CanvasViewportSurface {
