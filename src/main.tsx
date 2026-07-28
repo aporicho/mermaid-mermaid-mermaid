@@ -18,9 +18,13 @@ installAutoHidingScrollbars();
 void renderApplication();
 
 async function renderApplication() {
-  const Component = import.meta.env.MODE === "e2e" && window.location.pathname === "/__e2e__/explorer"
-    ? (await import("@/e2e/explorer-harness")).ExplorerE2EHarness
-    : App;
+  let Component = App;
+  if (import.meta.env.MODE === "e2e" && window.location.pathname === "/__e2e__/explorer") {
+    Component = (await import("@/e2e/explorer-harness")).ExplorerE2EHarness;
+  }
+  if (import.meta.env.MODE === "e2e" && window.location.pathname === "/__e2e__/canvas-performance") {
+    Component = (await import("@/e2e/canvas-performance-harness")).CanvasPerformanceE2EHarness;
+  }
 
   createRoot(root!).render(
     <React.StrictMode>

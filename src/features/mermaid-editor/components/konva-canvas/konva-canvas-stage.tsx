@@ -19,6 +19,7 @@ import type { KonvaCanvasStageProps } from "@/features/mermaid-editor/components
 import { canvasPixelRatio } from "@/features/mermaid-editor/lib/canvas-render-quality";
 import { recordPerformanceMetric } from "@/features/mermaid-editor/lib/editor-performance";
 import { flushCanvasHitGraph } from "@/features/mermaid-editor/components/konva-canvas/canvas-layer-draw-scheduler";
+import { CanvasNodeTextureCacheProvider } from "@/features/mermaid-editor/components/konva-canvas/canvas-static-cache-group";
 export type { KonvaCanvasStageProps } from "@/features/mermaid-editor/components/konva-canvas/konva-canvas-stage-types";
 
 Konva.pixelRatio = canvasPixelRatio(globalThis.devicePixelRatio);
@@ -45,6 +46,8 @@ export function KonvaCanvasStage(stageProps: KonvaCanvasStageProps) {
   edgeLabelThemeTokens,
   typography,
   markdownTokens,
+  fontRevision,
+  nodeTextureCacheController,
   runtimeCreateScale,
   imageDisplaySrcBySrc,
   markdownDocumentPreviewByNodeId,
@@ -234,50 +237,53 @@ export function KonvaCanvasStage(stageProps: KonvaCanvasStageProps) {
           </Layer>
 
           <Layer ref={nodeLayerRef} name="canvas-node-layer" imageSmoothingEnabled>
-            <KonvaNodeLayer
-              nodeLayerRef={nodeLayerRef}
-              interactionLayerRef={interactionLayerRef}
-              viewFilters={viewFilters}
-              mode={mode}
-              panningRequested={panningRequested}
-              dragEnabled={dragEnabled}
-              selection={selection}
-              inlineEdit={inlineEdit}
-              interactionState={interactionState}
-              hoveredNodeId={hoveredNodeId}
-              connectionTargetNodeId={connectionTargetNodeId}
-              connectionInvalidNodeId={connectionInvalidNodeId}
-              connectionPreview={connectionPreview}
-              retargetPreview={retargetPreview}
-              scopedRenderedNodes={scopedRenderedNodes}
-              exitingNodes={exitingNodes}
-              nodeGeometryById={nodeGeometryById}
-              geometrySpec={geometrySpec}
-              nodeMotion={nodeMotion}
-              nodeProximityScale={nodeProximityScale}
-              imageDisplaySrcBySrc={imageDisplaySrcBySrc}
-              markdownDocumentPreviewByNodeId={markdownDocumentPreviewByNodeId}
-              runtimeCreateScale={runtimeCreateScale}
-              visualTokens={visualTokens}
-              nodeThemeTokens={nodeThemeTokens}
-              specialNodeTokens={specialNodeTokens}
-              typography={typography}
-              markdownTokens={markdownTokens}
-              selectedTableCell={selectedTableCell}
-              onStartNodeDrag={onStartNodeDrag}
-              onMoveNode={onMoveNode}
-              onEndDrag={onEndDrag}
-              onCanvasClick={onCanvasClick}
-              onCanvasDoubleClick={onCanvasDoubleClick}
-              onNodeContextMenu={onNodeContextMenu}
-              onNodeAnchorPointerDown={(event, hit, world) => onCanvasPointerDown(event, hit, world)}
-              onOpenNodeAction={onOpenNodeAction}
-              onRequestMarkdownDocumentPreview={onRequestMarkdownDocumentPreview}
-              onSelectTableCell={onSelectTableCell}
-              onStartTableCellEdit={onStartTableCellEdit}
-              onStartTableHeaderEdit={onStartTableHeaderEdit}
-              onResizeTableColumn={onResizeTableColumn}
-            />
+            <CanvasNodeTextureCacheProvider controller={nodeTextureCacheController}>
+              <KonvaNodeLayer
+                nodeLayerRef={nodeLayerRef}
+                interactionLayerRef={interactionLayerRef}
+                viewFilters={viewFilters}
+                mode={mode}
+                panningRequested={panningRequested}
+                dragEnabled={dragEnabled}
+                selection={selection}
+                inlineEdit={inlineEdit}
+                interactionState={interactionState}
+                hoveredNodeId={hoveredNodeId}
+                connectionTargetNodeId={connectionTargetNodeId}
+                connectionInvalidNodeId={connectionInvalidNodeId}
+                connectionPreview={connectionPreview}
+                retargetPreview={retargetPreview}
+                scopedRenderedNodes={scopedRenderedNodes}
+                exitingNodes={exitingNodes}
+                nodeGeometryById={nodeGeometryById}
+                geometrySpec={geometrySpec}
+                nodeMotion={nodeMotion}
+                nodeProximityScale={nodeProximityScale}
+                imageDisplaySrcBySrc={imageDisplaySrcBySrc}
+                markdownDocumentPreviewByNodeId={markdownDocumentPreviewByNodeId}
+                runtimeCreateScale={runtimeCreateScale}
+                visualTokens={visualTokens}
+                nodeThemeTokens={nodeThemeTokens}
+                specialNodeTokens={specialNodeTokens}
+                typography={typography}
+                markdownTokens={markdownTokens}
+                fontRevision={fontRevision}
+                selectedTableCell={selectedTableCell}
+                onStartNodeDrag={onStartNodeDrag}
+                onMoveNode={onMoveNode}
+                onEndDrag={onEndDrag}
+                onCanvasClick={onCanvasClick}
+                onCanvasDoubleClick={onCanvasDoubleClick}
+                onNodeContextMenu={onNodeContextMenu}
+                onNodeAnchorPointerDown={(event, hit, world) => onCanvasPointerDown(event, hit, world)}
+                onOpenNodeAction={onOpenNodeAction}
+                onRequestMarkdownDocumentPreview={onRequestMarkdownDocumentPreview}
+                onSelectTableCell={onSelectTableCell}
+                onStartTableCellEdit={onStartTableCellEdit}
+                onStartTableHeaderEdit={onStartTableHeaderEdit}
+                onResizeTableColumn={onResizeTableColumn}
+              />
+            </CanvasNodeTextureCacheProvider>
 
           </Layer>
 

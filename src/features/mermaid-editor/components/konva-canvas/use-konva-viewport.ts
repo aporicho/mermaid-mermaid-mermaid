@@ -17,6 +17,7 @@ import { buildInteractionContext } from "@/features/mermaid-editor/lib/interacti
 import { createStandardGestureInput, createStandardWheelInput } from "@/features/mermaid-editor/lib/interaction/input";
 import { resolveInteractionIntent } from "@/features/mermaid-editor/lib/interaction/intent";
 import { useViewportScheduler } from "@/features/mermaid-editor/lib/interaction/viewport-scheduler";
+import type { CanvasNodeTextureCacheController } from "@/features/mermaid-editor/components/konva-canvas/canvas-node-texture-cache";
 
 type UseKonvaViewportArgs = {
   containerRef: RefObject<HTMLDivElement | null>;
@@ -34,6 +35,7 @@ type UseKonvaViewportArgs = {
   onEditorCommand: (command: EditorCommand) => void;
   onPointerWorldChange?: (point: CanvasPoint) => void;
   invalidateBlankClickIntent: () => void;
+  nodeTextureCacheController: CanvasNodeTextureCacheController;
 };
 
 export function useKonvaViewport({
@@ -51,7 +53,8 @@ export function useKonvaViewport({
   interactionState,
   onEditorCommand,
   onPointerWorldChange,
-  invalidateBlankClickIntent
+  invalidateBlankClickIntent,
+  nodeTextureCacheController
 }: UseKonvaViewportArgs) {
   const viewportRef = useRef(viewport);
   const wheelIntentTrackerRef = useRef(createWheelIntentTracker());
@@ -66,8 +69,9 @@ export function useKonvaViewport({
     if (!stage) return;
     stage.position({ x: nextViewport.x, y: nextViewport.y });
     stage.scale({ x: nextViewport.scale, y: nextViewport.scale });
+    nodeTextureCacheController.handleViewport(nextViewport);
     drawCanvasViewportScene(stage);
-  }, [stageRef]);
+  }, [nodeTextureCacheController, stageRef]);
 
   const {
     current: currentScheduledViewport,

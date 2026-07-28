@@ -13,6 +13,7 @@ import {
 
 type NodeShapePaint = {
   fill: string;
+  fillEnabled: boolean;
   stroke: string;
   strokeWidth: number;
   strokeEnabled: boolean;
@@ -31,7 +32,8 @@ export function CanvasNodeShape({
   height,
   strokeWidth,
   visualState,
-  visualTokens
+  visualTokens,
+  paintMode = "full"
 }: {
   node: CanvasNode;
   width: number;
@@ -39,22 +41,24 @@ export function CanvasNodeShape({
   strokeWidth: number;
   visualState: NodeVisualState;
   visualTokens: CanvasVisualTokens;
+  paintMode?: "full" | "surface" | "outline";
 }) {
   const fill = resolveCanvasNodeFill(node.fill, visualTokens);
   const shape = normalizeFlowchartShape(node.shape) || DEFAULT_FLOWCHART_NODE_SHAPE;
   const stroke = visualState.stroke;
   const common = {
     fill,
+    fillEnabled: paintMode !== "outline",
     stroke,
     strokeWidth,
-    strokeEnabled: visualState.strokeEnabled,
+    strokeEnabled: paintMode !== "surface" && visualState.strokeEnabled,
     dash: visualState.dash,
     shadowColor: visualState.shadow.color,
     shadowBlur: visualState.shadow.blur,
     shadowOpacity: visualState.shadow.opacity,
     shadowOffsetX: visualState.shadow.offsetX,
     shadowOffsetY: visualState.shadow.offsetY,
-    shadowEnabled: visualState.shadow.opacity > 0
+    shadowEnabled: paintMode !== "outline" && visualState.shadow.opacity > 0
   };
   const polygonPoints = flowchartPolygonPoints(shape, { x: 0, y: 0, width, height });
   const cornerRadius = visualTokens.ordinaryNode.radius;

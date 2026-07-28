@@ -7,6 +7,7 @@ import { markdownDocumentAction, type MarkdownDocumentPreview } from "@/features
 import type { EditorTypographyTokens, MarkdownThemeTokens, SpecialNodeThemeTokens } from "@/features/mermaid-editor/lib/editor-theme";
 import { resolveSpecialNodeBorder, specialNodeBorderDash } from "@/features/mermaid-editor/lib/editor-theme/special-node-theme";
 import type { SpecialNodeVisualState } from "@/features/mermaid-editor/lib/editor-theme/special-node-types";
+import { CanvasStaticCacheGroup, canvasStaticCacheKey } from "@/features/mermaid-editor/components/konva-canvas/canvas-static-cache-group";
 
 export function MarkdownDocumentCard({
   node,
@@ -18,6 +19,8 @@ export function MarkdownDocumentCard({
   specialNode,
   visualState,
   preview,
+  fontRevision,
+  cacheEnabled = true,
   onRequestPreview
 }: {
   node: CanvasNode;
@@ -30,6 +33,8 @@ export function MarkdownDocumentCard({
   specialNode: SpecialNodeThemeTokens;
   visualState?: SpecialNodeVisualState;
   preview?: MarkdownDocumentPreview;
+  fontRevision: number;
+  cacheEnabled?: boolean;
   onRequestPreview?: (node: CanvasNode) => void;
 }) {
   const action = markdownDocumentAction(node.action);
@@ -54,67 +59,82 @@ export function MarkdownDocumentCard({
 
   return (
     <Group>
+      <CanvasStaticCacheGroup
+        cacheId={`${node.id}:markdown-document-static`}
+        cacheKey={canvasStaticCacheKey(node.label, node.action, width, height, preview, typography, tokens, shared, error, fontRevision)}
+        cacheKind="markdown-document"
+        cacheEnabled={cacheEnabled}
+        cachePriority={7}
+      >
+        <Rect
+          width={width}
+          height={height}
+          fill={surface.background}
+          cornerRadius={surface.radius}
+          shadowColor={surface.shadow.color}
+          shadowBlur={surface.shadow.blur}
+          shadowOpacity={surface.shadow.opacity}
+          shadowOffsetX={surface.shadow.offsetX}
+          shadowOffsetY={surface.shadow.offsetY}
+        />
+        {richPreview ? (
+          <Group x={tokens.contentPaddingLeft} y={tokens.contentPaddingTop} listening={false}>
+            <MarkdownDocumentContent
+              source={preview.source || ""}
+              fallbackTitle={preview.title || node.label || "Markdown 文档"}
+              width={contentWidth}
+              height={contentHeight}
+              content={tokens.previewContent}
+            />
+          </Group>
+        ) : (
+          <>
+            <Text
+              x={tokens.contentPaddingLeft}
+              y={tokens.contentPaddingTop}
+              width={contentWidth}
+              height={typography.title.lineHeight}
+              text={preview?.title || node.label || "Markdown 文档"}
+              fontSize={typography.title.fontSize}
+              fontStyle={String(typography.title.fontWeight)}
+              fontFamily={typography.title.family}
+              lineHeight={typography.title.lineHeight / typography.title.fontSize}
+              letterSpacing={typography.title.letterSpacing}
+              fill={shared.textColor}
+              ellipsis
+              listening={false}
+            />
+            <Text
+              x={tokens.contentPaddingLeft}
+              y={excerptY}
+              width={contentWidth}
+              height={Math.max(0, height - excerptY - tokens.contentPaddingBottom)}
+              text={excerpt}
+              fontSize={typography.excerpt.fontSize}
+              fontStyle={String(typography.excerpt.fontWeight)}
+              lineHeight={typography.excerpt.lineHeight / typography.excerpt.fontSize}
+              fontFamily={typography.excerpt.family}
+              letterSpacing={typography.excerpt.letterSpacing}
+              fill={error ? shared.errorColor : shared.textColor}
+              opacity={preview?.status === "ready" ? tokens.excerptOpacity : tokens.placeholderOpacity}
+              wrap="word"
+              ellipsis
+              listening={false}
+            />
+          </>
+        )}
+      </CanvasStaticCacheGroup>
       <Rect
         width={width}
         height={height}
-        fill={surface.background}
+        fillEnabled={false}
         stroke={surfaceBorder.color}
         strokeWidth={surfaceBorder.width}
         strokeEnabled={surfaceBorder.style !== "none" && surfaceBorder.width > 0}
         dash={specialNodeBorderDash(surfaceBorder)}
         cornerRadius={surface.radius}
-        shadowColor={surface.shadow.color}
-        shadowBlur={surface.shadow.blur}
-        shadowOpacity={surface.shadow.opacity}
-        shadowOffsetX={surface.shadow.offsetX}
-        shadowOffsetY={surface.shadow.offsetY}
+        listening={false}
       />
-      {richPreview ? (
-        <Group x={tokens.contentPaddingLeft} y={tokens.contentPaddingTop} listening={false}>
-          <MarkdownDocumentContent
-            source={preview.source || ""}
-            fallbackTitle={preview.title || node.label || "Markdown 文档"}
-            width={contentWidth}
-            height={contentHeight}
-            content={tokens.previewContent}
-          />
-        </Group>
-      ) : (
-        <>
-          <Text
-            x={tokens.contentPaddingLeft}
-            y={tokens.contentPaddingTop}
-            width={contentWidth}
-            height={typography.title.lineHeight}
-            text={preview?.title || node.label || "Markdown 文档"}
-            fontSize={typography.title.fontSize}
-            fontStyle={String(typography.title.fontWeight)}
-            fontFamily={typography.title.family}
-            lineHeight={typography.title.lineHeight / typography.title.fontSize}
-            letterSpacing={typography.title.letterSpacing}
-            fill={shared.textColor}
-            ellipsis
-            listening={false}
-          />
-          <Text
-            x={tokens.contentPaddingLeft}
-            y={excerptY}
-            width={contentWidth}
-            height={Math.max(0, height - excerptY - tokens.contentPaddingBottom)}
-            text={excerpt}
-            fontSize={typography.excerpt.fontSize}
-            fontStyle={String(typography.excerpt.fontWeight)}
-            lineHeight={typography.excerpt.lineHeight / typography.excerpt.fontSize}
-            fontFamily={typography.excerpt.family}
-            letterSpacing={typography.excerpt.letterSpacing}
-            fill={error ? shared.errorColor : shared.textColor}
-            opacity={preview?.status === "ready" ? tokens.excerptOpacity : tokens.placeholderOpacity}
-            wrap="word"
-            ellipsis
-            listening={false}
-          />
-        </>
-      )}
     </Group>
   );
 }

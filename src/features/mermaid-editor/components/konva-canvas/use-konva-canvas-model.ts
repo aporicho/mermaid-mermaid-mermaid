@@ -15,13 +15,7 @@ import { useKonvaMotion } from "@/features/mermaid-editor/components/konva-canva
 import { useKonvaNodeProximity } from "@/features/mermaid-editor/components/konva-canvas/use-konva-node-proximity";
 import { useKonvaRenderModel } from "@/features/mermaid-editor/components/konva-canvas/use-konva-render-model";
 import { useKonvaViewport } from "@/features/mermaid-editor/components/konva-canvas/use-konva-viewport";
-import {
-  idleInteraction,
-  interactionCursor,
-  selectionVersionKey,
-  type BlankClickIntent,
-  type InteractionState
-} from "@/features/mermaid-editor/lib/canvas-interaction";
+import { idleInteraction, interactionCursor, selectionVersionKey, type BlankClickIntent, type InteractionState } from "@/features/mermaid-editor/lib/canvas-interaction";
 import { DEFAULT_CANVAS_GRID, type CanvasGridSpec } from "@/features/mermaid-editor/lib/canvas-grid";
 import { shouldRunCanvasProximity } from "@/features/mermaid-editor/lib/canvas-motion";
 import { CANVAS_VISUAL_TOKENS } from "@/features/mermaid-editor/lib/canvas-visual-state";
@@ -29,13 +23,11 @@ import { DEFAULT_EDGE_LABEL_GEOMETRY_TOKENS } from "@/features/mermaid-editor/li
 import { resolveRuntimeEditorMotion } from "@/features/mermaid-editor/lib/editor-motion";
 import { DEFAULT_NODE_GEOMETRY_TOKENS } from "@/features/mermaid-editor/lib/node-geometry";
 import { createDefaultEditorTypography, DEFAULT_EDITOR_THEME } from "@/features/mermaid-editor/lib/editor-theme";
-import {
-  SUBGRAPH_GEOMETRY_TOKENS,
-  type SubgraphGeometryTokens
-} from "@/features/mermaid-editor/lib/subgraph-geometry";
+import { SUBGRAPH_GEOMETRY_TOKENS, type SubgraphGeometryTokens } from "@/features/mermaid-editor/lib/subgraph-geometry";
 import { arrangeNodeRects, type NodeArrangementOperation } from "@/features/mermaid-editor/lib/node-arrangement";
 import { useKonvaTableInteraction } from "@/features/mermaid-editor/components/konva-canvas/use-konva-table-interaction";
 import { useCanvasImageWarm } from "@/features/mermaid-editor/components/konva-canvas/use-canvas-image-warm";
+import { useCanvasNodeTextureCache } from "@/features/mermaid-editor/components/konva-canvas/use-canvas-node-texture-cache";
 type UseKonvaCanvasModelArgs = KonvaCanvasProps & {
   mermaidEdgeRoutes: NonNullable<KonvaCanvasProps["mermaidEdgeRoutes"]>;
   imageDisplaySrcBySrc: NonNullable<KonvaCanvasProps["imageDisplaySrcBySrc"]>;
@@ -125,6 +117,11 @@ export function useKonvaCanvasModel({
     nodeEditorRef,
     nodeEditorMeasureRef
   } = inlineEditSession;
+  const nodeTextureCacheController = useCanvasNodeTextureCache({
+    panningRequested,
+    interactionKind: interactionState.kind,
+    inlineEditing: Boolean(inlineEdit)
+  });
 
   const dragEnabled = layoutMode === "manual";
   const viewportController = useKonvaViewport({
@@ -142,7 +139,8 @@ export function useKonvaCanvasModel({
     interactionState,
     onEditorCommand,
     onPointerWorldChange,
-    invalidateBlankClickIntent
+    invalidateBlankClickIntent,
+    nodeTextureCacheController
   });
   const proximity = useKonvaNodeProximity({ currentViewport: viewportController.currentViewport });
   const renderModel = useKonvaRenderModel({
@@ -314,6 +312,8 @@ export function useKonvaCanvasModel({
     edgeLabelThemeTokens,
     typography,
     markdownTokens,
+    fontRevision,
+    nodeTextureCacheController,
     runtimeCreateScale: runtimeMotion.canvas.createScale,
     imageDisplaySrcBySrc,
     markdownDocumentPreviewByNodeId,

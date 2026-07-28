@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { createPerformanceFixtureDocument, createPerformanceFixtureGraph, PERFORMANCE_FIXTURE_SIZES } from "@/features/mermaid-editor/lib/performance-fixtures";
+import { createMixedPerformanceFixtureGraph, createPerformanceFixtureDocument, createPerformanceFixtureGraph, MIXED_PERFORMANCE_FIXTURE_NODE_COUNT, PERFORMANCE_FIXTURE_SIZES } from "@/features/mermaid-editor/lib/performance-fixtures";
+import { resolveCanvasNodeKind } from "@/features/mermaid-editor/lib/canvas-node-kind";
 import { loadMermaidDocument } from "@/features/mermaid-editor/lib/mermaid-document";
 
 describe("performance fixtures", () => {
@@ -37,5 +38,25 @@ describe("performance fixtures", () => {
     expect(document.graph.nodes).toHaveLength(100);
     expect(document.layoutMode).toBe("manual");
     expect(document.edgeRouting).toBe("bezier");
+  });
+
+  it("builds a deterministic mixed fixture covering every canvas node kind", () => {
+    const first = createMixedPerformanceFixtureGraph();
+    const second = createMixedPerformanceFixtureGraph();
+    const counts = Object.fromEntries(
+      [...new Set(first.nodes.map(resolveCanvasNodeKind))].map((kind) => [kind, first.nodes.filter((node) => resolveCanvasNodeKind(node) === kind).length])
+    );
+
+    expect(first.nodes).toHaveLength(MIXED_PERFORMANCE_FIXTURE_NODE_COUNT);
+    expect(counts).toEqual({
+      standard: 40,
+      image: 20,
+      "link-card": 20,
+      "markdown-document": 16,
+      "html-document": 12,
+      table: 12
+    });
+    expect(second).toEqual(first);
+    expect(first.nodes.flatMap((node) => [node.asset?.src, node.preview?.cover?.src]).filter(Boolean).every((source) => String(source).startsWith("data:image/svg+xml"))).toBe(true);
   });
 });

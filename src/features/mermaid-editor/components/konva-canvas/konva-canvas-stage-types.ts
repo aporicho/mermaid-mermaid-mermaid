@@ -21,6 +21,7 @@ import type { NodeGeometryTokens } from "@/features/mermaid-editor/lib/node-geom
 import type { NodeArrangementOperation } from "@/features/mermaid-editor/lib/node-arrangement";
 import type { TableCellNavigation, TableCellSelection, TableHeaderSelection } from "@/features/mermaid-editor/lib/table-node";
 import type { ViewFilters } from "@/features/mermaid-editor/lib/view-filters";
+import type { CanvasNodeTextureCacheController } from "@/features/mermaid-editor/components/konva-canvas/canvas-node-texture-cache";
 
 type RenderModel = ReturnType<typeof useKonvaRenderModel>;
 
@@ -45,6 +46,8 @@ export type KonvaCanvasStageProps = {
   edgeLabelThemeTokens: EdgeLabelGeometryTokens;
   typography: EditorTypographyTokens;
   markdownTokens: MarkdownThemeTokens;
+  fontRevision: number;
+  nodeTextureCacheController: CanvasNodeTextureCacheController;
   runtimeCreateScale: number;
   imageDisplaySrcBySrc: Record<string, string>;
   markdownDocumentPreviewByNodeId: Record<string, MarkdownDocumentPreview>;

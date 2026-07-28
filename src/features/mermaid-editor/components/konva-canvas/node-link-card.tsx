@@ -11,6 +11,7 @@ import type { EditorTypographyTokens, SpecialNodeThemeTokens, TypographyRoleToke
 import { resolveSpecialNodeBorder, specialNodeBorderDash } from "@/features/mermaid-editor/lib/editor-theme/special-node-theme";
 import type { SpecialNodeVisualState } from "@/features/mermaid-editor/lib/editor-theme/special-node-types";
 import { normalizeCanvasNodePreview, themedLinkCardLayout } from "@/features/mermaid-editor/lib/node-preview";
+import { CanvasStaticCacheGroup, canvasStaticCacheKey } from "@/features/mermaid-editor/components/konva-canvas/canvas-static-cache-group";
 
 export const CanvasNodeLinkCard = memo(function CanvasNodeLinkCard({
   nodeId,
@@ -26,6 +27,8 @@ export const CanvasNodeLinkCard = memo(function CanvasNodeLinkCard({
   actionTypography,
   specialNode,
   visualState,
+  fontRevision,
+  cacheEnabled = true,
   onOpenNodeAction
 }: {
   nodeId: string;
@@ -41,6 +44,8 @@ export const CanvasNodeLinkCard = memo(function CanvasNodeLinkCard({
   actionTypography: TypographyRoleTokens;
   specialNode: SpecialNodeThemeTokens;
   visualState?: SpecialNodeVisualState;
+  fontRevision: number;
+  cacheEnabled?: boolean;
   onOpenNodeAction?: (nodeId: string) => void;
 }) {
   const normalized = useMemo(() => normalizeCanvasNodePreview(preview), [preview]);
@@ -64,30 +69,34 @@ export const CanvasNodeLinkCard = memo(function CanvasNodeLinkCard({
 
   return (
     <Group>
-      <Rect
-        width={width}
-        height={height}
-        fill={surface.background}
-        stroke={surfaceBorder.color}
-        strokeWidth={surfaceBorder.width}
-        strokeEnabled={surfaceBorder.style !== "none" && surfaceBorder.width > 0}
-        dash={specialNodeBorderDash(surfaceBorder)}
-        cornerRadius={surface.radius}
-        shadowColor={surface.shadow.color}
-        shadowBlur={surface.shadow.blur}
-        shadowOpacity={surface.shadow.opacity}
-        shadowOffsetX={surface.shadow.offsetX}
-        shadowOffsetY={surface.shadow.offsetY}
-      />
-      <Rect
-        x={inset}
-        y={inset}
-        width={coverWidth}
-        height={coverHeight}
-        fill={specialNode.linkCard.coverBackground}
-        cornerRadius={specialNode.linkCard.coverRadius}
-        listening={false}
-      />
+      <CanvasStaticCacheGroup
+        cacheId={`${nodeId}:link-card-surface`}
+        cacheKey={canvasStaticCacheKey(width, height, inset, coverWidth, coverHeight, surface, specialNode.linkCard.coverBackground, specialNode.linkCard.coverRadius)}
+        cacheKind="link-card"
+        cacheEnabled={cacheEnabled}
+        cachePriority={5}
+      >
+        <Rect
+          width={width}
+          height={height}
+          fill={surface.background}
+          cornerRadius={surface.radius}
+          shadowColor={surface.shadow.color}
+          shadowBlur={surface.shadow.blur}
+          shadowOpacity={surface.shadow.opacity}
+          shadowOffsetX={surface.shadow.offsetX}
+          shadowOffsetY={surface.shadow.offsetY}
+        />
+        <Rect
+          x={inset}
+          y={inset}
+          width={coverWidth}
+          height={coverHeight}
+          fill={specialNode.linkCard.coverBackground}
+          cornerRadius={specialNode.linkCard.coverRadius}
+          listening={false}
+        />
+      </CanvasStaticCacheGroup>
       <CanvasNodeLinkCover
         src={coverSrc || ""}
         inset={inset}
@@ -97,47 +106,82 @@ export const CanvasNodeLinkCard = memo(function CanvasNodeLinkCard({
         brandColor={specialNode.linkCard.brandColor}
         typography={typography.brand}
       />
+      <CanvasStaticCacheGroup
+        cacheId={`${nodeId}:link-card-content`}
+        cacheKey={canvasStaticCacheKey(
+          width,
+          height,
+          inset,
+          coverWidth,
+          coverHeight,
+          providerY,
+          titleY,
+          contentWidth,
+          normalized.provider,
+          title,
+          coverBorder,
+          specialNode.linkCard,
+          specialNode.shared,
+          typography,
+          fontRevision
+        )}
+        cacheKind="link-card"
+        cacheEnabled={cacheEnabled}
+        cachePriority={6}
+      >
+        <Rect
+          x={inset}
+          y={inset}
+          width={coverWidth}
+          height={coverHeight}
+          fillEnabled={false}
+          stroke={coverBorder.color}
+          strokeWidth={coverBorder.width}
+          strokeEnabled={coverBorder.style !== "none" && coverBorder.width > 0}
+          dash={specialNodeBorderDash(coverBorder)}
+          cornerRadius={specialNode.linkCard.coverRadius}
+          listening={false}
+        />
+        <Text
+          x={specialNode.linkCard.contentPaddingX}
+          y={providerY}
+          width={contentWidth}
+          height={16}
+          text={normalized.provider}
+          fontSize={typography.provider.fontSize}
+          fontStyle={String(typography.provider.fontWeight)}
+          fontFamily={typography.provider.family}
+          lineHeight={typography.provider.lineHeight / typography.provider.fontSize}
+          letterSpacing={typography.provider.letterSpacing}
+          fill={specialNode.linkCard.providerColor}
+          listening={false}
+        />
+        <Text
+          x={specialNode.linkCard.contentPaddingX}
+          y={titleY}
+          width={contentWidth}
+          height={specialNode.linkCard.titleHeight}
+          text={title}
+          fontSize={typography.title.fontSize}
+          fontStyle={String(typography.title.fontWeight)}
+          fontFamily={typography.title.family}
+          lineHeight={typography.title.lineHeight / typography.title.fontSize}
+          letterSpacing={typography.title.letterSpacing}
+          wrap="word"
+          ellipsis
+          fill={specialNode.shared.textColor}
+          listening={false}
+        />
+      </CanvasStaticCacheGroup>
       <Rect
-        x={inset}
-        y={inset}
-        width={coverWidth}
-        height={coverHeight}
+        width={width}
+        height={height}
         fillEnabled={false}
-        stroke={coverBorder.color}
-        strokeWidth={coverBorder.width}
-        strokeEnabled={coverBorder.style !== "none" && coverBorder.width > 0}
-        dash={specialNodeBorderDash(coverBorder)}
-        cornerRadius={specialNode.linkCard.coverRadius}
-        listening={false}
-      />
-      <Text
-        x={specialNode.linkCard.contentPaddingX}
-        y={providerY}
-        width={contentWidth}
-        height={16}
-        text={normalized.provider}
-        fontSize={typography.provider.fontSize}
-        fontStyle={String(typography.provider.fontWeight)}
-        fontFamily={typography.provider.family}
-        lineHeight={typography.provider.lineHeight / typography.provider.fontSize}
-        letterSpacing={typography.provider.letterSpacing}
-        fill={specialNode.linkCard.providerColor}
-        listening={false}
-      />
-      <Text
-        x={specialNode.linkCard.contentPaddingX}
-        y={titleY}
-        width={contentWidth}
-        height={specialNode.linkCard.titleHeight}
-        text={title}
-        fontSize={typography.title.fontSize}
-        fontStyle={String(typography.title.fontWeight)}
-        fontFamily={typography.title.family}
-        lineHeight={typography.title.lineHeight / typography.title.fontSize}
-        letterSpacing={typography.title.letterSpacing}
-        wrap="word"
-        ellipsis
-        fill={specialNode.shared.textColor}
+        stroke={surfaceBorder.color}
+        strokeWidth={surfaceBorder.width}
+        strokeEnabled={surfaceBorder.style !== "none" && surfaceBorder.width > 0}
+        dash={specialNodeBorderDash(surfaceBorder)}
+        cornerRadius={surface.radius}
         listening={false}
       />
       <CanvasNodeActionBadge actionKind="url" x={width - 30} y={10} visualTokens={visualTokens} typography={actionTypography} onOpen={openNodeAction} />

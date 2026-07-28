@@ -25,8 +25,8 @@ import { parentDirectoryPath } from "@/features/mermaid-editor/lib/runtime-paths
 import { hiddenFilterCount, type ViewFilters } from "@/features/mermaid-editor/lib/view-filters";
 import { type WorkspaceView } from "@/features/mermaid-editor/lib/workspace-view";
 import { configureDecodedCanvasImageCacheForSystemMemory } from "@/features/mermaid-editor/components/konva-canvas/decoded-canvas-image-cache";
+import { configureCanvasNodeTextureCacheForSystemMemory } from "@/features/mermaid-editor/components/konva-canvas/canvas-node-texture-cache";
 import { updatePerformanceDiagnostic } from "@/features/mermaid-editor/lib/editor-performance";
-
 import { diagramTypeLabel, resolveGraphImageDisplaySources } from "./editor-shell-utils";
 
 type InitialEditorState = ReturnType<typeof loadInitialState>;
@@ -70,9 +70,11 @@ export function useEditorDocumentModel({ initial, runtime }: UseEditorDocumentMo
     void runtime.readSystemMemoryInfo().then((info) => {
       const { totalBytes } = info;
       if (active) configureDecodedCanvasImageCacheForSystemMemory(totalBytes);
+      if (active) configureCanvasNodeTextureCacheForSystemMemory(totalBytes);
       if (active && info.graphics) updatePerformanceDiagnostic("graphics", info.graphics);
     }).catch(() => {
       if (active) configureDecodedCanvasImageCacheForSystemMemory(null);
+      if (active) configureCanvasNodeTextureCacheForSystemMemory(null);
     });
     return () => {
       active = false;
