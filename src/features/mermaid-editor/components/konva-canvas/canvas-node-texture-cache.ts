@@ -17,7 +17,7 @@ export const CANVAS_NODE_TEXTURE_CACHE_MAX_ENTRIES = 1024;
 export const CANVAS_NODE_TEXTURE_CACHE_MAX_ENTRY_BYTES = 32 * MEBIBYTE;
 export const CANVAS_NODE_TEXTURE_CACHE_SETTLE_MS = 80;
 export const CANVAS_NODE_TEXTURE_CACHE_RESOLUTION_HEADROOM = 1.25;
-export const CANVAS_NODE_TEXTURE_CACHE_HIT_PIXEL_RATIO = 0.1;
+export const CANVAS_NODE_TEXTURE_CACHE_HIT_PIXEL_RATIO = 0.01;
 
 export type CanvasNodeTextureCacheKind = "standard" | "image" | "link-card" | "markdown-document" | "html-document" | "table";
 
@@ -163,16 +163,9 @@ export class CanvasNodeTextureCacheController {
   handleViewport(viewport: { x: number; y: number; scale: number }) {
     this.activate();
     const scale = finitePositive(viewport.scale, this.liveScale);
-    const scaleChanged = Math.abs(scale - this.liveScale) > 1e-6;
     this.liveScale = scale;
     this.viewportActive = true;
     this.cancelIdleBuild();
-
-    if (scaleChanged) {
-      for (const entry of this.entries.values()) {
-        if (entry.cached && scale > entry.maxSharpScale + 1e-6) this.clearEntry(entry, "under-resolution");
-      }
-    }
 
     if (this.settleHandle !== null) clearTimeout(this.settleHandle);
     this.settleHandle = setTimeout(() => {
@@ -181,9 +174,6 @@ export class CanvasNodeTextureCacheController {
       const settledScaleChanged = Math.abs(this.settledScale - this.liveScale) > 1e-6;
       this.settledScale = this.liveScale;
       if (settledScaleChanged) {
-        for (const entry of this.entries.values()) {
-          if (entry.cached && Math.abs(entry.builtScale - this.settledScale) > 1e-6) this.clearEntry(entry, "settled-scale");
-        }
         this.resetBlockedEntries();
       }
       this.scheduleBuilds();
@@ -296,13 +286,13 @@ export class CanvasNodeTextureCacheController {
 
   private nextBuildEntry() {
     return [...this.entries.values()]
-      .filter((entry) => entry.enabled && !entry.cached && !entry.queued && entry.group.getStage())
+      .filter((entry) => entry.enabled && this.entryNeedsBuild(entry) && !entry.queued && entry.group.getStage())
       .filter((entry) => !entry.blocked)
       .sort((left, right) => right.priority - left.priority || right.lastUsed - left.lastUsed)[0];
   }
 
   private buildEntry(entry: CacheEntry, _deadline: IdleDeadlineLike) {
-    if (this.entries.get(entry.id) !== entry || !entry.enabled || entry.cached || !entry.group.getStage()) return;
+    if (this.entries.get(entry.id) !== entry || !entry.enabled || !this.entryNeedsBuild(entry) || !entry.group.getStage()) return;
     const rect = entry.group.getClientRect({ skipTransform: true });
     if (!validCacheRect(rect)) {
       entry.blocked = "empty";
@@ -312,14 +302,16 @@ export class CanvasNodeTextureCacheController {
 
     const pixelRatio = this.canvasPixelRatio * this.settledScale * CANVAS_NODE_TEXTURE_CACHE_RESOLUTION_HEADROOM;
     const bytes = estimateKonvaCacheBytes(rect.width, rect.height, pixelRatio, CANVAS_NODE_TEXTURE_CACHE_HIT_PIXEL_RATIO);
+    const previousBytes = entry.cached ? entry.bytes : 0;
     if (bytes > CANVAS_NODE_TEXTURE_CACHE_MAX_ENTRY_BYTES) {
       entry.blocked = "oversize";
       incrementPerformanceCounter("canvas-node-texture-cache-skip-oversize");
       return;
     }
 
-    this.evictFor(bytes, entry.id);
-    if (this.totalBytes + bytes > this.budgetBytes || this.cachedEntryCount() >= CANVAS_NODE_TEXTURE_CACHE_MAX_ENTRIES) {
+    this.evictFor(Math.max(0, bytes - previousBytes), entry.id);
+    const nextEntryCount = this.cachedEntryCount() + (entry.cached ? 0 : 1);
+    if (this.totalBytes - previousBytes + bytes > this.budgetBytes || nextEntryCount > CANVAS_NODE_TEXTURE_CACHE_MAX_ENTRIES) {
       entry.blocked = "budget";
       incrementPerformanceCounter("canvas-node-texture-cache-skip-budget");
       return;
@@ -327,6 +319,7 @@ export class CanvasNodeTextureCacheController {
 
     const startedAt = now();
     try {
+      if (entry.cached) entry.group.clearCache();
       entry.group.cache({
         x: Math.floor(rect.x),
         y: Math.floor(rect.y),
@@ -336,13 +329,14 @@ export class CanvasNodeTextureCacheController {
         hitCanvasPixelRatio: CANVAS_NODE_TEXTURE_CACHE_HIT_PIXEL_RATIO,
         imageSmoothingEnabled: true
       });
+      compactCachedHitSurface(entry.group);
       entry.cached = true;
       entry.blocked = false;
       entry.bytes = bytes;
       entry.builtScale = this.settledScale;
       entry.maxSharpScale = this.settledScale * CANVAS_NODE_TEXTURE_CACHE_RESOLUTION_HEADROOM;
       entry.lastUsed = ++this.clock;
-      this.totalBytes += bytes;
+      this.totalBytes = Math.max(0, this.totalBytes - previousBytes) + bytes;
       incrementPerformanceCounter("canvas-node-texture-cache-build");
       recordPerformanceMetric("canvas-node-texture-cache-build", now() - startedAt, {
         kind: entry.kind,
@@ -352,6 +346,11 @@ export class CanvasNodeTextureCacheController {
       entry.group.getLayer()?.batchDraw();
     } catch {
       entry.group.clearCache();
+      this.totalBytes = Math.max(0, this.totalBytes - previousBytes);
+      entry.cached = false;
+      entry.bytes = 0;
+      entry.builtScale = 0;
+      entry.maxSharpScale = 0;
       entry.blocked = "error";
       incrementPerformanceCounter("canvas-node-texture-cache-build-error");
     }
@@ -382,6 +381,10 @@ export class CanvasNodeTextureCacheController {
     let count = 0;
     for (const entry of this.entries.values()) if (entry.cached) count += 1;
     return count;
+  }
+
+  private entryNeedsBuild(entry: CacheEntry) {
+    return !entry.cached || this.settledScale > entry.maxSharpScale + 1e-6;
   }
 
   private clearEntry(entry: CacheEntry, reason: string) {
@@ -425,6 +428,12 @@ export function estimateKonvaCacheBytes(width: number, height: number, pixelRati
 
 function validCacheRect(rect: { x: number; y: number; width: number; height: number }) {
   return Number.isFinite(rect.x) && Number.isFinite(rect.y) && Number.isFinite(rect.width) && Number.isFinite(rect.height) && rect.width > 0 && rect.height > 0;
+}
+
+function compactCachedHitSurface(group: Konva.Group) {
+  type CachedCanvas = { hit?: { setSize: (width: number, height: number) => void } };
+  const internal = group as Konva.Group & { _cache?: Map<string, CachedCanvas> };
+  internal._cache?.get("canvas")?.hit?.setSize(1, 1);
 }
 
 function scheduleIdle(callback: (deadline: IdleDeadlineLike) => void) {

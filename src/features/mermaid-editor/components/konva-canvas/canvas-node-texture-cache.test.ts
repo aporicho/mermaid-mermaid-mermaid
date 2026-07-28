@@ -23,11 +23,11 @@ describe("canvas node texture cache", () => {
     expect(resolveCanvasNodeTextureCacheBudget(32 * gib)).toBe(CANVAS_NODE_TEXTURE_CACHE_HIGH_MEMORY_BUDGET_BYTES);
   });
 
-  it("accounts for the retained scene, buffer, and hit canvases", () => {
+  it("accounts conservatively for the scene, build buffer, and temporary hit canvas", () => {
     expect(estimateKonvaCacheBytes(100, 50, 2, 0.1)).toBe(Math.ceil(100 * 50 * 4 * (8 + 0.01)));
   });
 
-  it("builds one idle cache and falls back to vectors when zoom exceeds its sharp range", () => {
+  it("keeps the previous texture until its sharper replacement is ready", () => {
     const group = fakeGroup({ width: 120, height: 80 });
     const controller = new CanvasNodeTextureCacheController({ budgetBytes: 32 * 1024 * 1024, disabled: false });
     controller.configureCanvasPixelRatio(2);
@@ -42,14 +42,16 @@ describe("canvas node texture cache", () => {
 
     vi.advanceTimersByTime(20);
     expect(group.cache).toHaveBeenCalledTimes(1);
+    expect(group.hitSetSize).toHaveBeenCalledWith(1, 1);
     expect(controller.snapshot()).toMatchObject({ cachedEntries: 1, settledScale: 1 });
 
     controller.handleViewport({ x: 0, y: 0, scale: 1.5 });
-    expect(group.clearCache).toHaveBeenCalledTimes(1);
-    expect(controller.snapshot()).toMatchObject({ cachedEntries: 0, viewportActive: true, liveScale: 1.5 });
+    expect(group.clearCache).not.toHaveBeenCalled();
+    expect(controller.snapshot()).toMatchObject({ cachedEntries: 1, viewportActive: true, liveScale: 1.5 });
 
     vi.advanceTimersByTime(100);
     expect(group.cache).toHaveBeenCalledTimes(2);
+    expect(group.clearCache).toHaveBeenCalledTimes(1);
     expect(controller.snapshot()).toMatchObject({ cachedEntries: 1, viewportActive: false, settledScale: 1.5 });
     controller.destroy();
   });
@@ -78,13 +80,15 @@ function fakeGroup(rect: { width: number; height: number }) {
   let cached = false;
   const cache = vi.fn(() => { cached = true; });
   const clearCache = vi.fn(() => { cached = false; });
+  const hitSetSize = vi.fn();
   const node = {
     getStage: () => ({}),
     getClientRect: () => ({ x: 0, y: 0, ...rect }),
     cache,
     clearCache,
     isCached: () => cached,
-    getLayer: () => ({ batchDraw: vi.fn() })
+    getLayer: () => ({ batchDraw: vi.fn() }),
+    _cache: new Map([["canvas", { hit: { setSize: hitSetSize } }]])
   } as unknown as Konva.Group;
-  return { node, cache, clearCache };
+  return { node, cache, clearCache, hitSetSize };
 }

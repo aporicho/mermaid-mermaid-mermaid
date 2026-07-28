@@ -102,7 +102,7 @@ Second paragraph.`;
 
     expect(markdownDocumentProjectFileForRuntimeFile({ name: "Spec.md", path: "/repo/Docs/Spec.md" }, workspace)).toBe(projectFile);
     const external = markdownDocumentProjectFileForRuntimeFile({ name: "Other.md", path: "/tmp/Other.md" }, workspace);
-    expect(markdownDocumentActionForProjectFile(projectFile)).toMatchObject({ path: "docs/spec.md" });
-    expect(markdownDocumentActionForProjectFile(external)).toMatchObject({ path: "/tmp/Other.md" });
+    expect(markdownDocumentActionForProjectFile(projectFile)).toEqual({ kind: "file", path: "docs/spec.md", openMode: "app-window" });
+    expect(markdownDocumentActionForProjectFile(external)).toEqual({ kind: "file", path: "/tmp/Other.md", openMode: "app-window" });
   });
 });

@@ -3,6 +3,7 @@ import type { EditorTheme, MarkdownTextTokens } from "./types";
 export function markdownToCssVariables(theme: EditorTheme): Record<string, string> {
   const markdown = theme.markdown;
   return {
+    "--markdown-window-background": markdown.window.background,
     "--markdown-layout-padding-x": px(markdown.layout.paddingX),
     "--markdown-layout-padding-y": px(markdown.layout.paddingY),
     "--markdown-list-marker-width": px(markdown.layout.listMarkerWidth),

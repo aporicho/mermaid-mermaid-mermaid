@@ -18,7 +18,6 @@ export type SpecialNodeSurfaceTokens = {
 };
 
 export type SpecialNodeStateTokens = {
-  hoverBorderColor: string;
   selectedBorderColor: string;
   errorBorderColor: string;
   editingBorderColor: string;

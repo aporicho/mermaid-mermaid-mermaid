@@ -1,26 +1,6 @@
 import { useEffect, useRef } from "react";
-import type { KonvaEventObject } from "konva/lib/Node";
-
-import type { KonvaCanvasStageProps } from "@/features/mermaid-editor/components/konva-canvas/konva-canvas-stage";
 import type { CanvasPoint, HitTarget, InteractionState } from "@/features/mermaid-editor/lib/canvas-interaction";
 import { modifiersFromEvent, type InteractionModifiers, type StandardPointerInput } from "@/features/mermaid-editor/lib/interaction/input";
-
-export type KonvaCanvasPointerStageProps = Pick<
-  KonvaCanvasStageProps,
-  | "nodeContextMenu"
-  | "onCanvasPointerDown"
-  | "onCanvasPointerMove"
-  | "onCanvasPointerUp"
-  | "onCanvasPointerLeave"
-  | "onCanvasPointerTracking"
-  | "onCanvasClick"
-  | "onCanvasTap"
-  | "onCanvasDoubleClick"
-  | "onStartNodeDrag"
-  | "onStartSubgraphDrag"
-  | "onNodeContextMenu"
-  | "onCloseNodeContextMenu"
->;
 
 export type PointerMoveSnapshot = {
   hit: HitTarget;
@@ -84,9 +64,9 @@ export function pointerInputFromMoveSnapshot(snapshot: PointerMoveSnapshot): Sta
   };
 }
 
-export function pointerInputFromKonvaEvent(
+export function pointerInputFromNativeEvent(
   phase: StandardPointerInput["phase"],
-  event: KonvaEventObject<MouseEvent>,
+  event: MouseEvent | PointerEvent,
   hit: HitTarget,
   screen: CanvasPoint,
   world?: CanvasPoint
@@ -95,13 +75,13 @@ export function pointerInputFromKonvaEvent(
     kind: "pointer",
     entry: "web-ui",
     phase,
-    pointerId: 0,
-    button: event.evt.button,
+    pointerId: "pointerId" in event ? event.pointerId : 0,
+    button: event.button,
     screen,
     world,
     hit,
-    modifiers: modifiersFromEvent(event.evt),
-    timestamp: event.evt.timeStamp
+    modifiers: modifiersFromEvent(event),
+    timestamp: event.timeStamp
   };
 }
 
@@ -110,6 +90,8 @@ export function shouldResolvePointerMove(state: InteractionState) {
     state.kind === "pendingBlankPointer" ||
     state.kind === "pendingNodePointer" ||
     state.kind === "pendingSubgraphPointer" ||
+    state.kind === "draggingNodes" ||
+    state.kind === "draggingSubgraphs" ||
     state.kind === "marqueeSelecting" ||
     state.kind === "connectingEdge" ||
     state.kind === "retargetingEdge"

@@ -103,7 +103,6 @@ export function editorThemeFromKittyDefinition(definition: KittyThemeFileDefinit
       ordinaryNode: {
         textColor: nodeText,
         borderColor: nodeBorder,
-        hoverBorderColor: accentForeground,
         selectedBorderColor: primary,
         invalidBorderColor: destructive,
         shadow: { color: nodeBorder },
@@ -126,7 +125,6 @@ export function editorThemeFromKittyDefinition(definition: KittyThemeFileDefinit
       group: {
         background: surface,
         borderColor: border,
-        hoverBorderColor: accentForeground,
         selectedBorderColor: primary,
         invalidBorderColor: destructive,
         shadow: { color: nodeBorder },

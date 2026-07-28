@@ -73,12 +73,13 @@ describe("theme settings schema", () => {
     expect(paths.sort()).toEqual(flattenLeafPaths(DEFAULT_EDITOR_THEME.markdown).sort());
     for (const element of MARKDOWN_ELEMENT_DEFINITIONS) {
       const elementPath = element.path.join(".");
-      if (element.id === "layout" || element.id === "divider" || element.id === "image") continue;
+      if (element.id === "window" || element.id === "layout" || element.id === "divider" || element.id === "image") continue;
       for (const field of textFields) expect(paths).toContain(`${elementPath}.${field}`);
     }
     expect(MARKDOWN_TOKEN_DEFINITIONS.every((definition) => definition.defaultSource.length > 0)).toBe(true);
     expect(flattenLeafPaths(createDefaultMarkdownTokens(DEFAULT_EDITOR_THEME)).sort()).toEqual(paths.sort());
     expect(paths).toContain("blockquote.borderStyle");
+    expect(paths).toContain("window.background");
     expect(paths).toContain("table.borderStyle");
     expect(paths).toContain("image.borderStyle");
     expect(paths).toContain("list.task.checkboxBorderStyle");

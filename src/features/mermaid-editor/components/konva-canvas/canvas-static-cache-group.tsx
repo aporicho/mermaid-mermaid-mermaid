@@ -1,4 +1,4 @@
-import { createContext, useContext, useLayoutEffect, useRef, type ComponentProps, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useLayoutEffect, useMemo, useRef, type ComponentProps, type ReactNode } from "react";
 import { Group } from "react-konva";
 import type Konva from "konva";
 
@@ -10,16 +10,29 @@ import {
 
 export { canvasStaticCacheKey };
 
-const CanvasNodeTextureCacheContext = createContext<CanvasNodeTextureCacheController | null>(null);
+type CanvasSceneRuntime = {
+  controller: CanvasNodeTextureCacheController;
+  invalidateScene: (reason: string) => void;
+};
+
+const CanvasNodeTextureCacheContext = createContext<CanvasSceneRuntime | null>(null);
 
 export function CanvasNodeTextureCacheProvider({
   controller,
+  onInvalidateScene,
   children
 }: {
   controller: CanvasNodeTextureCacheController;
+  onInvalidateScene?: (reason: string) => void;
   children: ReactNode;
 }) {
-  return <CanvasNodeTextureCacheContext.Provider value={controller}>{children}</CanvasNodeTextureCacheContext.Provider>;
+  const invalidateScene = useCallback((reason: string) => onInvalidateScene?.(reason), [onInvalidateScene]);
+  const runtime = useMemo(() => ({ controller, invalidateScene }), [controller, invalidateScene]);
+  return <CanvasNodeTextureCacheContext.Provider value={runtime}>{children}</CanvasNodeTextureCacheContext.Provider>;
+}
+
+export function useCanvasSceneInvalidation() {
+  return useContext(CanvasNodeTextureCacheContext)?.invalidateScene;
 }
 
 export function CanvasStaticCacheGroup({
@@ -37,7 +50,7 @@ export function CanvasStaticCacheGroup({
   cacheEnabled?: boolean;
   cachePriority?: number;
 }) {
-  const controller = useContext(CanvasNodeTextureCacheContext);
+  const controller = useContext(CanvasNodeTextureCacheContext)?.controller;
   const groupRef = useRef<Konva.Group | null>(null);
 
   useLayoutEffect(() => {

@@ -240,8 +240,6 @@ const TOKEN_LABELS: Record<string, string> = {
   parallelSpacing: "平行连线间距",
   curveSegments: "曲线采样段数",
   backgroundOpacity: "背景透明度",
-  anchorCornerScale: "组锚点缩放",
-  anchorCornerOpacity: "组锚点透明度",
   strokeColor: "描边颜色",
   validColor: "有效颜色",
   invalidOpacity: "非法状态透明度",

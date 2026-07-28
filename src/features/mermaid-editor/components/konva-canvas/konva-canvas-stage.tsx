@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import { Layer, Stage } from "react-konva";
 import { Konva } from "konva/lib/Global";
 import type KonvaTypes from "konva";
@@ -11,18 +11,17 @@ import { KonvaInteractionLayerContent } from "@/features/mermaid-editor/componen
 import { NodeActionTooltip, NodeContextMenu } from "@/features/mermaid-editor/components/konva-canvas/node-action-ui";
 import { CanvasSelectionToolbars } from "@/features/mermaid-editor/components/konva-canvas/canvas-selection-toolbars";
 import { KonvaSubgraphLayer } from "@/features/mermaid-editor/components/konva-canvas/subgraph-layer";
-import { normalizeNodeAction } from "@/features/mermaid-editor/lib/node-actions";
-import { preventNativeContextMenu } from "@/features/mermaid-editor/lib/native-context-menu";
+import { nodeActionTooltipEnabled, normalizeNodeAction } from "@/features/mermaid-editor/lib/node-actions";
 import { cn } from "@/lib/utils";
 import { resolveNodeEditorTypography } from "./resolve-node-editor-typography";
 import type { KonvaCanvasStageProps } from "@/features/mermaid-editor/components/konva-canvas/konva-canvas-stage-types";
 import { canvasPixelRatio } from "@/features/mermaid-editor/lib/canvas-render-quality";
 import { recordPerformanceMetric } from "@/features/mermaid-editor/lib/editor-performance";
-import { flushCanvasHitGraph } from "@/features/mermaid-editor/components/konva-canvas/canvas-layer-draw-scheduler";
 import { CanvasNodeTextureCacheProvider } from "@/features/mermaid-editor/components/konva-canvas/canvas-static-cache-group";
 export type { KonvaCanvasStageProps } from "@/features/mermaid-editor/components/konva-canvas/konva-canvas-stage-types";
 
 Konva.pixelRatio = canvasPixelRatio(globalThis.devicePixelRatio);
+Konva.autoDrawEnabled = false;
 
 export function KonvaCanvasStage(stageProps: KonvaCanvasStageProps) {
   const {
@@ -30,11 +29,13 @@ export function KonvaCanvasStage(stageProps: KonvaCanvasStageProps) {
   stageRef,
   dimensions,
   viewport,
+  liveViewport,
+  viewportSurface,
+  viewportCompositor,
   cursorClassName,
   graph,
   selection,
   mode,
-  panningRequested,
   dragEnabled,
   viewFilters,
   inlineEdit,
@@ -54,6 +55,7 @@ export function KonvaCanvasStage(stageProps: KonvaCanvasStageProps) {
   hoveredNodeId,
   hoveredSubgraphId,
   hoveredEdgeId,
+  hoveredHitTarget,
   selectedSubgraphIds,
   selectedNodeRects,
   scopedSubgraphGeometries,
@@ -67,10 +69,6 @@ export function KonvaCanvasStage(stageProps: KonvaCanvasStageProps) {
   nodeMotion,
   nodeProximityScale,
   resolvedEdgeGeometry,
-  retargetDraft,
-  connectionPreview,
-  retargetPreview,
-  retargetDraftGeometry,
   connectionTargetNodeId,
   connectionInvalidNodeId,
   connectionTargetSubgraphId,
@@ -82,43 +80,33 @@ export function KonvaCanvasStage(stageProps: KonvaCanvasStageProps) {
   nodeEditorRef,
   nodeEditorMeasureRef,
   selectedTableCell,
-  dragPreviewStore,
   onWheel,
   onCanvasPointerDown,
   onCanvasPointerMove,
   onCanvasPointerUp,
   onCanvasPointerLeave,
-  onCanvasPointerTracking,
+  onCanvasPointerCancel,
   onCanvasClick,
-  onCanvasTap,
   onCanvasDoubleClick,
-  onStartNodeDrag,
-  onStartSubgraphDrag,
-  onMoveNode,
-  onMoveSubgraph,
-  onEndDrag,
   onArrangeNodes,
-  onNodeContextMenu,
+  onCanvasContextMenu,
   onCloseNodeContextMenu,
   onOpenNodeAction,
   onEditNodeAction,
   onRequestMarkdownDocumentPreview,
-  onSelectTableCell,
-  onStartTableCellEdit,
-  onStartTableHeaderEdit,
-  onResizeTableColumn,
   onTableCellOperation,
   onInlineEditChange,
   onInlineEditCommit,
   onTablePaste
   } = stageProps;
-  const contentLayerRef = useRef<KonvaTypes.Layer | null>(null);
-  const nodeLayerRef = useRef<KonvaTypes.Layer | null>(null);
+  const backgroundLayerRef = useRef<KonvaTypes.Layer | null>(null);
+  const sceneLayerRef = useRef<KonvaTypes.Layer | null>(null);
   const interactionLayerRef = useRef<KonvaTypes.Layer | null>(null);
   const contentDrawStartedAtRef = useRef(0);
   const nodeEditorTypography = resolveNodeEditorTypography(graph, inlineEdit, typography);
   const hoveredActionNode = hoveredNodeId ? graph.nodes.find((node) => node.id === hoveredNodeId) : undefined;
-  const hoveredAction = normalizeNodeAction(hoveredActionNode?.action);
+  const hoveredActionCandidate = normalizeNodeAction(hoveredActionNode?.action);
+  const hoveredAction = nodeActionTooltipEnabled(hoveredActionCandidate) ? hoveredActionCandidate : undefined;
   const hoveredActionGeometry = hoveredActionNode ? nodeGeometryById.get(hoveredActionNode.id) : undefined;
   const linkCardDrawStats = useMemo(() => {
     let cards = 0;
@@ -132,9 +120,21 @@ export function KonvaCanvasStage(stageProps: KonvaCanvasStageProps) {
     }
     return { cards, sourcePixels };
   }, [scopedRenderedNodes]);
+  const sceneScopeKey = useMemo(() => [
+    scopedRenderedNodes.map((node) => node.id).join(","),
+    scopedVisibleEdges.map((edge) => edge.id).join(","),
+    scopedSubgraphGeometries.map((subgraph) => subgraph.id).join(",")
+  ].join("|"), [scopedRenderedNodes, scopedSubgraphGeometries, scopedVisibleEdges]);
+  const stableSceneRevision = useSceneRevision([
+    edgeLabelThemeTokens, edgeMotion, exitingNodes, fontRevision, graph, gridSpec,
+    imageDisplaySrcBySrc, inlineEdit, markdownDocumentPreviewByNodeId, markdownTokens,
+    nodeMotion, nodeThemeTokens, runtimeCreateScale, sceneScopeKey, selection,
+    specialNodeTokens, typography, viewFilters, visualTokens, hoveredEdgeId,
+    viewport.scale, viewport.x, viewport.y
+  ]);
 
   useEffect(() => {
-    const layer = nodeLayerRef.current;
+    const layer = sceneLayerRef.current;
     if (!layer) return;
     const handleBeforeDraw = () => {
       contentDrawStartedAtRef.current = performance.now();
@@ -158,6 +158,37 @@ export function KonvaCanvasStage(stageProps: KonvaCanvasStageProps) {
     };
   }, [linkCardDrawStats, scopedRenderedNodes.length, scopedSubgraphGeometries.length, scopedVisibleEdges.length]);
 
+  useLayoutEffect(() => {
+    const stage = stageRef.current;
+    const sceneLayer = sceneLayerRef.current;
+    const activeLayer = interactionLayerRef.current;
+    if (!stage || !sceneLayer || !activeLayer) return;
+    viewportCompositor.configureSurface(viewportSurface);
+    viewportCompositor.attach({
+      stage,
+      backgroundLayer: backgroundLayerRef.current,
+      sceneLayer,
+      activeLayer
+    });
+    return () => viewportCompositor.detach();
+  }, [stageRef, viewportCompositor, viewportSurface]);
+
+  useLayoutEffect(() => {
+    viewportCompositor.commitScene(viewport, "react");
+  }, [stableSceneRevision, viewport, viewportCompositor]);
+
+  useLayoutEffect(() => {
+    viewportCompositor.scheduleActiveDraw();
+  });
+
+  const surfaceViewport = useMemo(() => ({
+    x: viewportSurface.padding + viewport.x,
+    y: viewportSurface.padding + viewport.y,
+    scale: viewport.scale
+  }), [viewport.scale, viewport.x, viewport.y, viewportSurface.padding]);
+  const preventNativeContextMenu = onCanvasContextMenu;
+  const invalidateScene = useCallback((reason: string) => viewportCompositor.invalidateScene(reason), [viewportCompositor]);
+
   return (
     <section className="relative h-full min-h-0 bg-card">
       <div
@@ -167,50 +198,53 @@ export function KonvaCanvasStage(stageProps: KonvaCanvasStageProps) {
           cursorClassName
         )}
         onAuxClick={(event) => event.preventDefault()}
+        onWheel={onWheel}
         onContextMenu={preventNativeContextMenu}
-        onPointerMove={onCanvasPointerTracking}
+        onPointerDown={onCanvasPointerDown}
+        onPointerMove={onCanvasPointerMove}
+        onPointerUp={onCanvasPointerUp}
+        onPointerCancel={onCanvasPointerCancel}
         onPointerLeave={onCanvasPointerLeave}
-        onPointerDownCapture={() => flushCanvasHitGraph(stageRef.current)}
+        onClick={onCanvasClick}
+        onDoubleClick={onCanvasDoubleClick}
       >
+        <div
+          className="pointer-events-none absolute"
+          style={{ left: -viewportSurface.padding, top: -viewportSurface.padding }}
+        >
         <Stage
           ref={stageRef}
-          width={dimensions.width}
-          height={dimensions.height}
-          onWheel={onWheel}
-          onMouseDown={onCanvasPointerDown}
-          onMouseMove={onCanvasPointerMove}
-          onMouseUp={onCanvasPointerUp}
-          onMouseLeave={() => onCanvasPointerLeave()}
+          width={viewportSurface.width}
+          height={viewportSurface.height}
+          x={surfaceViewport.x}
+          y={surfaceViewport.y}
+          scaleX={surfaceViewport.scale}
+          scaleY={surfaceViewport.scale}
+          listening={false}
         >
-          {viewFilters.grid ? <CanvasGrid dimensions={dimensions} viewport={viewport} visualTokens={visualTokens} gridSpec={gridSpec} /> : null}
+          <Layer ref={backgroundLayerRef} name="canvas-background-layer" imageSmoothingEnabled listening={false}>
+            {viewFilters.grid ? (
+              <CanvasGrid
+                dimensions={{ width: viewportSurface.width, height: viewportSurface.height }}
+                viewport={surfaceViewport}
+                visualTokens={visualTokens}
+                gridSpec={gridSpec}
+              />
+            ) : null}
+          </Layer>
 
-          <Layer ref={contentLayerRef} name="canvas-content-layer" imageSmoothingEnabled>
+          <Layer ref={sceneLayerRef} name="canvas-scene-layer" imageSmoothingEnabled listening={false}>
             {viewFilters.subgraphs ? (
               <KonvaSubgraphLayer
-                contentLayerRef={contentLayerRef}
-                interactionLayerRef={interactionLayerRef}
-                dragPreviewStore={dragPreviewStore}
                 graph={graph}
-                mode={mode}
-                panningRequested={panningRequested}
-                dragEnabled={dragEnabled}
                 inlineEdit={inlineEdit}
-                interactionState={interactionState}
                 scopedSubgraphGeometries={scopedSubgraphGeometries}
                 selectedSubgraphIds={selectedSubgraphIds}
                 hoveredSubgraphId={hoveredSubgraphId}
                 connectionTargetSubgraphId={connectionTargetSubgraphId}
                 connectionInvalidSubgraphId={connectionInvalidSubgraphId}
-                connectionPreview={connectionPreview}
-                retargetPreview={retargetPreview}
                 visualTokens={visualTokens}
                 typography={typography.canvas.subgraphTitle}
-                onStartSubgraphDrag={onStartSubgraphDrag}
-                onMoveSubgraph={onMoveSubgraph}
-                onEndDrag={onEndDrag}
-                onCanvasClick={onCanvasClick}
-                onCanvasDoubleClick={onCanvasDoubleClick}
-                onSubgraphAnchorPointerDown={(event, hit, world) => onCanvasPointerDown(event, hit, world)}
               />
             ) : null}
 
@@ -226,33 +260,17 @@ export function KonvaCanvasStage(stageProps: KonvaCanvasStageProps) {
               edgeMotion={edgeMotion}
               scopedVisibleEdges={scopedVisibleEdges}
               resolvedEdgeGeometry={resolvedEdgeGeometry}
-              retargetDraft={retargetDraft}
-              retargetDraftGeometry={retargetDraftGeometry}
-              retargetPreview={retargetPreview}
-              onCanvasClick={onCanvasClick}
-              onCanvasDoubleClick={onCanvasDoubleClick}
-              onCanvasTap={onCanvasTap}
             />
-
-          </Layer>
-
-          <Layer ref={nodeLayerRef} name="canvas-node-layer" imageSmoothingEnabled>
-            <CanvasNodeTextureCacheProvider controller={nodeTextureCacheController}>
+            <CanvasNodeTextureCacheProvider controller={nodeTextureCacheController} onInvalidateScene={invalidateScene}>
               <KonvaNodeLayer
-                nodeLayerRef={nodeLayerRef}
-                interactionLayerRef={interactionLayerRef}
                 viewFilters={viewFilters}
-                mode={mode}
-                panningRequested={panningRequested}
-                dragEnabled={dragEnabled}
                 selection={selection}
                 inlineEdit={inlineEdit}
                 interactionState={interactionState}
                 hoveredNodeId={hoveredNodeId}
+                hoveredHitTarget={hoveredHitTarget}
                 connectionTargetNodeId={connectionTargetNodeId}
                 connectionInvalidNodeId={connectionInvalidNodeId}
-                connectionPreview={connectionPreview}
-                retargetPreview={retargetPreview}
                 scopedRenderedNodes={scopedRenderedNodes}
                 exitingNodes={exitingNodes}
                 nodeGeometryById={nodeGeometryById}
@@ -269,32 +287,22 @@ export function KonvaCanvasStage(stageProps: KonvaCanvasStageProps) {
                 markdownTokens={markdownTokens}
                 fontRevision={fontRevision}
                 selectedTableCell={selectedTableCell}
-                onStartNodeDrag={onStartNodeDrag}
-                onMoveNode={onMoveNode}
-                onEndDrag={onEndDrag}
-                onCanvasClick={onCanvasClick}
-                onCanvasDoubleClick={onCanvasDoubleClick}
-                onNodeContextMenu={onNodeContextMenu}
-                onNodeAnchorPointerDown={(event, hit, world) => onCanvasPointerDown(event, hit, world)}
                 onOpenNodeAction={onOpenNodeAction}
                 onRequestMarkdownDocumentPreview={onRequestMarkdownDocumentPreview}
-                onSelectTableCell={onSelectTableCell}
-                onStartTableCellEdit={onStartTableCellEdit}
-                onStartTableHeaderEdit={onStartTableHeaderEdit}
-                onResizeTableColumn={onResizeTableColumn}
               />
             </CanvasNodeTextureCacheProvider>
 
           </Layer>
 
-          <Layer ref={interactionLayerRef} name="canvas-interaction-layer" imageSmoothingEnabled>
+          <Layer ref={interactionLayerRef} name="canvas-interaction-layer" imageSmoothingEnabled listening={false}>
             <KonvaInteractionLayerContent
-              nodeLayerRef={nodeLayerRef}
+              sceneLayerRef={sceneLayerRef}
               interactionLayerRef={interactionLayerRef}
               stageProps={stageProps}
             />
           </Layer>
         </Stage>
+        </div>
         <CanvasSelectionToolbars
           graph={graph}
           selection={selection}
@@ -306,7 +314,7 @@ export function KonvaCanvasStage(stageProps: KonvaCanvasStageProps) {
           selectedNodeRects={selectedNodeRects}
           selectedTableCell={selectedTableCell}
           nodeGeometryById={nodeGeometryById}
-          viewport={viewport}
+          viewport={liveViewport}
           canvasSize={dimensions}
           onArrange={onArrangeNodes}
           onTableOperation={onTableCellOperation}
@@ -321,7 +329,7 @@ export function KonvaCanvasStage(stageProps: KonvaCanvasStageProps) {
           />
         ) : null}
         {hoveredActionNode && hoveredAction && hoveredActionGeometry ? (
-          <NodeActionTooltip node={hoveredActionNode} action={hoveredAction} geometry={hoveredActionGeometry} viewport={viewport} dimensions={dimensions} />
+          <NodeActionTooltip node={hoveredActionNode} action={hoveredAction} geometry={hoveredActionGeometry} viewport={liveViewport} dimensions={dimensions} />
         ) : null}
 
         <InlineEditOverlays
@@ -345,4 +353,12 @@ export function KonvaCanvasStage(stageProps: KonvaCanvasStageProps) {
       </div>
     </section>
   );
+}
+
+function useSceneRevision(inputs: readonly unknown[]) {
+  const revisionRef = useRef<{ inputs: readonly unknown[]; value: object } | undefined>(undefined);
+  if (!revisionRef.current || revisionRef.current.inputs.length !== inputs.length || inputs.some((input, index) => !Object.is(input, revisionRef.current?.inputs[index]))) {
+    revisionRef.current = { inputs, value: {} };
+  }
+  return revisionRef.current.value;
 }

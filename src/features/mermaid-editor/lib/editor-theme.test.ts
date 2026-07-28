@@ -454,6 +454,7 @@ describe("editor theme", () => {
     expect(variables["--source-line"]).toBeDefined();
     expect(variables["--terminal-background"]).toBeDefined();
     expect(variables["--ansi-bright-red"]).toBeDefined();
+    expect(variables["--markdown-window-background"]).toBe(DEFAULT_EDITOR_THEME.markdown.window.background);
     expect(variables["--markdown-body-color"]).toBe(DEFAULT_EDITOR_THEME.markdown.body.color);
     expect(variables["--markdown-heading-stack-spacing"]).toBe("8px");
     expect(variables["--markdown-list-marker-width"]).toBe("24px");

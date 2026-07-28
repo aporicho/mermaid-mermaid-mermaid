@@ -53,6 +53,7 @@ export const MARKDOWN_ELEMENT_CATEGORIES = [
 ] as const;
 
 export const MARKDOWN_ELEMENT_DEFINITIONS: readonly MarkdownElementDefinition[] = [
+  element("window", "base", "浮动窗口", "Markdown 浮动编辑器的窗口背景。", ["window"]),
   element("layout", "base", "阅读区域", "阅读区域内边距、列表标记栏和连续标题节奏。", ["layout"]),
   element("body", "base", "正文与段落", "正文排版、颜色和段落间距。", ["body"]),
   ...(["h1", "h2", "h3", "h4", "h5", "h6"] as const).map((level, index) =>
@@ -104,6 +105,7 @@ const TEXT_DEFAULTS: Record<string, TextDefaults> = {
 };
 
 const EXTRA_FIELDS: Record<string, readonly MarkdownTokenDefinition[]> = {
+  window: [color("background", "背景颜色", "color", theme("interface.colors.background"))],
   layout: [
     number("paddingX", "横向内边距", "layout", literal(56), 0, 160),
     number("paddingY", "纵向内边距", "layout", literal(48), 0, 120),
@@ -201,7 +203,7 @@ const EXTRA_FIELDS: Record<string, readonly MarkdownTokenDefinition[]> = {
 export const MARKDOWN_TOKEN_DEFINITIONS: readonly MarkdownTokenDefinition[] = MARKDOWN_ELEMENT_DEFINITIONS.flatMap((elementDefinition) => {
   const path = elementDefinition.path;
   const leaf = path.at(-1) || "";
-  if (leaf === "layout" || leaf === "divider" || leaf === "image") return withPath(path, EXTRA_FIELDS[leaf]);
+  if (leaf === "window" || leaf === "layout" || leaf === "divider" || leaf === "image") return withPath(path, EXTRA_FIELDS[leaf]);
   const extras = leaf === "unordered" || leaf === "ordered"
     ? EXTRA_FIELDS.list
     : leaf === "task"

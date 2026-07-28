@@ -37,6 +37,14 @@ export function useKonvaDragDraft() {
     });
   }
 
+  function flushScheduledDragPreview() {
+    if (dragPreviewFrameRef.current !== null) window.cancelAnimationFrame(dragPreviewFrameRef.current);
+    dragPreviewFrameRef.current = null;
+    const pending = pendingDragPreviewRef.current;
+    pendingDragPreviewRef.current = null;
+    if (pending) dragPreviewStore.publish(pending);
+  }
+
   function beginDragRuntimeState() {
     committedDragPositionsRef.current = null;
     setDragPreviewPositionsVisual(null);
@@ -57,6 +65,19 @@ export function useKonvaDragDraft() {
     dragPreviewStore.publish(null);
   }
 
+  function preserveCommittedDragPreview() {
+    if (dragPreviewFrameRef.current !== null) window.cancelAnimationFrame(dragPreviewFrameRef.current);
+    dragPreviewFrameRef.current = null;
+    pendingDragPreviewRef.current = null;
+    dragRef.current = null;
+    subgraphDragFrameRef.current = null;
+    dragFinalPositionsRef.current = null;
+  }
+
+  function releaseCommittedDragPreview() {
+    dragPreviewStore.publish(null);
+  }
+
   useEffect(() => {
     return () => {
       if (dragPreviewFrameRef.current !== null) window.cancelAnimationFrame(dragPreviewFrameRef.current);
@@ -74,6 +95,9 @@ export function useKonvaDragDraft() {
     markDragPositionsCommitted,
     setDragPreviewPositionsVisual,
     scheduleDragPreviewPositionsVisual,
+    flushScheduledDragPreview,
+    preserveCommittedDragPreview,
+    releaseCommittedDragPreview,
     clearDragRuntimeState
   };
 }

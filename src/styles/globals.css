@@ -775,6 +775,13 @@
 
 .markdown-editor-panel.markdown-editor-panel--window {
   --markdown-window-block-toolbar-gutter: 64px;
+  background: var(--markdown-window-background);
+}
+
+.markdown-window-panel,
+.markdown-editor-panel.markdown-editor-panel--window .milkdown,
+.markdown-editor-panel.markdown-editor-panel--window .milkdown .editor {
+  background: var(--markdown-window-background);
 }
 
 .markdown-editor-panel.markdown-editor-panel--window .milkdown .editor {

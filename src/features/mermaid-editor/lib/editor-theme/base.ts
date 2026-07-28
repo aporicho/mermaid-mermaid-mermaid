@@ -76,9 +76,7 @@ const LEGACY_CANVAS_VISUAL_TOKENS = {
   },
   subgraph: {
     fillOpacity: 0.34,
-    titleCornerRadius: 8,
-    anchorCornerScale: 0.72,
-    anchorCornerOpacity: 0.65
+    titleCornerRadius: 8
   },
   anchor: { strokeWidth: 2, radius: 6, endpointRadius: 7 }
 } as const;
@@ -193,7 +191,6 @@ export const BASE_CANVAS: CanvasThemeTokens = {
   ordinaryNode: {
     textColor: BASE_COLORS.foreground,
     borderColor: "#2a251f",
-    hoverBorderColor: BASE_COLORS.accentForeground,
     selectedBorderColor: BASE_COLORS.primary,
     invalidBorderColor: "#9b5a50",
     borderWidth: LEGACY_CANVAS_VISUAL_TOKENS.node.strokeWidth,
@@ -257,7 +254,6 @@ export const BASE_CANVAS: CanvasThemeTokens = {
     background: "#fbf6ef",
     backgroundOpacity: LEGACY_CANVAS_VISUAL_TOKENS.subgraph.fillOpacity,
     borderColor: "#b8ada0",
-    hoverBorderColor: BASE_COLORS.accentForeground,
     selectedBorderColor: BASE_COLORS.primary,
     invalidBorderColor: "#9b5a50",
     borderWidth: LEGACY_CANVAS_VISUAL_TOKENS.overlay.strokeWidth,
@@ -286,9 +282,7 @@ export const BASE_CANVAS: CanvasThemeTokens = {
       insetX: SUBGRAPH_GEOMETRY_TOKENS.titleInsetX,
       insetTop: SUBGRAPH_GEOMETRY_TOKENS.titleInsetTop,
       paddingX: SUBGRAPH_GEOMETRY_TOKENS.titlePaddingX
-    },
-    anchorCornerScale: LEGACY_CANVAS_VISUAL_TOKENS.subgraph.anchorCornerScale,
-    anchorCornerOpacity: LEGACY_CANVAS_VISUAL_TOKENS.subgraph.anchorCornerOpacity
+    }
   },
   overlay: {
     selection: {

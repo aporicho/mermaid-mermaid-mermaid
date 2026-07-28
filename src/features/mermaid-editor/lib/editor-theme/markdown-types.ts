@@ -86,6 +86,9 @@ export type MarkdownTableTokens = MarkdownTextTokens & {
 };
 
 export type MarkdownThemeTokens = {
+  window: {
+    background: string;
+  };
   layout: {
     paddingX: number;
     paddingY: number;

@@ -6,6 +6,7 @@ import {
   inferNodeActionKindFromTarget,
   nodeActionSuggestedLabel,
   nodeActionDisplayTooltip,
+  nodeActionTooltipEnabled,
   normalizeNodeAction
 } from "@/features/mermaid-editor/lib/node-actions";
 
@@ -24,6 +25,13 @@ describe("node actions", () => {
 
     expect(nodeActionDisplayTooltip(urlAction)).toBe("打开链接");
     expect(nodeActionDisplayTooltip(fileAction)).toBe("产品说明");
+  });
+
+  it("suppresses hover tooltips only for Markdown document actions", () => {
+    expect(nodeActionTooltipEnabled(normalizeNodeAction({ kind: "file", path: "docs/spec.md", openMode: "app-window", tooltip: "打开 Markdown 文档" }))).toBe(false);
+    expect(nodeActionTooltipEnabled(normalizeNodeAction({ kind: "file", path: "pages/demo.html", openMode: "app-window" }))).toBe(true);
+    expect(nodeActionTooltipEnabled(normalizeNodeAction({ kind: "url", url: "https://example.com", openMode: "app-browser" }))).toBe(true);
+    expect(nodeActionTooltipEnabled(undefined)).toBe(false);
   });
 
   it("infers node actions from plain node text", () => {

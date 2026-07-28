@@ -310,7 +310,6 @@
       "ordinaryNode": {
         "textColor": "#18130f",
         "borderColor": "#2a251f",
-        "hoverBorderColor": "#b91f31",
         "selectedBorderColor": "#ff4050",
         "invalidBorderColor": "#9b5a50",
         "borderWidth": 0,
@@ -389,7 +388,6 @@
         "background": "#fbf6ef",
         "backgroundOpacity": 0.34,
         "borderColor": "#b8ada0",
-        "hoverBorderColor": "#b91f31",
         "selectedBorderColor": "#ff4050",
         "invalidBorderColor": "#9b5a50",
         "borderWidth": 1,
@@ -433,9 +431,7 @@
           "insetX": 14,
           "insetTop": 10,
           "paddingX": 10
-        },
-        "anchorCornerScale": 0.72,
-        "anchorCornerOpacity": 0.65
+        }
       },
       "overlay": {
         "selection": {
@@ -535,7 +531,6 @@
           }
         },
         "state": {
-          "hoverBorderColor": "#b91f31",
           "selectedBorderColor": "#ff4050",
           "errorBorderColor": "#9b5a50",
           "editingBorderColor": "#ff4050",
@@ -580,7 +575,6 @@
           }
         },
         "state": {
-          "hoverBorderColor": "#b91f31",
           "selectedBorderColor": "#ff4050",
           "errorBorderColor": "#9b5a50",
           "editingBorderColor": "#ff4050",
@@ -795,7 +789,6 @@
           }
         },
         "state": {
-          "hoverBorderColor": "#b91f31",
           "selectedBorderColor": "#ff4050",
           "errorBorderColor": "#9b5a50",
           "editingBorderColor": "#ff4050",
@@ -837,7 +830,6 @@
           }
         },
         "state": {
-          "hoverBorderColor": "#b91f31",
           "selectedBorderColor": "#ff4050",
           "errorBorderColor": "#9b5a50",
           "editingBorderColor": "#ff4050",
@@ -863,7 +855,6 @@
           }
         },
         "state": {
-          "hoverBorderColor": "#b91f31",
           "selectedBorderColor": "#ff4050",
           "errorBorderColor": "#9b5a50",
           "editingBorderColor": "#ff4050",
@@ -898,6 +889,9 @@
       "line": "#d7ccc0"
     },
     "markdown": {
+      "window": {
+        "background": "#fbf6ef"
+      },
       "layout": {
         "paddingX": 56,
         "paddingY": 48,

@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo } from "react";
+import { memo, useCallback, useLayoutEffect, useMemo } from "react";
 import type Konva from "konva";
 import { Group, Image as KonvaImage, Rect, Text } from "react-konva";
 
@@ -11,7 +11,7 @@ import type { EditorTypographyTokens, SpecialNodeThemeTokens, TypographyRoleToke
 import { resolveSpecialNodeBorder, specialNodeBorderDash } from "@/features/mermaid-editor/lib/editor-theme/special-node-theme";
 import type { SpecialNodeVisualState } from "@/features/mermaid-editor/lib/editor-theme/special-node-types";
 import { normalizeCanvasNodePreview, themedLinkCardLayout } from "@/features/mermaid-editor/lib/node-preview";
-import { CanvasStaticCacheGroup, canvasStaticCacheKey } from "@/features/mermaid-editor/components/konva-canvas/canvas-static-cache-group";
+import { CanvasStaticCacheGroup, canvasStaticCacheKey, useCanvasSceneInvalidation } from "@/features/mermaid-editor/components/konva-canvas/canvas-static-cache-group";
 
 export const CanvasNodeLinkCard = memo(function CanvasNodeLinkCard({
   nodeId,
@@ -207,6 +207,10 @@ const CanvasNodeLinkCover = memo(function CanvasNodeLinkCover({
   typography: TypographyRoleTokens;
 }) {
   const { image } = useDecodedCanvasImage(src);
+  const invalidateScene = useCanvasSceneInvalidation();
+  useLayoutEffect(() => {
+    if (image) invalidateScene?.("link-cover-decoded");
+  }, [image, invalidateScene]);
   if (!image) {
     return (
       <Text

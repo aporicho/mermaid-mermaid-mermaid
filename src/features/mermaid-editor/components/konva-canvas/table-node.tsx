@@ -1,8 +1,5 @@
-import { useState } from "react";
-import type { KonvaEventObject } from "konva/lib/Node";
 import { Group, Line, Rect, Text } from "react-konva";
 
-import { CANVAS_HIT_NAMES, tableCellHitId, tableHeaderHitId } from "@/features/mermaid-editor/lib/canvas-hit-target";
 import type { SpecialNodeThemeTokens, TypographyRoleTokens } from "@/features/mermaid-editor/lib/editor-theme";
 import { resolveSpecialNodeBorder, specialNodeBorderDash } from "@/features/mermaid-editor/lib/editor-theme/special-node-theme";
 import type { SpecialNodeVisualState } from "@/features/mermaid-editor/lib/editor-theme/special-node-types";
@@ -13,22 +10,19 @@ export function CanvasTableNode({
   nodeId,
   layout,
   selectedCell,
+  hoveredCell,
   specialNode,
   typography,
   editing,
   editingHeader,
   visualState,
   fontRevision,
-  cacheEnabled = true,
-  interactive = true,
-  onCellClick,
-  onCellDoubleClick,
-  onHeaderDoubleClick,
-  onResizeColumn
+  cacheEnabled = true
 }: {
   nodeId: string;
   layout: TableNodeLayout;
   selectedCell: TableCellSelection | null;
+  hoveredCell: TableCellSelection | null;
   specialNode: SpecialNodeThemeTokens;
   typography: TypographyRoleTokens;
   editing: TableCellSelection | null;
@@ -36,19 +30,13 @@ export function CanvasTableNode({
   visualState?: SpecialNodeVisualState;
   fontRevision: number;
   cacheEnabled?: boolean;
-  interactive?: boolean;
-  onCellClick?: (event: KonvaEventObject<MouseEvent>, selection: TableCellSelection) => void;
-  onCellDoubleClick?: (event: KonvaEventObject<MouseEvent>, selection: TableCellSelection) => void;
-  onHeaderDoubleClick?: (event: KonvaEventObject<MouseEvent>, selection: TableHeaderSelection) => void;
-  onResizeColumn?: (columnId: string, width: number) => void;
 }) {
   const tokens = specialNode.table;
-  const [hoveredCellKey, setHoveredCellKey] = useState<string | null>(null);
   const effectiveVisualState = visualState ?? (editing || editingHeader ? "editing" : selectedCell ? "selected" : "normal");
   const surfaceBorder = resolveSpecialNodeBorder(tokens.surface, tokens.state, effectiveVisualState);
   const gridDash = specialNodeBorderDash(tokens.grid);
   return (
-    <Group listening={interactive}>
+    <Group listening={false}>
       <CanvasStaticCacheGroup
         cacheId={`${nodeId}:table-background`}
         cacheKey={canvasStaticCacheKey(layout, tokens.surface, tokens.headerBackground, tokens.grid)}
@@ -87,38 +75,24 @@ export function CanvasTableNode({
       {layout.headerCells.map((cell) => (
         <Group
           key={`header:${cell.columnId}`}
-          id={tableHeaderHitId(nodeId, cell.columnId)}
-          name={CANVAS_HIT_NAMES.tableHeader}
-          listening={interactive}
-          onMouseEnter={() => setHoveredCellKey(`header:${cell.columnId}`)}
-          onMouseLeave={() => setHoveredCellKey(null)}
-          onDblClick={(event) => {
-            event.cancelBubble = true;
-            onHeaderDoubleClick?.(event, { nodeId, columnId: cell.columnId });
-          }}
+          listening={false}
         >
-          <Rect {...cell.frame} fill={hoveredCellKey === `header:${cell.columnId}` ? tokens.hoverCellBackground : "rgba(0,0,0,0.001)"} />
+          <Rect {...cell.frame} fill="rgba(0,0,0,0.001)" listening={false} />
         </Group>
       ))}
-      {layout.cells.map((cell) => {
-        const selection = { nodeId, rowId: cell.rowId, columnId: cell.columnId };
-        const selected = sameCell(selectedCell, selection);
-        const cellKey = `${cell.rowId}:${cell.columnId}`;
-        const selectedCellBorder = tokens.selectedCellBorder;
+       {layout.cells.map((cell) => {
+         const selection = { nodeId, rowId: cell.rowId, columnId: cell.columnId };
+         const selected = sameCell(selectedCell, selection);
+         const hovered = sameCell(hoveredCell, selection);
+         const selectedCellBorder = tokens.selectedCellBorder;
         return (
           <Group
             key={`${cell.rowId}:${cell.columnId}`}
-            id={tableCellHitId(nodeId, cell.rowId, cell.columnId)}
-            name={CANVAS_HIT_NAMES.tableCell}
-            listening={interactive}
-            onMouseEnter={() => setHoveredCellKey(cellKey)}
-            onMouseLeave={() => setHoveredCellKey(null)}
-            onClick={(event) => onCellClick?.(event, selection)}
-            onDblClick={(event) => onCellDoubleClick?.(event, selection)}
+            listening={false}
           >
             <Rect
               {...cell.frame}
-              fill={selected ? tokens.selectedCellBackground : hoveredCellKey === cellKey ? tokens.hoverCellBackground : "rgba(0,0,0,0.001)"}
+               fill={selected ? tokens.selectedCellBackground : hovered ? tokens.hoverCellBackground : "rgba(0,0,0,0.001)"}
               stroke={selected ? selectedCellBorder.color : undefined}
               strokeWidth={selected ? selectedCellBorder.width : 0}
               strokeEnabled={selected && selectedCellBorder.style !== "none" && selectedCellBorder.width > 0}
@@ -165,18 +139,7 @@ export function CanvasTableNode({
           <Group
             key={`column-divider:${column.columnId}`}
             x={x}
-            listening={interactive}
-            draggable={interactive}
-            onMouseDown={(event) => { event.cancelBubble = true; }}
-            onDragStart={(event) => { event.cancelBubble = true; }}
-            onDragMove={(event) => { event.cancelBubble = true; event.target.y(0); }}
-            onDragEnd={(event) => {
-              event.cancelBubble = true;
-              const localX = event.target.x();
-              event.target.x(x);
-              event.target.y(0);
-              onResizeColumn?.(column.columnId, layout.columnWidths[index] + localX - x);
-            }}
+            listening={false}
           >
             <Rect x={-tokens.resizeHandleWidth / 2} width={tokens.resizeHandleWidth} height={layout.height} fill="rgba(0,0,0,0.001)" />
             <Line points={[0, 0, 0, layout.height]} stroke={tokens.grid.color} strokeWidth={tokens.grid.width} strokeEnabled={tokens.grid.style !== "none" && tokens.grid.width > 0} dash={gridDash} listening={false} />

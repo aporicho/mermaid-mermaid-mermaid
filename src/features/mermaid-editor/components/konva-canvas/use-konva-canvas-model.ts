@@ -1,15 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import type Konva from "konva";
 import type { KonvaCanvasModelStageProps } from "@/features/mermaid-editor/components/konva-canvas/konva-canvas-stage-types";
 import type { KonvaCanvasProps } from "@/features/mermaid-editor/components/konva-canvas/types";
 import { useContainerSize } from "@/features/mermaid-editor/components/konva-canvas/use-container-size";
 import { useKonvaDragDraft } from "@/features/mermaid-editor/components/konva-canvas/use-konva-drag-draft";
 import { useKonvaDragMembership } from "@/features/mermaid-editor/components/konva-canvas/use-konva-drag-membership";
-import {
-  resolveKonvaInlineEditStyle,
-  useKonvaInlineEditSession,
-  useKonvaNodeEditorLayout
-} from "@/features/mermaid-editor/components/konva-canvas/use-konva-inline-edit-session";
+import { resolveKonvaInlineEditStyle, useKonvaInlineEditSession, useKonvaNodeEditorLayout } from "@/features/mermaid-editor/components/konva-canvas/use-konva-inline-edit-session";
 import { useKonvaHoverState } from "@/features/mermaid-editor/components/konva-canvas/use-konva-hover-state";
 import { useKonvaMotion } from "@/features/mermaid-editor/components/konva-canvas/use-konva-motion";
 import { useKonvaNodeProximity } from "@/features/mermaid-editor/components/konva-canvas/use-konva-node-proximity";
@@ -28,6 +24,8 @@ import { arrangeNodeRects, type NodeArrangementOperation } from "@/features/merm
 import { useKonvaTableInteraction } from "@/features/mermaid-editor/components/konva-canvas/use-konva-table-interaction";
 import { useCanvasImageWarm } from "@/features/mermaid-editor/components/konva-canvas/use-canvas-image-warm";
 import { useCanvasNodeTextureCache } from "@/features/mermaid-editor/components/konva-canvas/use-canvas-node-texture-cache";
+import { useCanvasViewportCompositor } from "@/features/mermaid-editor/components/konva-canvas/canvas-viewport-compositor";
+import { canvasNodePreviewPositionsMatchGraph } from "@/features/mermaid-editor/lib/canvas-motion";
 type UseKonvaCanvasModelArgs = KonvaCanvasProps & {
   mermaidEdgeRoutes: NonNullable<KonvaCanvasProps["mermaidEdgeRoutes"]>;
   imageDisplaySrcBySrc: NonNullable<KonvaCanvasProps["imageDisplaySrcBySrc"]>;
@@ -71,26 +69,16 @@ export function useKonvaCanvasModel({
   const onOpenNodeActionRef = useRef(onOpenNodeAction); onOpenNodeActionRef.current = onOpenNodeAction;
   const openNodeAction: NonNullable<typeof onOpenNodeAction> = useCallback((node) => onOpenNodeActionRef.current?.(node), []);
   const dimensions = useContainerSize(containerRef);
+  const viewportComposition = useCanvasViewportCompositor(viewport, dimensions);
   const [interactionState, setInteractionState] = useState<InteractionState>(idleInteraction);
   const dragRuntime = useKonvaDragDraft();
   const hoverState = useKonvaHoverState({ viewEdges: viewFilters.edges });
-  const {
-    hoveredNodeId,
-    hoveredSubgraphId,
-    hoveredEdgeId,
-    hoveredHitTarget
-  } = hoverState;
+  const { hoveredNodeId, hoveredSubgraphId, hoveredEdgeId, hoveredHitTarget } = hoverState;
   const motion = useKonvaMotion({
     graph, selection, interactionState, runtimeMotion,
     committedDragPositionsRef: dragRuntime.committedDragPositionsRef
   });
-  const {
-    nodeMotion,
-    edgeMotion,
-    exitingNodes,
-    stopActiveMotionTweens,
-    clearNodeMotionVisual
-  } = motion;
+  const { nodeMotion, edgeMotion, exitingNodes, stopActiveMotionTweens, clearNodeMotionVisual } = motion;
   const nodeThemeTokens = geometryTokens?.node ?? DEFAULT_NODE_GEOMETRY_TOKENS;
   const edgeLabelThemeTokens = geometryTokens?.edgeLabel ?? DEFAULT_EDGE_LABEL_GEOMETRY_TOKENS;
   const subgraphThemeTokens: SubgraphGeometryTokens = geometryTokens?.subgraph ?? SUBGRAPH_GEOMETRY_TOKENS;
@@ -110,13 +98,7 @@ export function useKonvaCanvasModel({
     selectedTableCell,
     setSelectedTableCell
   });
-  const {
-    inlineEdit,
-    setInlineEdit,
-    commitInlineEdit,
-    nodeEditorRef,
-    nodeEditorMeasureRef
-  } = inlineEditSession;
+  const { inlineEdit, setInlineEdit, commitInlineEdit, nodeEditorRef, nodeEditorMeasureRef } = inlineEditSession;
   const nodeTextureCacheController = useCanvasNodeTextureCache({
     panningRequested,
     interactionKind: interactionState.kind,
@@ -126,7 +108,6 @@ export function useKonvaCanvasModel({
   const dragEnabled = layoutMode === "manual";
   const viewportController = useKonvaViewport({
     containerRef,
-    stageRef,
     dimensions,
     viewport,
     graph,
@@ -140,13 +121,14 @@ export function useKonvaCanvasModel({
     onEditorCommand,
     onPointerWorldChange,
     invalidateBlankClickIntent,
-    nodeTextureCacheController
+    nodeTextureCacheController,
+    viewportCompositor: viewportComposition.controller
   });
   const proximity = useKonvaNodeProximity({ currentViewport: viewportController.currentViewport });
   const renderModel = useKonvaRenderModel({
     graph,
     selection,
-    viewport,
+    viewport: viewportComposition.renderViewport,
     dimensions,
     viewFilters,
     edgeRouting,
@@ -168,6 +150,12 @@ export function useKonvaCanvasModel({
     visualTokens
   });
   useCanvasImageWarm(renderModel.warmRenderedNodes, imageDisplaySrcBySrc);
+
+  useLayoutEffect(() => {
+    const committed = dragRuntime.committedDragPositionsRef.current;
+    if (!committed || !canvasNodePreviewPositionsMatchGraph(graph, committed)) return;
+    dragRuntime.releaseCommittedDragPreview();
+  }, [dragRuntime, graph]);
   const dragMembership = useKonvaDragMembership({
     dragRuntime,
     graph,
@@ -295,7 +283,10 @@ export function useKonvaCanvasModel({
     containerRef,
     stageRef,
     dimensions,
-    viewport,
+    viewport: viewportComposition.renderViewport,
+    liveViewport: viewport,
+    viewportSurface: viewportComposition.surface,
+    viewportCompositor: viewportComposition.controller,
     cursorClassName,
     graph,
     selection,
@@ -403,6 +394,10 @@ export function useKonvaCanvasModel({
     startInlineEdit: inlineEditSession.startInlineEdit,
     startNodeDrag: dragMembership.startNodeDrag,
     startSubgraphDrag: dragMembership.startSubgraphDrag,
+    moveNodeDrag: dragMembership.moveSelectedNodes,
+    moveSubgraphDrag: dragMembership.moveSelectedSubgraphs,
+    finishDrag: dragMembership.finishKonvaDrag,
+    cancelDrag: dragMembership.cancelDrag,
     clearAlignmentGuides: dragMembership.clearAlignmentGuides,
     resetInteraction,
     invalidateBlankClickIntent,

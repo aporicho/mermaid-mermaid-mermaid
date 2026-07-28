@@ -15,9 +15,6 @@ type DragEdgeLayerProps = Pick<KonvaCanvasStageProps,
   | "visualTokens"
   | "edgeLabelThemeTokens"
   | "edgeLabelSpec"
-  | "onCanvasClick"
-  | "onCanvasDoubleClick"
-  | "onCanvasTap"
 >;
 
 export function KonvaDragEdgeLayer({
@@ -35,12 +32,8 @@ export function KonvaDragEdgeLayer({
 
   return <KonvaEdgeLayer
     {...props}
-    interactive={false}
     edgeMotion={{}}
     scopedVisibleEdges={dragPreviewEdges}
     resolvedEdgeGeometry={(edge) => geometryById.get(edge.id) ?? null}
-    retargetDraft={null}
-    retargetDraftGeometry={null}
-    retargetPreview={null}
   />;
 }

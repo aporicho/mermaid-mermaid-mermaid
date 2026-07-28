@@ -100,4 +100,59 @@ describe("useViewportScheduler", () => {
 
     expect(commit).toHaveBeenCalledWith(0);
   });
+
+  it("flushes the final value synchronously and cancels stale frame and timer work", () => {
+    vi.useFakeTimers();
+
+    let animationFrame: FrameRequestCallback | null = null;
+    const cancelAnimationFrame = vi.spyOn(window, "cancelAnimationFrame").mockImplementation(() => undefined);
+    vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
+      animationFrame = callback;
+      return 7;
+    });
+
+    const applyVisual = vi.fn();
+    const commit = vi.fn();
+    const schedulerRef: { current: SchedulerApi<number> | null } = { current: null };
+
+    container = document.createElement("div");
+    document.body.appendChild(container);
+    root = createRoot(container);
+
+    act(() => {
+      root?.render(
+        createElement(Harness<number>, {
+          initialValue: 10,
+          applyVisual,
+          commit,
+          onScheduler: (value) => {
+            schedulerRef.current = value;
+          }
+        })
+      );
+    });
+
+    if (!schedulerRef.current) throw new Error("Expected scheduler to be mounted.");
+    const activeScheduler = schedulerRef.current;
+
+    act(() => {
+      activeScheduler.schedule(20);
+      activeScheduler.flush(30);
+    });
+
+    expect(cancelAnimationFrame).toHaveBeenCalledWith(7);
+    expect(activeScheduler.current()).toBe(30);
+    expect(applyVisual).toHaveBeenCalledTimes(1);
+    expect(applyVisual).toHaveBeenLastCalledWith(30);
+    expect(commit).toHaveBeenCalledTimes(1);
+    expect(commit).toHaveBeenLastCalledWith(30);
+
+    act(() => {
+      animationFrame?.(performance.now());
+      vi.advanceTimersByTime(25);
+    });
+
+    expect(applyVisual).toHaveBeenCalledTimes(1);
+    expect(commit).toHaveBeenCalledTimes(1);
+  });
 });

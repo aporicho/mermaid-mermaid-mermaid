@@ -177,7 +177,7 @@ export function migrateCanvasThemeV11(raw: Record<string, unknown>, fallback: Ca
   const render = objectValue(raw.render);
   const ui = objectValue(raw.ui);
   const primary = stringValue(ui.primary, fallback.ordinaryNode.selectedBorderColor);
-  const accentHover = stringValue(ui.accentForeground, fallback.ordinaryNode.hoverBorderColor);
+  const accentHover = stringValue(ui.accentForeground, fallback.edge.hoverColor);
   const surface = stringValue(rawCanvas.surface, fallback.surface.background);
   const nodeStroke = stringValue(rawCanvas.nodeStroke, fallback.ordinaryNode.borderColor);
   const nodeText = stringValue(rawCanvas.nodeText, fallback.ordinaryNode.textColor);
@@ -214,7 +214,6 @@ export function migrateCanvasThemeV11(raw: Record<string, unknown>, fallback: Ca
       ...fallback.ordinaryNode,
       textColor: nodeText,
       borderColor: nodeStroke,
-      hoverBorderColor: accentHover,
       selectedBorderColor: primary,
       invalidBorderColor: invalid,
       borderWidth: nodeWidth,
@@ -274,7 +273,6 @@ export function migrateCanvasThemeV11(raw: Record<string, unknown>, fallback: Ca
       background: surface,
       backgroundOpacity: numberValue(group.fillOpacity, fallback.group.backgroundOpacity),
       borderColor: labelStroke,
-      hoverBorderColor: accentHover,
       selectedBorderColor: primary,
       invalidBorderColor: invalid,
       borderWidth: overlayWidth,

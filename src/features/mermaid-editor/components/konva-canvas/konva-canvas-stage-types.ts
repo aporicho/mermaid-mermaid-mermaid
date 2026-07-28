@@ -1,6 +1,5 @@
 import type Konva from "konva";
-import type { KonvaEventObject } from "konva/lib/Node";
-import type { PointerEvent as ReactPointerEvent, RefObject } from "react";
+import type { MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent, RefObject, WheelEvent as ReactWheelEvent } from "react";
 
 import type { InlineEdit, InlineEditStyle } from "@/features/mermaid-editor/components/konva-canvas/inline-edit-overlays";
 import type { CanvasDragPreviewStore } from "@/features/mermaid-editor/components/konva-canvas/canvas-drag-preview-store";
@@ -22,6 +21,7 @@ import type { NodeArrangementOperation } from "@/features/mermaid-editor/lib/nod
 import type { TableCellNavigation, TableCellSelection, TableHeaderSelection } from "@/features/mermaid-editor/lib/table-node";
 import type { ViewFilters } from "@/features/mermaid-editor/lib/view-filters";
 import type { CanvasNodeTextureCacheController } from "@/features/mermaid-editor/components/konva-canvas/canvas-node-texture-cache";
+import type { CanvasViewportCompositor, CanvasViewportSurface } from "@/features/mermaid-editor/components/konva-canvas/canvas-viewport-compositor";
 
 type RenderModel = ReturnType<typeof useKonvaRenderModel>;
 
@@ -30,6 +30,9 @@ export type KonvaCanvasStageProps = {
   stageRef: RefObject<Konva.Stage | null>;
   dimensions: { width: number; height: number };
   viewport: ViewportState;
+  liveViewport: ViewportState;
+  viewportSurface: CanvasViewportSurface;
+  viewportCompositor: CanvasViewportCompositor;
   cursorClassName: string;
   graph: MermaidGraph;
   selection: Selection;
@@ -92,22 +95,19 @@ export type KonvaCanvasStageProps = {
   nodeEditorMeasureRef: RefObject<HTMLDivElement | null>;
   selectedTableCell: TableCellSelection | null;
   dragPreviewStore: CanvasDragPreviewStore;
-  onWheel: (event: KonvaEventObject<WheelEvent>) => void;
-  onCanvasPointerDown: (event: KonvaEventObject<MouseEvent>, explicitHit?: HitTarget, worldOverride?: CanvasPoint) => void;
-  onCanvasPointerMove: (event: KonvaEventObject<MouseEvent>) => void;
-  onCanvasPointerUp: (event: KonvaEventObject<MouseEvent>) => void;
+  onWheel: (event: ReactWheelEvent<HTMLDivElement>) => void;
+  onCanvasPointerDown: (event: ReactPointerEvent<HTMLDivElement>) => void;
+  onCanvasPointerMove: (event: ReactPointerEvent<HTMLDivElement>) => void;
+  onCanvasPointerUp: (event: ReactPointerEvent<HTMLDivElement>) => void;
+  onCanvasPointerCancel: (event: ReactPointerEvent<HTMLDivElement>) => void;
   onCanvasPointerLeave: () => void;
-  onCanvasPointerTracking: (event: ReactPointerEvent<HTMLDivElement>) => void;
-  onCanvasClick: (event: KonvaEventObject<MouseEvent>, hit: HitTarget) => void;
-  onCanvasTap: (event: KonvaEventObject<Event>, hit: HitTarget) => void;
-  onCanvasDoubleClick: (event: KonvaEventObject<MouseEvent>, hit: HitTarget) => void;
-  onStartNodeDrag: (nodeId: string) => void;
-  onStartSubgraphDrag: (subgraphId: string) => void;
-  onMoveNode: (node: CanvasNode, target: Konva.Node) => CanvasNodePreviewPositions | null;
-  onMoveSubgraph: (subgraphId: string, target: Konva.Node) => void;
+  onCanvasClick: (event: ReactMouseEvent<HTMLDivElement>) => void;
+  onCanvasDoubleClick: (event: ReactMouseEvent<HTMLDivElement>) => void;
+  onCanvasContextMenu: (event: ReactMouseEvent<HTMLDivElement>) => void;
+  onMoveNode: (nodeId: string, point: CanvasPoint) => CanvasNodePreviewPositions | null;
+  onMoveSubgraph: (subgraphId: string, point: CanvasPoint) => void;
   onEndDrag: () => void;
   onArrangeNodes: (operation: NodeArrangementOperation) => void;
-  onNodeContextMenu: (event: KonvaEventObject<PointerEvent | MouseEvent>, node: CanvasNode) => void;
   onCloseNodeContextMenu: () => void;
   onOpenNodeAction?: (node: CanvasNode) => void;
   onOpenNodeImage?: (node: CanvasNode) => void;
@@ -125,5 +125,5 @@ export type KonvaCanvasStageProps = {
 
 export type KonvaCanvasModelStageProps = Omit<KonvaCanvasStageProps,
   | "nodeContextMenu" | "onCanvasPointerDown" | "onCanvasPointerMove" | "onCanvasPointerUp"
-  | "onCanvasPointerLeave" | "onCanvasPointerTracking" | "onCanvasClick" | "onCanvasTap"
-  | "onCanvasDoubleClick" | "onStartNodeDrag" | "onStartSubgraphDrag" | "onNodeContextMenu" | "onCloseNodeContextMenu">;
+  | "onCanvasPointerCancel" | "onCanvasPointerLeave" | "onCanvasClick"
+  | "onCanvasDoubleClick" | "onCanvasContextMenu" | "onCloseNodeContextMenu">;

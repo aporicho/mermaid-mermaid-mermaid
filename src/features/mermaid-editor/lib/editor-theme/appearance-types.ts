@@ -160,7 +160,6 @@ export type CanvasThemeTokens = {
   ordinaryNode: {
     textColor: string;
     borderColor: string;
-    hoverBorderColor: string;
     selectedBorderColor: string;
     invalidBorderColor: string;
     borderWidth: number;
@@ -224,7 +223,6 @@ export type CanvasThemeTokens = {
     background: string;
     backgroundOpacity: number;
     borderColor: string;
-    hoverBorderColor: string;
     selectedBorderColor: string;
     invalidBorderColor: string;
     borderWidth: number;
@@ -254,8 +252,6 @@ export type CanvasThemeTokens = {
       insetTop: number;
       paddingX: number;
     };
-    anchorCornerScale: number;
-    anchorCornerOpacity: number;
   };
   overlay: {
     selection: {

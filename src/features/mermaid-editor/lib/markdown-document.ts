@@ -105,8 +105,7 @@ export function markdownDocumentActionForProjectFile(file: ProjectFileEntry): Ca
   return {
     kind: "file",
     path: isAbsoluteRuntimePath(file.relativePath) ? file.path : normalizeProjectRelativePath(file.relativePath || file.name),
-    openMode: "app-window",
-    tooltip: "打开 Markdown 文档"
+    openMode: "app-window"
   };
 }
 

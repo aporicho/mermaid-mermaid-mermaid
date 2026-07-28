@@ -24,7 +24,6 @@ const source = {
     ordinaryNode: {
       textColor: "#18130f",
       borderColor: "#2a251f",
-      hoverBorderColor: "#6f6257",
       selectedBorderColor: "#ff4050",
       invalidBorderColor: "#9b5a50",
       borderWidth: 1,
@@ -142,14 +141,14 @@ describe("v11 special-node theme", () => {
     const normalized = normalizeSpecialNodeTheme({
       image: {
         surface: { border: { style: "custom", customDash: [12, 3, 2, 3] } },
-        state: { hoverBorderColor: "#abcdef", emphasizedBorderWidth: 99 }
+        state: { emphasizedBorderWidth: 99 }
       }
     }, fallback);
 
     expect(normalized.image.surface.border).toMatchObject({ style: "custom", customDash: [12, 3, 2, 3] });
     expect(normalized.image.state.emphasizedBorderWidth).toBe(12);
     const hoverBorder = resolveSpecialNodeBorder(normalized.image.surface, normalized.image.state, "hovered");
-    expect(hoverBorder).toMatchObject({ color: "#abcdef", width: 12 });
+    expect(hoverBorder).toMatchObject({ color: normalized.image.surface.border.color, width: normalized.image.surface.border.width });
     expect(specialNodeBorderDash(hoverBorder)).toEqual([12, 3, 2, 3]);
   });
 

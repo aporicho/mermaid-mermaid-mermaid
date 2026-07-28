@@ -50,6 +50,10 @@ export function useViewportScheduler<T>({
   const current = useCallback(() => (pendingRef.current !== null ? pendingRef.current : visualRef.current), []);
 
   const sync = useCallback((value: T, options: { applyVisual?: boolean } = {}) => {
+    if (rafRef.current !== null) {
+      window.cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+    }
     pendingRef.current = null;
     visualRef.current = value;
     commitValueRef.current = null;
@@ -62,6 +66,23 @@ export function useViewportScheduler<T>({
     if (options.applyVisual) {
       applyVisualRef.current(value);
     }
+  }, []);
+
+  const flush = useCallback((value: T, options: { applyVisual?: boolean; commit?: boolean } = {}) => {
+    if (rafRef.current !== null) {
+      window.cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+    }
+    if (commitTimerRef.current !== null) {
+      window.clearTimeout(commitTimerRef.current);
+      commitTimerRef.current = null;
+    }
+
+    pendingRef.current = null;
+    commitValueRef.current = null;
+    visualRef.current = value;
+    if (options.applyVisual !== false) applyVisualRef.current(value);
+    if (options.commit !== false) commitRef.current(value);
   }, []);
 
   const schedule = useCallback(
@@ -98,6 +119,7 @@ export function useViewportScheduler<T>({
     current,
     schedule,
     sync,
+    flush,
     visualRef
   };
 }

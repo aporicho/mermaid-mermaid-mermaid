@@ -1,5 +1,5 @@
 import type { CanvasNodeAction } from "@/features/mermaid-editor/lib/editor-types";
-import { isSupportedDocumentFilePath } from "@/features/mermaid-editor/lib/document-kind";
+import { isSupportedDocumentFilePath, isSupportedMarkdownFilePath } from "@/features/mermaid-editor/lib/document-kind";
 import { isCsvTableFilePath } from "@/features/mermaid-editor/lib/csv-table-document";
 
 export const NODE_ACTION_NONE_VALUE = "__none__";
@@ -101,6 +101,10 @@ export function nodeActionDefaultTooltip(action: CanvasNodeAction | undefined) {
 export function nodeActionDisplayTooltip(action: CanvasNodeAction | undefined) {
   if (!action) return "";
   return action.tooltip?.trim() || nodeActionDefaultTooltip(action);
+}
+
+export function nodeActionTooltipEnabled(action: CanvasNodeAction | undefined) {
+  return Boolean(action && !(action.kind === "file" && isSupportedMarkdownFilePath(action.path)));
 }
 
 export function inferNodeActionKindFromTarget(target: string): CanvasNodeAction["kind"] | undefined {

@@ -61,7 +61,7 @@ export function MarkdownWindowPanel({
 
   return (
     <section
-      className="flex h-full min-h-0 flex-col bg-card/[var(--ui-surface-opacity)]"
+      className="markdown-window-panel flex h-full min-h-0 flex-col"
       onKeyDownCapture={handleKeyDown}
     >
       <WorkspaceWindowHeader
@@ -95,7 +95,7 @@ export function MarkdownWindowPanel({
         onFoldStateChange={onFoldStateChange}
         onChange={onChange}
         onSelectionChange={onSelectionChange}
-        className="markdown-editor-panel--window min-h-0 flex-1 bg-background/95"
+        className="markdown-editor-panel--window min-h-0 flex-1"
       />
     </section>
   );

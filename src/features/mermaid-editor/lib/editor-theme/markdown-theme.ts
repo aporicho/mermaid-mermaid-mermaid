@@ -85,6 +85,10 @@ function migrateLegacyMarkdown(source: Record<string, unknown>, legacyTypography
   const legacyList = legacyText({ ...fallback.list.unordered, ...body, ...listSource }, globalTypography.list, embeddedTypography.list);
 
   const migrated: MarkdownThemeTokens = {
+    window: {
+      ...fallback.window,
+      ...objectValue(source.window)
+    },
     layout: {
       ...fallback.layout,
       ...objectValue(source.layout)

@@ -1,5 +1,4 @@
 import { Arrow, Circle, Group, Path, Rect, Text } from "react-konva";
-import type { KonvaEventObject } from "konva/lib/Node";
 
 import { EdgeMarkers, PathArrowHead } from "@/features/mermaid-editor/components/konva-canvas/edge-markers";
 import { normalizeBox } from "@/features/mermaid-editor/components/konva-canvas/render-utils";
@@ -7,12 +6,6 @@ import type { InlineEdit } from "@/features/mermaid-editor/components/konva-canv
 import type { useKonvaRenderModel } from "@/features/mermaid-editor/components/konva-canvas/use-konva-render-model";
 import type { CanvasEdgeMotionVisual } from "@/features/mermaid-editor/components/konva-canvas/types";
 import type { HitTarget, InteractionState } from "@/features/mermaid-editor/lib/canvas-interaction";
-import {
-  CANVAS_HIT_NAMES,
-  edgeEndpointHitId,
-  edgeHitId,
-  edgeLabelHitId
-} from "@/features/mermaid-editor/lib/canvas-hit-target";
 import type { EdgeLabelGeometrySpec, EdgeLabelGeometryTokens } from "@/features/mermaid-editor/lib/edge-label-geometry";
 import { buildEdgeLabelGeometry, edgeLabelSingleLineText } from "@/features/mermaid-editor/lib/edge-label-geometry";
 import type { EditorMode, Selection } from "@/features/mermaid-editor/lib/editor-types";
@@ -41,13 +34,6 @@ type KonvaEdgeLayerProps = {
   edgeMotion: Record<string, CanvasEdgeMotionVisual>;
   scopedVisibleEdges: RenderModel["scopedVisibleEdges"];
   resolvedEdgeGeometry: RenderModel["resolvedEdgeGeometry"];
-  retargetDraft: RenderModel["retargetDraft"];
-  retargetDraftGeometry: RenderModel["retargetDraftGeometry"];
-  retargetPreview: RenderModel["retargetPreview"];
-  onCanvasClick: (event: KonvaEventObject<MouseEvent>, hit: HitTarget) => void;
-  onCanvasDoubleClick: (event: KonvaEventObject<MouseEvent>, hit: HitTarget) => void;
-  onCanvasTap: (event: KonvaEventObject<Event>, hit: HitTarget) => void;
-  interactive?: boolean;
 };
 
 type KonvaEdgeOverlayLayerProps = {
@@ -61,7 +47,8 @@ type KonvaEdgeOverlayLayerProps = {
   selectionBox: RenderModel["selectionBox"];
   selectedSingleEdge: RenderModel["selectedSingleEdge"];
   selectedSingleEdgeGeometry: RenderModel["selectedSingleEdgeGeometry"];
-  onEdgeEndpointPointerDown: (event: KonvaEventObject<MouseEvent>, hit: HitTarget) => void;
+  retargetDraftGeometry: RenderModel["retargetDraftGeometry"];
+  retargetPreview: RenderModel["retargetPreview"];
 };
 
 export function KonvaEdgeLayer({
@@ -75,108 +62,61 @@ export function KonvaEdgeLayer({
   edgeLabelSpec,
   edgeMotion,
   scopedVisibleEdges,
-  resolvedEdgeGeometry,
-  retargetDraft,
-  retargetDraftGeometry,
-  retargetPreview,
-  onCanvasClick,
-  onCanvasDoubleClick,
-  onCanvasTap,
-  interactive = true
+  resolvedEdgeGeometry
 }: KonvaEdgeLayerProps) {
   return (
     <>
       {scopedVisibleEdges.map((edge) => {
         const baseGeometry = resolvedEdgeGeometry(edge);
         if (!baseGeometry) return null;
-        const isRetargetPreviewEdge = retargetDraft?.edgeId === edge.id && !!retargetDraftGeometry && !!retargetPreview;
-        const geometry = isRetargetPreviewEdge ? retargetDraftGeometry : baseGeometry;
+        const geometry = baseGeometry;
         const edgeVisual = getEdgeVisualState({ edge, selection, hoveredEdgeId, interactionState, inlineEdit, visualTokens });
-        const edgePreviewVisual = isRetargetPreviewEdge ? getConnectionDraftVisualState({ valid: retargetPreview.valid, edge, visualTokens }) : null;
         const edgeMotionVisual = edgeMotion[edge.id];
-        const edgeStrokeWidth = (edgePreviewVisual?.strokeWidth ?? edgeVisual.strokeWidth) + (edgeMotionVisual?.highlight ?? 0) * visualTokens.edge.highlightBorderBoost;
-        const edgeStrokeEnabled = edgePreviewVisual?.strokeEnabled ?? edgeVisual.strokeEnabled;
+        const edgeStrokeWidth = edgeVisual.strokeWidth + (edgeMotionVisual?.highlight ?? 0) * visualTokens.edge.highlightBorderBoost;
+        const edgeStrokeEnabled = edgeVisual.strokeEnabled;
         const isEditingEdgeLabel = inlineEdit?.type === "edge" && inlineEdit.id === edge.id;
         const edgeLabel = isEditingEdgeLabel ? inlineEdit.value : edge.label;
         const edgeLabelGeometry = edgeLabel || isEditingEdgeLabel ? buildEdgeLabelGeometry(edgeLabel, geometry.labelPoint, edgeLabelSpec) : null;
 
         return (
-          <Group key={edge.id} listening={interactive}>
+          <Group key={edge.id} listening={false}>
             {geometry.pathData ? (
-              <>
-                <Path
-                  id={edgeHitId(edge.id)}
-                  name={CANVAS_HIT_NAMES.edge}
-                  data={geometry.pathData}
-                  stroke="transparent"
-                  strokeWidth={visualTokens.edge.hitStrokeWidth}
-                  fillEnabled={false}
-                  perfectDrawEnabled={false}
-                  shadowForStrokeEnabled={false}
-                  visible={interactive}
-                  onClick={(event) => onCanvasClick(event, { kind: "edge", id: edge.id })}
-                  onDblClick={(event) => onCanvasDoubleClick(event, { kind: "edge", id: edge.id })}
-                  onTap={(event) => onCanvasTap(event, { kind: "edge", id: edge.id })}
-                />
                 <Path
                   data={geometry.pathData}
-                  stroke={edgePreviewVisual?.stroke ?? edgeVisual.stroke}
+                  stroke={edgeVisual.stroke}
                   strokeWidth={edgeStrokeWidth}
                   strokeEnabled={edgeStrokeEnabled}
-                  dash={edgePreviewVisual?.dash ?? edgeVisual.dash}
-                  opacity={edgePreviewVisual?.opacity ?? edgeVisual.opacity ?? 1}
+                  dash={edgeVisual.dash}
+                  opacity={edgeVisual.opacity ?? 1}
                   lineCap="round"
                   lineJoin="round"
                   fillEnabled={false}
                   listening={false}
                 />
-              </>
             ) : (
-              <>
-                <Arrow
-                  id={edgeHitId(edge.id)}
-                  name={CANVAS_HIT_NAMES.edge}
-                  points={geometry.points}
-                  stroke="transparent"
-                  fill="transparent"
-                  strokeWidth={visualTokens.edge.hitStrokeWidth}
-                  pointerLength={0}
-                  pointerWidth={0}
-                  perfectDrawEnabled={false}
-                  shadowForStrokeEnabled={false}
-                  visible={interactive}
-                  onClick={(event) => onCanvasClick(event, { kind: "edge", id: edge.id })}
-                  onDblClick={(event) => onCanvasDoubleClick(event, { kind: "edge", id: edge.id })}
-                  onTap={(event) => onCanvasTap(event, { kind: "edge", id: edge.id })}
-                />
                 <Arrow
                   points={geometry.points}
-                  stroke={edgePreviewVisual?.stroke ?? edgeVisual.stroke}
-                  fill={edgePreviewVisual?.fill ?? edgeVisual.fill}
+                  stroke={edgeVisual.stroke}
+                  fill={edgeVisual.fill}
                   strokeWidth={edgeStrokeWidth}
                   strokeEnabled={edgeStrokeEnabled}
-                  dash={edgePreviewVisual?.dash ?? edgeVisual.dash}
-                  opacity={edgePreviewVisual?.opacity ?? edgeVisual.opacity ?? 1}
+                  dash={edgeVisual.dash}
+                  opacity={edgeVisual.opacity ?? 1}
                   lineCap="round"
                   lineJoin="round"
                   pointerLength={0}
                   pointerWidth={0}
                   listening={false}
                 />
-              </>
             )}
-            {!edgePreviewVisual && edgeVisual.strokeEnabled ? (
+            {edgeVisual.strokeEnabled ? (
               <EdgeMarkers edge={edge} geometry={geometry} stroke={edgeVisual.stroke} strokeWidth={edgeStrokeWidth} surfaceFill={visualTokens.surface.background} visualTokens={visualTokens} />
             ) : null}
             {viewFilters.edgeLabels && edgeLabelGeometry && !isEditingEdgeLabel ? (
               <Group
-                id={edgeLabelHitId(edge.id)}
-                name={CANVAS_HIT_NAMES.edgeLabel}
                 x={edgeLabelGeometry.frame.x}
                 y={edgeLabelGeometry.frame.y}
-                listening={interactive}
-                onClick={(event) => onCanvasClick(event, { kind: "edgeLabel", id: edge.id })}
-                onDblClick={(event) => onCanvasDoubleClick(event, { kind: "edgeLabel", id: edge.id })}
+                listening={false}
               >
                 <Rect
                   width={edgeLabelGeometry.frame.width}
@@ -225,8 +165,12 @@ export function KonvaEdgeOverlayLayer({
   selectionBox,
   selectedSingleEdge,
   selectedSingleEdgeGeometry,
-  onEdgeEndpointPointerDown
+  retargetDraftGeometry,
+  retargetPreview
 }: KonvaEdgeOverlayLayerProps) {
+  const retargetVisual = retargetDraftGeometry && retargetPreview && selectedSingleEdge
+    ? getConnectionDraftVisualState({ valid: retargetPreview.valid, edge: selectedSingleEdge, visualTokens })
+    : null;
   return (
     <>
       {connectionDraftGeometry ? (
@@ -258,6 +202,27 @@ export function KonvaEdgeOverlayLayer({
         )
       ) : null}
 
+      {retargetDraftGeometry && retargetVisual ? (
+        retargetDraftGeometry.pathData ? (
+          <Group listening={false}>
+            <Path
+              data={retargetDraftGeometry.pathData}
+              stroke={retargetVisual.stroke}
+              strokeWidth={retargetVisual.strokeWidth}
+              strokeEnabled={retargetVisual.strokeEnabled}
+              dash={retargetVisual.dash}
+              opacity={retargetVisual.opacity}
+              lineCap="round"
+              lineJoin="round"
+              fillEnabled={false}
+            />
+            {retargetVisual.strokeEnabled ? (
+              <PathArrowHead point={retargetDraftGeometry.end} tangent={retargetDraftGeometry.endTangent} fill={retargetVisual.fill} length={retargetVisual.pointerLength} width={retargetVisual.pointerWidth} />
+            ) : null}
+          </Group>
+        ) : <Arrow points={retargetDraftGeometry.points} {...retargetVisual} listening={false} />
+      ) : null}
+
       {selectionBox ? (
         <Rect
           {...normalizeBox(selectionBox)}
@@ -269,8 +234,6 @@ export function KonvaEdgeOverlayLayer({
       {viewFilters.edges && mode === "select" && selectedSingleEdge && selectedSingleEdgeGeometry ? (
         <>
           <Circle
-            id={edgeEndpointHitId(selectedSingleEdge.id, "from")}
-            name={CANVAS_HIT_NAMES.edgeEndpoint}
             x={selectedSingleEdgeGeometry.start.x}
             y={selectedSingleEdgeGeometry.start.y}
             {...getEdgeEndpointVisualState({
@@ -278,14 +241,9 @@ export function KonvaEdgeOverlayLayer({
               active: activeEdgeEndpoint(retargetDraft, "from", selectedSingleEdge.id),
               visualTokens
             })}
-            onMouseDown={(event) => {
-              event.cancelBubble = true;
-              onEdgeEndpointPointerDown(event, { kind: "edgeEndpoint", edgeId: selectedSingleEdge.id, side: "from" });
-            }}
+            listening={false}
           />
           <Circle
-            id={edgeEndpointHitId(selectedSingleEdge.id, "to")}
-            name={CANVAS_HIT_NAMES.edgeEndpoint}
             x={selectedSingleEdgeGeometry.end.x}
             y={selectedSingleEdgeGeometry.end.y}
             {...getEdgeEndpointVisualState({
@@ -293,10 +251,7 @@ export function KonvaEdgeOverlayLayer({
               active: activeEdgeEndpoint(retargetDraft, "to", selectedSingleEdge.id),
               visualTokens
             })}
-            onMouseDown={(event) => {
-              event.cancelBubble = true;
-              onEdgeEndpointPointerDown(event, { kind: "edgeEndpoint", edgeId: selectedSingleEdge.id, side: "to" });
-            }}
+            listening={false}
           />
         </>
       ) : null}

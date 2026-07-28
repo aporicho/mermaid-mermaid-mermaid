@@ -537,6 +537,7 @@ describe("interaction architecture contract", () => {
     const nodeImageSurface = readProjectFile("src/features/mermaid-editor/components/konva-canvas/node-image-surface.tsx");
     const markdownCard = readProjectFile("src/features/mermaid-editor/components/konva-canvas/markdown-document-card.tsx");
     const nodeGeometry = readProjectFile("src/features/mermaid-editor/lib/node-geometry.ts");
+    const geometryHitTest = readProjectFile("src/features/mermaid-editor/lib/canvas-geometry-hit-test.ts");
 
     expect(nodeGeometry).toContain("if (asset) return buildImageNodeGeometry(node, asset);");
     expect(nodeGeometry).toContain("width: asset.width");
@@ -553,8 +554,10 @@ describe("interaction architecture contract", () => {
     expect(nodeLayer).toContain("isStandardNode ? (");
     expect(nodeLayer).toContain("isTableNode && geometry.table ? (");
     expect(nodeLayer).toContain("<CanvasNodeLinkCard");
-    expect(nodeLayer).toContain("fill=\"rgba(0,0,0,0.001)\"");
-    expect(nodeLayer).toContain("strokeEnabled={false}");
+    expect(nodeLayer).not.toContain("fill=\"rgba(0,0,0,0.001)\"");
+    expect(nodeLayer).toContain("listening={false}");
+    expect(geometryHitTest).toContain("function resolveNodeTarget(");
+    expect(geometryHitTest).toContain('if (resolveCanvasNodeKind(node) !== "standard") return { kind: "node", id: node.id };');
     expect(nodeLayer).toContain("<CanvasNodeImageSurface");
     expect(nodeImageSurface).toContain("cornerRadius={surface.radius}");
     expect(nodeImageSurface).toContain("roundedRectClip");

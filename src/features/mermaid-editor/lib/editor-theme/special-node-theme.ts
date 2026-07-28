@@ -252,10 +252,8 @@ export function resolveSpecialNodeBorder(
   stateValue: SpecialNodeStateTokens,
   visualState: SpecialNodeVisualState = "normal"
 ): CanvasBorderTokens {
-  if (visualState === "normal") return surfaceValue.border;
-  const color = visualState === "hovered"
-    ? stateValue.hoverBorderColor
-    : visualState === "connectionInvalid" || visualState === "error"
+  if (visualState === "normal" || visualState === "hovered") return surfaceValue.border;
+  const color = visualState === "connectionInvalid" || visualState === "error"
       ? stateValue.errorBorderColor
       : visualState === "editing"
         ? stateValue.editingBorderColor
@@ -265,7 +263,6 @@ export function resolveSpecialNodeBorder(
 
 function stateTokens(canvas: CanvasThemeTokens): SpecialNodeStateTokens {
   return {
-    hoverBorderColor: canvas.ordinaryNode.hoverBorderColor,
     selectedBorderColor: canvas.ordinaryNode.selectedBorderColor,
     errorBorderColor: canvas.ordinaryNode.invalidBorderColor,
     editingBorderColor: canvas.ordinaryNode.selectedBorderColor,
@@ -362,7 +359,6 @@ function migrateLegacySpecialNodeTheme(raw: unknown, fallback: SpecialNodeThemeT
       state: mergeObjects({
         ...legacyState(common, fallback.image.state),
         ...(image.interactionBorderColor === undefined ? {} : {
-          hoverBorderColor: image.interactionBorderColor,
           selectedBorderColor: image.interactionBorderColor,
           editingBorderColor: image.interactionBorderColor
         }),

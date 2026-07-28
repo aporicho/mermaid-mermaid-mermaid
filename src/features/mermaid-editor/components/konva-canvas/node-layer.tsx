@@ -1,7 +1,5 @@
-import { useCallback, useEffect, useRef, type RefObject } from "react";
-import { Circle, Group, Text } from "react-konva";
-import type Konva from "konva";
-import type { KonvaEventObject } from "konva/lib/Node";
+import { useCallback, useRef } from "react";
+import { Group, Text } from "react-konva";
 
 import type { InlineEdit } from "@/features/mermaid-editor/components/konva-canvas/inline-edit-overlays";
 import { CanvasNodeActionBadge } from "@/features/mermaid-editor/components/konva-canvas/node-action-ui";
@@ -12,24 +10,17 @@ import { HtmlDocumentCard } from "@/features/mermaid-editor/components/konva-can
 import { CanvasNodeShape } from "@/features/mermaid-editor/components/konva-canvas/node-shapes";
 import { CanvasTableNode, CanvasTableNodePlaceholder } from "@/features/mermaid-editor/components/konva-canvas/table-node";
 import { CanvasStaticCacheGroup, canvasStaticCacheKey } from "@/features/mermaid-editor/components/konva-canvas/canvas-static-cache-group";
-import { scaleLocalPointFromCenter } from "@/features/mermaid-editor/components/konva-canvas/render-utils";
 import type { CanvasNodeMotionVisual } from "@/features/mermaid-editor/components/konva-canvas/types";
 import type { useKonvaRenderModel } from "@/features/mermaid-editor/components/konva-canvas/use-konva-render-model";
-import type { CanvasPoint, HitTarget, InteractionState } from "@/features/mermaid-editor/lib/canvas-interaction";
+import type { HitTarget, InteractionState } from "@/features/mermaid-editor/lib/canvas-interaction";
+import { nodeVisualId } from "@/features/mermaid-editor/lib/canvas-hit-target";
+import { centerScaleTransform } from "@/features/mermaid-editor/lib/canvas-motion";
 import {
-  CANVAS_HIT_NAMES,
-  nodeAnchorHitId,
-  nodeHitId,
-  nodeVisualId
-} from "@/features/mermaid-editor/lib/canvas-hit-target";
-import { centerScaleTransform, type CanvasNodePreviewPositions } from "@/features/mermaid-editor/lib/canvas-motion";
-import {
-  getAnchorVisualState,
   getNodeVisualState,
   resolveCanvasNodeTextFill,
   type CanvasVisualTokens
 } from "@/features/mermaid-editor/lib/canvas-visual-state";
-import type { CanvasNode, EditorMode, Selection } from "@/features/mermaid-editor/lib/editor-types";
+import type { CanvasNode, Selection } from "@/features/mermaid-editor/lib/editor-types";
 import { normalizeNodeAction } from "@/features/mermaid-editor/lib/node-actions";
 import { normalizeImageAsset } from "@/features/mermaid-editor/lib/node-assets";
 import type { MarkdownDocumentPreview } from "@/features/mermaid-editor/lib/markdown-document";
@@ -38,25 +29,19 @@ import { buildNodeGeometry } from "@/features/mermaid-editor/lib/node-geometry";
 import type { ViewFilters } from "@/features/mermaid-editor/lib/view-filters";
 import type { EditorTypographyTokens, MarkdownThemeTokens, SpecialNodeThemeTokens } from "@/features/mermaid-editor/lib/editor-theme";
 import { resolveCanvasNodeKind } from "@/features/mermaid-editor/lib/canvas-node-kind";
-import type { TableCellSelection, TableHeaderSelection } from "@/features/mermaid-editor/lib/table-node";
+import type { TableCellSelection } from "@/features/mermaid-editor/lib/table-node";
 
 type RenderModel = ReturnType<typeof useKonvaRenderModel>;
 
 type KonvaNodeLayerProps = {
-  nodeLayerRef: RefObject<Konva.Layer | null>;
-  interactionLayerRef: RefObject<Konva.Layer | null>;
   viewFilters: ViewFilters;
-  mode: EditorMode;
-  panningRequested: boolean;
-  dragEnabled: boolean;
   selection: Selection;
   inlineEdit: InlineEdit | null;
   interactionState: InteractionState;
   hoveredNodeId: string | null;
+  hoveredHitTarget: HitTarget;
   connectionTargetNodeId: string | null;
   connectionInvalidNodeId: string | null;
-  connectionPreview: RenderModel["connectionPreview"];
-  retargetPreview: RenderModel["retargetPreview"];
   scopedRenderedNodes: RenderModel["scopedRenderedNodes"];
   exitingNodes: CanvasNode[];
   nodeGeometryById: RenderModel["nodeGeometryById"];
@@ -73,36 +58,19 @@ type KonvaNodeLayerProps = {
   fontRevision: number;
   specialNodeTokens: SpecialNodeThemeTokens;
   selectedTableCell: TableCellSelection | null;
-  onStartNodeDrag: (nodeId: string) => void;
-  onMoveNode: (node: CanvasNode, target: Konva.Node) => CanvasNodePreviewPositions | null;
-  onEndDrag: () => void;
-  onCanvasClick: (event: KonvaEventObject<MouseEvent>, hit: HitTarget) => void;
-  onCanvasDoubleClick: (event: KonvaEventObject<MouseEvent>, hit: HitTarget) => void;
-  onNodeContextMenu: (event: KonvaEventObject<PointerEvent | MouseEvent>, node: CanvasNode) => void;
-  onNodeAnchorPointerDown: (event: KonvaEventObject<MouseEvent>, hit: HitTarget, world: CanvasPoint) => void;
   onOpenNodeAction?: (node: CanvasNode) => void;
   onRequestMarkdownDocumentPreview?: (node: CanvasNode) => void;
-  onSelectTableCell: (selection: TableCellSelection | null) => void;
-  onStartTableCellEdit: (selection: TableCellSelection) => void;
-  onStartTableHeaderEdit: (selection: TableHeaderSelection) => void;
-  onResizeTableColumn: (nodeId: string, columnId: string, width: number) => void;
 };
 
 export function KonvaNodeLayer({
-  nodeLayerRef,
-  interactionLayerRef,
   viewFilters,
-  mode,
-  panningRequested,
-  dragEnabled,
   selection,
   inlineEdit,
   interactionState,
   hoveredNodeId,
+  hoveredHitTarget,
   connectionTargetNodeId,
   connectionInvalidNodeId,
-  connectionPreview,
-  retargetPreview,
   scopedRenderedNodes,
   exitingNodes,
   nodeGeometryById,
@@ -119,21 +87,9 @@ export function KonvaNodeLayer({
   fontRevision,
   specialNodeTokens,
   selectedTableCell,
-  onStartNodeDrag,
-  onMoveNode,
-  onEndDrag,
-  onCanvasClick,
-  onCanvasDoubleClick,
-  onNodeContextMenu,
-  onNodeAnchorPointerDown,
   onOpenNodeAction,
   onRequestMarkdownDocumentPreview,
-  onSelectTableCell,
-  onStartTableCellEdit,
-  onStartTableHeaderEdit,
-  onResizeTableColumn
 }: KonvaNodeLayerProps) {
-  const promotedNodesRef = useRef<PromotedNode[]>([]);
   const renderedNodesRef = useRef(scopedRenderedNodes);
   const openNodeActionRef = useRef(onOpenNodeAction);
   renderedNodesRef.current = scopedRenderedNodes;
@@ -142,39 +98,7 @@ export function KonvaNodeLayer({
     const node = renderedNodesRef.current.find((candidate) => candidate.id === nodeId);
     if (node) openNodeActionRef.current?.(node);
   }, []);
-  useEffect(() => () => {
-    restorePromotedNodes(promotedNodesRef.current);
-    promotedNodesRef.current = [];
-  }, []);
   if (!viewFilters.nodes) return null;
-
-  function promoteDraggedNodes(nodeId: string, target: Konva.Node) {
-    restorePromotedNodes(promotedNodesRef.current);
-    promotedNodesRef.current = [];
-    const interactionLayer = interactionLayerRef.current;
-    const stage = target.getStage();
-    if (!interactionLayer || !stage) return;
-    const movingIds = selection.nodeIds.includes(nodeId) ? selection.nodeIds : [nodeId];
-    const promoted: PromotedNode[] = [];
-    for (const id of movingIds) {
-      const candidate = stage.findOne((item: Konva.Node) => item.id() === nodeHitId(id));
-      const parent = candidate?.getParent();
-      if (!candidate || !parent || parent === interactionLayer) continue;
-      promoted.push({ node: candidate, parent, zIndex: candidate.zIndex() });
-    }
-    for (const item of promoted) item.node.moveTo(interactionLayer);
-    promotedNodesRef.current = promoted;
-    nodeLayerRef.current?.batchDraw();
-    interactionLayer.batchDraw();
-  }
-
-  function finishPromotedNodeDrag() {
-    restorePromotedNodes(promotedNodesRef.current);
-    promotedNodesRef.current = [];
-    nodeLayerRef.current?.batchDraw();
-    interactionLayerRef.current?.batchDraw();
-    onEndDrag();
-  }
 
   return (
     <>
@@ -192,10 +116,6 @@ export function KonvaNodeLayer({
           inlineEdit,
           visualTokens
         });
-        const anchorVisual = getAnchorVisualState({ nodeId: node.id, mode, selection, hoveredNodeId, interactionState, inlineEdit, visualTokens });
-        const connectionAnchorTarget = nodeConnectionAnchorTarget(node.id, connectionPreview, retargetPreview);
-        const connectionAnchorsVisible = nodeConnectionAnchorsVisible(node.id, connectionPreview, retargetPreview);
-        const nodeAnchorsVisible = anchorVisual.visible || connectionAnchorsVisible;
         const nodeKind = resolveCanvasNodeKind(node);
         const linkPreview = nodeKind === "link-card" ? node.preview : undefined;
         const imageAsset = normalizeImageAsset(node.asset);
@@ -203,7 +123,6 @@ export function KonvaNodeLayer({
         const isHtmlDocument = nodeKind === "html-document";
         const isImageNode = nodeKind === "image";
         const isTableNode = nodeKind === "table";
-        const tableInteractive = mode === "select" && !panningRequested && interactionState.kind === "idle" && !inlineEdit;
         const isStandardNode = nodeKind === "standard";
         const nodeAction = isStandardNode && normalizeNodeAction(node.action);
         const nodeInlineEditing = inlineEdit?.type === "node" && inlineEdit.id === node.id;
@@ -226,27 +145,12 @@ export function KonvaNodeLayer({
 
         return (
           <Group
-            id={isTableNode ? nodeHitId(node.id) : nodeVisualId(node.id)}
-            name={isTableNode ? CANVAS_HIT_NAMES.node : undefined}
+            id={nodeVisualId(node.id)}
             key={node.id}
             x={geometry.frame.x}
             y={geometry.frame.y}
             opacity={motionVisual?.opacity ?? 1}
-            listening={isTableNode}
-            draggable={isTableNode && dragEnabled && mode === "select" && !panningRequested && interactionState.kind !== "panning"}
-            onDragStart={isTableNode ? (event) => {
-              if (event.evt.button !== 0) {
-                event.target.stopDrag();
-                return;
-              }
-              onStartNodeDrag(node.id);
-              promoteDraggedNodes(node.id, event.target);
-            } : undefined}
-            onDragMove={isTableNode ? (event) => { onMoveNode(node, event.target); } : undefined}
-            onDragEnd={isTableNode ? finishPromotedNodeDrag : undefined}
-            onClick={isTableNode ? (event) => onCanvasClick(event, { kind: "node", id: node.id }) : undefined}
-            onDblClick={isTableNode ? (event) => onCanvasDoubleClick(event, { kind: "node", id: node.id }) : undefined}
-            onContextMenu={isTableNode ? (event) => onNodeContextMenu(event, node) : undefined}
+            listening={false}
           >
             <Group
               x={nodeVisualTransform.x}
@@ -307,7 +211,7 @@ export function KonvaNodeLayer({
                       listening={false}
                     />
                   </CanvasStaticCacheGroup>
-                  {nodeVisual.kind !== "normal" && nodeVisual.kind !== "dragging" ? (
+                  {nodeVisual.kind !== "normal" && nodeVisual.kind !== "hovered" && nodeVisual.kind !== "dragging" ? (
                     <CanvasNodeShape
                       node={node}
                       width={geometry.frame.width}
@@ -346,29 +250,13 @@ export function KonvaNodeLayer({
                   nodeId={node.id}
                   layout={geometry.table}
                   selectedCell={selectedTableCell?.nodeId === node.id ? selectedTableCell : null}
+                  hoveredCell={hoveredHitTarget.kind === "tableCell" && hoveredHitTarget.nodeId === node.id ? hoveredHitTarget : null}
                   specialNode={specialNodeTokens}
                   typography={typography.tableNode.cell}
                   editing={inlineEdit?.type === "tableCell" ? { nodeId: inlineEdit.id, rowId: inlineEdit.rowId, columnId: inlineEdit.columnId } : null}
                   editingHeader={inlineEdit?.type === "tableHeader" ? { nodeId: inlineEdit.id, columnId: inlineEdit.columnId } : null}
                   visualState={nodeVisual.kind}
                   fontRevision={fontRevision}
-                  interactive={tableInteractive}
-                  onCellClick={(event, cell) => {
-                    event.cancelBubble = true;
-                    onSelectTableCell(cell);
-                    onCanvasClick(event, { kind: "tableCell", ...cell });
-                  }}
-                  onCellDoubleClick={(event, cell) => {
-                    event.cancelBubble = true;
-                    onSelectTableCell(cell);
-                    onCanvasClick(event, { kind: "tableCell", ...cell });
-                    onStartTableCellEdit(cell);
-                  }}
-                  onHeaderDoubleClick={(event, header) => {
-                    onCanvasClick(event, { kind: "tableHeader", ...header });
-                    onStartTableHeaderEdit(header);
-                  }}
-                  onResizeColumn={(columnId, width) => onResizeTableColumn(node.id, columnId, width)}
                 />
               ) : null}
               {isTableNode && !geometry.table ? (
@@ -426,41 +314,6 @@ export function KonvaNodeLayer({
                 />
               ) : null}
             </Group>
-            {nodeAnchorsVisible
-              ? geometry.anchorsLocal.map((anchor) => {
-                  const anchorPoint = scaleLocalPointFromCenter(anchor, geometry.frame, proximityScale);
-                  return (
-                    <Group
-                      id={nodeAnchorHitId(node.id, anchor.key)}
-                      name={CANVAS_HIT_NAMES.nodeAnchor}
-                      key={`${node.id}-${anchor.key}`}
-                      x={anchorPoint.x}
-                      y={anchorPoint.y}
-                      onMouseDown={(event) => {
-                        event.cancelBubble = true;
-                        onNodeAnchorPointerDown(
-                          event,
-                          { kind: "nodeAnchor", nodeId: node.id, anchor: anchor.key },
-                          {
-                            x: geometry.frame.x + anchorPoint.x,
-                            y: geometry.frame.y + anchorPoint.y
-                          }
-                        );
-                      }}
-                    >
-                      <Circle radius={anchorVisual.radius} fill="rgba(0,0,0,0.001)" strokeEnabled={false} />
-                      <Circle
-                        radius={anchor.kind === "corner" ? anchorVisual.radius * visualTokens.group.anchorCornerScale : anchorVisual.radius}
-                        fill={anchor.key === connectionAnchorTarget ? visualTokens.overlay.anchor.targetColor : anchorVisual.fill}
-                        stroke={anchorVisual.stroke}
-                        strokeWidth={anchorVisual.strokeWidth}
-                        opacity={anchor.kind === "corner" ? visualTokens.group.anchorCornerOpacity : 1}
-                        listening={false}
-                      />
-                    </Group>
-                  );
-                })
-              : null}
           </Group>
         );
       })}
@@ -537,13 +390,13 @@ export function KonvaNodeLayer({
                   nodeId={node.id}
                   layout={geometry.table}
                   selectedCell={null}
+                  hoveredCell={null}
                   specialNode={specialNodeTokens}
                   typography={typography.tableNode.cell}
                   editing={null}
                   editingHeader={null}
                   visualState={nodeVisual.kind}
                   fontRevision={fontRevision}
-                  interactive={false}
                   cacheEnabled={false}
                 />
               ) : null}
@@ -628,46 +481,6 @@ export function KonvaNodeLayer({
         );
       })}
     </>
-  );
-}
-
-type PromotedNode = {
-  node: Konva.Node;
-  parent: Konva.Container;
-  zIndex: number;
-};
-
-function restorePromotedNodes(promoted: PromotedNode[]) {
-  for (const item of promoted) item.node.moveTo(item.parent);
-  for (const item of [...promoted].sort((left, right) => left.zIndex - right.zIndex)) {
-    item.node.zIndex(Math.min(item.zIndex, Math.max(0, item.parent.getChildren().length - 1)));
-  }
-}
-
-function nodeConnectionAnchorTarget(
-  nodeId: string,
-  connectionPreview: RenderModel["connectionPreview"],
-  retargetPreview: RenderModel["retargetPreview"]
-) {
-  if (connectionPreview?.targetNodeId === nodeId || connectionPreview?.invalidNodeId === nodeId) {
-    return connectionPreview.targetAnchor;
-  }
-  if (retargetPreview?.targetNodeId === nodeId || retargetPreview?.invalidNodeId === nodeId) {
-    return retargetPreview.targetAnchor;
-  }
-  return null;
-}
-
-function nodeConnectionAnchorsVisible(
-  nodeId: string,
-  connectionPreview: RenderModel["connectionPreview"],
-  retargetPreview: RenderModel["retargetPreview"]
-) {
-  return (
-    connectionPreview?.targetNodeId === nodeId ||
-    connectionPreview?.invalidNodeId === nodeId ||
-    retargetPreview?.targetNodeId === nodeId ||
-    retargetPreview?.invalidNodeId === nodeId
   );
 }
 

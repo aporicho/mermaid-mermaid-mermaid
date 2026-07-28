@@ -68,7 +68,6 @@ export const DEFAULT_TABLE_NODE_TOKENS: SpecialNodeTableTokens = {
     shadow: { color: "#171717", blur: 0, opacity: 0, offsetX: 0, offsetY: 0 }
   },
   state: {
-    hoverBorderColor: "#737373",
     selectedBorderColor: "#171717",
     errorBorderColor: "#dc2626",
     editingBorderColor: "#171717",

@@ -1,13 +1,12 @@
 import type { AlignmentGuide } from "@/features/mermaid-editor/lib/alignment-guides";
 import type { InteractionState } from "@/features/mermaid-editor/lib/canvas-interaction";
-import type { CanvasEdge, EditorMode, Selection } from "@/features/mermaid-editor/lib/editor-types";
+import type { CanvasEdge, Selection } from "@/features/mermaid-editor/lib/editor-types";
 import type { CanvasStrokeStyle, CanvasThemeTokens, ShadowTokens } from "@/features/mermaid-editor/lib/editor-theme/appearance-types";
 
 export type InlineEditTarget = { type: "node" | "subgraph" | "edge" | "tableCell" | "tableHeader"; id: string } | null | undefined;
 
 export type NodeVisualKind = "normal" | "hovered" | "selected" | "dragging" | "editing" | "connectionTarget" | "connectionInvalid";
 export type EdgeVisualKind = "normal" | "hovered" | "selected" | "editing";
-export type AnchorVisualKind = "hidden" | "available" | "active" | "target";
 export type EdgeEndpointVisualKind = "normal" | "hovered" | "active";
 
 export type NodeVisualState = {
@@ -31,15 +30,6 @@ export type EdgeVisualState = {
   labelFill: string;
   labelStroke: string;
   labelTextFill: string;
-};
-
-export type AnchorVisualState = {
-  kind: AnchorVisualKind;
-  visible: boolean;
-  radius: number;
-  fill: string;
-  stroke: string;
-  strokeWidth: number;
 };
 
 export type EdgeEndpointVisualState = {
@@ -87,7 +77,6 @@ export const CANVAS_VISUAL_TOKENS: CanvasVisualTokens = {
   ordinaryNode: {
     textColor: "#18130f",
     borderColor: "#2a251f",
-    hoverBorderColor: "#b91f31",
     selectedBorderColor: "#ff4050",
     invalidBorderColor: "#9b5a50",
     borderWidth: 1,
@@ -151,7 +140,6 @@ export const CANVAS_VISUAL_TOKENS: CanvasVisualTokens = {
     background: "#fbf6ef",
     backgroundOpacity: 0.34,
     borderColor: "#b8ada0",
-    hoverBorderColor: "#b91f31",
     selectedBorderColor: "#ff4050",
     invalidBorderColor: "#9b5a50",
     borderWidth: 1,
@@ -180,9 +168,7 @@ export const CANVAS_VISUAL_TOKENS: CanvasVisualTokens = {
       insetX: 14,
       insetTop: 10,
       paddingX: 10
-    },
-    anchorCornerScale: 0.72,
-    anchorCornerOpacity: 0.65
+    }
   },
   overlay: {
     selection: {
@@ -333,53 +319,11 @@ export function getNodeVisualState(input: {
     return { ...base, kind, stroke: node.invalidBorderColor, strokeWidth: node.emphasizedBorderWidth };
   }
 
-  if (kind === "hovered") {
-    return {
-      ...base,
-      kind,
-      stroke: node.hoverBorderColor,
-      strokeWidth: node.borderWidth
-    };
-  }
-
   return {
     ...base,
     kind,
     stroke: node.borderColor,
     strokeWidth: node.borderWidth
-  };
-}
-
-export function getAnchorVisualState(input: {
-  nodeId: string;
-  mode: EditorMode;
-  selection: Selection;
-  hoveredNodeId: string | null;
-  interactionState: InteractionState;
-  inlineEdit?: InlineEditTarget;
-  visualTokens?: CanvasVisualTokens;
-}): AnchorVisualState {
-  const visualTokens = input.visualTokens ?? CANVAS_VISUAL_TOKENS;
-  const kind = getAnchorVisualKind(input);
-  const anchor = visualTokens.overlay.anchor;
-  const base = {
-    kind,
-    visible: kind !== "hidden",
-    radius: anchor.radius,
-    stroke: anchor.strokeColor,
-    strokeWidth: anchor.strokeWidth
-  };
-
-  if (kind === "active" || kind === "target") {
-    return {
-      ...base,
-      fill: anchor.targetColor
-    };
-  }
-
-  return {
-    ...base,
-    fill: anchor.fillColor
   };
 }
 
@@ -483,9 +427,7 @@ export function getGroupVisualState(input: {
     ? group.invalidBorderColor
     : kind === "selected" || kind === "connectionTarget"
       ? group.selectedBorderColor
-      : kind === "hovered"
-        ? group.hoverBorderColor
-        : group.borderColor;
+      : group.borderColor;
 
   return {
     kind,
@@ -540,22 +482,6 @@ function getNodeVisualKind(input: {
   if (input.selection.nodeIds.includes(input.nodeId)) return "selected";
   if (input.hoveredNodeId === input.nodeId) return "hovered";
   return "normal";
-}
-
-function getAnchorVisualKind(input: {
-  nodeId: string;
-  mode: EditorMode;
-  selection: Selection;
-  hoveredNodeId: string | null;
-  interactionState: InteractionState;
-  inlineEdit?: InlineEditTarget;
-}): AnchorVisualKind {
-  if (input.mode === "connect") return "hidden";
-  if (isEditingNode(input.nodeId, input.interactionState, input.inlineEdit)) return "hidden";
-  if (input.interactionState.kind === "connectingEdge") return "hidden";
-
-  if (input.hoveredNodeId === input.nodeId || input.selection.nodeIds.includes(input.nodeId)) return "available";
-  return "hidden";
 }
 
 function getEdgeVisualKind(input: {

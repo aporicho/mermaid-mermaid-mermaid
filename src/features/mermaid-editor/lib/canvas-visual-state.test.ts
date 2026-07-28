@@ -4,7 +4,6 @@ import {
   CANVAS_VISUAL_TOKENS,
   canvasStrokeDash,
   getAlignmentGuideVisualState,
-  getAnchorVisualState,
   getConnectionDraftVisualState,
   getEdgeEndpointVisualState,
   getEdgeVisualState,
@@ -28,17 +27,6 @@ const edge: CanvasEdge = {
 function nodeVisual(overrides: Partial<Parameters<typeof getNodeVisualState>[0]> = {}) {
   return getNodeVisualState({
     nodeId: "node-a",
-    selection: emptySelection,
-    hoveredNodeId: null,
-    interactionState: idleInteraction,
-    ...overrides
-  });
-}
-
-function anchorVisual(overrides: Partial<Parameters<typeof getAnchorVisualState>[0]> = {}) {
-  return getAnchorVisualState({
-    nodeId: "node-a",
-    mode: "select",
     selection: emptySelection,
     hoveredNodeId: null,
     interactionState: idleInteraction,
@@ -84,7 +72,10 @@ describe("canvas visual state", () => {
       currentWorld: { x: 20, y: 0 }
     };
 
-    expect(nodeVisual({ nodeId: "node-a", hoveredNodeId: "node-a", interactionState: connecting }).kind).toBe("hovered");
+    expect(nodeVisual({ nodeId: "node-a", hoveredNodeId: "node-a", interactionState: connecting })).toMatchObject({
+      kind: "hovered",
+      stroke: CANVAS_VISUAL_TOKENS.ordinaryNode.borderColor
+    });
     expect(nodeVisual({ nodeId: "node-b", hoveredNodeId: "node-b", interactionState: connecting }).kind).toBe("connectionTarget");
   });
 
@@ -106,32 +97,17 @@ describe("canvas visual state", () => {
     ).toBe("connectionInvalid");
   });
 
-  it("shows anchors in select mode for hover and selection", () => {
-    expect(anchorVisual().kind).toBe("hidden");
-    expect(anchorVisual({ mode: "connect" }).kind).toBe("hidden");
-    expect(anchorVisual({ hoveredNodeId: "node-a" }).kind).toBe("available");
-    expect(anchorVisual({ selection: { nodeIds: ["node-a"], edgeIds: [] } }).kind).toBe("available");
-  });
-
-  it("keeps anchors hidden in connect mode and while connecting", () => {
-    expect(anchorVisual({ mode: "connect", hoveredNodeId: "node-a" }).visible).toBe(false);
-    expect(
-      anchorVisual({
-        mode: "select",
-        hoveredNodeId: "node-a",
-        interactionState: {
-          kind: "connectingEdge",
-          pointerId: 0,
-          fromId: "node-a",
-          startWorld: { x: 0, y: 0 },
-          currentWorld: { x: 20, y: 0 }
-        }
-      }).visible
-    ).toBe(false);
-  });
-
-  it("hides anchors while editing node text", () => {
-    expect(anchorVisual({ mode: "connect", interactionState: { kind: "editingNodeText", nodeId: "node-a" } }).visible).toBe(false);
+  it("keeps ordinary node and group borders unchanged on hover", () => {
+    expect(nodeVisual({ hoveredNodeId: "node-a" })).toMatchObject({
+      kind: "hovered",
+      stroke: CANVAS_VISUAL_TOKENS.ordinaryNode.borderColor,
+      strokeWidth: CANVAS_VISUAL_TOKENS.ordinaryNode.borderWidth
+    });
+    expect(getGroupVisualState({ hovered: true })).toMatchObject({
+      kind: "hovered",
+      stroke: CANVAS_VISUAL_TOKENS.group.borderColor,
+      strokeWidth: CANVAS_VISUAL_TOKENS.group.borderWidth
+    });
   });
 
   it("keeps semantic edge style while applying selected and hover states", () => {

@@ -1,16 +1,10 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, type RefObject } from "react";
-import type Konva from "konva";
-import type { KonvaEventObject } from "konva/lib/Node";
-
+import { useCallback, useEffect, useLayoutEffect, useRef, type RefObject, type WheelEvent as ReactWheelEvent } from "react";
 import type { ScreenPointResolver, ScheduledViewport, SafariGestureEvent, ViewportCommandSource } from "@/features/mermaid-editor/components/konva-canvas/types";
 import { createWheelIntentTracker } from "@/features/mermaid-editor/lib/canvas-viewport-navigation";
 import type { CanvasPoint, HitTarget, InteractionState } from "@/features/mermaid-editor/lib/canvas-interaction";
 import type { EdgeRouting, EditorMode, LayoutMode, MermaidGraph, Selection, ViewportState } from "@/features/mermaid-editor/lib/editor-types";
 import type { ViewFilters } from "@/features/mermaid-editor/lib/view-filters";
-import {
-  cancelCanvasHitGraphDraw,
-  drawCanvasViewportScene
-} from "@/features/mermaid-editor/components/konva-canvas/canvas-layer-draw-scheduler";
+import type { CanvasViewportCompositor } from "@/features/mermaid-editor/components/konva-canvas/canvas-viewport-compositor";
 import type { EditorCommand } from "@/features/mermaid-editor/lib/interaction/commands";
 import { commandFromInteractionIntent } from "@/features/mermaid-editor/lib/interaction/commands";
 import { buildInteractionContext } from "@/features/mermaid-editor/lib/interaction/context";
@@ -19,9 +13,11 @@ import { resolveInteractionIntent } from "@/features/mermaid-editor/lib/interact
 import { useViewportScheduler } from "@/features/mermaid-editor/lib/interaction/viewport-scheduler";
 import type { CanvasNodeTextureCacheController } from "@/features/mermaid-editor/components/konva-canvas/canvas-node-texture-cache";
 
+export const CANVAS_VIEWPORT_WHEEL_END_MS = 100;
+export const CANVAS_VIEWPORT_COMMIT_DELAY_MS = 180;
+
 type UseKonvaViewportArgs = {
   containerRef: RefObject<HTMLDivElement | null>;
-  stageRef: RefObject<Konva.Stage | null>;
   dimensions: { width: number; height: number };
   viewport: ViewportState;
   graph: MermaidGraph;
@@ -36,11 +32,11 @@ type UseKonvaViewportArgs = {
   onPointerWorldChange?: (point: CanvasPoint) => void;
   invalidateBlankClickIntent: () => void;
   nodeTextureCacheController: CanvasNodeTextureCacheController;
+  viewportCompositor: CanvasViewportCompositor;
 };
 
 export function useKonvaViewport({
   containerRef,
-  stageRef,
   dimensions,
   viewport,
   graph,
@@ -54,32 +50,37 @@ export function useKonvaViewport({
   onEditorCommand,
   onPointerWorldChange,
   invalidateBlankClickIntent,
-  nodeTextureCacheController
+  nodeTextureCacheController,
+  viewportCompositor
 }: UseKonvaViewportArgs) {
   const viewportRef = useRef(viewport);
   const wheelIntentTrackerRef = useRef(createWheelIntentTracker());
   const suppressWheelZoomUntilRef = useRef(0);
   const gestureNavigationRef = useRef<{ viewport: ViewportState; pointer: CanvasPoint } | null>(null);
+  const pointerScreenRef = useRef<CanvasPoint | null>(null);
+  const wheelEndTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastTextureCacheViewportRef = useRef<ViewportState | null>(null);
 
   const applyViewportToStage = useCallback((update: ScheduledViewport) => {
     const nextViewport = update.viewport;
-    const stage = stageRef.current;
     viewportRef.current = nextViewport;
-
-    if (!stage) return;
-    stage.position({ x: nextViewport.x, y: nextViewport.y });
-    stage.scale({ x: nextViewport.scale, y: nextViewport.scale });
-    nodeTextureCacheController.handleViewport(nextViewport);
-    drawCanvasViewportScene(stage);
-  }, [nodeTextureCacheController, stageRef]);
+    viewportCompositor.apply(nextViewport);
+    const lastTextureCacheViewport = lastTextureCacheViewportRef.current;
+    if (!lastTextureCacheViewport || !viewportsMatch(lastTextureCacheViewport, nextViewport)) {
+      lastTextureCacheViewportRef.current = nextViewport;
+      nodeTextureCacheController.handleViewport(nextViewport);
+    }
+  }, [nodeTextureCacheController, viewportCompositor]);
 
   const {
     current: currentScheduledViewport,
     schedule: scheduleScheduledViewport,
-    sync: syncScheduledViewport
+    sync: syncScheduledViewport,
+    flush: flushScheduledViewport
   } = useViewportScheduler<ScheduledViewport>({
     initialValue: { viewport, source: "api" },
     metricName: "canvas-viewport-visual-latency",
+    commitDelayMs: CANVAS_VIEWPORT_COMMIT_DELAY_MS,
     applyVisual: applyViewportToStage,
     commit: (update) => {
       onEditorCommand({ type: "viewport.set", viewport: update.viewport, source: update.source });
@@ -96,6 +97,27 @@ export function useKonvaViewport({
     [scheduleScheduledViewport]
   );
 
+  const clearWheelEndTimer = useCallback(() => {
+    if (wheelEndTimerRef.current !== null) clearTimeout(wheelEndTimerRef.current);
+    wheelEndTimerRef.current = null;
+  }, []);
+
+  const beginViewportInteraction = useCallback(() => {
+    clearWheelEndTimer();
+    viewportCompositor.beginNavigation();
+  }, [clearWheelEndTimer, viewportCompositor]);
+
+  const finishViewportChange = useCallback((nextViewport: ViewportState, source: ViewportCommandSource = "pointer") => {
+    clearWheelEndTimer();
+    viewportRef.current = nextViewport;
+    flushScheduledViewport({ viewport: nextViewport, source });
+    viewportCompositor.endNavigation();
+  }, [clearWheelEndTimer, flushScheduledViewport, viewportCompositor]);
+
+  const finishViewportInteraction = useCallback((source: ViewportCommandSource = "pointer") => {
+    finishViewportChange(currentViewport(), source);
+  }, [currentViewport, finishViewportChange]);
+
   const screenPointFromClient: ScreenPointResolver = useCallback(
     (clientX, clientY) => {
       const container = containerRef.current;
@@ -110,7 +132,12 @@ export function useKonvaViewport({
     [containerRef]
   );
 
-  const pointerScreenPoint = useCallback((): CanvasPoint | null => stageRef.current?.getPointerPosition() || null, [stageRef]);
+  const pointerScreenPoint = useCallback((): CanvasPoint | null => pointerScreenRef.current, []);
+
+  const trackPointerScreenPoint = useCallback((point: CanvasPoint | null) => {
+    pointerScreenRef.current = point;
+    return point;
+  }, []);
 
   const screenToWorld = useCallback(
     (point: CanvasPoint) => {
@@ -148,27 +175,28 @@ export function useKonvaViewport({
   );
 
   const onWheel = useCallback(
-    (event: KonvaEventObject<WheelEvent>) => {
-      event.evt.preventDefault();
-      const pointer = pointerScreenPoint() || screenPointFromClient(event.evt.clientX, event.evt.clientY);
+    (event: ReactWheelEvent<HTMLDivElement>) => {
+      event.preventDefault();
+      const pointer = screenPointFromClient(event.clientX, event.clientY) || pointerScreenPoint();
       if (!pointer) return;
+      trackPointerScreenPoint(pointer);
 
-      const isZoomWheel = !event.evt.shiftKey && Math.abs(event.evt.deltaY) > 0;
+      const isZoomWheel = !event.shiftKey && Math.abs(event.deltaY) > 0;
       if (isZoomWheel && Date.now() < suppressWheelZoomUntilRef.current) return;
 
       const wheelInput = createStandardWheelInput({
         pointer,
         canvasSize: dimensions,
-        deltaX: event.evt.deltaX,
-        deltaY: event.evt.deltaY,
-        deltaMode: event.evt.deltaMode,
+        deltaX: event.deltaX,
+        deltaY: event.deltaY,
+        deltaMode: event.deltaMode,
         modifiers: {
-          ctrlKey: event.evt.ctrlKey,
-          metaKey: event.evt.metaKey,
-          shiftKey: event.evt.shiftKey,
-          altKey: event.evt.altKey
+          ctrlKey: event.ctrlKey,
+          metaKey: event.metaKey,
+          shiftKey: event.shiftKey,
+          altKey: event.altKey
         },
-        timestamp: event.evt.timeStamp,
+        timestamp: event.timeStamp,
         interactionKind: interactionState.kind
       });
       const intent = resolveInteractionIntent(
@@ -195,21 +223,29 @@ export function useKonvaViewport({
       if (command?.type !== "viewport.set") return;
 
       invalidateBlankClickIntent();
+      beginViewportInteraction();
       scheduleViewportChange(command.viewport, command.source);
+      wheelEndTimerRef.current = setTimeout(() => {
+        wheelEndTimerRef.current = null;
+        finishViewportInteraction(command.source);
+      }, CANVAS_VIEWPORT_WHEEL_END_MS);
     },
     [
       currentViewport,
+      beginViewportInteraction,
       dimensions,
       edgeRouting,
       graph,
       hoveredHitTarget,
       interactionState.kind,
       invalidateBlankClickIntent,
+      finishViewportInteraction,
       layoutMode,
       mode,
       pointerScreenPoint,
       scheduleViewportChange,
       screenPointFromClient,
+      trackPointerScreenPoint,
       selection,
       viewFilters
     ]
@@ -219,10 +255,7 @@ export function useKonvaViewport({
     syncScheduledViewport({ viewport, source: "api" }, { applyVisual: true });
   }, [dimensions.height, dimensions.width, syncScheduledViewport, viewport]);
 
-  useEffect(() => {
-    const stage = stageRef.current;
-    return () => cancelCanvasHitGraphDraw(stage);
-  }, [stageRef]);
+  useEffect(() => clearWheelEndTimer, [clearWheelEndTimer]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -242,6 +275,7 @@ export function useKonvaViewport({
       }
 
       invalidateBlankClickIntent();
+      beginViewportInteraction();
       gestureNavigationRef.current = {
         viewport: currentViewport(),
         pointer: gesturePoint(event)
@@ -288,6 +322,7 @@ export function useKonvaViewport({
 
     function onGestureEnd(event: SafariGestureEvent) {
       event.preventDefault();
+      if (gestureNavigationRef.current) finishViewportInteraction("gesture");
       gestureNavigationRef.current = null;
       suppressWheelZoomUntilRef.current = Date.now() + 350;
     }
@@ -301,17 +336,27 @@ export function useKonvaViewport({
       container.removeEventListener("gesturechange", onGestureChange as EventListener);
       container.removeEventListener("gestureend", onGestureEnd as EventListener);
     };
-  }, [containerRef, currentViewport, dimensions, edgeRouting, graph, hoveredHitTarget, interactionState.kind, invalidateBlankClickIntent, layoutMode, mode, scheduleViewportChange, screenPointFromClient, selection, viewFilters]);
+  }, [beginViewportInteraction, containerRef, currentViewport, dimensions, edgeRouting, finishViewportInteraction, graph, hoveredHitTarget, interactionState.kind, invalidateBlankClickIntent, layoutMode, mode, scheduleViewportChange, screenPointFromClient, selection, viewFilters]);
 
   return {
     currentViewport,
     scheduleViewportChange,
+    beginViewportInteraction,
+    finishViewportChange,
+    finishViewportInteraction,
     pointerWorldPoint,
     trackPointerWorldPoint,
     screenToWorld,
     worldToScreen,
     pointerScreenPoint,
+    trackPointerScreenPoint,
     screenPointFromClient,
     onWheel
   };
+}
+
+function viewportsMatch(left: ViewportState, right: ViewportState) {
+  return Math.abs(left.x - right.x) < 0.001
+    && Math.abs(left.y - right.y) < 0.001
+    && Math.abs(left.scale - right.scale) < 0.000001;
 }
