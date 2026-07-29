@@ -99,6 +99,18 @@ describe("shadcn foundation contract", () => {
     expect(styles).toContain("-webkit-appearance: none");
   });
 
+  it("removes both native xterm scrollbar layers before rendering the shadcn overlay", () => {
+    const styles = readProjectFile("src/styles/globals.css");
+    const terminalScrollArea = readProjectFile("src/features/mermaid-editor/components/terminal-history-scroll-area.tsx");
+
+    expect(styles).toContain(".terminal-panel .xterm .xterm-viewport::-webkit-scrollbar");
+    expect(styles).toContain("overflow: hidden !important");
+    expect(styles).toContain(".terminal-panel .xterm .xterm-scrollable-element > .scrollbar.vertical");
+    expect(styles).toContain("display: none !important");
+    expect(terminalScrollArea).toContain('from "@/components/ui/scroll-area"');
+    expect(terminalScrollArea).toContain('className="terminal-history-scroll-area pointer-events-auto absolute inset-y-0 right-0 w-2.5"');
+  });
+
   it("routes finite business choices through the shadcn toggle group", () => {
     const projectDocumentDialog = readProjectFile("src/features/mermaid-editor/components/project-document-node-dialog.tsx");
     const explorer = readProjectFile("src/features/mermaid-editor/components/explorer-panel.tsx");

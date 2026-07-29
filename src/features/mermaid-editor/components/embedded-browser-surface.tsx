@@ -380,7 +380,9 @@ function embeddedBrowserPanelBorderRadius(surface: HTMLElement) {
 }
 
 export function embeddedBrowserTitlebarHotZoneHeight(header: { autoHide: boolean; visible: boolean; headerHeightPx: number } | null) {
-  return header?.autoHide && !header.visible ? WORKSPACE_PANEL_HEADER_REVEAL_HOT_ZONE_PX : 0;
+  return header?.autoHide && !header.visible
+    ? Math.max(WORKSPACE_PANEL_HEADER_REVEAL_HOT_ZONE_PX, header.headerHeightPx)
+    : 0;
 }
 
 let embeddedBrowserInstanceCounter = 0;

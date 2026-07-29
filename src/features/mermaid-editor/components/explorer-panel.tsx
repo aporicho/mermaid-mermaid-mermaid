@@ -20,7 +20,7 @@ import {
 } from "iconoir-react/regular";
 
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import {
   EditorEmptyState,
   EditorIconButton,
@@ -790,26 +790,6 @@ export function ExplorerPanel({
 	          <WorkspaceFolderEmptyState projectAvailable={projectAvailable} projectBusy={projectBusy} onOpenProject={onOpenProject} />
 	        ) : (
 	          <>
-	          <div className="px-1 pb-1">
-	            <div className="flex min-w-0 items-center gap-1 rounded-sm border bg-background px-2">
-	              <InputSearch className="shrink-0 text-muted-foreground" data-icon />
-	              <Input
-	                ref={filterInputRef}
-	                value={filterQuery}
-	                placeholder="搜索文件"
-	                className="h-7 border-0 bg-transparent px-0 text-xs shadow-none focus-visible:ring-0"
-	                aria-label="搜索资源"
-	                onChange={(event) => setFilterQuery(event.target.value)}
-	                onKeyDown={(event) => {
-	                  if (event.key === "Escape") {
-	                    event.preventDefault();
-	                    setFilterQuery("");
-	                    treeRef.current?.querySelector<HTMLButtonElement>('[role="treeitem"]')?.focus();
-	                  }
-	                }}
-	              />
-	            </div>
-	          </div>
 	          <EditorTree ref={treeRef} aria-label={`${projectWorkspace.rootName} 资源树`}>
 	            <EditorTreeItem root>
 	              <ProjectResourceContextMenu
@@ -984,6 +964,26 @@ export function ExplorerPanel({
 	          />
 	        ) : null}
 	      </div>
+      {projectWorkspace ? (
+        <div className="editor-ui-panel-footer flex shrink-0 items-center">
+          <InputGroup>
+            <InputGroupAddon><InputSearch aria-hidden data-icon /></InputGroupAddon>
+            <InputGroupInput
+              ref={filterInputRef}
+              value={filterQuery}
+              placeholder="搜索文件"
+              aria-label="搜索资源"
+              onChange={(event) => setFilterQuery(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key !== "Escape") return;
+                event.preventDefault();
+                setFilterQuery("");
+                treeRef.current?.querySelector<HTMLButtonElement>('[role="treeitem"]')?.focus();
+              }}
+            />
+          </InputGroup>
+        </div>
+      ) : null}
     </aside>
   );
 }

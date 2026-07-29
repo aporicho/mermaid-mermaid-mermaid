@@ -142,7 +142,7 @@ export function TerminalPanel({
 
   return (
     <section
-      className={cn("terminal-panel flex h-full min-h-0 w-full flex-col overflow-hidden bg-card/[var(--ui-surface-opacity)]", className)}
+      className={cn("terminal-panel isolate flex h-full min-h-0 w-full flex-col overflow-hidden bg-card/[var(--ui-surface-opacity)]", className)}
       data-editor-floating-menu-ignore
     >
       <Tabs value={activeTabId} onValueChange={setActiveTabId} className="h-full min-h-0 gap-0">
@@ -151,8 +151,8 @@ export function TerminalPanel({
           title={<span className="terminal-heading">{windowOrdinal === 1 ? "终端" : `终端 ${windowOrdinal}`}</span>}
           titleTooltip={activeMeta?.session?.cwd || cwd || "桌面终端"}
           center={tabs.length ? (
-            <div className="min-w-0 flex-1 overflow-x-auto" data-window-titlebar-drag-exclude>
-              <TabsList variant="line" className="h-full min-w-max justify-start p-0" aria-label="终端会话">
+            <div className="min-w-0 flex-1 overflow-x-auto">
+              <TabsList variant="line" className="h-full min-w-max justify-start p-0" aria-label="终端会话" data-window-titlebar-drag-exclude>
                 {tabs.map((tab) => {
                   const meta = metadata[tab.id];
                   const label = `终端 ${tab.ordinal}`;

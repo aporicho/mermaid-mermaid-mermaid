@@ -18,9 +18,7 @@ import {
 } from "@/features/mermaid-editor/lib/workspace-panels";
 
 type DetachedWorkspaceWindowsProps = {
-  markdownWindows: DetachedMarkdownWindow[];
-  textWindows: DetachedTextWindow[];
-  csvWindows: DetachedCsvWindow[];
+  markdownWindows: DetachedMarkdownWindow[]; textWindows: DetachedTextWindow[]; csvWindows: DetachedCsvWindow[];
   markdownSpellcheckEnabled: boolean;
   markdownContentWidth: number;
   markdownTextScale: number;
@@ -34,6 +32,7 @@ type DetachedWorkspaceWindowsProps = {
   closeMarkdownWindow: (panelId: MarkdownWindowPanelId) => void;
   saveMarkdownWindow: (panelId: MarkdownWindowPanelId) => void | Promise<unknown>;
   updateMarkdownWindow: (panelId: MarkdownWindowPanelId, value: string) => void;
+  openMarkdownFileLink: (href: string, sourceFilePath: string | undefined) => boolean;
   onMarkdownSelectionChange?: (panelId: MarkdownWindowPanelId, selection: RuntimeAgentTextSelection | null) => void;
   markdownFoldBindingFor: (file: RuntimeFileRef) => {
     foldState: MarkdownFoldSnapshot | null | undefined;
@@ -67,6 +66,7 @@ export function DetachedWorkspaceWindows({
   closeMarkdownWindow,
   saveMarkdownWindow,
   updateMarkdownWindow,
+  openMarkdownFileLink,
   onMarkdownSelectionChange,
   markdownFoldBindingFor,
   closeTextWindow,
@@ -113,6 +113,7 @@ export function DetachedWorkspaceWindows({
             foldState={foldBinding.foldState}
             onFoldStateChange={foldBinding.onFoldStateChange}
             onChange={(value) => updateMarkdownWindow(markdownWindow.id, value)}
+            onOpenFileLink={(href) => openMarkdownFileLink(href, markdownWindow.file.path)}
             onSelectionChange={(selection) => onMarkdownSelectionChange?.(markdownWindow.id, selection)}
           />
         </WorkspaceFloatingWindow>;

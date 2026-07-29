@@ -15,11 +15,11 @@ import { useWorkspacePanelHeaderHeight } from "./use-workspace-panel-header-heig
 
 export const WORKSPACE_PANEL_HEADER_HIDE_DELAY_MS = 800;
 export const WORKSPACE_PANEL_HEADER_REVEAL_HOT_ZONE_PX = 8;
+export type WorkspaceTitlebarAutoHideLayout = "overlay" | "flow";
 
 type WorkspacePanelHeaderContextValue = {
-  visible: boolean;
-  autoHide: boolean;
-  overridden: boolean;
+  visible: boolean; autoHide: boolean; overridden: boolean;
+  autoHideLayout: WorkspaceTitlebarAutoHideLayout;
   headerHeightPx: number;
   setHeaderElement: (element: HTMLElement | null) => void;
   toggleAutoHideOverride: () => void;
@@ -42,8 +42,8 @@ export function useWorkspacePanelHeader() {
 }
 
 export function useWorkspacePanelHeaderAutoHide({
-  enabled, open, dragging, autoHide
-}: { enabled: boolean; open: boolean; dragging: boolean; autoHide: boolean }) {
+  enabled, open, dragging, autoHide, autoHideLayout
+}: { enabled: boolean; open: boolean; dragging: boolean; autoHide: boolean; autoHideLayout: WorkspaceTitlebarAutoHideLayout }) {
   const [visible, setVisible] = useState(enabled && open && !autoHide);
   const [autoHideOverride, setAutoHideOverride] = useState<boolean | null>(null);
   const { headerHeightPx, setHeaderElement } = useWorkspacePanelHeaderHeight();
@@ -143,6 +143,7 @@ export function useWorkspacePanelHeaderAutoHide({
       visible,
       autoHide: resolvedAutoHide,
       overridden: autoHideOverride !== null,
+      autoHideLayout,
       headerHeightPx,
       setHeaderElement,
       toggleAutoHideOverride,
@@ -173,5 +174,5 @@ export function useWorkspacePanelHeaderAutoHide({
         scheduleHide();
       }
     };
-  }, [autoHideOverride, enabled, headerHeightPx, resolvedAutoHide, scheduleHide, setHeaderElement, show, toggleAutoHideOverride, visible]);
+  }, [autoHideLayout, autoHideOverride, enabled, headerHeightPx, resolvedAutoHide, scheduleHide, setHeaderElement, show, toggleAutoHideOverride, visible]);
 }

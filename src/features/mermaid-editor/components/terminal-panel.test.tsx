@@ -41,6 +41,7 @@ const xtermMock = vi.hoisted(() => {
 
   class FitAddon {
     fit = vi.fn();
+    proposeDimensions = vi.fn(() => undefined);
   }
 
   return { TerminalMock, FitAddon, instances };
@@ -107,6 +108,10 @@ describe("TerminalPanel", () => {
 
     await render(true, "project:/project", "/project");
     expect(harness.openTerminal).toHaveBeenCalledTimes(1);
+    const tabList = container.querySelector<HTMLElement>("[role='tablist']");
+    expect(tabList?.hasAttribute("data-window-titlebar-drag-exclude")).toBe(true);
+    expect(tabList?.parentElement?.hasAttribute("data-window-titlebar-drag-exclude")).toBe(false);
+    expect(container.querySelector(".terminal-panel")?.className).toContain("isolate");
 
     await click("新建终端");
     expect(harness.openTerminal).toHaveBeenCalledTimes(2);

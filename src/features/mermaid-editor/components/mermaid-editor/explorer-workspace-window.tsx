@@ -40,6 +40,7 @@ export function ExplorerWorkspaceWindow({
       placement="left-panel"
       panelId="explorer"
       titlebarAutoHide={titlebarAutoHide}
+      titlebarAutoHideLayout="flow"
       active={active}
       stackIndex={stackIndex}
       onFocusPanel={onFocusPanel}

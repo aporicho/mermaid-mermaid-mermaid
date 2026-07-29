@@ -78,7 +78,7 @@ type EditorWorkspacePanelsProps = {
   applyEditorCommand: (command: EditorCommand) => void;
   executeCanvasNodeAction: (node: CanvasNode) => void | Promise<unknown>;
   editCanvasNodeAction: (node: CanvasNode) => void;
-  closeDetachedMarkdownWindow: (panelId: MarkdownWindowPanelId) => void; saveDetachedMarkdownWindow: (panelId: MarkdownWindowPanelId) => void | Promise<unknown>; updateDetachedMarkdownWindow: (panelId: MarkdownWindowPanelId, value: string) => void;
+  closeDetachedMarkdownWindow: (panelId: MarkdownWindowPanelId) => void; saveDetachedMarkdownWindow: (panelId: MarkdownWindowPanelId) => void | Promise<unknown>; updateDetachedMarkdownWindow: (panelId: MarkdownWindowPanelId, value: string) => void; openMarkdownFileLink: (href: string, sourceFilePath: string | undefined) => boolean;
   closeDetachedBrowserWindow: (panelId: BrowserWindowPanelId) => void;
   closeDetachedHtmlWindow: (panelId: HtmlWindowPanelId) => void; closeDetachedImageWindow: (panelId: ImageWindowPanelId) => void; navigateDetachedImageWindow: (panelId: ImageWindowPanelId, direction: -1 | 1) => void;
   closeDetachedTextWindow: (panelId: TextWindowPanelId) => void; closeDetachedCsvWindow: (panelId: CsvWindowPanelId) => void;
@@ -136,7 +136,7 @@ export function EditorWorkspacePanels({
   closeDetachedTextWindow, closeDetachedCsvWindow, saveDetachedTextWindow, saveDetachedCsvWindow,
   updateDetachedTextWindow, updateDetachedCsvWindow, undoDetachedCsvWindow, redoDetachedCsvWindow, setDetachedCsvHeaderMode,
   saveDetachedMarkdownWindow,
-  updateDetachedMarkdownWindow, markdownFoldBindingFor,
+  updateDetachedMarkdownWindow, openMarkdownFileLink, markdownFoldBindingFor,
   onDetachedMarkdownSelectionChange,
   onStatus
 }: EditorWorkspacePanelsProps) {
@@ -253,7 +253,7 @@ export function EditorWorkspacePanels({
         setPanelWindowState={setWorkspacePanelWindowState}
         closeMarkdownWindow={closeDetachedMarkdownWindow}
         saveMarkdownWindow={saveDetachedMarkdownWindow}
-        updateMarkdownWindow={updateDetachedMarkdownWindow} markdownFoldBindingFor={markdownFoldBindingFor}
+        updateMarkdownWindow={updateDetachedMarkdownWindow} openMarkdownFileLink={openMarkdownFileLink} markdownFoldBindingFor={markdownFoldBindingFor}
         onMarkdownSelectionChange={onDetachedMarkdownSelectionChange}
         closeTextWindow={closeDetachedTextWindow} closeCsvWindow={closeDetachedCsvWindow}
         saveTextWindow={saveDetachedTextWindow} saveCsvWindow={saveDetachedCsvWindow}

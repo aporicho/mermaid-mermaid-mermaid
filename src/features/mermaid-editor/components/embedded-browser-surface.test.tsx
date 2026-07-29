@@ -112,8 +112,9 @@ describe("EmbeddedBrowserSurface", () => {
     expect(handle.close).toHaveBeenCalledTimes(1);
   });
 
-  it("uses only the top-edge reveal zone while auto-hide is hidden", () => {
-    expect(embeddedBrowserTitlebarHotZoneHeight({ autoHide: true, visible: false, headerHeightPx: 42 })).toBe(WORKSPACE_PANEL_HEADER_REVEAL_HOT_ZONE_PX);
+  it("keeps the native browser below the full titlebar reveal zone while auto-hide is hidden", () => {
+    expect(embeddedBrowserTitlebarHotZoneHeight({ autoHide: true, visible: false, headerHeightPx: 42 })).toBe(42);
+    expect(embeddedBrowserTitlebarHotZoneHeight({ autoHide: true, visible: false, headerHeightPx: 0 })).toBe(WORKSPACE_PANEL_HEADER_REVEAL_HOT_ZONE_PX);
     expect(embeddedBrowserTitlebarHotZoneHeight({ autoHide: true, visible: true, headerHeightPx: 42 })).toBe(0);
     expect(embeddedBrowserTitlebarHotZoneHeight({ autoHide: false, visible: false, headerHeightPx: 42 })).toBe(0);
   });

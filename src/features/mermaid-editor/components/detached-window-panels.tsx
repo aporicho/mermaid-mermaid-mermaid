@@ -27,6 +27,7 @@ export function MarkdownWindowPanel({
   foldState,
   onFoldStateChange,
   onChange,
+  onOpenFileLink,
   onSelectionChange
 }: {
   title: string;
@@ -41,6 +42,7 @@ export function MarkdownWindowPanel({
   foldState?: MarkdownFoldSnapshot | null;
   onFoldStateChange?: (snapshot: MarkdownFoldSnapshot) => void;
   onChange: (value: string) => void;
+  onOpenFileLink?: (href: string) => boolean;
   onSelectionChange?: (selection: RuntimeAgentTextSelection | null) => void;
 }) {
   const normalizedTextScale = clampMarkdownTextScale(textScale);
@@ -94,6 +96,7 @@ export function MarkdownWindowPanel({
         foldState={foldState}
         onFoldStateChange={onFoldStateChange}
         onChange={onChange}
+        onOpenFileLink={onOpenFileLink}
         onSelectionChange={onSelectionChange}
         className="markdown-editor-panel--window min-h-0 flex-1"
       />

@@ -69,6 +69,10 @@ describe("TerminalHistoryScrollArea", () => {
     });
 
     expect(scrollArea.classList.contains("terminal-history-scroll-area")).toBe(true);
+    expect(scrollArea.classList.contains("inset-y-0")).toBe(true);
+    expect(scrollArea.classList.contains("right-0")).toBe(true);
+    expect(scrollArea.classList.contains("w-2.5")).toBe(true);
+    expect(scrollArea.classList.contains("right-1")).toBe(false);
     expect(spacer.style.height).toBe("1200px");
     expect(viewport.scrollTop).toBe(200);
 

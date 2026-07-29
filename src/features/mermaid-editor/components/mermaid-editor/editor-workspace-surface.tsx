@@ -32,9 +32,7 @@ import type { ImageWindowOpenRequest } from "@/features/mermaid-editor/lib/works
 const KonvaCanvas = lazy(() => import("@/features/mermaid-editor/components/konva-canvas").then((mod) => ({ default: mod.KonvaCanvas })));
 
 type EditorWorkspaceSurfaceProps = {
-  documentKind: DocumentKind;
-  fileRef: RuntimeFileRef | null;
-  fileName: string;
+  documentKind: DocumentKind; fileRef: RuntimeFileRef | null; fileName: string;
   workspaceView: WorkspaceView;
   isCanvasEditable: boolean;
   graph: MermaidGraph;
@@ -49,9 +47,7 @@ type EditorWorkspaceSurfaceProps = {
   imageDisplaySrcBySrc: Record<string, string>;
   markdownDocumentPreviewByNodeId: Record<string, MarkdownDocumentPreview>;
   textDocumentPreviewByNodeId: Record<string, TextDocumentPreview>;
-  markdownSpellcheckEnabled: boolean;
-  markdownContentWidth: number;
-  markdownTextScale: number;
+  markdownSpellcheckEnabled: boolean; markdownContentWidth: number; markdownTextScale: number;
   visualTokens: CanvasVisualTokens;
   geometryTokens: EditorThemeGeometryTokens;
   typography: EditorTypographyTokens;
@@ -65,6 +61,7 @@ type EditorWorkspaceSurfaceProps = {
   diagnostics: EditorDiagnostic[];
   mermaidThemeVariables: MermaidThemeVariables;
   onMarkdownChange: (value: string) => void;
+  onOpenMarkdownFileLink?: (href: string) => boolean;
   onTextSelectionChange?: (selection: RuntimeAgentTextSelection | null) => void;
   markdownFoldState: MarkdownFoldSnapshot | null | undefined;
   onMarkdownFoldStateChange?: (snapshot: MarkdownFoldSnapshot) => void;
@@ -117,6 +114,7 @@ export function EditorWorkspaceSurface({
   diagnostics,
   mermaidThemeVariables,
   onMarkdownChange,
+  onOpenMarkdownFileLink,
   onTextSelectionChange,
   markdownFoldState,
   onMarkdownFoldStateChange,
@@ -206,6 +204,7 @@ export function EditorWorkspaceSurface({
         foldState={markdownFoldState}
         onFoldStateChange={onMarkdownFoldStateChange}
         onChange={onMarkdownChange}
+        onOpenFileLink={onOpenMarkdownFileLink}
         onSelectionChange={onTextSelectionChange}
       />
     );

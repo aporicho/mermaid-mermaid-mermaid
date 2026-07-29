@@ -267,6 +267,56 @@ describe("MarkdownPanel", () => {
     expect(config.featureConfigs.cursor?.virtual).toBe(false);
   });
 
+  it("opens supported file links from the link preview without navigating the browser", () => {
+    const onOpenFileLink = vi.fn(() => true);
+    const panel = renderPanel(false, 880, 1, undefined, { onOpenFileLink });
+    const link = document.createElement("a");
+    link.className = "link-display";
+    link.href = "./notes.md#details";
+    panel.appendChild(link);
+
+    const click = new MouseEvent("click", { bubbles: true, cancelable: true });
+    act(() => link.dispatchEvent(click));
+
+    expect(onOpenFileLink).toHaveBeenCalledWith("./notes.md#details");
+    expect(click.defaultPrevented).toBe(true);
+  });
+
+  it("keeps direct editor link clicks editable and opens them with the platform modifier", () => {
+    const onOpenFileLink = vi.fn(() => true);
+    const panel = renderPanel(false, 880, 1, undefined, { onOpenFileLink });
+    const editor = document.createElement("div");
+    editor.className = "ProseMirror";
+    const link = document.createElement("a");
+    link.setAttribute("href", "./notes.md");
+    editor.appendChild(link);
+    panel.appendChild(editor);
+
+    const editClick = new MouseEvent("click", { bubbles: true, cancelable: true });
+    act(() => link.dispatchEvent(editClick));
+    expect(onOpenFileLink).not.toHaveBeenCalled();
+    expect(editClick.defaultPrevented).toBe(false);
+
+    const openClick = new MouseEvent("click", { bubbles: true, cancelable: true, ctrlKey: true });
+    act(() => link.dispatchEvent(openClick));
+    expect(onOpenFileLink).toHaveBeenCalledWith("./notes.md");
+    expect(openClick.defaultPrevented).toBe(true);
+  });
+
+  it("preserves the native behavior when a link is not handled as a floating file", () => {
+    const onOpenFileLink = vi.fn(() => false);
+    const panel = renderPanel(false, 880, 1, undefined, { onOpenFileLink });
+    const link = document.createElement("a");
+    link.href = "https://example.com";
+    panel.appendChild(link);
+
+    const click = new MouseEvent("click", { bubbles: true, cancelable: true });
+    act(() => link.dispatchEvent(click));
+
+    expect(onOpenFileLink).toHaveBeenCalledWith("https://example.com");
+    expect(click.defaultPrevented).toBe(false);
+  });
+
   it("restores a loaded fold snapshot after Milkdown is ready", async () => {
     const snapshot = {
       version: 1 as const,

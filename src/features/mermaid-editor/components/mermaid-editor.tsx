@@ -21,6 +21,7 @@ import { useTerminalWorkspaceWindowActions, useTerminalWorkspaceWindowState } fr
 import { useEditorWorkspacePanelActions } from "@/features/mermaid-editor/components/mermaid-editor/use-editor-workspace-panel-actions";
 import { useEditorWindowActions } from "@/features/mermaid-editor/components/mermaid-editor/use-editor-window-actions";
 import { useEditorAuxiliaryDocumentController } from "@/features/mermaid-editor/components/mermaid-editor/use-editor-auxiliary-document-controller";
+import { useMarkdownFileLinkOpener } from "@/features/mermaid-editor/components/mermaid-editor/use-markdown-file-link-opener";
 import { useMarkdownDocumentPreviews } from "@/features/mermaid-editor/components/mermaid-editor/use-markdown-document-previews";
 import { useTextDocumentPreviews } from "@/features/mermaid-editor/components/mermaid-editor/use-text-document-previews";
 import { useLinkedProjectDocuments } from "@/features/mermaid-editor/components/mermaid-editor/use-linked-project-documents";
@@ -45,10 +46,8 @@ export function MermaidEditor() {
   const runtime = useMemo(() => createEditorRuntime(), []);
   const initial = useMemo(loadInitialState, []);
   const {
-    documentKind,
-    setDocumentKind,
-    source,
-    setSource,
+    documentKind, setDocumentKind,
+    source, setSource,
     graph,
     setGraph,
     diagramType,
@@ -439,6 +438,7 @@ export function MermaidEditor() {
     setPanelWindowState: setWorkspacePanelWindowState, executeCanvasNodeAction,
     closeActionsRef: auxiliaryCloseActionsRef, onTextFileSaved: updateTextDocumentPreviewFromText, onStatus: setStatus, onError: showFileWorkflowError
   });
+  const openMarkdownFileLink = useMarkdownFileLinkOpener({ projectWorkspace, openMarkdownWindow: openProjectMarkdownWindow, openHtmlWindow: openProjectHtmlWindow, openImageWindow: openProjectImageWindow, openTextWindow: auxiliaryWindows.openTextWindow, openCsvWindow: auxiliaryWindows.openCsvWindow });
   useProjectFileHotReload({ runtime, projectWorkspace, setProjectWorkspace, fileRef,
     detachedMarkdownWindows, setDetachedMarkdownWindows, setStatus,
     detachedHtmlWindows, setDetachedHtmlWindows, detachedImageWindows, setDetachedImageWindows,
@@ -557,7 +557,7 @@ export function MermaidEditor() {
             previewSource={previewSource}
             diagnostics={diagnostics}
             mermaidThemeVariables={compiledTheme.mermaidThemeVariables}
-            onMarkdownChange={applyMarkdownSource} markdownFoldState={markdownFolds.bindingFor(fileRef).foldState} onMarkdownFoldStateChange={markdownFolds.bindingFor(fileRef).onFoldStateChange}
+            onMarkdownChange={applyMarkdownSource} onOpenMarkdownFileLink={(href) => openMarkdownFileLink(href, fileRef?.path)} markdownFoldState={markdownFolds.bindingFor(fileRef).foldState} onMarkdownFoldStateChange={markdownFolds.bindingFor(fileRef).onFoldStateChange}
             onTextSelectionChange={setAgentTextSelection}
             onSourceChange={applySource}
             onSave={() => void saveMermaidFile()} onUndo={performUndo} onRedo={performRedo}
@@ -613,7 +613,7 @@ export function MermaidEditor() {
           saveDetachedTextWindow={auxiliaryWindows.saveTextWindow} saveDetachedCsvWindow={auxiliaryWindows.saveCsvWindow}
           updateDetachedTextWindow={auxiliaryWindows.updateTextWindow} updateDetachedCsvWindow={auxiliaryWindows.updateCsvWindow}
           undoDetachedCsvWindow={auxiliaryWindows.undoCsvWindow} redoDetachedCsvWindow={auxiliaryWindows.redoCsvWindow} setDetachedCsvHeaderMode={auxiliaryWindows.setCsvHeaderMode}
-          updateDetachedMarkdownWindow={updateDetachedMarkdownWindow} markdownFoldBindingFor={markdownFolds.bindingFor}
+          updateDetachedMarkdownWindow={updateDetachedMarkdownWindow} openMarkdownFileLink={openMarkdownFileLink} markdownFoldBindingFor={markdownFolds.bindingFor}
           onDetachedMarkdownSelectionChange={(panelId, selection) => setDetachedAgentSelections((current) => ({ ...current, [panelId]: selection }))}
           onStatus={setStatus}
         />

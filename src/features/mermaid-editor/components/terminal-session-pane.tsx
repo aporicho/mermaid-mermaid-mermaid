@@ -14,6 +14,7 @@ import "@xterm/xterm/css/xterm.css";
 import { TerminalHistoryScrollArea } from "@/features/mermaid-editor/components/terminal-history-scroll-area";
 import type { EditorRuntime, RuntimeTerminalSession } from "@/features/mermaid-editor/lib/editor-runtime";
 import type { EditorTheme, XtermThemeTokens } from "@/features/mermaid-editor/lib/editor-theme";
+import { fitTerminalWithoutNativeScrollbar } from "@/features/mermaid-editor/lib/terminal-fit";
 import { cn } from "@/lib/utils";
 
 export type TerminalSessionPhase = "idle" | "opening" | "running" | "exited" | "unsupported" | "error";
@@ -104,7 +105,7 @@ export const TerminalSessionPane = forwardRef<TerminalSessionPaneHandle, Termina
       const activeSession = sessionRef.current;
       if (!terminal || !fitAddon) return;
       try {
-        fitAddon.fit();
+        fitTerminalWithoutNativeScrollbar(terminal, fitAddon);
         if (activeSession && terminal.cols > 0 && terminal.rows > 0) {
           void runtimeRef.current.resizeTerminal(activeSession.sessionId, terminal.cols, terminal.rows);
         }
@@ -124,7 +125,7 @@ export const TerminalSessionPane = forwardRef<TerminalSessionPaneHandle, Termina
     if (!disposedRef.current) setBusy(true);
     try {
       terminal.reset();
-      if (visibleRef.current && activeRef.current) fitAddon.fit();
+      if (visibleRef.current && activeRef.current) fitTerminalWithoutNativeScrollbar(terminal, fitAddon);
       const result = await runtimeRef.current.openTerminal({
         cwd: cwdRef.current,
         shellId: shellIdRef.current,

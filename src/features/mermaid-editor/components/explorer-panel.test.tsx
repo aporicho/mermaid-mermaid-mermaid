@@ -144,6 +144,11 @@ describe("ExplorerPanel", () => {
   it("filters resources by name without removing matching ancestors", () => {
     renderExplorer();
     const input = container.querySelector<HTMLInputElement>('input[aria-label="搜索资源"]');
+    const footer = input?.closest<HTMLElement>(".editor-ui-panel-footer");
+
+    expect(footer).not.toBeNull();
+    expect(footer?.previousElementSibling?.className).toContain("overflow-y-auto");
+    expect(container.querySelector('[role="tree"]')?.contains(input ?? null)).toBe(false);
 
     act(() => {
       const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;

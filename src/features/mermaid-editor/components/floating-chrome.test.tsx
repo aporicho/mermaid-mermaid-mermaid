@@ -16,10 +16,7 @@ import {
   WorkspaceFloatingWindow,
   WorkspaceWindowHeader
 } from "@/features/mermaid-editor/components/floating-chrome";
-import {
-  WORKSPACE_PANEL_HEADER_HIDE_DELAY_MS,
-  WORKSPACE_PANEL_HEADER_REVEAL_HOT_ZONE_PX
-} from "@/features/mermaid-editor/components/floating-chrome/workspace-panel-header-context";
+import { WORKSPACE_PANEL_HEADER_HIDE_DELAY_MS } from "@/features/mermaid-editor/components/floating-chrome/workspace-panel-header-context";
 
 describe("floating chrome", () => {
   let container: HTMLDivElement | null = null;
@@ -94,14 +91,15 @@ describe("floating chrome", () => {
   function renderWorkspaceHeaderPanel({
     open = true,
     titlebarAutoHide = true,
+    titlebarAutoHideLayout = "overlay",
     initialFrameSize,
     initialFrameSizeKey,
     leadingActions,
     center
-  }: { open?: boolean; titlebarAutoHide?: boolean; initialFrameSize?: { width: number; height: number }; initialFrameSizeKey?: string; leadingActions?: ReactNode; center?: ReactNode } = {}) {
+  }: { open?: boolean; titlebarAutoHide?: boolean; titlebarAutoHideLayout?: "overlay" | "flow"; initialFrameSize?: { width: number; height: number }; initialFrameSizeKey?: string; leadingActions?: ReactNode; center?: ReactNode } = {}) {
     createContainer();
 
-    function render(next: { open: boolean; titlebarAutoHide: boolean; initialFrameSize?: { width: number; height: number }; initialFrameSizeKey?: string }) {
+    function render(next: { open: boolean; titlebarAutoHide: boolean; titlebarAutoHideLayout?: "overlay" | "flow"; initialFrameSize?: { width: number; height: number }; initialFrameSizeKey?: string }) {
       act(() => {
         root?.render(
           <TooltipProvider delayDuration={0}>
@@ -110,6 +108,7 @@ describe("floating chrome", () => {
               placement="center-panel"
               panelId="header-test"
               titlebarAutoHide={next.titlebarAutoHide}
+              titlebarAutoHideLayout={next.titlebarAutoHideLayout ?? titlebarAutoHideLayout}
               active
               stackIndex={0}
               onFocusPanel={() => undefined}
@@ -137,7 +136,7 @@ describe("floating chrome", () => {
       });
     }
 
-    render({ open, titlebarAutoHide, initialFrameSize, initialFrameSizeKey });
+    render({ open, titlebarAutoHide, titlebarAutoHideLayout, initialFrameSize, initialFrameSizeKey });
 
     return {
       rerender: render,
@@ -425,23 +424,54 @@ describe("floating chrome", () => {
     expect(panel.dataset.floatingPanelGesture).toBe("false");
   });
 
-  it("opens workspace headers hidden and reveals them from an 8px top-edge drag zone", () => {
+  it("opens workspace headers hidden and reveals them from a full-height titlebar drag zone", () => {
     vi.useFakeTimers();
     const panel = renderWorkspaceHeaderPanel();
 
     expect(panel.header().dataset.workspacePanelHeaderState).toBe("hidden");
     expect(panel.header().className).toContain("absolute");
     expect(panel.header().className).toContain("motion-reduce:transition-none");
-    expect(panel.hotZone()?.style.height).toBe(`${WORKSPACE_PANEL_HEADER_REVEAL_HOT_ZONE_PX}px`);
+    expect(panel.hotZone()?.style.height).toBe("var(--theme-panel-header-height)");
     expect(panel.hotZone()?.hasAttribute("data-floating-panel-drag-handle")).toBe(true);
 
     const hotZone = panel.hotZone();
     if (!hotZone) throw new Error("Expected the workspace titlebar hot zone.");
+    const floatingPanel = panel.panel();
+    const initialLeft = Number.parseFloat(floatingPanel.style.left);
+    const initialTop = Number.parseFloat(floatingPanel.style.top);
+    dispatchDragPointer(hotZone, "pointerdown", 100, 100);
+    dispatchDragPointer(floatingPanel, "pointermove", 140, 125);
+    dispatchDragPointer(floatingPanel, "pointerup", 140, 125);
+    expect(Number.parseFloat(floatingPanel.style.left)).toBe(initialLeft + 40);
+    expect(Number.parseFloat(floatingPanel.style.top)).toBe(initialTop + 25);
+
     dispatchPointer(hotZone, "pointerover");
     expect(panel.header().dataset.workspacePanelHeaderState).toBe("visible");
     expect(panel.hotZone()).toBeNull();
     advanceHeaderDelay();
     expect(panel.header().dataset.workspacePanelHeaderState).toBe("hidden");
+  });
+
+  it("reveals an in-flow auto-hidden titlebar by expanding layout instead of overlaying content", () => {
+    vi.useFakeTimers();
+    const panel = renderWorkspaceHeaderPanel({ titlebarAutoHideLayout: "flow" });
+
+    expect(panel.panel().dataset.floatingPanelTitlebarAutoHideLayout).toBe("flow");
+    expect(panel.header().dataset.workspacePanelHeaderLayout).toBe("flow");
+    expect(panel.header().className).not.toContain("absolute");
+    expect(panel.header().className).toContain("h-0");
+    expect(panel.header().className).toContain("min-h-0");
+    expect(panel.hotZone()?.style.height).toBe("8px");
+    expect(panel.hotZone()?.dataset.floatingPanelHeaderHotZoneLayout).toBe("flow");
+
+    dispatchPointer(panel.hotZone()!, "pointerover");
+    expect(panel.header().dataset.workspacePanelHeaderState).toBe("visible");
+    expect(panel.header().className).toContain("h-[var(--theme-panel-header-height)]");
+    expect(panel.hotZone()).toBeNull();
+
+    advanceHeaderDelay();
+    expect(panel.header().dataset.workspacePanelHeaderState).toBe("hidden");
+    expect(panel.header().className).toContain("h-0");
   });
 
   it("reopens keep-alive workspace headers in their hidden auto-hide state", () => {

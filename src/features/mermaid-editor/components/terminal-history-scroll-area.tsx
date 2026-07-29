@@ -61,7 +61,7 @@ export function TerminalHistoryScrollArea({ terminal }: { terminal: XtermTermina
   return (
     <ScrollArea
       type="scroll"
-      className="terminal-history-scroll-area pointer-events-auto absolute inset-y-1 right-1 w-[var(--ui-scrollbar-size)]"
+      className="terminal-history-scroll-area pointer-events-auto absolute inset-y-0 right-0 w-2.5"
       viewportRef={viewportRef}
       viewportProps={{
         "aria-label": "终端滚动历史",

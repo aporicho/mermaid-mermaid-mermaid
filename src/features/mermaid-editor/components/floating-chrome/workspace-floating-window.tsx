@@ -9,7 +9,7 @@ import type {
 import { cn } from "@/lib/utils";
 
 import { FloatingPanel } from "./floating-panel";
-import { useWorkspacePanelHeader } from "./workspace-panel-header-context";
+import { useWorkspacePanelHeader, type WorkspaceTitlebarAutoHideLayout } from "./workspace-panel-header-context";
 import {
   WorkspaceWindowChromeContext,
   useWorkspaceWindowChrome,
@@ -22,6 +22,7 @@ export function WorkspaceFloatingWindow({
   panelId,
   placement,
   titlebarAutoHide,
+  titlebarAutoHideLayout = "overlay",
   active,
   stackIndex,
   onFocusPanel,
@@ -44,6 +45,7 @@ export function WorkspaceFloatingWindow({
   panelId: string;
   placement: FloatingPanelPlacement;
   titlebarAutoHide: boolean;
+  titlebarAutoHideLayout?: WorkspaceTitlebarAutoHideLayout;
   active: boolean;
   stackIndex: number;
   onFocusPanel: () => void;
@@ -84,6 +86,7 @@ export function WorkspaceFloatingWindow({
       fullscreenable={allowFullscreen}
       panelId={panelId}
       titlebarAutoHide={titlebarAutoHide}
+      titlebarAutoHideLayout={titlebarAutoHideLayout}
       active={active}
       stackIndex={stackIndex}
       onFocusPanel={onFocusPanel}
@@ -173,13 +176,16 @@ export function WorkspaceWindowHeader({
       headerRef={workspaceHeader.setHeaderElement}
       className={cn(
         "cursor-grab touch-none active:cursor-grabbing",
-        workspaceHeader.autoHide && "absolute inset-x-0 top-0 z-[3] bg-card/[var(--ui-window-header-opacity)] shadow-[var(--ui-shadow-toolbar)] [backdrop-filter:blur(var(--ui-backdrop-blur))] transition-[opacity,transform] [transition-duration:var(--motion-duration-fast)] ease-out motion-reduce:transition-none",
-        workspaceHeader.autoHide && (workspaceHeader.visible ? "pointer-events-auto translate-y-0 opacity-100" : "pointer-events-none -translate-y-full opacity-0"),
+        workspaceHeader.autoHide && workspaceHeader.autoHideLayout === "overlay" && "absolute inset-x-0 top-0 z-[3] bg-card/[var(--ui-window-header-opacity)] shadow-[var(--ui-shadow-toolbar)] [backdrop-filter:blur(var(--ui-backdrop-blur))] transition-[opacity,transform] [transition-duration:var(--motion-duration-fast)] ease-out motion-reduce:transition-none",
+        workspaceHeader.autoHide && workspaceHeader.autoHideLayout === "overlay" && (workspaceHeader.visible ? "pointer-events-auto translate-y-0 opacity-100" : "pointer-events-none -translate-y-full opacity-0"),
+        workspaceHeader.autoHide && workspaceHeader.autoHideLayout === "flow" && "relative shrink-0 overflow-hidden bg-card transition-[height,min-height,opacity] [transition-duration:var(--motion-duration-fast)] ease-out motion-reduce:transition-none",
+        workspaceHeader.autoHide && workspaceHeader.autoHideLayout === "flow" && (workspaceHeader.visible ? "h-[var(--theme-panel-header-height)] min-h-[var(--theme-panel-header-height)] opacity-100" : "pointer-events-none h-0 min-h-0 border-b-0 opacity-0"),
         className
       )}
       data-floating-panel-drag-handle
       data-workspace-panel-header="true"
       data-workspace-panel-header-mode={workspaceHeader.autoHide ? "auto-hide" : "fixed"}
+      data-workspace-panel-header-layout={workspaceHeader.autoHideLayout}
       data-workspace-panel-header-state={workspaceHeader.autoHide ? (workspaceHeader.visible ? "visible" : "hidden") : "fixed"}
       onPointerEnter={workspaceHeader.onHeaderPointerEnter}
       onPointerLeave={workspaceHeader.onHeaderPointerLeave}

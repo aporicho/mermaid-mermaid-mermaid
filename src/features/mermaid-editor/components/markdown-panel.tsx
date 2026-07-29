@@ -48,6 +48,7 @@ type MarkdownPanelProps = {
   foldState?: MarkdownFoldSnapshot | null;
   onFoldStateChange?: (snapshot: MarkdownFoldSnapshot) => void;
   onChange: (value: string) => void;
+  onOpenFileLink?: (href: string) => boolean;
   onSelectionChange?: (selection: RuntimeAgentTextSelection | null) => void;
 };
 
@@ -81,7 +82,7 @@ const blockStyleGroups = [
   ]
 ] satisfies ReadonlyArray<ReadonlyArray<{ style: MarkdownBlockStyle; label: string; icon: typeof Text }>>;
 
-export function MarkdownPanel({ value, className, readOnly = false, spellCheck, contentWidth, textScale, foldState, onFoldStateChange, onChange, onSelectionChange }: MarkdownPanelProps) {
+export function MarkdownPanel({ value, className, readOnly = false, spellCheck, contentWidth, textScale, foldState, onFoldStateChange, onChange, onOpenFileLink, onSelectionChange }: MarkdownPanelProps) {
   const panelRef = useRef<HTMLElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const crepeRef = useRef<Crepe | null>(null);
@@ -91,8 +92,10 @@ export function MarkdownPanel({ value, className, readOnly = false, spellCheck, 
   const valueRef = useRef(value);
   const lastEditorValueRef = useRef(value);
   const initialReadOnlyRef = useRef(readOnly);
+  const readOnlyRef = useRef(readOnly);
   const spellCheckRef = useRef(spellCheck);
   const onChangeRef = useRef(onChange);
+  const onOpenFileLinkRef = useRef(onOpenFileLink);
   const onFoldStateChangeRef = useRef(onFoldStateChange);
   const onSelectionChangeRef = useRef(onSelectionChange);
   const foldStateRef = useRef(foldState);
@@ -176,6 +179,10 @@ export function MarkdownPanel({ value, className, readOnly = false, spellCheck, 
   useEffect(() => {
     onChangeRef.current = onChange;
   }, [onChange]);
+
+  useEffect(() => {
+    onOpenFileLinkRef.current = onOpenFileLink;
+  }, [onOpenFileLink]);
 
   useEffect(() => {
     onFoldStateChangeRef.current = onFoldStateChange;
@@ -278,6 +285,7 @@ export function MarkdownPanel({ value, className, readOnly = false, spellCheck, 
   }, [foldState]);
 
   useEffect(() => {
+    readOnlyRef.current = readOnly;
     crepeRef.current?.setReadonly(readOnly);
   }, [readOnly]);
 
@@ -571,6 +579,19 @@ export function MarkdownPanel({ value, className, readOnly = false, spellCheck, 
     }
 
     function handleClick(event: MouseEvent) {
+      const anchor = event.target instanceof Element ? event.target.closest<HTMLAnchorElement>("a[href]") : null;
+      if (anchor) {
+        const directEditorLink = Boolean(anchor.closest(".ProseMirror"));
+        const explicitOpen = !directEditorLink || readOnlyRef.current || event.ctrlKey || event.metaKey;
+        const href = anchor.getAttribute("href") || "";
+        if (explicitOpen && href && onOpenFileLinkRef.current?.(href)) {
+          event.preventDefault();
+          event.stopPropagation();
+          setBlockStyleMenu(null);
+          return;
+        }
+      }
+
       const blockHandle = getDragHandle(event.target);
       if (!blockHandle || blockDragOccurredRef.current) return;
 

@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
 import { floatingPanelPlacementClass } from "./shared";
 import { FloatingPanelContents } from "./floating-panel-contents";
 import { useFloatingPanelController } from "./use-floating-panel-controller";
-import { useWorkspacePanelHeaderAutoHide } from "./workspace-panel-header-context";
+import { useWorkspacePanelHeaderAutoHide, type WorkspaceTitlebarAutoHideLayout } from "./workspace-panel-header-context";
 
 export function FloatingPanel({
   open,
@@ -31,6 +31,7 @@ export function FloatingPanel({
   onWindowStateChange,
   panelId,
   titlebarAutoHide = true,
+  titlebarAutoHideLayout = "overlay",
   active = false,
   stackIndex = 0,
   onFocusPanel,
@@ -57,6 +58,7 @@ export function FloatingPanel({
   onWindowStateChange?: (state: FloatingPanelWindowState) => void;
   panelId?: string;
   titlebarAutoHide?: boolean;
+  titlebarAutoHideLayout?: WorkspaceTitlebarAutoHideLayout;
   active?: boolean;
   stackIndex?: number;
   onFocusPanel?: () => void;
@@ -87,7 +89,7 @@ export function FloatingPanel({
     resetDragOnOpen,
     mountStrategy
   });
-  const workspaceHeader = useWorkspacePanelHeaderAutoHide({ enabled: kind === "workspace", open, dragging: panel.dragging, autoHide: titlebarAutoHide });
+  const workspaceHeader = useWorkspacePanelHeaderAutoHide({ enabled: kind === "workspace", open, dragging: panel.dragging, autoHide: titlebarAutoHide, autoHideLayout: titlebarAutoHideLayout });
   const parentOverlayScope = useOverlayLayerScope();
   const generatedScopeId = useId().replaceAll(":", "");
   const overlayScopeId = kind === "workspace"
@@ -133,6 +135,7 @@ export function FloatingPanel({
       data-floating-panel-dismiss-mode={panel.resolvedDismissMode}
       data-floating-panel-window-state={windowState}
       data-floating-panel-titlebar-auto-hide={workspaceHeader ? (workspaceHeader.autoHide ? "true" : "false") : undefined}
+      data-floating-panel-titlebar-auto-hide-layout={workspaceHeader?.autoHideLayout}
       data-overlay-layer={kind === "popover" && open ? "floating-popover" : undefined}
       data-overlay-scope-id={overlayScopeId}
       aria-hidden={!open || undefined}
