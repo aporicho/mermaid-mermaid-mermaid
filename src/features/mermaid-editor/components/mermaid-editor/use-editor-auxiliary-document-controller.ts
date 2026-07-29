@@ -6,6 +6,7 @@ import type { EditorRuntime, RuntimeFileRef } from "@/features/mermaid-editor/li
 import type { CanvasNode } from "@/features/mermaid-editor/lib/editor-types";
 import type { FloatingPanelWindowState } from "@/features/mermaid-editor/lib/floating-chrome";
 import type { ProjectWorkspace } from "@/features/mermaid-editor/lib/project-workspace";
+import type { ProjectResourceOpenRequest } from "@/features/mermaid-editor/lib/project-resource-open";
 import { csvTableDocumentAction, resolveCsvTableDocumentFile } from "@/features/mermaid-editor/lib/csv-table-document";
 import { resolveTextDocumentFile, textDocumentNodeAction } from "@/features/mermaid-editor/lib/text-document";
 import type { DetachedCsvWindow, DetachedTextWindow, WorkspaceFloatingPanelId } from "@/features/mermaid-editor/lib/workspace-panels";
@@ -16,7 +17,7 @@ type CloseActions = { dirtyNames: string[]; saveAll: () => Promise<boolean>; dis
 export function useEditorAuxiliaryDocumentController({
   runtime, preferences, textWindows, setTextWindows, csvWindows, setCsvWindows,
   fileRef, projectWorkspace, bringPanelToFront, removePanel, setPanelWindowState,
-  executeCanvasNodeAction, closeActionsRef, onTextFileSaved, onStatus, onError
+  executeCanvasNodeAction, openProjectResource, closeActionsRef, onTextFileSaved, onStatus, onError
 }: {
   runtime: EditorRuntime; preferences: EditorPreferences;
   textWindows: DetachedTextWindow[]; setTextWindows: Setter<DetachedTextWindow[]>;
@@ -26,6 +27,7 @@ export function useEditorAuxiliaryDocumentController({
   removePanel: (panelId: WorkspaceFloatingPanelId) => void;
   setPanelWindowState: (panelId: WorkspaceFloatingPanelId, state: FloatingPanelWindowState) => void;
   executeCanvasNodeAction: (node: CanvasNode) => void | Promise<unknown>;
+  openProjectResource: (request: ProjectResourceOpenRequest) => boolean;
   closeActionsRef: MutableRefObject<CloseActions>;
   onStatus: (message: string) => void;
   onError: (error: unknown, fallback?: string) => void;
@@ -37,11 +39,19 @@ export function useEditorAuxiliaryDocumentController({
   });
   const executeNodeAction = useCallback((node: CanvasNode) => {
     const textAction = textDocumentNodeAction(node.action);
-    if (textAction) return void windows.openTextWindow(resolveTextDocumentFile(textAction.path, fileRef?.path, projectWorkspace));
+    if (textAction) return void openProjectResource({
+      file: resolveTextDocumentFile(textAction.path, fileRef?.path, projectWorkspace),
+      mode: "floating",
+      source: "canvas-node"
+    });
     const csvAction = csvTableDocumentAction(node.action);
-    if (csvAction) return void windows.openCsvWindow(resolveCsvTableDocumentFile(csvAction.path, fileRef?.path, projectWorkspace));
+    if (csvAction) return void openProjectResource({
+      file: resolveCsvTableDocumentFile(csvAction.path, fileRef?.path, projectWorkspace),
+      mode: "floating",
+      source: "canvas-node"
+    });
     return executeCanvasNodeAction(node);
-  }, [executeCanvasNodeAction, fileRef?.path, projectWorkspace, windows]);
+  }, [executeCanvasNodeAction, fileRef?.path, openProjectResource, projectWorkspace]);
   closeActionsRef.current = { dirtyNames: windows.dirtyDocumentNames, saveAll: windows.saveAll, discardAll: windows.discardAll };
   return { windows, executeNodeAction };
 }

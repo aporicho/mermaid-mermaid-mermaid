@@ -194,6 +194,17 @@ describe("MarkdownPanel", () => {
     return panel;
   }
 
+  function mockElementRect(element: Element, rect: { bottom: number; left: number; right: number; top: number }) {
+    vi.spyOn(element, "getBoundingClientRect").mockReturnValue({
+      ...rect,
+      height: rect.bottom - rect.top,
+      width: rect.right - rect.left,
+      x: rect.left,
+      y: rect.top,
+      toJSON: () => ({})
+    });
+  }
+
   it("applies and updates the native spellcheck setting without recreating Milkdown", () => {
     renderPanel(false);
 
@@ -273,13 +284,47 @@ describe("MarkdownPanel", () => {
     const link = document.createElement("a");
     link.className = "link-display";
     link.href = "./notes.md#details";
+    mockElementRect(link, { bottom: 72, left: 24, right: 164, top: 48 });
     panel.appendChild(link);
 
     const click = new MouseEvent("click", { bubbles: true, cancelable: true });
     act(() => link.dispatchEvent(click));
 
-    expect(onOpenFileLink).toHaveBeenCalledWith("./notes.md#details");
+    expect(onOpenFileLink).toHaveBeenCalledWith("./notes.md#details", {
+      anchorRect: { bottom: 72, left: 24, right: 164, top: 48 }
+    });
     expect(click.defaultPrevented).toBe(true);
+  });
+
+  it("reports the source floating panel geometry when opening a file link", () => {
+    const onOpenFileLink = vi.fn(() => true);
+    const panel = renderPanel(false, 880, 1, undefined, { onOpenFileLink });
+    if (!container) throw new Error("Expected markdown panel container.");
+    container.setAttribute("data-floating-panel-kind", "workspace");
+    container.setAttribute("data-floating-panel-id", "markdown:docs/readme.md");
+    mockElementRect(container, { bottom: 760, left: 120, right: 920, top: 80 });
+
+    const header = document.createElement("header");
+    header.setAttribute("data-workspace-panel-header", "true");
+    mockElementRect(header, { bottom: 124, left: 120, right: 920, top: 80 });
+    container.prepend(header);
+
+    const link = document.createElement("a");
+    link.className = "link-display";
+    link.setAttribute("href", "../assets/reference.png");
+    mockElementRect(link, { bottom: 242, left: 172, right: 332, top: 218 });
+    panel.appendChild(link);
+
+    act(() => {
+      link.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+    });
+
+    expect(onOpenFileLink).toHaveBeenCalledWith("../assets/reference.png", {
+      anchorRect: { bottom: 242, left: 172, right: 332, top: 218 },
+      sourcePanelId: "markdown:docs/readme.md",
+      sourcePanelRect: { bottom: 760, left: 120, right: 920, top: 80 },
+      sourceTitlebarHeight: 44
+    });
   });
 
   it("keeps direct editor link clicks editable and opens them with the platform modifier", () => {
@@ -289,6 +334,7 @@ describe("MarkdownPanel", () => {
     editor.className = "ProseMirror";
     const link = document.createElement("a");
     link.setAttribute("href", "./notes.md");
+    mockElementRect(link, { bottom: 136, left: 36, right: 116, top: 112 });
     editor.appendChild(link);
     panel.appendChild(editor);
 
@@ -299,7 +345,9 @@ describe("MarkdownPanel", () => {
 
     const openClick = new MouseEvent("click", { bubbles: true, cancelable: true, ctrlKey: true });
     act(() => link.dispatchEvent(openClick));
-    expect(onOpenFileLink).toHaveBeenCalledWith("./notes.md");
+    expect(onOpenFileLink).toHaveBeenCalledWith("./notes.md", {
+      anchorRect: { bottom: 136, left: 36, right: 116, top: 112 }
+    });
     expect(openClick.defaultPrevented).toBe(true);
   });
 
@@ -308,12 +356,15 @@ describe("MarkdownPanel", () => {
     const panel = renderPanel(false, 880, 1, undefined, { onOpenFileLink });
     const link = document.createElement("a");
     link.href = "https://example.com";
+    mockElementRect(link, { bottom: 198, left: 60, right: 220, top: 174 });
     panel.appendChild(link);
 
     const click = new MouseEvent("click", { bubbles: true, cancelable: true });
     act(() => link.dispatchEvent(click));
 
-    expect(onOpenFileLink).toHaveBeenCalledWith("https://example.com");
+    expect(onOpenFileLink).toHaveBeenCalledWith("https://example.com", {
+      anchorRect: { bottom: 198, left: 60, right: 220, top: 174 }
+    });
     expect(click.defaultPrevented).toBe(false);
   });
 

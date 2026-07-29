@@ -4,6 +4,7 @@ export const FLOATING_CHROME_HIDE_DELAY_MS = 500;
 export const FLOATING_PANEL_EDGE_MARGIN_PX = 12;
 export const FLOATING_PANEL_MIN_VISIBLE_TITLE_PX = 48;
 export const FLOATING_PANEL_MIN_VISIBLE_TOP_EDGE_PX = 8;
+export const FLOATING_PANEL_DEFAULT_TITLEBAR_HEIGHT_PX = 52;
 export const FLOATING_WORKSPACE_PANEL_BASE_Z_INDEX = OVERLAY_Z_INDEX.workspaceBase;
 export const FLOATING_POPOVER_PANEL_Z_INDEX = OVERLAY_Z_INDEX.floatingPopover;
 
@@ -161,6 +162,74 @@ export function fitFloatingPanelFrameToViewport({
   };
 }
 
+/**
+ * Places a newly opened workspace window near its source without moving the
+ * source. Prefer a fully visible diagonal cascade in reading order, then fit
+ * the target to the viewport. On a viewport too small to keep two identical
+ * frames distinct, keep the target titlebar recoverable instead of stacking it
+ * exactly over the source.
+ */
+export function cascadeFloatingPanelFrame({
+  sourceRect,
+  targetSize,
+  minSize = { width: 320, height: 220 },
+  viewport,
+  titlebarHeight = FLOATING_PANEL_DEFAULT_TITLEBAR_HEIGHT_PX
+}: {
+  sourceRect: FloatingPanelRect;
+  targetSize: FloatingPanelSize;
+  minSize?: FloatingPanelSize;
+  viewport: FloatingPanelViewport;
+  titlebarHeight?: number;
+}): FloatingPanelFrame {
+  const margin = viewport.margin ?? FLOATING_PANEL_EDGE_MARGIN_PX;
+  const normalizedTarget = fitFloatingPanelFrameToViewport({
+    frame: { x: margin, y: margin, ...targetSize },
+    viewport,
+    minSize
+  });
+  const horizontalOffset = Math.max(1, titlebarHeight + margin);
+  const verticalOffset = Math.max(1, titlebarHeight);
+  const candidates: FloatingPanelOffset[] = [
+    { x: sourceRect.left + horizontalOffset, y: sourceRect.top + verticalOffset },
+    { x: sourceRect.left - horizontalOffset, y: sourceRect.top + verticalOffset },
+    { x: sourceRect.left + horizontalOffset, y: sourceRect.top - verticalOffset },
+    { x: sourceRect.left - horizontalOffset, y: sourceRect.top - verticalOffset }
+  ];
+
+  for (const candidate of candidates) {
+    const frame = { ...candidate, width: normalizedTarget.width, height: normalizedTarget.height };
+    if (floatingPanelFrameFitsViewport(frame, viewport)) return frame;
+  }
+
+  const fittedCandidates = candidates.map((candidate) =>
+    fitFloatingPanelFrameToViewport({
+      frame: { ...candidate, width: normalizedTarget.width, height: normalizedTarget.height },
+      viewport,
+      minSize
+    })
+  );
+  const distinctFitted = fittedCandidates.find((frame) => !floatingPanelFrameExactlyMatchesRect(frame, sourceRect));
+  if (distinctFitted) return distinctFitted;
+
+  const recoverableCandidates = candidates.map((candidate) =>
+    constrainFloatingPanelFrame({
+      frame: { ...candidate, width: normalizedTarget.width, height: normalizedTarget.height },
+      viewport,
+      minSize
+    })
+  );
+  const distinctRecoverable = recoverableCandidates.find((frame) => !floatingPanelFrameExactlyMatchesRect(frame, sourceRect));
+  if (distinctRecoverable) return distinctRecoverable;
+
+  const fallback = recoverableCandidates[0];
+  return constrainFloatingPanelFrame({
+    frame: { ...fallback, height: fallback.height + 1 },
+    viewport,
+    minSize
+  });
+}
+
 export function resizeFloatingPanelFrame({
   startFrame,
   handle,
@@ -234,4 +303,19 @@ export function restoreFloatingPanelFrame({
 function clamp(value: number, min: number, max: number) {
   if (min > max) return (min + max) / 2;
   return Math.min(max, Math.max(min, value));
+}
+
+function floatingPanelFrameFitsViewport(frame: FloatingPanelFrame, viewport: FloatingPanelViewport) {
+  const margin = viewport.margin ?? FLOATING_PANEL_EDGE_MARGIN_PX;
+  return frame.x >= margin
+    && frame.y >= margin
+    && frame.x + frame.width <= viewport.width - margin
+    && frame.y + frame.height <= viewport.height - margin;
+}
+
+function floatingPanelFrameExactlyMatchesRect(frame: FloatingPanelFrame, rect: FloatingPanelRect) {
+  return frame.x === rect.left
+    && frame.y === rect.top
+    && frame.width === rect.right - rect.left
+    && frame.height === rect.bottom - rect.top;
 }

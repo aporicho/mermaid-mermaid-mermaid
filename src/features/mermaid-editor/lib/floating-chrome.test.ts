@@ -8,6 +8,7 @@ import {
   FLOATING_POPOVER_PANEL_Z_INDEX,
   FLOATING_WORKSPACE_PANEL_BASE_Z_INDEX,
   bringFloatingPanelToFront,
+  cascadeFloatingPanelFrame,
   constrainFloatingPanelFrame,
   constrainFloatingPanelOffset,
   defaultFloatingPanelDismissMode,
@@ -124,6 +125,50 @@ describe("floating chrome", () => {
       width: 800 - FLOATING_PANEL_EDGE_MARGIN_PX * 2,
       height: 220
     });
+  });
+
+  it("cascades a new panel diagonally from its source when the preferred direction fits", () => {
+    expect(cascadeFloatingPanelFrame({
+      sourceRect: { left: 100, top: 100, right: 500, bottom: 500 },
+      targetSize: { width: 400, height: 300 },
+      minSize: { width: 320, height: 220 },
+      viewport: { width: 1200, height: 900 },
+      titlebarHeight: 50
+    })).toEqual({ x: 162, y: 150, width: 400, height: 300 });
+  });
+
+  it("tries the other cascade directions before fitting the target", () => {
+    expect(cascadeFloatingPanelFrame({
+      sourceRect: { left: 850, top: 650, right: 1150, bottom: 850 },
+      targetSize: { width: 360, height: 260 },
+      minSize: { width: 320, height: 220 },
+      viewport: { width: 1200, height: 900 },
+      titlebarHeight: 50
+    })).toEqual({ x: 788, y: 600, width: 360, height: 260 });
+  });
+
+  it("preserves the target minimum size while cascading", () => {
+    expect(cascadeFloatingPanelFrame({
+      sourceRect: { left: 100, top: 100, right: 500, bottom: 500 },
+      targetSize: { width: 100, height: 80 },
+      minSize: { width: 320, height: 220 },
+      viewport: { width: 1200, height: 900 },
+      titlebarHeight: 50
+    })).toEqual({ x: 162, y: 150, width: 320, height: 220 });
+  });
+
+  it("keeps a viewport-sized cascade recoverable instead of exactly covering its source", () => {
+    const sourceRect = { left: 12, top: 12, right: 788, bottom: 588 };
+    const cascaded = cascadeFloatingPanelFrame({
+      sourceRect,
+      targetSize: { width: 776, height: 576 },
+      minSize: { width: 320, height: 220 },
+      viewport: { width: 800, height: 600 },
+      titlebarHeight: 52
+    });
+
+    expect(cascaded).toEqual({ x: 76, y: 64, width: 776, height: 576 });
+    expect(cascaded).not.toEqual({ x: sourceRect.left, y: sourceRect.top, width: 776, height: 576 });
   });
 
   it("resizes panel frames from edges while preserving minimum size", () => {

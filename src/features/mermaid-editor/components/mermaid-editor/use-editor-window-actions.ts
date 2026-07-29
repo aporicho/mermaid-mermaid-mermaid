@@ -14,7 +14,6 @@ import {
 } from "@/features/mermaid-editor/lib/editor-state";
 import type {
   EditorRuntime,
-  RuntimeFileOpenRequest,
   RuntimeFileRef
 } from "@/features/mermaid-editor/lib/editor-runtime";
 import type { EditorRecentAction } from "@/features/mermaid-editor/lib/editor-interaction-state";
@@ -33,6 +32,7 @@ import type {
   ProjectFileEntry,
   ProjectWorkspace
 } from "@/features/mermaid-editor/lib/project-workspace";
+import type { ProjectResourceOpenRequest } from "@/features/mermaid-editor/lib/project-resource-open";
 import {
   htmlWindowPanelId,
   imageWindowPanelId,
@@ -48,7 +48,8 @@ import {
   type ImageWindowNavigation,
   type ImageWindowNavigationItem,
   type MarkdownWindowPanelId,
-  type WorkspaceFloatingPanelId
+  type WorkspaceFloatingPanelId,
+  type WorkspaceWindowOpenRequest
 } from "@/features/mermaid-editor/lib/workspace-panels";
 import type { EditorDocumentBuffer, EditorDocumentSession } from "@/features/mermaid-editor/lib/editor-document-session";
 import type { FloatingPanelWindowState } from "@/features/mermaid-editor/lib/floating-chrome";
@@ -59,7 +60,6 @@ import {
   parentDirectoryPath,
   runtimeFileNameFromPath
 } from "@/features/mermaid-editor/lib/runtime-paths";
-import type { FileOpenSource } from "@/features/mermaid-editor/components/mermaid-editor/use-editor-file-workflow";
 import {
   isHtmlDocumentFilePath,
   resolveHtmlDocumentFile,
@@ -87,7 +87,7 @@ type UseEditorWindowActionsArgs = {
   removeWorkspacePanel: (panelId: WorkspaceFloatingPanelId) => void;
   setWorkspacePanelWindowState: (panelId: WorkspaceFloatingPanelId, state: FloatingPanelWindowState) => void;
   showFileWorkflowError: (error: unknown, fallbackMessage?: string) => void;
-  openRuntimeFileRequest: (file: RuntimeFileOpenRequest, source: FileOpenSource) => Promise<void>;
+  openProjectResource: (request: ProjectResourceOpenRequest) => boolean;
   openInspectorPanel: () => void;
   applyEditorCommand: (command: EditorCommand) => void;
   recordRecentAction: (type: string, target?: EditorRecentAction["target"], summary?: string) => void;
@@ -117,7 +117,7 @@ export function useEditorWindowActions({
   removeWorkspacePanel,
   setWorkspacePanelWindowState,
   showFileWorkflowError,
-  openRuntimeFileRequest,
+  openProjectResource,
   openInspectorPanel,
   applyEditorCommand,
   recordRecentAction,
@@ -127,7 +127,7 @@ export function useEditorWindowActions({
   updateDocumentBuffer,
   saveDocumentBufferById
 }: UseEditorWindowActionsArgs) {
-  async function openProjectMarkdownWindow(file: ProjectFileEntry) {
+  async function openProjectMarkdownWindow(file: ProjectFileEntry, openRequest?: WorkspaceWindowOpenRequest) {
     if (!isSupportedMarkdownFilePath(file.path)) return;
     const panelId = markdownWindowPanelId(file);
     const existingWindow = detachedMarkdownWindows.find((window) => window.id === panelId);
@@ -160,7 +160,8 @@ export function useEditorWindowActions({
         title,
         value: opened.content,
         savedValue: opened.savedContent,
-        ...(opened.syncState === "deleted" ? { missing: true } : {})
+        ...(opened.syncState === "deleted" ? { missing: true } : {}),
+        ...(openRequest ? { openRequest } : {})
       };
       if (buffered) updateDocumentBuffer(buffered.id, {
         fileName: title,
@@ -193,7 +194,7 @@ export function useEditorWindowActions({
     removeWorkspacePanel(panelId);
   }
 
-  async function openProjectHtmlWindow(file: ProjectFileEntry) {
+  async function openProjectHtmlWindow(file: ProjectFileEntry, openRequest?: WorkspaceWindowOpenRequest) {
     if (!isHtmlDocumentFilePath(file.path)) return;
     if (runtime.host !== "electron") {
       setStatus("本地 HTML 预览仅在桌面版可用。");
@@ -224,7 +225,13 @@ export function useEditorWindowActions({
       return;
     }
     const title = file.name || runtimeFileNameFromPath(path) || "HTML 预览";
-    setDetachedHtmlWindows((current) => [...current, { id: panelId, file: runtimeFile, title, url }]);
+    setDetachedHtmlWindows((current) => [...current, {
+      id: panelId,
+      file: runtimeFile,
+      title,
+      url,
+      ...(openRequest ? { openRequest } : {})
+    }]);
     bringWorkspacePanelToFront(panelId);
     setWorkspacePanelWindowState(panelId, "normal");
     setStatus(`已在浮动窗口中预览 ${title}。`);
@@ -235,7 +242,7 @@ export function useEditorWindowActions({
     removeWorkspacePanel(panelId);
   }
 
-  function openImageWindow(request: ImageWindowOpenRequest) {
+  function openImageWindow(request: ImageWindowOpenRequest, openRequest?: WorkspaceWindowOpenRequest) {
     const selectedItem = normalizeImageWindowItem(request, request);
     if (!selectedItem) {
       showFileWorkflowError({ code: "file_not_found", path: request.source }, "无法打开图片。");
@@ -268,14 +275,15 @@ export function useEditorWindowActions({
       source: selectedItem.source,
       documentFile: selectedItem.documentFile,
       watchPath: selectedItem.watchPath,
-      navigation
+      navigation,
+      ...(openRequest ? { openRequest } : {})
     }]);
     bringWorkspacePanelToFront(panelId);
     setWorkspacePanelWindowState(panelId, "normal");
     setStatus(`已在图片查看器中打开 ${selectedItem.title}。`);
   }
 
-  function openProjectImageWindow(file: ProjectFileEntry) {
+  function openProjectImageWindow(file: ProjectFileEntry, openRequest?: WorkspaceWindowOpenRequest) {
     if (!isSupportedImagePath(file.path)) return;
     openImageWindow({
       source: file.path,
@@ -283,7 +291,7 @@ export function useEditorWindowActions({
       identity: file.path,
       watchPath: file.path,
       navigation: projectDirectoryImageNavigation(projectWorkspace, file)
-    });
+    }, openRequest);
   }
 
   function navigateDetachedImageWindow(panelId: ImageWindowPanelId, direction: -1 | 1) {
@@ -463,7 +471,11 @@ export function useEditorWindowActions({
 
   async function openFileNodeAction(action: Extract<CanvasNodeAction, { kind: "file" }>) {
     if (isHtmlDocumentFilePath(action.path)) {
-      openProjectHtmlWindow(resolveHtmlDocumentFile(action.path, fileRef?.path, projectWorkspace));
+      openProjectResource({
+        file: resolveHtmlDocumentFile(action.path, fileRef?.path, projectWorkspace),
+        mode: "floating",
+        source: "canvas-node"
+      });
       return;
     }
     const path = resolveNodeActionFilePath(action.path);
@@ -474,17 +486,17 @@ export function useEditorWindowActions({
 
     const file = projectFileEntryFromPath(path);
     if (isSupportedMarkdownFilePath(path)) {
-      await openProjectMarkdownWindow(file);
+      openProjectResource({ file, mode: "floating", source: "canvas-node" });
       return;
     }
 
     if (isSupportedImagePath(path)) {
-      openProjectImageWindow(file);
+      openProjectResource({ file, mode: "floating", source: "canvas-node" });
       return;
     }
 
     if (isSupportedDocumentFilePath(path)) {
-      await openRuntimeFileRequest(file, "project");
+      openProjectResource({ file, mode: "current", source: "canvas-node" });
       return;
     }
 

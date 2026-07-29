@@ -2,6 +2,7 @@ import { useId, type AriaRole, type ReactNode } from "react";
 
 import type {
   FloatingPanelDismissMode,
+  FloatingPanelFrame,
   FloatingPanelKind,
   FloatingPanelPlacement,
   FloatingPanelSize,
@@ -24,6 +25,8 @@ export function FloatingPanel({
   resizable,
   minSize,
   defaultSize,
+  initialFrame,
+  initialFrameKey,
   initialFrameSize,
   initialFrameSizeKey,
   fullscreenable,
@@ -51,6 +54,8 @@ export function FloatingPanel({
   resizable?: boolean;
   minSize?: FloatingPanelSize;
   defaultSize?: FloatingPanelSize;
+  initialFrame?: FloatingPanelFrame;
+  initialFrameKey?: string;
   initialFrameSize?: FloatingPanelSize;
   initialFrameSizeKey?: string;
   fullscreenable?: boolean;
@@ -79,6 +84,8 @@ export function FloatingPanel({
     resizable,
     minSize,
     defaultSize,
+    initialFrame,
+    initialFrameKey,
     initialFrameSize,
     initialFrameSizeKey,
     fullscreenable,

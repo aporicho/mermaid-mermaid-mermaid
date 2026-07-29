@@ -44,6 +44,9 @@ export function HtmlWorkspaceWindows({
       stackIndex={panelStackPosition(htmlWindow.id)}
       onFocusPanel={() => bringPanelToFront(htmlWindow.id)}
       defaultSize={WORKSPACE_PANEL_DEFAULT_SIZES.html}
+      initialFrame={htmlWindow.openRequest?.initialFrame}
+      initialFrameKey={htmlWindow.openRequest?.initialFrameKey}
+      activationKey={htmlWindow.openRequest?.activationKey}
       minSize={WORKSPACE_PANEL_MIN_SIZES.html}
       windowState={panelWindowState(htmlWindow.id)}
       onWindowStateChange={(state) => setPanelWindowState(htmlWindow.id, state)}

@@ -280,6 +280,124 @@ describe("floating chrome", () => {
     expect(cappedPanel.style.height).toBe(`${window.innerHeight - 24}px`);
   });
 
+  it("applies a full initial frame once per request key", () => {
+    createContainer();
+    const render = (initialFrame: { x: number; y: number; width: number; height: number }, initialFrameKey: string) => act(() => {
+      root?.render(
+        <WorkspaceFloatingWindow
+          open
+          placement="center-panel"
+          panelId="explicit-frame"
+          titlebarAutoHide
+          active
+          stackIndex={0}
+          onFocusPanel={() => undefined}
+          defaultSize={{ width: 640, height: 480 }}
+          initialFrame={initialFrame}
+          initialFrameKey={initialFrameKey}
+          minSize={{ width: 320, height: 220 }}
+          windowState="normal"
+          onWindowStateChange={() => undefined}
+          onClose={() => undefined}
+          closeLabel="关闭"
+        >
+          <div />
+        </WorkspaceFloatingWindow>
+      );
+    });
+
+    render({ x: 80, y: 90, width: 500, height: 400 }, "request-a");
+    const panel = requiredElement<HTMLElement>("[data-floating-panel-id='explicit-frame']");
+    expect(panel.style.left).toBe("80px");
+    expect(panel.style.top).toBe("90px");
+    expect(panel.style.width).toBe("500px");
+    expect(panel.style.height).toBe("400px");
+
+    render({ x: 180, y: 190, width: 600, height: 450 }, "request-a");
+    expect(panel.style.left).toBe("80px");
+    expect(panel.style.top).toBe("90px");
+    expect(panel.style.width).toBe("500px");
+    expect(panel.style.height).toBe("400px");
+
+    render({ x: 180, y: 190, width: 600, height: 450 }, "request-b");
+    expect(panel.style.left).toBe("180px");
+    expect(panel.style.top).toBe("190px");
+    expect(panel.style.width).toBe("600px");
+    expect(panel.style.height).toBe("450px");
+  });
+
+  it("confirms a requested activation after mount once per key", () => {
+    createContainer();
+    const onFocusPanel = vi.fn();
+    const render = (activationKey: number) => act(() => {
+      root?.render(
+        <WorkspaceFloatingWindow
+          open
+          placement="center-panel"
+          panelId="activated-window"
+          titlebarAutoHide
+          active
+          stackIndex={0}
+          onFocusPanel={onFocusPanel}
+          activationKey={activationKey}
+          defaultSize={{ width: 640, height: 480 }}
+          minSize={{ width: 320, height: 220 }}
+          windowState="normal"
+          onWindowStateChange={() => undefined}
+          onClose={() => undefined}
+          closeLabel="关闭"
+        >
+          <div />
+        </WorkspaceFloatingWindow>
+      );
+    });
+
+    render(1);
+    expect(onFocusPanel).toHaveBeenCalledTimes(1);
+    render(1);
+    expect(onFocusPanel).toHaveBeenCalledTimes(1);
+    render(2);
+    expect(onFocusPanel).toHaveBeenCalledTimes(2);
+  });
+
+  it("preserves an explicit initial position when natural content sizing arrives later", () => {
+    createContainer();
+    const render = (initialFrameSize?: { width: number; height: number }) => act(() => {
+      root?.render(
+        <WorkspaceFloatingWindow
+          open
+          placement="center-panel"
+          panelId="positioned-content-size"
+          titlebarAutoHide
+          active
+          stackIndex={0}
+          onFocusPanel={() => undefined}
+          defaultSize={{ width: 640, height: 480 }}
+          initialFrame={{ x: 80, y: 90, width: 640, height: 480 }}
+          initialFrameKey="link-open"
+          initialFrameSize={initialFrameSize}
+          initialFrameSizeKey="image-a"
+          minSize={{ width: 320, height: 220 }}
+          windowState="normal"
+          onWindowStateChange={() => undefined}
+          onClose={() => undefined}
+          closeLabel="关闭"
+        >
+          <div />
+        </WorkspaceFloatingWindow>
+      );
+    });
+
+    render();
+    const panel = requiredElement<HTMLElement>("[data-floating-panel-id='positioned-content-size']");
+    render({ width: 800, height: 600 });
+
+    expect(panel.style.left).toBe("80px");
+    expect(panel.style.top).toBe("90px");
+    expect(panel.style.width).toBe("800px");
+    expect(panel.style.height).toBe("600px");
+  });
+
   it("does not replace a frame the user moved before content sizing completed", () => {
     const workspace = renderWorkspaceHeaderPanel({ titlebarAutoHide: false });
     const panel = workspace.panel();

@@ -21,7 +21,7 @@ import { useTerminalWorkspaceWindowActions, useTerminalWorkspaceWindowState } fr
 import { useEditorWorkspacePanelActions } from "@/features/mermaid-editor/components/mermaid-editor/use-editor-workspace-panel-actions";
 import { useEditorWindowActions } from "@/features/mermaid-editor/components/mermaid-editor/use-editor-window-actions";
 import { useEditorAuxiliaryDocumentController } from "@/features/mermaid-editor/components/mermaid-editor/use-editor-auxiliary-document-controller";
-import { useMarkdownFileLinkOpener } from "@/features/mermaid-editor/components/mermaid-editor/use-markdown-file-link-opener";
+import { useEditorProjectResourceOpening } from "@/features/mermaid-editor/components/mermaid-editor/use-editor-project-resource-opening";
 import { useMarkdownDocumentPreviews } from "@/features/mermaid-editor/components/mermaid-editor/use-markdown-document-previews";
 import { useTextDocumentPreviews } from "@/features/mermaid-editor/components/mermaid-editor/use-text-document-previews";
 import { useLinkedProjectDocuments } from "@/features/mermaid-editor/components/mermaid-editor/use-linked-project-documents";
@@ -42,6 +42,7 @@ import { useCsvTableFileSync } from "@/features/mermaid-editor/components/mermai
 import { normalizeFileWorkflowError } from "@/features/mermaid-editor/lib/file-workflow";
 import { clampMarkdownTextScale, markdownTextScalePercent } from "@/features/mermaid-editor/lib/markdown-text-scale";
 import { imageViewerWatchPath } from "@/features/mermaid-editor/lib/image-viewer";
+import type { ProjectResourceOpenRequest } from "@/features/mermaid-editor/lib/project-resource-open";
 export function MermaidEditor() {
   const runtime = useMemo(() => createEditorRuntime(), []);
   const initial = useMemo(loadInitialState, []);
@@ -182,6 +183,7 @@ export function MermaidEditor() {
   const isDirtyRef = useRef(false);
   const currentDocumentRef = useRef("");
   const auxiliaryCloseActionsRef = useRef<{ dirtyNames: string[]; saveAll: () => Promise<boolean>; discardAll: () => Promise<void> }>({ dirtyNames: [], saveAll: async () => true, discardAll: async () => undefined });
+  const projectResourceOpenRef = useRef<(request: ProjectResourceOpenRequest) => boolean>(() => false);
   const applyLoadedDocumentRef = useRef<((text: string, name: string, file: import("@/features/mermaid-editor/lib/editor-runtime").RuntimeFileRef) => void) | null>(null);
   const isDesktopChrome = runtime.kind === "desktop";
   useEffect(() => { isDirtyRef.current = isDirty; currentDocumentRef.current = currentDocument; }, [currentDocument, isDirty]);
@@ -407,23 +409,15 @@ export function MermaidEditor() {
     editCanvasNodeAction,
     saveCanvasNodeAction
   } = useEditorWindowActions({
-    runtime,
-    fileRef,
-    projectWorkspace,
+    runtime, fileRef, projectWorkspace,
     detachedMarkdownWindows, setDetachedMarkdownWindows,
     detachedBrowserWindows, setDetachedBrowserWindows,
     detachedHtmlWindows, setDetachedHtmlWindows,
     detachedImageWindows, setDetachedImageWindows,
-    setRecentFiles,
-    setNodeActionEditor,
-    setStatus,
-    bringWorkspacePanelToFront,
-    removeWorkspacePanel,
-    setWorkspacePanelWindowState,
-    showFileWorkflowError,
-    openRuntimeFileRequest,
-    openInspectorPanel: () => openWorkspacePanel("inspector"),
-    applyEditorCommand,
+    setRecentFiles, setNodeActionEditor, setStatus,
+    bringWorkspacePanelToFront, removeWorkspacePanel, setWorkspacePanelWindowState,
+    showFileWorkflowError, openProjectResource: (request) => projectResourceOpenRef.current(request),
+    openInspectorPanel: () => openWorkspacePanel("inspector"), applyEditorCommand,
     recordRecentAction,
     findFileDocumentBuffer: documentSession.findFileBuffer,
     registerDocumentBuffer: documentSession.registerDocument,
@@ -436,9 +430,15 @@ export function MermaidEditor() {
     csvWindows: detachedCsvWindows, setCsvWindows: setDetachedCsvWindows, fileRef, projectWorkspace,
     bringPanelToFront: bringWorkspacePanelToFront, removePanel: removeWorkspacePanel,
     setPanelWindowState: setWorkspacePanelWindowState, executeCanvasNodeAction,
+    openProjectResource: (request) => projectResourceOpenRef.current(request),
     closeActionsRef: auxiliaryCloseActionsRef, onTextFileSaved: updateTextDocumentPreviewFromText, onStatus: setStatus, onError: showFileWorkflowError
   });
-  const openMarkdownFileLink = useMarkdownFileLinkOpener({ projectWorkspace, openMarkdownWindow: openProjectMarkdownWindow, openHtmlWindow: openProjectHtmlWindow, openImageWindow: openProjectImageWindow, openTextWindow: auxiliaryWindows.openTextWindow, openCsvWindow: auxiliaryWindows.openCsvWindow });
+  const projectResourceOpening = useEditorProjectResourceOpening({
+    projectWorkspace, currentFilePath: fileRef?.path, openCurrentFile: openProjectFile,
+    openMarkdownWindow: openProjectMarkdownWindow, openHtmlWindow: openProjectHtmlWindow, openImageWindow: openProjectImageWindow,
+    openTextWindow: auxiliaryWindows.openTextWindow, openCsvWindow: auxiliaryWindows.openCsvWindow, onStatus: setStatus, onError: showFileWorkflowError
+  });
+  projectResourceOpenRef.current = projectResourceOpening.openProjectResource;
   useProjectFileHotReload({ runtime, projectWorkspace, setProjectWorkspace, fileRef,
     detachedMarkdownWindows, setDetachedMarkdownWindows, setStatus,
     detachedHtmlWindows, setDetachedHtmlWindows, detachedImageWindows, setDetachedImageWindows,
@@ -557,7 +557,7 @@ export function MermaidEditor() {
             previewSource={previewSource}
             diagnostics={diagnostics}
             mermaidThemeVariables={compiledTheme.mermaidThemeVariables}
-            onMarkdownChange={applyMarkdownSource} onOpenMarkdownFileLink={(href) => openMarkdownFileLink(href, fileRef?.path)} markdownFoldState={markdownFolds.bindingFor(fileRef).foldState} onMarkdownFoldStateChange={markdownFolds.bindingFor(fileRef).onFoldStateChange}
+            onMarkdownChange={applyMarkdownSource} onOpenMarkdownFileLink={projectResourceOpening.openCurrentMarkdownFileLink} markdownFoldState={markdownFolds.bindingFor(fileRef).foldState} onMarkdownFoldStateChange={markdownFolds.bindingFor(fileRef).onFoldStateChange}
             onTextSelectionChange={setAgentTextSelection}
             onSourceChange={applySource}
             onSave={() => void saveMermaidFile()} onUndo={performUndo} onRedo={performRedo}
@@ -601,9 +601,9 @@ export function MermaidEditor() {
           reorderProjectResources={reorderProjectResources}
           copyProjectResources={copyProjectResources} importProjectResources={importProjectResources}
           deleteProjectResources={deleteProjectResources} showProjectResourceInFileManager={showProjectResourceInFileManager}
-          openProjectFile={openProjectFile}
-          openProjectMarkdownWindow={openProjectMarkdownWindow} openProjectHtmlWindow={openProjectHtmlWindow} openProjectImageWindow={openProjectImageWindow}
-          openProjectTextWindow={auxiliaryWindows.openTextWindow} openProjectCsvWindow={auxiliaryWindows.openCsvWindow} onProjectDocumentPointerDrag={markdownDocumentDrop.pointer}
+          openProjectFile={projectResourceOpening.openProjectFile}
+          openProjectMarkdownWindow={projectResourceOpening.openProjectFileWindow} openProjectHtmlWindow={projectResourceOpening.openProjectFileWindow} openProjectImageWindow={projectResourceOpening.openProjectFileWindow}
+          openProjectTextWindow={projectResourceOpening.openProjectFileWindow} openProjectCsvWindow={projectResourceOpening.openProjectFileWindow} onProjectDocumentPointerDrag={markdownDocumentDrop.pointer}
           applyEditorCommand={applyEditorCommand}
           executeCanvasNodeAction={executeWorkspaceNodeAction}
           editCanvasNodeAction={editCanvasNodeAction}
@@ -613,7 +613,7 @@ export function MermaidEditor() {
           saveDetachedTextWindow={auxiliaryWindows.saveTextWindow} saveDetachedCsvWindow={auxiliaryWindows.saveCsvWindow}
           updateDetachedTextWindow={auxiliaryWindows.updateTextWindow} updateDetachedCsvWindow={auxiliaryWindows.updateCsvWindow}
           undoDetachedCsvWindow={auxiliaryWindows.undoCsvWindow} redoDetachedCsvWindow={auxiliaryWindows.redoCsvWindow} setDetachedCsvHeaderMode={auxiliaryWindows.setCsvHeaderMode}
-          updateDetachedMarkdownWindow={updateDetachedMarkdownWindow} openMarkdownFileLink={openMarkdownFileLink} markdownFoldBindingFor={markdownFolds.bindingFor}
+          updateDetachedMarkdownWindow={updateDetachedMarkdownWindow} openMarkdownFileLink={projectResourceOpening.openMarkdownFileLink} markdownFoldBindingFor={markdownFolds.bindingFor}
           onDetachedMarkdownSelectionChange={(panelId, selection) => setDetachedAgentSelections((current) => ({ ...current, [panelId]: selection }))}
           onStatus={setStatus}
         />

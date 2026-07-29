@@ -8,6 +8,7 @@ import type { CsvHeaderMode } from "@/features/mermaid-editor/lib/csv-document-m
 import {
   bringFloatingPanelToFront,
   floatingPanelStackIndex,
+  type FloatingPanelFrame,
   type FloatingPanelWindowState
 } from "@/features/mermaid-editor/lib/floating-chrome";
 
@@ -22,6 +23,12 @@ export type CsvWindowPanelId = `csv:${string}`;
 export type TerminalWindowPanelId = `terminal:${string}`;
 export type WorkspaceFloatingPanelId = StaticWorkspacePanelId | TerminalWindowPanelId | MarkdownWindowPanelId | BrowserWindowPanelId | HtmlWindowPanelId | ImageWindowPanelId | TextWindowPanelId | CsvWindowPanelId;
 
+export type WorkspaceWindowOpenRequest = {
+  initialFrame?: FloatingPanelFrame;
+  initialFrameKey?: string;
+  activationKey?: number;
+};
+
 export type DetachedTerminalWindow = {
   id: TerminalWindowPanelId;
   ordinal: number;
@@ -35,6 +42,7 @@ export type DetachedMarkdownWindow = {
   value: string;
   savedValue: string;
   missing?: boolean;
+  openRequest?: WorkspaceWindowOpenRequest;
 };
 
 export type DetachedBrowserWindow = {
@@ -51,6 +59,7 @@ export type DetachedTextWindow = {
   format?: RuntimeDocumentFormat;
   open?: boolean;
   missing?: boolean;
+  openRequest?: WorkspaceWindowOpenRequest;
 };
 
 export type DetachedCsvWindow = {
@@ -65,6 +74,7 @@ export type DetachedCsvWindow = {
   canRedo?: boolean;
   open?: boolean;
   missing?: boolean;
+  openRequest?: WorkspaceWindowOpenRequest;
 };
 
 export type DetachedHtmlWindow = {
@@ -74,6 +84,7 @@ export type DetachedHtmlWindow = {
   url: string;
   revision?: number;
   missing?: boolean;
+  openRequest?: WorkspaceWindowOpenRequest;
 };
 
 export type DetachedImageWindow = {
@@ -86,6 +97,7 @@ export type DetachedImageWindow = {
   revision?: number;
   missing?: boolean;
   navigation?: ImageWindowNavigation;
+  openRequest?: WorkspaceWindowOpenRequest;
 };
 
 export type ImageWindowNavigationKind = "project-directory" | "canvas";

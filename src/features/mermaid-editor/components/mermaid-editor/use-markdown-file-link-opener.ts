@@ -1,34 +1,37 @@
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 
-import { resolveMarkdownFileWindowTarget } from "@/features/mermaid-editor/lib/markdown-file-link";
-import type { ProjectFileEntry, ProjectWorkspace } from "@/features/mermaid-editor/lib/project-workspace";
-
-type OpenFileWindow = (file: ProjectFileEntry) => void | Promise<unknown>;
+import {
+  createMarkdownFileLinkIndex,
+  resolveMarkdownFileWindowTarget
+} from "@/features/mermaid-editor/lib/markdown-file-link";
+import type { ProjectWorkspace } from "@/features/mermaid-editor/lib/project-workspace";
+import type {
+  ProjectResourceOpenRequest,
+  WorkspaceWindowPlacementAnchor
+} from "@/features/mermaid-editor/lib/project-resource-open";
 
 export function useMarkdownFileLinkOpener({
   projectWorkspace,
-  openMarkdownWindow,
-  openHtmlWindow,
-  openImageWindow,
-  openTextWindow,
-  openCsvWindow
+  openProjectResource
 }: {
   projectWorkspace: ProjectWorkspace | null;
-  openMarkdownWindow: OpenFileWindow;
-  openHtmlWindow: OpenFileWindow;
-  openImageWindow: OpenFileWindow;
-  openTextWindow: OpenFileWindow;
-  openCsvWindow: OpenFileWindow;
+  openProjectResource: (request: ProjectResourceOpenRequest) => boolean;
 }) {
-  return useCallback((href: string, sourceFilePath: string | undefined) => {
-    const target = resolveMarkdownFileWindowTarget(href, sourceFilePath, projectWorkspace);
+  const linkIndex = useMemo(() => createMarkdownFileLinkIndex(projectWorkspace), [projectWorkspace]);
+
+  return useCallback((
+    href: string,
+    sourceFilePath: string | undefined,
+    context: WorkspaceWindowPlacementAnchor
+  ) => {
+    const target = resolveMarkdownFileWindowTarget(href, sourceFilePath, linkIndex);
     if (!target) return false;
 
-    if (target.kind === "markdown") void openMarkdownWindow(target.file);
-    else if (target.kind === "html") void openHtmlWindow(target.file);
-    else if (target.kind === "image") void openImageWindow(target.file);
-    else if (target.kind === "text") void openTextWindow(target.file);
-    else void openCsvWindow(target.file);
-    return true;
-  }, [openCsvWindow, openHtmlWindow, openImageWindow, openMarkdownWindow, openTextWindow, projectWorkspace]);
+    return openProjectResource({
+      file: target.file,
+      mode: "floating",
+      source: "markdown-link",
+      placementAnchor: context
+    });
+  }, [linkIndex, openProjectResource]);
 }

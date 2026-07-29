@@ -13,6 +13,7 @@ import {
 } from "@/features/mermaid-editor/lib/markdown-text-scale";
 import type { MarkdownFoldSnapshot } from "@/features/mermaid-editor/lib/markdown-fold-state";
 import type { RuntimeAgentTextSelection } from "@/features/mermaid-editor/lib/editor-runtime";
+import type { WorkspaceWindowPlacementAnchor } from "@/features/mermaid-editor/lib/project-resource-open";
 
 export function MarkdownWindowPanel({
   title,
@@ -42,7 +43,7 @@ export function MarkdownWindowPanel({
   foldState?: MarkdownFoldSnapshot | null;
   onFoldStateChange?: (snapshot: MarkdownFoldSnapshot) => void;
   onChange: (value: string) => void;
-  onOpenFileLink?: (href: string) => boolean;
+  onOpenFileLink?: (href: string, context: WorkspaceWindowPlacementAnchor) => boolean;
   onSelectionChange?: (selection: RuntimeAgentTextSelection | null) => void;
 }) {
   const normalizedTextScale = clampMarkdownTextScale(textScale);

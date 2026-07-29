@@ -11,14 +11,17 @@ import {
   type FloatingPanelWindowState
 } from "@/features/mermaid-editor/lib/floating-chrome";
 
+import { currentFloatingPanelViewport } from "./floating-panel-frame";
 import {
-  currentFloatingPanelViewport,
-  initialFloatingPanelFrame
-} from "./floating-panel-frame";
+  centeredInitialFloatingPanelFrame,
+  useFloatingPanelInitialFrameRequests
+} from "./use-floating-panel-initial-frame-requests";
 
 export function useFloatingPanelFrameState({
   placement,
   resolvedDefaultSize,
+  initialFrame,
+  initialFrameKey,
   initialFrameSize,
   initialFrameSizeKey,
   resolvedMinSize,
@@ -29,6 +32,8 @@ export function useFloatingPanelFrameState({
 }: {
   placement: FloatingPanelPlacement;
   resolvedDefaultSize: FloatingPanelSize;
+  initialFrame?: FloatingPanelFrame;
+  initialFrameKey?: string;
   initialFrameSize?: FloatingPanelSize;
   initialFrameSizeKey?: string;
   resolvedMinSize: FloatingPanelSize;
@@ -38,26 +43,16 @@ export function useFloatingPanelFrameState({
   windowState: FloatingPanelWindowState;
 }) {
   const [viewport, setViewport] = useState<FloatingPanelViewport>(() => currentFloatingPanelViewport());
-  const [panelFrame, setPanelFrame] = useState<FloatingPanelFrame>(() =>
-    centeredInitialFrame(placement, initialFrameSize ?? resolvedDefaultSize, resolvedMinSize, currentFloatingPanelViewport())
-  );
-  const appliedInitialFrameSizeKeyRef = useRef<string | null>(initialFrameSize ? initialFrameSizeKey ?? "initial" : null);
+  const [panelFrame, setPanelFrame] = useState<FloatingPanelFrame>(() => {
+    const initialViewport = currentFloatingPanelViewport();
+    return initialFrame
+      ? fitFloatingPanelFrameToViewport({ frame: initialFrame, viewport: initialViewport, minSize: resolvedMinSize })
+      : centeredInitialFloatingPanelFrame(placement, initialFrameSize ?? resolvedDefaultSize, resolvedMinSize, initialViewport);
+  });
   const normalFrameRef = useRef<FloatingPanelFrame | null>(null);
   const previousWindowStateRef = useRef<FloatingPanelWindowState>(windowState);
   const fullscreen = framePanel && windowState === "fullscreen";
   const renderedFrame = fullscreen ? fullscreenFloatingPanelFrame({ viewport }) : panelFrame;
-
-  useEffect(() => {
-    if (!framePanel || !open || !resetFrameOnOpen) return;
-    setPanelFrame(
-      initialFloatingPanelFrame({
-        placement,
-        size: resolvedDefaultSize,
-        minSize: resolvedMinSize,
-        viewport: currentFloatingPanelViewport()
-      })
-    );
-  }, [framePanel, open, placement, resetFrameOnOpen, resolvedDefaultSize, resolvedMinSize]);
 
   useEffect(() => {
     function updateViewport() {
@@ -100,14 +95,10 @@ export function useFloatingPanelFrameState({
     previousWindowStateRef.current = windowState;
   }, [framePanel, open, panelFrame, resolvedMinSize, viewport, windowState]);
 
-  useEffect(() => {
-    const requestKey = initialFrameSizeKey ?? "initial";
-    if (appliedInitialFrameSizeKeyRef.current === requestKey || !framePanel || !open || !initialFrameSize) return;
-    const nextFrame = centeredInitialFrame(placement, initialFrameSize, resolvedMinSize, currentFloatingPanelViewport());
-    appliedInitialFrameSizeKeyRef.current = requestKey;
-    setPanelFrame(nextFrame);
-    if (fullscreen && normalFrameRef.current) normalFrameRef.current = nextFrame;
-  }, [framePanel, fullscreen, initialFrameSize, initialFrameSizeKey, open, placement, resolvedMinSize]);
+  useFloatingPanelInitialFrameRequests({
+    placement, resolvedDefaultSize, initialFrame, initialFrameKey, initialFrameSize, initialFrameSizeKey,
+    resolvedMinSize, framePanel, open, resetFrameOnOpen, panelFrame, setPanelFrame, fullscreen, normalFrameRef
+  });
 
   return {
     viewport,
@@ -116,14 +107,4 @@ export function useFloatingPanelFrameState({
     renderedFrame,
     fullscreen
   };
-}
-
-function centeredInitialFrame(placement: FloatingPanelPlacement, size: FloatingPanelSize, minSize: FloatingPanelSize, viewport: FloatingPanelViewport) {
-  const frame = initialFloatingPanelFrame({ placement, size, minSize, viewport });
-  if (placement !== "center-panel") return frame;
-  return fitFloatingPanelFrameToViewport({
-    frame: { ...frame, x: (viewport.width - frame.width) / 2, y: (viewport.height - frame.height) / 2 },
-    viewport,
-    minSize
-  });
 }

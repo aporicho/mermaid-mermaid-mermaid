@@ -78,7 +78,7 @@ type EditorWorkspacePanelsProps = {
   applyEditorCommand: (command: EditorCommand) => void;
   executeCanvasNodeAction: (node: CanvasNode) => void | Promise<unknown>;
   editCanvasNodeAction: (node: CanvasNode) => void;
-  closeDetachedMarkdownWindow: (panelId: MarkdownWindowPanelId) => void; saveDetachedMarkdownWindow: (panelId: MarkdownWindowPanelId) => void | Promise<unknown>; updateDetachedMarkdownWindow: (panelId: MarkdownWindowPanelId, value: string) => void; openMarkdownFileLink: (href: string, sourceFilePath: string | undefined) => boolean;
+  closeDetachedMarkdownWindow: (panelId: MarkdownWindowPanelId) => void; saveDetachedMarkdownWindow: (panelId: MarkdownWindowPanelId) => void | Promise<unknown>; updateDetachedMarkdownWindow: (panelId: MarkdownWindowPanelId, value: string) => void; openMarkdownFileLink: (href: string, sourceFilePath: string | undefined, context: import("@/features/mermaid-editor/lib/project-resource-open").WorkspaceWindowPlacementAnchor) => boolean;
   closeDetachedBrowserWindow: (panelId: BrowserWindowPanelId) => void;
   closeDetachedHtmlWindow: (panelId: HtmlWindowPanelId) => void; closeDetachedImageWindow: (panelId: ImageWindowPanelId) => void; navigateDetachedImageWindow: (panelId: ImageWindowPanelId, direction: -1 | 1) => void;
   closeDetachedTextWindow: (panelId: TextWindowPanelId) => void; closeDetachedCsvWindow: (panelId: CsvWindowPanelId) => void;

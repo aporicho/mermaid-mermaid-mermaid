@@ -11,7 +11,8 @@ import {
   type DetachedCsvWindow,
   type DetachedTextWindow,
   type TextWindowPanelId,
-  type WorkspaceFloatingPanelId
+  type WorkspaceFloatingPanelId,
+  type WorkspaceWindowOpenRequest
 } from "@/features/mermaid-editor/lib/workspace-panels";
 import type { FloatingPanelWindowState } from "@/features/mermaid-editor/lib/floating-chrome";
 import { isTextDocumentFilePath } from "@/features/mermaid-editor/lib/text-document";
@@ -101,11 +102,15 @@ export function useAuxiliaryDocumentWindows({
     }
   }, [applySnapshot, csvWindows, onError, runtime, textWindows]);
 
-  const openTextWindow = useCallback(async (file: ProjectFileEntry) => {
+  const openTextWindow = useCallback(async (file: ProjectFileEntry, openRequest?: WorkspaceWindowOpenRequest) => {
     if (!isTextDocumentFilePath(file.path)) return;
     const existing = textWindows.find((window) => window.file.path === file.path);
     if (existing) {
-      setTextWindows((current) => current.map((window) => window.id === existing.id ? { ...window, open: true } : window));
+      setTextWindows((current) => current.map((window) => window.id === existing.id ? {
+        ...window,
+        open: true,
+        ...(existing.open === false && openRequest ? { openRequest } : {})
+      } : window));
       bringPanelToFront(existing.id);
       return;
     }
@@ -122,7 +127,8 @@ export function useAuxiliaryDocumentWindows({
         value: snapshot.content,
         savedValue: snapshot.savedContent,
         format: snapshot.format,
-        missing: snapshot.syncState === "deleted"
+        missing: snapshot.syncState === "deleted",
+        ...(openRequest ? { openRequest } : {})
       }]);
       bringPanelToFront(openedPanelId);
       setPanelWindowState(openedPanelId, "normal");
@@ -130,11 +136,15 @@ export function useAuxiliaryDocumentWindows({
     } catch (error) { onError(error, "打开文本文件失败。"); }
   }, [bringPanelToFront, onError, onStatus, runtime, setPanelWindowState, setTextWindows, textWindows]);
 
-  const openCsvWindow = useCallback(async (file: ProjectFileEntry) => {
+  const openCsvWindow = useCallback(async (file: ProjectFileEntry, openRequest?: WorkspaceWindowOpenRequest) => {
     if (!isCsvTableFilePath(file.path)) return;
     const existing = csvWindows.find((window) => window.file.path === file.path);
     if (existing) {
-      setCsvWindows((current) => current.map((window) => window.id === existing.id ? { ...window, open: true } : window));
+      setCsvWindows((current) => current.map((window) => window.id === existing.id ? {
+        ...window,
+        open: true,
+        ...(existing.open === false && openRequest ? { openRequest } : {})
+      } : window));
       bringPanelToFront(existing.id);
       return;
     }
@@ -154,7 +164,8 @@ export function useAuxiliaryDocumentWindows({
         headerMode: "auto",
         canUndo: snapshot.canUndo,
         canRedo: snapshot.canRedo,
-        missing: snapshot.syncState === "deleted"
+        missing: snapshot.syncState === "deleted",
+        ...(openRequest ? { openRequest } : {})
       }]);
       bringPanelToFront(openedPanelId);
       setPanelWindowState(openedPanelId, "normal");

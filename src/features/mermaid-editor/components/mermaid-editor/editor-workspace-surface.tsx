@@ -29,6 +29,7 @@ import type { TextDocumentPreview } from "@/features/mermaid-editor/lib/text-doc
 import type { MarkdownFoldSnapshot } from "@/features/mermaid-editor/lib/markdown-fold-state";
 import { mermaidGraphImageNavigation } from "@/features/mermaid-editor/lib/canvas-image-window";
 import type { ImageWindowOpenRequest } from "@/features/mermaid-editor/lib/workspace-panels";
+import type { WorkspaceWindowPlacementAnchor } from "@/features/mermaid-editor/lib/project-resource-open";
 const KonvaCanvas = lazy(() => import("@/features/mermaid-editor/components/konva-canvas").then((mod) => ({ default: mod.KonvaCanvas })));
 
 type EditorWorkspaceSurfaceProps = {
@@ -61,7 +62,7 @@ type EditorWorkspaceSurfaceProps = {
   diagnostics: EditorDiagnostic[];
   mermaidThemeVariables: MermaidThemeVariables;
   onMarkdownChange: (value: string) => void;
-  onOpenMarkdownFileLink?: (href: string) => boolean;
+  onOpenMarkdownFileLink?: (href: string, context: WorkspaceWindowPlacementAnchor) => boolean;
   onTextSelectionChange?: (selection: RuntimeAgentTextSelection | null) => void;
   markdownFoldState: MarkdownFoldSnapshot | null | undefined;
   onMarkdownFoldStateChange?: (snapshot: MarkdownFoldSnapshot) => void;

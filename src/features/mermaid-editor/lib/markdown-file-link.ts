@@ -18,18 +18,65 @@ export type MarkdownFileWindowTarget = {
   file: ProjectFileEntry;
 };
 
+export type MarkdownFileLinkIndex = {
+  readonly kind: "markdown-file-link-index";
+  readonly rootPath: string;
+  readonly filesByAbsolutePath: ReadonlyMap<string, ProjectFileEntry>;
+  readonly filesByRelativePath: ReadonlyMap<string, ProjectFileEntry>;
+};
+
+export function createMarkdownFileLinkIndex(
+  workspace: ProjectWorkspace | null | undefined
+): MarkdownFileLinkIndex {
+  const filesByAbsolutePath = new Map<string, ProjectFileEntry>();
+  const filesByRelativePath = new Map<string, ProjectFileEntry>();
+
+  const addFile = (file: ProjectFileEntry) => {
+    const absoluteKey = comparablePath(file.path);
+    if (!absoluteKey || filesByAbsolutePath.has(absoluteKey)) return;
+
+    filesByAbsolutePath.set(absoluteKey, file);
+    const relativeKey = comparablePath(file.relativePath);
+    if (relativeKey && !filesByRelativePath.has(relativeKey)) {
+      filesByRelativePath.set(relativeKey, file);
+    }
+  };
+
+  for (const file of workspace?.files ?? []) addFile(file);
+  for (const resource of workspace?.resources ?? []) {
+    if (resource.kind !== "file") continue;
+    addFile({
+      name: resource.name,
+      path: resource.path,
+      relativePath: resource.relativePath,
+      ...(resource.modifiedAt === undefined ? {} : { modifiedAt: resource.modifiedAt })
+    });
+  }
+
+  return {
+    kind: "markdown-file-link-index",
+    rootPath: workspace?.rootPath ?? "",
+    filesByAbsolutePath,
+    filesByRelativePath
+  };
+}
+
 export function resolveMarkdownFileWindowTarget(
   href: string,
   sourceFilePath: string | undefined,
-  workspace: ProjectWorkspace | null | undefined
+  workspaceOrIndex: ProjectWorkspace | MarkdownFileLinkIndex | null | undefined
 ): MarkdownFileWindowTarget | null {
   const targetPath = localPathFromMarkdownHref(href);
   const kind = targetPath ? markdownFileWindowKind(targetPath) : null;
   if (!targetPath || !kind) return null;
 
+  const index = isMarkdownFileLinkIndex(workspaceOrIndex)
+    ? workspaceOrIndex
+    : createMarkdownFileLinkIndex(workspaceOrIndex);
+
   return {
     kind,
-    file: resolveLinkedProjectFile(targetPath, sourceFilePath, workspace)
+    file: resolveLinkedProjectFile(targetPath, sourceFilePath, index)
   };
 }
 
@@ -56,48 +103,52 @@ export function localPathFromMarkdownHref(href: string) {
 function resolveLinkedProjectFile(
   targetPath: string,
   sourceFilePath: string | undefined,
-  workspace: ProjectWorkspace | null | undefined
+  index: MarkdownFileLinkIndex
 ): ProjectFileEntry {
-  const absolutePath = isAbsoluteRuntimePath(targetPath)
-    ? targetPath
-    : joinRuntimePath(parentDirectoryPath(sourceFilePath) || workspace?.rootPath, targetPath);
-  const absoluteKey = comparablePath(absolutePath);
+  if (isAbsoluteRuntimePath(targetPath)) {
+    return indexedFileOrFallback(normalizeRuntimePath(targetPath), targetPath, index);
+  }
+
+  if (isDocumentRelativePath(targetPath)) {
+    const sourceDirectory = parentDirectoryPath(sourceFilePath);
+    const absolutePath = normalizeRuntimePath(joinRuntimePath(sourceDirectory || index.rootPath, targetPath));
+    return indexedFileOrFallback(absolutePath, targetPath, index);
+  }
+
+  // Bare relative paths deliberately resolve from the project root. Use ./ or ../
+  // when a Markdown link should resolve from the source document's directory.
   const relativeKey = comparablePath(targetPath);
-  const sourceProjectFile = projectFiles(workspace).find((file) => comparablePath(file.path) === comparablePath(sourceFilePath || ""));
-  const sourceRelativePath = sourceProjectFile?.relativePath;
-  const sourceRelativeTarget = sourceRelativePath
-    ? comparablePath(joinRuntimePath(parentDirectoryPath(sourceRelativePath), targetPath))
-    : "";
+  const indexedRelativeFile = index.filesByRelativePath.get(relativeKey);
+  if (indexedRelativeFile) return indexedRelativeFile;
 
-  const projectFile = projectFiles(workspace).find((file) => {
-    const pathKey = comparablePath(file.path);
-    const fileRelativeKey = comparablePath(file.relativePath);
-    return pathKey === absoluteKey
-      || fileRelativeKey === relativeKey
-      || Boolean(sourceRelativeTarget && fileRelativeKey === sourceRelativeTarget);
-  });
-  if (projectFile) return projectFile;
+  const absolutePath = normalizeRuntimePath(joinRuntimePath(index.rootPath, targetPath));
+  return indexedFileOrFallback(absolutePath, targetPath, index);
+}
 
+function indexedFileOrFallback(
+  absolutePath: string,
+  relativePath: string,
+  index: MarkdownFileLinkIndex
+): ProjectFileEntry {
+  const indexedFile = index.filesByAbsolutePath.get(comparablePath(absolutePath));
+  if (indexedFile) return indexedFile;
+
+  const fallbackPath = absolutePath || normalizeRuntimePath(relativePath);
   return {
-    name: runtimeFileNameFromPath(absolutePath || targetPath),
-    path: absolutePath || targetPath,
-    relativePath: targetPath
+    name: runtimeFileNameFromPath(fallbackPath),
+    path: fallbackPath,
+    relativePath
   };
 }
 
-function projectFiles(workspace: ProjectWorkspace | null | undefined) {
-  const files = [
-    ...(workspace?.files || []),
-    ...(workspace?.resources || [])
-      .filter((resource) => resource.kind === "file")
-      .map((resource) => ({
-        name: resource.name,
-        path: resource.path,
-        relativePath: resource.relativePath,
-        ...(resource.modifiedAt === undefined ? {} : { modifiedAt: resource.modifiedAt })
-      }))
-  ];
-  return files.filter((file, index) => files.findIndex((candidate) => comparablePath(candidate.path) === comparablePath(file.path)) === index);
+function isDocumentRelativePath(path: string) {
+  return /^\.\.?([\\/]|$)/.test(path);
+}
+
+function isMarkdownFileLinkIndex(
+  value: ProjectWorkspace | MarkdownFileLinkIndex | null | undefined
+): value is MarkdownFileLinkIndex {
+  return Boolean(value && "kind" in value && value.kind === "markdown-file-link-index");
 }
 
 function firstSuffixIndex(value: string) {
@@ -127,12 +178,14 @@ function fileUrlToRuntimePath(value: string) {
   }
 }
 
-function comparablePath(value: string) {
+function normalizeRuntimePath(value: string) {
   const path = value.trim().replaceAll("\\", "/");
   if (!path) return "";
+
   const drive = path.match(/^[A-Za-z]:/)?.[0] || "";
+  const unc = path.startsWith("//");
   const rooted = path.startsWith("/") || Boolean(drive);
-  const prefix = drive ? `${drive}/` : path.startsWith("/") ? "/" : "";
+  const prefix = drive ? `${drive}/` : unc ? "//" : path.startsWith("/") ? "/" : "";
   const body = drive ? path.slice(drive.length).replace(/^\/+/, "") : path.replace(/^\/+/, "");
   const segments: string[] = [];
   for (const segment of body.split("/")) {
@@ -144,6 +197,14 @@ function comparablePath(value: string) {
     }
     segments.push(segment);
   }
-  const normalized = `${prefix}${segments.join("/")}`.replace(/\/$/, "");
-  return drive ? normalized.toLowerCase() : normalized;
+  const normalized = `${prefix}${segments.join("/")}`;
+  if (normalized === "/" || normalized === "//") return normalized;
+  return normalized.replace(/\/$/, "");
+}
+
+function comparablePath(value: string) {
+  const normalized = normalizeRuntimePath(value);
+  return /^[A-Za-z]:\//.test(normalized) || normalized.startsWith("//")
+    ? normalized.toLowerCase()
+    : normalized;
 }

@@ -9,6 +9,7 @@ import {
   resizeFloatingPanelFrame,
   shouldDragFloatingPanel,
   type FloatingPanelDismissMode,
+  type FloatingPanelFrame,
   type FloatingPanelKind,
   type FloatingPanelOffset,
   type FloatingPanelPlacement,
@@ -41,6 +42,8 @@ export type FloatingPanelControllerInput = {
   resizable?: boolean;
   minSize?: FloatingPanelSize;
   defaultSize?: FloatingPanelSize;
+  initialFrame?: FloatingPanelFrame;
+  initialFrameKey?: string;
   initialFrameSize?: FloatingPanelSize;
   initialFrameSizeKey?: string;
   fullscreenable?: boolean;
@@ -53,22 +56,9 @@ export type FloatingPanelControllerInput = {
 };
 
 export function useFloatingPanelController({
-  open,
-  placement,
-  kind,
-  dismissMode,
-  draggable,
-  resizable,
-  minSize,
-  defaultSize,
-  initialFrameSize,
-  initialFrameSizeKey,
-  fullscreenable,
-  windowState,
-  onWindowStateChange,
-  stackIndex,
-  onFocusPanel,
-  resetDragOnOpen,
+  open, placement, kind, dismissMode, draggable, resizable,
+  minSize, defaultSize, initialFrame, initialFrameKey, initialFrameSize, initialFrameSizeKey,
+  fullscreenable, windowState, onWindowStateChange, stackIndex, onFocusPanel, resetDragOnOpen,
   mountStrategy = "unmount"
 }: FloatingPanelControllerInput) {
   const [mounted, setMounted] = useState(open);
@@ -90,6 +80,7 @@ export function useFloatingPanelController({
   const rootRef = useRef<HTMLDivElement | null>(null);
   const surfaceRef = useRef<HTMLDivElement | null>(null);
   const userAdjustedFrameRef = useRef(false);
+  const previousInitialFrameKeyRef = useRef(initialFrameKey);
   const previousInitialFrameSizeKeyRef = useRef(initialFrameSizeKey);
   const dragStateRef = useRef<FloatingPanelDragState | null>(null);
   const resizeStateRef = useRef<FloatingPanelResizeState | null>(null);
@@ -101,6 +92,10 @@ export function useFloatingPanelController({
   const fullscreenablePanel = kind === "workspace" && (fullscreenable ?? true);
   const framePanel = kind === "workspace" && (resizablePanel || fullscreenablePanel || Boolean(defaultSize));
   const zIndex = floatingPanelZIndex(kind, stackIndex);
+  if (previousInitialFrameKeyRef.current !== initialFrameKey) {
+    previousInitialFrameKeyRef.current = initialFrameKey;
+    userAdjustedFrameRef.current = false;
+  }
   if (previousInitialFrameSizeKeyRef.current !== initialFrameSizeKey) {
     previousInitialFrameSizeKeyRef.current = initialFrameSizeKey;
     userAdjustedFrameRef.current = false;
@@ -108,6 +103,8 @@ export function useFloatingPanelController({
   const { viewport, panelFrame, setPanelFrame, renderedFrame, fullscreen } = useFloatingPanelFrameState({
     placement,
     resolvedDefaultSize,
+    initialFrame: userAdjustedFrameRef.current ? undefined : initialFrame,
+    initialFrameKey,
     initialFrameSize: userAdjustedFrameRef.current ? undefined : initialFrameSize,
     initialFrameSizeKey,
     resolvedMinSize,

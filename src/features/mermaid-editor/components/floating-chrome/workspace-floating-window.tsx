@@ -1,7 +1,8 @@
-import { useId, type ReactNode } from "react";
+import { useId, useLayoutEffect, useRef, type ReactNode } from "react";
 import { Collapse, Expand, Pin, PinSlash, Xmark } from "iconoir-react/regular";
 import { EditorIconButton, WindowTitlebarLayout } from "@/features/mermaid-editor/components/editor-ui";
 import type {
+  FloatingPanelFrame,
   FloatingPanelPlacement,
   FloatingPanelSize,
   FloatingPanelWindowState
@@ -18,28 +19,14 @@ import {
 import { WorkspaceWindowActionMenu, type WorkspaceWindowAction } from "./workspace-window-action-menu";
 
 export function WorkspaceFloatingWindow({
-  open,
-  panelId,
-  placement,
-  titlebarAutoHide,
+  open, panelId, placement, titlebarAutoHide,
   titlebarAutoHideLayout = "overlay",
-  active,
-  stackIndex,
-  onFocusPanel,
-  defaultSize,
-  initialFrameSize,
-  initialFrameSizeKey,
-  minSize,
-  windowState,
-  onWindowStateChange,
-  onClose,
-  closeLabel,
+  active, stackIndex, onFocusPanel, defaultSize,
+  initialFrame, initialFrameKey, activationKey, initialFrameSize, initialFrameSizeKey,
+  minSize, windowState, onWindowStateChange, onClose, closeLabel,
   tooltipSide = "top",
-  allowFullscreen = true,
-  resizable = true,
-  mountStrategy = "unmount",
-  className,
-  children
+  allowFullscreen = true, resizable = true, mountStrategy = "unmount",
+  className, children
 }: {
   open: boolean;
   panelId: string;
@@ -50,6 +37,9 @@ export function WorkspaceFloatingWindow({
   stackIndex: number;
   onFocusPanel: () => void;
   defaultSize: FloatingPanelSize;
+  initialFrame?: FloatingPanelFrame;
+  initialFrameKey?: string;
+  activationKey?: number;
   initialFrameSize?: FloatingPanelSize;
   initialFrameSizeKey?: string;
   minSize: FloatingPanelSize;
@@ -64,6 +54,7 @@ export function WorkspaceFloatingWindow({
   className?: string;
   children: ReactNode;
 }) {
+  const appliedActivationKeyRef = useRef<number | undefined>(undefined);
   const titleId = `workspace-window-${useId().replaceAll(":", "")}-title`;
   const chrome: WorkspaceWindowChrome = {
     titleId,
@@ -74,6 +65,12 @@ export function WorkspaceFloatingWindow({
     closeLabel,
     tooltipSide
   };
+
+  useLayoutEffect(() => {
+    if (!open || activationKey === undefined || appliedActivationKeyRef.current === activationKey) return;
+    appliedActivationKeyRef.current = activationKey;
+    onFocusPanel();
+  }, [activationKey, onFocusPanel, open]);
 
   return (
     <FloatingPanel
@@ -93,6 +90,8 @@ export function WorkspaceFloatingWindow({
       resetDragOnOpen={false}
       mountStrategy={mountStrategy}
       defaultSize={defaultSize}
+      initialFrame={initialFrame}
+      initialFrameKey={initialFrameKey}
       initialFrameSize={initialFrameSize}
       initialFrameSizeKey={initialFrameSizeKey}
       minSize={minSize}

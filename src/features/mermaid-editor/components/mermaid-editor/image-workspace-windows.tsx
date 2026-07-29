@@ -95,6 +95,9 @@ function ImageWorkspaceWindow({
       stackIndex={stackIndex}
       onFocusPanel={onFocus}
       defaultSize={WORKSPACE_PANEL_DEFAULT_SIZES.image}
+      initialFrame={imageWindow.openRequest?.initialFrame}
+      initialFrameKey={imageWindow.openRequest?.initialFrameKey}
+      activationKey={imageWindow.openRequest?.activationKey}
       initialFrameSize={requestedFrameSize}
       initialFrameSizeKey={frameSizeKey}
       minSize={WORKSPACE_PANEL_MIN_SIZES.image}

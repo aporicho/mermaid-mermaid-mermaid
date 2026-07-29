@@ -36,6 +36,7 @@ import {
 import { emptyMarkdownFoldSnapshot, markdownFoldSnapshotKey, type MarkdownFoldSnapshot } from "@/features/mermaid-editor/lib/markdown-fold-state";
 import { clampMarkdownTextScale } from "@/features/mermaid-editor/lib/markdown-text-scale";
 import type { RuntimeAgentTextSelection } from "@/features/mermaid-editor/lib/editor-runtime";
+import type { WorkspaceWindowPlacementAnchor } from "@/features/mermaid-editor/lib/project-resource-open";
 import { cn } from "@/lib/utils";
 
 type MarkdownPanelProps = {
@@ -48,7 +49,7 @@ type MarkdownPanelProps = {
   foldState?: MarkdownFoldSnapshot | null;
   onFoldStateChange?: (snapshot: MarkdownFoldSnapshot) => void;
   onChange: (value: string) => void;
-  onOpenFileLink?: (href: string) => boolean;
+  onOpenFileLink?: (href: string, context: WorkspaceWindowPlacementAnchor) => boolean;
   onSelectionChange?: (selection: RuntimeAgentTextSelection | null) => void;
 };
 
@@ -584,7 +585,7 @@ export function MarkdownPanel({ value, className, readOnly = false, spellCheck, 
         const directEditorLink = Boolean(anchor.closest(".ProseMirror"));
         const explicitOpen = !directEditorLink || readOnlyRef.current || event.ctrlKey || event.metaKey;
         const href = anchor.getAttribute("href") || "";
-        if (explicitOpen && href && onOpenFileLinkRef.current?.(href)) {
+        if (explicitOpen && href && onOpenFileLinkRef.current?.(href, markdownFileLinkPlacementAnchor(anchor))) {
           event.preventDefault();
           event.stopPropagation();
           setBlockStyleMenu(null);
@@ -733,6 +734,23 @@ export function MarkdownPanel({ value, className, readOnly = false, spellCheck, 
       ) : null}
     </section>
   );
+}
+
+function markdownFileLinkPlacementAnchor(anchor: HTMLAnchorElement): WorkspaceWindowPlacementAnchor {
+  const sourcePanel = anchor.closest<HTMLElement>("[data-floating-panel-kind='workspace']");
+  const sourceHeader = sourcePanel?.querySelector<HTMLElement>("[data-workspace-panel-header='true']");
+  return {
+    anchorRect: floatingPanelRect(anchor.getBoundingClientRect()),
+    ...(sourcePanel ? {
+      sourcePanelId: sourcePanel.dataset.floatingPanelId,
+      sourcePanelRect: floatingPanelRect(sourcePanel.getBoundingClientRect()),
+      sourceTitlebarHeight: sourceHeader?.getBoundingClientRect().height
+    } : {})
+  };
+}
+
+function floatingPanelRect(rect: Pick<DOMRect, "left" | "top" | "right" | "bottom">) {
+  return { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom };
 }
 
 function applyMarkdownSpellcheck(crepe: Crepe, enabled: boolean) {

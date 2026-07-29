@@ -5,6 +5,7 @@ import { WorkspaceFloatingWindow } from "@/features/mermaid-editor/components/fl
 import type { FloatingPanelWindowState } from "@/features/mermaid-editor/lib/floating-chrome";
 import type { RuntimeAgentTextSelection, RuntimeFileRef } from "@/features/mermaid-editor/lib/editor-runtime";
 import type { MarkdownFoldSnapshot } from "@/features/mermaid-editor/lib/markdown-fold-state";
+import type { WorkspaceWindowPlacementAnchor } from "@/features/mermaid-editor/lib/project-resource-open";
 import {
   WORKSPACE_PANEL_DEFAULT_SIZES,
   WORKSPACE_PANEL_MIN_SIZES,
@@ -32,7 +33,7 @@ type DetachedWorkspaceWindowsProps = {
   closeMarkdownWindow: (panelId: MarkdownWindowPanelId) => void;
   saveMarkdownWindow: (panelId: MarkdownWindowPanelId) => void | Promise<unknown>;
   updateMarkdownWindow: (panelId: MarkdownWindowPanelId, value: string) => void;
-  openMarkdownFileLink: (href: string, sourceFilePath: string | undefined) => boolean;
+  openMarkdownFileLink: (href: string, sourceFilePath: string | undefined, context: WorkspaceWindowPlacementAnchor) => boolean;
   onMarkdownSelectionChange?: (panelId: MarkdownWindowPanelId, selection: RuntimeAgentTextSelection | null) => void;
   markdownFoldBindingFor: (file: RuntimeFileRef) => {
     foldState: MarkdownFoldSnapshot | null | undefined;
@@ -92,8 +93,8 @@ export function DetachedWorkspaceWindows({
           active={activePanel === markdownWindow.id}
           stackIndex={panelStackPosition(markdownWindow.id)}
           onFocusPanel={() => bringPanelToFront(markdownWindow.id)}
-          defaultSize={WORKSPACE_PANEL_DEFAULT_SIZES.markdown}
-          minSize={WORKSPACE_PANEL_MIN_SIZES.markdown}
+          defaultSize={WORKSPACE_PANEL_DEFAULT_SIZES.markdown} minSize={WORKSPACE_PANEL_MIN_SIZES.markdown}
+          initialFrame={markdownWindow.openRequest?.initialFrame} initialFrameKey={markdownWindow.openRequest?.initialFrameKey} activationKey={markdownWindow.openRequest?.activationKey}
           windowState={panelWindowState(markdownWindow.id)}
           onWindowStateChange={(state) => setPanelWindowState(markdownWindow.id, state)}
           onClose={() => closeMarkdownWindow(markdownWindow.id)}
@@ -113,7 +114,7 @@ export function DetachedWorkspaceWindows({
             foldState={foldBinding.foldState}
             onFoldStateChange={foldBinding.onFoldStateChange}
             onChange={(value) => updateMarkdownWindow(markdownWindow.id, value)}
-            onOpenFileLink={(href) => openMarkdownFileLink(href, markdownWindow.file.path)}
+            onOpenFileLink={(href, context) => openMarkdownFileLink(href, markdownWindow.file.path, context)}
             onSelectionChange={(selection) => onMarkdownSelectionChange?.(markdownWindow.id, selection)}
           />
         </WorkspaceFloatingWindow>;
@@ -128,8 +129,8 @@ export function DetachedWorkspaceWindows({
           active={activePanel === textWindow.id}
           stackIndex={panelStackPosition(textWindow.id)}
           onFocusPanel={() => bringPanelToFront(textWindow.id)}
-          defaultSize={WORKSPACE_PANEL_DEFAULT_SIZES.text}
-          minSize={WORKSPACE_PANEL_MIN_SIZES.text}
+          defaultSize={WORKSPACE_PANEL_DEFAULT_SIZES.text} minSize={WORKSPACE_PANEL_MIN_SIZES.text}
+          initialFrame={textWindow.openRequest?.initialFrame} initialFrameKey={textWindow.openRequest?.initialFrameKey} activationKey={textWindow.openRequest?.activationKey}
           windowState={panelWindowState(textWindow.id)}
           onWindowStateChange={(state) => setPanelWindowState(textWindow.id, state)}
           onClose={() => closeTextWindow(textWindow.id)}
@@ -149,8 +150,8 @@ export function DetachedWorkspaceWindows({
           active={activePanel === csvWindow.id}
           stackIndex={panelStackPosition(csvWindow.id)}
           onFocusPanel={() => bringPanelToFront(csvWindow.id)}
-          defaultSize={WORKSPACE_PANEL_DEFAULT_SIZES.csv}
-          minSize={WORKSPACE_PANEL_MIN_SIZES.csv}
+          defaultSize={WORKSPACE_PANEL_DEFAULT_SIZES.csv} minSize={WORKSPACE_PANEL_MIN_SIZES.csv}
+          initialFrame={csvWindow.openRequest?.initialFrame} initialFrameKey={csvWindow.openRequest?.initialFrameKey} activationKey={csvWindow.openRequest?.activationKey}
           windowState={panelWindowState(csvWindow.id)}
           onWindowStateChange={(state) => setPanelWindowState(csvWindow.id, state)}
           onClose={() => closeCsvWindow(csvWindow.id)}
