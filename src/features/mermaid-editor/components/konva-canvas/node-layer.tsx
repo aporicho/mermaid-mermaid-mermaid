@@ -1,8 +1,6 @@
-import { useCallback, useRef } from "react";
 import { Group, Text } from "react-konva";
 
 import type { InlineEdit } from "@/features/mermaid-editor/components/konva-canvas/inline-edit-overlays";
-import { CanvasNodeActionBadge } from "@/features/mermaid-editor/components/konva-canvas/node-action-ui";
 import { CanvasNodeImageSurface } from "@/features/mermaid-editor/components/konva-canvas/node-image-surface";
 import { CanvasNodeLinkCard } from "@/features/mermaid-editor/components/konva-canvas/node-link-card";
 import { MarkdownDocumentCard } from "@/features/mermaid-editor/components/konva-canvas/markdown-document-card";
@@ -22,7 +20,6 @@ import {
   type CanvasVisualTokens
 } from "@/features/mermaid-editor/lib/canvas-visual-state";
 import type { CanvasNode, Selection } from "@/features/mermaid-editor/lib/editor-types";
-import { normalizeNodeAction } from "@/features/mermaid-editor/lib/node-actions";
 import { normalizeImageAsset } from "@/features/mermaid-editor/lib/node-assets";
 import type { MarkdownDocumentPreview } from "@/features/mermaid-editor/lib/markdown-document";
 import type { TextDocumentPreview } from "@/features/mermaid-editor/lib/text-document";
@@ -61,7 +58,6 @@ type KonvaNodeLayerProps = {
   fontRevision: number;
   specialNodeTokens: SpecialNodeThemeTokens;
   selectedTableCell: TableCellSelection | null;
-  onOpenNodeAction?: (node: CanvasNode) => void;
   onRequestMarkdownDocumentPreview?: (node: CanvasNode) => void;
   onRequestTextDocumentPreview?: (node: CanvasNode) => void;
 };
@@ -92,18 +88,9 @@ export function KonvaNodeLayer({
   fontRevision,
   specialNodeTokens,
   selectedTableCell,
-  onOpenNodeAction,
   onRequestMarkdownDocumentPreview,
   onRequestTextDocumentPreview,
 }: KonvaNodeLayerProps) {
-  const renderedNodesRef = useRef(scopedRenderedNodes);
-  const openNodeActionRef = useRef(onOpenNodeAction);
-  renderedNodesRef.current = scopedRenderedNodes;
-  openNodeActionRef.current = onOpenNodeAction;
-  const openLinkCardAction = useCallback((nodeId: string) => {
-    const node = renderedNodesRef.current.find((candidate) => candidate.id === nodeId);
-    if (node) openNodeActionRef.current?.(node);
-  }, []);
   if (!viewFilters.nodes) return null;
 
   return (
@@ -131,7 +118,6 @@ export function KonvaNodeLayer({
         const isImageNode = nodeKind === "image";
         const isTableNode = nodeKind === "table";
         const isStandardNode = nodeKind === "standard";
-        const nodeAction = isStandardNode && normalizeNodeAction(node.action);
         const nodeInlineEditing = inlineEdit?.type === "node" && inlineEdit.id === node.id;
         const staticNodeVisual = {
           ...nodeVisual,
@@ -196,7 +182,7 @@ export function KonvaNodeLayer({
                       fontRevision
                     )}
                     cacheKind="standard"
-                    cacheEnabled={standardNodeCacheEligible(node, nodeAction, visualTokens) && !nodeInlineEditing}
+                    cacheEnabled={standardNodeCacheEligible(node, visualTokens) && !nodeInlineEditing}
                     cachePriority={1}
                   >
                     <CanvasNodeShape
@@ -236,16 +222,6 @@ export function KonvaNodeLayer({
                       visualState={nodeVisual}
                       visualTokens={visualTokens}
                       paintMode="outline"
-                    />
-                  ) : null}
-                  {nodeAction ? (
-                    <CanvasNodeActionBadge
-                      actionKind={nodeAction.kind}
-                      x={Math.max(visualTokens.actionBadge.insetX, geometry.frame.width - visualTokens.actionBadge.size - visualTokens.actionBadge.insetX)}
-                      y={visualTokens.actionBadge.insetY}
-                      visualTokens={visualTokens}
-                      typography={typography.canvas.actionBadge}
-                      onOpen={() => onOpenNodeAction?.(node)}
                     />
                   ) : null}
                 </>
@@ -295,13 +271,10 @@ export function KonvaNodeLayer({
                   width={geometry.frame.width}
                   height={geometry.frame.height}
                   coverSrc={previewCoverSrc}
-                  visualTokens={visualTokens}
                   typography={typography.linkCard}
-                  actionTypography={typography.canvas.actionBadge}
                   specialNode={specialNodeTokens}
                   visualState={nodeVisual.kind}
                   fontRevision={fontRevision}
-                  onOpenNodeAction={openLinkCardAction}
                 />
               ) : null}
               {isMarkdownDocument ? (
@@ -449,9 +422,7 @@ export function KonvaNodeLayer({
                   width={geometry.frame.width}
                   height={geometry.frame.height}
                   coverSrc={previewCoverSrc}
-                  visualTokens={visualTokens}
                   typography={typography.linkCard}
-                  actionTypography={typography.canvas.actionBadge}
                   specialNode={specialNodeTokens}
                   visualState={nodeVisual.kind}
                   fontRevision={fontRevision}
@@ -531,12 +502,10 @@ function imageInteractionFrameVisible(kind: ReturnType<typeof getNodeVisualState
 
 function standardNodeCacheEligible(
   node: CanvasNode,
-  action: ReturnType<typeof normalizeNodeAction> | false,
   visualTokens: CanvasVisualTokens
 ) {
   const simpleShapes = new Set([undefined, "rect", "rounded", "circle", "stadium", "text"]);
-  return Boolean(action)
-    || visualTokens.ordinaryNode.shadow.opacity > 0
+  return visualTokens.ordinaryNode.shadow.opacity > 0
     || node.label.includes("\n")
     || node.label.length > visualTokens.ordinaryNode.maxChars
     || !simpleShapes.has(node.shape);

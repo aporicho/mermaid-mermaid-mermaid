@@ -1,5 +1,5 @@
 import { Suspense, lazy } from "react";
-import type { ExplorerResourceStatus } from "@/features/mermaid-editor/components/explorer-panel";
+import type { ExplorerCanvasNodeKind, ExplorerResourceStatus } from "@/features/mermaid-editor/components/explorer-panel";
 import { WorkspaceFloatingWindow } from "@/features/mermaid-editor/components/floating-chrome";
 import { InspectorPanel } from "@/features/mermaid-editor/components/inspector-panel";
 import { DetachedWorkspaceWindows } from "@/features/mermaid-editor/components/mermaid-editor/detached-workspace-windows";
@@ -76,7 +76,7 @@ type EditorWorkspacePanelsProps = {
   openProjectMarkdownWindow: (file: ProjectFileEntry) => void | Promise<unknown>;
   openProjectHtmlWindow: (file: ProjectFileEntry) => void | Promise<unknown>; openProjectImageWindow: (file: ProjectFileEntry) => void | Promise<unknown>;
   openProjectTextWindow: (file: ProjectFileEntry) => void | Promise<unknown>; openProjectCsvWindow: (file: ProjectFileEntry) => void | Promise<unknown>;
-  onProjectDocumentPointerDrag: (file: ProjectFileEntry, kind: "markdown" | "html" | "text" | "csv", point: { x: number; y: number }, phase: "move" | "drop" | "cancel") => void;
+  onProjectDocumentPointerDrag: (file: ProjectFileEntry, kind: ExplorerCanvasNodeKind, point: { x: number; y: number }, phase: "move" | "drop" | "cancel") => void;
   applyEditorCommand: (command: EditorCommand) => void;
   executeCanvasNodeAction: (node: CanvasNode) => void | Promise<unknown>;
   editCanvasNodeAction: (node: CanvasNode) => void;

@@ -45,7 +45,8 @@ describe("special node render token contract", () => {
     expect(link).toContain("useDecodedCanvasImage");
     expect(link).not.toContain("useLinkCardCoverRaster");
     expect(link).toContain("perfectDrawEnabled={false}");
-    expect(nodeLayer).toContain("onOpenNodeAction={openLinkCardAction}");
+    expect(link).not.toContain("CanvasNodeActionBadge");
+    expect(nodeLayer).not.toContain("CanvasNodeActionBadge");
   });
 
   it("consumes every Markdown subtype appearance token", () => {

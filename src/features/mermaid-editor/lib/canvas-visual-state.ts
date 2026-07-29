@@ -204,19 +204,6 @@ export const CANVAS_VISUAL_TOKENS: CanvasVisualTokens = {
       endpointRadius: 7,
       activeRadiusBoost: 1
     }
-  },
-  actionBadge: {
-    background: "#fbf6ef",
-    foreground: "#ff4050",
-    borderColor: "#ff4050",
-    borderWidth: 1.5,
-    borderStyle: "solid",
-    customDash: [],
-    radius: 9,
-    size: 18,
-    opacity: 0.96,
-    insetX: 10,
-    insetY: 10
   }
 };
 

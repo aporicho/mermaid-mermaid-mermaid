@@ -24,8 +24,7 @@ import {
 import type { InteractionContext } from "@/features/mermaid-editor/lib/interaction/context";
 import type { EditorCommand } from "@/features/mermaid-editor/lib/interaction/commands";
 import type { StandardPointerInput } from "@/features/mermaid-editor/lib/interaction/input";
-import { isMarkdownDocumentNode } from "@/features/mermaid-editor/lib/markdown-document";
-import { isHtmlDocumentNode } from "@/features/mermaid-editor/lib/html-document";
+import { normalizeNodeAction } from "@/features/mermaid-editor/lib/node-actions";
 
 export type CanvasPointerLocalEffect =
   | { type: "blankClick.invalidate" }
@@ -203,7 +202,7 @@ export function commandsToPointerResolution(commands: CanvasInteractionCommand[]
     if (command.type === "startInlineEdit") {
       if (command.target.type === "node") {
         const node = context.graph.nodes.find((item) => item.id === command.target.id);
-        if (node && (isMarkdownDocumentNode(node) || isHtmlDocumentNode(node))) {
+        if (node && normalizeNodeAction(node.action)) {
           localEffects.push({ type: "nodeAction.open", nodeId: node.id });
           continue;
         }

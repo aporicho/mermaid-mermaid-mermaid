@@ -194,19 +194,19 @@ export function useKonvaDragMembership({
   function finishDragWithMembership(positions: CanvasNodePreviewPositions) {
     const movingNodeIds = Object.keys(dragRef.current || {});
     let nextGraph = setNodePositions(graph, positions);
-    const ignoredSubgraphIds =
-      interactionState.kind === "draggingSubgraphs" ? [interactionState.subgraphId, ...descendantSubgraphIds(graph, interactionState.subgraphId)] : [];
-
-    for (const nodeId of movingNodeIds) {
-      const node = nextGraph.nodes.find((item) => item.id === nodeId);
-      if (!node) continue;
-      const geometry = buildNodeGeometry(node, geometrySpec);
-      const center = {
-        x: geometry.frame.x + geometry.frame.width / 2,
-        y: geometry.frame.y + geometry.frame.height / 2
-      };
-      const targetSubgraph = subgraphAtPoint(renderedSubgraphGeometries, center, ignoredSubgraphIds);
-      nextGraph = setNodeParent(nextGraph, nodeId, targetSubgraph?.id);
+    // A group drag preserves its hierarchy; direct node drags may change membership.
+    if (interactionState.kind !== "draggingSubgraphs") {
+      for (const nodeId of movingNodeIds) {
+        const node = nextGraph.nodes.find((item) => item.id === nodeId);
+        if (!node) continue;
+        const geometry = buildNodeGeometry(node, geometrySpec);
+        const center = {
+          x: geometry.frame.x + geometry.frame.width / 2,
+          y: geometry.frame.y + geometry.frame.height / 2
+        };
+        const targetSubgraph = subgraphAtPoint(renderedSubgraphGeometries, center);
+        nextGraph = setNodeParent(nextGraph, nodeId, targetSubgraph?.id);
+      }
     }
 
     if (interactionState.kind === "draggingSubgraphs") {

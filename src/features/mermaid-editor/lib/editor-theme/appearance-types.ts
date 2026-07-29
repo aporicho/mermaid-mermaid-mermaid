@@ -288,19 +288,6 @@ export type CanvasThemeTokens = {
       activeRadiusBoost: number;
     };
   };
-  actionBadge: {
-    background: string;
-    foreground: string;
-    borderColor: string;
-    borderWidth: number;
-    borderStyle: CanvasStrokeStyle;
-    customDash: readonly number[];
-    radius: number;
-    size: number;
-    opacity: number;
-    insetX: number;
-    insetY: number;
-  };
   mermaidSvg: {
     primaryColor: string;
     primaryTextColor: string;

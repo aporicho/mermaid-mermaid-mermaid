@@ -8,12 +8,10 @@ import type { SpecialNodeThemeTokens } from "@/features/mermaid-editor/lib/edito
 import { flowchartPolygonPoints } from "@/features/mermaid-editor/lib/flowchart-shape-geometry";
 import { DEFAULT_FLOWCHART_NODE_SHAPE, normalizeFlowchartShape } from "@/features/mermaid-editor/lib/flowchart-shapes";
 import type { NodeGeometry, Rect } from "@/features/mermaid-editor/lib/node-geometry";
-import { normalizeNodeAction } from "@/features/mermaid-editor/lib/node-actions";
 import type { SubgraphGeometry } from "@/features/mermaid-editor/lib/subgraph-geometry";
 
 export type CanvasPointerTarget =
   | HitTarget
-  | { kind: "nodeAction"; nodeId: string }
   | { kind: "tableColumnResize"; nodeId: string; columnId: string; columnIndex: number; startWidth: number };
 
 export type CanvasGeometryHitTester = {
@@ -158,7 +156,7 @@ export function createCanvasGeometryHitTester(input: CanvasGeometryHitTesterInpu
 }
 
 export function pointerTargetInteractionHit(target: CanvasPointerTarget): HitTarget {
-  if (target.kind === "nodeAction" || target.kind === "tableColumnResize") return { kind: "node", id: target.nodeId };
+  if (target.kind === "tableColumnResize") return { kind: "node", id: target.nodeId };
   return target;
 }
 
@@ -200,17 +198,6 @@ function resolveNodeControl(
       const anchorPoint = { x: geometry.frame.x + scaled.x, y: geometry.frame.y + scaled.y };
       if (pointDistance(point, anchorPoint) <= radiusWorld) return { kind: "nodeAnchor", nodeId: node.id, anchor: anchor.key };
     }
-  }
-
-  const action = normalizeNodeAction(node.action);
-  const hasLinkCardAction = node.preview?.kind === "link-card";
-  if (action || hasLinkCardAction) {
-    const size = input.visualTokens.actionBadge.size;
-    const x = hasLinkCardAction
-      ? geometry.frame.width - 30
-      : Math.max(input.visualTokens.actionBadge.insetX, geometry.frame.width - size - input.visualTokens.actionBadge.insetX);
-    const y = hasLinkCardAction ? 10 : input.visualTokens.actionBadge.insetY;
-    if (pointInsideRect(local, { x, y, width: size, height: size })) return { kind: "nodeAction", nodeId: node.id };
   }
 
   return null;

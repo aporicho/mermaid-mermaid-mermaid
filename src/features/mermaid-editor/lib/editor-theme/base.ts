@@ -319,19 +319,6 @@ export const BASE_CANVAS: CanvasThemeTokens = {
       activeRadiusBoost: 1
     }
   },
-  actionBadge: {
-    background: "#fbf6ef",
-    foreground: BASE_COLORS.primary,
-    borderColor: BASE_COLORS.primary,
-    borderWidth: 1.5,
-    borderStyle: "solid",
-    customDash: [],
-    radius: 9,
-    size: 18,
-    opacity: 0.96,
-    insetX: 10,
-    insetY: 10
-  },
   mermaidSvg: {
     primaryColor: "#fbf6ef",
     primaryTextColor: BASE_COLORS.foreground,

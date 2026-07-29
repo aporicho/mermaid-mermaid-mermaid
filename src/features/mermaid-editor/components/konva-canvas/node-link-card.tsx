@@ -1,11 +1,9 @@
-import { memo, useCallback, useLayoutEffect, useMemo } from "react";
+import { memo, useLayoutEffect, useMemo } from "react";
 import type Konva from "konva";
 import { Group, Image as KonvaImage, Rect, Text } from "react-konva";
 
-import { CanvasNodeActionBadge } from "@/features/mermaid-editor/components/konva-canvas/node-action-ui";
 import { useDecodedCanvasImage } from "@/features/mermaid-editor/components/konva-canvas/use-decoded-canvas-image";
 import { coverCanvasImageSourceCrop } from "@/features/mermaid-editor/lib/canvas-image-crop";
-import type { CanvasVisualTokens } from "@/features/mermaid-editor/lib/canvas-visual-state";
 import type { CanvasNodePreview } from "@/features/mermaid-editor/lib/editor-types";
 import type { EditorTypographyTokens, SpecialNodeThemeTokens, TypographyRoleTokens } from "@/features/mermaid-editor/lib/editor-theme";
 import { resolveSpecialNodeBorder, specialNodeBorderDash } from "@/features/mermaid-editor/lib/editor-theme/special-node-theme";
@@ -22,14 +20,11 @@ export const CanvasNodeLinkCard = memo(function CanvasNodeLinkCard({
   coverSrc,
   stroke,
   strokeWidth,
-  visualTokens,
   typography,
-  actionTypography,
   specialNode,
   visualState,
   fontRevision,
-  cacheEnabled = true,
-  onOpenNodeAction
+  cacheEnabled = true
 }: {
   nodeId: string;
   label: string;
@@ -39,18 +34,14 @@ export const CanvasNodeLinkCard = memo(function CanvasNodeLinkCard({
   coverSrc?: string;
   stroke?: string;
   strokeWidth?: number;
-  visualTokens: CanvasVisualTokens;
   typography: EditorTypographyTokens["linkCard"];
-  actionTypography: TypographyRoleTokens;
   specialNode: SpecialNodeThemeTokens;
   visualState?: SpecialNodeVisualState;
   fontRevision: number;
   cacheEnabled?: boolean;
-  onOpenNodeAction?: (nodeId: string) => void;
 }) {
   const normalized = useMemo(() => normalizeCanvasNodePreview(preview), [preview]);
   const layout = normalized ? themedLinkCardLayout(normalized, specialNode.linkCard) : null;
-  const openNodeAction = useCallback(() => onOpenNodeAction?.(nodeId), [nodeId, onOpenNodeAction]);
 
   if (!normalized || !layout) return null;
 
@@ -184,7 +175,6 @@ export const CanvasNodeLinkCard = memo(function CanvasNodeLinkCard({
         cornerRadius={surface.radius}
         listening={false}
       />
-      <CanvasNodeActionBadge actionKind="url" x={width - 30} y={10} visualTokens={visualTokens} typography={actionTypography} onOpen={openNodeAction} />
     </Group>
   );
 });

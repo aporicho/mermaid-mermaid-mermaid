@@ -32,7 +32,7 @@ const TYPOGRAPHY_GROUPS: readonly { key: TypographyGroupKey; title: string }[] =
 const ROLE_LABELS: Record<string, string> = {
   body: "正文", heading: "标题", control: "按钮与表单", navigation: "导航", menu: "菜单", tree: "目录树", tooltip: "提示浮层",
   metadata: "辅助说明", status: "状态信息", technical: "技术数据与路径", node: "普通节点", nodeEditor: "节点编辑态",
-  edgeLabel: "连线标签", edgeEditor: "连线标签编辑态", subgraphTitle: "组标题", actionBadge: "节点操作徽标",
+  edgeLabel: "连线标签", edgeEditor: "连线标签编辑态", subgraphTitle: "组标题",
   brand: "品牌占位文字", provider: "平台名称", title: "标题", titleEditor: "标题编辑态", badge: "类型徽标", path: "文件路径",
   excerpt: "内容摘要", general: "通用文字", diagramTitle: "图表标题", primaryLabel: "节点与参与者", relationLabel: "关系与消息标签",
   groupTitle: "组与分区标题", note: "注释文字", shape: "形状文字", shapeEditor: "形状编辑态", card: "卡片正文",

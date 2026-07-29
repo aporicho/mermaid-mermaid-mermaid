@@ -56,8 +56,14 @@ export function CanvasPerformanceE2EHarness() {
 }
 
 function createHarnessState(): EditorTransactionState {
+  const graph = createMixedPerformanceFixtureGraph();
+  graph.subgraphs = [{
+    id: "DragGroup",
+    title: "拖拽组",
+    nodeIds: ["M1", "M2", "M3"]
+  }];
   return {
-    graph: createMixedPerformanceFixtureGraph(),
+    graph,
     selection: emptySelection,
     viewport: INITIAL_VIEWPORT,
     viewFilters: { ...DEFAULT_VIEW_FILTERS, grid: false }

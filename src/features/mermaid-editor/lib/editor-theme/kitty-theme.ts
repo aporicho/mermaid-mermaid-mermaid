@@ -146,11 +146,6 @@ export function editorThemeFromKittyDefinition(definition: KittyThemeFileDefinit
           strokeColor: surface
         }
       },
-      actionBadge: {
-        background: surface,
-        foreground: primary,
-        borderColor: primary
-      },
       mermaidSvg: {
         primaryColor: surface,
         primaryTextColor: nodeText,

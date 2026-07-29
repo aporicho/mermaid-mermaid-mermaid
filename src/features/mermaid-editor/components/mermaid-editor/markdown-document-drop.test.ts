@@ -8,6 +8,7 @@ function createHandlers(addProjectMarkdownFile = vi.fn()) {
   const addProjectHtmlFile = vi.fn();
   const addProjectTextFile = vi.fn();
   const addProjectCsvFile = vi.fn();
+  const addProjectImageFile = vi.fn();
   const external = {
     enter: vi.fn(), over: vi.fn(), leave: vi.fn(), drop: vi.fn(), runtime: vi.fn()
   };
@@ -26,13 +27,14 @@ function createHandlers(addProjectMarkdownFile = vi.fn()) {
     addProjectHtmlFile,
     addProjectTextFile,
     addProjectCsvFile,
+    addProjectImageFile,
     setStatus: vi.fn(),
     setFileDropFeedback,
     usesRuntimeFileDrops: true,
     projectWorkspace: null,
     external
   });
-  return { handlers, addProjectMarkdownFile, addProjectHtmlFile, addProjectTextFile, addProjectCsvFile, external, setFileDropFeedback, workspaceSurface };
+  return { handlers, addProjectMarkdownFile, addProjectHtmlFile, addProjectTextFile, addProjectCsvFile, addProjectImageFile, external, setFileDropFeedback, workspaceSurface };
 }
 
 describe("Markdown document drops", () => {
@@ -96,6 +98,21 @@ describe("Markdown document drops", () => {
     handlers.pointer(file, "markdown", { x: 320, y: 240 }, "drop");
 
     expect(addProjectMarkdownFile).toHaveBeenCalledWith(file, { x: 100, y: 90 }, "pointer");
+  });
+
+  it("imports a project-tree image at the pointer's canvas position", () => {
+    const file = { name: "cover.png", path: "/repo/cover.png", relativePath: "cover.png" };
+    const { handlers, addProjectImageFile, setFileDropFeedback } = createHandlers();
+
+    handlers.pointer(file, "image", { x: 320, y: 240 }, "move");
+    expect(setFileDropFeedback).toHaveBeenLastCalledWith(expect.objectContaining({
+      message: "释放以添加 图片节点",
+      tone: "ready"
+    }));
+
+    handlers.pointer(file, "image", { x: 320, y: 240 }, "drop");
+
+    expect(addProjectImageFile).toHaveBeenCalledWith(file, { x: 100, y: 90 }, "pointer");
   });
 
   it("does not drop through a floating panel that covers the workspace surface", () => {

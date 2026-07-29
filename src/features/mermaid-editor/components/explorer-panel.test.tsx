@@ -5,7 +5,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { ExplorerPanel } from "@/features/mermaid-editor/components/explorer-panel";
+import { ExplorerPanel, type ExplorerCanvasNodeKind } from "@/features/mermaid-editor/components/explorer-panel";
 import type { ExplorerWorkspaceTreeState } from "@/features/mermaid-editor/lib/explorer-tree-state";
 import type { ProjectFileEntry, ProjectResourceEntry, ProjectWorkspace } from "@/features/mermaid-editor/lib/project-workspace";
 
@@ -218,6 +218,22 @@ describe("ExplorerPanel", () => {
     expect(document.body.querySelector('[aria-label="index.html 操作"]')?.textContent).toContain("在浮窗中预览");
     act(() => buttonWithText("在浮窗中预览")?.click());
     expect(onOpenProjectHtmlWindow).toHaveBeenCalledTimes(2);
+  });
+
+  it("hands image resources off to the canvas as image nodes", () => {
+    const onProjectDocumentPointerDrag = vi.fn();
+    renderExplorer({ onProjectDocumentPointerDrag });
+    const source = buttonNamed("cover.png");
+
+    vi.mocked(document.elementFromPoint).mockReturnValue(null);
+    act(() => {
+      dispatchPointer(source, "pointerdown", 0, 0);
+      dispatchPointer(source, "pointermove", 12, 0);
+      dispatchPointer(source, "pointerup", 18, 0);
+    });
+
+    expect(onProjectDocumentPointerDrag).toHaveBeenNthCalledWith(1, imageFile, "image", { x: 12, y: 0 }, "move");
+    expect(onProjectDocumentPointerDrag).toHaveBeenNthCalledWith(2, imageFile, "image", { x: 18, y: 0 }, "drop");
   });
 
   it("creates typed project files from the titlebar and completes their extensions", () => {
@@ -634,7 +650,7 @@ describe("ExplorerPanel", () => {
     onOpenProjectImageWindow?: (file: ProjectFileEntry) => void;
     onOpenProjectTextWindow?: (file: ProjectFileEntry) => void;
     onOpenProjectCsvWindow?: (file: ProjectFileEntry) => void;
-    onProjectDocumentPointerDrag?: (file: ProjectFileEntry, kind: "markdown" | "html" | "text" | "csv", point: { x: number; y: number }, phase: "move" | "drop" | "cancel") => void;
+    onProjectDocumentPointerDrag?: (file: ProjectFileEntry, kind: ExplorerCanvasNodeKind, point: { x: number; y: number }, phase: "move" | "drop" | "cancel") => void;
     currentFileRef?: { name: string; path: string } | null;
     initialExpandedPaths?: string[];
     projectBusy?: boolean;

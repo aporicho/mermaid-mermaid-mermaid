@@ -337,7 +337,6 @@ export function migrateCanvasThemeV11(raw: Record<string, unknown>, fallback: Ca
         endpointRadius: numberValue(interaction.endpointRadius, fallback.overlay.anchor.endpointRadius)
       }
     },
-    actionBadge: { ...fallback.actionBadge, background: surface, foreground: primary, borderColor: primary },
     mermaidSvg: {
       ...fallback.mermaidSvg,
       primaryColor: surface,

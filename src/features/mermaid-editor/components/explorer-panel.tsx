@@ -95,7 +95,7 @@ type ExplorerFilePointerDrag = {
   pointerOffsetX: number;
   pointerOffsetY: number;
   dragging: boolean;
-  documentCanvasKind?: "markdown" | "html" | "text" | "csv";
+  documentCanvasKind?: ExplorerCanvasNodeKind;
 };
 
 type ExplorerDragOverlayState = {
@@ -106,6 +106,7 @@ type ExplorerDragOverlayState = {
 };
 
 export type ExplorerProjectFileKind = "markdown" | "mermaid" | "csv" | "html" | "text";
+export type ExplorerCanvasNodeKind = "markdown" | "html" | "text" | "csv" | "image";
 
 export type ExplorerCreateProjectFileRequest = {
   directoryPath: string;
@@ -174,7 +175,7 @@ export function ExplorerPanel({
   onImportProjectResources: (externalPaths: string[], targetDirectoryPath: string) => void;
   onDeleteProjectResources: (resources: ProjectResourceEntry[]) => void;
   onShowProjectResourceInFileManager: (resource: ProjectResourceEntry) => void;
-  onProjectDocumentPointerDrag: (file: ProjectFileEntry, kind: "markdown" | "html" | "text" | "csv", point: { x: number; y: number }, phase: "move" | "drop" | "cancel") => void;
+  onProjectDocumentPointerDrag: (file: ProjectFileEntry, kind: ExplorerCanvasNodeKind, point: { x: number; y: number }, phase: "move" | "drop" | "cancel") => void;
   onStatus: (message: string) => void;
 }) {
   const motion = useEditorMotion();
@@ -530,7 +531,7 @@ export function ExplorerPanel({
       }
       return;
     }
-    const documentKind = projectDocumentNodeKind(drag.resource);
+    const documentKind = projectCanvasNodeKind(drag.resource);
     if (drag.resources.length === 1 && drag.file && documentKind) {
       onProjectDocumentPointerDrag(drag.file, documentKind, { x: event.clientX, y: event.clientY }, "move");
       drag.documentCanvasKind = documentKind;
@@ -567,7 +568,7 @@ export function ExplorerPanel({
       return true;
     }
 
-    const documentKind = projectDocumentNodeKind(drag.resource);
+    const documentKind = projectCanvasNodeKind(drag.resource);
     if (drag.file && documentKind) {
       onProjectDocumentPointerDrag(drag.file, documentKind, { x: event.clientX, y: event.clientY }, projectBusy ? "cancel" : "drop");
     }
@@ -1081,7 +1082,7 @@ function ProjectTreeNodeRow({
   onOpenProjectHtmlWindow: (file: ProjectFileEntry) => void;
   onOpenProjectImageWindow: (file: ProjectFileEntry) => void;
   onOpenProjectAuxiliaryWindow: (file: ProjectFileEntry) => void;
-  onProjectDocumentPointerDrag: (file: ProjectFileEntry, kind: "markdown" | "html" | "text" | "csv", point: { x: number; y: number }, phase: "move" | "drop" | "cancel") => void;
+  onProjectDocumentPointerDrag: (file: ProjectFileEntry, kind: ExplorerCanvasNodeKind, point: { x: number; y: number }, phase: "move" | "drop" | "cancel") => void;
   projectBusy: boolean;
   draggedResourcePath: string | null;
   dropIntent: ExplorerDropIntent | null;
@@ -1393,11 +1394,12 @@ function nodeResourceFromDirectory(node: Extract<ProjectTreeNode, { kind: "direc
   };
 }
 
-function projectDocumentNodeKind(resource: ProjectResourceEntry): "markdown" | "html" | "text" | "csv" | undefined {
+function projectCanvasNodeKind(resource: ProjectResourceEntry): ExplorerCanvasNodeKind | undefined {
   if (resource.documentKind === "markdown") return "markdown";
   if (isHtmlDocumentFilePath(resource.path)) return "html";
   if (isTextDocumentFilePath(resource.path)) return "text";
   if (isCsvTableFilePath(resource.path)) return "csv";
+  if (isSupportedImagePath(resource.path)) return "image";
   return undefined;
 }
 

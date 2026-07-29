@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ExplorerWorkspaceWindow } from "@/features/mermaid-editor/components/mermaid-editor/explorer-workspace-window";
+import type { ExplorerCanvasNodeKind } from "@/features/mermaid-editor/components/explorer-panel";
 import { documentKindFromPath } from "@/features/mermaid-editor/lib/document-kind";
 import { DEFAULT_EDITOR_MOTION } from "@/features/mermaid-editor/lib/editor-theme";
 import type { RuntimeFileRef, RuntimeProjectResourceKind } from "@/features/mermaid-editor/lib/editor-runtime";
@@ -31,7 +32,7 @@ type ExplorerE2EEvent =
   | { type: "delete"; relativePaths: string[] }
   | { type: "show-in-file-manager"; relativePath: string }
   | { type: "open-file"; surface: "editor" | "markdown-window" | "html-window" | "image-window" | "text-window" | "csv-window"; relativePath: string }
-  | { type: "canvas-drag"; relativePath: string; kind: "markdown" | "html" | "text" | "csv"; phase: "move" | "drop" | "cancel"; point: { x: number; y: number } }
+  | { type: "canvas-drag"; relativePath: string; kind: ExplorerCanvasNodeKind; phase: "move" | "drop" | "cancel"; point: { x: number; y: number } }
   | { type: "status"; message: string }
   | { type: "focus-panel" }
   | { type: "close-panel" }

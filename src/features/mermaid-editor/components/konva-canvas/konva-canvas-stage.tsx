@@ -294,7 +294,6 @@ export function KonvaCanvasStage(stageProps: KonvaCanvasStageProps) {
                 markdownTokens={markdownTokens}
                 fontRevision={fontRevision}
                 selectedTableCell={selectedTableCell}
-                onOpenNodeAction={onOpenNodeAction}
                 onRequestMarkdownDocumentPreview={onRequestMarkdownDocumentPreview}
                 onRequestTextDocumentPreview={onRequestTextDocumentPreview}
               />

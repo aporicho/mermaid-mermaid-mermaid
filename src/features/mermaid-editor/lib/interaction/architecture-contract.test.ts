@@ -562,7 +562,8 @@ describe("interaction architecture contract", () => {
     expect(nodeImageSurface).toContain("cornerRadius={surface.radius}");
     expect(nodeImageSurface).toContain("roundedRectClip");
     expect(nodeLayer).toContain("imageInteractionFrameVisible");
-    expect(nodeLayer).toContain("isStandardNode && normalizeNodeAction");
+    expect(nodeLayer).not.toContain("CanvasNodeActionBadge");
+    expect(geometryHitTest).not.toContain('kind: "nodeAction"');
     expect(markdownCard).not.toContain("<Group listening={false}>");
   });
 

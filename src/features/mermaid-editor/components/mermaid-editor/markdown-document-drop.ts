@@ -20,6 +20,7 @@ import {
 } from "@/features/mermaid-editor/lib/html-document";
 import { isTextDocumentFilePath } from "@/features/mermaid-editor/lib/text-document";
 import { isCsvTableFilePath } from "@/features/mermaid-editor/lib/csv-table-document";
+import type { ExplorerCanvasNodeKind } from "@/features/mermaid-editor/components/explorer-panel";
 
 type DragHandler = (event: DragEvent<HTMLElement>) => void;
 
@@ -32,6 +33,7 @@ export function createMarkdownDocumentDropHandlers({
   addProjectHtmlFile,
   addProjectTextFile,
   addProjectCsvFile,
+  addProjectImageFile,
   setStatus,
   setFileDropFeedback,
   usesRuntimeFileDrops,
@@ -46,6 +48,7 @@ export function createMarkdownDocumentDropHandlers({
   addProjectHtmlFile: (file: ProjectFileEntry, point?: { x: number; y: number }, source?: "pointer") => void;
   addProjectTextFile: (file: ProjectFileEntry, point?: { x: number; y: number }, source?: "pointer") => void;
   addProjectCsvFile: (file: ProjectFileEntry, point?: { x: number; y: number }, source?: "pointer") => void;
+  addProjectImageFile: (file: ProjectFileEntry, point?: { x: number; y: number }, source?: "pointer") => void;
   setStatus: (message: string) => void;
   setFileDropFeedback: (feedback: FileDropFeedback | null) => void;
   usesRuntimeFileDrops: boolean;
@@ -159,7 +162,7 @@ export function createMarkdownDocumentDropHandlers({
         addProjectMarkdownFile(markdownDocumentProjectFileForRuntimeFile(file, projectWorkspace), worldPoint, "pointer");
       }
     },
-    pointer(file: ProjectFileEntry, kind: "markdown" | "html" | "text" | "csv", point: { x: number; y: number }, phase: "move" | "drop" | "cancel") {
+    pointer(file: ProjectFileEntry, kind: ExplorerCanvasNodeKind, point: { x: number; y: number }, phase: "move" | "drop" | "cancel") {
       if (phase === "cancel") {
         setFileDropFeedback(null);
         return;
@@ -171,7 +174,7 @@ export function createMarkdownDocumentDropHandlers({
         }
         const bounds = workspaceSurfaceRef.current?.getBoundingClientRect();
         setFileDropFeedback({
-          message: isCanvasEditable && workspaceView === "canvas" ? `释放以添加 ${kind === "html" ? "HTML 文件节点" : kind === "text" ? "文本文件节点" : kind === "csv" ? "CSV 表格节点" : "Markdown 文档卡片"}` : "请切换到可编辑 Mermaid 画布",
+          message: isCanvasEditable && workspaceView === "canvas" ? `释放以添加 ${kind === "html" ? "HTML 文件节点" : kind === "text" ? "文本文件节点" : kind === "csv" ? "CSV 表格节点" : kind === "image" ? "图片节点" : "Markdown 文档卡片"}` : "请切换到可编辑 Mermaid 画布",
           tone: isCanvasEditable && workspaceView === "canvas" ? "ready" : "blocked",
           position: bounds ? { x: point.x - bounds.left, y: point.y - bounds.top } : undefined
         });
@@ -190,6 +193,7 @@ export function createMarkdownDocumentDropHandlers({
       if (kind === "html") addProjectHtmlFile(file, worldPoint, "pointer");
       else if (kind === "text") addProjectTextFile(file, worldPoint, "pointer");
       else if (kind === "csv") addProjectCsvFile(file, worldPoint, "pointer");
+      else if (kind === "image") addProjectImageFile(file, worldPoint, "pointer");
       else addProjectMarkdownFile(file, worldPoint, "pointer");
     }
   };

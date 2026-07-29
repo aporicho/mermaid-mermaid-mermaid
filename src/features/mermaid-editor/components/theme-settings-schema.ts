@@ -95,9 +95,8 @@ export const THEME_TOKEN_GROUPS: readonly ThemeTokenGroupDefinition[] = [
   group("canvas-edge-label", "canvas", "连线标签", ["canvas", "edgeLabel"], "konva"),
   group("canvas-group", "canvas", "组", ["canvas", "group"], "konva"),
   group("canvas-overlay", "canvas", "选择与辅助", ["canvas", "overlay"], "konva"),
-  group("canvas-action-badge", "canvas", "节点操作徽标", ["canvas", "actionBadge"], "konva"),
   group("canvas-mermaid-svg", "canvas", "Mermaid SVG", ["canvas", "mermaidSvg"], "mermaid-svg"),
-  typographyGroup("typography-canvas", "canvas", "画布文字", "canvas", "konva"),
+  typographyGroup("typography-canvas", "canvas", "画布文字", "canvas", "konva", ["node", "nodeEditor", "edgeLabel", "edgeEditor", "subgraphTitle"]),
   typographyGroup("typography-mermaid", "canvas", "Mermaid SVG 文字", "mermaid", "mermaid-svg"),
 
   group("special-node-shared", "specialNode", "共享语义", ["specialNode", "shared"], "konva"),

@@ -248,9 +248,7 @@ export function MermaidEditor() {
     setWorkspacePanelWindowState("theme", "normal");
     setThemeSettingsOpen(false);
   }
-  function saveThemeSettings() {
-    saveThemeSettingsDraft();
-  }
+  function saveThemeSettings() { saveThemeSettingsDraft(); }
   const showCsvFileWorkflowError = useCallback((error: unknown, message = "CSV 文件操作失败。") => {
     setFileWorkflowError(normalizeFileWorkflowError(error, message));
   }, [setFileWorkflowError]);
@@ -260,7 +258,7 @@ export function MermaidEditor() {
     applyLoadedDocument, applyStoredEditorState,
     openMermaidFile, newMermaidFile, newMarkdownFile, openFallbackFile,
     openRuntimeFileRequest, openProjectFolder, refreshProjectWorkspace, invalidateProjectWorkspaceRequests,
-    updateBrowserFileDragFeedback, handleBrowserFileDragLeave, handleBrowserFileDrop, handleRuntimeFileDropRequest,
+    updateBrowserFileDragFeedback, handleBrowserFileDragLeave, handleBrowserFileDrop, importImageAssetRequest, handleRuntimeFileDropRequest,
     openRecentFile, openProjectFile, saveMermaidFile, saveMermaidFileAs,
     saveDocumentBufferById, saveAutoSaveEligibleDocuments
   } = useEditorFileWorkflow({
@@ -367,6 +365,7 @@ export function MermaidEditor() {
     addProjectHtmlFile: htmlDocuments.addProjectHtmlFile,
     addProjectTextFile: textDocuments.addProjectTextFile,
     addProjectCsvFile: csvTables.addProjectCsvFile,
+    addProjectImageFile: (file, point) => { void importImageAssetRequest(file, point); },
     setStatus, setFileDropFeedback, usesRuntimeFileDrops: runtime.kind === "desktop",
     external: { enter: updateBrowserFileDragFeedback, over: updateBrowserFileDragFeedback, leave: handleBrowserFileDragLeave,
       drop: handleBrowserFileDrop, runtime: handleRuntimeFileDropRequest }

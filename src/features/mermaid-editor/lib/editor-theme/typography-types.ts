@@ -25,7 +25,6 @@ export type EditorTypographyTokens = {
     edgeLabel: TypographyRoleTokens;
     edgeEditor: TypographyRoleTokens;
     subgraphTitle: TypographyRoleTokens;
-    actionBadge: TypographyRoleTokens;
   };
   linkCard: {
     brand: TypographyRoleTokens;

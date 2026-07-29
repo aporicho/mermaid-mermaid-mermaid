@@ -122,6 +122,36 @@ test.describe("Canvas node texture cache", () => {
     expect(finalVisual?.x).toBe(finalGraphNode?.x);
     expect(finalVisual?.y).toBe(finalGraphNode?.y);
   });
+
+  test("moves a group without ejecting its members or collapsing its frame", async ({ page }) => {
+    await page.goto("/__e2e__/canvas-performance");
+    await expect(page.getByTestId("canvas-performance-e2e-root")).toBeVisible();
+    await expect.poll(() => page.locator(".konvajs-content > canvas").count()).toBe(3);
+
+    const before = await groupDragSnapshot(page, "DragGroup");
+    expect(before.visual).not.toBeNull();
+    expect(before.memberIds).toEqual(["M1", "M2", "M3"]);
+
+    await page.mouse.move(100, 57);
+    await page.mouse.down();
+    await page.mouse.move(180, 97, { steps: 8 });
+    await page.mouse.up();
+
+    await expect.poll(() => groupDragSnapshot(page, "DragGroup").then((snapshot) => snapshot.nodes.M1?.x))
+      .toBeGreaterThan(before.nodes.M1!.x + 500);
+    const after = await groupDragSnapshot(page, "DragGroup");
+
+    expect(after.memberIds).toEqual(before.memberIds);
+    expect(after.visual?.parent).toBe("canvas-scene-layer");
+    expect(after.visual?.width).toBeCloseTo(before.visual!.width, 0);
+    expect(after.visual?.height).toBeCloseTo(before.visual!.height, 0);
+    const deltas = after.memberIds.map((id) => ({
+      x: after.nodes[id]!.x - before.nodes[id]!.x,
+      y: after.nodes[id]!.y - before.nodes[id]!.y
+    }));
+    expect(deltas.every((delta) => Math.abs(delta.x - deltas[0].x) < 0.001)).toBe(true);
+    expect(deltas.every((delta) => Math.abs(delta.y - deltas[0].y) < 0.001)).toBe(true);
+  });
 });
 
 type CacheSnapshot = {
@@ -234,6 +264,38 @@ async function nodeVisualSnapshot(page: import("@playwright/test").Page, nodeId:
     const node = runtime.Konva?.stages[0]?.findOne((candidate) => candidate.id() === `node-visual:${id}`);
     return node ? { x: node.x(), y: node.y(), parent: node.parent?.name() } : null;
   }, nodeId);
+}
+
+async function groupDragSnapshot(page: import("@playwright/test").Page, subgraphId: string) {
+  return page.evaluate((id) => {
+    type VisualNode = {
+      id: () => string;
+      x: () => number;
+      y: () => number;
+      parent?: { name: () => string };
+      getChildren: () => Array<{ width: () => number; height: () => number }>;
+    };
+    const runtime = window as typeof window & {
+      Konva?: { stages: Array<{ findOne: (predicate: (node: VisualNode) => boolean) => VisualNode | undefined }> };
+    };
+    const state = window.__MMM_CANVAS_PERF_E2E__?.state();
+    const subgraph = state?.graph.subgraphs?.find((candidate) => candidate.id === id);
+    const visual = runtime.Konva?.stages[0]?.findOne((candidate) => candidate.id() === `subgraph-visual:${encodeURIComponent(id)}`);
+    const frame = visual?.getChildren()[0];
+    return {
+      memberIds: [...(subgraph?.nodeIds || [])],
+      nodes: Object.fromEntries((state?.graph.nodes || [])
+        .filter((node) => subgraph?.nodeIds.includes(node.id))
+        .map((node) => [node.id, { x: node.x, y: node.y }])),
+      visual: visual && frame ? {
+        x: visual.x(),
+        y: visual.y(),
+        width: frame.width(),
+        height: frame.height(),
+        parent: visual.parent?.name()
+      } : null
+    };
+  }, subgraphId);
 }
 
 function isMonotonic(values: number[]) {

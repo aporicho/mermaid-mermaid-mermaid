@@ -34,7 +34,6 @@ export function normalizeEditorTheme(value: unknown, fallback: EditorTheme = DEF
   canvas.overlay.selection.strokeStyle = canvasStrokeStyle(canvas.overlay.selection.strokeStyle, fallback.canvas.overlay.selection.strokeStyle);
   canvas.overlay.connectionDraft.strokeStyle = canvasStrokeStyle(canvas.overlay.connectionDraft.strokeStyle, fallback.canvas.overlay.connectionDraft.strokeStyle);
   canvas.overlay.guide.centerStyle = canvasStrokeStyle(canvas.overlay.guide.centerStyle, fallback.canvas.overlay.guide.centerStyle);
-  canvas.actionBadge.borderStyle = canvasStrokeStyle(canvas.actionBadge.borderStyle, fallback.canvas.actionBadge.borderStyle);
   interfaceTokens.surface.borderStyle = cssBorderStyle(interfaceTokens.surface.borderStyle, fallback.interface.surface.borderStyle);
   interfaceTokens.tree.connectorStyle = treeConnectorStyle(interfaceTokens.tree.connectorStyle, fallback.interface.tree.connectorStyle);
   interfaceTokens.icon.family = "iconoir";

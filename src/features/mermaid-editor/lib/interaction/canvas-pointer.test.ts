@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { InteractionState } from "@/features/mermaid-editor/lib/canvas-interaction";
-import type { MermaidGraph, Selection } from "@/features/mermaid-editor/lib/editor-types";
+import type { CanvasNodeAction, MermaidGraph, Selection } from "@/features/mermaid-editor/lib/editor-types";
 import {
   resolveCanvasPointerClick,
   resolveCanvasPointerDoubleClick,
@@ -135,29 +135,35 @@ describe("canvas pointer interaction adapter", () => {
     ]);
   });
 
-  it("opens Markdown document nodes on double-click instead of starting inline text edit", () => {
-    const markdownGraph: MermaidGraph = {
-      ...graph,
-      nodes: graph.nodes.map((node) => node.id === "A"
-        ? { ...node, action: { kind: "file", path: "docs/spec.md", openMode: "app-window" } }
-        : node)
-    };
-    const markdownContext = buildInteractionContext({
-      graph: markdownGraph,
-      selection: { nodeIds: [], edgeIds: [], subgraphIds: [] },
-      viewport,
-      viewFilters: DEFAULT_VIEW_FILTERS,
-      mode: "select"
-    });
-    const result = resolveCanvasPointerDoubleClick(pointer({ phase: "double-click", hit: { kind: "node", id: "A" } }), markdownContext);
+  it("opens every node action on double-click instead of starting inline text edit", () => {
+    const actions: CanvasNodeAction[] = [
+      { kind: "url", url: "https://example.com", openMode: "app-browser" },
+      { kind: "file", path: "docs/spec.md", openMode: "app-window" },
+      { kind: "file", path: "notes/readme.txt", openMode: "app-window" }
+    ];
 
-    expect(result.editorCommands).toEqual([
-      { type: "selection.set", selection: { nodeIds: ["A"], edgeIds: [], subgraphIds: [], primaryId: "A" }, source: "pointer" }
-    ]);
-    expect(result.localEffects).toEqual([
-      { type: "blankClick.invalidate" },
-      { type: "nodeAction.open", nodeId: "A" }
-    ]);
+    for (const action of actions) {
+      const actionGraph: MermaidGraph = {
+        ...graph,
+        nodes: graph.nodes.map((node) => node.id === "A" ? { ...node, action } : node)
+      };
+      const actionContext = buildInteractionContext({
+        graph: actionGraph,
+        selection: { nodeIds: [], edgeIds: [], subgraphIds: [] },
+        viewport,
+        viewFilters: DEFAULT_VIEW_FILTERS,
+        mode: "select"
+      });
+      const result = resolveCanvasPointerDoubleClick(pointer({ phase: "double-click", hit: { kind: "node", id: "A" } }), actionContext);
+
+      expect(result.editorCommands).toEqual([
+        { type: "selection.set", selection: { nodeIds: ["A"], edgeIds: [], subgraphIds: [], primaryId: "A" }, source: "pointer" }
+      ]);
+      expect(result.localEffects).toEqual([
+        { type: "blankClick.invalidate" },
+        { type: "nodeAction.open", nodeId: "A" }
+      ]);
+    }
   });
 
   it("turns double-click on a subgraph title into selection plus local inline edit", () => {

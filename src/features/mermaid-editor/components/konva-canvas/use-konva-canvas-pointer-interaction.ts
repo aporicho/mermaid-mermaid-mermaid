@@ -182,12 +182,6 @@ export function useKonvaCanvasPointerInteraction({
     proximity.updateNodeProximityScales(coordinates.screen);
     closeNodeContextMenu();
 
-    if (target.kind === "nodeAction") {
-      invalidateBlankClickIntent();
-      event.preventDefault();
-      return;
-    }
-
     if (target.kind === "tableColumnResize" && event.button === 0) {
       tableResizeRef.current = {
         pointerId: event.pointerId,
@@ -351,10 +345,6 @@ export function useKonvaCanvasPointerInteraction({
     if (!coordinates) return;
     const target = resolveTarget(coordinates.world);
     closeNodeContextMenu();
-    if (target.kind === "nodeAction") {
-      openNodeAction(target.nodeId);
-      return;
-    }
     if (target.kind === "tableColumnResize") return;
     if (target.kind === "tableCell") model.stageProps.onSelectTableCell(target);
     const hit = pointerTargetInteractionHit(target);
@@ -368,10 +358,6 @@ export function useKonvaCanvasPointerInteraction({
     if (!coordinates) return;
     const target = resolveTarget(coordinates.world);
     closeNodeContextMenu();
-    if (target.kind === "nodeAction") {
-      openNodeAction(target.nodeId);
-      return;
-    }
     if (target.kind === "tableColumnResize") return;
     if (target.kind === "tableCell") {
       model.stageProps.onSelectTableCell(target);
@@ -474,6 +460,6 @@ export function useKonvaCanvasPointerInteraction({
 
 function targetNodeId(target: CanvasPointerTarget) {
   if (target.kind === "node") return target.id;
-  if (target.kind === "nodeAction" || target.kind === "tableColumnResize" || target.kind === "tableCell" || target.kind === "tableHeader" || target.kind === "nodeAnchor") return target.nodeId;
+  if (target.kind === "tableColumnResize" || target.kind === "tableCell" || target.kind === "tableHeader" || target.kind === "nodeAnchor") return target.nodeId;
   return null;
 }

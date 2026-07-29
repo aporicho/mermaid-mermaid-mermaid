@@ -48,6 +48,24 @@ describe("canvas geometry hit testing", () => {
     expect(tester({ nodes }).resolve({ x: 50, y: 40 }, context)).toEqual({ kind: "node", id: "upper" });
   });
 
+  it("treats the former action-badge area as ordinary node content", () => {
+    const node: CanvasNode = {
+      id: "link",
+      label: "Link",
+      x: 20,
+      y: 20,
+      fill: "#fff",
+      action: { kind: "url", url: "https://example.com", openMode: "app-browser" }
+    };
+    const geometry = buildNodeGeometry(node, geometrySpec);
+    const point = {
+      x: geometry.frame.x + geometry.frame.width - 11,
+      y: geometry.frame.y + 11
+    };
+
+    expect(tester({ nodes: [node] }).resolve(point, context)).toEqual({ kind: "node", id: node.id });
+  });
+
   it("resolves a single node anchor directly without requiring prior hover or selection", () => {
     const node: CanvasNode = { id: "node", label: "Node", x: 40, y: 60, fill: "#fff" };
     const geometry = buildNodeGeometry(node, geometrySpec);

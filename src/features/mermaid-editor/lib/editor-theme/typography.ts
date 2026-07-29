@@ -42,8 +42,7 @@ export function createDefaultEditorTypography(): EditorTypographyTokens {
       nodeEditor: sans(14, 700, 18),
       edgeLabel: sans(13, 400, 18),
       edgeEditor: sans(13, 400, 18),
-      subgraphTitle: sans(13, 700, 18),
-      actionBadge: sans(10, 700, 14)
+      subgraphTitle: sans(13, 700, 18)
     },
     linkCard: {
       brand: sans(22, 800, 28),

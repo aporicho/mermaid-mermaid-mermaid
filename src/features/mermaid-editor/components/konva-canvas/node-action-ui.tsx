@@ -1,12 +1,5 @@
-import { Group, Rect, Text } from "react-konva";
-
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { EditorPointMenu } from "@/features/mermaid-editor/components/editor-ui";
-import {
-  canvasStrokeDash,
-  canvasStrokeEnabled,
-  type CanvasVisualTokens
-} from "@/features/mermaid-editor/lib/canvas-visual-state";
 import type { CanvasNode, CanvasNodeAction, ViewportState } from "@/features/mermaid-editor/lib/editor-types";
 import type { NodeGeometry } from "@/features/mermaid-editor/lib/node-geometry";
 import {
@@ -16,70 +9,7 @@ import {
   normalizeNodeAction
 } from "@/features/mermaid-editor/lib/node-actions";
 import { OVERLAY_Z_INDEX } from "@/lib/overlay-layers";
-import type { TypographyRoleTokens } from "@/features/mermaid-editor/lib/editor-theme";
 import { isCsvTableDocumentNode } from "@/features/mermaid-editor/lib/csv-table-document";
-
-export function CanvasNodeActionBadge({
-  actionKind,
-  x,
-  y,
-  visualTokens,
-  typography,
-  onOpen
-}: {
-  actionKind: "url" | "file";
-  x: number;
-  y: number;
-  visualTokens: CanvasVisualTokens;
-  typography: TypographyRoleTokens;
-  onOpen?: () => void;
-}) {
-  const badge = visualTokens.actionBadge;
-  const size = badge.size;
-
-  return (
-    <Group
-      x={x}
-      y={y}
-      opacity={badge.opacity}
-      onMouseDown={(event) => {
-        event.cancelBubble = true;
-      }}
-      onClick={(event) => {
-        event.cancelBubble = true;
-        onOpen?.();
-      }}
-      onTap={(event) => {
-        event.cancelBubble = true;
-        onOpen?.();
-      }}
-    >
-      <Rect
-        width={size}
-        height={size}
-        cornerRadius={badge.radius}
-        fill={badge.background}
-        stroke={badge.borderColor}
-        strokeWidth={badge.borderWidth}
-        strokeEnabled={canvasStrokeEnabled(badge.borderStyle)}
-        dash={canvasStrokeDash(badge.borderStyle, badge.customDash)}
-      />
-      <Text
-        width={size}
-        height={size}
-        text={actionKind === "url" ? "↗" : "F"}
-        align="center"
-        verticalAlign="middle"
-        fontSize={typography.fontSize}
-        fontStyle={String(typography.fontWeight)}
-        fontFamily={typography.family}
-        lineHeight={typography.lineHeight / typography.fontSize}
-        letterSpacing={typography.letterSpacing}
-        fill={badge.foreground}
-      />
-    </Group>
-  );
-}
 
 export function NodeActionTooltip({
   node,
