@@ -19,13 +19,10 @@ import type { ProjectFileEntry, ProjectResourceEntry, ProjectWorkspace } from "@
 import {
   WORKSPACE_PANEL_DEFAULT_SIZES,
   WORKSPACE_PANEL_MIN_SIZES,
-  type DetachedMarkdownWindow,
-  type DetachedBrowserWindow,
-  type DetachedHtmlWindow, type DetachedImageWindow, type DetachedTextWindow, type DetachedCsvWindow,
-  type BrowserWindowPanelId,
-  type MarkdownWindowPanelId,
+  type DetachedMarkdownWindow, type DetachedTerminalWindow, type DetachedBrowserWindow, type DetachedHtmlWindow, type DetachedImageWindow, type DetachedTextWindow, type DetachedCsvWindow,
+  type BrowserWindowPanelId, type MarkdownWindowPanelId,
   type HtmlWindowPanelId, type ImageWindowPanelId, type TextWindowPanelId, type CsvWindowPanelId,
-  type ChromeWorkspacePanelId,
+  type ChromeWorkspacePanelId, type TerminalWindowPanelId,
   type WorkspaceFloatingPanelId
 } from "@/features/mermaid-editor/lib/workspace-panels";
 import { cn } from "@/lib/utils";
@@ -34,7 +31,7 @@ const ThemeSettingsPanel = lazy(() => import("@/features/mermaid-editor/componen
 type EditorWorkspacePanelsProps = {
   runtime: EditorRuntime; documentKind: DocumentKind;
   leftCollapsed: boolean; rightCollapsed: boolean;
-  agentOpen: boolean; agentDocumentBridge: RuntimeAgentDocumentBridge; terminalOpen: boolean; themeSettingsOpen: boolean;
+  agentOpen: boolean; agentDocumentBridge: RuntimeAgentDocumentBridge; terminalOpen: boolean; detachedTerminalWindows: DetachedTerminalWindow[]; themeSettingsOpen: boolean;
   activeWorkspacePanel: WorkspaceFloatingPanelId | null; fullscreenWorkspacePanel: WorkspaceFloatingPanelId | null;
   graph: MermaidGraph; selection: Selection;
   projectWorkspace: ProjectWorkspace | null; projectFiles: ProjectFileEntry[];
@@ -56,6 +53,7 @@ type EditorWorkspacePanelsProps = {
   workspacePanelWindowState: (panelId: WorkspaceFloatingPanelId) => FloatingPanelWindowState;
   setWorkspacePanelWindowState: (panelId: WorkspaceFloatingPanelId, state: FloatingPanelWindowState) => void;
   closeWorkspacePanel: (panelId: ChromeWorkspacePanelId) => void;
+  newTerminalWindow: () => void; openTerminalWindow: (panelId: "terminal" | TerminalWindowPanelId) => void; closeTerminalWindow: (panelId: TerminalWindowPanelId) => void;
   hideThemeSettings: () => void;
   discardThemeSettings: () => void;
   applyThemeSettings: () => void;
@@ -96,7 +94,7 @@ type EditorWorkspacePanelsProps = {
 export function EditorWorkspacePanels({
   runtime, documentKind,
   leftCollapsed, rightCollapsed,
-  agentOpen, agentDocumentBridge, terminalOpen, themeSettingsOpen,
+  agentOpen, agentDocumentBridge, terminalOpen, detachedTerminalWindows, themeSettingsOpen,
   activeWorkspacePanel, fullscreenWorkspacePanel, graph,
   selection, projectWorkspace,
   projectFiles, projectResourceStatuses, explorerTreeState,
@@ -115,6 +113,7 @@ export function EditorWorkspacePanels({
   workspacePanelWindowState,
   setWorkspacePanelWindowState,
   closeWorkspacePanel,
+  newTerminalWindow, openTerminalWindow, closeTerminalWindow,
   hideThemeSettings,
   discardThemeSettings,
   applyThemeSettings,
@@ -169,11 +168,11 @@ export function EditorWorkspacePanels({
         onStatus={onStatus}
       />
       <AgentTerminalWorkspacePanels
-        runtime={runtime}
-        agentOpen={agentOpen}
+        runtime={runtime} agentOpen={agentOpen}
         terminalOpen={terminalOpen}
         agentDocumentBridge={agentDocumentBridge}
         agentProjectRoot={projectWorkspace?.rootPath}
+        detachedTerminalWindows={detachedTerminalWindows}
         terminalCwd={terminalCwd}
         terminalContextKey={terminalContextKey}
         activeTheme={activeTheme}
@@ -185,6 +184,7 @@ export function EditorWorkspacePanels({
         setWindowState={setWorkspacePanelWindowState}
         bringToFront={bringWorkspacePanelToFront}
         closePanel={closeWorkspacePanel}
+        newTerminalWindow={newTerminalWindow} openTerminalWindow={openTerminalWindow} closeTerminalWindow={closeTerminalWindow}
         onStatus={onStatus}
       />
       <WorkspaceFloatingWindow

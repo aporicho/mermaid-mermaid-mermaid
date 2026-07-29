@@ -45,36 +45,38 @@ export function useImageImportWorkflow(
     applyEditorCommand
   } = args;
 
-  async function importBrowserDroppedImageAsset(file: BrowserDroppedFile, dropPosition?: DropPoint) {
-    await importBrowserDroppedImageAssets([file], dropPosition);
+  async function importBrowserDroppedImageAsset(file: BrowserDroppedFile, windowDropPosition?: DropPoint) {
+    await importBrowserDroppedImageAssets([file], windowDropPosition);
   }
 
-  async function importBrowserDroppedImageAssets(files: BrowserDroppedFile[], dropPosition?: DropPoint) {
+  async function importBrowserDroppedImageAssets(files: BrowserDroppedFile[], windowDropPosition?: DropPoint) {
+    const worldDropCenter = windowPointToCanvasWorldPoint(windowDropPosition);
     await importImageAssets(
       files.map((file) => ({ identity: file.path || file.name, source: file })),
       (input, targetFile) => input.source.path
         ? runtime.importImageAssetPath(targetFile, input.source.path)
         : runtime.importImageAssetFile(targetFile, input.source.file),
-      dropPosition
+      worldDropCenter
     );
   }
 
-  async function importImageAssetRequest(file: RuntimeFileOpenRequest, dropPosition?: DropPoint) {
-    await importImageAssetRequests([file], dropPosition);
+  async function importImageAssetRequest(file: RuntimeFileOpenRequest, windowDropPosition?: DropPoint) {
+    await importImageAssetRequests([file], windowDropPosition);
   }
 
-  async function importImageAssetRequests(files: RuntimeFileOpenRequest[], dropPosition?: DropPoint) {
+  async function importImageAssetRequests(files: RuntimeFileOpenRequest[], windowDropPosition?: DropPoint) {
+    const worldDropCenter = windowPointToCanvasWorldPoint(windowDropPosition);
     await importImageAssets(
       files.map((file) => ({ identity: file.path, source: file })),
       (input, targetFile) => runtime.importImageAssetPath(targetFile, input.source.path),
-      dropPosition
+      worldDropCenter
     );
   }
 
   async function importImageAssets<TSource>(
     inputs: ImageImportBatchInput<TSource>[],
     importer: (input: ImageImportBatchInput<TSource>, targetFile: RuntimeFileRef) => Promise<RuntimeImageAssetResult>,
-    dropPosition?: DropPoint
+    worldDropCenter?: DropPoint
   ) {
     if (!inputs.length) return;
     if (!canImportImages(inputs.map((input) => input.identity))) return;
@@ -94,7 +96,7 @@ export function useImageImportWorkflow(
       ...item,
       dimensions: await loadImageDimensions(item.asset.displaySrc)
     })));
-    applyImportedImageAssets(imported, dropPosition, batch.failures.length);
+    applyImportedImageAssets(imported, worldDropCenter, batch.failures.length);
   }
 
   async function ensureDocumentFileForImageImport(): Promise<RuntimeFileRef | null> {
@@ -135,10 +137,10 @@ export function useImageImportWorkflow(
 
   function applyImportedImageAssets(
     imported: ImportedImagePlacement[],
-    dropPosition: DropPoint | undefined,
+    worldDropCenter: DropPoint | undefined,
     failedCount: number
   ) {
-    const point = windowPointToCanvasWorldPoint(dropPosition) || viewportCenterPoint(viewport, canvasLiveState.canvasSize);
+    const point = worldDropCenter || viewportCenterPoint(viewport, canvasLiveState.canvasSize);
     const message = imageBatchImportStatus(imported, failedCount, "图片节点");
     applyEditorCommand({
       type: "graph.addNodesAt",

@@ -5,10 +5,21 @@ import * as ScrollAreaPrimitive from "@radix-ui/react-scroll-area"
 
 import { cn } from "@/lib/utils"
 
+type ScrollAreaViewportProps = Omit<
+  React.ComponentPropsWithoutRef<typeof ScrollAreaPrimitive.Viewport>,
+  "children" | "className"
+>
+
+type ScrollAreaProps = React.ComponentPropsWithoutRef<typeof ScrollAreaPrimitive.Root> & {
+  viewportClassName?: string
+  viewportProps?: ScrollAreaViewportProps
+  viewportRef?: React.Ref<React.ElementRef<typeof ScrollAreaPrimitive.Viewport>>
+}
+
 const ScrollArea = React.forwardRef<
   React.ElementRef<typeof ScrollAreaPrimitive.Root>,
-  React.ComponentPropsWithoutRef<typeof ScrollAreaPrimitive.Root>
->(({ className, children, type = "scroll", scrollHideDelay = 700, ...props }, ref) => (
+  ScrollAreaProps
+>(({ className, children, type = "scroll", scrollHideDelay = 700, viewportClassName, viewportProps, viewportRef, ...props }, ref) => (
   <ScrollAreaPrimitive.Root
     ref={ref}
     data-slot="scroll-area"
@@ -17,7 +28,12 @@ const ScrollArea = React.forwardRef<
     scrollHideDelay={scrollHideDelay}
     {...props}
   >
-    <ScrollAreaPrimitive.Viewport data-slot="scroll-area-viewport" className="h-full w-full rounded-[inherit] outline-none transition-[color,box-shadow] focus-visible:ring-[length:var(--ui-focus-ring-width)] focus-visible:ring-ring/50">
+    <ScrollAreaPrimitive.Viewport
+      ref={viewportRef}
+      data-slot="scroll-area-viewport"
+      className={cn("h-full w-full rounded-[inherit] outline-none transition-[color,box-shadow] focus-visible:ring-[length:var(--ui-focus-ring-width)] focus-visible:ring-ring/50", viewportClassName)}
+      {...viewportProps}
+    >
       {children}
     </ScrollAreaPrimitive.Viewport>
     <ScrollBar />

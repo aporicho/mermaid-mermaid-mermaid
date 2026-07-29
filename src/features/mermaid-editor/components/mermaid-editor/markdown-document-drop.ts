@@ -33,7 +33,7 @@ export function createMarkdownDocumentDropHandlers({
   addProjectHtmlFile,
   addProjectTextFile,
   addProjectCsvFile,
-  addProjectImageFile,
+  importProjectImageFileAtWindowPoint,
   setStatus,
   setFileDropFeedback,
   usesRuntimeFileDrops,
@@ -48,7 +48,7 @@ export function createMarkdownDocumentDropHandlers({
   addProjectHtmlFile: (file: ProjectFileEntry, point?: { x: number; y: number }, source?: "pointer") => void;
   addProjectTextFile: (file: ProjectFileEntry, point?: { x: number; y: number }, source?: "pointer") => void;
   addProjectCsvFile: (file: ProjectFileEntry, point?: { x: number; y: number }, source?: "pointer") => void;
-  addProjectImageFile: (file: ProjectFileEntry, point?: { x: number; y: number }, source?: "pointer") => void;
+  importProjectImageFileAtWindowPoint: (file: ProjectFileEntry, point: { x: number; y: number }) => void;
   setStatus: (message: string) => void;
   setFileDropFeedback: (feedback: FileDropFeedback | null) => void;
   usesRuntimeFileDrops: boolean;
@@ -189,11 +189,14 @@ export function createMarkdownDocumentDropHandlers({
       }
       const bounds = workspaceSurfaceRef.current?.getBoundingClientRect();
       if (!bounds) return;
+      if (kind === "image") {
+        importProjectImageFileAtWindowPoint(file, point);
+        return;
+      }
       const worldPoint = canvasWorldPointFromClient(point, bounds, viewport);
       if (kind === "html") addProjectHtmlFile(file, worldPoint, "pointer");
       else if (kind === "text") addProjectTextFile(file, worldPoint, "pointer");
       else if (kind === "csv") addProjectCsvFile(file, worldPoint, "pointer");
-      else if (kind === "image") addProjectImageFile(file, worldPoint, "pointer");
       else addProjectMarkdownFile(file, worldPoint, "pointer");
     }
   };

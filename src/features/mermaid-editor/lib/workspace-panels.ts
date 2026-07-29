@@ -19,7 +19,14 @@ export type HtmlWindowPanelId = `html:${string}`;
 export type ImageWindowPanelId = `image:${string}`;
 export type TextWindowPanelId = `text:${string}`;
 export type CsvWindowPanelId = `csv:${string}`;
-export type WorkspaceFloatingPanelId = StaticWorkspacePanelId | MarkdownWindowPanelId | BrowserWindowPanelId | HtmlWindowPanelId | ImageWindowPanelId | TextWindowPanelId | CsvWindowPanelId;
+export type TerminalWindowPanelId = `terminal:${string}`;
+export type WorkspaceFloatingPanelId = StaticWorkspacePanelId | TerminalWindowPanelId | MarkdownWindowPanelId | BrowserWindowPanelId | HtmlWindowPanelId | ImageWindowPanelId | TextWindowPanelId | CsvWindowPanelId;
+
+export type DetachedTerminalWindow = {
+  id: TerminalWindowPanelId;
+  ordinal: number;
+  open: boolean;
+};
 
 export type DetachedMarkdownWindow = {
   id: MarkdownWindowPanelId;
@@ -125,7 +132,7 @@ const DEFAULT_WORKSPACE_PANEL_WINDOW_STATES: Record<StaticWorkspacePanelId, Floa
 export const WORKSPACE_PANEL_DEFAULT_SIZES: Record<StaticWorkspacePanelId | "markdown" | "browser" | "html" | "image" | "text" | "csv", { width: number; height: number }> = {
   explorer: { width: 360, height: 640 },
   inspector: { width: 360, height: 640 },
-  terminal: { width: 860, height: 320 },
+  terminal: { width: 960, height: 720 },
   agent: { width: 960, height: 720 },
   theme: { width: 620, height: 720 },
   markdown: MARKDOWN_WINDOW_A4_SIZE,
@@ -178,6 +185,7 @@ export function useWorkspacePanels({
   themeSettingsOpen,
   documentKind,
   detachedMarkdownWindows,
+  detachedTerminalWindows = [],
   detachedBrowserWindows,
   detachedHtmlWindows,
   detachedImageWindows,
@@ -191,6 +199,7 @@ export function useWorkspacePanels({
   themeSettingsOpen: boolean;
   documentKind: DocumentKind;
   detachedMarkdownWindows: DetachedMarkdownWindow[];
+  detachedTerminalWindows?: DetachedTerminalWindow[];
   detachedBrowserWindows: DetachedBrowserWindow[];
   detachedHtmlWindows: DetachedHtmlWindow[];
   detachedImageWindows: DetachedImageWindow[];
@@ -207,6 +216,7 @@ export function useWorkspacePanels({
     if (!leftCollapsed) panelIds.push("explorer");
     if (!rightCollapsed && documentKind === "mermaid") panelIds.push("inspector");
     if (terminalOpen) panelIds.push("terminal");
+    panelIds.push(...detachedTerminalWindows.filter((window) => window.open).map((window) => window.id));
     if (agentOpen) panelIds.push("agent");
     if (themeSettingsOpen) panelIds.push("theme");
     panelIds.push(...detachedMarkdownWindows.map((window) => window.id));
@@ -216,7 +226,7 @@ export function useWorkspacePanels({
     panelIds.push(...detachedTextWindows.filter((window) => window.open !== false).map((window) => window.id));
     panelIds.push(...detachedCsvWindows.filter((window) => window.open !== false).map((window) => window.id));
     return panelIds;
-  }, [agentOpen, detachedBrowserWindows, detachedCsvWindows, detachedHtmlWindows, detachedImageWindows, detachedMarkdownWindows, detachedTextWindows, documentKind, leftCollapsed, rightCollapsed, terminalOpen, themeSettingsOpen]);
+  }, [agentOpen, detachedBrowserWindows, detachedCsvWindows, detachedHtmlWindows, detachedImageWindows, detachedMarkdownWindows, detachedTerminalWindows, detachedTextWindows, documentKind, leftCollapsed, rightCollapsed, terminalOpen, themeSettingsOpen]);
 
   const activeWorkspacePanel = useMemo(() => {
     for (let index = workspacePanelStack.length - 1; index >= 0; index -= 1) {
@@ -231,7 +241,7 @@ export function useWorkspacePanels({
   }, []);
 
   const setWorkspacePanelWindowState = useCallback((panelId: WorkspaceFloatingPanelId, state: FloatingPanelWindowState) => {
-    const fullscreenAllowed = panelId === "agent" || panelId === "terminal" || panelId.startsWith("markdown:") || panelId.startsWith("browser:") || panelId.startsWith("html:") || panelId.startsWith("image:") || panelId.startsWith("text:") || panelId.startsWith("csv:");
+    const fullscreenAllowed = panelId === "agent" || panelId === "terminal" || panelId.startsWith("terminal:") || panelId.startsWith("markdown:") || panelId.startsWith("browser:") || panelId.startsWith("html:") || panelId.startsWith("image:") || panelId.startsWith("text:") || panelId.startsWith("csv:");
     const nextState = state === "fullscreen" && !fullscreenAllowed ? "normal" : state;
     if (nextState === "fullscreen") {
       setWorkspacePanelStack((current) => bringFloatingPanelToFront(current, panelId));

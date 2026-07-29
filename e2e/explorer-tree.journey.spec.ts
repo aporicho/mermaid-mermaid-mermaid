@@ -194,11 +194,17 @@ test.describe("Explorer tree journeys", () => {
     await expectEvent(page, { type: "move", relativePaths: ["docs/theme.css"], targetDirectoryPath: "empty" });
 
     const panelBox = await requiredBox(explorerPanel(page));
-    await dragRowToPoint(page, resourceRow(page, "docs/note.md"), panelBox.x + panelBox.width + 120, panelBox.y + 220);
-    await expectLastEvent(page, { type: "canvas-drag", relativePath: "docs/note.md", kind: "markdown", phase: "drop" });
-
-    await dragRowToPoint(page, resourceRow(page, "docs/cover.png"), panelBox.x + panelBox.width + 120, panelBox.y + 260);
-    await expectLastEvent(page, { type: "canvas-drag", relativePath: "docs/cover.png", kind: "image", phase: "drop" });
+    const canvasNodeFiles = [
+      { relativePath: "docs/note.md", kind: "markdown" },
+      { relativePath: "docs/index.html", kind: "html" },
+      { relativePath: "README.txt", kind: "text" },
+      { relativePath: "docs/people.csv", kind: "csv" },
+      { relativePath: "docs/cover.png", kind: "image" }
+    ];
+    for (const [index, file] of canvasNodeFiles.entries()) {
+      await dragRowToPoint(page, resourceRow(page, file.relativePath), panelBox.x + panelBox.width + 120, panelBox.y + 180 + index * 20);
+      await expectLastEvent(page, { type: "canvas-drag", relativePath: file.relativePath, kind: file.kind, phase: "drop" });
+    }
   });
 
   test("opens an unmarked gap while dragging the last visible file", async ({ page }) => {

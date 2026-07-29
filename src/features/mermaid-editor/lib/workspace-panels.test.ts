@@ -14,6 +14,11 @@ describe("workspace panel defaults", () => {
     expect(WORKSPACE_PANEL_DEFAULT_SIZES.html).toEqual(WORKSPACE_PANEL_DEFAULT_SIZES.browser);
   });
 
+  it("opens terminals in a large 4:3 working window", () => {
+    expect(WORKSPACE_PANEL_DEFAULT_SIZES.terminal).toEqual({ width: 960, height: 720 });
+    expect(WORKSPACE_PANEL_DEFAULT_SIZES.terminal.width / WORKSPACE_PANEL_DEFAULT_SIZES.terminal.height).toBe(4 / 3);
+  });
+
   it("resolves only an open fullscreen panel from the top of the workspace stack", () => {
     expect(resolveFullscreenWorkspacePanel(
       ["terminal", "image:/project/cover.png", "agent"],

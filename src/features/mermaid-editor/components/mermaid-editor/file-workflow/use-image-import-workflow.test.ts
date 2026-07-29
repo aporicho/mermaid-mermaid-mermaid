@@ -12,6 +12,18 @@ import { useImageImportWorkflow } from "./use-image-import-workflow";
 import type { UseEditorFileWorkflowArgs } from "./types";
 
 describe("useImageImportWorkflow", () => {
+  it("converts an explorer window point to canvas coordinates exactly once", async () => {
+    const harness = createHarness();
+    const workflow = useImageImportWorkflow(harness.args, harness.dependencies);
+
+    await workflow.importImageAssetRequest(imageRequests("cover.png")[0], { x: 320, y: 240 });
+
+    expect(harness.applyEditorCommand).toHaveBeenCalledWith(expect.objectContaining({
+      type: "graph.addNodesAt",
+      nodes: [expect.objectContaining({ point: { x: 20, y: 30 }, label: "cover" })]
+    }));
+  });
+
   it("imports dropped image paths in order and adds them in one graph command", async () => {
     const harness = createHarness();
     const workflow = useImageImportWorkflow(harness.args, harness.dependencies);
@@ -33,9 +45,9 @@ describe("useImageImportWorkflow", () => {
       source: "api",
       message: "已复制并添加 3 张图片节点。",
       nodes: [
-        expect.objectContaining({ point: { x: 4, y: 14 }, label: "one" }),
-        expect.objectContaining({ point: { x: 196, y: 14 }, label: "two" }),
-        expect.objectContaining({ point: { x: 100, y: 166 }, label: "three" })
+        expect.objectContaining({ point: { x: -76, y: -46 }, label: "one" }),
+        expect.objectContaining({ point: { x: 116, y: -46 }, label: "two" }),
+        expect.objectContaining({ point: { x: 20, y: 106 }, label: "three" })
       ]
     }));
     const command = harness.applyEditorCommand.mock.calls[0][0];

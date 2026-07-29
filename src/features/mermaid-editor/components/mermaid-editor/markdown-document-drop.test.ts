@@ -8,7 +8,7 @@ function createHandlers(addProjectMarkdownFile = vi.fn()) {
   const addProjectHtmlFile = vi.fn();
   const addProjectTextFile = vi.fn();
   const addProjectCsvFile = vi.fn();
-  const addProjectImageFile = vi.fn();
+  const importProjectImageFileAtWindowPoint = vi.fn();
   const external = {
     enter: vi.fn(), over: vi.fn(), leave: vi.fn(), drop: vi.fn(), runtime: vi.fn()
   };
@@ -27,14 +27,14 @@ function createHandlers(addProjectMarkdownFile = vi.fn()) {
     addProjectHtmlFile,
     addProjectTextFile,
     addProjectCsvFile,
-    addProjectImageFile,
+    importProjectImageFileAtWindowPoint,
     setStatus: vi.fn(),
     setFileDropFeedback,
     usesRuntimeFileDrops: true,
     projectWorkspace: null,
     external
   });
-  return { handlers, addProjectMarkdownFile, addProjectHtmlFile, addProjectTextFile, addProjectCsvFile, addProjectImageFile, external, setFileDropFeedback, workspaceSurface };
+  return { handlers, addProjectMarkdownFile, addProjectHtmlFile, addProjectTextFile, addProjectCsvFile, importProjectImageFileAtWindowPoint, external, setFileDropFeedback, workspaceSurface };
 }
 
 describe("Markdown document drops", () => {
@@ -100,9 +100,22 @@ describe("Markdown document drops", () => {
     expect(addProjectMarkdownFile).toHaveBeenCalledWith(file, { x: 100, y: 90 }, "pointer");
   });
 
+  it.each([
+    { kind: "html" as const, name: "prototype.html", callback: "addProjectHtmlFile" as const },
+    { kind: "text" as const, name: "notes.txt", callback: "addProjectTextFile" as const },
+    { kind: "csv" as const, name: "people.csv", callback: "addProjectCsvFile" as const }
+  ])("converts a project-tree $kind node drop to canvas coordinates exactly once", ({ kind, name, callback }) => {
+    const file = { name, path: `/repo/${name}`, relativePath: name };
+    const harness = createHandlers();
+
+    harness.handlers.pointer(file, kind, { x: 320, y: 240 }, "drop");
+
+    expect(harness[callback]).toHaveBeenCalledWith(file, { x: 100, y: 90 }, "pointer");
+  });
+
   it("imports a project-tree image at the pointer's canvas position", () => {
     const file = { name: "cover.png", path: "/repo/cover.png", relativePath: "cover.png" };
-    const { handlers, addProjectImageFile, setFileDropFeedback } = createHandlers();
+    const { handlers, importProjectImageFileAtWindowPoint, setFileDropFeedback } = createHandlers();
 
     handlers.pointer(file, "image", { x: 320, y: 240 }, "move");
     expect(setFileDropFeedback).toHaveBeenLastCalledWith(expect.objectContaining({
@@ -112,7 +125,7 @@ describe("Markdown document drops", () => {
 
     handlers.pointer(file, "image", { x: 320, y: 240 }, "drop");
 
-    expect(addProjectImageFile).toHaveBeenCalledWith(file, { x: 100, y: 90 }, "pointer");
+    expect(importProjectImageFileAtWindowPoint).toHaveBeenCalledWith(file, { x: 320, y: 240 });
   });
 
   it("does not drop through a floating panel that covers the workspace surface", () => {

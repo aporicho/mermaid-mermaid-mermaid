@@ -18,7 +18,10 @@ export function importedGraphImageNodes(
 ) {
   const centers = layoutBatchImageCenters(imported.map((item) => item.dimensions), dropCenter);
   return imported.map((item, index) => ({
-    point: centers[index],
+    point: {
+      x: centers[index].x - item.dimensions.width / 2,
+      y: centers[index].y - item.dimensions.height / 2
+    },
     asset: createImageAsset({
       src: item.asset.src,
       width: item.dimensions.width,

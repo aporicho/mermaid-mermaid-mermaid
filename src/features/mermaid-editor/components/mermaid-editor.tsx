@@ -17,6 +17,7 @@ import { useEditorKeyboardShortcuts } from "@/features/mermaid-editor/components
 import { useEditorOverlayState } from "@/features/mermaid-editor/components/mermaid-editor/use-editor-overlay-state";
 import { useEditorRecentActions } from "@/features/mermaid-editor/components/mermaid-editor/use-editor-recent-actions";
 import { useEditorThemeModel } from "@/features/mermaid-editor/components/mermaid-editor/use-editor-theme-model";
+import { useTerminalWorkspaceWindowActions, useTerminalWorkspaceWindowState } from "@/features/mermaid-editor/components/mermaid-editor/use-terminal-workspace-windows";
 import { useEditorWorkspacePanelActions } from "@/features/mermaid-editor/components/mermaid-editor/use-editor-workspace-panel-actions";
 import { useEditorWindowActions } from "@/features/mermaid-editor/components/mermaid-editor/use-editor-window-actions";
 import { useEditorAuxiliaryDocumentController } from "@/features/mermaid-editor/components/mermaid-editor/use-editor-auxiliary-document-controller";
@@ -146,11 +147,10 @@ export function MermaidEditor() {
   const { spec: canvasNodeGeometrySpec, routes: mermaidEdgeRoutes } = useCanvasNodeGeometryModel({ compiledTheme, fontRevision, edgeRouting, graph });
   const [draftPersistenceReady, setDraftPersistenceReady] = useState(runtime.kind !== "desktop");
   const [agentOpen, setAgentOpen] = useState(false);
-  const [terminalOpen, setTerminalOpen] = useState(false);
+  const terminalWindowState = useTerminalWorkspaceWindowState(); const { terminalOpen, setTerminalOpen, detachedTerminalWindows } = terminalWindowState;
   const [themeSettingsOpen, setThemeSettingsOpen] = useState(false);
   const [detachedMarkdownWindows, setDetachedMarkdownWindows] = useState<DetachedMarkdownWindow[]>([]); const [detachedBrowserWindows, setDetachedBrowserWindows] = useState<DetachedBrowserWindow[]>([]); const [detachedHtmlWindows, setDetachedHtmlWindows] = useState<DetachedHtmlWindow[]>([]); const [detachedImageWindows, setDetachedImageWindows] = useState<DetachedImageWindow[]>([]);
-  const [detachedTextWindows, setDetachedTextWindows] = useState<DetachedTextWindow[]>([]);
-  const [detachedCsvWindows, setDetachedCsvWindows] = useState<DetachedCsvWindow[]>([]);
+  const [detachedTextWindows, setDetachedTextWindows] = useState<DetachedTextWindow[]>([]); const [detachedCsvWindows, setDetachedCsvWindows] = useState<DetachedCsvWindow[]>([]);
   const [agentTextSelection, setAgentTextSelection] = useState<RuntimeAgentTextSelection | null>(null);
   const [detachedAgentSelections, setDetachedAgentSelections] = useState<Record<string, RuntimeAgentTextSelection | null>>({});
   const markdownFolds = useMarkdownFoldPersistence({ runtime, projectWorkspace, currentFile: fileRef, detachedMarkdownWindows, onStatus: setStatus });
@@ -162,7 +162,7 @@ export function MermaidEditor() {
     workspacePanelStackPosition,
     workspacePanelWindowState
   } = useWorkspacePanels({
-    leftCollapsed, rightCollapsed, agentOpen, terminalOpen, themeSettingsOpen, documentKind,
+    leftCollapsed, rightCollapsed, agentOpen, terminalOpen, themeSettingsOpen, documentKind, detachedTerminalWindows,
     detachedMarkdownWindows, detachedBrowserWindows, detachedHtmlWindows, detachedImageWindows, detachedTextWindows, detachedCsvWindows
   });
   const { openWorkspacePanel, closeWorkspacePanel } = useEditorWorkspacePanelActions({
@@ -173,6 +173,7 @@ export function MermaidEditor() {
     setAgentOpen,
     setTerminalOpen
   });
+  const { anyTerminalWindowOpen, closeTerminalWindow, newTerminalWindow, openTerminalWindow } = useTerminalWorkspaceWindowActions({ state: terminalWindowState, bringToFront: bringWorkspacePanelToFront, setWindowState: setWorkspacePanelWindowState });
   const { recordRecentAction } = useEditorRecentActions();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const workspaceSurfaceRef = useRef<HTMLDivElement>(null);
@@ -365,7 +366,7 @@ export function MermaidEditor() {
     addProjectHtmlFile: htmlDocuments.addProjectHtmlFile,
     addProjectTextFile: textDocuments.addProjectTextFile,
     addProjectCsvFile: csvTables.addProjectCsvFile,
-    addProjectImageFile: (file, point) => { void importImageAssetRequest(file, point); },
+    importProjectImageFileAtWindowPoint: (file, point) => { void importImageAssetRequest(file, point); },
     setStatus, setFileDropFeedback, usesRuntimeFileDrops: runtime.kind === "desktop",
     external: { enter: updateBrowserFileDragFeedback, over: updateBrowserFileDragFeedback, leave: handleBrowserFileDragLeave,
       drop: handleBrowserFileDrop, runtime: handleRuntimeFileDropRequest }
@@ -574,7 +575,7 @@ export function MermaidEditor() {
         <EditorWorkspacePanels
           runtime={runtime} documentKind={documentKind}
           leftCollapsed={leftCollapsed} rightCollapsed={rightCollapsed}
-          agentOpen={agentOpen} agentDocumentBridge={agentDocumentBridge} terminalOpen={terminalOpen} themeSettingsOpen={themeSettingsOpen}
+          agentOpen={agentOpen} agentDocumentBridge={agentDocumentBridge} terminalOpen={terminalOpen} detachedTerminalWindows={detachedTerminalWindows} themeSettingsOpen={themeSettingsOpen}
           activeWorkspacePanel={activeWorkspacePanel} fullscreenWorkspacePanel={fullscreenWorkspacePanel}
           graph={graph} selection={selection}
 	          projectWorkspace={projectWorkspace} projectFiles={projectFiles}
@@ -590,7 +591,7 @@ export function MermaidEditor() {
           onMarkdownTextScaleChange={(value) => { const markdownTextScale = clampMarkdownTextScale(value); updatePreferences({ ...preferences, markdownTextScale }, `Markdown 正文字号已设为 ${markdownTextScalePercent(markdownTextScale)}。`); }}
           bringWorkspacePanelToFront={bringWorkspacePanelToFront} workspacePanelStackPosition={workspacePanelStackPosition}
           workspacePanelWindowState={workspacePanelWindowState} setWorkspacePanelWindowState={setWorkspacePanelWindowState}
-          closeWorkspacePanel={closeWorkspacePanel}
+          closeWorkspacePanel={closeWorkspacePanel} newTerminalWindow={newTerminalWindow} openTerminalWindow={openTerminalWindow} closeTerminalWindow={closeTerminalWindow}
           hideThemeSettings={hideThemeSettings} discardThemeSettings={discardThemeSettings}
           applyThemeSettings={saveThemeSettings} previewTheme={previewTheme}
           openProjectFolder={openProjectFolder} refreshProjectWorkspace={refreshProjectWorkspace}
@@ -629,7 +630,7 @@ export function MermaidEditor() {
           leftCollapsed={leftCollapsed}
           rightCollapsed={rightCollapsed}
           agentOpen={agentOpen}
-          terminalOpen={terminalOpen}
+          terminalOpen={anyTerminalWindowOpen}
           recentFiles={recentFiles}
           projectBusy={projectBusy}
           isDirty={isDirty}
