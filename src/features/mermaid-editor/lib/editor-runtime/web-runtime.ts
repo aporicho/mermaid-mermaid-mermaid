@@ -15,11 +15,11 @@ import type {
 } from "@/features/mermaid-editor/lib/editor-runtime/types";
 import { createUnsupportedProjectFileOperations, createUnsupportedRuntimeMonitoringOperations } from "@/features/mermaid-editor/lib/editor-runtime/unsupported-project-file";
 import { createUnsupportedDocumentHubOperations } from "@/features/mermaid-editor/lib/editor-runtime/unsupported-document-hub";
+import { createUnsupportedMarkdownExportOperations } from "@/features/mermaid-editor/lib/editor-runtime/unsupported-markdown-export";
 export function createWebRuntime(): EditorRuntime {
   return {
-    ...createUnsupportedProjectFileOperations("网页版"), ...createUnsupportedRuntimeMonitoringOperations(), ...createUnsupportedDocumentHubOperations(),
-    kind: "web",
-    host: "web",
+    ...createUnsupportedProjectFileOperations("网页版"), ...createUnsupportedRuntimeMonitoringOperations(), ...createUnsupportedDocumentHubOperations(), ...createUnsupportedMarkdownExportOperations(),
+    kind: "web", host: "web",
     openExternalUrl(url) {
       openExternalUrl(url);
     },

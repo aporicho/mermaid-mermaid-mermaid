@@ -5,6 +5,7 @@ import type {
   EditorDraftState,
   RuntimeFileDropRequest,
   RuntimeFileOpenRequest,
+  RuntimeImageAssetContext,
   RuntimeLinkPreviewRequest,
   RuntimeLinkPreviewResult,
   RuntimeSystemMemoryInfo,
@@ -44,6 +45,7 @@ import type {
 } from "@/features/mermaid-editor/lib/editor-runtime/csv-file-types";
 import type { EditorDocumentSession } from "@/features/mermaid-editor/lib/editor-document-session";
 import type { RuntimeDocumentFormat } from "@/features/mermaid-editor/lib/editor-runtime/document-hub-types";
+import type { RuntimeMarkdownExportRequest, RuntimeMarkdownExportResult } from "@/features/mermaid-editor/lib/editor-runtime/markdown-export-types";
 import type {
   ElectronDocumentHubBridge,
   ElectronSavedFile
@@ -92,10 +94,12 @@ export type ElectronBridge = ElectronMarkdownFoldBridge & ElectronMonitoringBrid
   showProjectResourceInFileManager: (request: RuntimeShowProjectResourceRequest) => Promise<RuntimeShowProjectResourceResult>;
   readCsvFile: (request: { rootPath: string; path: string }) => Promise<RuntimeCsvFileSnapshot>;
   writeCsvFile: (request: { rootPath: string; path: string; text: string; expectedRevision: string; format?: RuntimeDocumentFormat }) => Promise<RuntimeWriteCsvFileResult>;
-  pickImageAsset: (documentPath: string | null) => Promise<ElectronImageAsset | null>;
-  importImageAssetPath: (documentPath: string, imagePath: string) => Promise<ElectronImageAsset>;
-  importImageAssetBytes: (documentPath: string, fileName: string, bytes: number[]) => Promise<ElectronImageAsset>;
-  resolveImageAssetSrc: (documentPath: string | null, src: string) => Promise<string>;
+  pickImageAsset: (documentPath: string | null, context?: RuntimeImageAssetContext) => Promise<ElectronImageAsset | null>;
+  importImageAssetPath: (documentPath: string, imagePath: string, context?: RuntimeImageAssetContext) => Promise<ElectronImageAsset>;
+  importImageAssetBytes: (documentPath: string, fileName: string, bytes: number[], context?: RuntimeImageAssetContext) => Promise<ElectronImageAsset>;
+  importImageAssetFile?: (documentPath: string, image: File, context?: RuntimeImageAssetContext) => Promise<ElectronImageAsset>;
+  resolveImageAssetSrc: (documentPath: string | null, src: string, context?: RuntimeImageAssetContext) => Promise<string>;
+  exportMarkdownFolder: (request: RuntimeMarkdownExportRequest) => Promise<RuntimeMarkdownExportResult>;
   resolveLinkPreview: (request: RuntimeLinkPreviewRequest) => Promise<RuntimeLinkPreviewResult>;
   takePendingOpenFiles: () => Promise<RuntimeFileOpenRequest[]>;
   onExternalFileOpen: (handler: (files: RuntimeFileOpenRequest[]) => void) => () => void;

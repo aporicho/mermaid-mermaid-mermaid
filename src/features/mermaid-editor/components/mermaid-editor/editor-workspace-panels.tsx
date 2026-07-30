@@ -164,7 +164,7 @@ export function EditorWorkspacePanels({
         onOpenProjectFile={openProjectFile} onOpenProjectMarkdownWindow={openProjectMarkdownWindow}
         onOpenProjectHtmlWindow={openProjectHtmlWindow} onOpenProjectImageWindow={openProjectImageWindow}
         onOpenProjectTextWindow={openProjectTextWindow} onOpenProjectCsvWindow={openProjectCsvWindow}
-        onProjectDocumentPointerDrag={onProjectDocumentPointerDrag}
+        onExportProjectMarkdown={(file) => runtime.exportMarkdownFolder({ sourcePath: file.path, ...(projectWorkspace?.rootPath ? { projectRoot: projectWorkspace.rootPath } : {}) })} onProjectDocumentPointerDrag={onProjectDocumentPointerDrag}
         onStatus={onStatus}
       />
       <AgentTerminalWorkspacePanels

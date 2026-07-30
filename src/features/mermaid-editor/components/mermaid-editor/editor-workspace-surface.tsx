@@ -197,7 +197,7 @@ export function EditorWorkspaceSurface({
   if (workspaceView === "markdown" && documentKind === "markdown") {
     return (
       <MarkdownPanel
-        key={`${fileRef?.path || fileName}:markdown`}
+        key={`${fileRef?.path || fileName}:markdown`} documentFile={fileRef}
         value={source}
         spellCheck={markdownSpellcheckEnabled}
         contentWidth={markdownContentWidth}

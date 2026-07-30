@@ -106,6 +106,12 @@ export type RuntimeImageAssetResult =
       message: string;
     };
 
+export type RuntimeImageAssetContext = {
+  projectRoot?: string;
+  storageScope?: "document" | "project";
+  rootFallback?: boolean;
+};
+
 export type RuntimeTerminalSession = {
   sessionId: string;
   cwd: string;
@@ -178,7 +184,7 @@ export type RuntimeEmbeddedBrowserResult =
 
 export type EditorRuntimeHost = "web" | "electron";
 
-export type EditorRuntime = RuntimeAgentOperations & RuntimeCsvFileOperations & RuntimeDesktopWindowOperations & RuntimeProjectFileOperations & RuntimeProjectFileWatchOperations & RuntimeDocumentHubOperations & import("@/features/mermaid-editor/lib/editor-runtime/markdown-fold-types").RuntimeMarkdownFoldOperations & {
+export type EditorRuntime = RuntimeAgentOperations & RuntimeCsvFileOperations & RuntimeDesktopWindowOperations & RuntimeProjectFileOperations & RuntimeProjectFileWatchOperations & RuntimeDocumentHubOperations & import("@/features/mermaid-editor/lib/editor-runtime/markdown-fold-types").RuntimeMarkdownFoldOperations & import("@/features/mermaid-editor/lib/editor-runtime/markdown-export-types").RuntimeMarkdownExportOperations & {
   kind: "web" | "desktop";
   host: EditorRuntimeHost;
   openExternalUrl: (url: string) => void;
@@ -202,10 +208,10 @@ export type EditorRuntime = RuntimeAgentOperations & RuntimeCsvFileOperations & 
     options?: { overwrite?: boolean }
   ) => Promise<RuntimeSaveFileResult>;
   saveFileAs: (documentText: string, suggestedName: string, documentKind: DocumentKind) => Promise<RuntimeSaveFileResult>;
-  pickImageAsset: (file: RuntimeFileRef | null) => Promise<RuntimeImageAssetResult>;
-  importImageAssetPath: (file: RuntimeFileRef | null, path: string) => Promise<RuntimeImageAssetResult>;
-  importImageAssetFile: (file: RuntimeFileRef | null, image: File) => Promise<RuntimeImageAssetResult>;
-  resolveImageAssetSrc: (file: RuntimeFileRef | null, src: string) => Promise<string>;
+  pickImageAsset: (file: RuntimeFileRef | null, context?: RuntimeImageAssetContext) => Promise<RuntimeImageAssetResult>;
+  importImageAssetPath: (file: RuntimeFileRef | null, path: string, context?: RuntimeImageAssetContext) => Promise<RuntimeImageAssetResult>;
+  importImageAssetFile: (file: RuntimeFileRef | null, image: File, context?: RuntimeImageAssetContext) => Promise<RuntimeImageAssetResult>;
+  resolveImageAssetSrc: (file: RuntimeFileRef | null, src: string, context?: RuntimeImageAssetContext) => Promise<string>;
   resolveLinkPreview: (request: RuntimeLinkPreviewRequest) => Promise<RuntimeLinkPreviewResult>;
   takePendingOpenFiles: () => Promise<RuntimeFileOpenRequest[]>;
   listenForExternalFileOpen: (handler: (files: RuntimeFileOpenRequest[]) => void) => Promise<() => void>;

@@ -3,6 +3,8 @@ const { createProjectPreloadBridge } = require("./project-preload.cjs");
 const { createWindowFullscreenPreloadBridge } = require("./window-fullscreen-preload.cjs");
 const { createPiAgentPreloadBridge } = require("./pi-agent-preload.cjs");
 const { createDocumentPreloadBridge } = require("./document-preload.cjs");
+const { createImageAssetPreloadBridge, filePathFromFile, isMarkdownImageFileDrop } = require("./image-assets-preload.cjs");
+const { createMarkdownExportPreloadBridge } = require("./markdown-export-preload.cjs");
 
 contextBridge.exposeInMainWorld("mmmElectron", {
   host: "electron",
@@ -10,6 +12,8 @@ contextBridge.exposeInMainWorld("mmmElectron", {
   ...createWindowFullscreenPreloadBridge(ipcRenderer),
   ...createPiAgentPreloadBridge(ipcRenderer),
   ...createDocumentPreloadBridge(ipcRenderer),
+  ...createImageAssetPreloadBridge(ipcRenderer, webUtils),
+  ...createMarkdownExportPreloadBridge(ipcRenderer),
   openExternalUrl(url) {
     return ipcRenderer.invoke("mmm:open-external-url", url);
   },
@@ -55,18 +59,6 @@ contextBridge.exposeInMainWorld("mmmElectron", {
   },
   writeCsvFile(request) {
     return ipcRenderer.invoke("mmm:csv:write", request);
-  },
-  pickImageAsset(documentPath) {
-    return ipcRenderer.invoke("mmm:image:pick", documentPath);
-  },
-  importImageAssetPath(documentPath, imagePath) {
-    return ipcRenderer.invoke("mmm:image:import-path", { documentPath, imagePath });
-  },
-  importImageAssetBytes(documentPath, fileName, bytes) {
-    return ipcRenderer.invoke("mmm:image:import-bytes", { documentPath, fileName, bytes });
-  },
-  resolveImageAssetSrc(documentPath, src) {
-    return ipcRenderer.invoke("mmm:image:resolve-src", { documentPath, src });
   },
   resolveLinkPreview(request) {
     return ipcRenderer.invoke("mmm:link-preview:resolve", request);
@@ -157,20 +149,24 @@ function listenForIpc(channel, handler) {
 
 function listenForFileDrops(handler) {
   const onDragEnter = (event) => {
+    if (isMarkdownImageFileDrop(event)) return;
     const files = droppedFiles(event);
     if (files.length) handler({ type: "enter", files, position: eventPosition(event) });
   };
   const onDragOver = (event) => {
+    if (isMarkdownImageFileDrop(event)) return;
     event.preventDefault();
     const files = droppedFiles(event);
     if (files.length) handler({ type: "over", files, position: eventPosition(event) });
   };
   const onDrop = (event) => {
+    if (isMarkdownImageFileDrop(event)) return;
     event.preventDefault();
     const files = droppedFiles(event);
     if (files.length) handler({ type: "drop", files, position: eventPosition(event) });
   };
   const onDragLeave = (event) => {
+    if (isMarkdownImageFileDrop(event)) return;
     const files = droppedFiles(event);
     handler({ type: "leave", files, position: eventPosition(event) });
   };
@@ -191,18 +187,10 @@ function listenForFileDrops(handler) {
 function droppedFiles(event) {
   return Array.from(event.dataTransfer?.files || [])
     .map((file) => {
-      const filePath = filePathFromFile(file);
+      const filePath = filePathFromFile(file, webUtils);
       return filePath ? { name: file.name, path: filePath } : null;
     })
     .filter(Boolean);
-}
-
-function filePathFromFile(file) {
-  try {
-    return webUtils?.getPathForFile?.(file) || file.path || "";
-  } catch {
-    return file.path || "";
-  }
 }
 
 function eventPosition(event) {

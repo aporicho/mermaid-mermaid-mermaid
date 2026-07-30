@@ -1,6 +1,7 @@
 import { useRef, type ReactElement } from "react";
 import {
   Copy,
+  Download,
   EditPencil,
   Finder,
   FolderPlus,
@@ -28,6 +29,7 @@ import { isCsvTableFilePath } from "@/features/mermaid-editor/lib/csv-table-docu
 import { isTextDocumentFilePath } from "@/features/mermaid-editor/lib/text-document";
 import { isSupportedImagePath } from "@/features/mermaid-editor/lib/node-assets";
 import type { ProjectFileEntry, ProjectResourceEntry } from "@/features/mermaid-editor/lib/project-workspace";
+import { useExplorerMarkdownExport } from "@/features/mermaid-editor/components/explorer-markdown-export";
 
 export type ExplorerContextMenu = {
   kind: "file";
@@ -82,6 +84,7 @@ export function ProjectResourceContextMenu({
   children: ReactElement;
 }) {
   const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const markdownExport = useExplorerMarkdownExport();
   const fileMenu = menu.kind === "file";
   const resource = fileMenu ? menu.resource : undefined;
   const directoryMenu = menu.kind === "directory" || resource?.kind === "directory";
@@ -102,6 +105,9 @@ export function ProjectResourceContextMenu({
       <ContextMenuTrigger ref={triggerRef} asChild>{children}</ContextMenuTrigger>
       <ContextMenuContent
         aria-label={`${targetName} 操作`}
+        onEscapeKeyDown={() => window.requestAnimationFrame(() => {
+          if (triggerRef.current?.isConnected) triggerRef.current.focus({ preventScroll: true });
+        })}
         onCloseAutoFocus={(event) => {
           event.preventDefault();
           if (triggerRef.current?.isConnected) triggerRef.current.focus({ preventScroll: true });
@@ -121,6 +127,15 @@ export function ProjectResourceContextMenu({
                   <ContextMenuItem title={menu.file.path} onSelect={() => onOpenProjectMarkdownWindow(menu.file!)}>
                     <OpenNewWindow data-icon />
                     <span className="truncate">在浮窗中打开</span>
+                  </ContextMenuItem>
+                ) : null}
+                {markdownFile && markdownExport ? (
+                  <ContextMenuItem
+                    disabled={projectBusy || Boolean(markdownExport.busyPath)}
+                    onSelect={() => window.requestAnimationFrame(() => void markdownExport.exportFile(menu.file!))}
+                  >
+                    <Download data-icon />
+                    <span className="truncate">导出文档与资源…</span>
                   </ContextMenuItem>
                 ) : null}
                 {auxiliaryFile && onOpenProjectAuxiliaryWindow ? (

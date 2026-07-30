@@ -25,6 +25,7 @@ const { cleanupLegacyAiBridgeDiscovery, registerPiAgentIpc } = require("./pi-age
 const { listSystemFonts } = require("./system-fonts.cjs");
 const { createProjectFileWatcher } = require("./project-file-watcher.cjs");
 const { createDocumentIpc } = require("./document-ipc.cjs");
+const { registerMarkdownExportIpc } = require("./markdown-export-ipc.cjs");
 const { createEditorSessionStore } = require("./editor-sessions.cjs");
 const { writeJsonAtomically } = require("./atomic-json-file.cjs");
 const { scanProjectFolder: scanProjectFolderSnapshot } = require("./project-workspace.cjs");
@@ -254,6 +255,7 @@ function registerIpc() {
     await editorSessions().write(session); claimedEditorSessionIds.set(event.sender.id, session.windowId);
   });
   documentIpc.register();
+  registerMarkdownExportIpc({ ipcMain, dialog, BrowserWindow, documentHub });
   registerProjectDocumentIpc({
     ipcMain,
     shell,
@@ -263,10 +265,10 @@ function registerIpc() {
   ipcMain.handle("mmm:markdown-folds:read", (_event, request) => readProjectMarkdownFoldState(request));
   ipcMain.handle("mmm:markdown-folds:write", (_event, request) => writeProjectMarkdownFoldState(request));
   ipcMain.handle("mmm:markdown-folds:move", (_event, request) => moveProjectMarkdownFoldState(request));
-  ipcMain.handle("mmm:image:pick", (event, documentPath) => pickImageAssetDialog(BrowserWindow.fromWebContents(event.sender), documentPath));
-  ipcMain.handle("mmm:image:import-path", (_event, request) => importImageAssetPath(request?.documentPath, request?.imagePath));
-  ipcMain.handle("mmm:image:import-bytes", (_event, request) => importImageAssetBytes(request?.documentPath, request?.fileName, request?.bytes));
-  ipcMain.handle("mmm:image:resolve-src", (_event, request) => resolveImageAssetSrc(request?.documentPath, request?.src));
+  ipcMain.handle("mmm:image:pick", (event, request) => pickImageAssetDialog(BrowserWindow.fromWebContents(event.sender), request));
+  ipcMain.handle("mmm:image:import-path", (_event, request) => importImageAssetPath(request?.documentPath, request?.imagePath, request?.context));
+  ipcMain.handle("mmm:image:import-bytes", (_event, request) => importImageAssetBytes(request?.documentPath, request?.fileName, request?.bytes, request?.context));
+  ipcMain.handle("mmm:image:resolve-src", (_event, request) => resolveImageAssetSrc(request?.documentPath, request?.src, request?.context));
   ipcMain.handle("mmm:link-preview:resolve", (_event, request) => resolveLinkPreview(request));
   ipcMain.handle("mmm:pending-files:take", (event) => takePendingOpenFiles(event.sender.id));
   registerPiAgentIpc({ ipcMain, manager: piAgentManager });
@@ -325,17 +327,19 @@ function editorSessions() {
   return editorSessionStoreInstance;
 }
 
-async function pickImageAssetDialog(owner, documentPath) {
+async function pickImageAssetDialog(owner, request) {
+  const documentPath = typeof request === "string" ? request : request?.documentPath;
+  const context = typeof request === "string" ? undefined : request?.context;
   const result = await dialog.showOpenDialog(owner ?? undefined, {
     properties: ["openFile"],
     filters: IMAGE_FILTERS
   });
   if (result.canceled || !result.filePaths[0]) return null;
-  return importImageAssetPath(documentPath, result.filePaths[0]);
+  return importImageAssetPath(documentPath, result.filePaths[0], context);
 }
 
-function resolveImageAssetSrc(documentPath, src) {
-  const assetPath = resolveImageAssetPath(documentPath, src);
+async function resolveImageAssetSrc(documentPath, src, context) {
+  const assetPath = await resolveImageAssetPath(documentPath, src, context);
   return assetPath ? filePathToAssetUrl(assetPath) : src;
 }
 

@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ExplorerPanel, type ExplorerCanvasNodeKind } from "@/features/mermaid-editor/components/explorer-panel";
+import type { RuntimeMarkdownExportResult } from "@/features/mermaid-editor/lib/editor-runtime";
 import type { ExplorerWorkspaceTreeState } from "@/features/mermaid-editor/lib/explorer-tree-state";
 import type { ProjectFileEntry, ProjectResourceEntry, ProjectWorkspace } from "@/features/mermaid-editor/lib/project-workspace";
 
@@ -330,6 +331,28 @@ describe("ExplorerPanel", () => {
     expect(onOpenProjectMarkdownWindow).toHaveBeenCalledWith(markdownFile);
   });
 
+  it("exports Markdown files from the resource context menu", async () => {
+    const onStatus = vi.fn();
+    const onExportProjectMarkdown = vi.fn(async (): Promise<RuntimeMarkdownExportResult> => ({
+      status: "exported",
+      directoryPath: "/exports/note-export",
+      copiedFiles: 2,
+      warnings: []
+    }));
+    renderExplorer({ onExportProjectMarkdown, onStatus });
+
+    act(() => buttonNamed("note.md")?.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, clientX: 20, clientY: 30 })));
+    expect(buttonWithText("导出文档与资源…")).not.toBeNull();
+    await act(async () => {
+      buttonWithText("导出文档与资源…")?.click();
+      await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
+      await Promise.resolve();
+    });
+
+    expect(onExportProjectMarkdown).toHaveBeenCalledWith(markdownFile);
+    expect(onStatus).toHaveBeenCalledWith("已导出 note.md 和 2 个资源到 /exports/note-export。");
+  });
+
   it.each([
     { name: "README.txt", callback: "text" as const },
     { name: "people.csv", callback: "csv" as const }
@@ -630,6 +653,7 @@ describe("ExplorerPanel", () => {
     onOpenProjectImageWindow = vi.fn(),
     onOpenProjectTextWindow = onOpenProjectFile,
     onOpenProjectCsvWindow = onOpenProjectFile,
+    onExportProjectMarkdown,
     onProjectDocumentPointerDrag = vi.fn(),
     currentFileRef = null,
     initialExpandedPaths = ["docs"],
@@ -655,6 +679,7 @@ describe("ExplorerPanel", () => {
     onOpenProjectImageWindow?: (file: ProjectFileEntry) => void;
     onOpenProjectTextWindow?: (file: ProjectFileEntry) => void;
     onOpenProjectCsvWindow?: (file: ProjectFileEntry) => void;
+    onExportProjectMarkdown?: (file: ProjectFileEntry) => Promise<RuntimeMarkdownExportResult>;
     onProjectDocumentPointerDrag?: (file: ProjectFileEntry, kind: ExplorerCanvasNodeKind, point: { x: number; y: number }, phase: "move" | "drop" | "cancel") => void;
     currentFileRef?: { name: string; path: string } | null;
     initialExpandedPaths?: string[];
@@ -689,6 +714,7 @@ describe("ExplorerPanel", () => {
             onOpenProjectImageWindow={onOpenProjectImageWindow}
             onOpenProjectTextWindow={onOpenProjectTextWindow}
             onOpenProjectCsvWindow={onOpenProjectCsvWindow}
+            onExportProjectMarkdown={onExportProjectMarkdown}
             onCreateProjectFile={onCreateProjectFile}
             onCreateProjectDirectory={onCreateProjectDirectory}
             onRenameProjectResource={onRenameProjectResource}

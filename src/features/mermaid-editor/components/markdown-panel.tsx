@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 import { Crepe, CrepeFeature } from "@milkdown/crepe";
+import { imageBlockSchema } from "@milkdown/kit/component/image-block";
 import { EditorStatus, editorViewCtx } from "@milkdown/kit/core";
 import { TextSelection } from "@milkdown/kit/prose/state";
 import { replaceAll } from "@milkdown/kit/utils";
@@ -33,11 +34,19 @@ import {
   type MarkdownFoldKind,
   type MarkdownFoldTarget
 } from "@/features/mermaid-editor/lib/markdown-folding";
+import { useMarkdownImageAssets } from "@/features/mermaid-editor/components/mermaid-editor/markdown-image-assets-context";
 import { emptyMarkdownFoldSnapshot, markdownFoldSnapshotKey, type MarkdownFoldSnapshot } from "@/features/mermaid-editor/lib/markdown-fold-state";
 import { clampMarkdownTextScale } from "@/features/mermaid-editor/lib/markdown-text-scale";
-import type { RuntimeAgentTextSelection } from "@/features/mermaid-editor/lib/editor-runtime";
+import type { RuntimeAgentTextSelection, RuntimeFileRef } from "@/features/mermaid-editor/lib/editor-runtime";
+import { markdownImageDropController } from "@/features/mermaid-editor/lib/markdown-image-drop";
 import type { WorkspaceWindowPlacementAnchor } from "@/features/mermaid-editor/lib/project-resource-open";
 import { cn } from "@/lib/utils";
+
+export type MarkdownPanelImageAssets = {
+  onUpload: (file: File) => Promise<string>;
+  resolveDisplaySrc: (src: string) => Promise<string>;
+  insertProjectImage?: (file: import("@/features/mermaid-editor/lib/project-workspace").ProjectFileEntry) => Promise<string>;
+};
 
 type MarkdownPanelProps = {
   value: string;
@@ -47,6 +56,8 @@ type MarkdownPanelProps = {
   contentWidth: number;
   textScale: number;
   foldState?: MarkdownFoldSnapshot | null;
+  documentFile?: RuntimeFileRef | null;
+  imageAssets?: MarkdownPanelImageAssets;
   onFoldStateChange?: (snapshot: MarkdownFoldSnapshot) => void;
   onChange: (value: string) => void;
   onOpenFileLink?: (href: string, context: WorkspaceWindowPlacementAnchor) => boolean;
@@ -83,7 +94,9 @@ const blockStyleGroups = [
   ]
 ] satisfies ReadonlyArray<ReadonlyArray<{ style: MarkdownBlockStyle; label: string; icon: typeof Text }>>;
 
-export function MarkdownPanel({ value, className, readOnly = false, spellCheck, contentWidth, textScale, foldState, onFoldStateChange, onChange, onOpenFileLink, onSelectionChange }: MarkdownPanelProps) {
+export function MarkdownPanel({ value, className, readOnly = false, spellCheck, contentWidth, textScale, foldState, documentFile, imageAssets, onFoldStateChange, onChange, onOpenFileLink, onSelectionChange }: MarkdownPanelProps) {
+  const contextualImageAssets = useMarkdownImageAssets(documentFile);
+  const resolvedImageAssets = imageAssets ?? contextualImageAssets;
   const panelRef = useRef<HTMLElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const crepeRef = useRef<Crepe | null>(null);
@@ -95,6 +108,7 @@ export function MarkdownPanel({ value, className, readOnly = false, spellCheck, 
   const initialReadOnlyRef = useRef(readOnly);
   const readOnlyRef = useRef(readOnly);
   const spellCheckRef = useRef(spellCheck);
+  const imageAssetsRef = useRef(resolvedImageAssets);
   const onChangeRef = useRef(onChange);
   const onOpenFileLinkRef = useRef(onOpenFileLink);
   const onFoldStateChangeRef = useRef(onFoldStateChange);
@@ -194,6 +208,10 @@ export function MarkdownPanel({ value, className, readOnly = false, spellCheck, 
   }, [onSelectionChange]);
 
   useEffect(() => {
+    imageAssetsRef.current = resolvedImageAssets;
+  }, [resolvedImageAssets]);
+
+  useEffect(() => {
     const root = rootRef.current;
     if (!root) return;
     let disposed = false;
@@ -211,6 +229,21 @@ export function MarkdownPanel({ value, className, readOnly = false, spellCheck, 
       });
     }
 
+    const uploadImage = (file: File) => {
+      if (readOnlyRef.current) return Promise.reject(new Error("只读文档无法插入图片。"));
+      const currentImageAssets = imageAssetsRef.current;
+      if (!currentImageAssets) return Promise.reject(new Error("图片资源服务不可用。"));
+      return currentImageAssets.onUpload(file);
+    };
+    const resolveImageDisplaySrc = (src: string) => imageAssetsRef.current?.resolveDisplaySrc(src) ?? src;
+    const imageBlockConfig = imageAssetsRef.current ? {
+      [CrepeFeature.ImageBlock]: {
+        onUpload: uploadImage,
+        blockOnUpload: uploadImage,
+        inlineOnUpload: uploadImage,
+        proxyDomURL: resolveImageDisplaySrc
+      }
+    } : {};
     const crepe = new Crepe({
       root,
       defaultValue: initialValueRef.current,
@@ -222,7 +255,8 @@ export function MarkdownPanel({ value, className, readOnly = false, spellCheck, 
         },
         [CrepeFeature.Cursor]: {
           virtual: false
-        }
+        },
+        ...imageBlockConfig
       }
     });
     crepe.editor.use(markdownFolding);
@@ -272,6 +306,42 @@ export function MarkdownPanel({ value, className, readOnly = false, spellCheck, 
       void crepe.destroy();
     };
   }, []);
+
+  useEffect(() => {
+    const panel = panelRef.current;
+    if (!panel || !documentFile?.path || !resolvedImageAssets?.insertProjectImage) return;
+
+    const unregister = markdownImageDropController.register({
+      element: panel,
+      documentFile,
+      isEditable: () => !readOnlyRef.current && Boolean(imageAssetsRef.current?.insertProjectImage),
+      preview: () => panel.setAttribute("data-markdown-image-drop-active", "true"),
+      clearPreview: () => panel.removeAttribute("data-markdown-image-drop-active"),
+      insertAtClientPoint: ({ imageFile, point }) => {
+        const crepe = crepeRef.current;
+        const insertProjectImage = imageAssetsRef.current?.insertProjectImage;
+        if (!crepe || crepe.editor.status !== EditorStatus.Created || !insertProjectImage) return;
+        const position = crepe.editor.action((ctx) => {
+          const view = ctx.get(editorViewCtx);
+          return view.posAtCoords({ left: point.x, top: point.y })?.pos ?? view.state.selection.from;
+        });
+        void insertProjectImage(imageFile).then((src) => {
+          if (crepeRef.current !== crepe || crepe.editor.status !== EditorStatus.Created) return;
+          crepe.editor.action((ctx) => {
+            const view = ctx.get(editorViewCtx);
+            const resolvedPosition = Math.max(0, Math.min(position, view.state.doc.content.size));
+            const selection = TextSelection.near(view.state.doc.resolve(resolvedPosition));
+            const imageNode = imageBlockSchema.type(ctx).create({ src });
+            view.dispatch(view.state.tr.setSelection(selection).replaceSelectionWith(imageNode).scrollIntoView());
+          });
+        }).catch(() => undefined);
+      }
+    });
+    return () => {
+      panel.removeAttribute("data-markdown-image-drop-active");
+      unregister();
+    };
+  }, [documentFile, resolvedImageAssets]);
 
   useEffect(() => {
     valueRef.current = value;
@@ -667,6 +737,7 @@ export function MarkdownPanel({ value, className, readOnly = false, spellCheck, 
     <section
       ref={panelRef}
       data-floating-panel-drag-exclude
+      data-markdown-image-drop-target={!readOnly && resolvedImageAssets ? "" : undefined}
       data-window-drag-exclude
       className={cn("markdown-editor-panel relative z-0 h-full min-h-0 overflow-auto bg-background", className)}
       style={{

@@ -12,12 +12,13 @@ import {
   markdownTextScalePercent
 } from "@/features/mermaid-editor/lib/markdown-text-scale";
 import type { MarkdownFoldSnapshot } from "@/features/mermaid-editor/lib/markdown-fold-state";
-import type { RuntimeAgentTextSelection } from "@/features/mermaid-editor/lib/editor-runtime";
+import type { RuntimeAgentTextSelection, RuntimeFileRef } from "@/features/mermaid-editor/lib/editor-runtime";
 import type { WorkspaceWindowPlacementAnchor } from "@/features/mermaid-editor/lib/project-resource-open";
 
 export function MarkdownWindowPanel({
   title,
   path,
+  documentFile,
   value,
   dirty,
   spellCheck,
@@ -33,6 +34,7 @@ export function MarkdownWindowPanel({
 }: {
   title: string;
   path?: string;
+  documentFile?: RuntimeFileRef;
   value: string;
   dirty: boolean;
   spellCheck: boolean;
@@ -89,7 +91,7 @@ export function MarkdownWindowPanel({
         </>}
       />
       <MarkdownPanel
-        key={`${title}:markdown-window`}
+        key={`${title}:markdown-window`} documentFile={documentFile}
         value={value}
         spellCheck={spellCheck}
         contentWidth={contentWidth}

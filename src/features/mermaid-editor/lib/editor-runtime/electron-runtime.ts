@@ -13,6 +13,7 @@ import { createElectronMarkdownFoldOperations } from "@/features/mermaid-editor/
 import { createElectronRuntimeMonitoring } from "@/features/mermaid-editor/lib/editor-runtime/electron-runtime-monitoring";
 import type { EditorDocumentSession } from "@/features/mermaid-editor/lib/editor-document-session";
 import { createElectronDocumentHubOperations } from "@/features/mermaid-editor/lib/editor-runtime/electron-document-hub";
+import { createElectronMarkdownExportOperations } from "@/features/mermaid-editor/lib/editor-runtime/electron-markdown-export";
 export function createElectronRuntime(): EditorRuntime {
   const bridge = getElectronBridge();
   const fallback = createWebRuntime();
@@ -22,7 +23,7 @@ export function createElectronRuntime(): EditorRuntime {
     ...fallback,
     ...createElectronCsvFileOperations(bridge),
     ...createElectronDocumentHubOperations(bridge),
-    ...createElectronMarkdownFoldOperations(bridge), ...createElectronRuntimeMonitoring(bridge),
+    ...createElectronMarkdownFoldOperations(bridge), ...createElectronRuntimeMonitoring(bridge), ...createElectronMarkdownExportOperations(bridge),
     kind: "desktop",
     host: "electron",
     openExternalUrl(url) {
@@ -125,23 +126,22 @@ export function createElectronRuntime(): EditorRuntime {
     async importProjectResources(request) { return bridge.importProjectResources(request); },
     async deleteProjectResources(request) { return bridge.deleteProjectResources(request); },
     async showProjectResourceInFileManager(request) { return bridge.showProjectResourceInFileManager(request); },
-    async pickImageAsset(file) {
+    async pickImageAsset(file, context) {
       if (!file?.path) return { status: "needs-document" };
-      const asset = await bridge.pickImageAsset(file.path);
+      const asset = await bridge.pickImageAsset(file.path, context);
       return asset ? electronImageAssetResult(asset) : { status: "cancelled" };
     },
-    async importImageAssetPath(file, path) {
+    async importImageAssetPath(file, path, context) {
       if (!file?.path) return { status: "needs-document" };
-      return electronImageAssetResult(await bridge.importImageAssetPath(file.path, path));
+      return electronImageAssetResult(await bridge.importImageAssetPath(file.path, path, context));
     },
-    async importImageAssetFile(file, image) {
+    async importImageAssetFile(file, image, context) {
       if (!file?.path) return { status: "needs-document" };
+      if (bridge.importImageAssetFile) return electronImageAssetResult(await bridge.importImageAssetFile(file.path, image, context));
       const bytes = Array.from(new Uint8Array(await image.arrayBuffer()));
-      return electronImageAssetResult(await bridge.importImageAssetBytes(file.path, image.name, bytes));
+      return electronImageAssetResult(await bridge.importImageAssetBytes(file.path, image.name, bytes, context));
     },
-    async resolveImageAssetSrc(file, src) {
-      return bridge.resolveImageAssetSrc(file?.path || null, src);
-    },
+    async resolveImageAssetSrc(file, src, context) { return bridge.resolveImageAssetSrc(file?.path || null, src, context); },
     async resolveLinkPreview(request) {
       return bridge.resolveLinkPreview(request);
     },

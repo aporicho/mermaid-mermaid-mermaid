@@ -21,6 +21,11 @@ import {
 import { isTextDocumentFilePath } from "@/features/mermaid-editor/lib/text-document";
 import { isCsvTableFilePath } from "@/features/mermaid-editor/lib/csv-table-document";
 import type { ExplorerCanvasNodeKind } from "@/features/mermaid-editor/components/explorer-panel";
+import { isSupportedImagePath } from "@/features/mermaid-editor/lib/node-assets";
+import {
+  markdownImageDropController,
+  type MarkdownImageDropController
+} from "@/features/mermaid-editor/lib/markdown-image-drop";
 
 type DragHandler = (event: DragEvent<HTMLElement>) => void;
 
@@ -38,6 +43,7 @@ export function createMarkdownDocumentDropHandlers({
   setFileDropFeedback,
   usesRuntimeFileDrops,
   projectWorkspace,
+  imageDropController = markdownImageDropController,
   external
 }: {
   isCanvasEditable: boolean;
@@ -53,6 +59,7 @@ export function createMarkdownDocumentDropHandlers({
   setFileDropFeedback: (feedback: FileDropFeedback | null) => void;
   usesRuntimeFileDrops: boolean;
   projectWorkspace: ProjectWorkspace | null;
+  imageDropController?: MarkdownImageDropController;
   external: {
     enter: DragHandler;
     over: DragHandler;
@@ -69,6 +76,12 @@ export function createMarkdownDocumentDropHandlers({
     return usesRuntimeFileDrops && Array.from(event.dataTransfer.files).some((file) => isSupportedMarkdownFilePath(file.name) || isHtmlDocumentFilePath(file.name) || isTextDocumentFilePath(file.name) || isCsvTableFilePath(file.name));
   }
 
+  function isNativeMarkdownImageDrop(event: DragEvent<HTMLElement>) {
+    const target = event.target as Element | null;
+    const files = Array.from(event.dataTransfer.files);
+    return Boolean(target?.closest?.("[data-markdown-image-drop-target]") && files.length && files.every((file) => isSupportedImagePath(file.name)));
+  }
+
   function showMarkdownDropFeedback(point: { x: number; y: number }) {
     const bounds = workspaceSurfaceRef.current?.getBoundingClientRect();
     setFileDropFeedback({
@@ -76,6 +89,23 @@ export function createMarkdownDocumentDropHandlers({
       tone: isCanvasEditable && workspaceView === "canvas" ? "ready" : "blocked",
       position: bounds ? { x: point.x - bounds.left, y: point.y - bounds.top } : undefined
     });
+  }
+
+  function showMarkdownImageDropFeedback(point: { x: number; y: number }) {
+    const bounds = workspaceSurfaceRef.current?.getBoundingClientRect();
+    setFileDropFeedback({
+      message: "释放以插入 Markdown 图片",
+      tone: "ready",
+      position: bounds ? { x: point.x - bounds.left, y: point.y - bounds.top } : undefined
+    });
+  }
+
+  function routeImageDrop(file: ProjectFileEntry, point: { x: number; y: number }, phase: "move" | "drop" | "cancel") {
+    const result = imageDropController.route(phase === "cancel" ? { phase } : { imageFile: file, point, phase });
+    if (!result.handled) return false;
+    if (phase === "move") showMarkdownImageDropFeedback(point);
+    else setFileDropFeedback(null);
+    return true;
   }
 
   function isPointOnWorkspaceSurface(point: { x: number; y: number }) {
@@ -89,21 +119,25 @@ export function createMarkdownDocumentDropHandlers({
 
   return {
     enter(event: DragEvent<HTMLElement>) {
+      if (isNativeMarkdownImageDrop(event)) return setFileDropFeedback(null);
       if (!isMarkdownDrag(event)) return external.enter(event);
       event.preventDefault();
       showMarkdownDropFeedback({ x: event.clientX, y: event.clientY });
     },
     over(event: DragEvent<HTMLElement>) {
+      if (isNativeMarkdownImageDrop(event)) return setFileDropFeedback(null);
       if (!isMarkdownDrag(event)) return external.over(event);
       event.preventDefault();
       event.dataTransfer.dropEffect = isCanvasEditable && workspaceView === "canvas" ? "link" : "none";
       showMarkdownDropFeedback({ x: event.clientX, y: event.clientY });
     },
     leave(event: DragEvent<HTMLElement>) {
+      if (isNativeMarkdownImageDrop(event)) return setFileDropFeedback(null);
       if (!isMarkdownDrag(event)) return external.leave(event);
       setFileDropFeedback(null);
     },
     drop(event: DragEvent<HTMLElement>) {
+      if (isNativeMarkdownImageDrop(event)) return setFileDropFeedback(null);
       if (!isMarkdownDrag(event)) {
         if (isCanvasEditable && workspaceView === "canvas" && isRuntimeLinkedFileDrop(event)) {
           event.preventDefault();
@@ -127,6 +161,19 @@ export function createMarkdownDocumentDropHandlers({
       addProjectMarkdownFile(payload, point, "pointer");
     },
     runtime(request: RuntimeFileDropRequest) {
+      const image = request.files.find((candidate) => isSupportedImagePath(candidate.path || candidate.name));
+      if (request.type === "leave" && imageDropController.route({ phase: "cancel" }).handled) {
+        setFileDropFeedback(null);
+        return;
+      }
+      if (usesRuntimeFileDrops && request.type !== "leave" && image && request.position) {
+        const projectImageResource = projectWorkspace?.resources?.find((candidate) => candidate.kind === "file" && candidate.path === image.path);
+        const projectImage = projectWorkspace?.files.find((candidate) => candidate.path === image.path)
+          ?? (projectImageResource ? { name: projectImageResource.name, path: projectImageResource.path, relativePath: projectImageResource.relativePath } : undefined)
+          ?? { name: image.name, path: image.path, relativePath: image.path };
+        const phase = request.type === "drop" ? "drop" : "move";
+        if (routeImageDrop(projectImage, request.position, phase)) return;
+      }
       const file = request.files.find((candidate) => isSupportedMarkdownFilePath(candidate.path || candidate.name) || isHtmlDocumentFilePath(candidate.path || candidate.name) || isTextDocumentFilePath(candidate.path || candidate.name) || isCsvTableFilePath(candidate.path || candidate.name));
       if (!usesRuntimeFileDrops || !isCanvasEditable || workspaceView !== "canvas" || !file) {
         external.runtime(request);
@@ -163,6 +210,7 @@ export function createMarkdownDocumentDropHandlers({
       }
     },
     pointer(file: ProjectFileEntry, kind: ExplorerCanvasNodeKind, point: { x: number; y: number }, phase: "move" | "drop" | "cancel") {
+      if (kind === "image" && routeImageDrop(file, point, phase)) return;
       if (phase === "cancel") {
         setFileDropFeedback(null);
         return;

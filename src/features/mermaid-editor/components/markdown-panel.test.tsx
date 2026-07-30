@@ -5,6 +5,14 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { MarkdownPanel } from "@/features/mermaid-editor/components/markdown-panel";
+import { markdownImageDropController } from "@/features/mermaid-editor/lib/markdown-image-drop";
+
+type MockTransaction = {
+  selection?: unknown;
+  setSelection: (selection: unknown) => MockTransaction;
+  replaceSelectionWith: (node: unknown) => MockTransaction;
+  scrollIntoView: () => MockTransaction;
+};
 
 type MockEditorView = {
   dom: HTMLElement;
@@ -14,9 +22,7 @@ type MockEditorView = {
       content: { size: number };
       resolve: (position: number) => unknown;
     };
-    tr: {
-      setSelection: (selection: unknown) => unknown;
-    };
+    tr: MockTransaction;
   };
   dispatch: (transaction: unknown) => void;
   focus: () => void;
@@ -30,7 +36,10 @@ const milkdownMock = vi.hoisted(() => ({
   dispatch: vi.fn(),
   use: vi.fn(),
   setReadonly: vi.fn(),
-  setSelection: vi.fn((selection: unknown) => ({ selection })),
+  setSelection: vi.fn(),
+  replaceSelectionWith: vi.fn(),
+  scrollIntoView: vi.fn(),
+  createImageNode: vi.fn((attributes: unknown) => ({ attributes })),
   replaceAll: vi.fn(),
   view: undefined as MockEditorView | undefined
 }));
@@ -72,12 +81,16 @@ vi.mock("@milkdown/crepe", () => ({
       setReadonly: milkdownMock.setReadonly
     };
   }),
-  CrepeFeature: { BlockEdit: "block-edit", Cursor: "cursor" }
+  CrepeFeature: { BlockEdit: "block-edit", Cursor: "cursor", ImageBlock: "image-block" }
 }));
 
 vi.mock("@milkdown/kit/core", () => ({
   EditorStatus: { Created: "Created" },
   editorViewCtx: Symbol("editorViewCtx")
+}));
+
+vi.mock("@milkdown/kit/component/image-block", () => ({
+  imageBlockSchema: { type: () => ({ create: milkdownMock.createImageNode }) }
 }));
 
 vi.mock("@milkdown/kit/prose/state", () => {
@@ -120,6 +133,10 @@ describe("MarkdownPanel", () => {
   beforeEach(() => {
     (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
     vi.useFakeTimers();
+    const transaction = {} as MockTransaction;
+    transaction.setSelection = milkdownMock.setSelection.mockImplementation((selection) => Object.assign(transaction, { selection }));
+    transaction.replaceSelectionWith = milkdownMock.replaceSelectionWith.mockReturnValue(transaction);
+    transaction.scrollIntoView = milkdownMock.scrollIntoView.mockReturnValue(transaction);
     milkdownMock.view = {
       dom: document.createElement("div"),
       state: {
@@ -128,9 +145,7 @@ describe("MarkdownPanel", () => {
           content: { size: 20 },
           resolve: vi.fn((position: number) => ({ position }))
         },
-        tr: {
-          setSelection: milkdownMock.setSelection
-        }
+        tr: transaction
       },
       dispatch: milkdownMock.dispatch,
       focus: vi.fn(),
@@ -151,6 +166,9 @@ describe("MarkdownPanel", () => {
     milkdownMock.use.mockClear();
     milkdownMock.setReadonly.mockClear();
     milkdownMock.setSelection.mockClear();
+    milkdownMock.replaceSelectionWith.mockClear();
+    milkdownMock.scrollIntoView.mockClear();
+    milkdownMock.createImageNode.mockClear();
     milkdownMock.replaceAll.mockClear();
     milkdownMock.crepeConfig = undefined;
     markdownBlockStyleMock.convert.mockClear();
@@ -162,6 +180,8 @@ describe("MarkdownPanel", () => {
     markdownFoldingMock.setSubtree.mockClear();
     markdownFoldingMock.toggle.mockClear();
     milkdownMock.view = undefined;
+    markdownImageDropController.clear();
+    Reflect.deleteProperty(document, "elementFromPoint");
     vi.useRealTimers();
   });
 
@@ -276,6 +296,121 @@ describe("MarkdownPanel", () => {
       featureConfigs: Record<string, { virtual?: boolean }>;
     };
     expect(config.featureConfigs.cursor?.virtual).toBe(false);
+  });
+
+  it("connects persistent image upload and display resolution to every Crepe image mode", async () => {
+    const onUpload = vi.fn(async () => "assets/readme/image.png");
+    const resolveDisplaySrc = vi.fn(async () => "mmm-asset://image.png");
+    renderPanel(false, 880, 1, undefined, { imageAssets: { onUpload, resolveDisplaySrc } });
+
+    const config = milkdownMock.crepeConfig as {
+      featureConfigs: Record<string, {
+        blockOnUpload?: (file: File) => Promise<string>;
+        inlineOnUpload?: (file: File) => Promise<string>;
+        onUpload?: (file: File) => Promise<string>;
+        proxyDomURL?: (src: string) => Promise<string> | string;
+      }>;
+    };
+    const imageConfig = config.featureConfigs["image-block"];
+    const file = new File(["image"], "image.png", { type: "image/png" });
+
+    await expect(imageConfig.onUpload?.(file)).resolves.toBe("assets/readme/image.png");
+    await expect(imageConfig.blockOnUpload?.(file)).resolves.toBe("assets/readme/image.png");
+    await expect(imageConfig.inlineOnUpload?.(file)).resolves.toBe("assets/readme/image.png");
+    await expect(imageConfig.proxyDomURL?.("assets/readme/image.png")).resolves.toBe("mmm-asset://image.png");
+    expect(imageConfig.blockOnUpload).toBe(imageConfig.onUpload);
+    expect(imageConfig.inlineOnUpload).toBe(imageConfig.onUpload);
+    expect(onUpload).toHaveBeenCalledTimes(3);
+  });
+
+  it("keeps Crepe image callbacks fresh without recreating the editor", async () => {
+    const firstUpload = vi.fn(async () => "assets/first.png");
+    const firstResolve = vi.fn(async () => "mmm-asset://first.png");
+    renderPanel(false, 880, 1, undefined, {
+      imageAssets: { onUpload: firstUpload, resolveDisplaySrc: firstResolve }
+    });
+    const config = milkdownMock.crepeConfig as {
+      featureConfigs: Record<string, {
+        onUpload: (file: File) => Promise<string>;
+        proxyDomURL: (src: string) => Promise<string>;
+      }>;
+    };
+    const imageConfig = config.featureConfigs["image-block"];
+    const nextUpload = vi.fn(async () => "assets/next.png");
+    const nextResolve = vi.fn(async () => "mmm-asset://next.png");
+
+    act(() => {
+      root?.render(createElement(MarkdownPanel, {
+        value: "# Hello",
+        spellCheck: false,
+        contentWidth: 880,
+        textScale: 1,
+        onChange: vi.fn(),
+        imageAssets: { onUpload: nextUpload, resolveDisplaySrc: nextResolve }
+      }));
+    });
+
+    const file = new File(["next"], "next.png", { type: "image/png" });
+    await expect(imageConfig.onUpload(file)).resolves.toBe("assets/next.png");
+    await expect(imageConfig.proxyDomURL("assets/next.png")).resolves.toBe("mmm-asset://next.png");
+    expect(firstUpload).not.toHaveBeenCalled();
+    expect(firstResolve).not.toHaveBeenCalled();
+    expect(nextUpload).toHaveBeenCalledWith(file);
+    expect(nextResolve).toHaveBeenCalledWith("assets/next.png");
+    expect(milkdownMock.create).toHaveBeenCalledTimes(1);
+  });
+
+  it("leaves Crepe image behavior untouched when no image asset adapter is provided", () => {
+    renderPanel();
+
+    const config = milkdownMock.crepeConfig as { featureConfigs: Record<string, unknown> };
+    expect(config.featureConfigs).not.toHaveProperty("image-block");
+  });
+
+  it("does not write an uploaded image while the document is read-only", async () => {
+    const onUpload = vi.fn(async () => "assets/image.png");
+    renderPanel(false, 880, 1, undefined, {
+      readOnly: true,
+      imageAssets: { onUpload, resolveDisplaySrc: async (src) => src }
+    });
+    const config = milkdownMock.crepeConfig as {
+      featureConfigs: Record<string, { onUpload: (file: File) => Promise<string> }>;
+    };
+
+    await expect(config.featureConfigs["image-block"].onUpload(
+      new File(["image"], "image.png", { type: "image/png" })
+    )).rejects.toThrow("只读文档无法插入图片。");
+    expect(onUpload).not.toHaveBeenCalled();
+  });
+
+  it("inserts a project-tree image at the pointed Markdown position", async () => {
+    const insertProjectImage = vi.fn(async () => "../assets/cover.png");
+    const panel = renderPanel(false, 880, 1, undefined, {
+      documentFile: { name: "notes.md", path: "/repo/docs/notes.md" },
+      imageAssets: { onUpload: async () => "", resolveDisplaySrc: async (src) => src, insertProjectImage }
+    });
+    const editor = document.createElement("div");
+    editor.className = "ProseMirror";
+    panel.appendChild(editor);
+    Object.defineProperty(document, "elementFromPoint", { configurable: true, value: vi.fn(() => editor) });
+    const imageFile = { name: "cover.png", path: "/repo/assets/cover.png", relativePath: "assets/cover.png" };
+
+    act(() => {
+      markdownImageDropController.route({ imageFile, point: { x: 120, y: 180 }, phase: "move" });
+    });
+    expect(panel.getAttribute("data-markdown-image-drop-active")).toBe("true");
+
+    await act(async () => {
+      markdownImageDropController.route({ imageFile, point: { x: 120, y: 180 }, phase: "drop" });
+      await Promise.resolve();
+    });
+
+    expect(insertProjectImage).toHaveBeenCalledWith(imageFile);
+    expect(milkdownMock.view?.posAtCoords).toHaveBeenCalledWith({ left: 120, top: 180 });
+    expect(milkdownMock.createImageNode).toHaveBeenCalledWith({ src: "../assets/cover.png" });
+    expect(milkdownMock.replaceSelectionWith).toHaveBeenCalledWith({ attributes: { src: "../assets/cover.png" } });
+    expect(milkdownMock.dispatch).toHaveBeenCalledWith(milkdownMock.view?.state.tr);
+    expect(panel.hasAttribute("data-markdown-image-drop-active")).toBe(false);
   });
 
   it("opens supported file links from the link preview without navigating the browser", () => {

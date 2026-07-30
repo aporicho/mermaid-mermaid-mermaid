@@ -102,7 +102,7 @@ export function DetachedWorkspaceWindows({
           tooltipSide="top"
         >
           <MarkdownWindowPanel
-            title={markdownWindow.title}
+            title={markdownWindow.title} documentFile={markdownWindow.file}
             path={markdownWindow.file.path}
             value={markdownWindow.value}
             dirty={markdownWindow.value !== markdownWindow.savedValue}

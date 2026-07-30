@@ -107,6 +107,7 @@ function electronBridge(): ElectronBridge {
     importImageAssetPath: vi.fn(() => Promise.resolve({ src: "assets/demo.png", displaySrc: "mmm-asset://local/?path=%2Ftmp%2Fdemo.png", path: "/tmp/demo.png" })),
     importImageAssetBytes: vi.fn(() => Promise.resolve({ src: "assets/demo.png", displaySrc: "mmm-asset://local/?path=%2Ftmp%2Fdemo.png", path: "/tmp/demo.png" })),
     resolveImageAssetSrc: vi.fn((_documentPath, src) => Promise.resolve(src)),
+    exportMarkdownFolder: vi.fn(() => Promise.resolve({ status: "cancelled" as const })),
     resolveLinkPreview: vi.fn(() => Promise.resolve({ status: "unsupported" as const, message: "unsupported" })),
     takePendingOpenFiles: vi.fn(() => Promise.resolve([])),
     onExternalFileOpen: vi.fn(() => () => undefined),
@@ -171,6 +172,46 @@ describe("createEditorRuntime", () => {
 
     await expect(createEditorRuntime().readSystemMemoryInfo()).resolves.toEqual({ totalBytes: 32 * 1024 ** 3 });
     expect(bridge.readSystemMemoryInfo).toHaveBeenCalledOnce();
+  });
+
+  it("forwards Markdown image context and lets the preload import a File by its native path", async () => {
+    const bridge = electronBridge();
+    const imported = { src: "../assets/notes/cover.png", displaySrc: "mmm-asset://local/cover.png", path: "/tmp/assets/notes/cover.png" };
+    const importImageAssetFile = vi.fn(() => Promise.resolve(imported));
+    bridge.importImageAssetFile = importImageAssetFile;
+    vi.mocked(bridge.importImageAssetPath).mockResolvedValueOnce(imported);
+    vi.mocked(bridge.resolveImageAssetSrc).mockResolvedValueOnce("mmm-asset://local/cover.png");
+    window.mmmElectron = bridge;
+    const runtime = createEditorRuntime();
+    const file = { name: "notes.md", path: "/tmp/docs/notes.md" };
+    const context = { projectRoot: "/tmp", storageScope: "project" as const, rootFallback: true };
+    const image = new File(["image"], "cover.png", { type: "image/png" });
+
+    await expect(runtime.importImageAssetFile(file, image, context)).resolves.toMatchObject({ status: "ready", src: imported.src });
+    await runtime.importImageAssetPath(file, "/tmp/assets/cover.png", context);
+    await runtime.resolveImageAssetSrc(file, "assets/cover.png", context);
+
+    expect(importImageAssetFile).toHaveBeenCalledWith(file.path, image, context);
+    expect(bridge.importImageAssetPath).toHaveBeenCalledWith(file.path, "/tmp/assets/cover.png", context);
+    expect(bridge.resolveImageAssetSrc).toHaveBeenCalledWith(file.path, "assets/cover.png", context);
+    expect(bridge.importImageAssetBytes).not.toHaveBeenCalled();
+  });
+
+  it("forwards Markdown folder exports to Electron and keeps them unsupported on the web", async () => {
+    const bridge = electronBridge();
+    vi.mocked(bridge.exportMarkdownFolder).mockResolvedValueOnce({
+      status: "exported",
+      directoryPath: "/tmp/notes-export",
+      copiedFiles: 1,
+      warnings: []
+    });
+    window.mmmElectron = bridge;
+    const request = { sourcePath: "/tmp/notes.md", projectRoot: "/tmp" };
+
+    await expect(createEditorRuntime().exportMarkdownFolder(request)).resolves.toMatchObject({ status: "exported", copiedFiles: 1 });
+    expect(bridge.exportMarkdownFolder).toHaveBeenCalledWith(request);
+    delete window.mmmElectron;
+    await expect(createEditorRuntime().exportMarkdownFolder(request)).resolves.toMatchObject({ status: "unsupported" });
   });
 
   it("forwards project CSV reads, conflict-safe writes and creation to Electron", async () => {

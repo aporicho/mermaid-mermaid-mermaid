@@ -31,7 +31,7 @@ import {
 } from "@/features/mermaid-editor/components/editor-ui";
 import { WorkspaceWindowHeader } from "@/features/mermaid-editor/components/floating-chrome";
 import { EDITOR_CHROME_CLASSES } from "@/features/mermaid-editor/lib/editor-chrome";
-import type { RuntimeFileRef, RuntimeProjectResourceKind, RuntimeProjectResourcePlacement } from "@/features/mermaid-editor/lib/editor-runtime";
+import type { RuntimeFileRef, RuntimeMarkdownExportResult, RuntimeProjectResourceKind, RuntimeProjectResourcePlacement } from "@/features/mermaid-editor/lib/editor-runtime";
 import type { ExplorerWorkspaceTreeState } from "@/features/mermaid-editor/lib/explorer-tree-state";
 import { isHtmlDocumentFilePath } from "@/features/mermaid-editor/lib/html-document";
 import { isCsvTableFilePath } from "@/features/mermaid-editor/lib/csv-table-document";
@@ -51,6 +51,7 @@ import {
 } from "@/features/mermaid-editor/lib/project-workspace";
 import { cn } from "@/lib/utils";
 import { ProjectResourceContextMenu } from "@/features/mermaid-editor/components/explorer-panel-context-menu";
+import { ExplorerMarkdownExportProvider } from "@/features/mermaid-editor/components/explorer-markdown-export";
 import {
   CreateProjectDirectoryDialog,
   CreateProjectFileDialog,
@@ -147,6 +148,7 @@ export function ExplorerPanel({
   onDeleteProjectResources,
   onShowProjectResourceInFileManager,
   onProjectDocumentPointerDrag,
+  onExportProjectMarkdown,
   onStatus
 }: {
   runtimeKind: "web" | "desktop";
@@ -176,6 +178,7 @@ export function ExplorerPanel({
   onDeleteProjectResources: (resources: ProjectResourceEntry[]) => void;
   onShowProjectResourceInFileManager: (resource: ProjectResourceEntry) => void;
   onProjectDocumentPointerDrag: (file: ProjectFileEntry, kind: ExplorerCanvasNodeKind, point: { x: number; y: number }, phase: "move" | "drop" | "cancel") => void;
+  onExportProjectMarkdown?: (file: ProjectFileEntry) => Promise<RuntimeMarkdownExportResult>;
   onStatus: (message: string) => void;
 }) {
   const motion = useEditorMotion();
@@ -756,7 +759,8 @@ export function ExplorerPanel({
   }
 
   return (
-    <aside className="flex h-full min-h-0 flex-col bg-card/[var(--ui-surface-opacity)]">
+    <ExplorerMarkdownExportProvider onExport={onExportProjectMarkdown} onStatus={onStatus}>
+      <aside className="flex h-full min-h-0 flex-col bg-card/[var(--ui-surface-opacity)]">
       <WorkspaceWindowHeader
         title="资源管理器"
         actions={<>
@@ -984,7 +988,8 @@ export function ExplorerPanel({
           </InputGroup>
         </div>
       ) : null}
-    </aside>
+      </aside>
+    </ExplorerMarkdownExportProvider>
   );
 }
 

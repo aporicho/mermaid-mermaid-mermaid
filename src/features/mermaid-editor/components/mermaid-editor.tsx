@@ -30,6 +30,7 @@ import { useProjectFileActions } from "@/features/mermaid-editor/components/merm
 import { useProjectFileHotReload } from "@/features/mermaid-editor/components/mermaid-editor/use-project-file-hot-reload";
 import { useProjectResourceStatuses } from "@/features/mermaid-editor/components/mermaid-editor/use-project-resource-statuses";
 import { createMarkdownDocumentDropHandlers } from "@/features/mermaid-editor/components/mermaid-editor/markdown-document-drop";
+import { MarkdownImageAssetsProvider, useMarkdownImageAssetsFactory } from "@/features/mermaid-editor/components/mermaid-editor/markdown-image-assets-context";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { loadInitialState } from "@/features/mermaid-editor/lib/editor-state";
 import { createEditorRuntime, type RuntimeAgentTextSelection } from "@/features/mermaid-editor/lib/editor-runtime";
@@ -47,12 +48,8 @@ export function MermaidEditor() {
   const runtime = useMemo(() => createEditorRuntime(), []);
   const initial = useMemo(loadInitialState, []);
   const {
-    documentKind, setDocumentKind,
-    source, setSource,
-    graph,
-    setGraph,
-    diagramType,
-    setDiagramType,
+    documentKind, setDocumentKind, source, setSource,
+    graph, setGraph, diagramType, setDiagramType,
     editableKind,
     setEditableKind,
     selection,
@@ -439,6 +436,7 @@ export function MermaidEditor() {
     openTextWindow: auxiliaryWindows.openTextWindow, openCsvWindow: auxiliaryWindows.openCsvWindow, onStatus: setStatus, onError: showFileWorkflowError
   });
   projectResourceOpenRef.current = projectResourceOpening.openProjectResource;
+  const markdownImageAssetsFactory = useMarkdownImageAssetsFactory({ runtime, projectWorkspace, refreshProjectWorkspace, onStatus: setStatus, onError: showFileWorkflowError });
   useProjectFileHotReload({ runtime, projectWorkspace, setProjectWorkspace, fileRef,
     detachedMarkdownWindows, setDetachedMarkdownWindows, setStatus,
     detachedHtmlWindows, setDetachedHtmlWindows, detachedImageWindows, setDetachedImageWindows,
@@ -511,6 +509,7 @@ export function MermaidEditor() {
     <EditorMotionProvider value={resolvedMotion}>
     <TooltipProvider delayDuration={180}>
       <OverlayLayerScopeProvider scopeId="application" kind="application">
+      <MarkdownImageAssetsProvider value={markdownImageAssetsFactory}>
       <input ref={fileInputRef} type="file" accept=".mmd,.mermaid,.md,.markdown,.txt,.csv,text/plain,text/csv" className="hidden" onChange={openFallbackFile} />
       <main
         className="relative isolate z-0 h-screen overflow-hidden bg-background"
@@ -692,6 +691,7 @@ export function MermaidEditor() {
           onExecuteNodeActionDraft={executeNodeActionDraft}
         />
       </main>
+      </MarkdownImageAssetsProvider>
       </OverlayLayerScopeProvider>
     </TooltipProvider>
     </EditorMotionProvider>

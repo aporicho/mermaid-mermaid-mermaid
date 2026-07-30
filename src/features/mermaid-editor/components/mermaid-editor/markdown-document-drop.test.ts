@@ -3,8 +3,9 @@ import { describe, expect, it, vi } from "vitest";
 
 import { createMarkdownDocumentDropHandlers } from "@/features/mermaid-editor/components/mermaid-editor/markdown-document-drop";
 import { beginMarkdownDocumentDrag } from "@/features/mermaid-editor/lib/markdown-document";
+import type { MarkdownImageDropController } from "@/features/mermaid-editor/lib/markdown-image-drop";
 
-function createHandlers(addProjectMarkdownFile = vi.fn()) {
+function createHandlers(addProjectMarkdownFile = vi.fn(), imageDropController?: MarkdownImageDropController) {
   const addProjectHtmlFile = vi.fn();
   const addProjectTextFile = vi.fn();
   const addProjectCsvFile = vi.fn();
@@ -32,6 +33,7 @@ function createHandlers(addProjectMarkdownFile = vi.fn()) {
     setFileDropFeedback,
     usesRuntimeFileDrops: true,
     projectWorkspace: null,
+    imageDropController,
     external
   });
   return { handlers, addProjectMarkdownFile, addProjectHtmlFile, addProjectTextFile, addProjectCsvFile, importProjectImageFileAtWindowPoint, external, setFileDropFeedback, workspaceSurface };
@@ -126,6 +128,69 @@ describe("Markdown document drops", () => {
     handlers.pointer(file, "image", { x: 320, y: 240 }, "drop");
 
     expect(importProjectImageFileAtWindowPoint).toHaveBeenCalledWith(file, { x: 320, y: 240 });
+  });
+
+  it("routes a project-tree image to the Markdown target before the canvas", () => {
+    const file = { name: "cover.png", path: "/repo/cover.png", relativePath: "cover.png" };
+    const route = vi.fn(() => ({ handled: true, target: null }));
+    const imageDropController = {
+      route,
+      register: vi.fn(),
+      targetAtPoint: vi.fn(),
+      clear: vi.fn()
+    } as unknown as MarkdownImageDropController;
+    const { handlers, importProjectImageFileAtWindowPoint, setFileDropFeedback } = createHandlers(vi.fn(), imageDropController);
+
+    handlers.pointer(file, "image", { x: 320, y: 240 }, "move");
+    handlers.pointer(file, "image", { x: 320, y: 240 }, "drop");
+
+    expect(route).toHaveBeenNthCalledWith(1, { imageFile: file, point: { x: 320, y: 240 }, phase: "move" });
+    expect(route).toHaveBeenNthCalledWith(2, { imageFile: file, point: { x: 320, y: 240 }, phase: "drop" });
+    expect(setFileDropFeedback).toHaveBeenCalledWith(expect.objectContaining({ message: "释放以插入 Markdown 图片", tone: "ready" }));
+    expect(importProjectImageFileAtWindowPoint).not.toHaveBeenCalled();
+  });
+
+  it("routes an Electron image drop to a Markdown target before the external image workflow", () => {
+    const route = vi.fn(() => ({ handled: true, target: null }));
+    const imageDropController = {
+      route,
+      register: vi.fn(),
+      targetAtPoint: vi.fn(),
+      clear: vi.fn()
+    } as unknown as MarkdownImageDropController;
+    const { handlers, external } = createHandlers(vi.fn(), imageDropController);
+
+    handlers.runtime({
+      type: "drop",
+      files: [{ name: "cover.png", path: "/tmp/cover.png" }],
+      position: { x: 320, y: 240 }
+    });
+
+    expect(route).toHaveBeenCalledWith({
+      imageFile: { name: "cover.png", path: "/tmp/cover.png", relativePath: "/tmp/cover.png" },
+      point: { x: 320, y: 240 },
+      phase: "drop"
+    });
+    expect(external.runtime).not.toHaveBeenCalled();
+  });
+
+  it("leaves a native image file drop inside Markdown to Crepe", () => {
+    const { handlers, external, setFileDropFeedback } = createHandlers();
+    const event = {
+      target: { closest: vi.fn(() => ({})) },
+      dataTransfer: { files: [{ name: "cover.png" }], types: ["Files"] },
+      preventDefault: vi.fn()
+    } as unknown as DragEvent<HTMLElement>;
+
+    handlers.enter(event);
+    handlers.over(event);
+    handlers.drop(event);
+
+    expect(external.enter).not.toHaveBeenCalled();
+    expect(external.over).not.toHaveBeenCalled();
+    expect(external.drop).not.toHaveBeenCalled();
+    expect(event.preventDefault).not.toHaveBeenCalled();
+    expect(setFileDropFeedback).toHaveBeenLastCalledWith(null);
   });
 
   it("does not drop through a floating panel that covers the workspace surface", () => {
