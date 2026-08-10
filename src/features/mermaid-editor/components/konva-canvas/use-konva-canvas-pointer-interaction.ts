@@ -3,7 +3,7 @@ import { useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type Poi
 import type { KonvaCanvasModel } from "@/features/mermaid-editor/components/konva-canvas/use-konva-canvas-model";
 import { pointerInputFromMoveSnapshot, pointerInputFromNativeEvent, sameInteractionState, shouldResolvePointerMove, useLatestPointerMoveFrame, type PointerMoveSnapshot } from "@/features/mermaid-editor/components/konva-canvas/pointer-interaction-runtime";
 import { isPanningButton, type CanvasPoint, type HitTarget, type InteractionState } from "@/features/mermaid-editor/lib/canvas-interaction";
-import { createCanvasGeometryHitTester, pointerTargetInteractionHit, type CanvasPointerTarget } from "@/features/mermaid-editor/lib/canvas-geometry-hit-test";
+import { createCanvasGeometryHitTester, pointerTargetInteractionHit } from "@/features/mermaid-editor/lib/canvas-geometry-hit-test";
 import { graphImageNodeForDoubleClick } from "@/features/mermaid-editor/lib/canvas-image-window";
 import { selectOnlyNode } from "@/features/mermaid-editor/lib/editor-actions";
 import type { CanvasNode } from "@/features/mermaid-editor/lib/editor-types";
@@ -14,6 +14,8 @@ import { modifiersFromEvent, type InteractionModifiers } from "@/features/mermai
 import { applyCanvasPointerLocalEffect as dispatchCanvasPointerLocalEffect } from "@/features/mermaid-editor/components/konva-canvas/canvas-pointer-local-effects";
 import { commandForEdgeRetarget, commandForFinishedConnection } from "@/features/mermaid-editor/components/konva-canvas/canvas-pointer-edge-commands";
 import { viewportAtPanningPointer } from "@/features/mermaid-editor/components/konva-canvas/canvas-pointer-viewport";
+import { useActivePointerLifecycle } from "@/features/mermaid-editor/components/konva-canvas/use-active-pointer-lifecycle";
+import { anchorWorldPoint, targetNodeId } from "@/features/mermaid-editor/components/konva-canvas/canvas-pointer-target";
 type UseKonvaCanvasPointerInteractionArgs = {
   model: KonvaCanvasModel;
   onEditorCommand: (command: EditorCommand) => void;
@@ -69,7 +71,7 @@ export function useKonvaCanvasPointerInteraction({
   const interactionStateRef = useRef(interactionState);
   const tableResizeRef = useRef<TableResizeDraft | null>(null);
   const suppressClickUntilRef = useRef(0);
-  const activePointerIdRef = useRef<number | null>(null);
+  const { activePointerIdRef, claimPointer, releasePointer } = useActivePointerLifecycle(cancelActiveInteraction);
   const pointerMoveFrame = useLatestPointerMoveFrame(flushPointerMove);
   interactionStateRef.current = interactionState;
 
@@ -127,7 +129,7 @@ export function useKonvaCanvasPointerInteraction({
   function applyCanvasPointerLocalEffect(effect: CanvasPointerResolution["localEffects"][number]) {
     const pending = interactionStateRef.current;
     const dragOrigin = pending.kind === "pendingNodePointer" || pending.kind === "pendingSubgraphPointer"
-      ? { screen: pending.startScreen, world: pending.startWorld }
+      ? { screen: pending.startScreen, world: pending.startWorld, pointerId: pending.pointerId }
       : undefined;
     dispatchCanvasPointerLocalEffect(effect, {
       graphNodes: graph.nodes, visualTokens, geometrySpec, renderedSubgraphGeometries,
@@ -172,13 +174,12 @@ export function useKonvaCanvasPointerInteraction({
   }
 
   function handleCanvasPointerDown(event: ReactPointerEvent<HTMLDivElement>) {
+    if (activePointerIdRef.current !== null && activePointerIdRef.current !== event.pointerId) return;
     pointerMoveFrame.cancel();
     const coordinates = pointerCoordinates(event);
     if (!coordinates) return;
     const target = resolveTarget(coordinates.world);
     const hit = pointerTargetInteractionHit(target);
-    activePointerIdRef.current = event.pointerId;
-    event.currentTarget.setPointerCapture?.(event.pointerId);
     proximity.updateNodeProximityScales(coordinates.screen);
     closeNodeContextMenu();
 
@@ -190,6 +191,7 @@ export function useKonvaCanvasPointerInteraction({
         startWidth: target.startWidth,
         startWorld: coordinates.world
       };
+      claimPointer(event);
       if (!selectedNodeIds.has(target.nodeId)) onEditorCommand({ type: "selection.set", selection: selectOnlyNode(target.nodeId), source: "pointer" });
       invalidateBlankClickIntent();
       proximity.clearNodeProximityScales(true);
@@ -198,16 +200,18 @@ export function useKonvaCanvasPointerInteraction({
     }
 
     if (isPanningButton(event.button) || panningRequested) event.preventDefault();
-    const world = anchorWorldPoint(target) ?? coordinates.world;
+    const world = anchorWorldPoint(target, nodeGeometryById, subgraphGeometryById) ?? coordinates.world;
     const pointerInput = pointerInputFromNativeEvent("down", event.nativeEvent, hit, coordinates.screen, world);
     const resolution = resolveCanvasPointerDown(pointerInput, interactionContextForPointer(hit, pointerInput.modifiers), {
       state: interactionStateRef.current, selectionVersion: selectionVersionRef.current, panningRequested, dragEnabled
     });
+    if (resolution.state && resolution.state.kind !== "idle") claimPointer(event);
     if (resolution.state?.kind === "panning") viewportController.beginViewportInteraction();
     applyPointerResolution(resolution, { commitState: true });
   }
 
   function handleCanvasPointerMove(event: ReactPointerEvent<HTMLDivElement>) {
+    if (activePointerIdRef.current !== null && activePointerIdRef.current !== event.pointerId) return;
     const coordinates = pointerCoordinates(event);
     if (!coordinates) return;
 
@@ -217,9 +221,9 @@ export function useKonvaCanvasPointerInteraction({
       return;
     }
 
-    const target = resolveTarget(coordinates.world);
-    const hit = pointerTargetInteractionHit(target);
     const activeInteraction = interactionStateRef.current;
+    const resolveMoveHit = activeInteraction.kind === "idle" || activeInteraction.kind === "connectingEdge" || activeInteraction.kind === "retargetingEdge";
+    const hit = resolveMoveHit ? pointerTargetInteractionHit(resolveTarget(coordinates.world)) : { kind: "blank" } as const;
     if (activeInteraction.kind !== "draggingNodes" && activeInteraction.kind !== "draggingSubgraphs" && activeInteraction.kind !== "panning") {
       hoverState.updateHoverFromHit(hit);
     }
@@ -243,6 +247,9 @@ export function useKonvaCanvasPointerInteraction({
       pointer: coordinates.screen,
       world: coordinates.world,
       button: event.button,
+      buttons: event.buttons,
+      pointerId: event.pointerId,
+      pointerType: event.pointerType,
       modifiers: modifiersFromEvent(event.nativeEvent),
       timestamp: event.timeStamp
     });
@@ -258,7 +265,7 @@ export function useKonvaCanvasPointerInteraction({
     applyPointerResolution(result, { commitState: true });
     const next = result.state ?? previous;
     if (next.kind === "draggingNodes") {
-      moveNodeDrag(next.nodeId, pending.world);
+      moveNodeDrag(next.nodeId, pending.world, { disableSnap: pending.modifiers.altKey });
       suppressClickUntilRef.current = performance.now() + 120;
     }
     if (next.kind === "draggingSubgraphs") {
@@ -268,6 +275,7 @@ export function useKonvaCanvasPointerInteraction({
   }
 
   function handleCanvasPointerUp(event: ReactPointerEvent<HTMLDivElement>) {
+    if (activePointerIdRef.current !== event.pointerId) return;
     const coordinates = pointerCoordinates(event);
     pointerMoveFrame.flushScheduled();
     releasePointer(event);
@@ -318,17 +326,15 @@ export function useKonvaCanvasPointerInteraction({
   }
 
   function handleCanvasPointerCancel(event: ReactPointerEvent<HTMLDivElement>) {
-    pointerMoveFrame.cancel();
-    tableResizeRef.current = null;
+    if (activePointerIdRef.current !== event.pointerId) return;
     releasePointer(event);
-    const active = interactionStateRef.current;
-    if (active.kind === "draggingNodes" || active.kind === "draggingSubgraphs") cancelDrag();
-    else {
-      if (active.kind === "panning") viewportController.finishViewportInteraction("pointer");
-      resetPointerInteraction();
-    }
-    clearAlignmentGuides();
-    hoverState.clearHover();
+    cancelActiveInteraction();
+  }
+
+  function handleCanvasLostPointerCapture(event: ReactPointerEvent<HTMLDivElement>) {
+    if (activePointerIdRef.current !== event.pointerId) return;
+    activePointerIdRef.current = null;
+    cancelActiveInteraction();
   }
 
   function handleCanvasPointerLeave() {
@@ -391,15 +397,18 @@ export function useKonvaCanvasPointerInteraction({
     if (node) openNodeContextMenu(event.nativeEvent, node);
   }
 
-  function releasePointer(event: ReactPointerEvent<HTMLDivElement>) {
-    if (event.currentTarget.hasPointerCapture?.(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
-    activePointerIdRef.current = null;
-  }
-
-  function anchorWorldPoint(target: CanvasPointerTarget) {
-    if (target.kind === "nodeAnchor") return nodeGeometryById.get(target.nodeId)?.anchorsWorld.find((anchor) => anchor.key === target.anchor);
-    if (target.kind === "subgraphAnchor") return subgraphGeometryById.get(target.subgraphId)?.anchorsWorld.find((anchor) => anchor.key === target.anchor);
-    return null;
+  function cancelActiveInteraction() {
+    pointerMoveFrame.cancel();
+    tableResizeRef.current = null;
+    const active = interactionStateRef.current;
+    interactionStateRef.current = { kind: "idle" };
+    if (active.kind === "draggingNodes" || active.kind === "draggingSubgraphs") cancelDrag();
+    else {
+      if (active.kind === "panning") viewportController.finishViewportInteraction("pointer");
+      resetPointerInteraction();
+    }
+    clearAlignmentGuides();
+    hoverState.clearHover();
   }
 
   function openNodeAction(nodeId: string) {
@@ -449,6 +458,7 @@ export function useKonvaCanvasPointerInteraction({
       onCanvasPointerMove: handleCanvasPointerMove,
       onCanvasPointerUp: handleCanvasPointerUp,
       onCanvasPointerCancel: handleCanvasPointerCancel,
+      onCanvasLostPointerCapture: handleCanvasLostPointerCapture,
       onCanvasPointerLeave: handleCanvasPointerLeave,
       onCanvasClick: handleCanvasClick,
       onCanvasDoubleClick: handleCanvasDoubleClick,
@@ -456,10 +466,4 @@ export function useKonvaCanvasPointerInteraction({
       onCloseNodeContextMenu: closeNodeContextMenu
     }
   };
-}
-
-function targetNodeId(target: CanvasPointerTarget) {
-  if (target.kind === "node") return target.id;
-  if (target.kind === "tableColumnResize" || target.kind === "tableCell" || target.kind === "tableHeader" || target.kind === "nodeAnchor") return target.nodeId;
-  return null;
 }

@@ -7,7 +7,7 @@ import type { TableCellToolbarOperation } from "@/features/mermaid-editor/compon
 import type { CanvasEdgeMotionVisual, CanvasNodeMotionVisual } from "@/features/mermaid-editor/components/konva-canvas/types";
 import type { useKonvaNodeEditorLayout } from "@/features/mermaid-editor/components/konva-canvas/use-konva-inline-edit-session";
 import type { useKonvaRenderModel } from "@/features/mermaid-editor/components/konva-canvas/use-konva-render-model";
-import type { AlignmentGuide, AlignmentRect } from "@/features/mermaid-editor/lib/alignment-guides";
+import type { AlignmentRect } from "@/features/mermaid-editor/lib/alignment-guides";
 import type { CanvasGridSpec } from "@/features/mermaid-editor/lib/canvas-grid";
 import type { CanvasPoint, HitTarget, InteractionState } from "@/features/mermaid-editor/lib/canvas-interaction";
 import type { CanvasNodePreviewPositions, CanvasProximityScales } from "@/features/mermaid-editor/lib/canvas-motion";
@@ -56,7 +56,6 @@ export type KonvaCanvasStageProps = {
   imageDisplaySrcBySrc: Record<string, string>;
   markdownDocumentPreviewByNodeId: Record<string, MarkdownDocumentPreview>;
   textDocumentPreviewByNodeId: Record<string, TextDocumentPreview>;
-  alignmentGuides: AlignmentGuide[];
   hoveredNodeId: string | null;
   hoveredSubgraphId: string | null;
   hoveredEdgeId: string | null;
@@ -102,11 +101,12 @@ export type KonvaCanvasStageProps = {
   onCanvasPointerMove: (event: ReactPointerEvent<HTMLDivElement>) => void;
   onCanvasPointerUp: (event: ReactPointerEvent<HTMLDivElement>) => void;
   onCanvasPointerCancel: (event: ReactPointerEvent<HTMLDivElement>) => void;
+  onCanvasLostPointerCapture: (event: ReactPointerEvent<HTMLDivElement>) => void;
   onCanvasPointerLeave: () => void;
   onCanvasClick: (event: ReactMouseEvent<HTMLDivElement>) => void;
   onCanvasDoubleClick: (event: ReactMouseEvent<HTMLDivElement>) => void;
   onCanvasContextMenu: (event: ReactMouseEvent<HTMLDivElement>) => void;
-  onMoveNode: (nodeId: string, point: CanvasPoint) => CanvasNodePreviewPositions | null;
+  onMoveNode: (nodeId: string, point: CanvasPoint, options?: { disableSnap?: boolean }) => CanvasNodePreviewPositions | null;
   onMoveSubgraph: (subgraphId: string, point: CanvasPoint) => void;
   onEndDrag: () => void;
   onArrangeNodes: (operation: NodeArrangementOperation) => void;
@@ -128,5 +128,5 @@ export type KonvaCanvasStageProps = {
 
 export type KonvaCanvasModelStageProps = Omit<KonvaCanvasStageProps,
   | "nodeContextMenu" | "onCanvasPointerDown" | "onCanvasPointerMove" | "onCanvasPointerUp"
-  | "onCanvasPointerCancel" | "onCanvasPointerLeave" | "onCanvasClick"
+  | "onCanvasPointerCancel" | "onCanvasLostPointerCapture" | "onCanvasPointerLeave" | "onCanvasClick"
   | "onCanvasDoubleClick" | "onCanvasContextMenu" | "onCloseNodeContextMenu">;

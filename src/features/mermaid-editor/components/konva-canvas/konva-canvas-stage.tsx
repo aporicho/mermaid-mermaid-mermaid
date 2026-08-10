@@ -87,6 +87,7 @@ export function KonvaCanvasStage(stageProps: KonvaCanvasStageProps) {
   onCanvasPointerUp,
   onCanvasPointerLeave,
   onCanvasPointerCancel,
+  onCanvasLostPointerCapture,
   onCanvasClick,
   onCanvasDoubleClick,
   onArrangeNodes,
@@ -130,7 +131,7 @@ export function KonvaCanvasStage(stageProps: KonvaCanvasStageProps) {
   ].join("|"), [scopedRenderedNodes, scopedSubgraphGeometries, scopedVisibleEdges]);
   const stableSceneRevision = useSceneRevision([
     edgeLabelThemeTokens, edgeMotion, exitingNodes, fontRevision, graph, gridSpec,
-    imageDisplaySrcBySrc, inlineEdit, markdownDocumentPreviewByNodeId, markdownTokens,
+    imageDisplaySrcBySrc, inlineEdit, markdownDocumentPreviewByNodeId, textDocumentPreviewByNodeId, markdownTokens,
     nodeMotion, nodeThemeTokens, runtimeCreateScale, sceneScopeKey, selection,
     specialNodeTokens, typography, viewFilters, visualTokens, hoveredEdgeId,
     viewport.scale, viewport.x, viewport.y
@@ -199,6 +200,7 @@ export function KonvaCanvasStage(stageProps: KonvaCanvasStageProps) {
     <section className="relative h-full min-h-0 bg-card">
       <div
         ref={containerRef}
+        data-canvas-input-surface
         className={cn(
           "relative h-full min-h-0 touch-none overflow-hidden overscroll-none bg-background",
           cursorClassName
@@ -210,6 +212,7 @@ export function KonvaCanvasStage(stageProps: KonvaCanvasStageProps) {
         onPointerMove={onCanvasPointerMove}
         onPointerUp={onCanvasPointerUp}
         onPointerCancel={onCanvasPointerCancel}
+        onLostPointerCapture={onCanvasLostPointerCapture}
         onPointerLeave={onCanvasPointerLeave}
         onClick={onCanvasClick}
         onDoubleClick={onCanvasDoubleClick}

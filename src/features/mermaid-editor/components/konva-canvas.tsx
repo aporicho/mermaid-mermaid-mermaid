@@ -8,9 +8,12 @@ import { CANVAS_VISUAL_TOKENS } from "@/features/mermaid-editor/lib/canvas-visua
 
 export { NodeContextMenu } from "@/features/mermaid-editor/components/konva-canvas/node-action-ui";
 
+const EMPTY_MERMAID_EDGE_ROUTES: NonNullable<KonvaCanvasProps["mermaidEdgeRoutes"]> = [];
+const EMPTY_IMAGE_DISPLAY_SOURCES: NonNullable<KonvaCanvasProps["imageDisplaySrcBySrc"]> = {};
+
 export function KonvaCanvas({
-  mermaidEdgeRoutes = [],
-  imageDisplaySrcBySrc = {},
+  mermaidEdgeRoutes = EMPTY_MERMAID_EDGE_ROUTES,
+  imageDisplaySrcBySrc = EMPTY_IMAGE_DISPLAY_SOURCES,
   visualTokens = CANVAS_VISUAL_TOKENS,
   ...props
 }: KonvaCanvasProps) {

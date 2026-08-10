@@ -32,6 +32,8 @@ type UseKonvaCanvasModelArgs = KonvaCanvasProps & {
   visualTokens: NonNullable<KonvaCanvasProps["visualTokens"]>;
 };
 const DEFAULT_KONVA_TYPOGRAPHY = createDefaultEditorTypography();
+const EMPTY_MARKDOWN_PREVIEWS: NonNullable<KonvaCanvasProps["markdownDocumentPreviewByNodeId"]> = {};
+const EMPTY_TEXT_PREVIEWS: NonNullable<KonvaCanvasProps["textDocumentPreviewByNodeId"]> = {};
 export function useKonvaCanvasModel({
   graph,
   selection,
@@ -43,8 +45,8 @@ export function useKonvaCanvasModel({
   mermaidEdgeRoutes,
   layoutMode,
   imageDisplaySrcBySrc,
-  markdownDocumentPreviewByNodeId = {},
-  textDocumentPreviewByNodeId = {},
+  markdownDocumentPreviewByNodeId = EMPTY_MARKDOWN_PREVIEWS,
+  textDocumentPreviewByNodeId = EMPTY_TEXT_PREVIEWS,
   visualTokens = CANVAS_VISUAL_TOKENS,
   geometryTokens,
   typography = DEFAULT_KONVA_TYPOGRAPHY,
@@ -167,6 +169,7 @@ export function useKonvaCanvasModel({
     selectedSubgraphIds: renderModel.selectedSubgraphIds,
     dragEnabled,
     geometrySpec: renderModel.geometrySpec,
+    nodeGeometryById: renderModel.nodeGeometryById,
     subgraphGeometryById: renderModel.subgraphGeometryById,
     renderedSubgraphGeometries: renderModel.renderedSubgraphGeometries,
     subgraphThemeTokens,
@@ -311,7 +314,6 @@ export function useKonvaCanvasModel({
     imageDisplaySrcBySrc,
     markdownDocumentPreviewByNodeId,
     textDocumentPreviewByNodeId,
-    alignmentGuides: dragMembership.alignmentGuides,
     hoveredNodeId,
     hoveredSubgraphId,
     hoveredEdgeId,

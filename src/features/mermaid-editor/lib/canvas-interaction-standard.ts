@@ -105,6 +105,8 @@ export type StandardPointerMoveInput = {
   state: StandardCanvasInteractionState;
   screen: StandardCanvasPoint;
   world: StandardCanvasPoint;
+  pointerId?: number;
+  dragThresholdPx?: number;
 };
 
 export type StandardInteractionTransition = {
@@ -141,7 +143,7 @@ export type StandardCanvasDispatchResult = {
   commands: StandardCanvasInteractionCommand[];
 };
 
-export const STANDARD_CANVAS_DRAG_THRESHOLD_PX = 4;
+export const STANDARD_CANVAS_DRAG_THRESHOLD_PX = 3;
 export const STANDARD_BLANK_DOUBLE_CLICK_MS = 360;
 export const STANDARD_BLANK_DOUBLE_CLICK_DISTANCE_PX = 8;
 
@@ -323,15 +325,19 @@ export function dispatchStandardCanvasPointerDown(input: StandardPointerDownInpu
 
 export function updateStandardCanvasPointer(input: StandardPointerMoveInput): StandardInteractionTransition {
   const { state, screen, world } = input;
+  if (!standardPointerOwnsInteraction(state, input.pointerId)) {
+    return { state, clearBlankClickIntent: false };
+  }
+  const dragThresholdPx = input.dragThresholdPx ?? STANDARD_CANVAS_DRAG_THRESHOLD_PX;
 
-  if (state.kind === "pendingBlankPointer" && movedBeyondThreshold(state.startScreen, screen)) {
+  if (state.kind === "pendingBlankPointer" && movedBeyondThreshold(state.startScreen, screen, dragThresholdPx)) {
     return {
       state: { kind: "marqueeSelecting", pointerId: state.pointerId, startWorld: state.startWorld, currentWorld: world },
       clearBlankClickIntent: true
     };
   }
 
-  if (state.kind === "pendingItemPointer" && movedBeyondThreshold(state.startScreen, screen)) {
+  if (state.kind === "pendingItemPointer" && movedBeyondThreshold(state.startScreen, screen, dragThresholdPx)) {
     return {
       state: {
         kind: "draggingItems",
@@ -344,7 +350,7 @@ export function updateStandardCanvasPointer(input: StandardPointerMoveInput): St
     };
   }
 
-  if (state.kind === "pendingGroupPointer" && movedBeyondThreshold(state.startScreen, screen)) {
+  if (state.kind === "pendingGroupPointer" && movedBeyondThreshold(state.startScreen, screen, dragThresholdPx)) {
     return {
       state: {
         kind: "draggingGroups",
@@ -411,6 +417,9 @@ export function dispatchStandardCanvasPointerUp(input: {
   interactionGeneration: number;
   pointerId?: number;
 }): StandardCanvasDispatchResult {
+  if (!standardPointerOwnsInteraction(input.state, input.pointerId)) {
+    return { state: input.state, commands: [] };
+  }
   const commands: StandardCanvasInteractionCommand[] = [];
 
   if (input.state.kind === "pendingBlankPointer" && input.hit.kind === "blank") {
@@ -578,6 +587,11 @@ export function isStandardEditingInteraction(state: StandardCanvasInteractionSta
 
 export function movedBeyondThreshold(start: StandardCanvasPoint, current: StandardCanvasPoint, threshold = STANDARD_CANVAS_DRAG_THRESHOLD_PX) {
   return distance(start, current) > threshold;
+}
+
+export function standardPointerOwnsInteraction(state: StandardCanvasInteractionState, pointerId: number | undefined) {
+  if (pointerId === undefined || state.kind === "idle" || !("pointerId" in state)) return true;
+  return state.pointerId === pointerId;
 }
 
 function isValidSecondBlankClick(

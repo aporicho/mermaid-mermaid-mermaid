@@ -20,6 +20,23 @@ export type AlignmentSnapResult = {
   guides: AlignmentGuide[];
 };
 
+export type AlignmentSnapLock = {
+  movingSlot: "start" | "center" | "end";
+  targetRectId: string;
+  targetSlot: "start" | "center" | "end";
+  targetValue: number;
+  kind: "edge" | "center";
+};
+
+export type AlignmentSnapState = {
+  x?: AlignmentSnapLock;
+  y?: AlignmentSnapLock;
+};
+
+export type StatefulAlignmentSnapResult = AlignmentSnapResult & {
+  state: AlignmentSnapState;
+};
+
 type AlignmentCandidate = {
   kind: "edge" | "center";
   slot: "start" | "center" | "end";
@@ -30,6 +47,7 @@ type AxisSnap = {
   delta: number;
   guide: AlignmentGuide;
   distance: number;
+  lock: AlignmentSnapLock;
 };
 
 export type AlignmentSnapIndex = {
@@ -43,6 +61,7 @@ type AlignmentIndexCandidate = AlignmentCandidate & {
 };
 
 const ALIGNMENT_THRESHOLD_PX = 6;
+const ALIGNMENT_RELEASE_THRESHOLD_PX = 10;
 
 export function selectionBounds(rects: AlignmentRect[]): AlignmentRect | null {
   if (!rects.length) return null;
@@ -73,15 +92,63 @@ export function createAlignmentSnapIndex(staticRects: AlignmentRect[]): Alignmen
 }
 
 export function computeAlignmentSnapWithIndex(movingRect: AlignmentRect, index: AlignmentSnapIndex, viewportScale: number): AlignmentSnapResult {
+  const result = computeStatefulAlignmentSnapWithIndex(movingRect, index, viewportScale);
+  return { dx: result.dx, dy: result.dy, guides: result.guides };
+}
+
+export function computeStatefulAlignmentSnapWithIndex(
+  movingRect: AlignmentRect,
+  index: AlignmentSnapIndex,
+  viewportScale: number,
+  previous: AlignmentSnapState = {},
+  options: { disabled?: boolean } = {}
+): StatefulAlignmentSnapResult {
+  if (options.disabled) return { dx: 0, dy: 0, guides: [], state: {} };
+
   const thresholdWorld = ALIGNMENT_THRESHOLD_PX / Math.max(viewportScale, 0.01);
-  const xSnap = bestIndexedAxisSnap("x", movingRect, index.x, thresholdWorld);
-  const ySnap = bestIndexedAxisSnap("y", movingRect, index.y, thresholdWorld);
+  const releaseThresholdWorld = ALIGNMENT_RELEASE_THRESHOLD_PX / Math.max(viewportScale, 0.01);
+  const xSnap = lockedAxisSnap("x", movingRect, index.x, previous.x, releaseThresholdWorld)
+    ?? bestIndexedAxisSnap("x", movingRect, index.x, thresholdWorld);
+  const ySnap = lockedAxisSnap("y", movingRect, index.y, previous.y, releaseThresholdWorld)
+    ?? bestIndexedAxisSnap("y", movingRect, index.y, thresholdWorld);
 
   return {
     dx: xSnap?.delta ?? 0,
     dy: ySnap?.delta ?? 0,
-    guides: [xSnap?.guide, ySnap?.guide].filter(Boolean) as AlignmentGuide[]
+    guides: [xSnap?.guide, ySnap?.guide].filter(Boolean) as AlignmentGuide[],
+    state: {
+      ...(xSnap ? { x: xSnap.lock } : {}),
+      ...(ySnap ? { y: ySnap.lock } : {})
+    }
   };
+}
+
+function lockedAxisSnap(
+  axis: "x" | "y",
+  movingRect: AlignmentRect,
+  index: AlignmentIndexCandidate[],
+  lock: AlignmentSnapLock | undefined,
+  releaseThresholdWorld: number
+): AxisSnap | null {
+  if (!lock) return null;
+  const moving = axisCandidates(axis, movingRect).find((candidate) => candidate.slot === lock.movingSlot);
+  if (!moving) return null;
+  const start = lowerBound(index, lock.targetValue - releaseThresholdWorld);
+  for (let candidateIndex = start; candidateIndex < index.length; candidateIndex += 1) {
+    const target = index[candidateIndex];
+    if (target.value > lock.targetValue + releaseThresholdWorld) break;
+    if (target.rect.id !== lock.targetRectId || target.slot !== lock.targetSlot) continue;
+    const delta = target.value - moving.value;
+    const distance = Math.abs(delta);
+    if (distance > releaseThresholdWorld) return null;
+    return {
+      delta,
+      distance,
+      guide: buildGuide(axis, target.value, movingRect, target.rect, target.kind),
+      lock: { ...lock, targetValue: target.value, kind: target.kind }
+    };
+  }
+  return null;
 }
 
 function bestIndexedAxisSnap(axis: "x" | "y", movingRect: AlignmentRect, index: AlignmentIndexCandidate[], thresholdWorld: number): AxisSnap | null {
@@ -108,7 +175,14 @@ function bestIndexedAxisSnap(axis: "x" | "y", movingRect: AlignmentRect, index: 
     best = {
       delta,
       distance,
-      guide: buildGuide(axis, target.value, movingRect, target.rect, target.kind)
+      guide: buildGuide(axis, target.value, movingRect, target.rect, target.kind),
+      lock: {
+        movingSlot: moving.slot,
+        targetRectId: target.rect.id,
+        targetSlot: target.slot,
+        targetValue: target.value,
+        kind: target.kind
+      }
     };
   }
 

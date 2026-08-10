@@ -236,6 +236,7 @@ export function useEditorDocumentCommands({
     }
 
     if (result.effect.sourceSync === "draft") {
+      if (result.effect.history === "push") captureHistory();
       draftGraph(result.state.graph, result.effect.status, { syncSource: result.effect.syncSource });
       if (result.state.selection && selectionKey(selection) !== selectionKey(result.state.selection)) updateSelection(result.state.selection);
       if (result.effect.recentAction) {

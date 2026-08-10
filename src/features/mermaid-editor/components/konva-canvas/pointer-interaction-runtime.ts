@@ -7,6 +7,9 @@ export type PointerMoveSnapshot = {
   pointer: CanvasPoint;
   world: CanvasPoint;
   button: number;
+  buttons: number;
+  pointerId: number;
+  pointerType: string;
   modifiers: InteractionModifiers;
   timestamp: number;
 };
@@ -54,7 +57,9 @@ export function pointerInputFromMoveSnapshot(snapshot: PointerMoveSnapshot): Sta
     kind: "pointer",
     entry: "web-ui",
     phase: "move",
-    pointerId: 0,
+    pointerId: snapshot.pointerId,
+    pointerType: snapshot.pointerType,
+    buttons: snapshot.buttons,
     button: snapshot.button,
     screen: snapshot.pointer,
     world: snapshot.world,
@@ -76,6 +81,8 @@ export function pointerInputFromNativeEvent(
     entry: "web-ui",
     phase,
     pointerId: "pointerId" in event ? event.pointerId : 0,
+    pointerType: "pointerType" in event ? event.pointerType : "mouse",
+    buttons: event.buttons,
     button: event.button,
     screen,
     world,

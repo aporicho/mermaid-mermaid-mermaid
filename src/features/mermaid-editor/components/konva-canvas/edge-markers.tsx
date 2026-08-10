@@ -27,13 +27,14 @@ export function EdgeMarkers({
   );
 }
 
-export function PathArrowHead({ point, tangent, fill, length, width }: { point: { x: number; y: number }; tangent: { x: number; y: number }; fill: string; length: number; width: number }) {
+export function PathArrowHead({ point, tangent, fill, length, width, name }: { point: { x: number; y: number }; tangent: { x: number; y: number }; fill: string; length: number; width: number; name?: string }) {
   if (length <= 0 || width <= 0) return null;
 
   const rotation = (Math.atan2(tangent.y, tangent.x) * 180) / Math.PI;
 
   return (
     <Line
+      name={name}
       x={point.x}
       y={point.y}
       rotation={rotation}
@@ -68,17 +69,17 @@ function EdgeMarkerShape({
   if (marker === "arrow") {
     const tangent = side === "start" ? { x: -geometry.startTangent.x, y: -geometry.startTangent.y } : geometry.endTangent;
     const point = side === "start" ? geometry.start : geometry.end;
-    return <PathArrowHead point={point} tangent={tangent} fill={stroke} length={visualTokens.edge.pointerLength} width={visualTokens.edge.pointerWidth} />;
+    return <PathArrowHead name={`canvas-edge-marker-${side}`} point={point} tangent={tangent} fill={stroke} length={visualTokens.edge.pointerLength} width={visualTokens.edge.pointerWidth} />;
   }
 
   const point = side === "start" ? geometry.start : geometry.end;
   if (marker === "circle") {
-    return <Circle x={point.x} y={point.y} radius={visualTokens.edge.endpointMarkerRadius} fill={surfaceFill} stroke={stroke} strokeWidth={strokeWidth} listening={false} />;
+    return <Circle name={`canvas-edge-marker-${side}`} x={point.x} y={point.y} radius={visualTokens.edge.endpointMarkerRadius} fill={surfaceFill} stroke={stroke} strokeWidth={strokeWidth} listening={false} />;
   }
 
   const size = visualTokens.edge.endpointMarkerRadius + 1;
   return (
-    <Group x={point.x} y={point.y} listening={false}>
+    <Group name={`canvas-edge-marker-${side}`} x={point.x} y={point.y} listening={false}>
       <Line points={[-size, -size, size, size]} stroke={stroke} strokeWidth={strokeWidth} lineCap="round" />
       <Line points={[-size, size, size, -size]} stroke={stroke} strokeWidth={strokeWidth} lineCap="round" />
     </Group>

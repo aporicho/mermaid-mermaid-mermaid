@@ -72,6 +72,7 @@ export function resolveCanvasPointerDown(
     now: input.timestamp || options.now || 0,
     selectionVersion: options.selectionVersion,
     viewport: context.viewport,
+    pointerId: input.pointerId,
     panningRequested: options.panningRequested
   });
 
@@ -91,7 +92,9 @@ export function resolveCanvasPointerMove(
   const result = dispatchCanvasPointerMove({
     state: options.state,
     screen: input.screen,
-    world: input.world
+    world: input.world,
+    pointerId: input.pointerId,
+    dragThresholdPx: input.pointerType === "touch" ? 6 : 3
   });
 
   return {
@@ -105,7 +108,10 @@ export function resolveCanvasPointerUp(
   context: InteractionContext,
   options: ResolveCanvasPointerOptions
 ): CanvasPointerResolution {
-  if (!input.world) return { state: { kind: "idle" }, editorCommands: [], localEffects: [{ type: "interaction.reset" }] };
+  if (!input.world) {
+    if ("pointerId" in options.state && options.state.pointerId !== input.pointerId) return emptyResolution(options.state);
+    return { state: { kind: "idle" }, editorCommands: [], localEffects: [{ type: "interaction.reset" }] };
+  }
 
   const result = dispatchCanvasPointerUp({
     state: options.state,
@@ -117,7 +123,8 @@ export function resolveCanvasPointerUp(
     now: options.now || input.timestamp || 0,
     previousBlankClick: options.previousBlankClick || null,
     selectionVersion: options.selectionVersion,
-    interactionGeneration: options.interactionGeneration || 0
+    interactionGeneration: options.interactionGeneration || 0,
+    pointerId: input.pointerId
   });
 
   return {

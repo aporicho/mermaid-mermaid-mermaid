@@ -371,10 +371,11 @@ export function applyEditorCommandTransaction(state: EditorTransactionState, com
 
   if (command.type === "graph.commitDragMembership") {
     const message = command.message || "已移动并更新组成员。";
+    if (command.graph === state.graph) return { state, effect: { history: "none", sourceSync: "none" } };
     return {
       state: { ...state, graph: command.graph },
       effect: {
-        history: "none",
+        history: "push",
         sourceSync: "draft",
         syncSource: true,
         status: message,

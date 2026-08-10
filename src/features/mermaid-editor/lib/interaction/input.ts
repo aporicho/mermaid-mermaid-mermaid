@@ -17,6 +17,8 @@ export type StandardPointerInput = {
   entry: InteractionEntry;
   phase: StandardPointerPhase;
   pointerId: number;
+  pointerType?: string;
+  buttons?: number;
   button: number;
   screen: CanvasPoint;
   world?: CanvasPoint;

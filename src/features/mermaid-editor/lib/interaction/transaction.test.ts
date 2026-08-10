@@ -422,7 +422,7 @@ describe("editor command transaction", () => {
     expect(result.effect).toMatchObject({ history: "none", sourceSync: "draft", syncSource: false, highFrequency: true });
   });
 
-  it("commits drag membership as a source-syncing draft without pushing another history entry", () => {
+  it("commits drag membership as one source-syncing history transaction", () => {
     const nextGraph: MermaidGraph = {
       ...graph,
       nodes: graph.nodes.map((node) => (node.id === "A" ? { ...node, x: 500, y: 500 } : node))
@@ -434,6 +434,17 @@ describe("editor command transaction", () => {
     });
 
     expect(result.state.graph.nodes.find((node) => node.id === "A")).toMatchObject({ x: 500, y: 500 });
-    expect(result.effect).toMatchObject({ history: "none", sourceSync: "draft", syncSource: true, status: "已移动并更新组成员。" });
+    expect(result.effect).toMatchObject({ history: "push", sourceSync: "draft", syncSource: true, status: "已移动并更新组成员。" });
+  });
+
+  it("does not create history for a drag transaction with no graph change", () => {
+    const result = applyEditorCommandTransaction(state, {
+      type: "graph.commitDragMembership",
+      graph,
+      source: "pointer"
+    });
+
+    expect(result.state).toBe(state);
+    expect(result.effect).toEqual({ history: "none", sourceSync: "none" });
   });
 });

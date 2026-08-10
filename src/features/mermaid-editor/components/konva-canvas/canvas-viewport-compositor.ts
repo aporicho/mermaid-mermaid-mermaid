@@ -42,6 +42,8 @@ export class CanvasViewportCompositor {
   private guardReleaseFrame: number | null = null;
   private readonly pendingSceneInvalidations = new Set<string>();
   private navigationActive = false;
+  private directManipulationActive = false;
+  private deferredDirectSceneCommit = false;
   private onBaseViewportChange: (viewport: ViewportState) => void = () => undefined;
   private onNavigationActiveChange: (active: boolean) => void = () => undefined;
   private compositeFrames = 0;
@@ -81,6 +83,7 @@ export class CanvasViewportCompositor {
     this.prepareStableTransforms();
     this.applyStageViewport(this.liveViewport);
     this.applyStableComposite(this.liveViewport);
+    this.publishDiagnostics();
   }
 
   detach() {
@@ -131,6 +134,15 @@ export class CanvasViewportCompositor {
   }
 
   commitScene(viewport: ViewportState, reason = "react") {
+    if (this.directManipulationActive) {
+      this.deferredDirectSceneCommit = true;
+      this.pendingSceneInvalidations.add(reason);
+      return;
+    }
+    this.commitSceneNow(viewport, reason);
+  }
+
+  private commitSceneNow(viewport: ViewportState, reason: string) {
     const attached = this.attached;
     if (!attached) return;
     const liveViewport = this.liveViewport;
@@ -161,7 +173,7 @@ export class CanvasViewportCompositor {
 
   invalidateScene(reason = "scene") {
     this.pendingSceneInvalidations.add(reason);
-    if (this.navigationActive) return;
+    if (this.navigationActive || this.directManipulationActive) return;
     this.scheduleSceneDraw();
   }
 
@@ -180,13 +192,33 @@ export class CanvasViewportCompositor {
       // Reparenting a visual changes two native canvases. Redraw both inside
       // one task so the browser can never paint the old scene and new active
       // layer (or the reverse) as separate frames.
-      this.commitScene(this.liveViewport, reason);
+      this.commitSceneNow(this.liveViewport, reason);
       return;
     }
     const generation = ++this.frameGeneration;
     this.stableViewportGeneration = generation;
     this.flushActiveDraw(reason);
     this.activeViewportGeneration = generation;
+    this.publishDiagnostics();
+  }
+
+  beginDirectManipulation() {
+    if (this.directManipulationActive) return;
+    this.directManipulationActive = true;
+    this.cancelSceneDraw();
+    incrementPerformanceCounter("canvas-compositor-direct-manipulation-start");
+    this.publishDiagnostics();
+  }
+
+  endDirectManipulation(reason = "direct-manipulation-end") {
+    if (!this.directManipulationActive) return;
+    this.directManipulationActive = false;
+    incrementPerformanceCounter("canvas-compositor-direct-manipulation-end");
+    if (this.deferredDirectSceneCommit || this.pendingSceneInvalidations.size > 0) {
+      this.deferredDirectSceneCommit = false;
+      this.pendingSceneInvalidations.add(reason);
+      this.scheduleSceneDraw();
+    }
     this.publishDiagnostics();
   }
 
@@ -282,10 +314,10 @@ export class CanvasViewportCompositor {
   }
 
   private scheduleSceneDraw() {
-    if (this.navigationActive || this.sceneDrawFrame !== null || this.pendingSceneInvalidations.size === 0) return;
+    if (this.navigationActive || this.directManipulationActive || this.sceneDrawFrame !== null || this.pendingSceneInvalidations.size === 0) return;
     this.sceneDrawFrame = requestAnimationFrame(() => {
       this.sceneDrawFrame = null;
-      if (this.navigationActive || this.pendingSceneInvalidations.size === 0) return;
+      if (this.navigationActive || this.directManipulationActive || this.pendingSceneInvalidations.size === 0) return;
       const reason = [...this.pendingSceneInvalidations].join("+");
       this.commitScene(this.liveViewport, reason);
     });
@@ -436,6 +468,8 @@ export class CanvasViewportCompositor {
     this.sceneDrawFrame = null;
     this.guardReleaseFrame = null;
     this.pendingSceneInvalidations.clear();
+    this.directManipulationActive = false;
+    this.deferredDirectSceneCommit = false;
   }
 
   private publishDiagnostics() {
@@ -452,6 +486,8 @@ export class CanvasViewportCompositor {
       baseViewport: this.baseViewport,
       liveViewport: this.liveViewport,
       navigationActive: this.navigationActive,
+      directManipulationActive: this.directManipulationActive,
+      deferredDirectSceneCommit: this.deferredDirectSceneCommit,
       frameGeneration: this.frameGeneration,
       stableViewportGeneration: this.stableViewportGeneration,
       activeViewportGeneration: this.activeViewportGeneration,

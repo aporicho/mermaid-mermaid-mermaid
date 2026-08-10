@@ -100,6 +100,8 @@ test.describe("Canvas node texture cache", () => {
     await page.mouse.click(86, 65);
     await expect.poll(() => page.evaluate(() => window.__MMM_CANVAS_PERF_E2E__?.state().selection.nodeIds[0])).toBe("M1");
     await startNodeFrameProbe(page, "M1");
+    const compositorBeforeDrag = await compositorSnapshot(page);
+    const edgeBeforeDrag = await edgeVisualSnapshot(page, "ME1");
 
     await page.mouse.move(86, 65);
     await page.mouse.down();
@@ -107,6 +109,12 @@ test.describe("Canvas node texture cache", () => {
       await page.mouse.move(86 + step * 12, 65 + step * 6);
       await page.waitForTimeout(20);
     }
+    const compositorDuringDrag = await compositorSnapshot(page);
+    const edgeDuringDrag = await edgeVisualSnapshot(page, "ME1");
+    expect(compositorDuringDrag.directManipulationActive).toBe(true);
+    expect(compositorDuringDrag.sceneDraws - compositorBeforeDrag.sceneDraws).toBeLessThanOrEqual(1);
+    expect(edgeDuringDrag?.parent).toBe("canvas-interaction-layer");
+    expect(edgeDuringDrag?.geometry).not.toBe(edgeBeforeDrag?.geometry);
     await page.mouse.up();
     await expect.poll(() => page.evaluate(() => window.__MMM_CANVAS_PERF_E2E__?.state().graph.nodes[0]?.x)).toBeGreaterThan(0);
     const frames = await stopNodeFrameProbe(page);
@@ -117,10 +125,67 @@ test.describe("Canvas node texture cache", () => {
     expect(isMonotonic(positioned.map((frame) => frame.y))).toBe(true);
     expect(positioned.some((frame) => frame.parent === "canvas-active-visuals")).toBe(true);
     await expect.poll(() => nodeVisualSnapshot(page, "M1").then((snapshot) => snapshot?.parent)).toBe("canvas-scene-layer");
+    await expect.poll(() => edgeVisualSnapshot(page, "ME1").then((snapshot) => snapshot?.parent)).toBe("canvas-scene-layer");
     const finalVisual = await nodeVisualSnapshot(page, "M1");
     const finalGraphNode = await page.evaluate(() => window.__MMM_CANVAS_PERF_E2E__?.state().graph.nodes[0]);
     expect(finalVisual?.x).toBe(finalGraphNode?.x);
     expect(finalVisual?.y).toBe(finalGraphNode?.y);
+    const compositorAfterDrag = await compositorSnapshot(page);
+    expect(compositorAfterDrag.directManipulationActive).toBe(false);
+    expect(compositorAfterDrag.sceneDraws - compositorBeforeDrag.sceneDraws).toBeLessThanOrEqual(3);
+  });
+
+  test("does not let a foreign pointer move or finish the owned drag", async ({ page }) => {
+    await page.goto("/__e2e__/canvas-performance");
+    await expect(page.getByTestId("canvas-performance-e2e-root")).toBeVisible();
+    await page.mouse.click(86, 65);
+    const before = await page.evaluate(() => window.__MMM_CANVAS_PERF_E2E__?.state().graph.nodes[0]);
+
+    await page.mouse.move(86, 65);
+    await page.mouse.down();
+    await page.mouse.move(100, 72);
+    await page.locator("[data-canvas-input-surface]").dispatchEvent("pointermove", {
+      pointerId: 77,
+      pointerType: "touch",
+      clientX: 1180,
+      clientY: 720,
+      buttons: 1,
+      bubbles: true
+    });
+    await page.locator("[data-canvas-input-surface]").dispatchEvent("pointerup", {
+      pointerId: 77,
+      pointerType: "touch",
+      clientX: 1180,
+      clientY: 720,
+      buttons: 0,
+      bubbles: true
+    });
+    await page.mouse.move(112, 78);
+    await page.mouse.up();
+
+    const after = await page.evaluate(() => window.__MMM_CANVAS_PERF_E2E__?.state().graph.nodes[0]);
+    expect(after!.x).toBeGreaterThan(before!.x);
+    expect(after!.x - before!.x).toBeLessThan(1_000);
+    expect(after!.y - before!.y).toBeLessThan(1_000);
+  });
+
+  test("cancels an active drag on Escape without committing its preview", async ({ page }) => {
+    await page.goto("/__e2e__/canvas-performance");
+    await expect(page.getByTestId("canvas-performance-e2e-root")).toBeVisible();
+    await page.mouse.click(86, 65);
+    const before = await page.evaluate(() => window.__MMM_CANVAS_PERF_E2E__?.state().graph.nodes[0]);
+
+    await page.mouse.move(86, 65);
+    await page.mouse.down();
+    await page.mouse.move(170, 110, { steps: 4 });
+    await expect.poll(() => compositorSnapshot(page).then((snapshot) => snapshot.directManipulationActive)).toBe(true);
+    await page.keyboard.press("Escape");
+    await page.mouse.up();
+
+    await expect.poll(() => compositorSnapshot(page).then((snapshot) => snapshot.directManipulationActive)).toBe(false);
+    await expect.poll(() => nodeVisualSnapshot(page, "M1").then((snapshot) => snapshot?.parent)).toBe("canvas-scene-layer");
+    const after = await page.evaluate(() => window.__MMM_CANVAS_PERF_E2E__?.state().graph.nodes[0]);
+    expect(after).toEqual(before);
   });
 
   test("moves a group without ejecting its members or collapsing its frame", async ({ page }) => {
@@ -174,6 +239,7 @@ type CompositorSnapshot = {
   baseViewport: { x: number; y: number; scale: number };
   liveViewport: { x: number; y: number; scale: number };
   navigationActive: boolean;
+  directManipulationActive: boolean;
   stableViewportGeneration: number;
   activeViewportGeneration: number;
   guardedRebases: number;
@@ -264,6 +330,25 @@ async function nodeVisualSnapshot(page: import("@playwright/test").Page, nodeId:
     const node = runtime.Konva?.stages[0]?.findOne((candidate) => candidate.id() === `node-visual:${id}`);
     return node ? { x: node.x(), y: node.y(), parent: node.parent?.name() } : null;
   }, nodeId);
+}
+
+async function edgeVisualSnapshot(page: import("@playwright/test").Page, edgeId: string) {
+  return page.evaluate((id) => {
+    type VisualNode = {
+      id: () => string;
+      parent?: { name: () => string };
+      findOne: (selector: string) => { getAttr: (name: string) => unknown } | undefined;
+    };
+    const runtime = window as typeof window & {
+      Konva?: { stages: Array<{ findOne: (predicate: (node: VisualNode) => boolean) => VisualNode | undefined }> };
+    };
+    const edge = runtime.Konva?.stages[0]?.findOne((candidate) => candidate.id() === `edge-visual:${id}`);
+    const path = edge?.findOne(".canvas-edge-path");
+    return edge ? {
+      parent: edge.parent?.name(),
+      geometry: JSON.stringify(path?.getAttr("data") || path?.getAttr("points") || null)
+    } : null;
+  }, edgeId);
 }
 
 async function groupDragSnapshot(page: import("@playwright/test").Page, subgraphId: string) {

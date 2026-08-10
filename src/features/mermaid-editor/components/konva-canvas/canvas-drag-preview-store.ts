@@ -1,10 +1,13 @@
 import type { CanvasNodePreviewPositions } from "@/features/mermaid-editor/lib/canvas-motion";
+import type { AlignmentGuide } from "@/features/mermaid-editor/lib/alignment-guides";
 
 export type CanvasSubgraphPreviewPositions = Record<string, { x: number; y: number }>;
 
 export type CanvasDragPreviewSnapshot = {
   nodePositions: CanvasNodePreviewPositions;
   subgraphPositions: CanvasSubgraphPreviewPositions;
+  guides?: AlignmentGuide[];
+  dropTargetSubgraphId?: string;
 };
 
 export class CanvasDragPreviewStore {
@@ -21,6 +24,7 @@ export class CanvasDragPreviewStore {
   };
 
   publish(snapshot: CanvasDragPreviewSnapshot | null) {
+    if (snapshot === this.snapshot) return;
     this.snapshot = snapshot;
     for (const listener of this.listeners) listener();
   }

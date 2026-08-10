@@ -1,6 +1,5 @@
-import { useMemo, useSyncExternalStore } from "react";
+import { useMemo } from "react";
 
-import { AlignmentGuideOverlay } from "@/features/mermaid-editor/components/konva-canvas/canvas-overlays";
 import { CanvasActiveDragVisuals } from "@/features/mermaid-editor/components/konva-canvas/active-drag-visuals";
 import { KonvaDragEdgeLayer } from "@/features/mermaid-editor/components/konva-canvas/drag-edge-layer";
 import { KonvaEdgeOverlayLayer } from "@/features/mermaid-editor/components/konva-canvas/edge-layer";
@@ -17,12 +16,11 @@ export function KonvaInteractionLayerContent({
     hoveredNodeId, hoveredEdgeId, hoveredHitTarget, visualTokens, dragPreviewStore,
     dragPreviewEdges, resolveDragEdgeGeometryMap, edgeLabelThemeTokens, edgeLabelSpec,
     retargetDraft, retargetDraftGeometry, retargetPreview, connectionDraftGeometry, connectionDraftVisual, selectionBox,
-    selectedSingleEdge, selectedSingleEdgeGeometry, alignmentGuides,
+    selectedSingleEdge, selectedSingleEdgeGeometry,
     nodeMotion, nodeProximityScale, connectionTargetNodeId, connectionInvalidNodeId,
     connectionTargetSubgraphId, connectionInvalidSubgraphId, connectionPreview,
     nodeGeometryById, scopedSubgraphGeometries, viewportCompositor
   } = stageProps;
-  const dragPreview = useSyncExternalStore(dragPreviewStore.subscribe, dragPreviewStore.getSnapshot, () => null);
   const hoveredTableNodeId = hoveredHitTarget.kind === "tableCell" || hoveredHitTarget.kind === "tableHeader"
     ? hoveredNodeId
     : null;
@@ -41,13 +39,19 @@ export function KonvaInteractionLayerContent({
 
   return <>
     <CanvasActiveDragVisuals
-      dragPreview={dragPreview}
+      dragPreviewStore={dragPreviewStore}
       activeNodeIds={activeNodeIds}
       activeSubgraphIds={activeSubgraphIds}
+      dragPreviewEdges={dragPreviewEdges}
+      resolveDragEdgeGeometryMap={resolveDragEdgeGeometryMap}
+      edgeLabelSpec={edgeLabelSpec}
+      subgraphGeometries={scopedSubgraphGeometries}
+      visualTokens={visualTokens}
+      directManipulation={interactionState.kind === "draggingNodes" || interactionState.kind === "draggingSubgraphs"}
       viewportCompositor={viewportCompositor}
     />
     <KonvaDragEdgeLayer
-      dragPreview={dragPreview}
+      dragPreviewStore={dragPreviewStore}
       dragPreviewEdges={dragPreviewEdges}
       resolveDragEdgeGeometryMap={resolveDragEdgeGeometryMap}
       viewFilters={viewFilters}
@@ -82,6 +86,5 @@ export function KonvaInteractionLayerContent({
       nodeProximityScale={nodeProximityScale}
       visualTokens={visualTokens}
     />
-    {alignmentGuides.length ? <AlignmentGuideOverlay guides={alignmentGuides} visualTokens={visualTokens} /> : null}
   </>;
 }

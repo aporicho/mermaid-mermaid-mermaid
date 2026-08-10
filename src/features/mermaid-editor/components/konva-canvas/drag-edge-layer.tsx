@@ -15,19 +15,20 @@ type DragEdgeLayerProps = Pick<KonvaCanvasStageProps,
   | "visualTokens"
   | "edgeLabelThemeTokens"
   | "edgeLabelSpec"
+  | "dragPreviewStore"
 >;
 
 export function KonvaDragEdgeLayer({
-  dragPreview,
+  dragPreviewStore,
   dragPreviewEdges,
   resolveDragEdgeGeometryMap,
   ...props
-}: DragEdgeLayerProps & { dragPreview: CanvasDragPreviewSnapshot | null }) {
+}: DragEdgeLayerProps) {
   const geometryById = useMemo(
-    () => dragPreview ? resolveDragEdgeGeometryMap(dragPreview) : new Map(),
-    [dragPreview, resolveDragEdgeGeometryMap]
+    () => resolveDragEdgeGeometryMap(dragPreviewStore.getSnapshot() ?? EMPTY_DRAG_PREVIEW),
+    [dragPreviewStore, resolveDragEdgeGeometryMap]
   );
-  if (!dragPreview || dragPreviewEdges.length === 0) return null;
+  if (dragPreviewEdges.length === 0) return null;
 
   return <KonvaEdgeLayer
     {...props}
@@ -36,3 +37,5 @@ export function KonvaDragEdgeLayer({
     resolvedEdgeGeometry={(edge) => geometryById.get(edge.id) ?? null}
   />;
 }
+
+const EMPTY_DRAG_PREVIEW: CanvasDragPreviewSnapshot = { nodePositions: {}, subgraphPositions: {}, guides: [] };

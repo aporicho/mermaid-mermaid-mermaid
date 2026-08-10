@@ -134,6 +134,41 @@ describe("canvas viewport compositor", () => {
     expect(scene.layer.drawScene).toHaveBeenCalledTimes(1);
   });
 
+  it("defers React scene commits during direct manipulation and coalesces them at the end", () => {
+    const animationFrames = new Map<number, FrameRequestCallback>();
+    let nextFrameId = 1;
+    vi.stubGlobal("requestAnimationFrame", vi.fn((callback: FrameRequestCallback) => {
+      const id = nextFrameId++;
+      animationFrames.set(id, callback);
+      return id;
+    }));
+    vi.stubGlobal("cancelAnimationFrame", vi.fn((id: number) => animationFrames.delete(id)));
+    const background = fakeLayer();
+    const scene = fakeLayer();
+    const active = fakeLayer();
+    const compositor = new CanvasViewportCompositor({ x: 0, y: 0, scale: 1 });
+    compositor.configureSurface(resolveCanvasViewportSurface({ width: 1200, height: 800 }));
+    compositor.attach({
+      stage: { position: vi.fn(), scale: vi.fn() } as unknown as Konva.Stage,
+      backgroundLayer: background.layer,
+      sceneLayer: scene.layer,
+      activeLayer: active.layer
+    });
+
+    compositor.beginDirectManipulation();
+    compositor.commitScene({ x: 0, y: 0, scale: 1 }, "react-a");
+    compositor.commitScene({ x: 0, y: 0, scale: 1 }, "react-b");
+    compositor.invalidateScene("texture-decode");
+    expect(scene.layer.drawScene).not.toHaveBeenCalled();
+    expect(animationFrames.size).toBe(0);
+
+    compositor.endDirectManipulation();
+    expect(animationFrames.size).toBe(1);
+    runAllAnimationFrames(animationFrames);
+    expect(background.layer.drawScene).toHaveBeenCalledTimes(1);
+    expect(scene.layer.drawScene).toHaveBeenCalledTimes(1);
+  });
+
   it("holds a composited guard until a rebase has redrawn every layer", () => {
     const animationFrames = new Map<number, FrameRequestCallback>();
     let nextFrameId = 1;

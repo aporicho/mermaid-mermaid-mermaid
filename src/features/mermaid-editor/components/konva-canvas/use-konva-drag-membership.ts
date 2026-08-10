@@ -1,13 +1,13 @@
-import { useRef, useState, type Dispatch, type SetStateAction } from "react";
+import { useRef, type Dispatch, type SetStateAction } from "react";
 import { unique } from "@/features/mermaid-editor/components/konva-canvas/render-utils";
 import type { useKonvaDragDraft } from "@/features/mermaid-editor/components/konva-canvas/use-konva-drag-draft";
 import {
-  computeAlignmentSnapWithIndex,
+  computeStatefulAlignmentSnapWithIndex,
   createAlignmentSnapIndex,
   selectionBounds,
-  type AlignmentGuide,
   type AlignmentRect,
-  type AlignmentSnapIndex
+  type AlignmentSnapIndex,
+  type AlignmentSnapState
 } from "@/features/mermaid-editor/lib/alignment-guides";
 import type { CanvasPoint, InteractionState } from "@/features/mermaid-editor/lib/canvas-interaction";
 import type { CanvasNodePreviewPositions } from "@/features/mermaid-editor/lib/canvas-motion";
@@ -22,7 +22,9 @@ import {
 } from "@/features/mermaid-editor/lib/editor-actions";
 import type { CanvasNode, MermaidGraph, Selection, ViewportState } from "@/features/mermaid-editor/lib/editor-types";
 import type { EditorCommand } from "@/features/mermaid-editor/lib/interaction/commands";
-import { buildNodeGeometry, type NodeGeometrySpec } from "@/features/mermaid-editor/lib/node-geometry";
+import { dragGraphChanged } from "@/features/mermaid-editor/lib/drag-graph-change";
+import { nodeDragDropTarget, subgraphDragDropTarget } from "@/features/mermaid-editor/lib/drag-drop-target";
+import { buildNodeGeometry, type NodeGeometry, type NodeGeometrySpec } from "@/features/mermaid-editor/lib/node-geometry";
 import {
   buildSubgraphGeometries,
   subgraphAtPoint,
@@ -39,6 +41,7 @@ type UseKonvaDragMembershipArgs = {
   selectedSubgraphIds: Set<string>;
   dragEnabled: boolean;
   geometrySpec: NodeGeometrySpec;
+  nodeGeometryById: Map<string, NodeGeometry>;
   subgraphGeometryById: Map<string, SubgraphGeometry>;
   renderedSubgraphGeometries: SubgraphGeometry[];
   subgraphThemeTokens: SubgraphGeometryTokens;
@@ -63,6 +66,7 @@ export function useKonvaDragMembership({
   selectedSubgraphIds,
   dragEnabled,
   geometrySpec,
+  nodeGeometryById,
   subgraphGeometryById,
   renderedSubgraphGeometries,
   subgraphThemeTokens,
@@ -77,8 +81,7 @@ export function useKonvaDragMembership({
   clearNodeProximityScales,
   onEditorCommand
 }: UseKonvaDragMembershipArgs) {
-  const [alignmentGuides, setAlignmentGuides] = useState<AlignmentGuide[]>([]);
-  const dragAlignmentRef = useRef<{ movingBounds: AlignmentRect | null; staticIndex: AlignmentSnapIndex } | null>(null);
+  const dragAlignmentRef = useRef<{ movingBounds: AlignmentRect | null; staticIndex: AlignmentSnapIndex; snapState: AlignmentSnapState } | null>(null);
   const dragPointerStartWorldRef = useRef<CanvasPoint | null>(null);
   const {
     dragRef,
@@ -91,7 +94,7 @@ export function useKonvaDragMembership({
     preserveCommittedDragPreview,
     clearDragRuntimeState
   } = dragRuntime;
-  function startNodeDrag(node: CanvasNode, origin?: { screen: CanvasPoint; world: CanvasPoint }) {
+  function startNodeDrag(node: CanvasNode, origin?: { screen: CanvasPoint; world: CanvasPoint; pointerId?: number }) {
     if (!dragEnabled) return;
     if (dragRef.current) return;
     const ids = selectedNodeIds.has(node.id) ? selection.nodeIds : [node.id];
@@ -100,29 +103,26 @@ export function useKonvaDragMembership({
     dragPointerStartWorldRef.current = world;
     if (!selectedNodeIds.has(node.id)) onEditorCommand({ type: "selection.set", selection: selectOnlyNode(node.id), source: "pointer" });
     invalidateBlankClickIntent();
-    setAlignmentGuides([]);
-    setInteractionState({ kind: "draggingNodes", pointerId: 0, nodeId: node.id, startScreen: screen, startWorld: world });
+    setInteractionState({ kind: "draggingNodes", pointerId: origin?.pointerId ?? 0, nodeId: node.id, startScreen: screen, startWorld: world });
     const movingIdSet = new Set(ids);
     dragRef.current = Object.fromEntries(graph.nodes.filter((item) => movingIdSet.has(item.id)).map((item) => [item.id, { x: item.x, y: item.y }]));
-    const geometryById = new Map(graph.nodes.map((item) => [item.id, buildNodeGeometry(item, geometrySpec)]));
     const movingRects = Object.fromEntries(ids.flatMap((id) => {
-      const rect = geometryById.get(id)?.alignmentRect;
+      const rect = nodeGeometryById.get(id)?.alignmentRect;
       return rect ? [[id, rect]] : [];
     }));
     const staticRects = graph.nodes.flatMap((item) => {
       if (movingIdSet.has(item.id)) return [];
-      const rect = geometryById.get(item.id)?.alignmentRect;
+      const rect = nodeGeometryById.get(item.id)?.alignmentRect;
       return rect ? [rect] : [];
     });
-    dragAlignmentRef.current = { movingBounds: selectionBounds(Object.values(movingRects)), staticIndex: createAlignmentSnapIndex(staticRects) };
+    dragAlignmentRef.current = { movingBounds: selectionBounds(Object.values(movingRects)), staticIndex: createAlignmentSnapIndex(staticRects), snapState: {} };
     stopActiveMotionTweens();
     for (const id of Object.keys(dragRef.current)) clearNodeMotionVisual(id);
     clearNodeProximityScales(true, { preservePointer: true });
     beginDragRuntimeState();
-    onEditorCommand({ type: "history.capture", source: "pointer" });
   }
 
-  function startSubgraphDrag(subgraphId: string, geometry: SubgraphGeometry, origin?: { screen: CanvasPoint; world: CanvasPoint }) {
+  function startSubgraphDrag(subgraphId: string, geometry: SubgraphGeometry, origin?: { screen: CanvasPoint; world: CanvasPoint; pointerId?: number }) {
     if (!dragEnabled) return;
     if (dragRef.current) return;
     const rootIds = selectedSubgraphIds.has(subgraphId) ? selection.subgraphIds || [] : [subgraphId];
@@ -134,8 +134,7 @@ export function useKonvaDragMembership({
     dragPointerStartWorldRef.current = world;
     if (!selectedSubgraphIds.has(subgraphId)) onEditorCommand({ type: "selection.set", selection: selectOnlySubgraph(subgraphId), source: "pointer" });
     invalidateBlankClickIntent();
-    setAlignmentGuides([]);
-    setInteractionState({ kind: "draggingSubgraphs", pointerId: 0, subgraphId, startScreen: screen, startWorld: world });
+    setInteractionState({ kind: "draggingSubgraphs", pointerId: origin?.pointerId ?? 0, subgraphId, startScreen: screen, startWorld: world });
     dragRef.current = Object.fromEntries(
       graph.nodes.filter((item) => nodeIds.includes(item.id)).map((item) => [item.id, { x: item.x, y: item.y }])
     );
@@ -150,10 +149,9 @@ export function useKonvaDragMembership({
         return [id, item ? { x: item.frame.x, y: item.frame.y } : { x: geometry.frame.x, y: geometry.frame.y }];
       })
     );
-    onEditorCommand({ type: "history.capture", source: "pointer" });
   }
 
-  function moveSelectedNodes(nodeId: string, currentWorld: CanvasPoint) {
+  function moveSelectedNodes(nodeId: string, currentWorld: CanvasPoint, options: { disableSnap?: boolean } = {}) {
     if (!dragRef.current) return null;
     const pointerStart = dragPointerStartWorldRef.current;
     if (!pointerStart || !dragRef.current[nodeId]) return null;
@@ -164,15 +162,19 @@ export function useKonvaDragMembership({
       ? { ...alignment.movingBounds, x: alignment.movingBounds.x + deltaX, y: alignment.movingBounds.y + deltaY }
       : null;
     const snap = movingBounds && alignment
-      ? computeAlignmentSnapWithIndex(movingBounds, alignment.staticIndex, currentViewport().scale)
-      : { dx: 0, dy: 0, guides: [] };
+      ? computeStatefulAlignmentSnapWithIndex(movingBounds, alignment.staticIndex, currentViewport().scale, alignment.snapState, { disabled: options.disableSnap })
+      : { dx: 0, dy: 0, guides: [], state: {} };
+    if (alignment) alignment.snapState = snap.state;
     const snappedDeltaX = deltaX + snap.dx;
     const snappedDeltaY = deltaY + snap.dy;
     const positions = Object.fromEntries(
       Object.entries(dragRef.current).map(([id, position]) => [id, { x: position.x + snappedDeltaX, y: position.y + snappedDeltaY }])
     ) as CanvasNodePreviewPositions;
-    setAlignmentGuides((current) => sameAlignmentGuides(current, snap.guides) ? current : snap.guides);
-    scheduleDragPreviewPositionsVisual(positions);
+    const baseNode = graph.nodes.find((item) => item.id === nodeId);
+    const baseGeometry = nodeGeometryById.get(nodeId);
+    const position = positions[nodeId];
+    const targetSubgraph = nodeDragDropTarget(baseNode, baseGeometry, position, renderedSubgraphGeometries);
+    scheduleDragPreviewPositionsVisual(positions, {}, snap.guides, targetSubgraph?.id);
     return positions;
   }
 
@@ -188,7 +190,10 @@ export function useKonvaDragMembership({
     const subgraphPositions = Object.fromEntries(
       Object.entries(subgraphDragFrameRef.current).map(([id, frame]) => [id, { x: frame.x + deltaX, y: frame.y + deltaY }])
     );
-    scheduleDragPreviewPositionsVisual(positions, subgraphPositions);
+    const movingGeometry = subgraphGeometryById.get(subgraphId);
+    const ignored = [subgraphId, ...descendantSubgraphIds(graph, subgraphId)];
+    const targetSubgraph = subgraphDragDropTarget(movingGeometry, { x: deltaX, y: deltaY }, renderedSubgraphGeometries, ignored);
+    scheduleDragPreviewPositionsVisual(positions, subgraphPositions, [], targetSubgraph?.id);
   }
 
   function finishDragWithMembership(positions: CanvasNodePreviewPositions) {
@@ -227,7 +232,9 @@ export function useKonvaDragMembership({
       }
     }
 
-    onEditorCommand({ type: "graph.commitDragMembership", graph: nextGraph, message: "已移动并更新组成员。", source: "pointer" });
+    if (dragGraphChanged(graph, nextGraph)) {
+      onEditorCommand({ type: "graph.commitDragMembership", graph: nextGraph, message: "已移动并更新组成员。", source: "pointer" });
+    }
   }
 
   function finishKonvaDrag() {
@@ -242,21 +249,21 @@ export function useKonvaDragMembership({
     }
     dragPointerStartWorldRef.current = null;
     dragAlignmentRef.current = null;
-    setAlignmentGuides([]);
     resetInteraction();
   }
   function cancelDrag() {
     clearDragRuntimeState();
     dragPointerStartWorldRef.current = null;
     dragAlignmentRef.current = null;
-    setAlignmentGuides([]);
     resetInteraction();
   }
 
   return {
-    alignmentGuides,
     dragPreviewStore,
-    clearAlignmentGuides: () => setAlignmentGuides([]),
+    clearAlignmentGuides: () => {
+      const snapshot = dragPreviewStore.getSnapshot();
+      if (snapshot?.guides?.length) dragPreviewStore.publish({ ...snapshot, guides: [] });
+    },
     startNodeDrag,
     startSubgraphDrag,
     moveSelectedNodes,
@@ -264,16 +271,4 @@ export function useKonvaDragMembership({
     finishKonvaDrag,
     cancelDrag
   };
-}
-
-function sameAlignmentGuides(left: AlignmentGuide[], right: AlignmentGuide[]) {
-  return left.length === right.length && left.every((guide, index) => {
-    const candidate = right[index];
-    return candidate
-      && guide.axis === candidate.axis
-      && guide.value === candidate.value
-      && guide.from === candidate.from
-      && guide.to === candidate.to
-      && guide.kind === candidate.kind;
-  });
 }

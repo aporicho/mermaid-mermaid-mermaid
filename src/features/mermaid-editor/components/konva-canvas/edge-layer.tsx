@@ -19,6 +19,7 @@ import {
   getEdgeVisualState,
   getSelectionBoxVisualState
 } from "@/features/mermaid-editor/lib/canvas-visual-state";
+import { edgeVisualId } from "@/features/mermaid-editor/lib/canvas-hit-target";
 
 type RenderModel = ReturnType<typeof useKonvaRenderModel>;
 
@@ -79,9 +80,10 @@ export function KonvaEdgeLayer({
         const edgeLabelGeometry = edgeLabel || isEditingEdgeLabel ? buildEdgeLabelGeometry(edgeLabel, geometry.labelPoint, edgeLabelSpec) : null;
 
         return (
-          <Group key={edge.id} listening={false}>
+          <Group key={edge.id} id={edgeVisualId(edge.id)} name="canvas-edge-visual" listening={false}>
             {geometry.pathData ? (
                 <Path
+                  name="canvas-edge-path"
                   data={geometry.pathData}
                   stroke={edgeVisual.stroke}
                   strokeWidth={edgeStrokeWidth}
@@ -95,6 +97,7 @@ export function KonvaEdgeLayer({
                 />
             ) : (
                 <Arrow
+                  name="canvas-edge-path"
                   points={geometry.points}
                   stroke={edgeVisual.stroke}
                   fill={edgeVisual.fill}
@@ -114,6 +117,7 @@ export function KonvaEdgeLayer({
             ) : null}
             {viewFilters.edgeLabels && edgeLabelGeometry && !isEditingEdgeLabel ? (
               <Group
+                name="canvas-edge-label"
                 x={edgeLabelGeometry.frame.x}
                 y={edgeLabelGeometry.frame.y}
                 listening={false}

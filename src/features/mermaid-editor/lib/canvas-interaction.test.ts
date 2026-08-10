@@ -209,6 +209,53 @@ describe("canvas interaction state", () => {
     expect(result.commands).toEqual([{ type: "invalidateBlankClick" }, { type: "startNodeDrag", nodeId: "a" }]);
   });
 
+  it("ignores move and up events from a pointer that does not own the gesture", () => {
+    const start = pointerDown({ hit: { kind: "node", id: "a" }, pointerId: 7 }).state;
+    const move = dispatchCanvasPointerMove({
+      state: start,
+      pointerId: 9,
+      screen: { x: 180, y: 220 },
+      world: { x: 160, y: 180 }
+    });
+    const up = dispatchCanvasPointerUp({
+      state: start,
+      pointerId: 9,
+      tool: "select",
+      hit: { kind: "blank" },
+      hasSelection: false,
+      screen: { x: 180, y: 220 },
+      world: { x: 160, y: 180 },
+      now: 1200,
+      previousBlankClick: null,
+      selectionVersion: 1,
+      interactionGeneration: 1
+    });
+
+    expect(move).toEqual({ state: start, commands: [] });
+    expect(up).toEqual({ state: start, commands: [] });
+  });
+
+  it("uses a wider drag activation threshold for touch input", () => {
+    const start = pointerDown({ hit: { kind: "node", id: "a" }, pointerId: 7 }).state;
+    const held = dispatchCanvasPointerMove({
+      state: start,
+      pointerId: 7,
+      dragThresholdPx: 6,
+      screen: { x: 105, y: 120 },
+      world: { x: 85, y: 80 }
+    });
+    const promoted = dispatchCanvasPointerMove({
+      state: start,
+      pointerId: 7,
+      dragThresholdPx: 6,
+      screen: { x: 107, y: 120 },
+      world: { x: 87, y: 80 }
+    });
+
+    expect(held.state.kind).toBe("pendingNodePointer");
+    expect(promoted.state.kind).toBe("draggingNodes");
+  });
+
   it("records the first valid blank click and creates on the second valid blank click", () => {
     const first = blankClick();
     expect(first.action).toBe("record");

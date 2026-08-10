@@ -38,6 +38,9 @@ describe("pointer interaction runtime", () => {
       pointer: { x: 12, y: 18 },
       world: { x: 120, y: 180 },
       button: 0,
+      buttons: 1,
+      pointerId: 17,
+      pointerType: "pen",
       modifiers: normalizeModifiers({ shiftKey: true }),
       timestamp: 42
     });
@@ -47,6 +50,9 @@ describe("pointer interaction runtime", () => {
       screen: { x: 12, y: 18 },
       world: { x: 120, y: 180 },
       hit: { kind: "node", id: "A" },
+      pointerId: 17,
+      pointerType: "pen",
+      buttons: 1,
       timestamp: 42
     });
   });

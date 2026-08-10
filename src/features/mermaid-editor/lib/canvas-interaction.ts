@@ -98,12 +98,15 @@ export type PointerDownInput = {
   selectionVersion: number;
   viewport: ViewportState;
   panningRequested?: boolean;
+  pointerId?: number;
 };
 
 export type PointerMoveInput = {
   state: InteractionState;
   screen: CanvasPoint;
   world: CanvasPoint;
+  pointerId?: number;
+  dragThresholdPx?: number;
 };
 
 export type InteractionTransition = {
@@ -142,7 +145,7 @@ export type CanvasDispatchResult = {
   commands: CanvasInteractionCommand[];
 };
 
-export const CANVAS_DRAG_THRESHOLD_PX = 4;
+export const CANVAS_DRAG_THRESHOLD_PX = 3;
 export const BLANK_DOUBLE_CLICK_MS = 360;
 export const BLANK_DOUBLE_CLICK_DISTANCE_PX = 8;
 
@@ -215,6 +218,7 @@ export function dispatchCanvasPointerUp(input: {
   previousBlankClick: BlankClickIntent | null;
   selectionVersion: number;
   interactionGeneration: number;
+  pointerId?: number;
 }): CanvasDispatchResult {
   return fromStandardDispatchResult(
     dispatchStandardCanvasPointerUp({
