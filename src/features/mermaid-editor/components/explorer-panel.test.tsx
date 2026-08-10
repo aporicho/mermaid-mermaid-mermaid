@@ -200,6 +200,23 @@ describe("ExplorerPanel", () => {
     act(() => container.querySelector<HTMLButtonElement>('button[aria-label="刷新文件夹"]')?.click());
     expect(onOpenProject).toHaveBeenCalledTimes(1);
     expect(onRefreshProject).toHaveBeenCalledTimes(1);
+    expect(onRefreshProject).toHaveBeenCalledWith();
+  });
+
+  it("opens and closes a directory with one unmodified row click", () => {
+    renderExplorer({ initialExpandedPaths: [] });
+    const directory = buttonNamed("docs");
+
+    expect(directory?.getAttribute("aria-expanded")).toBe("false");
+    expect(buttonNamed("note.md")).toBeNull();
+
+    act(() => directory?.click());
+    expect(directory?.getAttribute("aria-expanded")).toBe("true");
+    expect(buttonNamed("note.md")).not.toBeNull();
+
+    act(() => directory?.click());
+    expect(directory?.getAttribute("aria-expanded")).toBe("false");
+    expect(buttonNamed("note.md")).toBeNull();
   });
 
   it("opens HTML resources in their dedicated floating preview and drags them as HTML nodes", () => {

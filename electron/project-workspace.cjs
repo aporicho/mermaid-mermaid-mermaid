@@ -6,7 +6,10 @@ const {
 } = require("./project-explorer-order.cjs");
 
 const PROJECT_FILE_LIMIT = 500;
-const PROJECT_RESOURCE_LIMIT = 10_000;
+// A full resource entry is deliberately lightweight and collapsed directories
+// are not mounted into the DOM. Keep enough of the snapshot for large design
+// workspaces instead of silently cutting off ordinary projects just above 10k.
+const PROJECT_RESOURCE_LIMIT = 50_000;
 const SKIPPED_PROJECT_DIRECTORIES = new Set([".git", ".hg", ".svn", ".mermaid-canvas-editor", "node_modules", "dist", "build", ".vite", ".next", "target", "dist-electron"]);
 
 async function scanProjectFolder(rootPath) {

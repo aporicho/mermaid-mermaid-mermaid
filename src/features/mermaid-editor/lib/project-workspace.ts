@@ -64,7 +64,7 @@ export type ProjectTreeNode = ProjectTreeDirectoryNode | ProjectTreeFileNode;
 export type ProjectResourceTreeNode = ProjectTreeNode;
 
 export const PROJECT_FILE_LIMIT = 500;
-export const PROJECT_RESOURCE_LIMIT = 10_000;
+export const PROJECT_RESOURCE_LIMIT = 50_000;
 
 export function applyProjectWorkspaceChanges(
   workspace: ProjectWorkspace,

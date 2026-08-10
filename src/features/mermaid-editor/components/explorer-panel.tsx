@@ -41,6 +41,7 @@ import { projectDirectoryAncestors, validExpandedDirectoryPaths } from "@/featur
 import {
   buildProjectResourceTree,
   isProjectFileActive,
+  PROJECT_RESOURCE_LIMIT,
   projectResourcesFromFiles,
   projectTreeDirectoryIds,
   sortProjectResources,
@@ -775,7 +776,7 @@ export function ExplorerPanel({
 	              <EditorIconButton context="panel" label="新建文件夹" tooltipSide="right" disabled={projectBusy} onClick={() => setCreateDirectoryDialog({ directoryPath: "" })}>
 	                <FolderPlus data-icon />
 	              </EditorIconButton>
-	              <EditorIconButton context="panel" label="刷新文件夹" tooltipSide="right" disabled={projectBusy} onClick={onRefreshProject}>
+	              <EditorIconButton context="panel" label="刷新文件夹" tooltipSide="right" disabled={projectBusy} onClick={() => onRefreshProject()}>
 	                <RefreshCw data-icon className={cn(projectBusy && "animate-spin")} />
 	              </EditorIconButton>
 	              <EditorIconButton context="panel" label="全部展开" tooltipSide="right" disabled={projectBusy || !directoryPaths.size} onClick={expandAllDirectories}>
@@ -900,7 +901,7 @@ export function ExplorerPanel({
 	              ) : null}
             </EditorTreeItem>
             {projectWorkspace.resourcesTruncated ? (
-              <div role="status" className="px-3 py-2 text-xs text-muted-foreground">资源较多，仅显示前 10,000 项。</div>
+              <div role="status" className="px-3 py-2 text-xs text-muted-foreground">资源较多，仅显示前 {PROJECT_RESOURCE_LIMIT.toLocaleString()} 项。</div>
             ) : null}
 	          </EditorTree>
           {dragOverlay ? (
@@ -1171,11 +1172,14 @@ function ProjectTreeNodeRow({
             event.preventDefault();
             return;
           }
-          const nameClick = pointerDownNameRef.current || isResourceNameEventTarget(event.target);
           pointerDownNameRef.current = false;
-          if (!renaming) onSelectResource(resource, event, nameClick);
+          if (!renaming) {
+            onSelectResource(resource, event, false);
+            if (!event.metaKey && !event.ctrlKey && !event.shiftKey && event.detail <= 1) {
+              onToggleDirectory(node.relativePath);
+            }
+          }
         }}
-        onDoubleClick={() => { if (!renaming) onDoubleClickResource(resource, undefined); }}
         onContextMenu={(mouseEvent) => {
           if (renaming) {
             mouseEvent.preventDefault();

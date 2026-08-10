@@ -107,7 +107,13 @@ export function useProjectWorkspaceWorkflow(
     }
   }
 
-  async function refreshProjectWorkspace(rootPath = projectWorkspace?.rootPath) {
+  async function refreshProjectWorkspace(requestedRootPath?: string) {
+    // React event handlers receive a SyntheticEvent argument at runtime. Keep
+    // that host object from ever crossing the Electron structured-clone
+    // boundary when this command is accidentally passed as a bare callback.
+    const rootPath = typeof requestedRootPath === "string"
+      ? requestedRootPath
+      : projectWorkspace?.rootPath;
     if (!rootPath) return;
     setProjectBusy(true);
     const requestRevision = ++workspaceRequestRevisionRef.current;
