@@ -398,7 +398,7 @@ function attachWindowCleanup(window) {
     claimedEditorSessionIds.delete(webContentsId);
     void projectFileWatcher.removeSubscriber(webContentsId);
     void documentHub.releaseSubscriber(webContentsId);
-    void piAgentManager.stop(webContentsId);
+    void piAgentManager.stopOwner(webContentsId);
     if (mainWindows.delete(window) && mainWindow === window) {
       mainWindow = [...mainWindows].at(-1) || null;
     }

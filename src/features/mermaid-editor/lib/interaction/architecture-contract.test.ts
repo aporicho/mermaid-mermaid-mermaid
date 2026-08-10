@@ -293,7 +293,8 @@ describe("interaction architecture contract", () => {
 
     expect(chrome).toContain('<FloatingChromeSlot placement="rightBottom">');
     expect(chrome).not.toContain('<FloatingChromeSlot placement="bottomCenter">');
-    expect(chrome).toContain('label="打开 Pi Agent"');
+    expect(chrome).toContain('label={agentActivity.waiting');
+    expect(chrome).toContain('"打开 Pi Agent"');
     expect(chrome).toContain('label="打开终端"');
     expect(chrome).not.toContain("ToolModeCluster");
     expect(workspaceControls).not.toContain("function ToolModeCluster");
@@ -908,12 +909,12 @@ describe("interaction architecture contract", () => {
 
   it("keeps Agent, desktop, and clipboard controllers outside the MermaidEditor composition file", () => {
     const editor = readProjectFile("src/features/mermaid-editor/components/mermaid-editor.tsx");
-    const parallelAgent = readProjectFile("src/features/mermaid-editor/components/agent/parallel-agent-panel.tsx");
+    const agentWorkspace = readProjectFile("src/features/mermaid-editor/components/agent/agent-workspace-panel.tsx");
     const actions = readProjectFile("src/features/mermaid-editor/components/mermaid-editor/use-editor-command-actions.ts");
 
     expect(editor).not.toContain("useAgentSession");
-    expect(parallelAgent).toContain("useAgentSession");
-    expect(parallelAgent).toContain("agentInstanceId");
+    expect(agentWorkspace).toContain("useAgentSession");
+    expect(agentWorkspace).toContain("agentInstanceId");
     expect(editor).toContain("useEditorAgentDocuments");
     expect(editor).toContain("useEditorDesktopEvents");
     expect(actions).toContain("useEditorClipboardActions");

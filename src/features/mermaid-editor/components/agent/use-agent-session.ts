@@ -7,8 +7,11 @@ import type {
   RuntimeAgentEvent,
   RuntimeAgentReference,
   RuntimeAgentRpcCommand,
+  RuntimeAgentSessionTarget,
   RuntimeAgentState
 } from "@/features/mermaid-editor/lib/editor-runtime";
+
+import { useAgentInstanceEvents } from "./agent-event-router";
 
 export type AgentTranscriptMode = "normal" | "verbose" | "summary";
 
@@ -91,21 +94,22 @@ const LONG_RPC_TIMEOUT_MS = 30 * 60_000;
 export function useAgentSession({
   runtime,
   enabled,
-  agentInstanceId = "primary",
-  createNewSession = false,
+  agentInstanceId,
+  target,
   cwd,
   projectRoot,
   documentBridge
 }: {
   runtime: EditorRuntime;
   enabled: boolean;
-  agentInstanceId?: string;
-  createNewSession?: boolean;
+  agentInstanceId: string;
+  target: RuntimeAgentSessionTarget;
   cwd?: string;
   projectRoot?: string;
   documentBridge: RuntimeAgentDocumentBridge;
 }) {
   const [status, setStatus] = useState<"idle" | "starting" | "ready" | "error">("idle");
+  const [instanceStatus, setInstanceStatus] = useState<"dormant" | "starting" | "idle" | "running" | "waiting" | "error">("dormant");
   const [error, setError] = useState<string | null>(null);
   const [workerState, setWorkerState] = useState<RuntimeAgentState | null>(null);
   const [sessionState, setSessionState] = useState<Record<string, unknown> | null>(null);
@@ -123,8 +127,10 @@ export function useAgentSession({
   const [activity, setActivity] = useState<string | null>(null);
   const [authFlow, setAuthFlow] = useState<AgentAuthFlowState | null>(null);
   const [startupAttempt, setStartupAttempt] = useState(0);
-  const preferenceKey = useMemo(() => `mmm:agent-ui:v1:${projectRoot || cwd || "scratch"}`, [cwd, projectRoot]);
-  const [preferenceState, setPreferenceState] = useState(() => ({ key: preferenceKey, value: readUiPreferences(preferenceKey) }));
+  const preferenceScope = projectRoot || cwd || "scratch";
+  const preferenceKey = useMemo(() => `mmm:agent-ui:v2:${preferenceScope}:${agentInstanceId}`, [agentInstanceId, preferenceScope]);
+  const legacyPreferenceKey = useMemo(() => `mmm:agent-ui:v1:${preferenceScope}`, [preferenceScope]);
+  const [preferenceState, setPreferenceState] = useState(() => ({ key: preferenceKey, value: readUiPreferences(preferenceKey, legacyPreferenceKey) }));
   const pendingRpcRef = useRef(new Map<string, PendingRpc>());
   const rpcCounterRef = useRef(0);
   const optimisticMessageCounterRef = useRef(0);
@@ -145,8 +151,8 @@ export function useAgentSession({
   }, [documentBridge]);
 
   useEffect(() => {
-    setPreferenceState({ key: preferenceKey, value: readUiPreferences(preferenceKey) });
-  }, [preferenceKey]);
+    setPreferenceState({ key: preferenceKey, value: readUiPreferences(preferenceKey, legacyPreferenceKey) });
+  }, [legacyPreferenceKey, preferenceKey]);
 
   useEffect(() => {
     if (preferenceState.key !== preferenceKey) return;
@@ -156,8 +162,8 @@ export function useAgentSession({
   const updatePreferences = useCallback((update: (current: AgentUiPreferences) => AgentUiPreferences) => {
     setPreferenceState((current) => current.key === preferenceKey
       ? { ...current, value: update(current.value) }
-      : { key: preferenceKey, value: update(readUiPreferences(preferenceKey)) });
-  }, [preferenceKey]);
+      : { key: preferenceKey, value: update(readUiPreferences(preferenceKey, legacyPreferenceKey)) });
+  }, [legacyPreferenceKey, preferenceKey]);
 
   const setDraft = useCallback((value: string) => {
     updatePreferences((current) => ({ ...current, drafts: { ...current.drafts, [sessionKey]: value } }));
@@ -258,6 +264,18 @@ export function useAgentSession({
   }, []);
 
   const handleAgentEvent = useCallback((event: RuntimeAgentEvent) => {
+    if (event.lane === "lifecycle") {
+      setInstanceStatus(event.payload.status);
+      if (event.payload.status === "starting") setStatus("starting");
+      if (event.payload.status === "idle" || event.payload.status === "running" || event.payload.status === "waiting") setStatus("ready");
+      if (event.payload.status === "error") setStatus("error");
+      if (event.payload.status === "dormant") {
+        setStatus("idle");
+        setActivity(null);
+        rejectPendingRpcs("Pi Agent instance was released.");
+      }
+      return;
+    }
     if (event.lane === "diagnostic") {
       if (event.payload.level === "error") setError(event.payload.message);
       return;
@@ -282,9 +300,11 @@ export function useAgentSession({
       if (payload.type === "ready") {
         setWorkerState((payload.state || null) as RuntimeAgentState | null);
         setStatus("ready");
+        setInstanceStatus("idle");
       }
       if (payload.type === "stopped") {
         setStatus("idle");
+        setInstanceStatus("dormant");
         setActivity(null);
         rejectPendingRpcs("Pi Agent stopped before the command completed.");
       }
@@ -296,6 +316,17 @@ export function useAgentSession({
       if (payload.type === "package_progress") {
         const progress = payload.event as Record<string, unknown> | undefined;
         setActivity(String(progress?.message || progress?.action || "正在处理包"));
+      }
+      if (payload.type === "configuration_changed") {
+        setOverview(null);
+        void Promise.all([
+          sendRpc<{ models?: Array<Record<string, unknown>> }>({ type: "get_available_models" }),
+          sendRpc<{ commands?: Array<{ name: string; description?: string; source: string }> }>({ type: "get_commands" }),
+          refreshAvailableThinkingLevels()
+        ]).then(([modelData, commandData]) => {
+          setAvailableModels(modelData.models || []);
+          setCommands(commandData.commands || []);
+        }).catch(() => undefined);
       }
       if (payload.type === "auth") {
         const providerId = String(payload.providerId || "");
@@ -416,22 +447,9 @@ export function useAgentSession({
     if (payload.type === "model_select" || payload.type === "thinking_level_select" || payload.type === "session_info_changed") {
       void Promise.all([refreshSessionState(), refreshAvailableThinkingLevels()]).catch(() => undefined);
     }
-  }, [agentInstanceId, refreshAvailableThinkingLevels, refreshSessionState, refreshTranscript, rejectPendingRpcs, runtime, scheduleStreamingRender]);
+  }, [agentInstanceId, refreshAvailableThinkingLevels, refreshSessionState, refreshTranscript, rejectPendingRpcs, runtime, scheduleStreamingRender, sendRpc]);
 
-  useEffect(() => {
-    let disposed = false;
-    let unlisten: (() => void) | undefined;
-    void runtime.listenForAgentEvents((event) => {
-      if (!disposed && (event.agentInstanceId || "primary") === agentInstanceId) handleAgentEvent(event);
-    }).then((cleanup) => {
-      if (disposed) cleanup();
-      else unlisten = cleanup;
-    });
-    return () => {
-      disposed = true;
-      unlisten?.();
-    };
-  }, [agentInstanceId, handleAgentEvent, runtime]);
+  useAgentInstanceEvents(runtime, agentInstanceId, handleAgentEvent);
 
   useEffect(() => () => {
     rejectPendingRpcs("Pi Agent view was disposed.");
@@ -447,8 +465,9 @@ export function useAgentSession({
     }
     let disposed = false;
     setStatus("starting");
+    setInstanceStatus("starting");
     setError(null);
-    void runtime.startAgent({ cwd, projectRoot, agentInstanceId, createNewSession }).then(async (result) => {
+    void runtime.startAgent({ cwd, projectRoot, agentInstanceId, target }).then(async (result) => {
       if (disposed) return;
       if (result.status === "unsupported") {
         setStatus("error");
@@ -457,6 +476,7 @@ export function useAgentSession({
       }
       if (result.state) setWorkerState(result.state);
       setStatus("ready");
+      setInstanceStatus(result.instanceStatus || "idle");
       const [state, messageData, commandData, modelData, thinkingData] = await Promise.all([
         sendRpc<Record<string, unknown>>({ type: "get_state" }),
         sendRpc<{ messages?: unknown[] }>({ type: "get_messages" }),
@@ -474,13 +494,14 @@ export function useAgentSession({
     }).catch((startError) => {
       if (!disposed) {
         setStatus("error");
+        setInstanceStatus("error");
         setError(readableError(startError));
       }
     });
     return () => {
       disposed = true;
     };
-  }, [agentInstanceId, createNewSession, cwd, enabled, projectRoot, refreshDocuments, runtime, sendRpc, startupAttempt]);
+  }, [agentInstanceId, cwd, enabled, projectRoot, refreshDocuments, runtime, sendRpc, startupAttempt, target]);
 
   const retryAgent = useCallback(async () => {
     setError(null);
@@ -599,26 +620,11 @@ export function useAgentSession({
     }
   }, [agentInstanceId, interrupting, refreshSessionState, refreshTranscript, runtime]);
 
-  const createSession = useCallback(async () => {
-    await sendRpc({ type: "new_session" });
-    streamingTextRef.current = "";
-    streamingThinkingRef.current = "";
-    setTranscript([]);
-    await Promise.all([refreshConversation(), loadOverview(true)]);
-  }, [loadOverview, refreshConversation, sendRpc]);
-
-  const switchSession = useCallback(async (sessionPath: string) => {
-    await sendRpc({ type: "switch_session", sessionPath });
-    streamingTextRef.current = "";
-    streamingThinkingRef.current = "";
-    setTranscript([]);
-    await Promise.all([refreshConversation(), loadOverview(true)]);
-  }, [loadOverview, refreshConversation, sendRpc]);
-
   const references = useMemo(() => documents.flatMap((document) => document.references || []), [documents]);
 
   return {
     status,
+    instanceStatus,
     agentInstanceId,
     error,
     workerState,
@@ -650,8 +656,6 @@ export function useAgentSession({
     sendRpc,
     sendPrompt,
     interrupt,
-    createSession,
-    switchSession,
     refreshDocuments,
     refreshSessionState,
     refreshTranscript,
@@ -867,10 +871,11 @@ function dedupeReferences(references: RuntimeAgentReference[]) {
   });
 }
 
-function readUiPreferences(key: string): AgentUiPreferences {
+function readUiPreferences(key: string, fallbackKey?: string): AgentUiPreferences {
   if (typeof window === "undefined") return DEFAULT_UI_PREFERENCES;
   try {
-    const raw = JSON.parse(window.localStorage.getItem(key) || "null") as Partial<AgentUiPreferences> | null;
+    const stored = window.localStorage.getItem(key) || (fallbackKey ? window.localStorage.getItem(fallbackKey) : null);
+    const raw = JSON.parse(stored || "null") as Partial<AgentUiPreferences> | null;
     return {
       sidebarOpen: raw?.sidebarOpen !== false,
       transcriptMode: raw?.transcriptMode === "verbose" || raw?.transcriptMode === "summary" ? raw.transcriptMode : "normal",

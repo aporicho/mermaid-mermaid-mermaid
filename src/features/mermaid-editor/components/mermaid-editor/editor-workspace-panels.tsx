@@ -88,7 +88,7 @@ type EditorWorkspacePanelsProps = {
   setDetachedCsvHeaderMode: (panelId: CsvWindowPanelId, mode: DetachedCsvWindow["headerMode"]) => void;
   onDetachedMarkdownSelectionChange: (panelId: MarkdownWindowPanelId, selection: RuntimeAgentTextSelection | null) => void;
   markdownFoldBindingFor: (file: RuntimeFileRef) => { foldState: MarkdownFoldSnapshot | null | undefined; onFoldStateChange?: (snapshot: MarkdownFoldSnapshot) => void };
-  onStatus: (message: string) => void;
+  onStatus: (message: string) => void; onAgentActivityChange: (activity: import("@/features/mermaid-editor/components/agent/agent-workspace-types").AgentWorkspaceActivity) => void;
 };
 
 export function EditorWorkspacePanels({
@@ -137,8 +137,7 @@ export function EditorWorkspacePanels({
   updateDetachedTextWindow, updateDetachedCsvWindow, undoDetachedCsvWindow, redoDetachedCsvWindow, setDetachedCsvHeaderMode,
   saveDetachedMarkdownWindow,
   updateDetachedMarkdownWindow, openMarkdownFileLink, markdownFoldBindingFor,
-  onDetachedMarkdownSelectionChange,
-  onStatus
+  onDetachedMarkdownSelectionChange, onStatus, onAgentActivityChange
 }: EditorWorkspacePanelsProps) {
   return (
     <div className={cn("pointer-events-none absolute inset-0 isolate", fullscreenWorkspacePanel ? EDITOR_CHROME_CLASSES.fullscreenWorkspaceLayer : EDITOR_CHROME_CLASSES.workspaceLayer)} data-layer-group="workspace-windows" data-workspace-fullscreen-panel={fullscreenWorkspacePanel || undefined}>
@@ -185,7 +184,7 @@ export function EditorWorkspacePanels({
         bringToFront={bringWorkspacePanelToFront}
         closePanel={closeWorkspacePanel}
         newTerminalWindow={newTerminalWindow} openTerminalWindow={openTerminalWindow} closeTerminalWindow={closeTerminalWindow}
-        onStatus={onStatus}
+        onStatus={onStatus} onAgentActivityChange={onAgentActivityChange}
       />
       <WorkspaceFloatingWindow
         open={!rightCollapsed && documentKind === "mermaid"}

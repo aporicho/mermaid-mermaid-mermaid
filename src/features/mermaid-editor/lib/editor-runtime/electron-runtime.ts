@@ -163,9 +163,9 @@ export function createElectronRuntime(): EditorRuntime {
     async listenForFileDrops(handler) {
       return bridge.onFileDrops(handler);
     },
-    async startAgent(request) { return bridge.startAgent(request); },
-    async sendAgentRpc(command) { return bridge.sendAgentRpc(command); },
-    async runAgentControl(command) { return bridge.runAgentControl(command); },
+    async startAgent(request) { return bridge.startAgent(request); }, async listAgentSessions(request) { return bridge.listAgentSessions(request); }, async listAgentInstances() { return bridge.listAgentInstances(); },
+    async setAgentInstanceForeground(agentInstanceId, foreground) { await bridge.setAgentInstanceForeground(agentInstanceId, foreground); }, async deleteAgentSession(request) { await bridge.deleteAgentSession(request); },
+    async sendAgentRpc(command) { return bridge.sendAgentRpc(command); }, async runAgentControl(command) { return bridge.runAgentControl(command); },
     async respondAgentExtensionUi(response) { await bridge.respondAgentExtensionUi(response); },
     async respondAgentHost(response) { await bridge.respondAgentHost(response); },
     async stopAgent(agentInstanceId) { await bridge.stopAgent(agentInstanceId); },

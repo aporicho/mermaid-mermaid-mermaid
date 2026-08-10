@@ -1,4 +1,5 @@
 import { lazy, Suspense } from "react";
+import type { AgentWorkspaceActivity } from "@/features/mermaid-editor/components/agent/agent-workspace-types";
 
 import { WorkspaceFloatingWindow } from "@/features/mermaid-editor/components/floating-chrome";
 import { TerminalPanel } from "@/features/mermaid-editor/components/terminal-panel";
@@ -14,7 +15,7 @@ import {
   type WorkspaceFloatingPanelId
 } from "@/features/mermaid-editor/lib/workspace-panels";
 
-const ParallelAgentPanel = lazy(() => import("@/features/mermaid-editor/components/agent/parallel-agent-panel").then((module) => ({ default: module.ParallelAgentPanel })));
+const AgentWorkspacePanel = lazy(() => import("@/features/mermaid-editor/components/agent/agent-workspace-panel").then((module) => ({ default: module.AgentWorkspacePanel })));
 
 type AgentTerminalWorkspacePanelsProps = {
   runtime: EditorRuntime;
@@ -38,6 +39,7 @@ type AgentTerminalWorkspacePanelsProps = {
   openTerminalWindow: (panelId: "terminal" | TerminalWindowPanelId) => void;
   closeTerminalWindow: (panelId: TerminalWindowPanelId) => void;
   onStatus: (message: string) => void;
+  onAgentActivityChange: (activity: AgentWorkspaceActivity) => void;
 };
 
 export function AgentTerminalWorkspacePanels(props: AgentTerminalWorkspacePanelsProps) {
@@ -103,12 +105,13 @@ export function AgentTerminalWorkspacePanels(props: AgentTerminalWorkspacePanels
       mountStrategy="keep-alive"
     >
       <Suspense fallback={<div className="grid h-full place-items-center text-sm text-muted-foreground">正在载入 Pi Agent…</div>}>
-        <ParallelAgentPanel
+        <AgentWorkspacePanel
           runtime={props.runtime}
           enabled={props.agentOpen}
           cwd={props.terminalCwd}
           projectRoot={props.agentProjectRoot}
           documentBridge={props.agentDocumentBridge}
+          onActivityChange={props.onAgentActivityChange}
         />
       </Suspense>
     </WorkspaceFloatingWindow>

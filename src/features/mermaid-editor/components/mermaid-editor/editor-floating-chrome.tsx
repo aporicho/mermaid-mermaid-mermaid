@@ -1,4 +1,5 @@
 import type { PointerEventHandler } from "react";
+import type { AgentWorkspaceActivity } from "@/features/mermaid-editor/components/agent/agent-workspace-types";
 import {
   DotsGrid3x3 as Grid3X3,
   SidebarExpand as PanelLeftOpen,
@@ -32,6 +33,7 @@ type EditorFloatingChromeProps = {
   leftCollapsed: boolean;
   rightCollapsed: boolean;
   agentOpen: boolean;
+  agentActivity: AgentWorkspaceActivity;
   terminalOpen: boolean;
   recentFiles: RecentFileEntry[];
   projectBusy: boolean;
@@ -88,6 +90,7 @@ export function EditorFloatingChrome({
   leftCollapsed,
   rightCollapsed,
   agentOpen,
+  agentActivity,
   terminalOpen,
   recentFiles,
   projectBusy,
@@ -250,8 +253,10 @@ export function EditorFloatingChrome({
         <FloatingChromeSlot placement="rightBottom">
           <FloatingButtonCluster>
             {!agentOpen ? <FloatingIconButton
-              label="打开 Pi Agent"
+              label={agentActivity.waiting ? `打开 Pi Agent，${agentActivity.waiting} 个会话等待确认` : agentActivity.errors ? `打开 Pi Agent，${agentActivity.errors} 个会话执行失败` : agentActivity.running ? `打开 Pi Agent，${agentActivity.running} 个会话正在执行` : "打开 Pi Agent"}
               tooltipSide="top"
+              badgeCount={agentActivity.waiting || agentActivity.errors || agentActivity.running || agentActivity.unread || undefined}
+              danger={Boolean(agentActivity.waiting || agentActivity.errors)}
               onClick={() => onOpenWorkspacePanel("agent")}
             >
               <ChatBubble data-icon />

@@ -72,13 +72,15 @@ import { cn } from "@/lib/utils";
 
 import { AgentSettingsPanel } from "./agent-settings-dialog";
 import type { AgentController, AgentInteractionRequest, AgentToolActivity, AgentTranscriptItem } from "./use-agent-session";
+import type { AgentWorkspaceController, AgentWorkspaceSession, AgentWorkspaceSessionStatus } from "./agent-workspace-types";
 
 type AgentPanelProps = {
   runtime: EditorRuntime;
   controller: AgentController;
+  workspace: AgentWorkspaceController;
 };
 
-export function AgentPanel({ runtime, controller }: AgentPanelProps) {
+export function AgentPanel({ runtime, controller, workspace }: AgentPanelProps) {
   const [view, setView] = useState<"chat" | "settings">("chat");
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [renameOpen, setRenameOpen] = useState(false);
@@ -125,7 +127,6 @@ export function AgentPanel({ runtime, controller }: AgentPanelProps) {
             title={sessionTitle(controller)}
             status={controller.workerState?.scratch ? <Badge tone="neutral" className="shrink-0">临时画布</Badge> : null}
             actions={<>
-              <IconButton label="新会话" onClick={() => void controller.createSession().catch((error) => controller.setError(readableError(error)))}><Plus data-icon="inline-start" /></IconButton>
               <SessionActions controller={controller} onRename={() => setRenameOpen(true)} />
               <IconButton label="Agent 设置" onClick={() => setView("settings")}><Settings data-icon="inline-start" /></IconButton>
             </>}
@@ -134,7 +135,7 @@ export function AgentPanel({ runtime, controller }: AgentPanelProps) {
           <AgentStatus controller={controller} />
 
           <SidebarProvider open={wide && controller.sidebarOpen} onOpenChange={controller.setSidebarOpen} className="min-h-0 flex-1">
-            {wide ? <Sidebar><AgentSessionSidebar controller={controller} onOpenSettings={() => setView("settings")} /></Sidebar> : null}
+            {wide ? <Sidebar><AgentSessionSidebar controller={controller} workspace={workspace} onOpenSettings={() => setView("settings")} /></Sidebar> : null}
             <SidebarInset className="grid min-h-0 grid-rows-[minmax(0,1fr)]">
               <AgentConversation controller={controller} onOpenSettings={() => setView("settings")} onOpenLink={runtime.openExternalUrl} />
             </SidebarInset>
@@ -155,6 +156,7 @@ export function AgentPanel({ runtime, controller }: AgentPanelProps) {
             <SheetDescription className="sr-only">浏览并切换 Agent 会话。</SheetDescription>
             <AgentSessionSidebar
               controller={controller}
+              workspace={workspace}
               onOpenSettings={() => { updateMobileSidebarOpen(false); setView("settings"); }}
               onSelectSession={() => updateMobileSidebarOpen(false)}
             />
@@ -175,21 +177,19 @@ function AgentStatus({ controller }: { controller: AgentController }) {
   return null;
 }
 
-function AgentSessionSidebar({ controller, onOpenSettings, onSelectSession }: { controller: AgentController; onOpenSettings: () => void; onSelectSession?: () => void }) {
+function AgentSessionSidebar({ controller, workspace, onOpenSettings, onSelectSession }: { controller: AgentController; workspace: AgentWorkspaceController; onOpenSettings: () => void; onSelectSession?: () => void }) {
   const [query, setQuery] = useState("");
-  const [deleteCandidate, setDeleteCandidate] = useState<Record<string, any> | null>(null);
-  const overviewSessions = controller.overview?.sessions;
-  const currentPath = String(controller.sessionState?.sessionFile || "");
+  const [deleteCandidate, setDeleteCandidate] = useState<AgentWorkspaceSession | null>(null);
   const visibleSessions = useMemo(() => {
     const needle = query.trim().toLowerCase();
-    return (overviewSessions || []).filter((session: any) => sessionLabel(session).toLowerCase().includes(needle));
-  }, [overviewSessions, query]);
+    return workspace.sessions.filter((session) => sessionLabel(session).toLowerCase().includes(needle));
+  }, [query, workspace.sessions]);
   const grouped = useMemo(() => groupSessions(visibleSessions), [visibleSessions]);
 
   return <div className="flex h-full min-h-0 flex-col">
     <SidebarHeader>
-      <Button className="flex-1 justify-start" onClick={() => void controller.createSession().then(() => onSelectSession?.()).catch((error) => controller.setError(readableError(error)))}><Plus data-icon="inline-start" />新会话</Button>
-      <IconButton label="刷新会话" onClick={() => void Promise.all([controller.refreshConversation(), controller.loadOverview(true)]).catch((error) => controller.setError(readableError(error)))}><Refresh data-icon="inline-start" /></IconButton>
+      <Button className="flex-1 justify-start" onClick={() => { workspace.createSession(); onSelectSession?.(); }}><Plus data-icon="inline-start" />新会话</Button>
+      <IconButton label="刷新会话" onClick={() => void Promise.all([controller.refreshConversation(), workspace.refreshSessions()]).catch((error) => controller.setError(readableError(error)))}><Refresh data-icon="inline-start" /></IconButton>
     </SidebarHeader>
     <div className="px-2 pt-2">
       <InputGroup>
@@ -198,30 +198,29 @@ function AgentSessionSidebar({ controller, onOpenSettings, onSelectSession }: { 
       </InputGroup>
     </div>
     <SidebarContent>
-      {controller.overviewBusy && !controller.overview ? <div className="grid place-items-center py-10"><Spinner className="text-muted-foreground" /></div> : null}
-      {!controller.overviewBusy && !visibleSessions.length ? <Empty className="min-h-48 px-3 py-8"><EmptyMedia><Database /></EmptyMedia><EmptyHeader><EmptyTitle>没有会话</EmptyTitle><EmptyDescription>{query ? "没有匹配结果" : "新建一次对话开始工作"}</EmptyDescription></EmptyHeader></Empty> : null}
-      {grouped.map((group) => <SidebarGroup key={group.label}><SidebarGroupLabel>{group.label}</SidebarGroupLabel><SidebarMenu>{group.sessions.map((session: any) => {
-        const path = String(session.path || "");
-        const active = path === currentPath;
-        return <div key={path || session.id} className="group/session relative min-w-0">
+      {workspace.catalogBusy && !workspace.sessions.length ? <div className="grid place-items-center py-10"><Spinner className="text-muted-foreground" /></div> : null}
+      {!workspace.catalogBusy && !visibleSessions.length ? <Empty className="min-h-48 px-3 py-8"><EmptyMedia><Database /></EmptyMedia><EmptyHeader><EmptyTitle>没有会话</EmptyTitle><EmptyDescription>{query ? "没有匹配结果" : "新建一次对话开始工作"}</EmptyDescription></EmptyHeader></Empty> : null}
+      {grouped.map((group) => <SidebarGroup key={group.label}><SidebarGroupLabel>{group.label}</SidebarGroupLabel><SidebarMenu>{group.sessions.map((session) => {
+        const active = session.id === workspace.activeSessionId;
+        return <div key={session.id} className="group/session relative min-w-0">
           <Button
             variant={active ? "secondary" : "ghost"}
             className="h-auto w-full justify-start pr-9 text-left"
             aria-current={active ? "page" : undefined}
-            onClick={() => { if (!active) void controller.switchSession(path).then(() => onSelectSession?.()).catch((error) => controller.setError(readableError(error))); else onSelectSession?.(); }}
+            onClick={() => { if (!active) workspace.activateSession(session); onSelectSession?.(); }}
           >
             <Page data-icon="inline-start" />
             <span className="flex min-w-0 flex-1 flex-col items-start">
-              <span className="w-full truncate">{sessionLabel(session)}</span>
-              <span className="w-full truncate text-muted-foreground">{relativeTime(session.modified)}</span>
+              <span className="flex w-full min-w-0 items-center gap-1"><span className="min-w-0 flex-1 truncate">{sessionLabel(session)}</span>{session.unread ? <Badge tone="accent">未读</Badge> : null}</span>
+              <span className="flex w-full items-center gap-1 text-muted-foreground"><span className="truncate">{relativeTime(session.modified)}</span>{sessionStatusLabel(session.status) ? <span aria-label={`状态：${sessionStatusLabel(session.status)}`}>· {sessionStatusLabel(session.status)}</span> : null}</span>
             </span>
           </Button>
-          {!active ? <IconButton label={`删除 ${sessionLabel(session)}`} size="icon-xs" className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover/session:opacity-100 focus:opacity-100" onClick={() => setDeleteCandidate(session)}><Trash data-icon="inline-start" /></IconButton> : null}
+          <IconButton label={`删除 ${sessionLabel(session)}`} size="icon-xs" className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover/session:opacity-100 focus:opacity-100" onClick={() => setDeleteCandidate(session)}><Trash data-icon="inline-start" /></IconButton>
         </div>;
       })}</SidebarMenu></SidebarGroup>)}
     </SidebarContent>
     <SidebarFooter><Button variant="ghost" className="w-full justify-start" onClick={onOpenSettings}><Settings data-icon="inline-start" />设置</Button></SidebarFooter>
-    <DeleteSessionDialog controller={controller} session={deleteCandidate} onOpenChange={(open) => { if (!open) setDeleteCandidate(null); }} />
+    <DeleteSessionDialog controller={controller} workspace={workspace} session={deleteCandidate} onOpenChange={(open) => { if (!open) setDeleteCandidate(null); }} />
   </div>;
 }
 
@@ -388,12 +387,13 @@ function RenameSessionDialog({ controller, open, onOpenChange }: { controller: A
   return <Dialog open={open} onOpenChange={onOpenChange}><DialogContent><DialogHeader><DialogTitle>重命名会话</DialogTitle><DialogDescription className="sr-only">修改当前 Agent 会话名称。</DialogDescription></DialogHeader><FieldGroup><Field><FieldLabel className="sr-only" htmlFor="agent-session-name">会话名称</FieldLabel><Input id="agent-session-name" autoFocus value={name} onChange={(event) => setName(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && name.trim()) void save(); }} /></Field></FieldGroup><DialogFooter><DialogClose asChild><Button variant="outline">取消</Button></DialogClose><Button disabled={!name.trim()} onClick={() => void save().catch((error) => controller.setError(readableError(error)))}>保存</Button></DialogFooter></DialogContent></Dialog>;
 }
 
-function DeleteSessionDialog({ controller, session, onOpenChange }: { controller: AgentController; session: Record<string, any> | null; onOpenChange: (open: boolean) => void }) {
+function DeleteSessionDialog({ controller, workspace, session, onOpenChange }: { controller: AgentController; workspace: AgentWorkspaceController; session: AgentWorkspaceSession | null; onOpenChange: (open: boolean) => void }) {
   if (!session) return null;
+  const interruptsTask = session.status === "running" || session.status === "waiting" || session.status === "starting";
   return <EditorConfirmDialog
     open
     title="删除会话？"
-    description={`“${sessionLabel(session)}”将移到系统回收站。`}
+    description={`“${sessionLabel(session)}”将移到系统回收站。${interruptsTask ? "当前任务会立即中断。" : ""}`}
     actions={[
       { id: "delete", label: "删除", tone: "danger" },
       { id: "cancel", label: "取消" }
@@ -405,7 +405,7 @@ function DeleteSessionDialog({ controller, session, onOpenChange }: { controller
         onOpenChange(false);
         return;
       }
-      void controller.runControl({ type: "delete_session", path: session.path })
+      void workspace.deleteSession(session)
         .then(() => onOpenChange(false))
         .catch((error) => controller.setError(readableError(error)));
     }}
@@ -481,18 +481,31 @@ function sessionLabel(session: Record<string, any>) {
   return String(session.name || session.firstMessage || "未命名会话");
 }
 
-function groupSessions(sessions: Record<string, any>[]) {
-  const today: Record<string, any>[] = [];
-  const recent: Record<string, any>[] = [];
-  const older: Record<string, any>[] = [];
+function groupSessions(sessions: AgentWorkspaceSession[]) {
+  const active: AgentWorkspaceSession[] = [];
+  const today: AgentWorkspaceSession[] = [];
+  const recent: AgentWorkspaceSession[] = [];
+  const older: AgentWorkspaceSession[] = [];
   const now = Date.now();
   for (const session of sessions) {
+    if (session.status === "starting" || session.status === "running" || session.status === "waiting") {
+      active.push(session);
+      continue;
+    }
     const age = now - new Date(session.modified || session.created || 0).getTime();
     if (age < 24 * 60 * 60_000) today.push(session);
     else if (age < 7 * 24 * 60 * 60_000) recent.push(session);
     else older.push(session);
   }
-  return [{ label: "今天", sessions: today }, { label: "最近 7 天", sessions: recent }, { label: "更早", sessions: older }].filter((group) => group.sessions.length);
+  return [{ label: "正在进行", sessions: active }, { label: "今天", sessions: today }, { label: "最近 7 天", sessions: recent }, { label: "更早", sessions: older }].filter((group) => group.sessions.length);
+}
+
+function sessionStatusLabel(status: AgentWorkspaceSessionStatus) {
+  if (status === "starting") return "正在启动";
+  if (status === "running") return "执行中";
+  if (status === "waiting") return "等待确认";
+  if (status === "error") return "失败";
+  return "";
 }
 
 function relativeTime(value: unknown) {

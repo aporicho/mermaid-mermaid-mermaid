@@ -209,10 +209,10 @@ export function createWebRuntime(): EditorRuntime {
       return () => undefined;
     },
     async startAgent() { return { status: "unsupported", message: "Pi Agent 仅支持 Electron 桌面版。" }; },
-    async sendAgentRpc(command) { return { accepted: false, id: command.id || "unsupported" }; },
-    async runAgentControl() { throw new Error("Pi Agent 仅支持 Electron 桌面版。"); },
-    async respondAgentExtensionUi() {},
-    async respondAgentHost() {},
+    async listAgentSessions() { return []; }, async listAgentInstances() { return []; },
+    async setAgentInstanceForeground() {}, async deleteAgentSession() {},
+    async sendAgentRpc(command) { return { accepted: false, id: command.id || "unsupported" }; }, async runAgentControl() { throw new Error("Pi Agent 仅支持 Electron 桌面版。"); },
+    async respondAgentExtensionUi() {}, async respondAgentHost() {},
     async stopAgent() {},
     async listenForAgentEvents() { return () => undefined; }
   };

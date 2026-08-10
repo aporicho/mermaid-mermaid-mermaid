@@ -143,7 +143,7 @@ export function MermaidEditor() {
   } = useEditorThemeModel({ initial, setStatus });
   const { spec: canvasNodeGeometrySpec, routes: mermaidEdgeRoutes } = useCanvasNodeGeometryModel({ compiledTheme, fontRevision, edgeRouting, graph });
   const [draftPersistenceReady, setDraftPersistenceReady] = useState(runtime.kind !== "desktop");
-  const [agentOpen, setAgentOpen] = useState(false);
+  const [agentOpen, setAgentOpen] = useState(false); const [agentActivity, setAgentActivity] = useState({ running: 0, waiting: 0, errors: 0, unread: 0 });
   const terminalWindowState = useTerminalWorkspaceWindowState(); const { terminalOpen, setTerminalOpen, detachedTerminalWindows } = terminalWindowState;
   const [themeSettingsOpen, setThemeSettingsOpen] = useState(false);
   const [detachedMarkdownWindows, setDetachedMarkdownWindows] = useState<DetachedMarkdownWindow[]>([]); const [detachedBrowserWindows, setDetachedBrowserWindows] = useState<DetachedBrowserWindow[]>([]); const [detachedHtmlWindows, setDetachedHtmlWindows] = useState<DetachedHtmlWindow[]>([]); const [detachedImageWindows, setDetachedImageWindows] = useState<DetachedImageWindow[]>([]);
@@ -614,7 +614,7 @@ export function MermaidEditor() {
           undoDetachedCsvWindow={auxiliaryWindows.undoCsvWindow} redoDetachedCsvWindow={auxiliaryWindows.redoCsvWindow} setDetachedCsvHeaderMode={auxiliaryWindows.setCsvHeaderMode}
           updateDetachedMarkdownWindow={updateDetachedMarkdownWindow} openMarkdownFileLink={projectResourceOpening.openMarkdownFileLink} markdownFoldBindingFor={markdownFolds.bindingFor}
           onDetachedMarkdownSelectionChange={(panelId, selection) => setDetachedAgentSelections((current) => ({ ...current, [panelId]: selection }))}
-          onStatus={setStatus}
+          onStatus={setStatus} onAgentActivityChange={setAgentActivity}
         />
         <EditorFloatingChrome
           runtime={runtime}
@@ -628,7 +628,7 @@ export function MermaidEditor() {
           secondaryActionsOpen={secondaryActionsOpen}
           leftCollapsed={leftCollapsed}
           rightCollapsed={rightCollapsed}
-          agentOpen={agentOpen}
+          agentOpen={agentOpen} agentActivity={agentActivity}
           terminalOpen={anyTerminalWindowOpen}
           recentFiles={recentFiles}
           projectBusy={projectBusy}

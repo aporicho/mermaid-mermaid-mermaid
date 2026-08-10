@@ -1,10 +1,38 @@
 import type { DocumentKind } from "@/features/mermaid-editor/lib/document-kind";
 
+export type RuntimeAgentSessionTarget =
+  | { kind: "new"; sessionId: string }
+  | { kind: "existing"; sessionId: string; sessionPath: string };
+
 export type RuntimeAgentStartRequest = {
-  agentInstanceId?: string;
-  createNewSession?: boolean;
+  agentInstanceId: string;
+  target: RuntimeAgentSessionTarget;
   cwd?: string;
   projectRoot?: string;
+};
+
+export type RuntimeAgentSessionSummary = {
+  path: string;
+  id: string;
+  cwd: string;
+  name?: string;
+  parentSessionPath?: string;
+  created: string;
+  modified: string;
+  messageCount: number;
+  firstMessage: string;
+};
+
+export type RuntimeAgentInstanceStatus = "starting" | "idle" | "running" | "waiting" | "error";
+
+export type RuntimeAgentInstanceSummary = {
+  agentInstanceId: string;
+  sessionId: string;
+  sessionFile?: string;
+  cwd: string;
+  projectRoot?: string;
+  status: RuntimeAgentInstanceStatus;
+  foreground: boolean;
 };
 export type RuntimeAgentState = {
   cwd: string;
@@ -16,6 +44,7 @@ export type RuntimeAgentState = {
 
 export type RuntimeAgentStartResult = {
   status: "starting" | "ready" | "unsupported";
+  instanceStatus?: RuntimeAgentInstanceStatus;
   state?: RuntimeAgentState | null;
   message?: string;
 };
@@ -41,6 +70,7 @@ export type RuntimeAgentControlCommand = {
 export type RuntimeAgentEvent =
   | { agentInstanceId?: string; lane: "rpc"; payload: Record<string, unknown> }
   | { agentInstanceId?: string; lane: "control"; payload: Record<string, unknown> }
+  | { agentInstanceId: string; lane: "lifecycle"; payload: { status: RuntimeAgentInstanceStatus | "dormant"; sessionId?: string; sessionFile?: string; reason?: string } }
   | { agentInstanceId?: string; lane: "host"; payload: RuntimeAgentHostRequest }
   | { agentInstanceId?: string; lane: "diagnostic"; payload: { level: "info" | "warning" | "error"; message: string } };
 
@@ -104,6 +134,10 @@ export type RuntimeAgentDocumentBridge = {
 
 export type RuntimeAgentOperations = {
   startAgent: (request: RuntimeAgentStartRequest) => Promise<RuntimeAgentStartResult>;
+  listAgentSessions: (request: { cwd?: string }) => Promise<RuntimeAgentSessionSummary[]>;
+  listAgentInstances: () => Promise<RuntimeAgentInstanceSummary[]>;
+  setAgentInstanceForeground: (agentInstanceId: string, foreground: boolean) => Promise<void>;
+  deleteAgentSession: (request: { sessionId: string; sessionPath: string }) => Promise<void>;
   sendAgentRpc: (command: RuntimeAgentRpcCommand) => Promise<RuntimeAgentRpcResponse>;
   runAgentControl: <T = unknown>(command: RuntimeAgentControlCommand) => Promise<T>;
   respondAgentExtensionUi: (response: RuntimeAgentExtensionUiResponse) => Promise<void>;

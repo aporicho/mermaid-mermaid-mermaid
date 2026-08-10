@@ -37,8 +37,8 @@ vi.mock("@/features/mermaid-editor/components/terminal-panel", () => ({
   )
 }));
 
-vi.mock("@/features/mermaid-editor/components/agent/parallel-agent-panel", () => ({
-  ParallelAgentPanel: () => <div />
+vi.mock("@/features/mermaid-editor/components/agent/agent-workspace-panel", () => ({
+  AgentWorkspacePanel: () => <div />
 }));
 
 describe("AgentTerminalWorkspacePanels", () => {
@@ -88,6 +88,7 @@ describe("AgentTerminalWorkspacePanels", () => {
           openTerminalWindow={openTerminalWindow}
           closeTerminalWindow={closeTerminalWindow}
           onStatus={() => undefined}
+          onAgentActivityChange={() => undefined}
         />
       );
     });

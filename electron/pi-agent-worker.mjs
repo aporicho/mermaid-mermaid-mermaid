@@ -160,17 +160,25 @@ function normalizeBootstrap(input) {
     scratch: Boolean(input.scratch),
     sessionDir: input.sessionDir ? resolve(String(input.sessionDir)) : undefined,
     migrationSource: input.migrationSource ? resolve(String(input.migrationSource)) : undefined,
-    createNewSession: Boolean(input.createNewSession)
+    target: normalizeSessionTarget(input.target)
   };
 }
 
 function initialSessionManager(input) {
   if (input.migrationSource && existsSync(input.migrationSource)) {
-    return SessionManager.forkFrom(input.migrationSource, input.cwd, input.sessionDir);
+    return SessionManager.forkFrom(input.migrationSource, input.cwd, input.sessionDir, { id: input.target.sessionId });
   }
-  if (input.createNewSession) return SessionManager.create(input.cwd, input.sessionDir);
-  if (input.scratch) return SessionManager.continueRecent(input.cwd, input.sessionDir);
-  return SessionManager.continueRecent(input.cwd, input.sessionDir);
+  if (input.target.kind === "existing") return SessionManager.open(input.target.sessionPath, input.sessionDir, input.cwd);
+  return SessionManager.create(input.cwd, input.sessionDir, { id: input.target.sessionId });
+}
+
+function normalizeSessionTarget(value) {
+  if (!value || typeof value !== "object" || typeof value.sessionId !== "string") throw new Error("Missing Agent session target.");
+  if (value.kind === "new") return { kind: "new", sessionId: value.sessionId };
+  if (value.kind === "existing" && typeof value.sessionPath === "string") {
+    return { kind: "existing", sessionId: value.sessionId, sessionPath: resolve(value.sessionPath) };
+  }
+  throw new Error("Invalid Agent session target.");
 }
 
 async function resolveProjectTrust({ cwd, scratch, trustStore, startupSettings, cached }) {
