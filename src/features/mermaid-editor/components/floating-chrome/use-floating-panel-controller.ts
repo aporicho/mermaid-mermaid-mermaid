@@ -1,8 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from "react";
 
 import {
-  constrainFloatingPanelOffset,
-  constrainFloatingPanelFrame,
   defaultFloatingPanelDismissMode,
   floatingPanelHiddenOffset,
   floatingPanelZIndex,
@@ -23,13 +21,13 @@ import {
   DEFAULT_WORKSPACE_PANEL_SIZE
 } from "./shared";
 import { isDragExcluded } from "./floating-panel-frame";
+import { useFloatingPanelDrag } from "./use-floating-panel-drag";
 import { useFloatingPanelFrameState } from "./use-floating-panel-frame-state";
 import { useFloatingPanelMotion } from "./use-floating-panel-motion";
 import {
   releaseFloatingPanelPointerCapture,
   useFloatingPanelVisualDraft,
   writeFloatingPanelFrame,
-  type FloatingPanelDragState,
   type FloatingPanelResizeState
 } from "./use-floating-panel-visual-draft";
 
@@ -63,7 +61,6 @@ export function useFloatingPanelController({
 }: FloatingPanelControllerInput) {
   const [mounted, setMounted] = useState(open);
   const [dragOffset, setDragOffset] = useState<FloatingPanelOffset>({ x: 0, y: 0 });
-  const [dragging, setDragging] = useState(false);
   const [resizing, setResizing] = useState(false);
   const minWidth = minSize?.width ?? DEFAULT_WORKSPACE_PANEL_MIN_SIZE.width;
   const minHeight = minSize?.height ?? DEFAULT_WORKSPACE_PANEL_MIN_SIZE.height;
@@ -82,7 +79,11 @@ export function useFloatingPanelController({
   const userAdjustedFrameRef = useRef(false);
   const previousInitialFrameKeyRef = useRef(initialFrameKey);
   const previousInitialFrameSizeKeyRef = useRef(initialFrameSizeKey);
-  const dragStateRef = useRef<FloatingPanelDragState | null>(null);
+  const dragAdjustmentSnapshotRef = useRef<{
+    adjusted: boolean;
+    initialFrameKey?: string;
+    initialFrameSizeKey?: string;
+  } | null>(null);
   const resizeStateRef = useRef<FloatingPanelResizeState | null>(null);
   const visualDraft = useFloatingPanelVisualDraft(rootRef);
   const hiddenOffset = floatingPanelHiddenOffset(placement);
@@ -113,6 +114,42 @@ export function useFloatingPanelController({
     resetFrameOnOpen: resetDragOnOpen,
     windowState
   });
+  const markUserAdjusted = useCallback(() => {
+    dragAdjustmentSnapshotRef.current = {
+      adjusted: userAdjustedFrameRef.current,
+      initialFrameKey,
+      initialFrameSizeKey
+    };
+    userAdjustedFrameRef.current = true;
+  }, [initialFrameKey, initialFrameSizeKey]);
+  const commitUserAdjustment = useCallback(() => {
+    dragAdjustmentSnapshotRef.current = null;
+  }, []);
+  const cancelUserAdjustment = useCallback(() => {
+    const snapshot = dragAdjustmentSnapshotRef.current;
+    dragAdjustmentSnapshotRef.current = null;
+    if (!snapshot) return;
+    if (snapshot.initialFrameKey !== initialFrameKey || snapshot.initialFrameSizeKey !== initialFrameSizeKey) return;
+    userAdjustedFrameRef.current = snapshot.adjusted;
+  }, [initialFrameKey, initialFrameSizeKey]);
+  const drag = useFloatingPanelDrag({
+    open,
+    draggable: draggablePanel,
+    fullscreen,
+    framePanel,
+    rootRef,
+    surfaceRef,
+    dragOffset,
+    setDragOffset,
+    panelFrame,
+    setPanelFrame,
+    viewport,
+    minSize: resolvedMinSize,
+    visualDraft,
+    onActivate: markUserAdjusted,
+    onCommit: commitUserAdjustment,
+    onCancel: cancelUserAdjustment
+  });
   const handleExited = useCallback(() => {
     if (mountStrategy === "unmount") setMounted(false);
   }, [mountStrategy]);
@@ -140,17 +177,27 @@ export function useFloatingPanelController({
 
   function pointerDown(event: ReactPointerEvent<HTMLDivElement>) {
     focusPanel();
-    startDrag(event);
+    drag.start(event);
   }
 
   function pointerMove(event: ReactPointerEvent<HTMLDivElement>) {
-    moveDrag(event);
+    drag.move(event);
     moveResize(event);
   }
 
   function pointerEnd(event: ReactPointerEvent<HTMLDivElement>) {
-    endDrag(event);
+    drag.end(event);
     endResize(event);
+  }
+
+  function pointerCancel(event: ReactPointerEvent<HTMLDivElement>) {
+    drag.cancel(event);
+    cancelResize(event);
+  }
+
+  function pointerCaptureLost(event: ReactPointerEvent<HTMLDivElement>) {
+    drag.lostPointerCapture(event);
+    cancelResize(event);
   }
 
   function doubleClick(event: ReactMouseEvent<HTMLDivElement>) {
@@ -160,96 +207,6 @@ export function useFloatingPanelController({
     const handle = target.closest("[data-floating-panel-drag-handle]");
     if (!handle || !event.currentTarget.contains(handle)) return;
     onWindowStateChange(windowState === "fullscreen" ? "normal" : "fullscreen");
-  }
-
-  function startDrag(event: ReactPointerEvent<HTMLDivElement>) {
-    if (!draggablePanel || !open || event.button !== 0 || fullscreen) return;
-    const target = event.target instanceof Element ? event.target : null;
-    if (!target) return;
-    const handle = target.closest("[data-floating-panel-drag-handle]");
-    if (!handle || !event.currentTarget.contains(handle) || isDragExcluded(target)) return;
-
-    const surface = surfaceRef.current;
-    if (!surface) return;
-    const rect = surface.getBoundingClientRect();
-    visualDraft.clear();
-    dragStateRef.current = {
-      pointerId: event.pointerId,
-      startClientX: event.clientX,
-      startClientY: event.clientY,
-      startOffset: dragOffset,
-      startFrame: framePanel ? panelFrame : undefined,
-      startRect: {
-        left: rect.left,
-        top: rect.top,
-        right: rect.right,
-        bottom: rect.bottom
-      }
-    };
-    userAdjustedFrameRef.current = true;
-    try {
-      event.currentTarget.setPointerCapture(event.pointerId);
-    } catch {
-      // Pointer capture can fail if the pointer is already released by the platform.
-    }
-    setDragging(true);
-    event.preventDefault();
-  }
-
-  function moveDrag(event: ReactPointerEvent<HTMLDivElement>) {
-    const dragState = dragStateRef.current;
-    if (!dragState || dragState.pointerId !== event.pointerId) return;
-    const desired = {
-      x: dragState.startOffset.x + event.clientX - dragState.startClientX,
-      y: dragState.startOffset.y + event.clientY - dragState.startClientY
-    };
-    if (framePanel && dragState.startFrame) {
-      visualDraft.schedule({
-        kind: "frame-drag",
-        origin: dragState.startFrame,
-        frame: constrainFloatingPanelFrame({
-          frame: {
-            ...dragState.startFrame,
-            x: dragState.startFrame.x + event.clientX - dragState.startClientX,
-            y: dragState.startFrame.y + event.clientY - dragState.startClientY
-          },
-          viewport,
-          minSize: resolvedMinSize
-        })
-      });
-      event.preventDefault();
-      return;
-    }
-    visualDraft.schedule({
-      kind: "offset",
-      offset: constrainFloatingPanelOffset({
-        desired,
-        startOffset: dragState.startOffset,
-        startRect: dragState.startRect,
-        viewport: {
-          width: window.innerWidth,
-          height: window.innerHeight
-        }
-      })
-    });
-    event.preventDefault();
-  }
-
-  function endDrag(event: ReactPointerEvent<HTMLDivElement>) {
-    const dragState = dragStateRef.current;
-    if (!dragState || dragState.pointerId !== event.pointerId) return;
-    const draft = visualDraft.flush();
-    if (draft?.kind === "frame-drag") {
-      const root = rootRef.current;
-      if (root) writeFloatingPanelFrame(root, draft.frame);
-      setPanelFrame(draft.frame);
-    } else if (draft?.kind === "offset") {
-      setDragOffset(draft.offset);
-    }
-    visualDraft.clear();
-    dragStateRef.current = null;
-    setDragging(false);
-    releaseFloatingPanelPointerCapture(event.currentTarget, event.pointerId);
   }
 
   function startResize(event: ReactPointerEvent<HTMLDivElement>, handle: FloatingPanelResizeHandle) {
@@ -308,6 +265,17 @@ export function useFloatingPanelController({
     releaseFloatingPanelPointerCapture(event.currentTarget, event.pointerId);
   }
 
+  function cancelResize(event: ReactPointerEvent<HTMLDivElement>) {
+    const resizeState = resizeStateRef.current;
+    if (!resizeState || resizeState.pointerId !== event.pointerId) return;
+    visualDraft.clear();
+    const root = rootRef.current;
+    if (root) writeFloatingPanelFrame(root, resizeState.startFrame);
+    resizeStateRef.current = null;
+    setResizing(false);
+    releaseFloatingPanelPointerCapture(event.currentTarget, event.pointerId);
+  }
+
   const rootStyle: CSSProperties = framePanel
     ? {
         left: renderedFrame.x,
@@ -326,7 +294,7 @@ export function useFloatingPanelController({
     rootRef,
     surfaceRef,
     rootStyle,
-    dragging,
+    dragging: drag.dragging,
     resizing,
     framePanel,
     resizablePanel,
@@ -335,6 +303,9 @@ export function useFloatingPanelController({
     pointerDown,
     pointerMove,
     pointerEnd,
+    pointerCancel,
+    pointerCaptureLost,
+    clickCapture: drag.clickCapture,
     doubleClick,
     focusPanel,
     startResize

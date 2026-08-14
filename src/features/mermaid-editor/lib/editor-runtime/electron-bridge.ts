@@ -72,6 +72,7 @@ export type ElectronBridge = ElectronMarkdownFoldBridge & ElectronMonitoringBrid
   readAppState: () => Promise<EditorDraftState | null>;
   listSystemFonts: () => Promise<RuntimeSystemFont[]>;
   readSystemMemoryInfo: () => Promise<RuntimeSystemMemoryInfo>;
+  readClipboardText: () => Promise<string>; writeClipboardText: (text: string) => Promise<void>;
   writeAppState: (state: EditorDraftState) => Promise<void>;
   readEditorSession: () => Promise<EditorDocumentSession | null>;
   writeEditorSession: (session: EditorDocumentSession) => Promise<void>;

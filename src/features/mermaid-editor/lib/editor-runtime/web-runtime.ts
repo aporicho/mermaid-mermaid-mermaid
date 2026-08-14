@@ -55,7 +55,7 @@ export function createWebRuntime(): EditorRuntime {
     async listSystemFonts() {
       return [];
     },
-    async readSystemMemoryInfo() { const gibibytes = (typeof navigator === "undefined" ? undefined : (navigator as Navigator & { deviceMemory?: number }).deviceMemory); return { totalBytes: Number.isFinite(gibibytes) && gibibytes && gibibytes > 0 ? gibibytes * 1024 ** 3 : null }; },
+    async readSystemMemoryInfo() { const gibibytes = (typeof navigator === "undefined" ? undefined : (navigator as Navigator & { deviceMemory?: number }).deviceMemory); return { totalBytes: Number.isFinite(gibibytes) && gibibytes && gibibytes > 0 ? gibibytes * 1024 ** 3 : null }; }, async readClipboardText() { return navigator.clipboard?.readText ? navigator.clipboard.readText() : ""; }, async writeClipboardText(text) { await navigator.clipboard?.writeText?.(text); },
     async saveDraft(draft) {
       if (typeof window === "undefined") return;
       window.localStorage.setItem(EDITOR_DRAFT_STORAGE_KEY, JSON.stringify(draft));

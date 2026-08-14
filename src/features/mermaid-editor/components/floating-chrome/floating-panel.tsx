@@ -130,7 +130,9 @@ export function FloatingPanel({
       onPointerDownCapture={panel.pointerDown}
       onPointerMove={panel.pointerMove}
       onPointerUp={panel.pointerEnd}
-      onPointerCancel={panel.pointerEnd}
+      onPointerCancel={panel.pointerCancel}
+      onLostPointerCapture={panel.pointerCaptureLost}
+      onClickCapture={panel.clickCapture}
       onDoubleClickCapture={panel.doubleClick}
       onFocusCapture={panel.focusPanel}
       data-floating-panel-kind={kind}

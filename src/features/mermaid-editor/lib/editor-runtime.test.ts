@@ -20,6 +20,8 @@ function electronBridge(): ElectronBridge {
     readAppState: vi.fn(() => Promise.resolve(null)),
     listSystemFonts: vi.fn(() => Promise.resolve([])),
     readSystemMemoryInfo: vi.fn(() => Promise.resolve({ totalBytes: 32 * 1024 ** 3 })),
+    readClipboardText: vi.fn(() => Promise.resolve("clipboard text")),
+    writeClipboardText: vi.fn(() => Promise.resolve()),
     writeAppState: vi.fn(() => Promise.resolve()),
     readEditorSession: vi.fn(() => Promise.resolve(null)),
     writeEditorSession: vi.fn(() => Promise.resolve()),
@@ -176,6 +178,16 @@ describe("createEditorRuntime", () => {
 
     await expect(createEditorRuntime().readSystemMemoryInfo()).resolves.toEqual({ totalBytes: 32 * 1024 ** 3 });
     expect(bridge.readSystemMemoryInfo).toHaveBeenCalledOnce();
+  });
+
+  it("routes text clipboard access through the Electron bridge", async () => {
+    const bridge = electronBridge();
+    window.mmmElectron = bridge;
+    const runtime = createEditorRuntime();
+
+    await expect(runtime.readClipboardText()).resolves.toBe("clipboard text");
+    await runtime.writeClipboardText("terminal selection");
+    expect(bridge.writeClipboardText).toHaveBeenCalledWith("terminal selection");
   });
 
   it("forwards Markdown image context and lets the preload import a File by its native path", async () => {

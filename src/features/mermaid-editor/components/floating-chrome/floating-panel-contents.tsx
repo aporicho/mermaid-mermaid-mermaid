@@ -59,14 +59,13 @@ export function FloatingPanelContents({
         {workspaceHeader?.autoHide && !workspaceHeader.visible ? <div
           aria-hidden
           className="absolute inset-x-0 top-0 z-[3] cursor-grab touch-none active:cursor-grabbing"
-          style={{ height: workspaceHeader.autoHideLayout === "flow"
-            ? `${WORKSPACE_PANEL_HEADER_REVEAL_HOT_ZONE_PX}px`
-            : workspacePanelHeaderCssHeight(workspaceHeader.headerHeightPx) }}
+          style={{ height: `${WORKSPACE_PANEL_HEADER_REVEAL_HOT_ZONE_PX}px` }}
           data-floating-panel-header-hot-zone
           data-floating-panel-header-hot-zone-layout={workspaceHeader.autoHideLayout}
           data-floating-panel-drag-handle
           onPointerEnter={workspaceHeader.showFromHotZone}
           onPointerLeave={workspaceHeader.leaveHotZone}
+          onPointerDown={workspaceHeader.showFromHotZone}
         /> : null}
         {children}
       </WorkspacePanelHeaderProvider>
@@ -80,8 +79,4 @@ export function FloatingPanelContents({
       </div> : null}
     </div>
   </div>;
-}
-
-export function workspacePanelHeaderCssHeight(headerHeightPx: number) {
-  return headerHeightPx > 0 ? `${headerHeightPx}px` : "var(--theme-panel-header-height)";
 }

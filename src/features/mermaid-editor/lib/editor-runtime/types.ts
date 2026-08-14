@@ -197,6 +197,7 @@ export type EditorRuntime = RuntimeAgentOperations & RuntimeCsvFileOperations & 
   loadSavedState: () => Promise<EditorDraftState | null>;
   listSystemFonts: () => Promise<RuntimeSystemFont[]>;
   readSystemMemoryInfo: () => Promise<RuntimeSystemMemoryInfo>;
+  readClipboardText: () => Promise<string>; writeClipboardText: (text: string) => Promise<void>;
   saveDraft: (draft: EditorDraftState) => Promise<void>;
   openFile: () => Promise<RuntimeOpenFileResult>;
   openFilePath: (path: string) => Promise<RuntimeOpenFileResult>;

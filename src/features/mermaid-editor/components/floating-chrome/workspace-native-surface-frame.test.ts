@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 
-import { workspacePanelHeaderCssHeight } from "@/features/mermaid-editor/components/floating-chrome/floating-panel-contents";
 import { workspaceNativeSurfaceTopInset } from "@/features/mermaid-editor/components/floating-chrome/workspace-native-surface-frame";
 
 describe("workspace native surface frame", () => {
@@ -9,10 +8,5 @@ describe("workspace native surface frame", () => {
     expect(workspaceNativeSurfaceTopInset(true, true)).toBe("var(--theme-panel-header-height)");
     expect(workspaceNativeSurfaceTopInset(true, true, 42)).toBe("42px");
     expect(workspaceNativeSurfaceTopInset(true, false, 42)).toBe("0px");
-  });
-
-  it("formats the visible titlebar inset from the measured titlebar", () => {
-    expect(workspacePanelHeaderCssHeight(0)).toBe("var(--theme-panel-header-height)");
-    expect(workspacePanelHeaderCssHeight(42)).toBe("42px");
   });
 });

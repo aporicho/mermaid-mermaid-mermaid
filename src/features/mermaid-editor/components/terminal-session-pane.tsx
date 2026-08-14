@@ -15,6 +15,7 @@ import { TerminalHistoryScrollArea } from "@/features/mermaid-editor/components/
 import type { EditorRuntime, RuntimeTerminalSession } from "@/features/mermaid-editor/lib/editor-runtime";
 import type { EditorTheme, XtermThemeTokens } from "@/features/mermaid-editor/lib/editor-theme";
 import { fitTerminalWithoutNativeScrollbar } from "@/features/mermaid-editor/lib/terminal-fit";
+import { createTerminalClipboardKeyHandler, isMacPlatform } from "@/features/mermaid-editor/lib/terminal-clipboard-shortcuts";
 import { cn } from "@/lib/utils";
 
 export type TerminalSessionPhase = "idle" | "opening" | "running" | "exited" | "unsupported" | "error";
@@ -252,6 +253,14 @@ export const TerminalSessionPane = forwardRef<TerminalSessionPaneHandle, Termina
     const fitAddon = new FitAddon();
     terminal.loadAddon(fitAddon);
     terminal.open(container);
+    terminal.attachCustomKeyEventHandler(createTerminalClipboardKeyHandler({
+      terminal,
+      readText: () => runtimeRef.current.readClipboardText(),
+      writeText: (text) => runtimeRef.current.writeClipboardText(text),
+      isMac: isMacPlatform(),
+      isActive: () => !disposedRef.current,
+      onError: (error) => onStatusRef.current(`终端剪贴板操作失败：${error instanceof Error ? error.message : String(error)}`)
+    }));
     terminalRef.current = terminal;
     fitAddonRef.current = fitAddon;
     setTerminalInstance(terminal);

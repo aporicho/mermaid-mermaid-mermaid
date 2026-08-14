@@ -40,6 +40,7 @@ describe("floating chrome", () => {
     container = null;
     vi.clearAllTimers();
     vi.useRealTimers();
+    vi.restoreAllMocks();
     vi.unstubAllGlobals();
   });
 
@@ -95,8 +96,9 @@ describe("floating chrome", () => {
     initialFrameSize,
     initialFrameSizeKey,
     leadingActions,
-    center
-  }: { open?: boolean; titlebarAutoHide?: boolean; titlebarAutoHideLayout?: "overlay" | "flow"; initialFrameSize?: { width: number; height: number }; initialFrameSizeKey?: string; leadingActions?: ReactNode; center?: ReactNode } = {}) {
+    center,
+    status
+  }: { open?: boolean; titlebarAutoHide?: boolean; titlebarAutoHideLayout?: "overlay" | "flow"; initialFrameSize?: { width: number; height: number }; initialFrameSizeKey?: string; leadingActions?: ReactNode; center?: ReactNode; status?: ReactNode } = {}) {
     createContainer();
 
     function render(next: { open: boolean; titlebarAutoHide: boolean; titlebarAutoHideLayout?: "overlay" | "flow"; initialFrameSize?: { width: number; height: number }; initialFrameSizeKey?: string }) {
@@ -126,6 +128,7 @@ describe("floating chrome", () => {
                   title="测试面板"
                   leadingActions={leadingActions}
                   center={center}
+                  status={status}
                   actions={<button type="button" data-testid="business-action">业务操作</button>}
                 />
                 <button type="button" data-testid="workspace-content">内容</button>
@@ -170,10 +173,12 @@ describe("floating chrome", () => {
     act(() => target.dispatchEvent(event));
   }
 
-  function dispatchDragPointer(target: Element, type: "pointerdown" | "pointermove" | "pointerup", x: number, y: number) {
-    const event = new MouseEvent(type, { bubbles: true, button: 0, clientX: x, clientY: y });
+  function dispatchDragPointer(target: Element, type: "pointerdown" | "pointermove" | "pointerup" | "pointercancel", x: number, y: number, pointerType = "mouse") {
+    const event = new MouseEvent(type, { bubbles: true, cancelable: true, button: 0, clientX: x, clientY: y });
     Object.defineProperty(event, "pointerId", { value: 7 });
+    Object.defineProperty(event, "pointerType", { value: pointerType });
     act(() => target.dispatchEvent(event));
+    return event;
   }
 
   it("does not wrap workspace content in fixed-position containing block classes", () => {
@@ -511,6 +516,77 @@ describe("floating chrome", () => {
     expect(Number.parseFloat(panel.style.top)).toBe(initialTop + 25);
   });
 
+  it("keeps a titlebar press pending until mouse movement reaches the drag threshold", () => {
+    const workspace = renderWorkspaceHeaderPanel({ titlebarAutoHide: false });
+    const panel = workspace.panel();
+    const header = workspace.header();
+    const initialLeft = Number.parseFloat(panel.style.left);
+
+    const down = dispatchDragPointer(header, "pointerdown", 100, 100);
+    expect(down.defaultPrevented).toBe(false);
+    expect(panel.dataset.floatingPanelDragging).toBe("false");
+
+    const jitter = dispatchDragPointer(panel, "pointermove", 103, 100);
+    expect(jitter.defaultPrevented).toBe(false);
+    expect(panel.dataset.floatingPanelDragging).toBe("false");
+    dispatchDragPointer(panel, "pointerup", 103, 100);
+    expect(Number.parseFloat(panel.style.left)).toBe(initialLeft);
+
+    workspace.rerender({ open: true, titlebarAutoHide: false, initialFrameSize: { width: 800, height: 600 } });
+    expect(panel.style.width).toBe("800px");
+    expect(panel.style.height).toBe("600px");
+  });
+
+  it("uses separate mouse and touch thresholds before activating a panel drag", () => {
+    const workspace = renderWorkspaceHeaderPanel({ titlebarAutoHide: false });
+    const panel = workspace.panel();
+    const header = workspace.header();
+    const initialLeft = Number.parseFloat(panel.style.left);
+
+    dispatchDragPointer(header, "pointerdown", 100, 100);
+    const activatedMouseMove = dispatchDragPointer(panel, "pointermove", 104, 100);
+    expect(activatedMouseMove.defaultPrevented).toBe(true);
+    expect(panel.dataset.floatingPanelDragging).toBe("true");
+    dispatchDragPointer(panel, "pointerup", 104, 100);
+    expect(Number.parseFloat(panel.style.left)).toBe(initialLeft + 4);
+
+    dispatchDragPointer(header, "pointerdown", 200, 100, "touch");
+    dispatchDragPointer(panel, "pointermove", 207, 100, "touch");
+    expect(panel.dataset.floatingPanelDragging).toBe("false");
+    dispatchDragPointer(panel, "pointermove", 208, 100, "touch");
+    expect(panel.dataset.floatingPanelDragging).toBe("true");
+    dispatchDragPointer(panel, "pointerup", 208, 100, "touch");
+    expect(Number.parseFloat(panel.style.left)).toBe(initialLeft + 12);
+  });
+
+  it("rolls an activated drag back to its starting frame when the pointer is cancelled", () => {
+    const workspace = renderWorkspaceHeaderPanel({ titlebarAutoHide: false });
+    const panel = workspace.panel();
+    const initialLeft = Number.parseFloat(panel.style.left);
+    const initialTop = Number.parseFloat(panel.style.top);
+    const frameCallbacks: FrameRequestCallback[] = [];
+    vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
+      frameCallbacks.push(callback);
+      return frameCallbacks.length;
+    });
+    vi.spyOn(window, "cancelAnimationFrame").mockImplementation(() => undefined);
+
+    dispatchDragPointer(workspace.header(), "pointerdown", 100, 100);
+    dispatchDragPointer(panel, "pointermove", 140, 125);
+    act(() => frameCallbacks[0](performance.now()));
+    expect(panel.style.transform).toBe("translate3d(40px, 25px, 0)");
+
+    dispatchDragPointer(panel, "pointercancel", 140, 125);
+    expect(panel.style.transform).toBe("");
+    expect(Number.parseFloat(panel.style.left)).toBe(initialLeft);
+    expect(Number.parseFloat(panel.style.top)).toBe(initialTop);
+    expect(panel.dataset.floatingPanelDragging).toBe("false");
+
+    workspace.rerender({ open: true, titlebarAutoHide: false, initialFrameSize: { width: 800, height: 600 } });
+    expect(panel.style.width).toBe("800px");
+    expect(panel.style.height).toBe("600px");
+  });
+
   it("coalesces workspace drag samples into one visual frame and commits position on release", () => {
     const { panel } = renderWorkspacePanel();
     const header = requiredElement<HTMLElement>("[data-workspace-panel-header='true']");
@@ -542,14 +618,14 @@ describe("floating chrome", () => {
     expect(panel.dataset.floatingPanelGesture).toBe("false");
   });
 
-  it("opens workspace headers hidden and reveals them from a full-height titlebar drag zone", () => {
+  it("opens workspace headers hidden and reveals them from an 8px top-edge drag zone", () => {
     vi.useFakeTimers();
     const panel = renderWorkspaceHeaderPanel();
 
     expect(panel.header().dataset.workspacePanelHeaderState).toBe("hidden");
     expect(panel.header().className).toContain("absolute");
     expect(panel.header().className).toContain("motion-reduce:transition-none");
-    expect(panel.hotZone()?.style.height).toBe("var(--theme-panel-header-height)");
+    expect(panel.hotZone()?.style.height).toBe("8px");
     expect(panel.hotZone()?.hasAttribute("data-floating-panel-drag-handle")).toBe(true);
 
     const hotZone = panel.hotZone();
@@ -566,6 +642,8 @@ describe("floating chrome", () => {
     dispatchPointer(hotZone, "pointerover");
     expect(panel.header().dataset.workspacePanelHeaderState).toBe("visible");
     expect(panel.hotZone()).toBeNull();
+    dispatchPointer(panel.header(), "pointerover");
+    dispatchPointer(panel.header(), "pointerout");
     advanceHeaderDelay();
     expect(panel.header().dataset.workspacePanelHeaderState).toBe("hidden");
   });
@@ -587,6 +665,8 @@ describe("floating chrome", () => {
     expect(panel.header().className).toContain("h-[var(--theme-panel-header-height)]");
     expect(panel.hotZone()).toBeNull();
 
+    dispatchPointer(panel.header(), "pointerover");
+    dispatchPointer(panel.header(), "pointerout");
     advanceHeaderDelay();
     expect(panel.header().dataset.workspacePanelHeaderState).toBe("hidden");
     expect(panel.header().className).toContain("h-0");
@@ -646,7 +726,7 @@ describe("floating chrome", () => {
     ]);
   });
 
-  it("lets passive center content drag the full visible titlebar while keeping form controls interactive", () => {
+  it("lets passive center titlebar content drag while keeping form controls interactive", () => {
     const passivePanel = renderWorkspaceHeaderPanel({
       titlebarAutoHide: false,
       center: <><span data-testid="passive-titlebar-center">图片信息</span><input data-testid="titlebar-input" /></>
@@ -654,6 +734,7 @@ describe("floating chrome", () => {
     const panel = passivePanel.panel();
     const initialLeft = Number.parseFloat(panel.style.left);
     const passiveCenter = requiredElement<HTMLElement>("[data-testid='passive-titlebar-center']");
+    expect(passiveCenter.parentElement?.hasAttribute("data-window-titlebar-drag-exclude")).toBe(false);
 
     dispatchDragPointer(passiveCenter, "pointerdown", 100, 100);
     dispatchDragPointer(panel, "pointermove", 132, 100);
@@ -666,6 +747,44 @@ describe("floating chrome", () => {
     dispatchDragPointer(panel, "pointermove", 180, 100);
     dispatchDragPointer(panel, "pointerup", 180, 100);
     expect(Number.parseFloat(panel.style.left)).toBe(movedLeft);
+  });
+
+  it("lets an explicitly allowed titlebar control drag and suppresses its generated click", () => {
+    const onClick = vi.fn();
+    const workspace = renderWorkspaceHeaderPanel({
+      titlebarAutoHide: false,
+      center: <button type="button" data-testid="draggable-titlebar-tab" data-window-titlebar-drag-allow onClick={onClick}>终端 1</button>
+    });
+    const panel = workspace.panel();
+    const tab = requiredElement<HTMLButtonElement>("[data-testid='draggable-titlebar-tab']");
+    const initialLeft = Number.parseFloat(panel.style.left);
+
+    dispatchDragPointer(tab, "pointerdown", 100, 100);
+    dispatchDragPointer(panel, "pointermove", 124, 100);
+    dispatchDragPointer(panel, "pointerup", 124, 100);
+    const click = new MouseEvent("click", { bubbles: true, cancelable: true, button: 0 });
+    act(() => tab.dispatchEvent(click));
+
+    expect(Number.parseFloat(panel.style.left)).toBe(initialLeft + 24);
+    expect(click.defaultPrevented).toBe(true);
+    expect(onClick).not.toHaveBeenCalled();
+  });
+
+  it("does not drag from semantic controls embedded in the title cluster", () => {
+    const workspace = renderWorkspaceHeaderPanel({
+      titlebarAutoHide: false,
+      status: <div role="slider" data-testid="titlebar-slider" aria-valuenow={50} />
+    });
+    const panel = workspace.panel();
+    const initialLeft = Number.parseFloat(panel.style.left);
+    const slider = requiredElement<HTMLElement>("[data-testid='titlebar-slider']");
+
+    dispatchDragPointer(slider, "pointerdown", 100, 100);
+    dispatchDragPointer(panel, "pointermove", 140, 100);
+    dispatchDragPointer(panel, "pointerup", 140, 100);
+
+    expect(Number.parseFloat(panel.style.left)).toBe(initialLeft);
+    expect(panel.dataset.floatingPanelDragging).toBe("false");
   });
 
   it("keeps the visible auto-hide header above window content", () => {
@@ -681,8 +800,9 @@ describe("floating chrome", () => {
     const hotZone = panel.hotZone();
     if (!hotZone) throw new Error("Expected the workspace titlebar hot zone.");
 
-    dispatchPointer(hotZone, "pointerdown");
+    dispatchDragPointer(hotZone, "pointerdown", 4, 4);
     expect(panel.header().dataset.workspacePanelHeaderState).toBe("visible");
+    dispatchDragPointer(panel.panel(), "pointermove", 20, 20);
     advanceHeaderDelay();
     expect(panel.header().dataset.workspacePanelHeaderState).toBe("visible");
   });

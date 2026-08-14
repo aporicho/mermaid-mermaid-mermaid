@@ -151,8 +151,8 @@ export function TerminalPanel({
           title={<span className="terminal-heading">{windowOrdinal === 1 ? "终端" : `终端 ${windowOrdinal}`}</span>}
           titleTooltip={activeMeta?.session?.cwd || cwd || "桌面终端"}
           center={tabs.length ? (
-            <div className="min-w-0 flex-1 overflow-x-auto">
-              <TabsList variant="line" className="h-full min-w-max justify-start p-0" aria-label="终端会话" data-window-titlebar-drag-exclude>
+            <div className="flex min-w-0 flex-1 items-center overflow-x-auto">
+              <TabsList variant="line" className="h-full min-w-max justify-start p-0" aria-label="终端会话">
                 {tabs.map((tab) => {
                   const meta = metadata[tab.id];
                   const label = `终端 ${tab.ordinal}`;
@@ -166,8 +166,13 @@ export function TerminalPanel({
                         }}
                         value={tab.id}
                         className="w-full justify-start pr-8"
+                        data-window-titlebar-drag-allow
                         aria-label={`${label}${statusLabel ? `，${statusLabel}` : ""}`}
                         title={meta?.session ? `${label} · ${meta.session.shellLabel} · ${meta.session.cwd}` : `${label}${statusLabel ? ` · ${statusLabel}` : ""}`}
+                        onMouseDown={(event) => {
+                          if (event.button === 0 && !event.ctrlKey) event.preventDefault();
+                        }}
+                        onClick={() => setActiveTabId(tab.id)}
                       >
                         <span className="truncate">{label}</span>
                       </TabsTrigger>

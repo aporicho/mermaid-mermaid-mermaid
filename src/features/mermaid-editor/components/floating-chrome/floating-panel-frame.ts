@@ -58,9 +58,32 @@ export function initialFloatingPanelFrame({
 }
 
 export function isDragExcluded(target: Element) {
-  return Boolean(
-    target.closest(
-      "button,a,input,textarea,select,[contenteditable='true'],[role='button'],[data-floating-panel-drag-exclude],[data-window-titlebar-drag-exclude]"
-    )
+  if (target.closest("[data-floating-panel-drag-exclude],[data-floating-panel-interactive],[data-window-titlebar-drag-exclude]")) {
+    return true;
+  }
+
+  const allowedControl = target.closest("[data-window-titlebar-drag-allow]");
+  const interactiveControl = target.closest(
+    [
+      "button",
+      "a[href]",
+      "input", "textarea",
+      "select",
+      "[contenteditable]:not([contenteditable='false'])",
+      "[draggable='true']",
+      "[role='button']",
+      "[role='checkbox']",
+      "[role='link']",
+      "[role='menuitem']",
+      "[role='option']",
+      "[role='radio']",
+      "[role='slider']",
+      "[role='spinbutton']",
+      "[role='switch']",
+      "[role='tab']",
+      "[role='textbox']"
+    ].join(",")
   );
+
+  return Boolean(interactiveControl && interactiveControl !== allowedControl);
 }

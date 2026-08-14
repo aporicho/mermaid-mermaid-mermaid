@@ -3,18 +3,8 @@ import { useCallback, useEffect, useRef, type RefObject } from "react";
 import type {
   FloatingPanelFrame,
   FloatingPanelOffset,
-  FloatingPanelRect,
   FloatingPanelResizeHandle
 } from "@/features/mermaid-editor/lib/floating-chrome";
-
-export type FloatingPanelDragState = {
-  pointerId: number;
-  startClientX: number;
-  startClientY: number;
-  startOffset: FloatingPanelOffset;
-  startRect: FloatingPanelRect;
-  startFrame?: FloatingPanelFrame;
-};
 
 export type FloatingPanelResizeState = {
   pointerId: number;
@@ -24,7 +14,7 @@ export type FloatingPanelResizeState = {
   handle: FloatingPanelResizeHandle;
 };
 
-type FloatingPanelVisualDraft =
+export type FloatingPanelVisualDraft =
   | { kind: "frame-drag"; frame: FloatingPanelFrame; origin: FloatingPanelFrame }
   | { kind: "frame-resize"; frame: FloatingPanelFrame }
   | { kind: "offset"; offset: FloatingPanelOffset };
@@ -85,6 +75,8 @@ export function useFloatingPanelVisualDraft(rootRef: RefObject<HTMLDivElement | 
 
   return { clear, flush, schedule };
 }
+
+export type FloatingPanelVisualDraftController = ReturnType<typeof useFloatingPanelVisualDraft>;
 
 export function writeFloatingPanelFrame(element: HTMLElement, frame: FloatingPanelFrame) {
   element.style.left = `${frame.x}px`;

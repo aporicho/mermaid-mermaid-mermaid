@@ -12,6 +12,7 @@ const xtermMock = vi.hoisted(() => {
   const instances: TerminalMock[] = [];
 
   class TerminalMock {
+    private dataHandler: ((data: string) => void) | null = null;
     options: Record<string, unknown>;
     cols = 80;
     rows = 24;
@@ -24,10 +25,14 @@ const xtermMock = vi.hoisted(() => {
     dispose = vi.fn();
     loadAddon = vi.fn();
     open = vi.fn();
+    attachCustomKeyEventHandler = vi.fn();
+    hasSelection = vi.fn(() => true);
+    getSelection = vi.fn(() => "selected terminal output");
+    paste = vi.fn((data: string) => this.dataHandler?.(data));
     scrollToLine = vi.fn((line: number) => {
       this.buffer.active.viewportY = line;
     });
-    onData = vi.fn(() => disposable());
+    onData = vi.fn((handler: (data: string) => void) => { this.dataHandler = handler; return disposable(); });
     onScroll = vi.fn(() => disposable());
     onWriteParsed = vi.fn(() => disposable());
     onResize = vi.fn(() => disposable());
@@ -109,8 +114,9 @@ describe("TerminalPanel", () => {
     await render(true, "project:/project", "/project");
     expect(harness.openTerminal).toHaveBeenCalledTimes(1);
     const tabList = container.querySelector<HTMLElement>("[role='tablist']");
-    expect(tabList?.hasAttribute("data-window-titlebar-drag-exclude")).toBe(true);
+    expect(tabList?.hasAttribute("data-window-titlebar-drag-exclude")).toBe(false);
     expect(tabList?.parentElement?.hasAttribute("data-window-titlebar-drag-exclude")).toBe(false);
+    expect(container.querySelector("[role='tab']")?.hasAttribute("data-window-titlebar-drag-allow")).toBe(true);
     expect(container.querySelector(".terminal-panel")?.className).toContain("isolate");
 
     await click("新建终端");
@@ -129,6 +135,22 @@ describe("TerminalPanel", () => {
     await act(async () => root.unmount());
     expect(harness.closeTerminal).toHaveBeenCalledWith("session-one");
     root = createRoot(container);
+  });
+
+  it("wires terminal copy and paste shortcuts to the runtime clipboard", async () => {
+    const harness = createRuntimeHarness([createSession("session-one", "/project")]);
+    const render = createRenderer(harness.runtime);
+    await render(true, "project:/project", "/project");
+    const terminal = xtermMock.instances[0];
+    const handler = terminal.attachCustomKeyEventHandler.mock.calls[0]?.[0] as (event: KeyboardEvent) => boolean;
+
+    expect(handler(new KeyboardEvent("keydown", { key: "c", ctrlKey: true, shiftKey: true }))).toBe(false);
+    await flushPromises();
+    expect(harness.writeClipboardText).toHaveBeenCalledWith("selected terminal output");
+    expect(handler(new KeyboardEvent("keydown", { key: "v", ctrlKey: true, shiftKey: true }))).toBe(false);
+    await flushPromises();
+    expect(terminal.paste).toHaveBeenCalledWith("clipboard input");
+    expect(harness.writeTerminal).toHaveBeenCalledWith("session-one", "clipboard input");
   });
 
   it("replaces every tab when the terminal context changes and waits for a hidden panel to reopen", async () => {
@@ -251,14 +273,19 @@ function createRuntimeHarness(sessions: Array<ReturnType<typeof createSession>>)
   const openTerminal = vi.fn();
   for (const session of sessions) openTerminal.mockResolvedValueOnce({ status: "opened", session });
   const closeTerminal = vi.fn().mockResolvedValue(undefined);
+  const readClipboardText = vi.fn().mockResolvedValue("clipboard input");
+  const writeClipboardText = vi.fn().mockResolvedValue(undefined);
+  const writeTerminal = vi.fn().mockResolvedValue(undefined);
   const exitHandlers: Array<(event: RuntimeTerminalExitEvent) => void> = [];
   const runtime = {
     kind: "desktop",
     listTerminalShells: vi.fn().mockResolvedValue([{ id: "default", label: "默认", command: "bash", available: true }]),
     openTerminal,
     closeTerminal,
+    readClipboardText,
+    writeClipboardText,
     resizeTerminal: vi.fn().mockResolvedValue(undefined),
-    writeTerminal: vi.fn().mockResolvedValue(undefined),
+    writeTerminal,
     listenForTerminalData: vi.fn().mockResolvedValue(() => undefined),
     listenForTerminalExit: vi.fn((handler: (event: RuntimeTerminalExitEvent) => void) => {
       exitHandlers.push(handler);
@@ -269,6 +296,8 @@ function createRuntimeHarness(sessions: Array<ReturnType<typeof createSession>>)
     runtime,
     openTerminal,
     closeTerminal,
+    writeTerminal,
+    writeClipboardText,
     emitExit(event: RuntimeTerminalExitEvent) {
       for (const handler of exitHandlers) handler(event);
     }

@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, WebContentsView, dialog, ipcMain, net, protocol, shell } = require("electron");
+const { app, BrowserWindow, Menu, WebContentsView, clipboard, dialog, ipcMain, net, protocol, shell } = require("electron");
 const fsp = require("node:fs/promises");
 const os = require("node:os");
 const path = require("node:path");
@@ -271,6 +271,8 @@ function registerIpc() {
   ipcMain.handle("mmm:image:resolve-src", (_event, request) => resolveImageAssetSrc(request?.documentPath, request?.src, request?.context));
   ipcMain.handle("mmm:link-preview:resolve", (_event, request) => resolveLinkPreview(request));
   ipcMain.handle("mmm:pending-files:take", (event) => takePendingOpenFiles(event.sender.id));
+  ipcMain.handle("mmm:clipboard:read-text", () => clipboard.readText());
+  ipcMain.handle("mmm:clipboard:write-text", (_event, text) => clipboard.writeText(typeof text === "string" ? text : ""));
   registerPiAgentIpc({ ipcMain, manager: piAgentManager });
   ipcMain.handle("mmm:terminal:list-shells", () => terminalManager.listShells());
   ipcMain.handle("mmm:terminal:open", (_event, request) => terminalManager.open(request));

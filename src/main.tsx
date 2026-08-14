@@ -25,6 +25,9 @@ async function renderApplication() {
   if (import.meta.env.MODE === "e2e" && window.location.pathname === "/__e2e__/canvas-performance") {
     Component = (await import("@/e2e/canvas-performance-harness")).CanvasPerformanceE2EHarness;
   }
+  if (import.meta.env.MODE === "e2e" && window.location.pathname === "/__e2e__/floating-chrome") {
+    Component = (await import("@/e2e/floating-chrome-harness")).FloatingChromeE2EHarness;
+  }
 
   createRoot(root!).render(
     <React.StrictMode>

@@ -19,21 +19,21 @@ const {
 };
 
 describe("embedded browser titlebar hot zone", () => {
-  it("uses the complete measured titlebar height", () => {
-    expect(mouseInsideTitlebarHotZone({ type: "mouseMove", y: 39 }, 40)).toBe(true);
-    expect(mouseInsideTitlebarHotZone({ type: "mouseMove", y: 40 }, 40)).toBe(false);
-    expect(mouseInsideTitlebarHotZone({ type: "mouseLeave", y: 1 }, 40)).toBe(false);
-    expect(normalizeTitlebarHotZoneHeight(39.2)).toBe(40);
+  it("intercepts only coordinates inside the configured top-edge strip", () => {
+    expect(mouseInsideTitlebarHotZone({ type: "mouseMove", y: 7 }, 8)).toBe(true);
+    expect(mouseInsideTitlebarHotZone({ type: "mouseMove", y: 8 }, 8)).toBe(false);
+    expect(mouseInsideTitlebarHotZone({ type: "mouseLeave", y: 1 }, 8)).toBe(false);
+    expect(normalizeTitlebarHotZoneHeight(7.2)).toBe(8);
   });
 
   it("deduplicates transitions and releases the page when disabled", () => {
     const webContents = new EventEmitter();
     const send = vi.fn();
-    const hotZone = createEmbeddedBrowserTitlebarHotZone({ webContents, initialHeight: 40, send });
+    const hotZone = createEmbeddedBrowserTitlebarHotZone({ webContents, initialHeight: 8, send });
     const prevented = vi.fn();
 
-    webContents.emit("before-mouse-event", { preventDefault: prevented }, { type: "mouseMove", y: 20 });
-    webContents.emit("before-mouse-event", { preventDefault: prevented }, { type: "mouseMove", y: 18 });
+    webContents.emit("before-mouse-event", { preventDefault: prevented }, { type: "mouseMove", y: 2 });
+    webContents.emit("before-mouse-event", { preventDefault: prevented }, { type: "mouseMove", y: 6 });
     expect(send).toHaveBeenCalledTimes(1);
     expect(send).toHaveBeenLastCalledWith(true);
     expect(prevented).toHaveBeenCalledTimes(2);

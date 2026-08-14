@@ -49,6 +49,8 @@ contextBridge.exposeInMainWorld("mmmElectron", {
   readSystemMemoryInfo() {
     return ipcRenderer.invoke("mmm:system:memory-info");
   },
+  readClipboardText() { return ipcRenderer.invoke("mmm:clipboard:read-text"); },
+  writeClipboardText(text) { return ipcRenderer.invoke("mmm:clipboard:write-text", text); },
   writeAppState(state) {
     return ipcRenderer.invoke("mmm:app-state:write", state);
   },

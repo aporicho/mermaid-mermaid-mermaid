@@ -165,12 +165,15 @@ describe("interaction architecture contract", () => {
       { path: "src/features/mermaid-editor/components/floating-chrome/floating-panel-frame.ts", maxLines: 90 },
       { path: "src/features/mermaid-editor/components/floating-chrome/motion-presence.tsx", maxLines: 120 },
       { path: "src/features/mermaid-editor/components/floating-chrome/shared.ts", maxLines: 70 },
+      { path: "src/features/mermaid-editor/components/floating-chrome/use-floating-panel-click-suppression.ts", maxLines: 50 },
       { path: "src/features/mermaid-editor/components/floating-chrome/use-floating-panel-controller.ts", maxLines: 350 },
+      { path: "src/features/mermaid-editor/components/floating-chrome/use-floating-panel-drag.ts", maxLines: 220 },
       { path: "src/features/mermaid-editor/components/floating-chrome/use-floating-panel-frame-state.ts", maxLines: 130 },
       { path: "src/features/mermaid-editor/components/floating-chrome/use-floating-panel-motion.ts", maxLines: 130 },
       { path: "src/features/mermaid-editor/components/floating-chrome/workspace-floating-window.tsx", maxLines: 200 },
       { path: "src/features/mermaid-editor/components/floating-chrome/workspace-window-action-menu.tsx", maxLines: 80 },
       { path: "src/features/mermaid-editor/components/floating-chrome/workspace-panel-header-context.tsx", maxLines: 180 },
+      { path: "src/features/mermaid-editor/components/floating-chrome/use-workspace-panel-header-auto-hide.ts", maxLines: 180 },
       { path: "src/features/mermaid-editor/components/editor-ui/window-titlebar.tsx", maxLines: 70 },
       { path: "src/features/mermaid-editor/components/editor-menus.tsx", maxLines: 20 },
       { path: "src/features/mermaid-editor/components/editor-menus/file-menu.tsx", maxLines: 150 },
@@ -623,6 +626,7 @@ describe("interaction architecture contract", () => {
     expect(controller).toContain("export function useFloatingPanelController");
     expect(controller).toContain("useFloatingPanelFrameState");
     expect(controller).toContain("useFloatingPanelMotion");
+    expect(controller).toContain("useFloatingPanelDrag");
     expect(frame).toContain("export function useFloatingPanelFrameState");
     expect(motion).toContain("export function useFloatingPanelMotion");
     expect(buttons).toContain("export const FloatingIconButton");

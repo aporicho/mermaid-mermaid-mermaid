@@ -51,7 +51,7 @@ export function createElectronRuntime(): EditorRuntime {
     async listSystemFonts() {
       return bridge.listSystemFonts();
     },
-    async readSystemMemoryInfo() { return bridge.readSystemMemoryInfo(); },
+    async readSystemMemoryInfo() { return bridge.readSystemMemoryInfo(); }, async readClipboardText() { return bridge.readClipboardText(); }, async writeClipboardText(text) { await bridge.writeClipboardText(text); },
     async saveDraft(draft) {
       const editorSession = draft.editorSession as EditorDocumentSession | undefined;
       await Promise.all([
